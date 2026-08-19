@@ -131,3 +131,88 @@ text is where operators actually put names, and it is currently written to an
 append-only ledger with no erasure path under the NDPA, the DPA, POPIA or GDPR.
 
 **Then — commitments and range proofs**, as its own workstream with its own audit.
+
+---
+
+## Confidential amounts: assessed 2026-08-19, not built
+
+The decision to use commitments and range proofs stands. **Building it now does
+not**, on evidence gathered by measurement rather than reading.
+
+### There is no audited Go library
+
+`github.com/coinbase/kryptology` is the only credible pure-Go Bulletproofs
+implementation. It is archived, unaudited, its README disclaims it — and it is
+**broken**: `getaL` in `range_prover.go` extracts bits assuming a little-endian
+scalar encoding, so on secp256k1, P-256 and BLS12-381 it range-proves a
+different number from the one the commitment binds, and its own verifier
+rejects the proof. Measured across all five curves; the encoding split matches
+the pass/fail split exactly. Its tests only ever use ed25519.
+
+The ecosystem around it is not reassuring either. ING's `zkrp` was forgeable and
+the repository was deleted rather than fixed after Trail of Bits' Frozen Heart
+disclosure. Solana disabled its ZK ElGamal Proof Program in June 2025 — the same
+architecture — over a value missing from the Fiat-Shamir transcript that allowed
+arbitrary mint and burn, and it remains disabled. Sei's Go implementation is
+dormant and its module does not exist at any tag. The SDK's own confidential
+transfers module missed its target. Every Cosmos privacy chain that shipped is
+Rust.
+
+`gnark` is the exception: Apache-2.0, actively maintained, five third-party
+audits in-repo. It is SNARKs rather than Bulletproofs, trading a trusted setup
+for the audit problem.
+
+### What it costs
+
+| | proof | verify |
+|---|---|---|
+| plaintext payment today | — | 31 µs |
+| kryptology Bulletproof (64-bit) | 672 B | 34.7 ms |
+| gnark Groth16 | 196 B | 1.56 ms |
+
+Roughly **6 confidential transfers per second** with Bulletproofs, **130/s** with
+gnark, against ~32,000/s of execution headroom today. **Neither library offers
+batch verification**, so the aggregation result Bulletproofs are famous for is
+not reachable from Go — there is no escape hatch. 130/s is a credible interbank
+rail and consistent with §6's tiered architecture, but confidentiality moves this
+chain from *consensus is the limit* to *execution is the limit*, and any
+throughput claim must be restated accordingly.
+
+### Two corrections to the design above
+
+**An account-based pool serialises transfers per sender.** Each proof is against
+the sender's current commitment, so two payments from one participant in the same
+block invalidate each other — worst on the highest-volume message on the chain.
+Zether uses epoch buckets; Solana splits pending from available balance with an
+explicit apply step. Whichever is chosen introduces a BeginBlocker, and therefore
+a divisor to guard.
+
+**Supply provability needs one more element.** With bare Pedersen commitments the
+sum identity contains the secret blinding factors, so no third party can check
+it. Publish a kernel excess per transfer — one group element plus a Schnorr proof
+of knowledge — and accumulate it; the pool balance then satisfies a public,
+stateless equation checkable at any height, revealing no position.
+
+### The one decision that cannot wait
+
+**The blinding factor must be derived, never stored.** `r = HKDF(account seed,
+domain, index)` makes losing it impossible without losing the account key, and
+folds the backup story into the custody question §8 already has to answer. A
+wallet that generates `r` randomly and stores it beside the account creates a
+permanent unrecoverable loss case that no later upgrade repairs.
+
+A consequence: deriving `r` recovers the factor but not the *amount*, and a
+holder needs both to build the next proof. So a stored position is a ciphertext
+under the holder's key, not a bare commitment. Field 10 on `MsgSendPayment` is
+correctly specified — a transfer amount *is* a commitment — but a position is a
+larger thing and belongs in its own message.
+
+### Recommendation
+
+Wait. The irreversible part — the reserved field numbers — is done, and upstream
+may yet supply an audited module. If waiting is not possible, use gnark, and
+design around two properties of it: Groth16 proofs are re-randomisable, so a
+proof must never serve as a replay key or uniqueness index; and BN254 is roughly
+100-bit security post-exTNFS, not 128.
+
+Do not vendor and patch kryptology for a system a central bank is meant to trust.
