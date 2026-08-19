@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	"cosmossdk.io/collections"
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -298,18 +299,40 @@ func TestGenesisRoundTrips(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, exported.Validate())
 
-	fresh := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
-		log.NewNopLogger(), env.AuthorityString(t), env.BankKeeper)
-	require.NoError(t, fresh.InitGenesis(env.Ctx, *exported))
+	// A second environment, so the import lands in an empty store. A keeper
+	// built over `env.StoreService` shares its state with the one above, which
+	// would leave the replay guard already populated by the attestations that
+	// built the state — and the assertion below would then hold whether
+	// InitGenesis rebuilt it or not.
+	other := integration.New(t, types.ModuleName, module.AppModule{})
+	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec, other.StoreService,
+		log.NewNopLogger(), other.AuthorityString(t), other.BankKeeper)
+	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
-	again, err := fresh.ExportGenesis(env.Ctx)
+	again, err := fresh.ExportGenesis(other.Ctx)
 	require.NoError(t, err)
 	require.Equal(t, exported, again)
 
-	// The replay guard is derived on import rather than carried, so a credited
-	// deposit must still be unrepeatable after a round trip.
+	// The replay guard is derived on import rather than carried, so it has to
+	// be asserted directly. Going through AttestDeposit cannot see it: the
+	// deposit record *is* carried, so an already-credited one is refused by its
+	// own status before the guard is ever consulted, and the call returns
+	// ErrDuplicateRef whether the index was rebuilt or not.
+	credited := 0
+	for _, d := range again.Deposits {
+		if d.Status != types.DepositStatus_DEPOSIT_STATUS_CREDITED {
+			continue
+		}
+		credited++
+		has, err := fresh.ExternalRefs.Has(other.Ctx, collections.Join(d.Denom, d.ExternalRef))
+		require.NoError(t, err)
+		require.Truef(t, has, "the replay guard was not rebuilt for %s/%s", d.Denom, d.ExternalRef)
+	}
+	require.NotZero(t, credited, "no credited deposit survived the export, so the guard is untested")
+
+	// And it still behaves: a credited deposit stays unrepeatable.
 	freshMs := keeper.NewMsgServerImpl(fresh)
-	_, err = freshMs.AttestDeposit(env.Ctx, &types.MsgAttestDeposit{
+	_, err = freshMs.AttestDeposit(other.Ctx, &types.MsgAttestDeposit{
 		Attestor: a1, Denom: denom, Recipient: recipient,
 		Amount: math.NewInt(1_000), ExternalRef: "0x1",
 	})

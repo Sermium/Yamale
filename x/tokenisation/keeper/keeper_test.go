@@ -278,8 +278,22 @@ func TestGenesisRoundTrips(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, exported.Validate())
 
-	require.NoError(t, k.InitGenesis(env.Ctx, *exported))
-	again, err := k.ExportGenesis(env.Ctx)
+	// A second environment, so the import lands in an empty store.
+	//
+	// Re-importing into the keeper that produced the export proves only that
+	// InitGenesis is idempotent over state it already holds. Every derived
+	// index — the counter this test names, the by-denom lookup, the positions —
+	// is already populated at that point, so the comparison holds whether
+	// InitGenesis rebuilds any of them or not, which is the one thing it is
+	// here to find out.
+	other := integration.New(t, types.ModuleName, module.AppModule{})
+	authority, err := other.AddressCodec.StringToBytes(other.AuthorityString(t))
+	require.NoError(t, err)
+	fresh := keeper.NewKeeper(other.Codec, other.StoreService, other.AddressCodec,
+		authority, other.BankKeeper, nil, log.NewNopLogger())
+	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
+
+	again, err := fresh.ExportGenesis(other.Ctx)
 	require.NoError(t, err)
 	require.Equal(t, exported, again)
 }

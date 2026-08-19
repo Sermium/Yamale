@@ -195,17 +195,27 @@ func TestGenesisRoundTrips(t *testing.T) {
 	// Import into a fresh keeper and export again. Equality here is what
 	// upgrades and state migrations depend on; the reverse index is rebuilt
 	// rather than carried, so it cannot drift from the bindings.
-	fresh := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
-		log.NewNopLogger(), env.AuthorityString(t), nil)
-	require.NoError(t, fresh.InitGenesis(env.Ctx, *exported))
+	//
+	// A second environment, so the import lands in an empty store. A keeper
+	// built over `env.StoreService` is only a fresh *struct* — it shares every
+	// byte of state with the one above, so Owners is already populated by the
+	// messages that built the state, and the assertion below passes whether
+	// InitGenesis rebuilds the index or not. Deleting the rebuild from
+	// InitGenesis used to leave this test green, which made it a test of
+	// nothing at all.
+	other := integration.New(t, types.ModuleName, module.AppModule{})
+	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec, other.StoreService,
+		log.NewNopLogger(), other.AuthorityString(t), nil)
+	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
-	again, err := fresh.ExportGenesis(env.Ctx)
+	again, err := fresh.ExportGenesis(other.Ctx)
 	require.NoError(t, err)
 	require.Equal(t, exported, again)
 
 	// The rebuilt reverse index must agree with every binding.
+	require.NotEmpty(t, again.Aliases, "nothing to check the rebuilt index against")
 	for _, a := range again.Aliases {
-		held, err := fresh.Owners.Get(env.Ctx, a.Address)
+		held, err := fresh.Owners.Get(other.Ctx, a.Address)
 		require.NoError(t, err)
 		require.Equal(t, a.Id, held)
 	}
