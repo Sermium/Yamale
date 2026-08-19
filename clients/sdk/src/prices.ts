@@ -69,7 +69,7 @@ export interface Appraisal {
  * They are defaults rather than constants because governance can change them,
  * and a client that hard-coded them would keep showing a price as fresh after
  * the chain had stopped accepting it. Pass the values from
- * `/blockchain/oracle/v1/params` when you have them.
+ * `/yamale/blockchain/oracle/v1/params` when you have them.
  */
 export const DEFAULT_MAX_RATE_AGE = 900;
 export const DEFAULT_MAX_APPRAISAL_AGE = 8_640_000;

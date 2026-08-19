@@ -101,10 +101,13 @@ export async function disputeEscrow(account: Signer, lockId: string, reason: str
 /** Every escrow this account is a party to, read from the chain. */
 export async function myEscrows(address: string): Promise<unknown[]> {
   try {
-    const res = await fetch(`/api/rest/yamale/blockchain/treasury/v1/locks_by_beneficiary/${address}`);
+    const res = await fetch(
+      `/api/rest/yamale/blockchain/treasury/v1/beneficiary/${address}/locks?pagination.limit=100`,
+    );
     if (!res.ok) return [];
     const json = await res.json();
-    return json.locks ?? [];
+    // QueryLocksByBeneficiaryResponse names the field `lock`, singular.
+    return json.lock ?? [];
   } catch {
     return [];
   }
