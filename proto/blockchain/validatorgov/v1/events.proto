@@ -1,6 +1,7 @@
 syntax = "proto3";
 package blockchain.validatorgov.v1;
 
+import "blockchain/validatorgov/v1/concentration.proto";
 import "blockchain/validatorgov/v1/rotation.proto";
 import "cosmos_proto/cosmos.proto";
 
@@ -49,4 +50,63 @@ message EventRotationResolved {
   string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   RotationKind kind = 4;
   RotationStatus status = 5;
+}
+
+// A demotion has to be visible in the block it happens in. It is the one action
+// on this chain that removes a validator's power without anybody proposing it,
+// so an operator who found out by noticing it had stopped producing blocks
+// would have no way to tell a concentration ceiling from an outage.
+
+// EventValidatorDemoted is emitted when the epoch check takes a validator's
+// seats away.
+message EventValidatorDemoted {
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  ConcentrationCap cap = 2;
+  string group = 3;
+  uint64 group_power_bps = 4;
+  uint64 cap_bps = 5;
+
+  // jailed_validator is false when the validator was already jailed for
+  // something else, in which case the demotion is recorded but nothing was
+  // done to it.
+  bool jailed_validator = 6;
+}
+
+// EventValidatorRestored is emitted when a breach clears and the seats go back.
+// Restoration is automatic and nobody votes on it, so it needs announcing for
+// the same reason the demotion did.
+message EventValidatorRestored {
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  ConcentrationCap cap = 2;
+  string group = 3;
+  bool unjailed_validator = 4;
+}
+
+// EventConcentrationUncorrected is emitted when a group is over its ceiling and
+// the epoch check will not act, because acting would take the active set below
+// the floor.
+//
+// This is the honest half of the design. A cap can be arithmetically
+// unsatisfiable at a given set size, and a check that kept demoting until the
+// ceiling held would demote the chain into a halt. So the breach is published
+// every epoch instead, which is a problem for governance rather than a problem
+// for block production.
+message EventConcentrationUncorrected {
+  ConcentrationCap cap = 1;
+  string group = 2;
+  uint64 group_power_bps = 3;
+  uint64 cap_bps = 4;
+  uint32 active_validators = 5;
+  uint32 min_active_validators = 6;
+}
+
+// EventDeclarationStale is emitted at each epoch for an approved validator that
+// has not re-attested within the interval. Nothing is done about it here; the
+// event is the doing. An ownership change that was never declared looks exactly
+// like an operator who stopped signing for its own declaration, which is the
+// only signal a chain can produce about a statement it cannot verify.
+message EventDeclarationStale {
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 attested_at_height = 2;
+  int64 stale_since_height = 3;
 }

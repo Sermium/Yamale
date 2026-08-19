@@ -57,6 +57,8 @@ func TestMsgUpdateParams(t *testing.T) {
 				Params: types.NewParams(
 					types.DefaultPlannedRotationDelayBlocks,
 					types.DefaultPlannedRotationDelayBlocks-1,
+					types.DefaultAttestationIntervalBlocks,
+					types.DefaultSeatBondAmount(),
 				),
 			},
 			expErr:    true,

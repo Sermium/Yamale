@@ -28,10 +28,44 @@ export interface Params {
    * the key claiming that nobody does.
    */
   recoveryChallengeWindowBlocks: string;
+  /**
+   * attestation_interval_blocks is how long a declaration stays fresh before
+   * the chain starts reporting it as stale.
+   *
+   * Reported, not enforced. Turning an expired attestation into a demotion
+   * would make an operator's inattention a consensus event, and the failure it
+   * would cause — a set that all forgot at once — is worse than the one it
+   * would prevent. What the chain does instead is publish the date and say so
+   * loudly, which is enough for admission governance to act on and is the most
+   * an unfalsifiable declaration can honestly support.
+   */
+  attestationIntervalBlocks: string;
+  /**
+   * seat_bond_amount is how many base units of the bond denomination one seat
+   * carries.
+   *
+   * Equal seats are implemented in the unit the SDK already counts. Cosmos
+   * derives consensus power from bonded tokens and there is no supported way
+   * for a second module to report a different number — only one module may
+   * return validator updates, and x/staking is that module. So a seat is a
+   * fixed quantity of stake rather than a parallel notion of power, and every
+   * threshold on this chain that reads bonded power keeps working unchanged:
+   * x/enforcement's two thirds, x/oracle's rate agreement and x/gov's tally all
+   * become seat counts by arithmetic rather than by amendment.
+   *
+   * Set to the SDK's power reduction, one seat is exactly one unit of consensus
+   * power, which is what makes a ceiling countable off a list.
+   */
+  seatBondAmount: string;
 }
 
 function createBaseParams(): Params {
-  return { plannedRotationDelayBlocks: "0", recoveryChallengeWindowBlocks: "0" };
+  return {
+    plannedRotationDelayBlocks: "0",
+    recoveryChallengeWindowBlocks: "0",
+    attestationIntervalBlocks: "0",
+    seatBondAmount: "",
+  };
 }
 
 export const Params = {
@@ -41,6 +75,12 @@ export const Params = {
     }
     if (message.recoveryChallengeWindowBlocks !== "0") {
       writer.uint32(16).uint64(message.recoveryChallengeWindowBlocks);
+    }
+    if (message.attestationIntervalBlocks !== "0") {
+      writer.uint32(24).uint64(message.attestationIntervalBlocks);
+    }
+    if (message.seatBondAmount !== "") {
+      writer.uint32(34).string(message.seatBondAmount);
     }
     return writer;
   },
@@ -66,6 +106,20 @@ export const Params = {
 
           message.recoveryChallengeWindowBlocks = longToString(reader.uint64() as Long);
           continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.attestationIntervalBlocks = longToString(reader.uint64() as Long);
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.seatBondAmount = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -83,6 +137,10 @@ export const Params = {
       recoveryChallengeWindowBlocks: isSet(object.recoveryChallengeWindowBlocks)
         ? globalThis.String(object.recoveryChallengeWindowBlocks)
         : "0",
+      attestationIntervalBlocks: isSet(object.attestationIntervalBlocks)
+        ? globalThis.String(object.attestationIntervalBlocks)
+        : "0",
+      seatBondAmount: isSet(object.seatBondAmount) ? globalThis.String(object.seatBondAmount) : "",
     };
   },
 
@@ -94,6 +152,12 @@ export const Params = {
     if (message.recoveryChallengeWindowBlocks !== "0") {
       obj.recoveryChallengeWindowBlocks = message.recoveryChallengeWindowBlocks;
     }
+    if (message.attestationIntervalBlocks !== "0") {
+      obj.attestationIntervalBlocks = message.attestationIntervalBlocks;
+    }
+    if (message.seatBondAmount !== "") {
+      obj.seatBondAmount = message.seatBondAmount;
+    }
     return obj;
   },
 
@@ -104,6 +168,8 @@ export const Params = {
     const message = createBaseParams();
     message.plannedRotationDelayBlocks = object.plannedRotationDelayBlocks ?? "0";
     message.recoveryChallengeWindowBlocks = object.recoveryChallengeWindowBlocks ?? "0";
+    message.attestationIntervalBlocks = object.attestationIntervalBlocks ?? "0";
+    message.seatBondAmount = object.seatBondAmount ?? "";
     return message;
   },
 };

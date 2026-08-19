@@ -7,6 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { ConcentrationCap, concentrationCapFromJSON, concentrationCapToJSON } from "./concentration.ts";
 import {
   RotationKind,
   rotationKindFromJSON,
@@ -61,6 +62,69 @@ export interface EventRotationResolved {
   newOperator: string;
   kind: RotationKind;
   status: RotationStatus;
+}
+
+/**
+ * EventValidatorDemoted is emitted when the epoch check takes a validator's
+ * seats away.
+ */
+export interface EventValidatorDemoted {
+  operator: string;
+  cap: ConcentrationCap;
+  group: string;
+  groupPowerBps: string;
+  capBps: string;
+  /**
+   * jailed_validator is false when the validator was already jailed for
+   * something else, in which case the demotion is recorded but nothing was
+   * done to it.
+   */
+  jailedValidator: boolean;
+}
+
+/**
+ * EventValidatorRestored is emitted when a breach clears and the seats go back.
+ * Restoration is automatic and nobody votes on it, so it needs announcing for
+ * the same reason the demotion did.
+ */
+export interface EventValidatorRestored {
+  operator: string;
+  cap: ConcentrationCap;
+  group: string;
+  unjailedValidator: boolean;
+}
+
+/**
+ * EventConcentrationUncorrected is emitted when a group is over its ceiling and
+ * the epoch check will not act, because acting would take the active set below
+ * the floor.
+ *
+ * This is the honest half of the design. A cap can be arithmetically
+ * unsatisfiable at a given set size, and a check that kept demoting until the
+ * ceiling held would demote the chain into a halt. So the breach is published
+ * every epoch instead, which is a problem for governance rather than a problem
+ * for block production.
+ */
+export interface EventConcentrationUncorrected {
+  cap: ConcentrationCap;
+  group: string;
+  groupPowerBps: string;
+  capBps: string;
+  activeValidators: number;
+  minActiveValidators: number;
+}
+
+/**
+ * EventDeclarationStale is emitted at each epoch for an approved validator that
+ * has not re-attested within the interval. Nothing is done about it here; the
+ * event is the doing. An ownership change that was never declared looks exactly
+ * like an operator who stopped signing for its own declaration, which is the
+ * only signal a chain can produce about a statement it cannot verify.
+ */
+export interface EventDeclarationStale {
+  operator: string;
+  attestedAtHeight: string;
+  staleSinceHeight: string;
 }
 
 function createBaseEventRotationProposed(): EventRotationProposed {
@@ -454,6 +518,467 @@ export const EventRotationResolved = {
     message.newOperator = object.newOperator ?? "";
     message.kind = object.kind ?? 0;
     message.status = object.status ?? 0;
+    return message;
+  },
+};
+
+function createBaseEventValidatorDemoted(): EventValidatorDemoted {
+  return { operator: "", cap: 0, group: "", groupPowerBps: "0", capBps: "0", jailedValidator: false };
+}
+
+export const EventValidatorDemoted = {
+  encode(message: EventValidatorDemoted, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.operator !== "") {
+      writer.uint32(10).string(message.operator);
+    }
+    if (message.cap !== 0) {
+      writer.uint32(16).int32(message.cap);
+    }
+    if (message.group !== "") {
+      writer.uint32(26).string(message.group);
+    }
+    if (message.groupPowerBps !== "0") {
+      writer.uint32(32).uint64(message.groupPowerBps);
+    }
+    if (message.capBps !== "0") {
+      writer.uint32(40).uint64(message.capBps);
+    }
+    if (message.jailedValidator !== false) {
+      writer.uint32(48).bool(message.jailedValidator);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventValidatorDemoted {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventValidatorDemoted();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.operator = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.cap = reader.int32() as any;
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.group = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.groupPowerBps = longToString(reader.uint64() as Long);
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.capBps = longToString(reader.uint64() as Long);
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.jailedValidator = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventValidatorDemoted {
+    return {
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+      cap: isSet(object.cap) ? concentrationCapFromJSON(object.cap) : 0,
+      group: isSet(object.group) ? globalThis.String(object.group) : "",
+      groupPowerBps: isSet(object.groupPowerBps) ? globalThis.String(object.groupPowerBps) : "0",
+      capBps: isSet(object.capBps) ? globalThis.String(object.capBps) : "0",
+      jailedValidator: isSet(object.jailedValidator) ? globalThis.Boolean(object.jailedValidator) : false,
+    };
+  },
+
+  toJSON(message: EventValidatorDemoted): unknown {
+    const obj: any = {};
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    if (message.cap !== 0) {
+      obj.cap = concentrationCapToJSON(message.cap);
+    }
+    if (message.group !== "") {
+      obj.group = message.group;
+    }
+    if (message.groupPowerBps !== "0") {
+      obj.groupPowerBps = message.groupPowerBps;
+    }
+    if (message.capBps !== "0") {
+      obj.capBps = message.capBps;
+    }
+    if (message.jailedValidator !== false) {
+      obj.jailedValidator = message.jailedValidator;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventValidatorDemoted>): EventValidatorDemoted {
+    return EventValidatorDemoted.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventValidatorDemoted>): EventValidatorDemoted {
+    const message = createBaseEventValidatorDemoted();
+    message.operator = object.operator ?? "";
+    message.cap = object.cap ?? 0;
+    message.group = object.group ?? "";
+    message.groupPowerBps = object.groupPowerBps ?? "0";
+    message.capBps = object.capBps ?? "0";
+    message.jailedValidator = object.jailedValidator ?? false;
+    return message;
+  },
+};
+
+function createBaseEventValidatorRestored(): EventValidatorRestored {
+  return { operator: "", cap: 0, group: "", unjailedValidator: false };
+}
+
+export const EventValidatorRestored = {
+  encode(message: EventValidatorRestored, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.operator !== "") {
+      writer.uint32(10).string(message.operator);
+    }
+    if (message.cap !== 0) {
+      writer.uint32(16).int32(message.cap);
+    }
+    if (message.group !== "") {
+      writer.uint32(26).string(message.group);
+    }
+    if (message.unjailedValidator !== false) {
+      writer.uint32(32).bool(message.unjailedValidator);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventValidatorRestored {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventValidatorRestored();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.operator = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.cap = reader.int32() as any;
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.group = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.unjailedValidator = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventValidatorRestored {
+    return {
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+      cap: isSet(object.cap) ? concentrationCapFromJSON(object.cap) : 0,
+      group: isSet(object.group) ? globalThis.String(object.group) : "",
+      unjailedValidator: isSet(object.unjailedValidator) ? globalThis.Boolean(object.unjailedValidator) : false,
+    };
+  },
+
+  toJSON(message: EventValidatorRestored): unknown {
+    const obj: any = {};
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    if (message.cap !== 0) {
+      obj.cap = concentrationCapToJSON(message.cap);
+    }
+    if (message.group !== "") {
+      obj.group = message.group;
+    }
+    if (message.unjailedValidator !== false) {
+      obj.unjailedValidator = message.unjailedValidator;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventValidatorRestored>): EventValidatorRestored {
+    return EventValidatorRestored.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventValidatorRestored>): EventValidatorRestored {
+    const message = createBaseEventValidatorRestored();
+    message.operator = object.operator ?? "";
+    message.cap = object.cap ?? 0;
+    message.group = object.group ?? "";
+    message.unjailedValidator = object.unjailedValidator ?? false;
+    return message;
+  },
+};
+
+function createBaseEventConcentrationUncorrected(): EventConcentrationUncorrected {
+  return { cap: 0, group: "", groupPowerBps: "0", capBps: "0", activeValidators: 0, minActiveValidators: 0 };
+}
+
+export const EventConcentrationUncorrected = {
+  encode(message: EventConcentrationUncorrected, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.cap !== 0) {
+      writer.uint32(8).int32(message.cap);
+    }
+    if (message.group !== "") {
+      writer.uint32(18).string(message.group);
+    }
+    if (message.groupPowerBps !== "0") {
+      writer.uint32(24).uint64(message.groupPowerBps);
+    }
+    if (message.capBps !== "0") {
+      writer.uint32(32).uint64(message.capBps);
+    }
+    if (message.activeValidators !== 0) {
+      writer.uint32(40).uint32(message.activeValidators);
+    }
+    if (message.minActiveValidators !== 0) {
+      writer.uint32(48).uint32(message.minActiveValidators);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventConcentrationUncorrected {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventConcentrationUncorrected();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.cap = reader.int32() as any;
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.group = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.groupPowerBps = longToString(reader.uint64() as Long);
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.capBps = longToString(reader.uint64() as Long);
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.activeValidators = reader.uint32();
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.minActiveValidators = reader.uint32();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventConcentrationUncorrected {
+    return {
+      cap: isSet(object.cap) ? concentrationCapFromJSON(object.cap) : 0,
+      group: isSet(object.group) ? globalThis.String(object.group) : "",
+      groupPowerBps: isSet(object.groupPowerBps) ? globalThis.String(object.groupPowerBps) : "0",
+      capBps: isSet(object.capBps) ? globalThis.String(object.capBps) : "0",
+      activeValidators: isSet(object.activeValidators) ? globalThis.Number(object.activeValidators) : 0,
+      minActiveValidators: isSet(object.minActiveValidators) ? globalThis.Number(object.minActiveValidators) : 0,
+    };
+  },
+
+  toJSON(message: EventConcentrationUncorrected): unknown {
+    const obj: any = {};
+    if (message.cap !== 0) {
+      obj.cap = concentrationCapToJSON(message.cap);
+    }
+    if (message.group !== "") {
+      obj.group = message.group;
+    }
+    if (message.groupPowerBps !== "0") {
+      obj.groupPowerBps = message.groupPowerBps;
+    }
+    if (message.capBps !== "0") {
+      obj.capBps = message.capBps;
+    }
+    if (message.activeValidators !== 0) {
+      obj.activeValidators = Math.round(message.activeValidators);
+    }
+    if (message.minActiveValidators !== 0) {
+      obj.minActiveValidators = Math.round(message.minActiveValidators);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventConcentrationUncorrected>): EventConcentrationUncorrected {
+    return EventConcentrationUncorrected.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventConcentrationUncorrected>): EventConcentrationUncorrected {
+    const message = createBaseEventConcentrationUncorrected();
+    message.cap = object.cap ?? 0;
+    message.group = object.group ?? "";
+    message.groupPowerBps = object.groupPowerBps ?? "0";
+    message.capBps = object.capBps ?? "0";
+    message.activeValidators = object.activeValidators ?? 0;
+    message.minActiveValidators = object.minActiveValidators ?? 0;
+    return message;
+  },
+};
+
+function createBaseEventDeclarationStale(): EventDeclarationStale {
+  return { operator: "", attestedAtHeight: "0", staleSinceHeight: "0" };
+}
+
+export const EventDeclarationStale = {
+  encode(message: EventDeclarationStale, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.operator !== "") {
+      writer.uint32(10).string(message.operator);
+    }
+    if (message.attestedAtHeight !== "0") {
+      writer.uint32(16).int64(message.attestedAtHeight);
+    }
+    if (message.staleSinceHeight !== "0") {
+      writer.uint32(24).int64(message.staleSinceHeight);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventDeclarationStale {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventDeclarationStale();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.operator = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.attestedAtHeight = longToString(reader.int64() as Long);
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.staleSinceHeight = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventDeclarationStale {
+    return {
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+      attestedAtHeight: isSet(object.attestedAtHeight) ? globalThis.String(object.attestedAtHeight) : "0",
+      staleSinceHeight: isSet(object.staleSinceHeight) ? globalThis.String(object.staleSinceHeight) : "0",
+    };
+  },
+
+  toJSON(message: EventDeclarationStale): unknown {
+    const obj: any = {};
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    if (message.attestedAtHeight !== "0") {
+      obj.attestedAtHeight = message.attestedAtHeight;
+    }
+    if (message.staleSinceHeight !== "0") {
+      obj.staleSinceHeight = message.staleSinceHeight;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventDeclarationStale>): EventDeclarationStale {
+    return EventDeclarationStale.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventDeclarationStale>): EventDeclarationStale {
+    const message = createBaseEventDeclarationStale();
+    message.operator = object.operator ?? "";
+    message.attestedAtHeight = object.attestedAtHeight ?? "0";
+    message.staleSinceHeight = object.staleSinceHeight ?? "0";
     return message;
   },
 };

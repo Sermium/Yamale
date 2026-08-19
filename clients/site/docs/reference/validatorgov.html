@@ -47,6 +47,21 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>string</td>
 <td></td>
 </tr>
+<tr>
+<td><code>legal_entity_id</code></td>
+<td>string</td>
+<td>legal_entity_id identifies the applying entity.</td>
+</tr>
+<tr>
+<td><code>beneficial_owner_id</code></td>
+<td>string</td>
+<td>beneficial_owner_id identifies whoever ultimately owns it. Where an entity has no owner above it, this is the entity&#39;s own identifier — stated rather than left blank, so that &quot;nobody owns us&quot; is a claim somebody signed.</td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is an ISO 3166-1 alpha-2 code from the assigned list.</td>
+</tr>
 </tbody></table>
 <h3>MsgApproveOperatorRecovery</h3>
 <p><code>/blockchain.validatorgov.v1.MsgApproveOperatorRecovery</code></p>
@@ -101,6 +116,39 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>approve</code></td>
 <td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgAttestOwnership</h3>
+<p><code>/blockchain.validatorgov.v1.MsgAttestOwnership</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>AttestOwnership defines the AttestOwnership RPC: the operator re-signing for who is behind it, which is what keeps a declaration from going stale.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td>creator is the approved operator address, in its account form.</td>
+</tr>
+<tr>
+<td><code>legal_entity_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>beneficial_owner_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
 <td></td>
 </tr>
 </tbody></table>
@@ -183,6 +231,34 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>new_operator is the address that takes over after the delay.</td>
 </tr>
 </tbody></table>
+<h3>MsgSetValidatorPower</h3>
+<p><code>/blockchain.validatorgov.v1.MsgSetValidatorPower</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated and moves how many seats one admitted validator holds.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td>validator is the operator address, in its account form.</td>
+</tr>
+<tr>
+<td><code>seats</code></td>
+<td>uint64</td>
+<td>seats is the power the validator is to carry. Zero is refused: a validator with no seats is one that has been removed, and removing one should say so rather than arrive as a power update that happens to be empty.</td>
+</tr>
+</tbody></table>
 <h3>MsgUpdateParams</h3>
 <p><code>/blockchain.validatorgov.v1.MsgUpdateParams</code></p>
 <p>Signed by the <code>authority</code> field.</p>
@@ -207,6 +283,40 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 </tr>
 </tbody></table>
 <h2>Queries</h2>
+<h3>Concentration</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/concentration</code></p>
+<p>Concentration reports what every declared entity, owner and jurisdiction currently holds, against its ceiling.</p>
+<p>This is the supervisor&#39;s query. Under equal seats a ceiling is a count out of a count, so the answer is meant to be checked against a list of admitted validators by somebody who is not recomputing anything — which is the whole argument for declaring ownership on-chain rather than filing it somewhere.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>groups</code></td>
+<td>repeated ConcentrationGroup</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total_power</code></td>
+<td>int64</td>
+<td>total_power is the denominator every share above was measured against: the power of the validators active right now. Returned alongside so that a reader can check the arithmetic rather than trust it.</td>
+</tr>
+<tr>
+<td><code>active_validators</code></td>
+<td>uint32</td>
+<td>active_validators and min_active_validators say whether the check is in a position to act at all. A breach reported while these are equal is one the chain has decided not to correct, and that distinction is invisible from the shares alone.</td>
+</tr>
+<tr>
+<td><code>min_active_validators</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+</tbody></table>
 <h3>GetApprovedValidator</h3>
 <p><code>GET /yamale/blockchain/validatorgov/v1/approved_validator/{candidate}</code></p>
 <p>ListApprovedValidator Queries a list of ApprovedValidator items.</p>
@@ -336,6 +446,44 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>approved_validator</code></td>
 <td>repeated ApprovedValidator</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListDemotion</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/demotion</code></p>
+<p>ListDemotion queries every demotion currently in force.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>demotion</code></td>
+<td>repeated Demotion</td>
 <td></td>
 </tr>
 <tr>
@@ -497,6 +645,200 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>string</td>
 <td></td>
 </tr>
+<tr>
+<td><code>declaration</code></td>
+<td>Declaration</td>
+<td>declaration is copied from the application at approval and kept current by re-attestation. The epoch check reads it from here rather than from the application, because the application is what was asked for once and this is what is claimed now — and a ceiling has to be computed against the second.</td>
+</tr>
+</tbody></table>
+<h3>ConcentrationGroup</h3>
+<p>ConcentrationGroup is one entity, owner or jurisdiction and what it currently holds. It exists for the supervisor&#39;s query rather than for the chain: under equal seats a ceiling is a count out of a count, and the point of publishing it this way is that it can be checked against a list by somebody who is not recomputing anything.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cap</code></td>
+<td>ConcentrationCap</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>power_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cap_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>over</code></td>
+<td>bool</td>
+<td>over is whether the group is above its ceiling right now, which is not the same as whether anything has been demoted: a breach the set is too small to correct stays reported and uncorrected, because a cap must never be the reason a chain stops producing blocks.</td>
+</tr>
+</tbody></table>
+<h3>Declaration</h3>
+<p>Declaration is who is actually behind a validator.</p>
+<p>A concentration cap cannot be computed from addresses. Two operator keys tell you nothing about whether they answer to one bank, and the events that concentrate a validator set — an acquisition, a merger, a nationalisation — change none of the addresses involved. So the attributes are declared, and the chain enforces ceilings over what was declared.</p>
+<p>The chain cannot detect a false declaration and does not pretend to. What it can do is make the declaration a signed statement, on the record, with a date on it, so that a lie is documented and actionable rather than deniable. That is how the rest of the financial system handles beneficial ownership, and it is the only honest thing a chain can offer here.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>legal_entity_id</code></td>
+<td>string</td>
+<td>legal_entity_id identifies the admitted entity — an LEI where the applicant has one, a national register number otherwise. Free text because there is no single global register this chain could validate against, and a format check that accepted only LEIs would exclude every entity in a jurisdiction that does not issue them.</td>
+</tr>
+<tr>
+<td><code>beneficial_owner_id</code></td>
+<td>string</td>
+<td>beneficial_owner_id identifies the ultimate beneficial owner, and it is the field the caps actually turn on. Two subsidiaries of one state bank are two legal entities and one owner; a ceiling applied only to entities would let that owner take the set two seats at a time.</td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is the ISO 3166-1 alpha-2 code of the authority the operator answers to, validated against the assigned-country list x/alias owns. A shape check is not enough: NX and QK are two letters and neither is a country, and a mistyped code would create a perimeter no authority holds and therefore a ceiling nothing is ever measured against.</td>
+</tr>
+<tr>
+<td><code>attested_at_height</code></td>
+<td>int64</td>
+<td>attested_at_height is when this declaration was last signed for. A declaration with no date cannot be stale, and a declaration that cannot be stale is one nobody has to keep true. Re-attestation is what turns silence into a visible fact: after the interval the record is reported as stale in queries and in an event at every epoch, so an ownership change that was never declared shows up as an operator who has stopped signing for its own declaration.</td>
+</tr>
+</tbody></table>
+<h3>Demotion</h3>
+<p>Demotion is a validator whose power the epoch check took away, and why.</p>
+<p>It is a record and not a punishment. Nothing is slashed, no delegation is unbonded, and it is undone automatically at the first epoch the breach has cleared — so the entity&#39;s remedy is in its own hands and does not require anybody to vote on letting it back. That is the difference between a concentration ceiling and an expulsion.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td>operator is the address in its account form, matching how the approval allowlist and the rotation records key a validator.</td>
+</tr>
+<tr>
+<td><code>cap</code></td>
+<td>ConcentrationCap</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td>group is the declared value that breached — the entity id, the owner id or the country code — so the record says which set the validator was counted in rather than only that some ceiling was hit.</td>
+</tr>
+<tr>
+<td><code>group_power_bps</code></td>
+<td>uint64</td>
+<td>group_power_bps and cap_bps are what the group held and what it was allowed to hold, at the epoch the demotion happened. Frozen into the record because both figures are recomputed every epoch, and a demotion that could only be explained by numbers that have since moved cannot be audited at all.</td>
+</tr>
+<tr>
+<td><code>cap_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>demoted_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>jailed_validator</code></td>
+<td>bool</td>
+<td>jailed_validator records that this demotion is what jailed the validator, so that restoring it un-jails only what it jailed. A validator already jailed for downtime when the epoch check ran must stay jailed when the breach clears: releasing it would turn a concentration ceiling into a way of clearing somebody else&#39;s downtime.</td>
+</tr>
+</tbody></table>
+<h3>EventConcentrationUncorrected</h3>
+<p>EventConcentrationUncorrected is emitted when a group is over its ceiling and the epoch check will not act, because acting would take the active set below the floor.</p>
+<p>This is the honest half of the design. A cap can be arithmetically unsatisfiable at a given set size, and a check that kept demoting until the ceiling held would demote the chain into a halt. So the breach is published every epoch instead, which is a problem for governance rather than a problem for block production.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cap</code></td>
+<td>ConcentrationCap</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group_power_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cap_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>active_validators</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+<tr>
+<td><code>min_active_validators</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventDeclarationStale</h3>
+<p>EventDeclarationStale is emitted at each epoch for an approved validator that has not re-attested within the interval. Nothing is done about it here; the event is the doing. An ownership change that was never declared looks exactly like an operator who stopped signing for its own declaration, which is the only signal a chain can produce about a statement it cannot verify.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>attested_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stale_since_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
 </tbody></table>
 <h3>EventRecoveryApproved</h3>
 <p>EventRecoveryApproved is emitted when the admission quorum agrees to a recovery. This is the moment the validator is paused and the challenge window starts, so it is the moment anybody watching needs to hear about.</p>
@@ -616,6 +958,78 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>EventValidatorDemoted</h3>
+<p>EventValidatorDemoted is emitted when the epoch check takes a validator&#39;s seats away.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cap</code></td>
+<td>ConcentrationCap</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group_power_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cap_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>jailed_validator</code></td>
+<td>bool</td>
+<td>jailed_validator is false when the validator was already jailed for something else, in which case the demotion is recorded but nothing was done to it.</td>
+</tr>
+</tbody></table>
+<h3>EventValidatorRestored</h3>
+<p>EventValidatorRestored is emitted when a breach clears and the seats go back. Restoration is automatic and nobody votes on it, so it needs announcing for the same reason the demotion did.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cap</code></td>
+<td>ConcentrationCap</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>unjailed_validator</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
 <h3>OperatorRotation</h3>
 <p>OperatorRotation is one attempt to move a validator&#39;s operator key, and everything the chain did about it. Rotations are never deleted: a recovery that was vetoed is the record of somebody having claimed a key was lost when it was not, and that is precisely the history worth keeping.</p>
 <table>
@@ -707,8 +1121,39 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>string</td>
 <td></td>
 </tr>
+<tr>
+<td><code>declaration</code></td>
+<td>Declaration</td>
+<td>declaration is who is behind the applicant. Carried on the application and not only on the approval, because it is what the admission vote is meant to be judging: a set asked to approve a candidate whose owner and jurisdiction it cannot see is being asked to approve an address.</td>
+</tr>
 </tbody></table>
 <h2>Value types</h2>
+<h3>ConcentrationCap</h3>
+<p>ConcentrationCap is which ceiling a demotion was for. Recorded rather than inferred, because &quot;over the entity cap&quot; and &quot;over the jurisdiction cap&quot; are different facts about the same validator and the remedy is different for each: one entity can be restructured, a jurisdiction cannot.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CONCENTRATION_CAP_UNSPECIFIED</code></td>
+<td>CONCENTRATION_CAP_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>CONCENTRATION_CAP_ENTITY</code></td>
+<td>CONCENTRATION_CAP_ENTITY is the ceiling on one declared legal entity.</td>
+</tr>
+<tr>
+<td><code>CONCENTRATION_CAP_BENEFICIAL_OWNER</code></td>
+<td>CONCENTRATION_CAP_BENEFICIAL_OWNER is the ceiling on one declared ultimate beneficial owner, across every entity it owns.</td>
+</tr>
+<tr>
+<td><code>CONCENTRATION_CAP_JURISDICTION</code></td>
+<td>CONCENTRATION_CAP_JURISDICTION is the ceiling on the power answering to one national authority.</td>
+</tr>
+</tbody></table>
 <h3>RotationKind</h3>
 <p>RotationKind is which of the two paths a rotation took, and it decides everything about how the rotation is treated. The two are separated at the type level rather than inferred from who signed, so that a reader of the record — or of an event — never has to reconstruct which set of rules applied to a rotation that already happened.</p>
 <table>
@@ -785,6 +1230,16 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>120960</code></td>
 <td>recovery_challenge_window_blocks is how long an approved recovery waits before it takes effect, during which the validator is paused and the current operator can end it by signing anything at all. Measured in days, because the thing it is defending against is somebody who does not hold the key claiming that nobody does.</td>
 </tr>
+<tr>
+<td><code>attestation_interval_blocks</code></td>
+<td><code>6307200</code></td>
+<td>attestation_interval_blocks is how long a declaration stays fresh before the chain starts reporting it as stale. Reported, not enforced. Turning an expired attestation into a demotion would make an operator&#39;s inattention a consensus event, and the failure it would cause — a set that all forgot at once — is worse than the one it would prevent. What the chain does instead is publish the date and say so loudly, which is enough for admission governance to act on and is the most an unfalsifiable declaration can honestly support.</td>
+</tr>
+<tr>
+<td><code>seat_bond_amount</code></td>
+<td><code>1000000</code></td>
+<td>seat_bond_amount is how many base units of the bond denomination one seat carries. Equal seats are implemented in the unit the SDK already counts. Cosmos derives consensus power from bonded tokens and there is no supported way for a second module to report a different number — only one module may return validator updates, and x/staking is that module. So a seat is a fixed quantity of stake rather than a parallel notion of power, and every threshold on this chain that reads bonded power keeps working unchanged: x/enforcement&#39;s two thirds, x/oracle&#39;s rate agreement and x/gov&#39;s tally all become seat counts by arithmetic rather than by amendment. Set to the SDK&#39;s power reduction, one seat is exactly one unit of consensus power, which is what makes a ceiling countable off a list.</td>
+</tr>
 </tbody></table>
 <h2>Errors</h2>
 <p>Every way a transaction to this module can be rejected.</p>
@@ -860,6 +1315,26 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>1112</td>
 <td><code>ErrMissingReason</code></td>
 <td>a recovery must state its grounds</td>
+</tr>
+<tr>
+<td>1113</td>
+<td><code>ErrInvalidDeclaration</code></td>
+<td>beneficial ownership declaration is not valid</td>
+</tr>
+<tr>
+<td>1114</td>
+<td><code>ErrNoValidator</code></td>
+<td>no validator has been created for this operator</td>
+</tr>
+<tr>
+<td>1115</td>
+<td><code>ErrSeatReserveEmpty</code></td>
+<td>the module&#39;s seat reserve cannot cover this power</td>
+</tr>
+<tr>
+<td>1116</td>
+<td><code>ErrInvalidSeats</code></td>
+<td>a validator must hold at least one seat</td>
 </tr>
 </tbody></table>
 

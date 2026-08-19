@@ -6,6 +6,7 @@
 
 /* eslint-disable */
 import _m0 from "protobufjs/minimal.js";
+import { Declaration } from "./declaration.ts";
 
 export const protobufPackage = "blockchain.validatorgov.v1";
 
@@ -13,10 +14,17 @@ export const protobufPackage = "blockchain.validatorgov.v1";
 export interface ValidatorApplication {
   candidate: string;
   status: string;
+  /**
+   * declaration is who is behind the applicant. Carried on the application and
+   * not only on the approval, because it is what the admission vote is meant to
+   * be judging: a set asked to approve a candidate whose owner and jurisdiction
+   * it cannot see is being asked to approve an address.
+   */
+  declaration: Declaration | undefined;
 }
 
 function createBaseValidatorApplication(): ValidatorApplication {
-  return { candidate: "", status: "" };
+  return { candidate: "", status: "", declaration: undefined };
 }
 
 export const ValidatorApplication = {
@@ -26,6 +34,9 @@ export const ValidatorApplication = {
     }
     if (message.status !== "") {
       writer.uint32(18).string(message.status);
+    }
+    if (message.declaration !== undefined) {
+      Declaration.encode(message.declaration, writer.uint32(26).fork()).ldelim();
     }
     return writer;
   },
@@ -51,6 +62,13 @@ export const ValidatorApplication = {
 
           message.status = reader.string();
           continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.declaration = Declaration.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -64,6 +82,7 @@ export const ValidatorApplication = {
     return {
       candidate: isSet(object.candidate) ? globalThis.String(object.candidate) : "",
       status: isSet(object.status) ? globalThis.String(object.status) : "",
+      declaration: isSet(object.declaration) ? Declaration.fromJSON(object.declaration) : undefined,
     };
   },
 
@@ -75,6 +94,9 @@ export const ValidatorApplication = {
     if (message.status !== "") {
       obj.status = message.status;
     }
+    if (message.declaration !== undefined) {
+      obj.declaration = Declaration.toJSON(message.declaration);
+    }
     return obj;
   },
 
@@ -85,6 +107,9 @@ export const ValidatorApplication = {
     const message = createBaseValidatorApplication();
     message.candidate = object.candidate ?? "";
     message.status = object.status ?? "";
+    message.declaration = (object.declaration !== undefined && object.declaration !== null)
+      ? Declaration.fromPartial(object.declaration)
+      : undefined;
     return message;
   },
 };

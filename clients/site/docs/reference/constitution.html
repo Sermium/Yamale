@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/constitution — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/constitution</h1>
+<h2>Transactions</h2>
+<h3>MsgProposeAmendment</h3>
+<p><code>/blockchain.constitution.v1.MsgProposeAmendment</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ProposeAmendment opens a change to the invariants and starts its public delay. It is authority-gated, so a proposal is the only way in.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>invariants</code></td>
+<td>Invariants</td>
+<td>invariants is the complete replacement set, not a delta. All fields must be supplied and all of them are validated, so an amendment that meant to move one ceiling cannot silently zero another by omitting it — and a zero here would be a divisor or a missing destination somewhere else.</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the stated grounds, in plain words.</td>
+</tr>
+</tbody></table>
+<h3>MsgRatifyAmendment</h3>
+<p><code>/blockchain.constitution.v1.MsgRatifyAmendment</code></p>
+<p>Signed by the <code>validator</code> field.</p>
+<p>RatifyAmendment records one validator agreeing to a pending amendment.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td>validator is the operator address in its account form.</td>
+</tr>
+<tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgWithdrawAmendment</h3>
+<p><code>/blockchain.constitution.v1.MsgWithdrawAmendment</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>WithdrawAmendment takes a pending amendment back before it takes effect.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>Amendment</h3>
+<p><code>GET /yamale/blockchain/constitution/v1/amendment/{id}</code></p>
+<p>Amendment queries one amendment by id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment</code></td>
+<td>Amendment</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Invariants</h3>
+<p><code>GET /yamale/blockchain/constitution/v1/invariants</code></p>
+<p>Invariants returns the values in force. This is the query a supervisor runs to find out what the chain has promised not to change, so it answers with the whole settlement rather than a field at a time.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>invariants</code></td>
+<td>Invariants</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListAmendment</h3>
+<p><code>GET /yamale/blockchain/constitution/v1/amendment</code></p>
+<p>ListAmendment queries every amendment ever opened, lapsed and withdrawn ones included.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment</code></td>
+<td>repeated Amendment</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Ratifications</h3>
+<p><code>GET /yamale/blockchain/constitution/v1/amendment/{amendment_id}/ratifications</code></p>
+<p>Ratifications lists who has ratified one amendment, which is the record that makes a validator answerable for a change it agreed to.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ratifications</code></td>
+<td>repeated Ratification</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td>required_power is what the amendment still has to reach, restated here so that a reader of this response never has to recompute a threshold from a basis-point figure held in another query&#39;s answer.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Amendment</h3>
+<p>Amendment is one attempt to change the invariants, and everything the chain did about it. Amendments are never deleted: an amendment that lapsed is the record of somebody having tried to move a ceiling, and a set of amendments filtered down to the ones that succeeded would hide exactly the pattern worth noticing.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id is numbered from one. Zero is reserved because in proto3 an id of 0 is indistinguishable from an unset field, and &quot;amendment 0&quot; would be a record nobody could look up.</td>
+</tr>
+<tr>
+<td><code>proposed</code></td>
+<td>Invariants</td>
+<td>proposed is the complete replacement set. Whole rather than a delta, so that what the chain will hold after enactment is on the record from the day it was proposed, and nobody has to reconstruct it from a diff against a state that may itself have been amended in between.</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the stated grounds, in plain words. Required: a proposal to move the numbers this chain promised not to move should have to say why.</td>
+</tr>
+<tr>
+<td><code>proposed_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>effective_at_height</code></td>
+<td>int64</td>
+<td>effective_at_height is the earliest height the amendment can take effect. It is fixed when the amendment opens, from the delay in force at that moment, so an amendment that shortens the delay cannot shorten its own.</td>
+</tr>
+<tr>
+<td><code>snapshot_power</code></td>
+<td>int64</td>
+<td>snapshot_power is the total voting power at the moment the amendment opened. Ratification is measured against this and not against the power bonded when the delay runs out, because a threshold measured against the set that remains is passed by jailing everyone who would have voted no.</td>
+</tr>
+<tr>
+<td><code>ratified_power</code></td>
+<td>int64</td>
+<td>ratified_power is the power that has ratified so far, accumulated as each ratification arrives at the weight the validator carried then. Kept as a running total rather than recomputed at enactment for the same reason: a tally recomputed at the end is a tally that can be changed by changing the set.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>AmendmentStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>resolved_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventAmendmentProposed</h3>
+<p>EventAmendmentProposed is emitted when an amendment opens.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>effective_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>snapshot_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventAmendmentRatified</h3>
+<p>EventAmendmentRatified is emitted for each validator that ratifies, carrying the running total so that anyone watching can see the threshold approaching rather than only learn it was reached.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ratified_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventAmendmentResolved</h3>
+<p>EventAmendmentResolved is emitted once, when an amendment reaches its final status — enacted, lapsed or withdrawn.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>AmendmentStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ratified_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Invariants</h3>
+<p>Invariants are the values this chain fixes at genesis and will not let an ordinary governance proposal change.</p>
+<p>Every other parameter on this chain is a mutable gov param, and that was not a theoretical weakness: recovery_destination — the single address seized assets may be sent to — was found empty on the running devnet, which means a seizure carried by two thirds of the validator set would have had nowhere to send what it took, and nobody noticed until a console happened to print it. A parameter that nothing refuses to change is a parameter nothing is checking.</p>
+<p>What belongs here is narrow and deliberate: the numbers a majority would have an interest in moving in the moment it wanted to act. A chain that can vote to lower its own seizure threshold does not have one, and a cap enforced at an epoch the same vote can lengthen is not enforced at every epoch — which is why the epoch length is in this message and not in x/validatorgov&#39;s params.</p>
+<p>The values are not duplicated state. x/enforcement still stores its own Params; what changed is that both its MsgUpdateParams and its InitGenesis refuse anything that disagrees with the copy here. Divergence is therefore unrepresentable rather than merely unlikely, and the modules that read these values at speed keep reading their own store.</p>
+<p>Zero is &quot;unset&quot; for every field. That is why InitGenesis refuses a zero rather than substituting a default: an address compiled into a binary is not the foundation on somebody else&#39;s network, and a cap that defaulted itself into existence would be a cap nobody chose.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>max_entity_power_bps</code></td>
+<td>uint64</td>
+<td>max_entity_power_bps is the share of voting power one legal entity may hold, in basis points. Under equal seats this is countable rather than arithmetic: with one seat per admitted validator, 2000 is &quot;no entity holds more than a fifth of the seats&quot;, which a supervisor can check against a list without recomputing anything.</td>
+</tr>
+<tr>
+<td><code>max_beneficial_owner_power_bps</code></td>
+<td>uint64</td>
+<td>max_beneficial_owner_power_bps is the same ceiling applied to the ultimate beneficial owner behind the entities, which is the number that actually matters. Two subsidiaries of one state bank are two entities and one owner, and it is the owner that decides how they both vote.</td>
+</tr>
+<tr>
+<td><code>max_jurisdiction_power_bps</code></td>
+<td>uint64</td>
+<td>max_jurisdiction_power_bps is the ceiling on the power answering to any one national authority. It is what makes open accession possible: a sovereign is never refused, only admitted at a bounded weight, so balance is kept by arithmetic instead of by a refusal that would be read as exclusion.</td>
+</tr>
+<tr>
+<td><code>concentration_epoch_blocks</code></td>
+<td>uint64</td>
+<td>concentration_epoch_blocks is how often the ceilings above are checked and breaches corrected. It is constitutional for the same reason the ceilings are. Concentration is a state, not an event — it changes when a bank acquires a participant, when two members merge, when an operator is nationalised — so the only thing standing between a cap and a dead letter is that the check keeps running. A proposal able to set this to a billion blocks would repeal the caps without appearing to touch them.</td>
+</tr>
+<tr>
+<td><code>min_active_validators</code></td>
+<td>uint32</td>
+<td>min_active_validators is the size below which the epoch check stops demoting and starts merely reporting. A cap can be arithmetically unsatisfiable: three validators under three owners cannot all sit below a fifth of the power, and a check that kept demoting until the ceiling held would demote the chain to a halt. So the floor is explicit and a breach it cannot correct is recorded and emitted as an event instead. Enforcement must never be the thing that stops the chain — an uncorrectable breach that everyone can see is strictly better than a network that no longer produces blocks.</td>
+</tr>
+<tr>
+<td><code>enforcement_threshold_bps</code></td>
+<td>uint64</td>
+<td>enforcement_threshold_bps is x/enforcement&#39;s seizure threshold: the share of voting power that must vote yes before assets are taken. It is fixed here because it is the first number a set that wanted to seize something would have an interest in lowering, and lowering it is exactly the move that would be indistinguishable from a routine parameter change.</td>
+</tr>
+<tr>
+<td><code>enforcement_recovery_destination</code></td>
+<td>string</td>
+<td>enforcement_recovery_destination is the only address seized assets may be sent to. Fixed here because a mutable destination is the difference between a recovery mechanism and a theft mechanism: the threshold decides whether funds move, this decides who ends up with them.</td>
+</tr>
+<tr>
+<td><code>enforcement_voting_period_blocks</code></td>
+<td>uint64</td>
+<td>enforcement_voting_period_blocks and enforcement_provisional_freeze_blocks are the two delays that make a seizure answerable. Shortening the voting period is how a supermajority becomes whoever was awake; shortening the freeze is how an account is handed back mid-case. Both are the sort of change that reads as housekeeping and is not.</td>
+</tr>
+<tr>
+<td><code>enforcement_provisional_freeze_blocks</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amendment_delay_blocks</code></td>
+<td>uint64</td>
+<td>amendment_delay_blocks is how long a proposed amendment sits in public before it can take effect. Weeks, not hours: the delay is the whole protection, because it is the window in which anyone who would be harmed by the change finds out it is coming while they can still act on it.</td>
+</tr>
+<tr>
+<td><code>amendment_threshold_bps</code></td>
+<td>uint64</td>
+<td>amendment_threshold_bps is the share of the voting power recorded when the amendment was proposed that must separately ratify it, in basis points. Separately, because a gov proposal passes on whatever threshold x/gov happens to carry, and x/gov&#39;s thresholds are ordinary mutable params — so an amendment ratified only through gov could be ratified by first voting gov&#39;s own numbers down. The ratification here is measured against a snapshot taken when the amendment opened, so it cannot be passed by shrinking the electorate either.</td>
+</tr>
+</tbody></table>
+<h3>Ratification</h3>
+<p>Ratification is one validator agreeing to one amendment, at the weight it carried when it agreed. Recorded individually rather than only as a total so that who ratified a change to the seizure threshold is answerable for it afterwards, which is the only sanction available against a set that votes itself more power.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>amendment_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td>validator is the operator address in its account form, matching how every other record in this repository keys a validator.</td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>AmendmentStatus</h3>
+<p>AmendmentStatus is where an amendment has got to.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AMENDMENT_STATUS_UNSPECIFIED</code></td>
+<td>AMENDMENT_STATUS_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>AMENDMENT_STATUS_PENDING</code></td>
+<td>AMENDMENT_STATUS_PENDING is proposed, in public, and counting down. It is collecting ratifications and has changed nothing.</td>
+</tr>
+<tr>
+<td><code>AMENDMENT_STATUS_ENACTED</code></td>
+<td>AMENDMENT_STATUS_ENACTED means the delay ran out with enough ratified power behind it and the invariants were replaced.</td>
+</tr>
+<tr>
+<td><code>AMENDMENT_STATUS_LAPSED</code></td>
+<td>AMENDMENT_STATUS_LAPSED means the delay ran out without enough ratified power. It is deliberately not the same status as withdrawn: lapsed is the record of an amendment the validator set declined to ratify, and that is precisely the history worth keeping.</td>
+</tr>
+<tr>
+<td><code>AMENDMENT_STATUS_WITHDRAWN</code></td>
+<td>AMENDMENT_STATUS_WITHDRAWN means governance took it back before the delay ran out.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrInvariantViolation</code></td>
+<td>this value is fixed at genesis and cannot be changed by a parameter update</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrAmendmentNotFound</code></td>
+<td>no such amendment</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrAmendmentClosed</code></td>
+<td>amendment is no longer pending</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrAlreadyRatified</code></td>
+<td>this validator has already ratified this amendment</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrUnknownValidator</code></td>
+<td>not a bonded validator</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrNoInvariants</code></td>
+<td>this chain has no constitution</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

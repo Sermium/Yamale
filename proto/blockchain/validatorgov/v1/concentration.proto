@@ -1,0 +1,84 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// ConcentrationCap is which ceiling a demotion was for. Recorded rather than
+// inferred, because "over the entity cap" and "over the jurisdiction cap" are
+// different facts about the same validator and the remedy is different for
+// each: one entity can be restructured, a jurisdiction cannot.
+enum ConcentrationCap {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // CONCENTRATION_CAP_UNSPECIFIED is the unset default and is never valid.
+  CONCENTRATION_CAP_UNSPECIFIED = 0;
+
+  // CONCENTRATION_CAP_ENTITY is the ceiling on one declared legal entity.
+  CONCENTRATION_CAP_ENTITY = 1;
+
+  // CONCENTRATION_CAP_BENEFICIAL_OWNER is the ceiling on one declared ultimate
+  // beneficial owner, across every entity it owns.
+  CONCENTRATION_CAP_BENEFICIAL_OWNER = 2;
+
+  // CONCENTRATION_CAP_JURISDICTION is the ceiling on the power answering to one
+  // national authority.
+  CONCENTRATION_CAP_JURISDICTION = 3;
+}
+
+// Demotion is a validator whose power the epoch check took away, and why.
+//
+// It is a record and not a punishment. Nothing is slashed, no delegation is
+// unbonded, and it is undone automatically at the first epoch the breach has
+// cleared — so the entity's remedy is in its own hands and does not require
+// anybody to vote on letting it back. That is the difference between a
+// concentration ceiling and an expulsion.
+message Demotion {
+  // operator is the address in its account form, matching how the approval
+  // allowlist and the rotation records key a validator.
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  ConcentrationCap cap = 2;
+
+  // group is the declared value that breached — the entity id, the owner id or
+  // the country code — so the record says which set the validator was counted
+  // in rather than only that some ceiling was hit.
+  string group = 3;
+
+  // group_power_bps and cap_bps are what the group held and what it was allowed
+  // to hold, at the epoch the demotion happened. Frozen into the record because
+  // both figures are recomputed every epoch, and a demotion that could only be
+  // explained by numbers that have since moved cannot be audited at all.
+  uint64 group_power_bps = 4;
+  uint64 cap_bps = 5;
+
+  int64 demoted_at_height = 6;
+
+  // jailed_validator records that this demotion is what jailed the validator,
+  // so that restoring it un-jails only what it jailed. A validator already
+  // jailed for downtime when the epoch check ran must stay jailed when the
+  // breach clears: releasing it would turn a concentration ceiling into a way
+  // of clearing somebody else's downtime.
+  bool jailed_validator = 7;
+}
+
+// ConcentrationGroup is one entity, owner or jurisdiction and what it currently
+// holds. It exists for the supervisor's query rather than for the chain: under
+// equal seats a ceiling is a count out of a count, and the point of publishing
+// it this way is that it can be checked against a list by somebody who is not
+// recomputing anything.
+message ConcentrationGroup {
+  ConcentrationCap cap = 1;
+  string group = 2;
+  int64 power = 3;
+  uint64 power_bps = 4;
+  uint64 cap_bps = 5;
+
+  // over is whether the group is above its ceiling right now, which is not the
+  // same as whether anything has been demoted: a breach the set is too small to
+  // correct stays reported and uncorrected, because a cap must never be the
+  // reason a chain stops producing blocks.
+  bool over = 6;
+}

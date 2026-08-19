@@ -17,6 +17,9 @@ func TestApplyValidatorRecordsPendingApplication(t *testing.T) {
 
 	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{
 		Creator: candidateStr, Moniker: "node-1", Description: "a candidate",
+		LegalEntityId:     "LEI-TEST",
+		BeneficialOwnerId: "OWNER-TEST",
+		Jurisdiction:      "CH",
 	})
 	require.NoError(t, err)
 
@@ -35,7 +38,7 @@ func TestApplyValidatorRejectsInvalidCreator(t *testing.T) {
 	f := initFixture(t)
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: "not-an-address"})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: "not-an-address", LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid creator address")
 }
@@ -47,7 +50,7 @@ func TestApplyValidatorAfterRejectionResetsToPending(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	_, err = ms.ApproveValidator(f.ctx, &types.MsgApproveValidator{
@@ -55,7 +58,7 @@ func TestApplyValidatorAfterRejectionResetsToPending(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err = ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	app, err := f.keeper.ValidatorApplication.Get(f.ctx, candidateStr)
@@ -70,14 +73,14 @@ func TestApplyValidatorDoesNotRevokeExistingApproval(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = ms.ApproveValidator(f.ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: candidateStr, Approve: true,
 	})
 	require.NoError(t, err)
 
-	_, err = ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err = ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	has, err := f.keeper.ApprovedValidator.Has(f.ctx, candidateStr)
@@ -90,7 +93,7 @@ func TestApproveValidatorRequiresGovAuthority(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	// A candidate cannot approve themself onto the validator set.
@@ -120,7 +123,7 @@ func TestApproveValidatorAddsToAllowlist(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	_, err = ms.ApproveValidator(f.ctx, &types.MsgApproveValidator{
@@ -143,7 +146,7 @@ func TestApproveValidatorRejection(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	_, err = ms.ApproveValidator(f.ctx, &types.MsgApproveValidator{
@@ -165,7 +168,7 @@ func TestApproveValidatorRejectsNonPendingApplication(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
 	_, candidateStr := f.env.Addr(t)
-	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr})
+	_, err := ms.ApplyValidator(f.ctx, &types.MsgApplyValidator{Creator: candidateStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = ms.ApproveValidator(f.ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: candidateStr, Approve: true,

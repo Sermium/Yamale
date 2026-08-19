@@ -30,6 +30,19 @@ func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) er
 		return fmt.Errorf("enforcement genesis is invalid, refusing to start: %w", err)
 	}
 
+	// And checked against the constitution, on the same reasoning one step
+	// further. A genesis whose seizure threshold disagrees with the one the
+	// chain says it fixed is a chain with two answers to the only question that
+	// matters about this module, and it is better for it not to start than for
+	// the answer to depend on which module somebody happened to read.
+	inv, err := k.constitutionKeeper.GetInvariants(ctx)
+	if err != nil {
+		return fmt.Errorf("enforcement genesis cannot be checked against this chain's constitution, refusing to start: %w", err)
+	}
+	if err := genState.Params.AssertConstitutional(inv); err != nil {
+		return fmt.Errorf("enforcement genesis disagrees with this chain's constitution, refusing to start: %w", err)
+	}
+
 	if err := k.Params.Set(ctx, genState.Params); err != nil {
 		return err
 	}

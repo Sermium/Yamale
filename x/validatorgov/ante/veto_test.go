@@ -11,6 +11,8 @@ import (
 	protov2 "google.golang.org/protobuf/proto"
 
 	"yamale/blockchain/testutil/integration"
+	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 	"yamale/blockchain/x/validatorgov/ante"
 	"yamale/blockchain/x/validatorgov/keeper"
 	module "yamale/blockchain/x/validatorgov/module"
@@ -43,10 +45,12 @@ type vetoFixture struct {
 func initVetoFixture(t *testing.T) *vetoFixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
+	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
 	staking := vgtestutil.NewStakingKeeper()
+	_, destination := env.Addr(t)
+	constitution := constitutiontestutil.Init(t, env, staking, constitutiontestutil.Invariants(destination))
 	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority,
-		staking, vgtestutil.NewAuthzKeeper())
+		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution)
 	require.NoError(t, k.InitGenesis(env.Ctx, *types.DefaultGenesis()))
 
 	env.Ctx = env.Ctx.WithBlockHeight(1)
@@ -66,7 +70,7 @@ func (f *vetoFixture) openApprovedRecovery(t *testing.T) (operator sdk.AccAddres
 	t.Helper()
 
 	operator, operatorStr = f.env.Addr(t)
-	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: operatorStr})
+	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: operatorStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = f.msgServer.ApproveValidator(f.env.Ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: operatorStr, Approve: true,
@@ -177,7 +181,7 @@ func TestVetoDecoratorLeavesPlannedRotationsAlone(t *testing.T) {
 	f := initVetoFixture(t)
 
 	operator, operatorStr := f.env.Addr(t)
-	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: operatorStr})
+	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: operatorStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = f.msgServer.ApproveValidator(f.env.Ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: operatorStr, Approve: true,

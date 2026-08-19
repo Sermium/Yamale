@@ -18,6 +18,7 @@ import { Registry, type GeneratedType } from '@cosmjs/proto-signing';
 
 import * as amm from './generated/blockchain/amm/v1/tx.ts';
 import * as builderfee from './generated/blockchain/builderfee/v1/tx.ts';
+import * as constitution from './generated/blockchain/constitution/v1/tx.ts';
 import * as enforcement from './generated/blockchain/enforcement/v1/tx.ts';
 import * as alias from './generated/blockchain/alias/v1/tx.ts';
 import * as feegrant from './generated/cosmos/feegrant/v1beta1/tx.ts';
@@ -112,6 +113,22 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.validatorgov.v1.MsgProposeOperatorRecovery', validatorgov.MsgProposeOperatorRecovery],
   ['/blockchain.validatorgov.v1.MsgApproveOperatorRecovery', validatorgov.MsgApproveOperatorRecovery],
   ['/blockchain.validatorgov.v1.MsgCancelOperatorRotation', validatorgov.MsgCancelOperatorRotation],
+  // The beneficial-ownership register. Re-attestation is signed by the operator
+  // itself and has to be routine, so it has to be doable from an interface: an
+  // annual declaration that requires a terminal is an annual declaration that
+  // goes stale.
+  ['/blockchain.validatorgov.v1.MsgAttestOwnership', validatorgov.MsgAttestOwnership],
+  ['/blockchain.validatorgov.v1.MsgSetValidatorPower', validatorgov.MsgSetValidatorPower],
+
+  // The constitution. Ratifying an amendment is the one action here a validator
+  // takes with its own key, and it is the action with the longest consequences
+  // on this chain — so it must not be the one that needs a CLI. The proposal
+  // and withdrawal messages are authority-gated and registered for the same
+  // reason the other Approve* messages are: an interface has to be able to
+  // build one to put inside a proposal.
+  ['/blockchain.constitution.v1.MsgProposeAmendment', constitution.MsgProposeAmendment],
+  ['/blockchain.constitution.v1.MsgRatifyAmendment', constitution.MsgRatifyAmendment],
+  ['/blockchain.constitution.v1.MsgWithdrawAmendment', constitution.MsgWithdrawAmendment],
 
   // Builder fee share
   ['/blockchain.builderfee.v1.MsgRegisterBuilder', builderfee.MsgRegisterBuilder],

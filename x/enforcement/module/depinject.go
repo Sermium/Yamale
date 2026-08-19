@@ -36,6 +36,10 @@ type ModuleInputs struct {
 	AuthKeeper    types.AuthKeeper
 	BankKeeper    types.BankKeeper
 	StakingKeeper types.StakingKeeper
+
+	// ConstitutionKeeper holds the parameters this module may read and may not
+	// change.
+	ConstitutionKeeper types.ConstitutionKeeper
 }
 
 type ModuleOutputs struct {
@@ -59,6 +63,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.AuthKeeper,
 		in.BankKeeper,
 		in.StakingKeeper,
+		in.ConstitutionKeeper,
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 

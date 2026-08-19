@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What governance can and cannot change — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>What governance can and cannot change</h1>
+<p><strong>You need:</strong> nothing installed. This is about how this chain is bounded, and it
+is worth reading before you rely on any of the numbers in the other guides.</p>
+<p><strong>You get:</strong> a clear line between the parameters a proposal can move and the
+ones it cannot, and the procedure for the second kind.</p>
+<hr>
+<h2>The problem this solves</h2>
+<p>Until recently, every number on this chain was an ordinary governance parameter.
+That is the normal Cosmos arrangement and it sounds fine until you name the
+numbers: the share of validators needed to seize somebody&#39;s assets, the single
+address those assets may be sent to, and how long anyone gets to object before a
+seizure completes.</p>
+<p>A chain that can vote to lower its own seizure threshold does not have one. The
+threshold is not a safeguard against the validator set — it is a safeguard the
+validator set applies to itself, and a safeguard the same body can remove by the
+same vote is a statement of current intent, not a rule.</p>
+<p>This is not hypothetical here. <code>recovery_destination</code> — the only address seized
+funds may go to — was <strong>empty on the running devnet for weeks</strong>. Two thirds of
+the validator set could have passed a seizure that then had nowhere to send what
+it took, and nobody noticed until a console happened to print the parameter.</p>
+<h2>The two kinds of value</h2>
+<p><strong>Ordinary parameters</strong> move by governance proposal, as before. Message size
+limits, evidence requirements, rotation delays, the attestation interval — the
+operational knobs. Nothing about how they work has changed.</p>
+<p><strong>Invariants</strong> live in <code>x/constitution</code>. They are set once, at genesis, and
+<code>MsgUpdateParams</code> refuses to change them. There are eleven:</p>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>max_entity_power_bps</code></td>
+<td>the share of voting power one admitted legal entity may hold</td>
+</tr>
+<tr>
+<td><code>max_beneficial_owner_power_bps</code></td>
+<td>the same, for the ultimate owner behind however many entities</td>
+</tr>
+<tr>
+<td><code>max_jurisdiction_power_bps</code></td>
+<td>the same, for everything answering to one national authority</td>
+</tr>
+<tr>
+<td><code>concentration_epoch_blocks</code></td>
+<td>how often those three are checked and breaches corrected</td>
+</tr>
+<tr>
+<td><code>min_active_validators</code></td>
+<td>the set size below which the check reports instead of acting</td>
+</tr>
+<tr>
+<td><code>enforcement_threshold_bps</code></td>
+<td>the share of power a seizure needs</td>
+</tr>
+<tr>
+<td><code>enforcement_recovery_destination</code></td>
+<td>the only address seized assets may go to</td>
+</tr>
+<tr>
+<td><code>enforcement_voting_period_blocks</code></td>
+<td>how long validators have to vote on a case</td>
+</tr>
+<tr>
+<td><code>enforcement_provisional_freeze_blocks</code></td>
+<td>how long one validator&#39;s freeze lasts unconfirmed</td>
+</tr>
+<tr>
+<td><code>amendment_delay_blocks</code></td>
+<td>how long a change to this table waits in public</td>
+</tr>
+<tr>
+<td><code>amendment_threshold_bps</code></td>
+<td>the share of power that must ratify such a change</td>
+</tr>
+</tbody></table>
+<pre><code class="language-bash">blockchaind query constitution invariants
+</code></pre>
+<p>The four <code>enforcement_*</code> values are also stored in <code>x/enforcement</code>&#39;s own
+parameters, because that is where they are read at speed. They cannot drift: a
+<code>MsgUpdateParams</code> that disagrees with the constitution is refused, and so is a
+genesis — the chain does not start.</p>
+<p>The epoch length is in this table for the same reason as the ceilings it
+governs. A ceiling enforced at an interval the same vote can lengthen to a
+billion blocks has been repealed without appearing to have been touched.</p>
+<h2>Why amendment is possible at all</h2>
+<p>Because &quot;impossible&quot; would be a lie.</p>
+<p>A chain can be hard-forked, and an upgrade handler can rewrite any store. A
+constitution with no amendment path does not become unamendable — it relocates
+its amendments into a binary release, which is a change with less public notice
+and fewer signatures than a proposal. So the path exists, on purpose, and it is
+made slow and loud enough that taking it is a thing people find out about.</p>
+<h2>Amending one</h2>
+<p>Two independent conditions, both required, weeks apart.</p>
+<p><strong>1. A governance proposal</strong> carrying <code>MsgProposeAmendment</code>. It supplies the
+complete replacement table, not a delta — an amendment that meant to move one
+ceiling cannot silently zero another by omitting it. It must state its grounds
+in words.</p>
+<p>When it passes, an amendment opens and its clock starts:</p>
+<pre><code class="language-bash">blockchaind query constitution list-amendment
+</code></pre>
+<p>The effective height is computed from the delay <strong>in force when it opened</strong>, not
+from the delay being proposed. An amendment that shortens the delay does not
+shorten its own, and no amendment may propose a delay below seven days — that
+floor is compiled into the binary, because a floor that can itself be amended is
+not a floor.</p>
+<p><strong>2. A supermajority of validators ratifying it</strong>, each signing with its own key:</p>
+<pre><code class="language-bash">blockchaind tx constitution ratify-amendment &quot;$(blockchaind keys show carol -a)&quot; 3 \
+  --from carol --chain-id yamale-testnet-1 --fees 500uyml --yes
+</code></pre>
+<pre><code class="language-bash">blockchaind query constitution ratifications 3
+</code></pre>
+<p>Ratification is measured against the voting power recorded <strong>when the amendment
+opened</strong>, not against the power bonded when it comes due. A threshold measured
+against the set that remains is passed by jailing everybody who would have
+refused.</p>
+<p>There is no un-ratifying. The protections are the delay and the threshold, not
+the ability to run the vote backwards; a withdrawable ratification would let a
+faction hold an amendment one vote short indefinitely.</p>
+<p><strong>At the effective height</strong> the chain enacts it if the ratified power has reached
+the threshold, and lapses it if not. A lapsed amendment is kept on the record —
+the fact that somebody tried to move a ceiling and the set declined is exactly
+the history worth having.</p>
+<p>Governance may withdraw a pending amendment with <code>MsgWithdrawAmendment</code> before
+it takes effect.</p>
+<p>The ratification threshold is deliberately higher than the seizure threshold.
+Changing the rule must never be easier than using it, or the cheapest route past
+a two-thirds seizure vote is a two-thirds vote to lower it.</p>
+<h2>What this does not protect against</h2>
+<p>Everything above is a rule the software enforces on the validator set. It is not
+a rule anyone enforces on a supermajority of validators willing to run a
+different binary. What it buys is that doing so is a visible act — a fork, with
+a different hash, that anyone comparing two nodes can see — rather than a
+parameter change indistinguishable from housekeeping.</p>
+<p>That is the whole of the claim, and it is worth being exact about it.</p>
+<hr>
+<h2>Related</h2>
+<ul>
+<li><a href="enforcement.html">Freezing and recovering assets</a> — the module three of these
+invariants bound.</li>
+<li><a href="validator.html">Run a validator</a> — the beneficial-ownership declaration and the
+concentration ceilings.</li>
+</ul>
+
+</main>
+</body>
+</html>

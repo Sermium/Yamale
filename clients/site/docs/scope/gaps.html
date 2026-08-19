@@ -48,38 +48,93 @@ the old value in its state — that takes a governance proposal, or the next
 <hr>
 <h2>B. New — required by the revised scope, nothing exists yet</h2>
 <h3>1. The constitutional layer</h3>
-<p><strong>There is no such thing today. Every parameter is an ordinary mutable gov
-param.</strong> The proof is already on the record: <code>recovery_destination</code> is a plain
-<code>string</code> in <code>blockchain.enforcement.v1.Params</code>, and it was found <strong>empty on the
-running chain</strong>. A seizure carried by two thirds of validators would have had
-nowhere to send the funds. Nobody noticed until a console printed it.</p>
-<p>Needed:</p>
+<p><del>There is no such thing today.</del> Built. <code>x/constitution</code> holds eleven
+genesis-fixed invariants: the three concentration ceilings, the epoch the
+ceilings are enforced at, the floor below which enforcement reports instead of
+acting, <code>x/enforcement</code>&#39;s <code>threshold_bps</code>, <code>recovery_destination</code>,
+<code>voting_period_blocks</code> and <code>provisional_freeze_blocks</code>, and the delay and
+threshold an amendment to any of them must clear.</p>
 <ul>
-<li>a genesis-fixed invariant set — concentration caps, <code>threshold_bps</code>,
-<code>recovery_destination</code>, the delays;</li>
-<li><code>MsgUpdateParams</code> refusing to change any of them;</li>
-<li><del>validation at <code>InitGenesis</code> that refuses a genesis leaving one unset</del> —
-done for x/enforcement: <code>Params.Validate()</code> now refuses an empty or malformed
-<code>recovery_destination</code> as a bech32 address, and <code>InitGenesis</code> validates the
-whole genesis state before writing any of it, so a chain cannot start in that
-condition. The other modules still do not validate at <code>InitGenesis</code>;</li>
-<li>amendment only by supermajority <em>and</em> delay, if at all.</li>
+<li><strong><code>MsgUpdateParams</code> refuses them.</strong> <code>Params.AssertConstitutional</code> is checked on
+x/enforcement&#39;s update path and again at its <code>InitGenesis</code>, so the two copies
+of those four values cannot diverge rather than merely being unlikely to. The
+values stay in x/enforcement&#39;s own store because that is where they are read
+at speed; the constitution is the authority on what they may be.</li>
+<li><strong><code>InitGenesis</code> refuses an unset invariant.</strong> Every field, including the three
+ceilings and the epoch length. <code>DefaultGenesis</code> is deliberately <em>not</em>
+startable: it leaves <code>enforcement_recovery_destination</code> empty, on the same
+reasoning x/enforcement already used — no address compiled into a binary is
+the foundation on somebody else&#39;s network, and a default that was merely valid
+would satisfy the check while pointing every seizure at whoever generated it.</li>
+<li><strong>Amendment is possible, and slow.</strong> Not &quot;not at all&quot;, because that would be a
+lie: a chain can be hard-forked and an upgrade handler can rewrite any store,
+so a constitution with no amendment path relocates its amendments into a
+binary release — a change with <em>less</em> public notice than a proposal. The path
+is a governance proposal, then a three-week public delay, then a separate
+ratification by four fifths of the voting power recorded when the amendment
+opened. The effective height is computed from the delay in force when it
+opened, so an amendment cannot shorten its own; no amendment may set the delay
+below seven days, a floor compiled into the binary because a floor that can
+itself be amended is not one; and the ratification threshold must exceed the
+seizure threshold, because changing the rule must never be easier than using
+it.</li>
 </ul>
-<p>This is the same irreversibility class as the genesis-counter and
-uniqueness-at-import problems already solved in x/land: cheap now, unfixable
-after a deployment holds real value.</p>
+<p><strong>Where they live, and why a module.</strong> A new module rather than a shared store,
+because the dependency has to run one way and only one way: x/validatorgov and
+x/enforcement consult x/constitution, and x/constitution depends on x/staking
+and on nothing else in this repository. Anything it consulted back would be a
+cycle depinject cannot wire — and, more to the point, a constitution that read a
+value out of the module it constrains would not be constraining it. A shared
+store would have given every module write access to the values by construction.</p>
+<p>Open: a chain that already holds value adopts this through the <code>constitution</code>
+upgrade, whose handler takes the four enforcement values in force and leaves the
+ceilings at their shipped defaults, because nothing on a running chain implies
+them. The first act of governance after that upgrade should be to amend them
+deliberately.</p>
 <h3>2. Concentration caps</h3>
-<p><strong><code>blockchain.validatorgov.v1.Params</code> is an empty message.</strong> There is nowhere to
-put a cap, and no entity, beneficial-owner or jurisdiction attribute on a
-validator application, so no cap could be computed even if there were.</p>
-<p>Needed: those attributes on the application record; the three caps as invariants
-(§1); and — the part that matters — <strong>enforcement in an EndBlocker that can
-demote, every epoch</strong>, not an ante gate at admission. Admission-time-only
-enforcement is precisely the hole x/land has: the cross-office quorum protects
-the moment of transfer and leaves the standing state unguarded. A cap checked
-only when a validator joins is not a cap.</p>
-<p>Whatever divides in that epoch check must guard its divisor. A zero from genesis
-in a Begin/EndBlocker halts the chain.</p>
+<p><del><code>blockchain.validatorgov.v1.Params</code> is an empty message.</del> Built, and the
+shape changed with the owner&#39;s decision that validator power is equal seats set
+by governance rather than stake.</p>
+<ul>
+<li><strong>The register.</strong> <code>MsgApplyValidator</code> now carries a legal entity identifier, an
+ultimate beneficial owner identifier and an ISO 3166-1 alpha-2 jurisdiction,
+all three required and the country checked against the assigned list
+<code>x/alias/types/iso3166.go</code> owns. The declaration is copied onto the approval at
+approval and kept current by <code>MsgAttestOwnership</code>, which restates the whole
+declaration rather than bumping a date — an operator whose owner changed and
+who re-attests the old values has signed a false statement, which is a fact a
+supervisor can act on. A declaration older than the interval is published as
+<code>EventDeclarationStale</code> at every epoch and nothing else is done about it: the
+chain cannot verify a declaration, and turning an operator&#39;s inattention into
+a consensus event would be a worse failure than the one it prevents.</li>
+<li><strong>Enforcement demotes, every epoch.</strong> <code>ConcentrationEndBlocker</code> runs on epoch
+boundaries, restores first and then demotes. A breach is corrected by jailing
+from the largest member of the group downward until the group is inside its
+ceiling; nothing is slashed and no delegation unbonds. A demotion is undone
+automatically at the first epoch the breach has cleared, and an ante decorator
+refuses <code>MsgUnjail</code> from a demoted validator — without it the ceiling would be
+one transaction per block away from being advisory.</li>
+<li><strong>Governance-set power is bound too.</strong> <code>MsgSetValidatorPower</code> deliberately does
+<em>not</em> check the ceilings. A power granted above one is accepted and trimmed at
+the next epoch like any other breach, because a ceiling only tested where power
+is granted leaves growth, merger and nationalisation unguarded — and because
+refusing at the message would have made the test that proves the real
+mechanism impossible to write.</li>
+<li><strong>Divisors are guarded at the point of use.</strong> The epoch modulus, the
+basis-point shares and the ceiling arithmetic all guard a zero where they are
+read, not only where they are validated.</li>
+<li><strong>A ceiling that cannot be satisfied is reported, not enforced.</strong> Below
+<code>min_active_validators</code> the breach is emitted as an event and nothing is
+demoted. Three validators under three owners cannot all sit below a fifth of
+the power, and a check that kept demoting until the arithmetic worked would
+demote the chain into a halt.</li>
+</ul>
+<p>Still open: a bonded validator with no approval record — a genesis validator
+from the gentx ceremony — is counted in the denominator and belongs to no group,
+so it can never be demoted. Genesis now refuses an <code>ApprovedValidator</code> without a
+declaration, which is how a founding set is brought inside the ceilings; a chain
+whose gentx validators were never added to the allowlist has validators no
+ceiling reaches.</p>
 <h3>3. Payment confidentiality</h3>
 <p>Highest irreversibility, so first. <code>MsgPayment</code>
 (<code>proto/blockchain/paymsg/v1/tx.proto:72-80</code>) carries <code>debtor</code>, <code>creditor</code>,
@@ -114,9 +169,10 @@ carrying every module.</p>
 <hr>
 <h2>Order</h2>
 <ol>
-<li>Payment confidentiality (schema) and the constitutional layer — both are
-impossible to retrofit.</li>
-<li>Concentration caps with epoch enforcement; the two profile build tags.</li>
+<li><del>Payment confidentiality (schema) and the constitutional layer</del> — the
+constitutional layer is built; payment confidentiality is still open and is
+now the only remaining item that is impossible to retrofit.</li>
+<li><del>Concentration caps with epoch enforcement</del>; the two profile build tags.</li>
 <li>Finish x/land: autocli, client, and the x/tokenisation enforcement half.</li>
 <li>Replace the signing service; implement rotation; test the enforcement paths.</li>
 <li>Everything in §5, if and only if open decision four says vendor.</li>

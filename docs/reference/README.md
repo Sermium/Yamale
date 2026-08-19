@@ -16,6 +16,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/alias](alias.md) |  | 4 | 6 |
 | [x/amm](amm.md) | A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool's own reserves. | 5 | 3 |
 | [x/builderfee](builderfee.md) | Shares a governance-set portion of transaction fees with the developer whose message type was used. | 3 | 5 |
+| [x/constitution](constitution.md) |  | 3 | 4 |
 | [x/custody](custody.md) |  | 7 | 5 |
 | [x/emission](emission.md) | Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply. | 1 | 2 |
 | [x/enforcement](enforcement.md) |  | 8 | 8 |
@@ -25,7 +26,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/stablecoin](stablecoin.md) | Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom. | 5 | 5 |
 | [x/tokenisation](tokenisation.md) |  | 13 | 5 |
 | [x/treasury](treasury.md) | Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone. | 16 | 12 |
-| [x/validatorgov](validatorgov.md) | Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted. | 7 | 8 |
+| [x/validatorgov](validatorgov.md) | Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted. | 9 | 10 |
 
 ## Chain-wide conventions
 

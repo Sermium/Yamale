@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/collections"
@@ -22,8 +23,16 @@ type Keeper struct {
 	Schema collections.Schema
 	Params collections.Item[types.Params]
 
-	stakingKeeper        types.StakingKeeper
-	authzKeeper          types.AuthzKeeper
+	stakingKeeper types.StakingKeeper
+	authzKeeper   types.AuthzKeeper
+	authKeeper    types.AuthKeeper
+	bankKeeper    types.BankKeeper
+
+	// constitutionKeeper is read-only and holds the concentration ceilings.
+	// They live in another module so that this one cannot change the bounds it
+	// is enforced against.
+	constitutionKeeper types.ConstitutionKeeper
+
 	ValidatorApplication collections.Map[string, types.ValidatorApplication]
 	ApprovedValidator    collections.Map[string, types.ApprovedValidator]
 
@@ -39,6 +48,11 @@ type Keeper struct {
 	// height, id), so the end blocker pays for what falls due now rather than
 	// for every rotation there has ever been.
 	RotationQueue collections.KeySet[collections.Pair[int64, uint64]]
+
+	// Demotion holds the validators the epoch check is currently holding down,
+	// keyed by operator address. Only the ones in force: a restored demotion is
+	// deleted, and the history lives in the events.
+	Demotion collections.Map[string, types.Demotion]
 }
 
 func NewKeeper(
@@ -49,6 +63,9 @@ func NewKeeper(
 
 	stakingKeeper types.StakingKeeper,
 	authzKeeper types.AuthzKeeper,
+	authKeeper types.AuthKeeper,
+	bankKeeper types.BankKeeper,
+	constitutionKeeper types.ConstitutionKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -64,6 +81,9 @@ func NewKeeper(
 
 		stakingKeeper:        stakingKeeper,
 		authzKeeper:          authzKeeper,
+		authKeeper:           authKeeper,
+		bankKeeper:           bankKeeper,
+		constitutionKeeper:   constitutionKeeper,
 		Params:               collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ValidatorApplication: collections.NewMap(sb, types.ValidatorApplicationKey, "validatorApplication", collections.StringKey, codec.CollValue[types.ValidatorApplication](cdc)), ApprovedValidator: collections.NewMap(sb, types.ApprovedValidatorKey, "approvedValidator", collections.StringKey, codec.CollValue[types.ApprovedValidator](cdc)),
 
@@ -74,6 +94,8 @@ func NewKeeper(
 			collections.StringKey, collections.Uint64Value),
 		RotationQueue: collections.NewKeySet(sb, types.RotationQueueKey, "rotationQueue",
 			collections.PairKeyCodec(collections.Int64Key, collections.Uint64Key)),
+		Demotion: collections.NewMap(sb, types.DemotionKey, "demotion",
+			collections.StringKey, codec.CollValue[types.Demotion](cdc)),
 	}
 
 	schema, err := sb.Build()
@@ -95,4 +117,8 @@ func (k Keeper) GetAuthority() []byte {
 // carries into the bech32 form this module's state is keyed by.
 func (k Keeper) AddressCodec() address.Codec {
 	return k.addressCodec
+}
+
+func isNotFound(err error) bool {
+	return errors.Is(err, collections.ErrNotFound)
 }

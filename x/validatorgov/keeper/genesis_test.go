@@ -11,7 +11,13 @@ import (
 func TestGenesis(t *testing.T) {
 	genesisState := types.GenesisState{
 		Params:                  types.DefaultParams(),
-		ValidatorApplicationMap: []types.ValidatorApplication{{Candidate: "0"}, {Candidate: "1"}}, ApprovedValidatorMap: []types.ApprovedValidator{{Candidate: "0"}, {Candidate: "1"}}}
+		RotationCount:           1,
+		ValidatorApplicationMap: []types.ValidatorApplication{{Candidate: "0"}, {Candidate: "1"}},
+		ApprovedValidatorMap: []types.ApprovedValidator{
+			{Candidate: "0", Declaration: testDeclaration("ENTITY-0", "OWNER-0", "CH")},
+			{Candidate: "1", Declaration: testDeclaration("ENTITY-1", "OWNER-1", "ZA")},
+		},
+	}
 
 	f := initFixture(t)
 	err := f.keeper.InitGenesis(f.ctx, genesisState)

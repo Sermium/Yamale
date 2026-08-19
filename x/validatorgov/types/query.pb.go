@@ -779,6 +779,217 @@ func (m *QueryPendingOperatorRotationResponse) GetOperatorRotation() OperatorRot
 	return OperatorRotation{}
 }
 
+// QueryConcentrationRequest defines the QueryConcentrationRequest message.
+type QueryConcentrationRequest struct {
+}
+
+func (m *QueryConcentrationRequest) Reset()         { *m = QueryConcentrationRequest{} }
+func (m *QueryConcentrationRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryConcentrationRequest) ProtoMessage()    {}
+func (*QueryConcentrationRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_83ae4da351a9139a, []int{16}
+}
+func (m *QueryConcentrationRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryConcentrationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryConcentrationRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryConcentrationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryConcentrationRequest.Merge(m, src)
+}
+func (m *QueryConcentrationRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryConcentrationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryConcentrationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryConcentrationRequest proto.InternalMessageInfo
+
+// QueryConcentrationResponse defines the QueryConcentrationResponse message.
+type QueryConcentrationResponse struct {
+	Groups []ConcentrationGroup `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups"`
+	// total_power is the denominator every share above was measured against: the
+	// power of the validators active right now. Returned alongside so that a
+	// reader can check the arithmetic rather than trust it.
+	TotalPower int64 `protobuf:"varint,2,opt,name=total_power,json=totalPower,proto3" json:"total_power,omitempty"`
+	// active_validators and min_active_validators say whether the check is in a
+	// position to act at all. A breach reported while these are equal is one the
+	// chain has decided not to correct, and that distinction is invisible from
+	// the shares alone.
+	ActiveValidators    uint32 `protobuf:"varint,3,opt,name=active_validators,json=activeValidators,proto3" json:"active_validators,omitempty"`
+	MinActiveValidators uint32 `protobuf:"varint,4,opt,name=min_active_validators,json=minActiveValidators,proto3" json:"min_active_validators,omitempty"`
+}
+
+func (m *QueryConcentrationResponse) Reset()         { *m = QueryConcentrationResponse{} }
+func (m *QueryConcentrationResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryConcentrationResponse) ProtoMessage()    {}
+func (*QueryConcentrationResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_83ae4da351a9139a, []int{17}
+}
+func (m *QueryConcentrationResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryConcentrationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryConcentrationResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryConcentrationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryConcentrationResponse.Merge(m, src)
+}
+func (m *QueryConcentrationResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryConcentrationResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryConcentrationResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryConcentrationResponse proto.InternalMessageInfo
+
+func (m *QueryConcentrationResponse) GetGroups() []ConcentrationGroup {
+	if m != nil {
+		return m.Groups
+	}
+	return nil
+}
+
+func (m *QueryConcentrationResponse) GetTotalPower() int64 {
+	if m != nil {
+		return m.TotalPower
+	}
+	return 0
+}
+
+func (m *QueryConcentrationResponse) GetActiveValidators() uint32 {
+	if m != nil {
+		return m.ActiveValidators
+	}
+	return 0
+}
+
+func (m *QueryConcentrationResponse) GetMinActiveValidators() uint32 {
+	if m != nil {
+		return m.MinActiveValidators
+	}
+	return 0
+}
+
+// QueryAllDemotionRequest defines the QueryAllDemotionRequest message.
+type QueryAllDemotionRequest struct {
+	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (m *QueryAllDemotionRequest) Reset()         { *m = QueryAllDemotionRequest{} }
+func (m *QueryAllDemotionRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAllDemotionRequest) ProtoMessage()    {}
+func (*QueryAllDemotionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_83ae4da351a9139a, []int{18}
+}
+func (m *QueryAllDemotionRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllDemotionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllDemotionRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllDemotionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllDemotionRequest.Merge(m, src)
+}
+func (m *QueryAllDemotionRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllDemotionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllDemotionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllDemotionRequest proto.InternalMessageInfo
+
+func (m *QueryAllDemotionRequest) GetPagination() *query.PageRequest {
+	if m != nil {
+		return m.Pagination
+	}
+	return nil
+}
+
+// QueryAllDemotionResponse defines the QueryAllDemotionResponse message.
+type QueryAllDemotionResponse struct {
+	Demotion   []Demotion          `protobuf:"bytes,1,rep,name=demotion,proto3" json:"demotion"`
+	Pagination *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (m *QueryAllDemotionResponse) Reset()         { *m = QueryAllDemotionResponse{} }
+func (m *QueryAllDemotionResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAllDemotionResponse) ProtoMessage()    {}
+func (*QueryAllDemotionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_83ae4da351a9139a, []int{19}
+}
+func (m *QueryAllDemotionResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllDemotionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllDemotionResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllDemotionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllDemotionResponse.Merge(m, src)
+}
+func (m *QueryAllDemotionResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllDemotionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllDemotionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllDemotionResponse proto.InternalMessageInfo
+
+func (m *QueryAllDemotionResponse) GetDemotion() []Demotion {
+	if m != nil {
+		return m.Demotion
+	}
+	return nil
+}
+
+func (m *QueryAllDemotionResponse) GetPagination() *query.PageResponse {
+	if m != nil {
+		return m.Pagination
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "blockchain.validatorgov.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "blockchain.validatorgov.v1.QueryParamsResponse")
@@ -796,6 +1007,10 @@ func init() {
 	proto.RegisterType((*QueryAllOperatorRotationResponse)(nil), "blockchain.validatorgov.v1.QueryAllOperatorRotationResponse")
 	proto.RegisterType((*QueryPendingOperatorRotationRequest)(nil), "blockchain.validatorgov.v1.QueryPendingOperatorRotationRequest")
 	proto.RegisterType((*QueryPendingOperatorRotationResponse)(nil), "blockchain.validatorgov.v1.QueryPendingOperatorRotationResponse")
+	proto.RegisterType((*QueryConcentrationRequest)(nil), "blockchain.validatorgov.v1.QueryConcentrationRequest")
+	proto.RegisterType((*QueryConcentrationResponse)(nil), "blockchain.validatorgov.v1.QueryConcentrationResponse")
+	proto.RegisterType((*QueryAllDemotionRequest)(nil), "blockchain.validatorgov.v1.QueryAllDemotionRequest")
+	proto.RegisterType((*QueryAllDemotionResponse)(nil), "blockchain.validatorgov.v1.QueryAllDemotionResponse")
 }
 
 func init() {
@@ -803,65 +1018,79 @@ func init() {
 }
 
 var fileDescriptor_83ae4da351a9139a = []byte{
-	// 920 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x97, 0xcf, 0x6f, 0xe3, 0x44,
-	0x14, 0xc7, 0x33, 0xe9, 0x6e, 0x45, 0x07, 0x01, 0xdb, 0xd9, 0xac, 0x76, 0x65, 0xad, 0xb2, 0x8b,
-	0x41, 0x5d, 0xba, 0x80, 0x4d, 0x76, 0x61, 0xf9, 0xd1, 0x54, 0x24, 0x2d, 0xb4, 0x42, 0xaa, 0xd4,
-	0x34, 0x07, 0x90, 0x10, 0x52, 0x34, 0x49, 0x06, 0x63, 0xea, 0x78, 0x5c, 0xdb, 0x89, 0xa8, 0xaa,
-	0x5e, 0xe0, 0xc0, 0x15, 0xa9, 0x57, 0xb8, 0x73, 0xe4, 0xcf, 0xe8, 0xa1, 0x12, 0x95, 0x7a, 0xe1,
-	0x80, 0x0a, 0x6a, 0x91, 0x90, 0xb8, 0x73, 0x47, 0x1e, 0x3f, 0xe7, 0xa7, 0x3d, 0x31, 0x96, 0x2f,
-	0xab, 0x64, 0x66, 0xde, 0x9b, 0xf7, 0xf9, 0xbe, 0xd9, 0xf7, 0x4d, 0xf1, 0x4a, 0xdb, 0xe2, 0x9d,
-	0xfd, 0xce, 0x57, 0xd4, 0xb4, 0xf5, 0x01, 0xb5, 0xcc, 0x2e, 0xf5, 0xb9, 0x6b, 0xf0, 0x81, 0x3e,
-	0xa8, 0xe8, 0x07, 0x7d, 0xe6, 0x1e, 0x6a, 0x8e, 0xcb, 0x7d, 0x4e, 0x94, 0xd1, 0x39, 0x6d, 0xfc,
-	0x9c, 0x36, 0xa8, 0x28, 0xcb, 0xb4, 0x67, 0xda, 0x5c, 0x17, 0xff, 0x86, 0xc7, 0x95, 0xa7, 0x92,
-	0xb4, 0xd4, 0x71, 0x5c, 0x3e, 0x60, 0xdd, 0xd6, 0x70, 0x03, 0x82, 0x1e, 0x49, 0x82, 0x1c, 0xea,
-	0xd2, 0x9e, 0x07, 0x07, 0x57, 0x25, 0x07, 0x5d, 0xee, 0x53, 0xdf, 0xe4, 0x36, 0x1c, 0x7d, 0x26,
-	0x39, 0x3a, 0xfc, 0xde, 0xa2, 0x8e, 0x63, 0x99, 0x9d, 0xf1, 0xb8, 0xc7, 0x1d, 0xee, 0xf5, 0xb8,
-	0xa7, 0xb7, 0xa9, 0xc7, 0x42, 0x21, 0xf4, 0x41, 0xa5, 0xcd, 0x7c, 0x1a, 0x94, 0x62, 0x98, 0xf6,
-	0xf8, 0xd9, 0x92, 0xc1, 0x0d, 0x2e, 0x3e, 0xea, 0xc1, 0x27, 0x58, 0xbd, 0x6f, 0x70, 0x6e, 0x58,
-	0x4c, 0xa7, 0x8e, 0xa9, 0x53, 0xdb, 0x86, 0xb2, 0x00, 0x41, 0x2d, 0x61, 0xb2, 0x17, 0x64, 0x6d,
-	0x08, 0xae, 0x26, 0x3b, 0xe8, 0x33, 0xcf, 0x57, 0xbf, 0xc0, 0xb7, 0x27, 0x56, 0x3d, 0x87, 0xdb,
-	0x1e, 0x23, 0x1f, 0xe3, 0xc5, 0x90, 0xff, 0x1e, 0x7a, 0x88, 0x5e, 0x7b, 0xfe, 0x89, 0xaa, 0x25,
-	0x77, 0x43, 0x0b, 0x63, 0x37, 0x96, 0x4e, 0x2f, 0x1f, 0x14, 0x7e, 0xfe, 0xfb, 0x97, 0xc7, 0xa8,
-	0x09, 0xc1, 0xea, 0x26, 0x7e, 0x45, 0x64, 0xdf, 0x66, 0xfe, 0xa7, 0x51, 0x50, 0x7d, 0x44, 0x0e,
-	0x45, 0x90, 0xfb, 0x78, 0xa9, 0x43, 0xed, 0x6e, 0xb0, 0xcf, 0xc4, 0x85, 0x4b, 0xcd, 0xd1, 0x82,
-	0x7a, 0x82, 0xf0, 0xab, 0xf2, 0x2c, 0x50, 0xf4, 0x3e, 0xbe, 0x13, 0x2b, 0x30, 0x30, 0xbc, 0x25,
-	0x63, 0x88, 0x4b, 0xbc, 0x71, 0x23, 0x20, 0x6a, 0x96, 0x06, 0x31, 0x7b, 0x6a, 0x0f, 0xd0, 0xea,
-	0x96, 0x25, 0x43, 0xdb, 0xc2, 0x78, 0xd4, 0x3d, 0x28, 0x64, 0x45, 0x0b, 0x5b, 0xad, 0x05, 0xad,
-	0xd6, 0xc2, 0x37, 0x0f, 0xad, 0xd6, 0x1a, 0xd4, 0x60, 0x10, 0xdb, 0x1c, 0x8b, 0x54, 0x7f, 0x8f,
-	0x44, 0x48, 0xbc, 0x6f, 0xbe, 0x08, 0x0b, 0x79, 0x8b, 0x40, 0xb6, 0x27, 0xe8, 0x8a, 0x82, 0xee,
-	0xd1, 0x5c, 0xba, 0xb0, 0xd2, 0x09, 0xbc, 0x1a, 0x7e, 0x18, 0xb5, 0xb8, 0x0e, 0xff, 0x59, 0x87,
-	0xc5, 0xa4, 0x7b, 0x25, 0xdf, 0x23, 0xfc, 0xb2, 0x24, 0x05, 0xa8, 0xd3, 0xc6, 0x64, 0x76, 0x18,
-	0x40, 0x5b, 0xde, 0x94, 0x49, 0x33, 0x93, 0x12, 0x74, 0x59, 0xa6, 0xd3, 0x1b, 0xea, 0xd7, 0xc0,
-	0x52, 0xb7, 0xac, 0x44, 0x96, 0xbc, 0x9e, 0xc5, 0x79, 0x44, 0x1d, 0x7f, 0xd9, 0x1c, 0xea, 0x85,
-	0xfc, 0xa8, 0xf3, 0x7b, 0x0a, 0x15, 0xfc, 0x20, 0xea, 0xe3, 0xae, 0xc3, 0x5c, 0x01, 0x02, 0xa3,
-	0x2c, 0x52, 0xef, 0x45, 0x5c, 0x34, 0xbb, 0x42, 0xb5, 0x1b, 0xcd, 0xa2, 0xd9, 0x55, 0xbf, 0x43,
-	0xa3, 0xe7, 0x33, 0x1b, 0x03, 0x22, 0xb4, 0xf0, 0x32, 0x87, 0xbd, 0x56, 0x34, 0xb2, 0x41, 0xf9,
-	0x37, 0x64, 0x1a, 0x4c, 0x27, 0x04, 0x09, 0x6e, 0xf1, 0xa9, 0x75, 0xd5, 0x84, 0xc2, 0xeb, 0x96,
-	0x95, 0x54, 0x78, 0x5e, 0x6d, 0x3f, 0x43, 0xa3, 0x37, 0xf6, 0x7f, 0x81, 0x17, 0xf2, 0x02, 0xce,
-	0xaf, 0xe5, 0x0d, 0x98, 0xa5, 0x0d, 0x66, 0x77, 0x4d, 0xdb, 0x48, 0x52, 0x6f, 0x15, 0xdf, 0xea,
-	0xf4, 0x5d, 0x97, 0xd9, 0x7e, 0x2b, 0xaa, 0x05, 0xe6, 0xc0, 0x4b, 0xb0, 0x1e, 0x45, 0xaa, 0x3f,
-	0x45, 0xe3, 0x32, 0x31, 0x25, 0x88, 0x54, 0xc2, 0x37, 0xbf, 0xe4, 0x7d, 0x3b, 0x7c, 0x4d, 0xcf,
-	0x35, 0xc3, 0x2f, 0xf1, 0xd2, 0x15, 0xf3, 0x7b, 0x2b, 0x4f, 0xce, 0x5e, 0xc0, 0x37, 0x45, 0x7d,
-	0xe4, 0x47, 0x84, 0x17, 0x43, 0x03, 0x25, 0x9a, 0x2c, 0xf5, 0xac, 0x77, 0x2b, 0x7a, 0xea, 0xf3,
-	0x21, 0xac, 0x5a, 0xf9, 0xf6, 0xe2, 0xaf, 0x93, 0xe2, 0xeb, 0x64, 0x55, 0x3f, 0xa4, 0x3d, 0x6a,
-	0x31, 0x7d, 0xee, 0xcf, 0x1f, 0xf2, 0x0f, 0xc2, 0x77, 0x13, 0x7c, 0x97, 0x7c, 0x38, 0xf7, 0x7e,
-	0xb9, 0xef, 0x2b, 0xb5, 0xec, 0x09, 0x80, 0x68, 0x47, 0x10, 0x6d, 0x91, 0x8f, 0x52, 0x10, 0xc5,
-	0xda, 0xa2, 0x7e, 0x34, 0xb4, 0x90, 0x63, 0xf2, 0x07, 0xc2, 0xf7, 0x76, 0x4c, 0x2f, 0x2b, 0xad,
-	0xfc, 0xa7, 0x40, 0x0a, 0xda, 0x39, 0xde, 0xae, 0xd6, 0x04, 0xed, 0x07, 0xe4, 0xbd, 0xac, 0xb4,
-	0xe4, 0x12, 0xe1, 0x52, 0x9c, 0x41, 0x92, 0x6a, 0x9a, 0x56, 0x24, 0xd9, 0x99, 0xb2, 0x9e, 0x31,
-	0x1a, 0xb8, 0x3e, 0x11, 0x5c, 0x9b, 0xa4, 0x9e, 0x82, 0x6b, 0xd6, 0xc8, 0x26, 0x5a, 0x78, 0x81,
-	0xf0, 0x9d, 0xa0, 0x85, 0x59, 0x08, 0x25, 0x86, 0x9d, 0x82, 0x50, 0xe6, 0xc0, 0xea, 0xba, 0x20,
-	0x7c, 0x97, 0xbc, 0x93, 0x89, 0x30, 0xa0, 0xba, 0x1d, 0xe3, 0x6d, 0x64, 0x2d, 0x8d, 0xee, 0x09,
-	0xe3, 0x54, 0xa9, 0x66, 0x0b, 0x06, 0xa2, 0xba, 0x20, 0x5a, 0x23, 0xef, 0xa7, 0x20, 0x9a, 0x99,
-	0xa5, 0xfa, 0x91, 0xd9, 0x3d, 0x26, 0xbf, 0x22, 0x5c, 0x0a, 0x7a, 0x95, 0x01, 0x2b, 0xd9, 0x63,
-	0x95, 0x6a, 0xb6, 0x60, 0xc0, 0xaa, 0x0a, 0xac, 0x67, 0xe4, 0xed, 0x2c, 0x58, 0xe4, 0x5f, 0x84,
-	0xef, 0x26, 0x38, 0x4e, 0x8a, 0xf9, 0x21, 0xb7, 0xbf, 0x14, 0xf3, 0x63, 0x8e, 0xd9, 0xa9, 0x9f,
-	0x09, 0xb8, 0x3d, 0xb2, 0x9b, 0x66, 0xfe, 0x87, 0xb9, 0x5a, 0x31, 0xbd, 0x9b, 0x36, 0xe1, 0xe3,
-	0x8d, 0xda, 0xe9, 0x55, 0x19, 0x9d, 0x5f, 0x95, 0xd1, 0x9f, 0x57, 0x65, 0xf4, 0xc3, 0x75, 0xb9,
-	0x70, 0x7e, 0x5d, 0x2e, 0xfc, 0x76, 0x5d, 0x2e, 0x7c, 0xbe, 0x32, 0x7b, 0xd3, 0x37, 0x93, 0x77,
-	0xf9, 0x87, 0x0e, 0xf3, 0xda, 0x8b, 0xe2, 0x8f, 0xd4, 0xa7, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff,
-	0x3b, 0x22, 0x00, 0x1e, 0x1e, 0x10, 0x00, 0x00,
+	// 1140 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x98, 0xcf, 0x6f, 0x1b, 0x45,
+	0x14, 0xc7, 0x33, 0x76, 0x1a, 0x35, 0x53, 0x0a, 0xc9, 0xc4, 0x51, 0xc2, 0x52, 0x39, 0x61, 0xa9,
+	0xd2, 0xa6, 0xa1, 0xbb, 0x75, 0xd2, 0x86, 0x42, 0x53, 0x11, 0x27, 0x25, 0x11, 0x52, 0xa4, 0xba,
+	0x3e, 0x80, 0x84, 0x90, 0xac, 0xb1, 0x3d, 0x98, 0xa5, 0xeb, 0x9d, 0xed, 0xee, 0xda, 0x10, 0x55,
+	0xb9, 0xc0, 0x81, 0x2b, 0x52, 0xaf, 0x70, 0x47, 0x42, 0x42, 0x1c, 0xfb, 0x27, 0xf4, 0x80, 0x44,
+	0xa4, 0x5e, 0x38, 0xa0, 0x82, 0x12, 0x24, 0x24, 0xc4, 0x95, 0x3b, 0xda, 0xd9, 0xb7, 0xfe, 0xb9,
+	0x3b, 0xde, 0xac, 0xcc, 0xc5, 0xb2, 0x67, 0xe6, 0xbd, 0x79, 0x9f, 0xef, 0x9b, 0x9d, 0xfd, 0xca,
+	0x78, 0xa5, 0x6a, 0xf2, 0xda, 0xc3, 0xda, 0xa7, 0xd4, 0xb0, 0xf4, 0x36, 0x35, 0x8d, 0x3a, 0xf5,
+	0xb8, 0xd3, 0xe0, 0x6d, 0xbd, 0x5d, 0xd0, 0x1f, 0xb5, 0x98, 0x73, 0xa8, 0xd9, 0x0e, 0xf7, 0x38,
+	0x51, 0xba, 0xeb, 0xb4, 0xde, 0x75, 0x5a, 0xbb, 0xa0, 0xcc, 0xd2, 0xa6, 0x61, 0x71, 0x5d, 0x7c,
+	0x06, 0xcb, 0x95, 0x0d, 0x49, 0x5a, 0x6a, 0xdb, 0x0e, 0x6f, 0xb3, 0x7a, 0xa5, 0x33, 0x01, 0x41,
+	0x9a, 0x24, 0xa8, 0xc6, 0xad, 0x1a, 0xb3, 0x3c, 0x87, 0x7a, 0x06, 0xb7, 0x60, 0xfd, 0x15, 0xc9,
+	0x7a, 0x9b, 0x3a, 0xb4, 0xe9, 0xc2, 0xc2, 0x55, 0xc9, 0x42, 0x87, 0x7b, 0xbd, 0x39, 0x37, 0x25,
+	0x4b, 0x3b, 0xbf, 0x2b, 0xd4, 0xb6, 0x4d, 0xa3, 0xd6, 0x1b, 0x77, 0xad, 0xc6, 0xdd, 0x26, 0x77,
+	0xf5, 0x2a, 0x75, 0x59, 0x20, 0x9c, 0xde, 0x2e, 0x54, 0x99, 0x47, 0xfd, 0x52, 0x1a, 0x86, 0xd5,
+	0xbb, 0x36, 0xd7, 0xe0, 0x0d, 0x2e, 0xbe, 0xea, 0xfe, 0x37, 0x18, 0xbd, 0xd4, 0xe0, 0xbc, 0x61,
+	0x32, 0x9d, 0xda, 0x86, 0x4e, 0x2d, 0x0b, 0xca, 0x02, 0x04, 0x35, 0x87, 0xc9, 0x03, 0x3f, 0x6b,
+	0x49, 0x70, 0x95, 0xd9, 0xa3, 0x16, 0x73, 0x3d, 0xf5, 0x63, 0x3c, 0xd7, 0x37, 0xea, 0xda, 0xdc,
+	0x72, 0x19, 0x79, 0x0f, 0x4f, 0x05, 0xfc, 0x8b, 0x68, 0x19, 0x5d, 0xbd, 0xb0, 0xae, 0x6a, 0xf1,
+	0xdd, 0xd3, 0x82, 0xd8, 0x9d, 0xe9, 0x67, 0x2f, 0x96, 0x26, 0xbe, 0xff, 0xeb, 0xa7, 0x6b, 0xa8,
+	0x0c, 0xc1, 0xea, 0x2e, 0x7e, 0x43, 0x64, 0xdf, 0x67, 0xde, 0x07, 0x61, 0x50, 0xb1, 0x4b, 0x0e,
+	0x45, 0x90, 0x4b, 0x78, 0xba, 0x46, 0xad, 0xba, 0x3f, 0xcf, 0xc4, 0x86, 0xd3, 0xe5, 0xee, 0x80,
+	0xfa, 0x04, 0xe1, 0xcb, 0xf2, 0x2c, 0x50, 0xf4, 0x43, 0x3c, 0x1f, 0x29, 0x30, 0x30, 0xdc, 0x90,
+	0x31, 0x44, 0x25, 0xde, 0x99, 0xf4, 0x89, 0xca, 0xb9, 0x76, 0xc4, 0x9c, 0xda, 0x04, 0xb4, 0xa2,
+	0x69, 0xca, 0xd0, 0xf6, 0x30, 0xee, 0x76, 0x0f, 0x0a, 0x59, 0xd1, 0x82, 0x56, 0x6b, 0x7e, 0xab,
+	0xb5, 0xe0, 0x19, 0x81, 0x56, 0x6b, 0x25, 0xda, 0x60, 0x10, 0x5b, 0xee, 0x89, 0x54, 0x7f, 0x0b,
+	0x45, 0x88, 0xdd, 0x6f, 0xb4, 0x08, 0xd9, 0x71, 0x8b, 0x40, 0xf6, 0xfb, 0xe8, 0x32, 0x82, 0xee,
+	0xca, 0x48, 0xba, 0xa0, 0xd2, 0x3e, 0xbc, 0x6d, 0xbc, 0x1c, 0xb6, 0xb8, 0x08, 0x0f, 0x77, 0xa7,
+	0x98, 0x64, 0xa7, 0xe4, 0x6b, 0x84, 0x5f, 0x97, 0xa4, 0x00, 0x75, 0xaa, 0x98, 0x0c, 0x5f, 0x1e,
+	0xd0, 0x96, 0xeb, 0x32, 0x69, 0x86, 0x52, 0x82, 0x2e, 0xb3, 0x74, 0x70, 0x42, 0xfd, 0x0c, 0x58,
+	0x8a, 0xa6, 0x19, 0xcb, 0x32, 0xae, 0x63, 0x71, 0x1c, 0x52, 0x47, 0x6f, 0x36, 0x82, 0x3a, 0x3b,
+	0x3e, 0xea, 0xf1, 0x1d, 0x85, 0x02, 0x5e, 0x0a, 0xfb, 0x78, 0xdf, 0x66, 0x8e, 0x00, 0x81, 0xab,
+	0x2c, 0x54, 0xef, 0x65, 0x9c, 0x31, 0xea, 0x42, 0xb5, 0xc9, 0x72, 0xc6, 0xa8, 0xab, 0x5f, 0xa1,
+	0xee, 0xf1, 0x19, 0x8e, 0x01, 0x11, 0x2a, 0x78, 0x96, 0xc3, 0x5c, 0x25, 0xbc, 0xb2, 0x41, 0xf9,
+	0x37, 0x65, 0x1a, 0x0c, 0x26, 0x04, 0x09, 0x66, 0xf8, 0xc0, 0xb8, 0x6a, 0x40, 0xe1, 0x45, 0xd3,
+	0x8c, 0x2b, 0x7c, 0x5c, 0x6d, 0xff, 0x19, 0x75, 0xcf, 0xd8, 0x59, 0x81, 0xb3, 0xe3, 0x02, 0x1e,
+	0x5f, 0xcb, 0x4b, 0x70, 0x97, 0x96, 0x98, 0x55, 0x37, 0xac, 0x46, 0x9c, 0x7a, 0xab, 0x78, 0xa6,
+	0xd6, 0x72, 0x1c, 0x66, 0x79, 0x95, 0xb0, 0x16, 0xb8, 0x07, 0x5e, 0x81, 0xf1, 0x30, 0x52, 0xfd,
+	0x2e, 0xbc, 0x2e, 0x63, 0x53, 0x82, 0x48, 0x39, 0x7c, 0xee, 0x13, 0xde, 0xb2, 0x82, 0xd3, 0x74,
+	0xbe, 0x1c, 0xfc, 0x88, 0x96, 0x2e, 0x33, 0xc6, 0xb3, 0xf2, 0x1a, 0x7e, 0x55, 0x94, 0xb7, 0xdb,
+	0x6b, 0x4a, 0xc2, 0x77, 0xf2, 0x3f, 0x08, 0x2b, 0x51, 0xb3, 0x50, 0xf2, 0x01, 0x9e, 0x6a, 0x38,
+	0xbc, 0x65, 0xbb, 0xd0, 0x4c, 0x4d, 0x56, 0x51, 0x5f, 0x8a, 0x7d, 0x3f, 0x0c, 0x6a, 0x82, 0x1c,
+	0x64, 0x09, 0x5f, 0xf0, 0xb8, 0x47, 0xcd, 0x8a, 0xcd, 0x3f, 0x67, 0x8e, 0x80, 0xcc, 0x96, 0xb1,
+	0x18, 0x2a, 0xf9, 0x23, 0x64, 0x0d, 0xcf, 0xd2, 0x9a, 0x67, 0xb4, 0x59, 0xf7, 0xea, 0x70, 0x17,
+	0xb3, 0xcb, 0xe8, 0xea, 0xc5, 0xf2, 0x4c, 0x30, 0xd1, 0xb9, 0x04, 0x5c, 0xb2, 0x8e, 0xe7, 0x9b,
+	0x86, 0x55, 0x19, 0x0e, 0x98, 0x14, 0x01, 0x73, 0x4d, 0xc3, 0x2a, 0x0e, 0xc4, 0xa8, 0x14, 0x2f,
+	0x84, 0x67, 0xf9, 0x1e, 0x6b, 0xf2, 0xff, 0xe3, 0x79, 0xf9, 0x01, 0xe1, 0xc5, 0xe1, 0x3d, 0x40,
+	0xcf, 0x3d, 0x7c, 0xbe, 0x0e, 0x63, 0xa0, 0xe8, 0x65, 0x99, 0xa2, 0x61, 0x3c, 0xe8, 0xd8, 0x89,
+	0x1d, 0xdb, 0xe3, 0xb0, 0xfe, 0x74, 0x06, 0x9f, 0x13, 0xd5, 0x92, 0x6f, 0x11, 0x9e, 0x0a, 0xdc,
+	0x15, 0x91, 0x76, 0x79, 0xd8, 0xd8, 0x29, 0x7a, 0xe2, 0xf5, 0x41, 0x05, 0x6a, 0xe1, 0xcb, 0xe7,
+	0x7f, 0x3e, 0xc9, 0xac, 0x91, 0x55, 0xfd, 0x90, 0x36, 0xa9, 0xc9, 0xf4, 0x91, 0xde, 0x98, 0xfc,
+	0x8d, 0xf0, 0x42, 0x8c, 0x29, 0x23, 0xef, 0x8e, 0xdc, 0x5f, 0x6e, 0x0a, 0x95, 0xed, 0xf4, 0x09,
+	0x80, 0xe8, 0x40, 0x10, 0xed, 0x91, 0x7b, 0x09, 0x88, 0x22, 0x3d, 0x93, 0xfe, 0xb8, 0xe3, 0x2f,
+	0x8e, 0xc8, 0xef, 0x08, 0x2f, 0x1e, 0x18, 0x6e, 0x5a, 0x5a, 0xb9, 0x4f, 0x4c, 0x40, 0x3b, 0xc2,
+	0xf8, 0xa9, 0xdb, 0x82, 0xf6, 0x1d, 0x72, 0x3b, 0x2d, 0x2d, 0x79, 0x81, 0x70, 0x2e, 0xca, 0x3d,
+	0x91, 0xad, 0x24, 0xad, 0x88, 0xf3, 0x3a, 0xca, 0xdd, 0x94, 0xd1, 0xc0, 0xf5, 0xbe, 0xe0, 0xda,
+	0x25, 0xc5, 0x04, 0x5c, 0xc3, 0x2e, 0xa7, 0xaf, 0x85, 0xcf, 0x11, 0x9e, 0xf7, 0x5b, 0x98, 0x86,
+	0x50, 0xe2, 0xe6, 0x12, 0x10, 0xca, 0xec, 0x99, 0x7a, 0x57, 0x10, 0xbe, 0x45, 0x6e, 0xa5, 0x22,
+	0xf4, 0xa9, 0xe6, 0x22, 0x8c, 0x0f, 0xb9, 0x93, 0x44, 0xf7, 0x98, 0x77, 0xad, 0xb2, 0x95, 0x2e,
+	0x18, 0x88, 0x8a, 0x82, 0xe8, 0x0e, 0x79, 0x3b, 0x01, 0xd1, 0xd0, 0x8b, 0x56, 0x7f, 0x6c, 0xd4,
+	0x8f, 0xc8, 0x2f, 0x08, 0xe7, 0xfc, 0x5e, 0xa5, 0xc0, 0x8a, 0x37, 0x60, 0xca, 0x56, 0xba, 0x60,
+	0xc0, 0xda, 0x12, 0x58, 0x9b, 0xe4, 0x66, 0x1a, 0x2c, 0xf2, 0x2f, 0xc2, 0x0b, 0x31, 0x76, 0x24,
+	0xc1, 0xfd, 0x21, 0xf7, 0x46, 0x09, 0xee, 0x8f, 0x11, 0x4e, 0x48, 0xfd, 0x50, 0xc0, 0x3d, 0x20,
+	0xf7, 0x93, 0xdc, 0xff, 0x41, 0xae, 0x4a, 0x44, 0xef, 0x06, 0x1d, 0xda, 0x11, 0x79, 0x8a, 0xf0,
+	0xc5, 0x3e, 0x1b, 0x42, 0x6e, 0x8d, 0x2c, 0x36, 0xca, 0x17, 0x29, 0x9b, 0x67, 0x0d, 0x03, 0xb2,
+	0xdb, 0x82, 0x6c, 0x9d, 0xdc, 0x48, 0x40, 0xd6, 0xf7, 0x2f, 0x11, 0xf9, 0x11, 0xe1, 0x97, 0xfc,
+	0x43, 0x18, 0xbe, 0xf3, 0xc9, 0x46, 0x92, 0xf3, 0x33, 0xe0, 0x62, 0x94, 0x9b, 0x67, 0x0b, 0x82,
+	0xaa, 0x37, 0x44, 0xd5, 0xd7, 0xc9, 0x5a, 0x82, 0xaa, 0x43, 0x0f, 0xb2, 0xb3, 0xfd, 0xec, 0x24,
+	0x8f, 0x8e, 0x4f, 0xf2, 0xe8, 0x8f, 0x93, 0x3c, 0xfa, 0xe6, 0x34, 0x3f, 0x71, 0x7c, 0x9a, 0x9f,
+	0xf8, 0xf5, 0x34, 0x3f, 0xf1, 0xd1, 0xca, 0x70, 0x96, 0x2f, 0xfa, 0xf3, 0x78, 0x87, 0x36, 0x73,
+	0xab, 0x53, 0xe2, 0xdf, 0xa2, 0x8d, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0x2a, 0x6f, 0xa0, 0x08,
+	0xd7, 0x13, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -895,6 +1124,16 @@ type QueryClient interface {
 	// undelegate, so it answers from the address they already know rather than
 	// from a rotation id they would have to go and find.
 	PendingOperatorRotation(ctx context.Context, in *QueryPendingOperatorRotationRequest, opts ...grpc.CallOption) (*QueryPendingOperatorRotationResponse, error)
+	// Concentration reports what every declared entity, owner and jurisdiction
+	// currently holds, against its ceiling.
+	//
+	// This is the supervisor's query. Under equal seats a ceiling is a count out
+	// of a count, so the answer is meant to be checked against a list of admitted
+	// validators by somebody who is not recomputing anything — which is the whole
+	// argument for declaring ownership on-chain rather than filing it somewhere.
+	Concentration(ctx context.Context, in *QueryConcentrationRequest, opts ...grpc.CallOption) (*QueryConcentrationResponse, error)
+	// ListDemotion queries every demotion currently in force.
+	ListDemotion(ctx context.Context, in *QueryAllDemotionRequest, opts ...grpc.CallOption) (*QueryAllDemotionResponse, error)
 }
 
 type queryClient struct {
@@ -977,6 +1216,24 @@ func (c *queryClient) PendingOperatorRotation(ctx context.Context, in *QueryPend
 	return out, nil
 }
 
+func (c *queryClient) Concentration(ctx context.Context, in *QueryConcentrationRequest, opts ...grpc.CallOption) (*QueryConcentrationResponse, error) {
+	out := new(QueryConcentrationResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.validatorgov.v1.Query/Concentration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ListDemotion(ctx context.Context, in *QueryAllDemotionRequest, opts ...grpc.CallOption) (*QueryAllDemotionResponse, error) {
+	out := new(QueryAllDemotionResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.validatorgov.v1.Query/ListDemotion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 type QueryServer interface {
 	// Parameters queries the parameters of the module.
@@ -998,6 +1255,16 @@ type QueryServer interface {
 	// undelegate, so it answers from the address they already know rather than
 	// from a rotation id they would have to go and find.
 	PendingOperatorRotation(context.Context, *QueryPendingOperatorRotationRequest) (*QueryPendingOperatorRotationResponse, error)
+	// Concentration reports what every declared entity, owner and jurisdiction
+	// currently holds, against its ceiling.
+	//
+	// This is the supervisor's query. Under equal seats a ceiling is a count out
+	// of a count, so the answer is meant to be checked against a list of admitted
+	// validators by somebody who is not recomputing anything — which is the whole
+	// argument for declaring ownership on-chain rather than filing it somewhere.
+	Concentration(context.Context, *QueryConcentrationRequest) (*QueryConcentrationResponse, error)
+	// ListDemotion queries every demotion currently in force.
+	ListDemotion(context.Context, *QueryAllDemotionRequest) (*QueryAllDemotionResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -1027,6 +1294,12 @@ func (*UnimplementedQueryServer) ListOperatorRotation(ctx context.Context, req *
 }
 func (*UnimplementedQueryServer) PendingOperatorRotation(ctx context.Context, req *QueryPendingOperatorRotationRequest) (*QueryPendingOperatorRotationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PendingOperatorRotation not implemented")
+}
+func (*UnimplementedQueryServer) Concentration(ctx context.Context, req *QueryConcentrationRequest) (*QueryConcentrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Concentration not implemented")
+}
+func (*UnimplementedQueryServer) ListDemotion(ctx context.Context, req *QueryAllDemotionRequest) (*QueryAllDemotionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListDemotion not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -1177,6 +1450,42 @@ func _Query_PendingOperatorRotation_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_Concentration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryConcentrationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Concentration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.validatorgov.v1.Query/Concentration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Concentration(ctx, req.(*QueryConcentrationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ListDemotion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllDemotionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ListDemotion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.validatorgov.v1.Query/ListDemotion",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ListDemotion(ctx, req.(*QueryAllDemotionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Query_serviceDesc = _Query_serviceDesc
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "blockchain.validatorgov.v1.Query",
@@ -1213,6 +1522,14 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PendingOperatorRotation",
 			Handler:    _Query_PendingOperatorRotation_Handler,
+		},
+		{
+			MethodName: "Concentration",
+			Handler:    _Query_Concentration_Handler,
+		},
+		{
+			MethodName: "ListDemotion",
+			Handler:    _Query_ListDemotion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1787,6 +2104,165 @@ func (m *QueryPendingOperatorRotationResponse) MarshalToSizedBuffer(dAtA []byte)
 	return len(dAtA) - i, nil
 }
 
+func (m *QueryConcentrationRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryConcentrationRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryConcentrationRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryConcentrationResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryConcentrationResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryConcentrationResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.MinActiveValidators != 0 {
+		i = encodeVarintQuery(dAtA, i, uint64(m.MinActiveValidators))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.ActiveValidators != 0 {
+		i = encodeVarintQuery(dAtA, i, uint64(m.ActiveValidators))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.TotalPower != 0 {
+		i = encodeVarintQuery(dAtA, i, uint64(m.TotalPower))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Groups) > 0 {
+		for iNdEx := len(m.Groups) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Groups[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllDemotionRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllDemotionRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllDemotionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		{
+			size, err := m.Pagination.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllDemotionResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllDemotionResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllDemotionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		{
+			size, err := m.Pagination.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Demotion) > 0 {
+		for iNdEx := len(m.Demotion) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Demotion[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	offset -= sovQuery(v)
 	base := offset
@@ -2009,6 +2485,71 @@ func (m *QueryPendingOperatorRotationResponse) Size() (n int) {
 	}
 	l = m.OperatorRotation.Size()
 	n += 1 + l + sovQuery(uint64(l))
+	return n
+}
+
+func (m *QueryConcentrationRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *QueryConcentrationResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Groups) > 0 {
+		for _, e := range m.Groups {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	if m.TotalPower != 0 {
+		n += 1 + sovQuery(uint64(m.TotalPower))
+	}
+	if m.ActiveValidators != 0 {
+		n += 1 + sovQuery(uint64(m.ActiveValidators))
+	}
+	if m.MinActiveValidators != 0 {
+		n += 1 + sovQuery(uint64(m.MinActiveValidators))
+	}
+	return n
+}
+
+func (m *QueryAllDemotionRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		l = m.Pagination.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllDemotionResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Demotion) > 0 {
+		for _, e := range m.Demotion {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	if m.Pagination != nil {
+		l = m.Pagination.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
 	return n
 }
 
@@ -3412,6 +3953,403 @@ func (m *QueryPendingOperatorRotationResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if err := m.OperatorRotation.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryConcentrationRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryConcentrationRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryConcentrationRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryConcentrationResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryConcentrationResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryConcentrationResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Groups", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Groups = append(m.Groups, ConcentrationGroup{})
+			if err := m.Groups[len(m.Groups)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalPower", wireType)
+			}
+			m.TotalPower = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TotalPower |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveValidators", wireType)
+			}
+			m.ActiveValidators = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ActiveValidators |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MinActiveValidators", wireType)
+			}
+			m.MinActiveValidators = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MinActiveValidators |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllDemotionRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllDemotionRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllDemotionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Pagination == nil {
+				m.Pagination = &query.PageRequest{}
+			}
+			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllDemotionResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllDemotionResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllDemotionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Demotion", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Demotion = append(m.Demotion, Demotion{})
+			if err := m.Demotion[len(m.Demotion)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Pagination == nil {
+				m.Pagination = &query.PageResponse{}
+			}
+			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

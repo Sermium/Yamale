@@ -1,10 +1,19 @@
 syntax = "proto3";
 package blockchain.validatorgov.v1;
 
+import "blockchain/validatorgov/v1/declaration.proto";
+import "gogoproto/gogo.proto";
+
 option go_package = "yamale/blockchain/x/validatorgov/types";
 
 // ValidatorApplication defines the ValidatorApplication message.
 message ValidatorApplication {
   string candidate = 1;
   string status = 2;
+
+  // declaration is who is behind the applicant. Carried on the application and
+  // not only on the approval, because it is what the admission vote is meant to
+  // be judging: a set asked to approve a candidate whose owner and jurisdiction
+  // it cannot see is being asked to approve an address.
+  Declaration declaration = 3 [(gogoproto.nullable) = false];
 }

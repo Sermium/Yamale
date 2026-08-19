@@ -4,6 +4,7 @@ package blockchain.validatorgov.v1;
 
 import "amino/amino.proto";
 import "blockchain/validatorgov/v1/approved_validator.proto";
+import "blockchain/validatorgov/v1/concentration.proto";
 import "blockchain/validatorgov/v1/params.proto";
 import "blockchain/validatorgov/v1/rotation.proto";
 import "blockchain/validatorgov/v1/validator_application.proto";
@@ -56,6 +57,22 @@ service Query {
   // from a rotation id they would have to go and find.
   rpc PendingOperatorRotation(QueryPendingOperatorRotationRequest) returns (QueryPendingOperatorRotationResponse) {
     option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/pending_operator_rotation/{current_operator}";
+  }
+
+  // Concentration reports what every declared entity, owner and jurisdiction
+  // currently holds, against its ceiling.
+  //
+  // This is the supervisor's query. Under equal seats a ceiling is a count out
+  // of a count, so the answer is meant to be checked against a list of admitted
+  // validators by somebody who is not recomputing anything — which is the whole
+  // argument for declaring ownership on-chain rather than filing it somewhere.
+  rpc Concentration(QueryConcentrationRequest) returns (QueryConcentrationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/concentration";
+  }
+
+  // ListDemotion queries every demotion currently in force.
+  rpc ListDemotion(QueryAllDemotionRequest) returns (QueryAllDemotionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/demotion";
   }
 }
 // QueryParamsRequest is request type for the Query/Params RPC method.
@@ -145,4 +162,35 @@ message QueryPendingOperatorRotationResponse {
   // the answer the question has, not a failure to answer it.
   bool found = 1;
   OperatorRotation operator_rotation = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryConcentrationRequest defines the QueryConcentrationRequest message.
+message QueryConcentrationRequest {}
+
+// QueryConcentrationResponse defines the QueryConcentrationResponse message.
+message QueryConcentrationResponse {
+  repeated ConcentrationGroup groups = 1 [(gogoproto.nullable) = false];
+
+  // total_power is the denominator every share above was measured against: the
+  // power of the validators active right now. Returned alongside so that a
+  // reader can check the arithmetic rather than trust it.
+  int64 total_power = 2;
+
+  // active_validators and min_active_validators say whether the check is in a
+  // position to act at all. A breach reported while these are equal is one the
+  // chain has decided not to correct, and that distinction is invisible from
+  // the shares alone.
+  uint32 active_validators = 3;
+  uint32 min_active_validators = 4;
+}
+
+// QueryAllDemotionRequest defines the QueryAllDemotionRequest message.
+message QueryAllDemotionRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllDemotionResponse defines the QueryAllDemotionResponse message.
+message QueryAllDemotionResponse {
+  repeated Demotion demotion = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

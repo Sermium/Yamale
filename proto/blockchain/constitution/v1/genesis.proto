@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package blockchain.constitution.v1;
+
+import "amino/amino.proto";
+import "blockchain/constitution/v1/constitution.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/constitution/types";
+
+// GenesisState defines the constitution module's genesis state.
+//
+// There is no Params field, and its absence is the design. This module holds
+// nothing an ordinary governance proposal may write, so giving it a mutable
+// parameter set would be handing back the property it exists to provide.
+message GenesisState {
+  // invariants is the founding settlement. Every field of it must be set: a
+  // genesis that leaves one at zero is refused at InitGenesis rather than
+  // completed from a default, because a ceiling nobody chose is not a ceiling
+  // and an address compiled into a binary is not the foundation on somebody
+  // else's network.
+  Invariants invariants = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+
+  // amendments carries every amendment ever opened, pending ones included. A
+  // chain that dropped a pending amendment on export would lose a public delay
+  // that was already running — at the one moment, an upgrade, when nobody is
+  // watching the constitution.
+  repeated Amendment amendments = 2 [(gogoproto.nullable) = false];
+
+  // ratifications are exported individually because the running total on the
+  // amendment is not enough to reconstruct them, and a chain that kept the
+  // total but forgot who agreed would let a validator ratify a second time
+  // after an import.
+  repeated Ratification ratifications = 3 [(gogoproto.nullable) = false];
+
+  // amendment_count is the next id to hand out. Exported explicitly rather than
+  // rebuilt from the highest amendment present, so that a genesis edited by
+  // hand says what it means and importing it cannot collide.
+  uint64 amendment_count = 4;
+}

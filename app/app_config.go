@@ -5,6 +5,8 @@ import (
 	"time"
 	_ "yamale/blockchain/x/alias/module"
 	aliasmoduletypes "yamale/blockchain/x/alias/types"
+	_ "yamale/blockchain/x/constitution/module"
+	constitutionmoduletypes "yamale/blockchain/x/constitution/types"
 	_ "yamale/blockchain/x/enforcement/module"
 	enforcementmoduletypes "yamale/blockchain/x/enforcement/types"
 	_ "yamale/blockchain/x/oracle/module"
@@ -95,6 +97,18 @@ var (
 	}, ammModuleAccPerms, builderfeeModuleAccPerms, []*authmodulev1.ModuleAccountPermission{
 		{Account: paymsgmoduletypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner, authtypes.Staking}},
 	}, emissionModuleAccPerms, []*authmodulev1.ModuleAccountPermission{
+		// The seat reserve: the undelegated seats governance draws on when it
+		// sets a validator's power, and the account they return to when it
+		// lowers one.
+		//
+		// Staking and nothing else. It must be able to delegate, and it must
+		// never be able to mint: a module that both decides who validates and
+		// can create the token deciding how much they weigh is a module that
+		// can hand itself a validator set. The reserve is funded at genesis or
+		// by an ordinary transfer, and it is deliberately not on the blocked
+		// list for that reason — a transfer to it is not a mistake that strands
+		// funds, it is the only way to add seats.
+		{Account: validatorgovmoduletypes.ModuleName, Permissions: []string{authtypes.Staking}},
 		// The treasury holds user deposits in custody and must never be able to
 		// create or destroy value, so it is granted no permissions at all.
 		{Account: treasurymoduletypes.ModuleName},
@@ -181,7 +195,16 @@ var (
 			// oracle tallies after staking, so a validator that stopped being
 			// bonded during this block no longer carries weight in the rate
 			// its earlier vote asked for.
-			[]string{validatorgovmoduletypes.ModuleName, stablecoinmoduletypes.ModuleName},
+			//
+			// constitution runs before validatorgov, and both run after
+			// staking. Before, because an amendment enacted in this block
+			// changes the ceilings the epoch check is about to enforce, and a
+			// chain that enforced last block's ceilings for one more epoch
+			// would be enforcing a settlement it had already replaced. After
+			// staking, because the ceilings are measured over bonded power and
+			// a validator that stopped being bonded during this block should
+			// not still be counted in somebody's concentration.
+			[]string{constitutionmoduletypes.ModuleName, validatorgovmoduletypes.ModuleName, stablecoinmoduletypes.ModuleName},
 			ammEndBlockers,
 			builderfeeEndBlockers,
 			[]string{paymsgmoduletypes.ModuleName},
@@ -226,7 +249,13 @@ var (
 			// ibc modules
 			ibcInitGenesis,
 			// chain modules
-			[]string{validatorgovmoduletypes.ModuleName, stablecoinmoduletypes.ModuleName},
+			//
+			// constitution is first of them, because x/enforcement refuses to
+			// start if its own parameters disagree with the settlement and
+			// x/validatorgov reads the ceilings out of it. A module that
+			// checked itself against a constitution not yet written would fail
+			// every start.
+			[]string{constitutionmoduletypes.ModuleName, validatorgovmoduletypes.ModuleName, stablecoinmoduletypes.ModuleName},
 			ammInitGenesis,
 			builderfeeInitGenesis,
 			[]string{paymsgmoduletypes.ModuleName},
@@ -340,6 +369,10 @@ var (
 				Config: appconfig.WrapAny(&epochsmodulev1.Module{}),
 			},
 		}, landModuleConfigs, []*appv1alpha1.ModuleConfig{
+			{
+				Name:   constitutionmoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&constitutionmoduletypes.Module{}),
+			},
 			{
 				Name:   validatorgovmoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&validatorgovmoduletypes.Module{}),

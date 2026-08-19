@@ -36,7 +36,7 @@
         "parameters": [
           {
             "name": "id",
-            "description": "id in any form the client has it: hyphenated, lower case, with the\nconfusable characters unfolded. The module normalises before looking up.",
+            "description": "id in any form the client has it: hyphenated, lower case, with the\r\nconfusable characters unfolded. The module normalises before looking up.",
             "in": "path",
             "required": true,
             "type": "string"
@@ -515,6 +515,147 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/constitution/v1/amendment": {
+      "get": {
+        "operationId": "Query_ListAmendment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllAmendmentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/constitution/v1/amendment/{amendment_id}/ratifications": {
+      "get": {
+        "operationId": "Query_Ratifications",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRatificationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "amendment_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/constitution/v1/amendment/{id}": {
+      "get": {
+        "operationId": "Query_Amendment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAmendmentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/constitution/v1/invariants": {
+      "get": {
+        "operationId": "Query_Invariants",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryInvariantsResponse"
             }
           },
           "default": {
@@ -3082,6 +3223,85 @@
         ]
       }
     },
+    "/yamale/blockchain/validatorgov/v1/concentration": {
+      "get": {
+        "operationId": "Query_Concentration",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryConcentrationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/demotion": {
+      "get": {
+        "operationId": "Query_ListDemotion",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllDemotionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/validatorgov/v1/operator_rotation": {
       "get": {
         "operationId": "Query_ListOperatorRotation",
@@ -3311,6 +3531,17 @@
     }
   },
   "definitions": {
+    "AmendmentStatus": {
+      "type": "string",
+      "enum": [
+        "AMENDMENT_STATUS_UNSPECIFIED",
+        "AMENDMENT_STATUS_PENDING",
+        "AMENDMENT_STATUS_ENACTED",
+        "AMENDMENT_STATUS_LAPSED",
+        "AMENDMENT_STATUS_WITHDRAWN"
+      ],
+      "default": "AMENDMENT_STATUS_UNSPECIFIED"
+    },
     "Any": {
       "type": "object",
       "properties": {
@@ -3401,6 +3632,9 @@
         },
         "approved": {
           "type": "string"
+        },
+        "declaration": {
+          "$ref": "#/definitions/v1.Declaration"
         }
       }
     },
@@ -3589,6 +3823,42 @@
         }
       }
     },
+    "ConcentrationCap": {
+      "type": "string",
+      "enum": [
+        "CONCENTRATION_CAP_UNSPECIFIED",
+        "CONCENTRATION_CAP_ENTITY",
+        "CONCENTRATION_CAP_BENEFICIAL_OWNER",
+        "CONCENTRATION_CAP_JURISDICTION"
+      ],
+      "default": "CONCENTRATION_CAP_UNSPECIFIED"
+    },
+    "ConcentrationGroup": {
+      "type": "object",
+      "properties": {
+        "cap": {
+          "$ref": "#/definitions/ConcentrationCap"
+        },
+        "group": {
+          "type": "string"
+        },
+        "power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "power_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "cap_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "over": {
+          "type": "boolean"
+        }
+      }
+    },
     "Deed": {
       "type": "object",
       "properties": {
@@ -3610,6 +3880,35 @@
         "recorded_at": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "Demotion": {
+      "type": "object",
+      "properties": {
+        "operator": {
+          "type": "string"
+        },
+        "cap": {
+          "$ref": "#/definitions/ConcentrationCap"
+        },
+        "group": {
+          "type": "string"
+        },
+        "group_power_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "cap_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "demoted_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "jailed_validator": {
+          "type": "boolean"
         }
       }
     },
@@ -4024,6 +4323,21 @@
         }
       }
     },
+    "QueryAllAmendmentResponse": {
+      "type": "object",
+      "properties": {
+        "amendment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Amendment"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryAllApprovedBuilderResponse": {
       "type": "object",
       "properties": {
@@ -4092,6 +4406,21 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/BuilderApplication"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllDemotionResponse": {
+      "type": "object",
+      "properties": {
+        "demotion": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Demotion"
           }
         },
         "pagination": {
@@ -4216,6 +4545,14 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAmendmentResponse": {
+      "type": "object",
+      "properties": {
+        "amendment": {
+          "$ref": "#/definitions/v1.Amendment"
         }
       }
     },
@@ -4354,6 +4691,30 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryConcentrationResponse": {
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ConcentrationGroup"
+          }
+        },
+        "total_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "active_validators": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "min_active_validators": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -4579,6 +4940,14 @@
         }
       }
     },
+    "QueryInvariantsResponse": {
+      "type": "object",
+      "properties": {
+        "invariants": {
+          "$ref": "#/definitions/v1.Invariants"
+        }
+      }
+    },
     "QueryJurisdictionResponse": {
       "type": "object",
       "properties": {
@@ -4792,6 +5161,22 @@
         }
       }
     },
+    "QueryRatificationsResponse": {
+      "type": "object",
+      "properties": {
+        "ratifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Ratification"
+          }
+        },
+        "required_power": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "QueryRecoveredResponse": {
       "type": "object",
       "properties": {
@@ -4890,6 +5275,26 @@
             "type": "object",
             "$ref": "#/definitions/DenomBalance"
           }
+        }
+      }
+    },
+    "Ratification": {
+      "type": "object",
+      "properties": {
+        "amendment_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "validator": {
+          "type": "string"
+        },
+        "power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "height": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -5088,6 +5493,9 @@
         },
         "status": {
           "type": "string"
+        },
+        "declaration": {
+          "$ref": "#/definitions/v1.Declaration"
         }
       }
     },
@@ -5187,6 +5595,44 @@
         }
       }
     },
+    "v1.Amendment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "proposed": {
+          "$ref": "#/definitions/v1.Invariants"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "proposed_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "effective_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "snapshot_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "ratified_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/definitions/AmendmentStatus"
+        },
+        "resolved_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Appraisal": {
       "type": "object",
       "properties": {
@@ -5260,6 +5706,24 @@
         "parcel_id": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "v1.Declaration": {
+      "type": "object",
+      "properties": {
+        "legal_entity_id": {
+          "type": "string"
+        },
+        "beneficial_owner_id": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "attested_at_height": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -5347,6 +5811,54 @@
         }
       }
     },
+    "v1.Invariants": {
+      "type": "object",
+      "properties": {
+        "max_entity_power_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "max_beneficial_owner_power_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "max_jurisdiction_power_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "concentration_epoch_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "min_active_validators": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "enforcement_threshold_bps": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "enforcement_recovery_destination": {
+          "type": "string"
+        },
+        "enforcement_voting_period_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "enforcement_provisional_freeze_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "amendment_delay_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "amendment_threshold_bps": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "v1.Jurisdiction": {
       "type": "object",
       "properties": {
@@ -5375,6 +5887,13 @@
         "recovery_challenge_window_blocks": {
           "type": "string",
           "format": "uint64"
+        },
+        "attestation_interval_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "seat_bond_amount": {
+          "type": "string"
         }
       }
     },

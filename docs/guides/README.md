@@ -9,6 +9,7 @@ before publishing.
 | [What Yamale is](concepts.md) | The ideas the rest of the documentation assumes. No commands. |
 | [Run a local chain](local-devnet.md) | A single-node network on your machine, with the API open. |
 | [Set up a treasury](treasury.md) | Shared funds with roles, spending limits and a vesting schedule. |
+| [What governance can and cannot change](constitution.md) | The line between an ordinary parameter and an invariant, and how one is amended. |
 
 For exhaustive detail on any message, query, parameter or error code, see the
 [reference](../reference/), which is generated from the code and cannot drift

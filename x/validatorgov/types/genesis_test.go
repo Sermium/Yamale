@@ -20,9 +20,12 @@ func TestGenesisState_Validate(t *testing.T) {
 			valid:    true,
 		},
 		{
-			desc:     "valid genesis state",
-			genState: &types.GenesisState{Params: types.DefaultParams(), RotationCount: 1, ValidatorApplicationMap: []types.ValidatorApplication{{Candidate: "0"}, {Candidate: "1"}}, ApprovedValidatorMap: []types.ApprovedValidator{{Candidate: "0"}, {Candidate: "1"}}},
-			valid:    true,
+			desc: "valid genesis state",
+			genState: &types.GenesisState{Params: types.DefaultParams(), RotationCount: 1, ValidatorApplicationMap: []types.ValidatorApplication{{Candidate: "0"}, {Candidate: "1"}}, ApprovedValidatorMap: []types.ApprovedValidator{
+				{Candidate: "0", Declaration: types.Declaration{LegalEntityId: "ENTITY-0", BeneficialOwnerId: "OWNER-0", Jurisdiction: "CH"}},
+				{Candidate: "1", Declaration: types.Declaration{LegalEntityId: "ENTITY-1", BeneficialOwnerId: "OWNER-1", Jurisdiction: "ZA"}},
+			}},
+			valid: true,
 		}, {
 			desc: "duplicated validatorApplication",
 			genState: &types.GenesisState{

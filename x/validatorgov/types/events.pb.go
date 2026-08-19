@@ -278,10 +278,332 @@ func (m *EventRotationResolved) GetStatus() RotationStatus {
 	return ROTATION_STATUS_UNSPECIFIED
 }
 
+// EventValidatorDemoted is emitted when the epoch check takes a validator's
+// seats away.
+type EventValidatorDemoted struct {
+	Operator      string           `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	Cap           ConcentrationCap `protobuf:"varint,2,opt,name=cap,proto3,enum=blockchain.validatorgov.v1.ConcentrationCap" json:"cap,omitempty"`
+	Group         string           `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
+	GroupPowerBps uint64           `protobuf:"varint,4,opt,name=group_power_bps,json=groupPowerBps,proto3" json:"group_power_bps,omitempty"`
+	CapBps        uint64           `protobuf:"varint,5,opt,name=cap_bps,json=capBps,proto3" json:"cap_bps,omitempty"`
+	// jailed_validator is false when the validator was already jailed for
+	// something else, in which case the demotion is recorded but nothing was
+	// done to it.
+	JailedValidator bool `protobuf:"varint,6,opt,name=jailed_validator,json=jailedValidator,proto3" json:"jailed_validator,omitempty"`
+}
+
+func (m *EventValidatorDemoted) Reset()         { *m = EventValidatorDemoted{} }
+func (m *EventValidatorDemoted) String() string { return proto.CompactTextString(m) }
+func (*EventValidatorDemoted) ProtoMessage()    {}
+func (*EventValidatorDemoted) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2da3b0b75d2c4e1, []int{3}
+}
+func (m *EventValidatorDemoted) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventValidatorDemoted) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventValidatorDemoted.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventValidatorDemoted) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventValidatorDemoted.Merge(m, src)
+}
+func (m *EventValidatorDemoted) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventValidatorDemoted) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventValidatorDemoted.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventValidatorDemoted proto.InternalMessageInfo
+
+func (m *EventValidatorDemoted) GetOperator() string {
+	if m != nil {
+		return m.Operator
+	}
+	return ""
+}
+
+func (m *EventValidatorDemoted) GetCap() ConcentrationCap {
+	if m != nil {
+		return m.Cap
+	}
+	return CONCENTRATION_CAP_UNSPECIFIED
+}
+
+func (m *EventValidatorDemoted) GetGroup() string {
+	if m != nil {
+		return m.Group
+	}
+	return ""
+}
+
+func (m *EventValidatorDemoted) GetGroupPowerBps() uint64 {
+	if m != nil {
+		return m.GroupPowerBps
+	}
+	return 0
+}
+
+func (m *EventValidatorDemoted) GetCapBps() uint64 {
+	if m != nil {
+		return m.CapBps
+	}
+	return 0
+}
+
+func (m *EventValidatorDemoted) GetJailedValidator() bool {
+	if m != nil {
+		return m.JailedValidator
+	}
+	return false
+}
+
+// EventValidatorRestored is emitted when a breach clears and the seats go back.
+// Restoration is automatic and nobody votes on it, so it needs announcing for
+// the same reason the demotion did.
+type EventValidatorRestored struct {
+	Operator          string           `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	Cap               ConcentrationCap `protobuf:"varint,2,opt,name=cap,proto3,enum=blockchain.validatorgov.v1.ConcentrationCap" json:"cap,omitempty"`
+	Group             string           `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
+	UnjailedValidator bool             `protobuf:"varint,4,opt,name=unjailed_validator,json=unjailedValidator,proto3" json:"unjailed_validator,omitempty"`
+}
+
+func (m *EventValidatorRestored) Reset()         { *m = EventValidatorRestored{} }
+func (m *EventValidatorRestored) String() string { return proto.CompactTextString(m) }
+func (*EventValidatorRestored) ProtoMessage()    {}
+func (*EventValidatorRestored) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2da3b0b75d2c4e1, []int{4}
+}
+func (m *EventValidatorRestored) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventValidatorRestored) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventValidatorRestored.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventValidatorRestored) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventValidatorRestored.Merge(m, src)
+}
+func (m *EventValidatorRestored) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventValidatorRestored) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventValidatorRestored.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventValidatorRestored proto.InternalMessageInfo
+
+func (m *EventValidatorRestored) GetOperator() string {
+	if m != nil {
+		return m.Operator
+	}
+	return ""
+}
+
+func (m *EventValidatorRestored) GetCap() ConcentrationCap {
+	if m != nil {
+		return m.Cap
+	}
+	return CONCENTRATION_CAP_UNSPECIFIED
+}
+
+func (m *EventValidatorRestored) GetGroup() string {
+	if m != nil {
+		return m.Group
+	}
+	return ""
+}
+
+func (m *EventValidatorRestored) GetUnjailedValidator() bool {
+	if m != nil {
+		return m.UnjailedValidator
+	}
+	return false
+}
+
+// EventConcentrationUncorrected is emitted when a group is over its ceiling and
+// the epoch check will not act, because acting would take the active set below
+// the floor.
+//
+// This is the honest half of the design. A cap can be arithmetically
+// unsatisfiable at a given set size, and a check that kept demoting until the
+// ceiling held would demote the chain into a halt. So the breach is published
+// every epoch instead, which is a problem for governance rather than a problem
+// for block production.
+type EventConcentrationUncorrected struct {
+	Cap                 ConcentrationCap `protobuf:"varint,1,opt,name=cap,proto3,enum=blockchain.validatorgov.v1.ConcentrationCap" json:"cap,omitempty"`
+	Group               string           `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
+	GroupPowerBps       uint64           `protobuf:"varint,3,opt,name=group_power_bps,json=groupPowerBps,proto3" json:"group_power_bps,omitempty"`
+	CapBps              uint64           `protobuf:"varint,4,opt,name=cap_bps,json=capBps,proto3" json:"cap_bps,omitempty"`
+	ActiveValidators    uint32           `protobuf:"varint,5,opt,name=active_validators,json=activeValidators,proto3" json:"active_validators,omitempty"`
+	MinActiveValidators uint32           `protobuf:"varint,6,opt,name=min_active_validators,json=minActiveValidators,proto3" json:"min_active_validators,omitempty"`
+}
+
+func (m *EventConcentrationUncorrected) Reset()         { *m = EventConcentrationUncorrected{} }
+func (m *EventConcentrationUncorrected) String() string { return proto.CompactTextString(m) }
+func (*EventConcentrationUncorrected) ProtoMessage()    {}
+func (*EventConcentrationUncorrected) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2da3b0b75d2c4e1, []int{5}
+}
+func (m *EventConcentrationUncorrected) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventConcentrationUncorrected) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventConcentrationUncorrected.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventConcentrationUncorrected) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventConcentrationUncorrected.Merge(m, src)
+}
+func (m *EventConcentrationUncorrected) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventConcentrationUncorrected) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventConcentrationUncorrected.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventConcentrationUncorrected proto.InternalMessageInfo
+
+func (m *EventConcentrationUncorrected) GetCap() ConcentrationCap {
+	if m != nil {
+		return m.Cap
+	}
+	return CONCENTRATION_CAP_UNSPECIFIED
+}
+
+func (m *EventConcentrationUncorrected) GetGroup() string {
+	if m != nil {
+		return m.Group
+	}
+	return ""
+}
+
+func (m *EventConcentrationUncorrected) GetGroupPowerBps() uint64 {
+	if m != nil {
+		return m.GroupPowerBps
+	}
+	return 0
+}
+
+func (m *EventConcentrationUncorrected) GetCapBps() uint64 {
+	if m != nil {
+		return m.CapBps
+	}
+	return 0
+}
+
+func (m *EventConcentrationUncorrected) GetActiveValidators() uint32 {
+	if m != nil {
+		return m.ActiveValidators
+	}
+	return 0
+}
+
+func (m *EventConcentrationUncorrected) GetMinActiveValidators() uint32 {
+	if m != nil {
+		return m.MinActiveValidators
+	}
+	return 0
+}
+
+// EventDeclarationStale is emitted at each epoch for an approved validator that
+// has not re-attested within the interval. Nothing is done about it here; the
+// event is the doing. An ownership change that was never declared looks exactly
+// like an operator who stopped signing for its own declaration, which is the
+// only signal a chain can produce about a statement it cannot verify.
+type EventDeclarationStale struct {
+	Operator         string `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	AttestedAtHeight int64  `protobuf:"varint,2,opt,name=attested_at_height,json=attestedAtHeight,proto3" json:"attested_at_height,omitempty"`
+	StaleSinceHeight int64  `protobuf:"varint,3,opt,name=stale_since_height,json=staleSinceHeight,proto3" json:"stale_since_height,omitempty"`
+}
+
+func (m *EventDeclarationStale) Reset()         { *m = EventDeclarationStale{} }
+func (m *EventDeclarationStale) String() string { return proto.CompactTextString(m) }
+func (*EventDeclarationStale) ProtoMessage()    {}
+func (*EventDeclarationStale) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2da3b0b75d2c4e1, []int{6}
+}
+func (m *EventDeclarationStale) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventDeclarationStale) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventDeclarationStale.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventDeclarationStale) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventDeclarationStale.Merge(m, src)
+}
+func (m *EventDeclarationStale) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventDeclarationStale) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventDeclarationStale.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventDeclarationStale proto.InternalMessageInfo
+
+func (m *EventDeclarationStale) GetOperator() string {
+	if m != nil {
+		return m.Operator
+	}
+	return ""
+}
+
+func (m *EventDeclarationStale) GetAttestedAtHeight() int64 {
+	if m != nil {
+		return m.AttestedAtHeight
+	}
+	return 0
+}
+
+func (m *EventDeclarationStale) GetStaleSinceHeight() int64 {
+	if m != nil {
+		return m.StaleSinceHeight
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*EventRotationProposed)(nil), "blockchain.validatorgov.v1.EventRotationProposed")
 	proto.RegisterType((*EventRecoveryApproved)(nil), "blockchain.validatorgov.v1.EventRecoveryApproved")
 	proto.RegisterType((*EventRotationResolved)(nil), "blockchain.validatorgov.v1.EventRotationResolved")
+	proto.RegisterType((*EventValidatorDemoted)(nil), "blockchain.validatorgov.v1.EventValidatorDemoted")
+	proto.RegisterType((*EventValidatorRestored)(nil), "blockchain.validatorgov.v1.EventValidatorRestored")
+	proto.RegisterType((*EventConcentrationUncorrected)(nil), "blockchain.validatorgov.v1.EventConcentrationUncorrected")
+	proto.RegisterType((*EventDeclarationStale)(nil), "blockchain.validatorgov.v1.EventDeclarationStale")
 }
 
 func init() {
@@ -289,35 +611,52 @@ func init() {
 }
 
 var fileDescriptor_a2da3b0b75d2c4e1 = []byte{
-	// 446 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x94, 0xbd, 0x6e, 0x13, 0x41,
-	0x10, 0xc7, 0x7d, 0xc9, 0x61, 0xc2, 0x06, 0x91, 0xb0, 0x7c, 0xe8, 0x70, 0x71, 0x58, 0x2e, 0xe0,
-	0x82, 0xc4, 0x9d, 0x02, 0x74, 0x50, 0x60, 0x23, 0x24, 0x10, 0x05, 0xd1, 0xa6, 0xa3, 0x39, 0x6d,
-	0x6e, 0x47, 0xf6, 0x2a, 0xe7, 0x9d, 0xd5, 0xee, 0xfa, 0x82, 0xdf, 0x82, 0x86, 0x37, 0xa1, 0xe4,
-	0x01, 0x28, 0x23, 0x2a, 0x4a, 0x64, 0xbf, 0x03, 0x35, 0xf2, 0xdd, 0xf9, 0x12, 0x90, 0x4c, 0x50,
-	0x3a, 0x97, 0xf3, 0xf1, 0xfb, 0xcf, 0xee, 0x5f, 0xa3, 0x21, 0x0f, 0x8f, 0x72, 0xcc, 0x8e, 0xb3,
-	0x11, 0x97, 0x2a, 0x29, 0x78, 0x2e, 0x05, 0x77, 0x68, 0x86, 0x58, 0x24, 0xc5, 0x7e, 0x02, 0x05,
-	0x28, 0x67, 0x63, 0x6d, 0xd0, 0x21, 0xed, 0x9c, 0x35, 0xc6, 0xe7, 0x1b, 0xe3, 0x62, 0xbf, 0xb3,
-	0xf7, 0x0f, 0x11, 0x83, 0x8e, 0x3b, 0x89, 0xaa, 0x92, 0xe9, 0xdc, 0xcb, 0xd0, 0x8e, 0xd1, 0xa6,
-	0x65, 0x94, 0x54, 0x41, 0x55, 0xea, 0xfd, 0xda, 0x20, 0x77, 0x5e, 0x2f, 0x46, 0xb2, 0x1a, 0x39,
-	0x30, 0xa8, 0xd1, 0x82, 0xa0, 0xf7, 0xc9, 0xf6, 0x52, 0x26, 0x95, 0x22, 0xf0, 0xba, 0x5e, 0xe4,
-	0x33, 0xb2, 0x4c, 0xbd, 0x15, 0xf4, 0x15, 0xd9, 0xcd, 0x26, 0xc6, 0x80, 0x72, 0x29, 0x6a, 0x30,
-	0x8b, 0xf1, 0xc1, 0x46, 0xd7, 0x8b, 0xae, 0x0d, 0x82, 0xef, 0x5f, 0x1e, 0xdf, 0xae, 0xc7, 0xf4,
-	0x85, 0x30, 0x60, 0xed, 0xa1, 0x33, 0x52, 0x0d, 0xd9, 0x4e, 0x4d, 0xbc, 0xaf, 0x01, 0xfa, 0x9c,
-	0x5c, 0x57, 0x70, 0x72, 0x26, 0xb0, 0x79, 0x81, 0xc0, 0xb6, 0x82, 0x93, 0x06, 0x7e, 0x46, 0xb6,
-	0x74, 0xf5, 0x5c, 0x13, 0xf8, 0x17, 0x80, 0x4d, 0x27, 0x7d, 0x41, 0xfc, 0x63, 0xa9, 0x44, 0x70,
-	0xa5, 0xeb, 0x45, 0x37, 0x9e, 0x44, 0xf1, 0x6a, 0x8f, 0xe3, 0xa5, 0x29, 0xef, 0xa4, 0x12, 0xac,
-	0xa4, 0xe8, 0x5d, 0xd2, 0x36, 0xc0, 0x2d, 0xaa, 0xa0, 0xbd, 0x98, 0xc8, 0xea, 0x88, 0xc6, 0xe4,
-	0x56, 0x86, 0x63, 0x9d, 0x83, 0x03, 0x9b, 0x72, 0x97, 0x8e, 0x40, 0x0e, 0x47, 0x2e, 0xb8, 0xda,
-	0xf5, 0xa2, 0x4d, 0x76, 0xb3, 0x29, 0xf5, 0xdd, 0x9b, 0xb2, 0xd0, 0xfb, 0xdc, 0x18, 0x0f, 0x19,
-	0x16, 0x60, 0xa6, 0x7d, 0xad, 0x0d, 0x16, 0xeb, 0x61, 0xfc, 0x8a, 0xcf, 0xfa, 0x2b, 0x3e, 0x4b,
-	0xf7, 0xc8, 0x6e, 0x63, 0x6d, 0xaa, 0xf9, 0xc4, 0x42, 0x65, 0xff, 0x16, 0xdb, 0x69, 0xf2, 0x07,
-	0x65, 0xba, 0xf7, 0xf5, 0xef, 0x85, 0x64, 0x60, 0x31, 0x5f, 0x13, 0x5f, 0x96, 0xab, 0xe5, 0x5f,
-	0x6a, 0xb5, 0x06, 0xa4, 0x6d, 0x1d, 0x77, 0x13, 0x5b, 0xaf, 0xe6, 0xa3, 0xff, 0xe1, 0x0f, 0x4b,
-	0x82, 0xd5, 0xe4, 0xe0, 0xe5, 0xb7, 0x59, 0xe8, 0x9d, 0xce, 0x42, 0xef, 0xe7, 0x2c, 0xf4, 0x3e,
-	0xcd, 0xc3, 0xd6, 0xe9, 0x3c, 0x6c, 0xfd, 0x98, 0x87, 0xad, 0x0f, 0x0f, 0xa6, 0x7c, 0xcc, 0x73,
-	0x48, 0xce, 0x9d, 0x8d, 0x8f, 0x7f, 0x1e, 0x0e, 0x37, 0xd5, 0x60, 0x8f, 0xda, 0xe5, 0x61, 0x78,
-	0xfa, 0x3b, 0x00, 0x00, 0xff, 0xff, 0x1e, 0x48, 0x84, 0x6c, 0xa5, 0x04, 0x00, 0x00,
+	// 720 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x55, 0x4f, 0x4f, 0x13, 0x41,
+	0x14, 0x67, 0xdb, 0xa5, 0xe0, 0x20, 0xb4, 0x0c, 0x7f, 0xac, 0x24, 0xd6, 0xa6, 0x07, 0x2c, 0x0a,
+	0x6d, 0x40, 0x6f, 0x1a, 0x63, 0x0b, 0x26, 0x1a, 0x0f, 0x92, 0x25, 0x7a, 0xf0, 0xb2, 0x19, 0x66,
+	0x5f, 0xca, 0xca, 0x76, 0x66, 0x32, 0x33, 0x5d, 0xe4, 0x53, 0xe8, 0xc5, 0xf8, 0x19, 0xbc, 0x7b,
+	0xf4, 0x03, 0x78, 0x24, 0x7a, 0xf1, 0x68, 0xe0, 0x3b, 0x78, 0x36, 0x3b, 0xfb, 0xa7, 0x2d, 0x04,
+	0x6a, 0xf0, 0x22, 0xb7, 0x9d, 0xf7, 0x7b, 0xbf, 0x99, 0xf7, 0xfb, 0xbd, 0x79, 0xb3, 0xe8, 0xce,
+	0x6e, 0xc0, 0xe9, 0x3e, 0xdd, 0x23, 0x3e, 0x6b, 0x86, 0x24, 0xf0, 0x3d, 0xa2, 0xb9, 0xec, 0xf0,
+	0xb0, 0x19, 0xae, 0x37, 0x21, 0x04, 0xa6, 0x55, 0x43, 0x48, 0xae, 0x39, 0x5e, 0xea, 0x27, 0x36,
+	0x06, 0x13, 0x1b, 0xe1, 0xfa, 0x52, 0xe3, 0x82, 0x4d, 0x28, 0x67, 0x14, 0x98, 0x96, 0x44, 0xfb,
+	0x9c, 0xc5, 0x7b, 0x2d, 0xad, 0x5c, 0x90, 0x2f, 0xb9, 0x1e, 0x4c, 0xbd, 0x49, 0xb9, 0xea, 0x72,
+	0xe5, 0x9a, 0x55, 0x33, 0x5e, 0xc4, 0x50, 0xed, 0x77, 0x0e, 0x2d, 0x3c, 0x8d, 0x4a, 0x74, 0x12,
+	0xca, 0xb6, 0xe4, 0x82, 0x2b, 0xf0, 0xf0, 0x6d, 0x34, 0x95, 0x6e, 0xe3, 0xfa, 0x5e, 0xd9, 0xaa,
+	0x5a, 0x75, 0xdb, 0x41, 0x69, 0xe8, 0xb9, 0x87, 0x37, 0x51, 0x89, 0xf6, 0xa4, 0x04, 0xa6, 0x5d,
+	0x2e, 0x40, 0x46, 0xc7, 0x97, 0x73, 0x55, 0xab, 0x7e, 0xad, 0x5d, 0xfe, 0xfe, 0x65, 0x6d, 0x3e,
+	0x39, 0xa6, 0xe5, 0x79, 0x12, 0x94, 0xda, 0xd1, 0xd2, 0x67, 0x1d, 0xa7, 0x98, 0x30, 0x5e, 0x26,
+	0x04, 0xfc, 0x10, 0x5d, 0x67, 0x70, 0xd0, 0xdf, 0x20, 0x3f, 0x62, 0x83, 0x29, 0x06, 0x07, 0x19,
+	0xf9, 0x01, 0x9a, 0x14, 0x71, 0xb9, 0xb2, 0x6c, 0x8f, 0x20, 0x66, 0x99, 0xf8, 0x11, 0xb2, 0xf7,
+	0x7d, 0xe6, 0x95, 0xc7, 0xab, 0x56, 0x7d, 0x66, 0xa3, 0xde, 0x38, 0xbf, 0x27, 0x8d, 0xd4, 0x94,
+	0x17, 0x3e, 0xf3, 0x1c, 0xc3, 0xc2, 0x8b, 0xa8, 0x20, 0x81, 0x28, 0xce, 0xca, 0x85, 0xe8, 0x44,
+	0x27, 0x59, 0xe1, 0x06, 0x9a, 0xa3, 0xbc, 0x2b, 0x02, 0xd0, 0xa0, 0x5c, 0xa2, 0xdd, 0x3d, 0xf0,
+	0x3b, 0x7b, 0xba, 0x3c, 0x51, 0xb5, 0xea, 0x79, 0x67, 0x36, 0x83, 0x5a, 0xfa, 0x99, 0x01, 0x6a,
+	0x1f, 0x33, 0xe3, 0x81, 0xf2, 0x10, 0xe4, 0x61, 0x4b, 0x08, 0xc9, 0xc3, 0xab, 0x61, 0xfc, 0x39,
+	0x62, 0xed, 0x73, 0xc4, 0xe2, 0x15, 0x54, 0xca, 0xac, 0x75, 0x05, 0xe9, 0x29, 0x88, 0xed, 0x9f,
+	0x74, 0x8a, 0x59, 0x7c, 0xdb, 0x84, 0x6b, 0x5f, 0x4f, 0x5f, 0x48, 0x07, 0x14, 0x0f, 0xae, 0x88,
+	0x2f, 0xe9, 0xd5, 0xb2, 0x2f, 0x75, 0xb5, 0xda, 0xa8, 0xa0, 0x34, 0xd1, 0x3d, 0x95, 0x5c, 0xcd,
+	0xbb, 0x7f, 0xc3, 0xdf, 0x31, 0x0c, 0x27, 0x61, 0xd6, 0xde, 0xa7, 0xf6, 0xbd, 0x4e, 0xf3, 0xb7,
+	0xa0, 0xcb, 0x35, 0x78, 0xd1, 0xb0, 0x64, 0xa2, 0xac, 0x51, 0xc3, 0x92, 0x66, 0xe2, 0xc7, 0x28,
+	0x4f, 0x89, 0x30, 0x36, 0xce, 0x6c, 0xac, 0x5e, 0x54, 0xd0, 0xe6, 0xe0, 0x1b, 0xb5, 0x49, 0x84,
+	0x13, 0x11, 0xf1, 0x3c, 0x1a, 0xef, 0x48, 0xde, 0x13, 0xb1, 0x8f, 0x4e, 0xbc, 0xc0, 0xcb, 0xa8,
+	0x68, 0x3e, 0x5c, 0xc1, 0x0f, 0x40, 0xba, 0xbb, 0x42, 0x19, 0xcb, 0x6c, 0x67, 0xda, 0x84, 0xb7,
+	0xa3, 0x68, 0x5b, 0x28, 0x7c, 0x03, 0x4d, 0x50, 0x22, 0x0c, 0x3e, 0x6e, 0xf0, 0x02, 0x25, 0x22,
+	0x02, 0x56, 0x50, 0xe9, 0x2d, 0xf1, 0x03, 0xf0, 0xdc, 0xac, 0x0c, 0x33, 0x8f, 0x93, 0x4e, 0x31,
+	0x8e, 0x67, 0xf2, 0x6b, 0x3f, 0x2c, 0xb4, 0x38, 0xec, 0x88, 0x03, 0x4a, 0x73, 0xf9, 0x9f, 0x59,
+	0xb2, 0x86, 0x70, 0x8f, 0x9d, 0xd1, 0x64, 0x1b, 0x4d, 0xb3, 0x29, 0xd2, 0x57, 0xf5, 0x29, 0x87,
+	0x6e, 0x19, 0x55, 0x43, 0x67, 0xbc, 0x62, 0x94, 0x4b, 0x09, 0x34, 0xea, 0x77, 0x52, 0xa6, 0xf5,
+	0xcf, 0x65, 0xe6, 0x46, 0x74, 0x2e, 0x3f, 0xa2, 0x73, 0xf6, 0x50, 0xe7, 0xee, 0xa1, 0x59, 0x42,
+	0xb5, 0x1f, 0x42, 0x5f, 0x65, 0xdc, 0xdc, 0x69, 0xa7, 0x14, 0x03, 0x99, 0x48, 0x85, 0x37, 0xd0,
+	0x42, 0xd7, 0x67, 0xee, 0x59, 0x42, 0xc1, 0x10, 0xe6, 0xba, 0x3e, 0x6b, 0x9d, 0xe2, 0xd4, 0x3e,
+	0x5b, 0xc9, 0x04, 0x6c, 0x01, 0x0d, 0x88, 0x4c, 0x87, 0x24, 0x80, 0x4b, 0xb6, 0x7b, 0x15, 0x61,
+	0xa2, 0x35, 0x28, 0x0d, 0xde, 0xc0, 0x53, 0x97, 0x33, 0x4f, 0x5d, 0x29, 0x45, 0xb2, 0x97, 0x6e,
+	0x15, 0x61, 0x15, 0x1d, 0xe6, 0x2a, 0x9f, 0x51, 0x48, 0xb3, 0xf3, 0x71, 0xb6, 0x41, 0x76, 0x22,
+	0x20, 0xce, 0x6e, 0x3f, 0xf9, 0x76, 0x5c, 0xb1, 0x8e, 0x8e, 0x2b, 0xd6, 0xaf, 0xe3, 0x8a, 0xf5,
+	0xe1, 0xa4, 0x32, 0x76, 0x74, 0x52, 0x19, 0xfb, 0x79, 0x52, 0x19, 0x7b, 0xb3, 0x7c, 0x48, 0xba,
+	0x24, 0x80, 0xe6, 0xc0, 0x4f, 0xfe, 0xdd, 0xf0, 0x6f, 0x5e, 0x1f, 0x0a, 0x50, 0xbb, 0x05, 0xf3,
+	0x1b, 0xbf, 0xff, 0x27, 0x00, 0x00, 0xff, 0xff, 0xf5, 0x0e, 0xa2, 0xe1, 0x83, 0x08, 0x00, 0x00,
 }
 
 func (m *EventRotationProposed) Marshal() (dAtA []byte, err error) {
@@ -495,6 +834,215 @@ func (m *EventRotationResolved) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *EventValidatorDemoted) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventValidatorDemoted) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventValidatorDemoted) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.JailedValidator {
+		i--
+		if m.JailedValidator {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.CapBps != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.CapBps))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.GroupPowerBps != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.GroupPowerBps))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Group) > 0 {
+		i -= len(m.Group)
+		copy(dAtA[i:], m.Group)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Group)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Cap != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.Cap))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Operator) > 0 {
+		i -= len(m.Operator)
+		copy(dAtA[i:], m.Operator)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Operator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventValidatorRestored) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventValidatorRestored) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventValidatorRestored) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.UnjailedValidator {
+		i--
+		if m.UnjailedValidator {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Group) > 0 {
+		i -= len(m.Group)
+		copy(dAtA[i:], m.Group)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Group)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Cap != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.Cap))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Operator) > 0 {
+		i -= len(m.Operator)
+		copy(dAtA[i:], m.Operator)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Operator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventConcentrationUncorrected) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventConcentrationUncorrected) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventConcentrationUncorrected) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.MinActiveValidators != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.MinActiveValidators))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.ActiveValidators != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.ActiveValidators))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.CapBps != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.CapBps))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.GroupPowerBps != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.GroupPowerBps))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Group) > 0 {
+		i -= len(m.Group)
+		copy(dAtA[i:], m.Group)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Group)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Cap != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.Cap))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventDeclarationStale) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventDeclarationStale) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventDeclarationStale) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.StaleSinceHeight != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.StaleSinceHeight))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.AttestedAtHeight != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.AttestedAtHeight))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Operator) > 0 {
+		i -= len(m.Operator)
+		copy(dAtA[i:], m.Operator)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Operator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintEvents(dAtA []byte, offset int, v uint64) int {
 	offset -= sovEvents(v)
 	base := offset
@@ -588,6 +1136,105 @@ func (m *EventRotationResolved) Size() (n int) {
 	}
 	if m.Status != 0 {
 		n += 1 + sovEvents(uint64(m.Status))
+	}
+	return n
+}
+
+func (m *EventValidatorDemoted) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Operator)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.Cap != 0 {
+		n += 1 + sovEvents(uint64(m.Cap))
+	}
+	l = len(m.Group)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.GroupPowerBps != 0 {
+		n += 1 + sovEvents(uint64(m.GroupPowerBps))
+	}
+	if m.CapBps != 0 {
+		n += 1 + sovEvents(uint64(m.CapBps))
+	}
+	if m.JailedValidator {
+		n += 2
+	}
+	return n
+}
+
+func (m *EventValidatorRestored) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Operator)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.Cap != 0 {
+		n += 1 + sovEvents(uint64(m.Cap))
+	}
+	l = len(m.Group)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.UnjailedValidator {
+		n += 2
+	}
+	return n
+}
+
+func (m *EventConcentrationUncorrected) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Cap != 0 {
+		n += 1 + sovEvents(uint64(m.Cap))
+	}
+	l = len(m.Group)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.GroupPowerBps != 0 {
+		n += 1 + sovEvents(uint64(m.GroupPowerBps))
+	}
+	if m.CapBps != 0 {
+		n += 1 + sovEvents(uint64(m.CapBps))
+	}
+	if m.ActiveValidators != 0 {
+		n += 1 + sovEvents(uint64(m.ActiveValidators))
+	}
+	if m.MinActiveValidators != 0 {
+		n += 1 + sovEvents(uint64(m.MinActiveValidators))
+	}
+	return n
+}
+
+func (m *EventDeclarationStale) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Operator)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.AttestedAtHeight != 0 {
+		n += 1 + sovEvents(uint64(m.AttestedAtHeight))
+	}
+	if m.StaleSinceHeight != 0 {
+		n += 1 + sovEvents(uint64(m.StaleSinceHeight))
 	}
 	return n
 }
@@ -1151,6 +1798,647 @@ func (m *EventRotationResolved) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.Status |= RotationStatus(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventValidatorDemoted) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventValidatorDemoted: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventValidatorDemoted: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Operator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Operator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Cap", wireType)
+			}
+			m.Cap = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Cap |= ConcentrationCap(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Group", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Group = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GroupPowerBps", wireType)
+			}
+			m.GroupPowerBps = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.GroupPowerBps |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CapBps", wireType)
+			}
+			m.CapBps = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CapBps |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JailedValidator", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.JailedValidator = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventValidatorRestored) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventValidatorRestored: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventValidatorRestored: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Operator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Operator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Cap", wireType)
+			}
+			m.Cap = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Cap |= ConcentrationCap(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Group", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Group = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UnjailedValidator", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.UnjailedValidator = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventConcentrationUncorrected) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventConcentrationUncorrected: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventConcentrationUncorrected: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Cap", wireType)
+			}
+			m.Cap = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Cap |= ConcentrationCap(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Group", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Group = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GroupPowerBps", wireType)
+			}
+			m.GroupPowerBps = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.GroupPowerBps |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CapBps", wireType)
+			}
+			m.CapBps = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CapBps |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveValidators", wireType)
+			}
+			m.ActiveValidators = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ActiveValidators |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MinActiveValidators", wireType)
+			}
+			m.MinActiveValidators = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MinActiveValidators |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventDeclarationStale) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventDeclarationStale: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventDeclarationStale: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Operator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Operator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AttestedAtHeight", wireType)
+			}
+			m.AttestedAtHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AttestedAtHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StaleSinceHeight", wireType)
+			}
+			m.StaleSinceHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.StaleSinceHeight |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

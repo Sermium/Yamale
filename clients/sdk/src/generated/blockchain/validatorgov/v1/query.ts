@@ -9,6 +9,7 @@ import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pagination.ts";
 import { ApprovedValidator } from "./approved_validator.ts";
+import { ConcentrationGroup, Demotion } from "./concentration.ts";
 import { Params } from "./params.ts";
 import { OperatorRotation } from "./rotation.ts";
 import { ValidatorApplication } from "./validator_application.ts";
@@ -102,6 +103,40 @@ export interface QueryPendingOperatorRotationResponse {
    */
   found: boolean;
   operatorRotation: OperatorRotation | undefined;
+}
+
+/** QueryConcentrationRequest defines the QueryConcentrationRequest message. */
+export interface QueryConcentrationRequest {
+}
+
+/** QueryConcentrationResponse defines the QueryConcentrationResponse message. */
+export interface QueryConcentrationResponse {
+  groups: ConcentrationGroup[];
+  /**
+   * total_power is the denominator every share above was measured against: the
+   * power of the validators active right now. Returned alongside so that a
+   * reader can check the arithmetic rather than trust it.
+   */
+  totalPower: string;
+  /**
+   * active_validators and min_active_validators say whether the check is in a
+   * position to act at all. A breach reported while these are equal is one the
+   * chain has decided not to correct, and that distinction is invisible from
+   * the shares alone.
+   */
+  activeValidators: number;
+  minActiveValidators: number;
+}
+
+/** QueryAllDemotionRequest defines the QueryAllDemotionRequest message. */
+export interface QueryAllDemotionRequest {
+  pagination: PageRequest | undefined;
+}
+
+/** QueryAllDemotionResponse defines the QueryAllDemotionResponse message. */
+export interface QueryAllDemotionResponse {
+  demotion: Demotion[];
+  pagination: PageResponse | undefined;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -1108,6 +1143,290 @@ export const QueryPendingOperatorRotationResponse = {
   },
 };
 
+function createBaseQueryConcentrationRequest(): QueryConcentrationRequest {
+  return {};
+}
+
+export const QueryConcentrationRequest = {
+  encode(_: QueryConcentrationRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryConcentrationRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryConcentrationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QueryConcentrationRequest {
+    return {};
+  },
+
+  toJSON(_: QueryConcentrationRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryConcentrationRequest>): QueryConcentrationRequest {
+    return QueryConcentrationRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QueryConcentrationRequest>): QueryConcentrationRequest {
+    const message = createBaseQueryConcentrationRequest();
+    return message;
+  },
+};
+
+function createBaseQueryConcentrationResponse(): QueryConcentrationResponse {
+  return { groups: [], totalPower: "0", activeValidators: 0, minActiveValidators: 0 };
+}
+
+export const QueryConcentrationResponse = {
+  encode(message: QueryConcentrationResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.groups) {
+      ConcentrationGroup.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.totalPower !== "0") {
+      writer.uint32(16).int64(message.totalPower);
+    }
+    if (message.activeValidators !== 0) {
+      writer.uint32(24).uint32(message.activeValidators);
+    }
+    if (message.minActiveValidators !== 0) {
+      writer.uint32(32).uint32(message.minActiveValidators);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryConcentrationResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryConcentrationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.groups.push(ConcentrationGroup.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.totalPower = longToString(reader.int64() as Long);
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.activeValidators = reader.uint32();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.minActiveValidators = reader.uint32();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryConcentrationResponse {
+    return {
+      groups: globalThis.Array.isArray(object?.groups)
+        ? object.groups.map((e: any) => ConcentrationGroup.fromJSON(e))
+        : [],
+      totalPower: isSet(object.totalPower) ? globalThis.String(object.totalPower) : "0",
+      activeValidators: isSet(object.activeValidators) ? globalThis.Number(object.activeValidators) : 0,
+      minActiveValidators: isSet(object.minActiveValidators) ? globalThis.Number(object.minActiveValidators) : 0,
+    };
+  },
+
+  toJSON(message: QueryConcentrationResponse): unknown {
+    const obj: any = {};
+    if (message.groups?.length) {
+      obj.groups = message.groups.map((e) => ConcentrationGroup.toJSON(e));
+    }
+    if (message.totalPower !== "0") {
+      obj.totalPower = message.totalPower;
+    }
+    if (message.activeValidators !== 0) {
+      obj.activeValidators = Math.round(message.activeValidators);
+    }
+    if (message.minActiveValidators !== 0) {
+      obj.minActiveValidators = Math.round(message.minActiveValidators);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryConcentrationResponse>): QueryConcentrationResponse {
+    return QueryConcentrationResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryConcentrationResponse>): QueryConcentrationResponse {
+    const message = createBaseQueryConcentrationResponse();
+    message.groups = object.groups?.map((e) => ConcentrationGroup.fromPartial(e)) || [];
+    message.totalPower = object.totalPower ?? "0";
+    message.activeValidators = object.activeValidators ?? 0;
+    message.minActiveValidators = object.minActiveValidators ?? 0;
+    return message;
+  },
+};
+
+function createBaseQueryAllDemotionRequest(): QueryAllDemotionRequest {
+  return { pagination: undefined };
+}
+
+export const QueryAllDemotionRequest = {
+  encode(message: QueryAllDemotionRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.pagination !== undefined) {
+      PageRequest.encode(message.pagination, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryAllDemotionRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryAllDemotionRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.pagination = PageRequest.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryAllDemotionRequest {
+    return { pagination: isSet(object.pagination) ? PageRequest.fromJSON(object.pagination) : undefined };
+  },
+
+  toJSON(message: QueryAllDemotionRequest): unknown {
+    const obj: any = {};
+    if (message.pagination !== undefined) {
+      obj.pagination = PageRequest.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryAllDemotionRequest>): QueryAllDemotionRequest {
+    return QueryAllDemotionRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryAllDemotionRequest>): QueryAllDemotionRequest {
+    const message = createBaseQueryAllDemotionRequest();
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageRequest.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryAllDemotionResponse(): QueryAllDemotionResponse {
+  return { demotion: [], pagination: undefined };
+}
+
+export const QueryAllDemotionResponse = {
+  encode(message: QueryAllDemotionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.demotion) {
+      Demotion.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.pagination !== undefined) {
+      PageResponse.encode(message.pagination, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryAllDemotionResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryAllDemotionResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.demotion.push(Demotion.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.pagination = PageResponse.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryAllDemotionResponse {
+    return {
+      demotion: globalThis.Array.isArray(object?.demotion) ? object.demotion.map((e: any) => Demotion.fromJSON(e)) : [],
+      pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
+    };
+  },
+
+  toJSON(message: QueryAllDemotionResponse): unknown {
+    const obj: any = {};
+    if (message.demotion?.length) {
+      obj.demotion = message.demotion.map((e) => Demotion.toJSON(e));
+    }
+    if (message.pagination !== undefined) {
+      obj.pagination = PageResponse.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryAllDemotionResponse>): QueryAllDemotionResponse {
+    return QueryAllDemotionResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryAllDemotionResponse>): QueryAllDemotionResponse {
+    const message = createBaseQueryAllDemotionResponse();
+    message.demotion = object.demotion?.map((e) => Demotion.fromPartial(e)) || [];
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageResponse.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
 /** Query defines the gRPC querier service. */
 export interface Query {
   /** Parameters queries the parameters of the module. */
@@ -1131,6 +1450,18 @@ export interface Query {
    * from a rotation id they would have to go and find.
    */
   PendingOperatorRotation(request: QueryPendingOperatorRotationRequest): Promise<QueryPendingOperatorRotationResponse>;
+  /**
+   * Concentration reports what every declared entity, owner and jurisdiction
+   * currently holds, against its ceiling.
+   *
+   * This is the supervisor's query. Under equal seats a ceiling is a count out
+   * of a count, so the answer is meant to be checked against a list of admitted
+   * validators by somebody who is not recomputing anything — which is the whole
+   * argument for declaring ownership on-chain rather than filing it somewhere.
+   */
+  Concentration(request: QueryConcentrationRequest): Promise<QueryConcentrationResponse>;
+  /** ListDemotion queries every demotion currently in force. */
+  ListDemotion(request: QueryAllDemotionRequest): Promise<QueryAllDemotionResponse>;
 }
 
 export const QueryServiceName = "blockchain.validatorgov.v1.Query";
@@ -1148,6 +1479,8 @@ export class QueryClientImpl implements Query {
     this.GetOperatorRotation = this.GetOperatorRotation.bind(this);
     this.ListOperatorRotation = this.ListOperatorRotation.bind(this);
     this.PendingOperatorRotation = this.PendingOperatorRotation.bind(this);
+    this.Concentration = this.Concentration.bind(this);
+    this.ListDemotion = this.ListDemotion.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -1197,6 +1530,18 @@ export class QueryClientImpl implements Query {
     const data = QueryPendingOperatorRotationRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "PendingOperatorRotation", data);
     return promise.then((data) => QueryPendingOperatorRotationResponse.decode(_m0.Reader.create(data)));
+  }
+
+  Concentration(request: QueryConcentrationRequest): Promise<QueryConcentrationResponse> {
+    const data = QueryConcentrationRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "Concentration", data);
+    return promise.then((data) => QueryConcentrationResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ListDemotion(request: QueryAllDemotionRequest): Promise<QueryAllDemotionResponse> {
+    const data = QueryAllDemotionRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ListDemotion", data);
+    return promise.then((data) => QueryAllDemotionResponse.decode(_m0.Reader.create(data)));
   }
 }
 

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/collections"
 
@@ -18,6 +19,15 @@ import (
 // state that genesis had written explicitly is how an import stops matching
 // what was exported.
 func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) error {
+	// Validated here and not only in `genesis validate`, because the two are
+	// not the same gate: one is a command an operator may run against the file
+	// they meant to distribute, this runs in InitChain on the bytes the chain
+	// is really starting from. A genesis whose declarations cannot be grouped
+	// is one where the concentration ceilings are computed over nothing.
+	if err := genState.Validate(); err != nil {
+		return fmt.Errorf("validatorgov genesis is invalid, refusing to start: %w", err)
+	}
+
 	for _, elem := range genState.ValidatorApplicationMap {
 		if err := k.ValidatorApplication.Set(ctx, elem.Candidate, elem); err != nil {
 			return err
@@ -47,6 +57,17 @@ func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) er
 			if err := k.RotationQueue.Set(ctx, collections.Join(rotation.CompletesAtHeight, rotation.Id)); err != nil {
 				return err
 			}
+		}
+	}
+
+	// A demotion is restored on its own record, so it has to survive an export.
+	// Nothing else in this genesis implies one: the validator it names is
+	// jailed, contributes no power, and recomputing the ceilings from the
+	// exported state would find no breach and conclude there was never
+	// anything to hold down.
+	for _, demotion := range genState.Demotions {
+		if err := k.Demotion.Set(ctx, demotion.Operator, demotion); err != nil {
+			return err
 		}
 	}
 
@@ -86,6 +107,12 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}
 	if err := k.Rotation.Walk(ctx, nil, func(_ uint64, val types.OperatorRotation) (stop bool, err error) {
 		genesis.OperatorRotations = append(genesis.OperatorRotations, val)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Demotion.Walk(ctx, nil, func(_ string, val types.Demotion) (stop bool, err error) {
+		genesis.Demotions = append(genesis.Demotions, val)
 		return false, nil
 	}); err != nil {
 		return nil, err

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package blockchain.constitution.v1;
+
+import "blockchain/constitution/v1/constitution.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/constitution/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Invariants returns the values in force. This is the query a supervisor runs
+  // to find out what the chain has promised not to change, so it answers with
+  // the whole settlement rather than a field at a time.
+  rpc Invariants(QueryInvariantsRequest) returns (QueryInvariantsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/constitution/v1/invariants";
+  }
+
+  // Amendment queries one amendment by id.
+  rpc Amendment(QueryAmendmentRequest) returns (QueryAmendmentResponse) {
+    option (google.api.http).get = "/yamale/blockchain/constitution/v1/amendment/{id}";
+  }
+
+  // ListAmendment queries every amendment ever opened, lapsed and withdrawn
+  // ones included.
+  rpc ListAmendment(QueryAllAmendmentRequest) returns (QueryAllAmendmentResponse) {
+    option (google.api.http).get = "/yamale/blockchain/constitution/v1/amendment";
+  }
+
+  // Ratifications lists who has ratified one amendment, which is the record
+  // that makes a validator answerable for a change it agreed to.
+  rpc Ratifications(QueryRatificationsRequest) returns (QueryRatificationsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/constitution/v1/amendment/{amendment_id}/ratifications";
+  }
+}
+
+// QueryInvariantsRequest is request type for the Query/Invariants RPC method.
+message QueryInvariantsRequest {}
+
+// QueryInvariantsResponse is response type for the Query/Invariants RPC method.
+message QueryInvariantsResponse {
+  Invariants invariants = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAmendmentRequest defines the QueryAmendmentRequest message.
+message QueryAmendmentRequest {
+  uint64 id = 1;
+}
+
+// QueryAmendmentResponse defines the QueryAmendmentResponse message.
+message QueryAmendmentResponse {
+  Amendment amendment = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllAmendmentRequest defines the QueryAllAmendmentRequest message.
+message QueryAllAmendmentRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllAmendmentResponse defines the QueryAllAmendmentResponse message.
+message QueryAllAmendmentResponse {
+  repeated Amendment amendment = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryRatificationsRequest defines the QueryRatificationsRequest message.
+message QueryRatificationsRequest {
+  uint64 amendment_id = 1;
+}
+
+// QueryRatificationsResponse defines the QueryRatificationsResponse message.
+message QueryRatificationsResponse {
+  repeated Ratification ratifications = 1 [(gogoproto.nullable) = false];
+
+  // required_power is what the amendment still has to reach, restated here so
+  // that a reader of this response never has to recompute a threshold from a
+  // basis-point figure held in another query's answer.
+  int64 required_power = 2;
+}

@@ -10,7 +10,22 @@ import (
 )
 
 // EndBlocker completes the rotations whose delay or challenge window has run
-// out.
+// out, and then enforces the concentration ceilings if this height is an epoch
+// boundary.
+//
+// Rotations first. A rotation that completes in this block moves who operates a
+// validator, and the ceilings are computed over declarations keyed by operator
+// — so running the epoch check first would measure the set as it was a moment
+// before the chain changed it.
+func (k Keeper) EndBlocker(ctx context.Context) error {
+	if err := k.rotationEndBlocker(ctx); err != nil {
+		return err
+	}
+	return k.ConcentrationEndBlocker(ctx)
+}
+
+// rotationEndBlocker completes the rotations whose delay or challenge window
+// has run out.
 //
 // It is a queue walk bounded by what falls due at this height, not a scan of
 // every rotation ever opened. There is no arithmetic here at all — no division,
@@ -18,7 +33,7 @@ import (
 // computed when the rotation was opened, by a path that substitutes a default
 // for a zero parameter. A block producer must never be able to halt this chain
 // by proposing a Params value.
-func (k Keeper) EndBlocker(ctx context.Context) error {
+func (k Keeper) rotationEndBlocker(ctx context.Context) error {
 	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
 
 	due := make([]uint64, 0)

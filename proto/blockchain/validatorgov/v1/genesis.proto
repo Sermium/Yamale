@@ -4,6 +4,7 @@ package blockchain.validatorgov.v1;
 
 import "amino/amino.proto";
 import "blockchain/validatorgov/v1/approved_validator.proto";
+import "blockchain/validatorgov/v1/concentration.proto";
 import "blockchain/validatorgov/v1/params.proto";
 import "blockchain/validatorgov/v1/rotation.proto";
 import "blockchain/validatorgov/v1/validator_application.proto";
@@ -31,4 +32,14 @@ message GenesisState {
   // rebuilt from the highest rotation present, so that a genesis edited by hand
   // says what it means and importing it cannot collide.
   uint64 rotation_count = 5;
+
+  // demotions carries every validator the epoch check currently holds down.
+  //
+  // Exported because a demotion is not derivable from anything else in this
+  // genesis: the validator it names is jailed, so it contributes no power, so
+  // recomputing the ceilings from the exported state would find no breach and
+  // conclude there was nothing to restore. A chain that dropped these would
+  // hand every demoted validator its seats back at the next upgrade, silently,
+  // at the one moment nobody is watching the validator set.
+  repeated Demotion demotions = 6 [(gogoproto.nullable) = false];
 }

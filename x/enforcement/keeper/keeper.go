@@ -30,6 +30,10 @@ type Keeper struct {
 	bankKeeper    types.BankKeeper
 	stakingKeeper types.StakingKeeper
 
+	// constitutionKeeper holds the four parameters governance is not allowed to
+	// move. Read-only, and read on both write paths into Params.
+	constitutionKeeper types.ConstitutionKeeper
+
 	CaseSeq collections.Sequence
 	Case    collections.Map[uint64, types.Case]
 
@@ -64,6 +68,7 @@ func NewKeeper(
 	authKeeper types.AuthKeeper,
 	bankKeeper types.BankKeeper,
 	stakingKeeper types.StakingKeeper,
+	constitutionKeeper types.ConstitutionKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -76,6 +81,8 @@ func NewKeeper(
 		cdc:          cdc,
 		addressCodec: addressCodec,
 		authority:    authority,
+
+		constitutionKeeper: constitutionKeeper,
 
 		authKeeper:    authKeeper,
 		bankKeeper:    bankKeeper,

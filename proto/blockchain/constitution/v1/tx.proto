@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package blockchain.constitution.v1;
+
+import "amino/amino.proto";
+import "blockchain/constitution/v1/constitution.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/constitution/types";
+
+// Msg defines the Msg service.
+//
+// There is no UpdateParams here, and there never will be. Every other module on
+// this chain has one; this module's whole purpose is to hold the values that
+// message must not reach, so giving it its own would be a door cut into the
+// wall it is.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // ProposeAmendment opens a change to the invariants and starts its public
+  // delay. It is authority-gated, so a proposal is the only way in.
+  rpc ProposeAmendment(MsgProposeAmendment) returns (MsgProposeAmendmentResponse);
+
+  // RatifyAmendment records one validator agreeing to a pending amendment.
+  rpc RatifyAmendment(MsgRatifyAmendment) returns (MsgRatifyAmendmentResponse);
+
+  // WithdrawAmendment takes a pending amendment back before it takes effect.
+  rpc WithdrawAmendment(MsgWithdrawAmendment) returns (MsgWithdrawAmendmentResponse);
+}
+
+// MsgProposeAmendment opens an amendment to the invariants.
+//
+// Amendment is possible at all, rather than forbidden outright, because
+// "forbidden" would be a lie. A chain can be hard-forked and an upgrade handler
+// can rewrite any store, so a constitution with no amendment path does not
+// become unamendable — it relocates its amendments into a binary release, which
+// is a change with less public notice and fewer signatures than a proposal. The
+// path exists so that it is the cheapest one, and it is made slow and loud so
+// that taking it is a thing people find out about.
+//
+// Two independent conditions, both required: a governance proposal to open it,
+// and a supermajority of the voting power recorded at that moment to ratify it,
+// with weeks between the two. Neither alone is enough.
+message MsgProposeAmendment {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/constitution/MsgProposeAmendment";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // invariants is the complete replacement set, not a delta. All fields must be
+  // supplied and all of them are validated, so an amendment that meant to move
+  // one ceiling cannot silently zero another by omitting it — and a zero here
+  // would be a divisor or a missing destination somewhere else.
+  Invariants invariants = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+
+  // reason is the stated grounds, in plain words.
+  string reason = 3;
+}
+
+// MsgProposeAmendmentResponse returns the id of the amendment that was opened.
+message MsgProposeAmendmentResponse {
+  uint64 amendment_id = 1;
+}
+
+// MsgRatifyAmendment is one validator agreeing to a pending amendment.
+//
+// Signed by the operator account, at the weight that operator carries when it
+// signs, and countable only once. A validator that changes its mind cannot
+// un-ratify: the amendment's protection is the delay and the threshold, not the
+// ability to run the vote backwards, and a withdrawable ratification would let
+// a set hold an amendment at one vote short indefinitely.
+message MsgRatifyAmendment {
+  option (cosmos.msg.v1.signer) = "validator";
+  option (amino.name) = "blockchain/x/constitution/MsgRatifyAmendment";
+
+  // validator is the operator address in its account form.
+  string validator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  uint64 amendment_id = 2;
+}
+
+// MsgRatifyAmendmentResponse defines the response structure for executing a
+// MsgRatifyAmendment message.
+message MsgRatifyAmendmentResponse {}
+
+// MsgWithdrawAmendment takes a pending amendment back before it takes effect.
+//
+// Authority-gated like the proposal, because withdrawing one is a decision of
+// the same kind. It exists so that an amendment found to be wrong during its
+// own delay can be stopped by the body that opened it, rather than left to run
+// its weeks out while everybody waits to see whether it fails to ratify.
+message MsgWithdrawAmendment {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/constitution/MsgWithdrawAmendment";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  uint64 amendment_id = 2;
+}
+
+// MsgWithdrawAmendmentResponse defines the response structure for executing a
+// MsgWithdrawAmendment message.
+message MsgWithdrawAmendmentResponse {}

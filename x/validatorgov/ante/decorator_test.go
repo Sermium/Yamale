@@ -10,6 +10,8 @@ import (
 	protov2 "google.golang.org/protobuf/proto"
 
 	"yamale/blockchain/testutil/integration"
+	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 	"yamale/blockchain/x/validatorgov/ante"
 	"yamale/blockchain/x/validatorgov/keeper"
 	module "yamale/blockchain/x/validatorgov/module"
@@ -41,9 +43,12 @@ type gateFixture struct {
 func initGateFixture(t *testing.T) *gateFixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
+	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
+	staking := vgtestutil.NewStakingKeeper()
+	_, destination := env.Addr(t)
+	constitution := constitutiontestutil.Init(t, env, staking, constitutiontestutil.Invariants(destination))
 	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority,
-		vgtestutil.NewStakingKeeper(), vgtestutil.NewAuthzKeeper())
+		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution)
 	require.NoError(t, k.Params.Set(env.Ctx, types.DefaultParams()))
 
 	// The gate runs on every block after genesis.
@@ -63,7 +68,7 @@ func (f *gateFixture) approveCandidate(t *testing.T) (accStr, valoperStr string)
 	t.Helper()
 
 	acc, accStr := f.env.Addr(t)
-	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr})
+	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = f.msgServer.ApproveValidator(f.env.Ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: accStr, Approve: true,
@@ -93,7 +98,7 @@ func TestGateBlocksPendingApplicant(t *testing.T) {
 	f := initGateFixture(t)
 
 	acc, accStr := f.env.Addr(t)
-	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr})
+	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 
 	tx := stubTx{msgs: []sdk.Msg{
@@ -110,7 +115,7 @@ func TestGateBlocksRejectedCandidate(t *testing.T) {
 	f := initGateFixture(t)
 
 	acc, accStr := f.env.Addr(t)
-	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr})
+	_, err := f.msgServer.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: accStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = f.msgServer.ApproveValidator(f.env.Ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: accStr, Approve: false,

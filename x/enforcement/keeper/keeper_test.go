@@ -9,7 +9,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	"github.com/stretchr/testify/require"
+
 	"yamale/blockchain/testutil/integration"
+	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 	"yamale/blockchain/x/enforcement/keeper"
 	module "yamale/blockchain/x/enforcement/module"
 	"yamale/blockchain/x/enforcement/types"
@@ -155,8 +159,21 @@ type fixture struct {
 func initFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
+	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
 	staking := newStubStaking()
+
+	// Fixed rather than random. The recovery destination is constitutional now,
+	// so two fixtures with different destinations are two different chains — and
+	// a genesis exported from one would be refused by the other, which is
+	// exactly what the round-trip tests do.
+	destinationStr := testRecoveryDestination
+	destination, err := env.AddressCodec.StringToBytes(destinationStr)
+	require.NoError(t, err)
+
+	// The constitution is real. What is being tested is that this module cannot
+	// move the four parameters held there, and a stubbed settlement would test
+	// the assertion rather than the arrangement.
+	constitution := constitutiontestutil.Init(t, env, staking, constitutiontestutil.Invariants(destinationStr))
 
 	k := keeper.NewKeeper(
 		env.StoreService,
@@ -166,9 +183,8 @@ func initFixture(t *testing.T) *fixture {
 		env.AuthKeeper,
 		env.BankKeeper,
 		staking,
+		constitution,
 	)
-
-	destination, destinationStr := env.Addr(t)
 
 	params := types.DefaultParams()
 	params.RecoveryDestination = destinationStr

@@ -41,6 +41,12 @@ func newAnteHandler(app *App) (sdk.AnteHandler, error) {
 		// operator would cancel a legitimate recovery for free.
 		validatorgovante.NewOperatorVetoDecorator(app.ValidatorgovKeeper),
 		validatorgovante.NewValidatorGateDecorator(app.ValidatorgovKeeper),
+		// The demotion gate closes the route back out of a concentration
+		// demotion. Jailing is how a breach is corrected, and x/staking's Jail
+		// sets no jailed-until time, so without this an operator over its
+		// ceiling could unjail itself in the next block and stay in the set
+		// until somebody noticed.
+		validatorgovante.NewDemotionGateDecorator(app.ValidatorgovKeeper),
 	})
 
 	return sdk.ChainAnteDecorators(decorators...), nil
