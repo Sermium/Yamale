@@ -30,4 +30,14 @@ message GenesisState {
   // referenced by freezes and votes, so rebuilding it from the highest case
   // present would collide the moment a case is ever removed.
   uint64 case_count = 5;
+
+  // seizures is the rolling window's ledger: one record per executed seizure,
+  // still inside the window or not yet pruned.
+  //
+  // Exported because dropping it would reset the cap at every upgrade, which is
+  // the one moment a chain that wanted to seize more than its window allows
+  // would choose to do it. There is no separate running total in genesis on
+  // purpose: a total beside the records it is derived from is a second copy
+  // that can disagree with the first, and the module sums the records instead.
+  repeated SeizureRecord seizures = 6 [(gogoproto.nullable) = false];
 }

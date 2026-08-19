@@ -85,6 +85,34 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>reason is why it was released, kept beside the original accusation. The case is not deleted: a freeze that was lifted as a mistake is part of the record of how this power has been used.</td>
 </tr>
 </tbody></table>
+<h3>MsgOmbudsmanVeto</h3>
+<p><code>/blockchain.enforcement.v1.MsgOmbudsmanVeto</code></p>
+<p>Signed by the <code>ombudsman</code> field.</p>
+<p>OmbudsmanVeto stops a case that has not taken anything yet. The only message the ombudsman may sign, and the only thing it can do.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ombudsman</code></td>
+<td>string</td>
+<td>ombudsman must equal the ombudsman parameter.</td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is why the case was stopped, kept beside the original accusation. Required: an office whose refusals need no grounds is not accountable either, and this one is a check rather than a privilege.</td>
+</tr>
+</tbody></table>
 <h3>MsgOpenCase</h3>
 <p><code>/blockchain.enforcement.v1.MsgOpenCase</code></p>
 <p>Signed by the <code>opener</code> field.</p>
@@ -126,6 +154,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>evidence_hash</code></td>
 <td>string</td>
 <td></td>
+</tr>
+<tr>
+<td><code>legal_instrument</code></td>
+<td>LegalInstrument</td>
+<td>legal_instrument names the external authority the seizure is carried out under and pins its content. Required for a seizure, always, with no parameter that turns it off — a requirement governance can vote away is a default, and this one is meant to be a requirement. Ignored for a freeze, which takes nothing and has to be openable the minute a theft is noticed.</td>
 </tr>
 </tbody></table>
 <h3>MsgReverseCase</h3>
@@ -393,6 +426,24 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>HeldCases</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/case/held</code></p>
+<p>HeldCases queries the seizures that have been agreed and are waiting out their delay. This is the list an ombudsman reads: everything still stoppable at no cost to anybody, and how long there is left to stop it.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case</code></td>
+<td>repeated Case</td>
+<td></td>
+</tr>
+</tbody></table>
 <h3>ListCase</h3>
 <p><code>GET /yamale/blockchain/enforcement/v1/case</code></p>
 <p>ListCase queries every case ever opened, resolved or not.</p>
@@ -533,6 +584,54 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>SeizureWindow</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/window</code></p>
+<p>SeizureWindow queries how much of the rolling cap is left.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>window_start_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>current_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>seized</code></td>
+<td>repeated Coin</td>
+<td>seized is the total inside the window; cap is the parameter it is measured against; remaining is cap minus seized, floored at zero and carrying only the denominations the cap names.</td>
+</tr>
+<tr>
+<td><code>cap</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>remaining</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>seizure_count</code></td>
+<td>uint64</td>
+<td>seizure_count and max_seizures are the other half of the cap: the one that binds every denomination, including ones the value cap does not name.</td>
+</tr>
+<tr>
+<td><code>max_seizures</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
 <h2>State</h2>
 <h3>Case</h3>
 <p>Case is an accusation against one address, and everything the chain did about it. Cases are never deleted: the record of who was frozen, on whose word, on what evidence, and by whose votes is the only thing that makes this power answerable.</p>
@@ -634,6 +733,57 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>bool</td>
 <td>emergency marks a case opened by the emergency authority rather than by a validator. It changes nothing about how the case is decided — the validators still confirm or refuse it on the same terms — and exists so that nobody reading the record has to work out from an address whether the founders acted directly.</td>
 </tr>
+<tr>
+<td><code>legal_instrument</code></td>
+<td>LegalInstrument</td>
+<td>legal_instrument is the external authority a seizure is carried out under. Required for a seizure and empty for a freeze: a freeze takes nothing and is meant to be openable in the minute a theft is noticed, which is not a minute in which anybody has a court order.</td>
+</tr>
+<tr>
+<td><code>execute_at_height</code></td>
+<td>int64</td>
+<td>execute_at_height is when a held seizure may be carried out — the height the delay its size earned runs to. Zero on any case that is not a seizure the validators have passed.</td>
+</tr>
+<tr>
+<td><code>assessed_value</code></td>
+<td>repeated Coin</td>
+<td>assessed_value is what the target was found to hold when the case was decided: balance, stake and unbonding together. It is the figure the delay was sized from and the figure charged against the rolling cap, recorded on the case so that &quot;why did this one wait a week&quot; is answerable from the record rather than from a re-run of the arithmetic against state that has since moved.</td>
+</tr>
+</tbody></table>
+<h3>EventCaseHeld</h3>
+<p>EventCaseHeld is emitted when a seizure is agreed and starts waiting out its delay. This is the block in which anybody who wants to object still can, so it carries the height the objection window closes at and the value the delay was sized from.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>assessed_value</code></td>
+<td>repeated Coin</td>
+<td>assessed_value is what the target was found to hold: balance, stake and unbonding together.</td>
+</tr>
+<tr>
+<td><code>execute_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>delay_blocks</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
 </tbody></table>
 <h3>EventCaseOpened</h3>
 <p>EventCaseOpened is emitted when a case is opened and its target frozen.</p>
@@ -720,6 +870,43 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>required_power</code></td>
 <td>int64</td>
 <td></td>
+</tr>
+</tbody></table>
+<h3>EventCaseVetoed</h3>
+<p>EventCaseVetoed is emitted when the ombudsman stops a case.</p>
+<p>Its own event rather than an EventCaseResolved with a different status, because &quot;the office outside the validator set refused this&quot; is the single most important thing that can happen in this module and it should not have to be inferred from an enum by whoever is watching.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ombudsman</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>was_held</code></td>
+<td>bool</td>
+<td>was_held distinguishes a veto that stopped a seizure the validators had already agreed to from one that stopped a case still being argued. They are very different acts by the same office.</td>
 </tr>
 </tbody></table>
 <h3>EventCaseVoted</h3>
@@ -815,6 +1002,38 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>complete is set on the sweep that finishes the job: nothing liquid left, nothing staked, nothing unbonding.</td>
 </tr>
 </tbody></table>
+<h3>EventSeizureDeferred</h3>
+<p>EventSeizureDeferred is emitted when a seizure comes due and the rolling cap refuses it.</p>
+<p>Emitted every time it is refused, not once. A case that is quietly waiting is indistinguishable from a case that has been forgotten, and the difference matters to the person whose account is still frozen.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>retry_at_height</code></td>
+<td>int64</td>
+<td>retry_at_height is the next height at which the window could have room — when the oldest seizure in it falls out.</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason says which limit refused it, in words, so that nobody has to reconstruct the arithmetic from the parameters to find out.</td>
+</tr>
+</tbody></table>
 <h3>Freeze</h3>
 <p>Freeze is the fact that stops the money moving.</p>
 <p>It is kept as its own record rather than being derived by scanning cases, because it is read on every single transfer the chain processes.</p>
@@ -845,6 +1064,93 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>frozen_at_height</code></td>
 <td>int64</td>
 <td></td>
+</tr>
+</tbody></table>
+<h3>LegalInstrument</h3>
+<p>LegalInstrument is the external authority a seizure is carried out under.</p>
+<p>This is deliberately not the evidence fields. Evidence is why the chain believes the allegation; an instrument is who, outside this chain, ordered that something be done about it. Keeping them in one pair of fields would let a case satisfy its authority requirement by attaching its own investigation report, which is exactly the substitution the requirement exists to prevent.</p>
+<p>There is no URI here, and that is the design rather than an omission. A link is a document somebody controls: whoever hosts it can change it, take it down, or never have had it. What is stored instead is an identifier that names the instrument in the world — the issuing body and its own reference number — so that verification means going to that body&#39;s register, plus a hash that pins the content of what was served. A reader with the reference can find the instrument without this chain&#39;s help; a reader with the hash can prove the copy they were shown is the one the case was opened on. Neither depends on anyone keeping a web server up.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>issuing_authority</code></td>
+<td>string</td>
+<td>issuing_authority names the body that issued it, as it names itself — &quot;High Court of Kenya at Nairobi&quot;, &quot;Bank of Ghana&quot;. Free text because the set of courts and supervisors in the world is not enumerable in a proto file, and a wrong enum would be worse than an honest string.</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>string</td>
+<td>reference is the instrument&#39;s own identifier in the issuer&#39;s register: the case number, the direction number, the warrant number. This is the half that makes the instrument findable by somebody who does not trust this chain.</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>LegalInstrumentKind</td>
+<td></td>
+</tr>
+<tr>
+<td><code>hash</code></td>
+<td>string</td>
+<td>hash is the SHA-256, lowercase hex, of the instrument as it was served. It pins the content: an order that is later amended can be shown to have been amended, and a copy produced afterwards can be checked against what the validators actually voted on.</td>
+</tr>
+<tr>
+<td><code>issued_at</code></td>
+<td>int64</td>
+<td>issued_at is when the instrument was issued, as Unix seconds. Refused if it is in the future relative to the block: an order dated tomorrow has not been issued, and a case that claims one is either mistaken or manufactured.</td>
+</tr>
+</tbody></table>
+<h3>SeizureDelayTier</h3>
+<p>SeizureDelayTier is one step in the schedule that decides how long a seizure waits between being decided and being carried out.</p>
+<p>A tier matches when the value the case assessed reaches its threshold in that denomination, and a case takes the longest delay of every tier it matches. Longest rather than first, so the schedule does not depend on the order governance happened to write it in — an ordering bug in a parameter list is invisible until the day it lets somebody&#39;s life savings move at the speed meant for pocket change.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>threshold</code></td>
+<td>Coin</td>
+<td>threshold is the smallest amount, in base units, that falls into this tier.</td>
+</tr>
+<tr>
+<td><code>delay_blocks</code></td>
+<td>uint64</td>
+<td>delay_blocks is how long a case in this tier waits after the vote before anything moves.</td>
+</tr>
+</tbody></table>
+<h3>SeizureRecord</h3>
+<p>SeizureRecord is one executed seizure, kept so the rolling window can be summed without replaying the chain.</p>
+<p>Records fall out of the window by height, and the number that can be inside one is bounded by the cap itself — which is what keeps both the sum and the pruning bounded no matter how long the chain has been running.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td>int64</td>
+<td>height is when the seizure executed. It is the first component of the key, so the window is a range scan over recent heights rather than a filter over every seizure there has ever been.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>repeated Coin</td>
+<td>amount is what this seizure counted for against the cap: the value assessed when the case was decided, or what execution actually moved if that was larger. Taking the larger of the two is what stops a deposit arriving during the hold from being taken outside the window&#39;s arithmetic.</td>
 </tr>
 </tbody></table>
 <h3>Vote</h3>
@@ -937,6 +1243,41 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>CASE_STATUS_REVERSED</code></td>
 <td>CASE_STATUS_REVERSED means an authority overturned the case rather than the validators deciding it: governance reversing one that passed, or the emergency authority releasing an account it or a validator had frozen. Any freeze is lifted. What was already seized is not returned by this module — that takes a transfer from the recovery destination, by whoever controls it, and pretending otherwise would be a lie told by an enum value.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_HELD</code></td>
+<td>CASE_STATUS_HELD is a seizure the validators have agreed to that has not been carried out yet: it is waiting out the delay its size earned. It is a status of its own rather than a flag on PASSED because it is the only window in which the seizure can still be stopped without anything having to be given back. The ombudsman&#39;s veto lives here, and so does governance&#39;s chance to reverse a case before it costs anybody anything. A reader who cannot tell &quot;decided&quot; from &quot;done&quot; cannot tell those apart. The account stays frozen throughout, and the freeze no longer lapses: the set has decided, so there is nothing left for a lapse to protect against.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_VETOED</code></td>
+<td>CASE_STATUS_VETOED means the ombudsman stopped the case. Any freeze is lifted and nothing is taken. Distinct from REJECTED and from REVERSED on purpose. Rejected is the validator set disagreeing; reversed is an authority undoing something that already happened; vetoed is one office outside the set refusing to let it happen at all. Collapsing them would hide which check actually caught the case, and that is the only thing the record of a stopped case is for.</td>
+</tr>
+</tbody></table>
+<h3>LegalInstrumentKind</h3>
+<p>LegalInstrumentKind is the sort of external authority a seizure rests on.</p>
+<p>It is a closed list rather than free text because the list is the point: a seizure on this chain is the execution of something a court, a regulator or a magistrate already ordered, and &quot;other&quot; would let a case name its own paperwork as its authority.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>LEGAL_INSTRUMENT_KIND_UNSPECIFIED</code></td>
+<td>LEGAL_INSTRUMENT_KIND_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>LEGAL_INSTRUMENT_KIND_COURT_ORDER</code></td>
+<td>LEGAL_INSTRUMENT_KIND_COURT_ORDER is an order of a court.</td>
+</tr>
+<tr>
+<td><code>LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION</code></td>
+<td>LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION is a direction issued by a financial supervisor under its own statutory power — a central bank&#39;s directive, a financial intelligence unit&#39;s freezing direction.</td>
+</tr>
+<tr>
+<td><code>LEGAL_INSTRUMENT_KIND_WARRANT</code></td>
+<td>LEGAL_INSTRUMENT_KIND_WARRANT is a warrant issued in a criminal matter.</td>
 </tr>
 </tbody></table>
 <h3>VoteOption</h3>
@@ -1049,6 +1390,31 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>1114</td>
 <td><code>ErrNoEmergencyAuthority</code></td>
 <td>no emergency authority is configured</td>
+</tr>
+<tr>
+<td>1115</td>
+<td><code>ErrLegalInstrumentRequired</code></td>
+<td>a seizure case requires an external legal instrument</td>
+</tr>
+<tr>
+<td>1116</td>
+<td><code>ErrNoOmbudsman</code></td>
+<td>no ombudsman is appointed</td>
+</tr>
+<tr>
+<td>1117</td>
+<td><code>ErrOmbudsmanCannotInitiate</code></td>
+<td>the ombudsman may only stop cases, never open, vote on, or advance one</td>
+</tr>
+<tr>
+<td>1118</td>
+<td><code>ErrSeizureCapReached</code></td>
+<td>this seizure would breach the rolling cap on what may be taken per window</td>
+</tr>
+<tr>
+<td>1119</td>
+<td><code>ErrNotHeld</code></td>
+<td>case is not waiting to be carried out</td>
 </tr>
 </tbody></table>
 

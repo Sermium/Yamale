@@ -103,6 +103,37 @@ if enforcement is not None and not enforcement.get("recovery_destination", "").s
         )
     enforcement["recovery_destination"] = recovery_destination
 
+# The oversight parameters added after this devnet's genesis was written. An
+# export from the old binary has none of them, and the new binary refuses to
+# start without them — so an upgrade that did not fill them in would produce a
+# chain that halts at height 1, which is exactly the failure this whole file
+# exists to avoid.
+#
+# Only filled where the export left them empty. Values already chosen by
+# governance are never overwritten here.
+if enforcement is not None:
+    if not enforcement.get("seizure_delay_blocks") or enforcement.get("seizure_delay_blocks") == "0":
+        enforcement["seizure_delay_blocks"] = "240"
+    if not enforcement.get("seizure_delay_tiers"):
+        enforcement["seizure_delay_tiers"] = [
+            {"threshold": {"denom": "uyml", "amount": "1000000"}, "delay_blocks": "720"},
+            {"threshold": {"denom": "uyml", "amount": "100000000"}, "delay_blocks": "2880"},
+        ]
+    if not enforcement.get("seizure_window_blocks") or enforcement.get("seizure_window_blocks") == "0":
+        enforcement["seizure_window_blocks"] = "17280"
+    if not enforcement.get("seizure_window_cap"):
+        enforcement["seizure_window_cap"] = [{"denom": "uyml", "amount": "500000000"}]
+    if not enforcement.get("max_seizures_per_window") or enforcement.get("max_seizures_per_window") == "0":
+        enforcement["max_seizures_per_window"] = "5"
+
+# The rolling window's ledger. An export from the old binary has no `seizures`
+# key at all, and importing without one would be indistinguishable from an
+# import with an empty one — which is correct here, because a chain that had no
+# rolling cap has no history to carry into it.
+enforcement_state = exported["app_state"].get("enforcement")
+if enforcement_state is not None and "seizures" not in enforcement_state:
+    enforcement_state["seizures"] = []
+
 json.dump(exported, open(exported_path, "w"), indent=2)
 print("  modules added:", ", ".join(added) if added else "none")
 print("  chain id     :", exported["chain_id"])

@@ -16,6 +16,7 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgReverseCase{},
 		&MsgEmergencyFreeze{},
 		&MsgEmergencyRelease{},
+		&MsgOmbudsmanVeto{},
 	)
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)
 }

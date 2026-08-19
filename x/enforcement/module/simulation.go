@@ -1,6 +1,8 @@
 package enforcement
 
 import (
+	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 
@@ -33,6 +35,22 @@ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
 	if len(simState.Accounts) > 0 {
 		params.RecoveryDestination = simState.Accounts[0].Address.String()
 	}
+
+	// The delay schedule and the value cap have no defaults for the same reason
+	// the destination has none: both are denominated, and no denomination
+	// compiled into this binary is anybody's currency. Seeded here against the
+	// simulated chain's own bond denom, because parameters that failed Validate
+	// would stop the whole simulation at InitGenesis and the failure would look
+	// like a bug in whatever module ran first.
+	bondDenom := simState.BondDenom
+	if bondDenom == "" {
+		bondDenom = sdk.DefaultBondDenom
+	}
+	params.SeizureDelayTiers = []types.SeizureDelayTier{{
+		Threshold:   sdk.NewCoin(bondDenom, math.NewInt(1_000_000_000)),
+		DelayBlocks: types.DefaultSeizureDelayBlocks * 7,
+	}}
+	params.SeizureWindowCap = sdk.NewCoins(sdk.NewCoin(bondDenom, math.NewInt(1_000_000_000_000)))
 
 	genesis := types.DefaultGenesis()
 	genesis.Params = params

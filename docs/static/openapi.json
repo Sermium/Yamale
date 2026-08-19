@@ -36,7 +36,7 @@
         "parameters": [
           {
             "name": "id",
-            "description": "id in any form the client has it: hyphenated, lower case, with the\r\nconfusable characters unfolded. The module normalises before looking up.",
+            "description": "id in any form the client has it: hyphenated, lower case, with the\nconfusable characters unfolded. The module normalises before looking up.",
             "in": "path",
             "required": true,
             "type": "string"
@@ -897,6 +897,28 @@
         ]
       }
     },
+    "/yamale/blockchain/enforcement/v1/case/held": {
+      "get": {
+        "operationId": "Query_HeldCases",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryHeldCasesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/enforcement/v1/case/open": {
       "get": {
         "operationId": "Query_OpenCases",
@@ -1098,6 +1120,28 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/QueryRecoveredResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/window": {
+      "get": {
+        "operationId": "Query_SeizureWindow",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QuerySeizureWindowResponse"
             }
           },
           "default": {
@@ -3761,6 +3805,20 @@
         },
         "emergency": {
           "type": "boolean"
+        },
+        "legal_instrument": {
+          "$ref": "#/definitions/LegalInstrument"
+        },
+        "execute_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "assessed_value": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
         }
       }
     },
@@ -3782,7 +3840,9 @@
         "CASE_STATUS_REJECTED",
         "CASE_STATUS_EXPIRED",
         "CASE_STATUS_WITHDRAWN",
-        "CASE_STATUS_REVERSED"
+        "CASE_STATUS_REVERSED",
+        "CASE_STATUS_HELD",
+        "CASE_STATUS_VETOED"
       ],
       "default": "CASE_STATUS_UNSPECIFIED"
     },
@@ -4038,6 +4098,37 @@
           "type": "string"
         }
       }
+    },
+    "LegalInstrument": {
+      "type": "object",
+      "properties": {
+        "issuing_authority": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/LegalInstrumentKind"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "LegalInstrumentKind": {
+      "type": "string",
+      "enum": [
+        "LEGAL_INSTRUMENT_KIND_UNSPECIFIED",
+        "LEGAL_INSTRUMENT_KIND_COURT_ORDER",
+        "LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION",
+        "LEGAL_INSTRUMENT_KIND_WARRANT"
+      ],
+      "default": "LEGAL_INSTRUMENT_KIND_UNSPECIFIED"
     },
     "Lock": {
       "type": "object",
@@ -4940,6 +5031,18 @@
         }
       }
     },
+    "QueryHeldCasesResponse": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Case"
+          }
+        }
+      }
+    },
     "QueryInvariantsResponse": {
       "type": "object",
       "properties": {
@@ -5213,6 +5316,48 @@
         }
       }
     },
+    "QuerySeizureWindowResponse": {
+      "type": "object",
+      "properties": {
+        "window_start_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "current_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "seized": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "cap": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "remaining": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "seizure_count": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "max_seizures": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "QuerySolvencyResponse": {
       "type": "object",
       "properties": {
@@ -5407,6 +5552,18 @@
         },
         "disputed": {
           "type": "boolean"
+        }
+      }
+    },
+    "SeizureDelayTier": {
+      "type": "object",
+      "properties": {
+        "threshold": {
+          "$ref": "#/definitions/Coin"
+        },
+        "delay_blocks": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },

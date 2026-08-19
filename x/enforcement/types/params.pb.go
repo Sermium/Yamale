@@ -6,6 +6,8 @@ package types
 import (
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
+	github_com_cosmos_cosmos_sdk_types "github.com/cosmos/cosmos-sdk/types"
+	types "github.com/cosmos/cosmos-sdk/types"
 	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
@@ -24,6 +26,70 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+
+// SeizureDelayTier is one step in the schedule that decides how long a seizure
+// waits between being decided and being carried out.
+//
+// A tier matches when the value the case assessed reaches its threshold in that
+// denomination, and a case takes the longest delay of every tier it matches.
+// Longest rather than first, so the schedule does not depend on the order
+// governance happened to write it in — an ordering bug in a parameter list is
+// invisible until the day it lets somebody's life savings move at the speed
+// meant for pocket change.
+type SeizureDelayTier struct {
+	// threshold is the smallest amount, in base units, that falls into this tier.
+	Threshold types.Coin `protobuf:"bytes,1,opt,name=threshold,proto3" json:"threshold"`
+	// delay_blocks is how long a case in this tier waits after the vote before
+	// anything moves.
+	DelayBlocks uint64 `protobuf:"varint,2,opt,name=delay_blocks,json=delayBlocks,proto3" json:"delay_blocks,omitempty"`
+}
+
+func (m *SeizureDelayTier) Reset()         { *m = SeizureDelayTier{} }
+func (m *SeizureDelayTier) String() string { return proto.CompactTextString(m) }
+func (*SeizureDelayTier) ProtoMessage()    {}
+func (*SeizureDelayTier) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7a9c211fca0abb6f, []int{0}
+}
+func (m *SeizureDelayTier) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SeizureDelayTier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SeizureDelayTier.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SeizureDelayTier) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SeizureDelayTier.Merge(m, src)
+}
+func (m *SeizureDelayTier) XXX_Size() int {
+	return m.Size()
+}
+func (m *SeizureDelayTier) XXX_DiscardUnknown() {
+	xxx_messageInfo_SeizureDelayTier.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SeizureDelayTier proto.InternalMessageInfo
+
+func (m *SeizureDelayTier) GetThreshold() types.Coin {
+	if m != nil {
+		return m.Threshold
+	}
+	return types.Coin{}
+}
+
+func (m *SeizureDelayTier) GetDelayBlocks() uint64 {
+	if m != nil {
+		return m.DelayBlocks
+	}
+	return 0
+}
 
 // Params defines the parameters for the module.
 //
@@ -97,13 +163,77 @@ type Params struct {
 	// not named a founders' group has no emergency authority rather than an
 	// implicit one.
 	EmergencyAuthority string `protobuf:"bytes,8,opt,name=emergency_authority,json=emergencyAuthority,proto3" json:"emergency_authority,omitempty"`
+	// seizure_delay_blocks is the shortest a seizure can ever wait between the
+	// validators deciding it and it being carried out. Every seizure waits at
+	// least this long, whatever it is worth.
+	//
+	// The delay is not caution for its own sake, it is the window in which a
+	// decision can still be undone at no cost to anybody: the ombudsman's veto
+	// and governance's reversal both land here, and before it expires nothing has
+	// been taken and nothing has to be given back. A delay of zero is refused
+	// because a veto that has no window in which to be cast is not a veto.
+	SeizureDelayBlocks uint64 `protobuf:"varint,9,opt,name=seizure_delay_blocks,json=seizureDelayBlocks,proto3" json:"seizure_delay_blocks,omitempty"`
+	// seizure_delay_tiers scales that wait with what is being taken.
+	//
+	// Taking a market trader's float and taking a family's savings should not
+	// move at the same speed, because the cost of getting the second one wrong is
+	// not the same and the time somebody needs to notice and object is not the
+	// same either. The schedule is a parameter rather than a constant so that a
+	// deployment sets it against its own currency and its own idea of what a
+	// large sum is; there is no amount that means "large" on every chain this is
+	// shipped to.
+	//
+	// At least one tier is required, and that is the whole point of the field: a
+	// chain with no tiers has a constant, and a constant is what this exists to
+	// replace.
+	SeizureDelayTiers []SeizureDelayTier `protobuf:"bytes,10,rep,name=seizure_delay_tiers,json=seizureDelayTiers,proto3" json:"seizure_delay_tiers"`
+	// seizure_window_blocks is the length of the rolling window that the caps
+	// below are measured over.
+	//
+	// Rolling, not periodic. A window that reset on a fixed boundary would let
+	// twice the cap through by placing half the seizures either side of it, and
+	// whoever was doing that would be doing it on purpose.
+	SeizureWindowBlocks uint64 `protobuf:"varint,11,opt,name=seizure_window_blocks,json=seizureWindowBlocks,proto3" json:"seizure_window_blocks,omitempty"`
+	// seizure_window_cap is the most that may be seized, per denomination, within
+	// any window. A denomination with no entry here is not capped by value —
+	// only by the count below.
+	//
+	// This is the limit that makes mass expropriation impossible rather than
+	// merely unpopular. A chain that can take a bounded amount per week cannot be
+	// turned on its own users in one sitting, whoever has captured the validator
+	// set, because the arithmetic refuses before anybody has to.
+	SeizureWindowCap github_com_cosmos_cosmos_sdk_types.Coins `protobuf:"bytes,12,rep,name=seizure_window_cap,json=seizureWindowCap,proto3,castrepeated=github.com/cosmos/cosmos-sdk/types.Coins" json:"seizure_window_cap"`
+	// max_seizures_per_window is how many seizures may be carried out within one
+	// window, whatever they are worth.
+	//
+	// It is the half of the cap that cannot be walked around by choosing a
+	// denomination nobody thought to price. A value cap only binds the
+	// denominations it names; a count cap binds everything, including a currency
+	// issued the day after the parameters were last set.
+	MaxSeizuresPerWindow uint64 `protobuf:"varint,13,opt,name=max_seizures_per_window,json=maxSeizuresPerWindow,proto3" json:"max_seizures_per_window,omitempty"`
+	// ombudsman is an office appointed outside the validator set that can stop a
+	// case and can never start one.
+	//
+	// The asymmetry is the entire point. An office that can only refuse cannot be
+	// used to take anything from anybody, so appointing one adds a check without
+	// adding a power — which is the only kind of oversight worth having over a
+	// module like this one. It is enforced structurally rather than by trust:
+	// there is no message in this service that the ombudsman may sign and that
+	// opens, votes on, sweeps or otherwise advances a case, and the parameters
+	// refuse an ombudsman that is also the emergency authority or the recovery
+	// destination, because either of those would hand the same office a way in.
+	//
+	// Empty means there is no ombudsman, which is the default for the same reason
+	// the emergency authority's is: no address compiled into a binary is anybody
+	// else's independent office, and an implicit one would be worse than none.
+	Ombudsman string `protobuf:"bytes,14,opt,name=ombudsman,proto3" json:"ombudsman,omitempty"`
 }
 
 func (m *Params) Reset()         { *m = Params{} }
 func (m *Params) String() string { return proto.CompactTextString(m) }
 func (*Params) ProtoMessage()    {}
 func (*Params) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7a9c211fca0abb6f, []int{0}
+	return fileDescriptor_7a9c211fca0abb6f, []int{1}
 }
 func (m *Params) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -188,7 +318,50 @@ func (m *Params) GetEmergencyAuthority() string {
 	return ""
 }
 
+func (m *Params) GetSeizureDelayBlocks() uint64 {
+	if m != nil {
+		return m.SeizureDelayBlocks
+	}
+	return 0
+}
+
+func (m *Params) GetSeizureDelayTiers() []SeizureDelayTier {
+	if m != nil {
+		return m.SeizureDelayTiers
+	}
+	return nil
+}
+
+func (m *Params) GetSeizureWindowBlocks() uint64 {
+	if m != nil {
+		return m.SeizureWindowBlocks
+	}
+	return 0
+}
+
+func (m *Params) GetSeizureWindowCap() github_com_cosmos_cosmos_sdk_types.Coins {
+	if m != nil {
+		return m.SeizureWindowCap
+	}
+	return nil
+}
+
+func (m *Params) GetMaxSeizuresPerWindow() uint64 {
+	if m != nil {
+		return m.MaxSeizuresPerWindow
+	}
+	return 0
+}
+
+func (m *Params) GetOmbudsman() string {
+	if m != nil {
+		return m.Ombudsman
+	}
+	return ""
+}
+
 func init() {
+	proto.RegisterType((*SeizureDelayTier)(nil), "blockchain.enforcement.v1.SeizureDelayTier")
 	proto.RegisterType((*Params)(nil), "blockchain.enforcement.v1.Params")
 }
 
@@ -197,38 +370,80 @@ func init() {
 }
 
 var fileDescriptor_7a9c211fca0abb6f = []byte{
-	// 459 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xc1, 0x6e, 0xd3, 0x40,
-	0x10, 0x86, 0x63, 0x5a, 0x42, 0x59, 0x81, 0x50, 0xdd, 0xa0, 0x38, 0x3d, 0xb8, 0x11, 0x08, 0x14,
-	0x55, 0x22, 0xa6, 0x42, 0x70, 0xe8, 0x05, 0x35, 0x02, 0x24, 0x04, 0x87, 0xca, 0x88, 0x0b, 0x97,
-	0xd5, 0xc6, 0x9e, 0xda, 0x2b, 0xec, 0x1d, 0x33, 0xbb, 0xb1, 0xe2, 0x3e, 0x02, 0x27, 0x1e, 0x81,
-	0x47, 0xe0, 0xc0, 0x43, 0x70, 0xac, 0x38, 0x71, 0x44, 0xc9, 0x01, 0x1e, 0x81, 0x23, 0xea, 0xda,
-	0x4e, 0xc3, 0x01, 0xf5, 0x62, 0x79, 0xfe, 0xff, 0xff, 0x66, 0x34, 0xda, 0x61, 0xf7, 0xa7, 0x19,
-	0x46, 0xef, 0xa3, 0x54, 0x48, 0x15, 0x80, 0x3a, 0x41, 0x8a, 0x20, 0x07, 0x65, 0x82, 0xf2, 0x20,
-	0x28, 0x04, 0x89, 0x5c, 0x8f, 0x0b, 0x42, 0x83, 0xee, 0xe0, 0x22, 0x37, 0x5e, 0xcb, 0x8d, 0xcb,
-	0x83, 0xdd, 0x6d, 0x91, 0x4b, 0x85, 0x81, 0xfd, 0xd6, 0xe9, 0xdd, 0x41, 0x84, 0x3a, 0x47, 0xcd,
-	0x6d, 0x15, 0xd4, 0x45, 0x63, 0xf5, 0x12, 0x4c, 0xb0, 0xd6, 0xcf, 0xff, 0x6a, 0xf5, 0xce, 0x9f,
-	0x0d, 0xd6, 0x3d, 0xb6, 0xf3, 0xdc, 0x87, 0xac, 0x57, 0xa2, 0x91, 0x2a, 0xe1, 0x05, 0x90, 0xc4,
-	0x98, 0xdb, 0xc9, 0xda, 0x73, 0x86, 0xce, 0x68, 0x33, 0x74, 0x6b, 0xef, 0xd8, 0x5a, 0x13, 0xeb,
-	0xb8, 0x87, 0x6c, 0x50, 0x10, 0x96, 0x52, 0x4b, 0x54, 0x22, 0xe3, 0x27, 0x04, 0x70, 0x0a, 0x2d,
-	0x76, 0xc5, 0x62, 0xfd, 0xb5, 0xc0, 0x0b, 0xeb, 0x37, 0xec, 0x5d, 0x76, 0xd3, 0xa4, 0x04, 0x3a,
-	0xc5, 0x2c, 0xe6, 0xd3, 0x42, 0x7b, 0x1b, 0x36, 0x7f, 0x63, 0x25, 0x4e, 0x0a, 0xed, 0xbe, 0x62,
-	0x3d, 0x82, 0x08, 0x4b, 0xa0, 0x8a, 0xc7, 0xa0, 0x8d, 0x54, 0xc2, 0x48, 0x54, 0xde, 0xe6, 0xd0,
-	0x19, 0x5d, 0x9f, 0x78, 0xdf, 0xbf, 0x3e, 0xe8, 0x35, 0x3b, 0x1e, 0xc5, 0x31, 0x81, 0xd6, 0x6f,
-	0x0c, 0x49, 0x95, 0x84, 0x3b, 0x2d, 0xf5, 0xec, 0x02, 0x72, 0xf7, 0xd9, 0x76, 0x2e, 0xe6, 0x9c,
-	0x40, 0x68, 0x54, 0x3c, 0x03, 0x95, 0x98, 0xd4, 0xbb, 0x6a, 0xa7, 0xde, 0xca, 0xc5, 0x3c, 0xb4,
-	0xfa, 0x6b, 0x2b, 0xbb, 0x8f, 0x59, 0xff, 0x3c, 0x0b, 0xa5, 0x8c, 0x41, 0x45, 0xc0, 0x67, 0x24,
-	0x5b, 0xa2, 0x6b, 0x89, 0x5e, 0x2e, 0xe6, 0xcf, 0x1b, 0xf7, 0x2d, 0xc9, 0x06, 0x7b, 0xc2, 0xfa,
-	0x1a, 0xe4, 0x29, 0x70, 0x82, 0x0f, 0x33, 0x49, 0xa0, 0x57, 0x1d, 0xbc, 0x6b, 0x43, 0x67, 0xb4,
-	0x15, 0xde, 0xb6, 0x76, 0xd8, 0xb8, 0x6d, 0x03, 0xf7, 0x25, 0xdb, 0x81, 0x1c, 0x28, 0x01, 0x15,
-	0x55, 0x5c, 0xcc, 0x4c, 0x8a, 0x24, 0x4d, 0xe5, 0x6d, 0x5d, 0xb2, 0xa6, 0xbb, 0x82, 0x8e, 0x5a,
-	0xe6, 0x70, 0xf4, 0xfb, 0xf3, 0x9e, 0xf3, 0xf1, 0xd7, 0x97, 0xfd, 0xbd, 0xb5, 0x03, 0x9b, 0xff,
-	0x73, 0x62, 0xf5, 0x7b, 0x4f, 0x9e, 0x7e, 0x5b, 0xf8, 0xce, 0xd9, 0xc2, 0x77, 0x7e, 0x2e, 0x7c,
-	0xe7, 0xd3, 0xd2, 0xef, 0x9c, 0x2d, 0xfd, 0xce, 0x8f, 0xa5, 0xdf, 0x79, 0x77, 0xaf, 0x12, 0xb9,
-	0xc8, 0x20, 0xf8, 0x6f, 0x07, 0x53, 0x15, 0xa0, 0xa7, 0x5d, 0x7b, 0x42, 0x8f, 0xfe, 0x06, 0x00,
-	0x00, 0xff, 0xff, 0x5f, 0x1c, 0x5b, 0xbb, 0xcb, 0x02, 0x00, 0x00,
+	// 698 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0xcd, 0x4e, 0x1b, 0x3b,
+	0x14, 0xce, 0x5c, 0x72, 0x81, 0x38, 0x70, 0x2f, 0x98, 0x20, 0x26, 0x2c, 0x92, 0x5c, 0xae, 0x5a,
+	0x45, 0x54, 0xcc, 0x10, 0xaa, 0xb2, 0x40, 0xaa, 0x2a, 0x02, 0xad, 0x54, 0xb5, 0x0b, 0x14, 0x5a,
+	0x55, 0xea, 0x66, 0xe4, 0xcc, 0x1c, 0x12, 0x8b, 0x8c, 0x3d, 0xb5, 0x9d, 0x90, 0xe4, 0x11, 0xba,
+	0xea, 0x23, 0x74, 0xdd, 0x6e, 0xba, 0xe8, 0x43, 0xb0, 0x44, 0x5d, 0x75, 0xd5, 0x56, 0xb0, 0x68,
+	0x1f, 0xa3, 0x1a, 0x8f, 0x27, 0x3f, 0x48, 0x94, 0x4d, 0x32, 0xfe, 0xbe, 0xf3, 0x9d, 0x1f, 0x9f,
+	0x73, 0x8c, 0xee, 0x36, 0x3b, 0xdc, 0x3f, 0xf5, 0xdb, 0x84, 0x32, 0x17, 0xd8, 0x09, 0x17, 0x3e,
+	0x84, 0xc0, 0x94, 0xdb, 0xab, 0xb9, 0x11, 0x11, 0x24, 0x94, 0x4e, 0x24, 0xb8, 0xe2, 0xb8, 0x38,
+	0xb6, 0x73, 0x26, 0xec, 0x9c, 0x5e, 0x6d, 0x7d, 0x99, 0x84, 0x94, 0x71, 0x57, 0xff, 0x26, 0xd6,
+	0xeb, 0x25, 0x9f, 0xcb, 0x90, 0x4b, 0xb7, 0x49, 0x24, 0xb8, 0xbd, 0x5a, 0x13, 0x14, 0xa9, 0xb9,
+	0x3e, 0xa7, 0xcc, 0xf0, 0xc5, 0x84, 0xf7, 0xf4, 0xc9, 0x4d, 0x0e, 0x86, 0x2a, 0xb4, 0x78, 0x8b,
+	0x27, 0x78, 0xfc, 0x95, 0xa0, 0x1b, 0x43, 0xb4, 0x74, 0x0c, 0x74, 0xd8, 0x15, 0x70, 0x08, 0x1d,
+	0x32, 0x78, 0x41, 0x41, 0xe0, 0x87, 0x28, 0xa7, 0xda, 0x02, 0x64, 0x9b, 0x77, 0x02, 0xdb, 0xaa,
+	0x58, 0xd5, 0xfc, 0x4e, 0xd1, 0x31, 0xbe, 0xe2, 0xc0, 0x8e, 0x09, 0xec, 0x1c, 0x70, 0xca, 0xea,
+	0xd9, 0xf3, 0x6f, 0xe5, 0x4c, 0x63, 0xac, 0xc0, 0xff, 0xa1, 0x85, 0x20, 0xf6, 0xe5, 0xe9, 0xca,
+	0xa4, 0xfd, 0x57, 0xc5, 0xaa, 0x66, 0x1b, 0x79, 0x8d, 0xd5, 0x35, 0xb4, 0x97, 0xfd, 0xf5, 0xbe,
+	0x6c, 0x6d, 0x7c, 0x9c, 0x43, 0xb3, 0x47, 0xfa, 0x2e, 0xf0, 0x36, 0x2a, 0xf4, 0xb8, 0xa2, 0xac,
+	0xe5, 0x45, 0x20, 0x28, 0x0f, 0x52, 0xad, 0xa5, 0xb5, 0x38, 0xe1, 0x8e, 0x34, 0x95, 0xb8, 0xc0,
+	0x7b, 0xa8, 0x18, 0x09, 0xde, 0xa3, 0x92, 0x72, 0x46, 0x3a, 0xde, 0x89, 0x00, 0x18, 0xc2, 0x74,
+	0xc8, 0xb5, 0x09, 0x83, 0x27, 0x9a, 0x37, 0xda, 0xff, 0xd1, 0xe2, 0x28, 0x5d, 0xaf, 0x19, 0x49,
+	0x7b, 0x46, 0xdb, 0x2f, 0x8c, 0xc0, 0x7a, 0x24, 0xf1, 0x33, 0x54, 0x10, 0xe0, 0xf3, 0x1e, 0x88,
+	0x81, 0x17, 0x80, 0x54, 0x94, 0x11, 0x45, 0x39, 0xb3, 0xb3, 0x15, 0xab, 0x9a, 0xab, 0xdb, 0x5f,
+	0x3e, 0x6f, 0x15, 0xcc, 0x9d, 0xec, 0x07, 0x81, 0x00, 0x29, 0x8f, 0x95, 0xa0, 0xac, 0xd5, 0x58,
+	0x49, 0x55, 0x87, 0x63, 0x11, 0xde, 0x44, 0xcb, 0x21, 0xe9, 0x7b, 0x02, 0x88, 0xe4, 0xcc, 0xeb,
+	0x00, 0x6b, 0xa9, 0xb6, 0xfd, 0xb7, 0x8e, 0xfa, 0x6f, 0x48, 0xfa, 0x0d, 0x8d, 0x3f, 0xd7, 0x30,
+	0x7e, 0x80, 0xd6, 0x62, 0x5b, 0xe8, 0xd1, 0x00, 0x98, 0x0f, 0x5e, 0x57, 0xd0, 0x54, 0x31, 0xab,
+	0x15, 0x85, 0x90, 0xf4, 0x1f, 0x1b, 0xf6, 0xa5, 0xa0, 0x46, 0xb6, 0x8b, 0xd6, 0x24, 0xd0, 0x21,
+	0x78, 0x02, 0xde, 0x74, 0xa9, 0x00, 0x39, 0xf2, 0x60, 0xcf, 0x55, 0xac, 0xea, 0x7c, 0x63, 0x55,
+	0xd3, 0x0d, 0xc3, 0xa6, 0x0e, 0xf0, 0x53, 0xb4, 0x02, 0x21, 0x88, 0x16, 0x30, 0x7f, 0xe0, 0x91,
+	0xae, 0x6a, 0x73, 0x41, 0xd5, 0xc0, 0x9e, 0xbf, 0xa5, 0x4c, 0x3c, 0x12, 0xed, 0xa7, 0x9a, 0xb8,
+	0x8b, 0x32, 0x19, 0x26, 0x6f, 0x6a, 0x02, 0x72, 0x49, 0x17, 0xe5, 0xc4, 0xa0, 0x99, 0x4e, 0x10,
+	0xb4, 0x32, 0xad, 0x50, 0x14, 0x84, 0xb4, 0x51, 0x65, 0xa6, 0x9a, 0xdf, 0xb9, 0xe7, 0xdc, 0xb8,
+	0x1b, 0xce, 0xf5, 0xa1, 0x35, 0x63, 0xb8, 0x2c, 0xaf, 0xe1, 0x12, 0xef, 0xa0, 0xd5, 0x34, 0xc4,
+	0x19, 0x65, 0x01, 0x3f, 0x4b, 0xb3, 0xca, 0xeb, 0xac, 0xd2, 0xf8, 0xaf, 0x34, 0x67, 0xd2, 0x1a,
+	0x20, 0x7c, 0x4d, 0xe3, 0x93, 0xc8, 0x5e, 0xd0, 0x59, 0xfd, 0x61, 0x15, 0xb6, 0xe3, 0x1c, 0x3e,
+	0x7c, 0x2f, 0x57, 0x5b, 0x54, 0xb5, 0xbb, 0x4d, 0xc7, 0xe7, 0xa1, 0xd9, 0x41, 0xf3, 0xb7, 0x25,
+	0x83, 0x53, 0x57, 0x0d, 0x22, 0x90, 0x5a, 0x20, 0x1b, 0x4b, 0x53, 0xd1, 0x0f, 0x48, 0x94, 0x76,
+	0xdf, 0xe0, 0x32, 0xde, 0x07, 0x93, 0x83, 0xbd, 0x38, 0xea, 0xbe, 0xa9, 0x5e, 0x1e, 0x81, 0x48,
+	0x94, 0x78, 0x17, 0xe5, 0x78, 0xd8, 0xec, 0x06, 0x32, 0x24, 0xcc, 0xfe, 0xe7, 0x96, 0xde, 0x8d,
+	0x4d, 0xf7, 0xaa, 0xf1, 0x26, 0xbe, 0xfd, 0xf9, 0x69, 0xb3, 0x3c, 0xf1, 0x5e, 0xf5, 0xa7, 0x5e,
+	0xac, 0x64, 0x45, 0xeb, 0x8f, 0xce, 0x2f, 0x4b, 0xd6, 0xc5, 0x65, 0xc9, 0xfa, 0x71, 0x59, 0xb2,
+	0xde, 0x5d, 0x95, 0x32, 0x17, 0x57, 0xa5, 0xcc, 0xd7, 0xab, 0x52, 0xe6, 0xf5, 0x9d, 0x01, 0x09,
+	0x49, 0x07, 0xdc, 0x1b, 0x3d, 0xe8, 0x8a, 0x9b, 0xb3, 0xfa, 0xc5, 0xb9, 0xff, 0x3b, 0x00, 0x00,
+	0xff, 0xff, 0xef, 0x22, 0xc5, 0xad, 0x1a, 0x05, 0x00, 0x00,
 }
 
+func (this *SeizureDelayTier) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*SeizureDelayTier)
+	if !ok {
+		that2, ok := that.(SeizureDelayTier)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Threshold.Equal(&that1.Threshold) {
+		return false
+	}
+	if this.DelayBlocks != that1.DelayBlocks {
+		return false
+	}
+	return true
+}
 func (this *Params) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -272,8 +487,74 @@ func (this *Params) Equal(that interface{}) bool {
 	if this.EmergencyAuthority != that1.EmergencyAuthority {
 		return false
 	}
+	if this.SeizureDelayBlocks != that1.SeizureDelayBlocks {
+		return false
+	}
+	if len(this.SeizureDelayTiers) != len(that1.SeizureDelayTiers) {
+		return false
+	}
+	for i := range this.SeizureDelayTiers {
+		if !this.SeizureDelayTiers[i].Equal(&that1.SeizureDelayTiers[i]) {
+			return false
+		}
+	}
+	if this.SeizureWindowBlocks != that1.SeizureWindowBlocks {
+		return false
+	}
+	if len(this.SeizureWindowCap) != len(that1.SeizureWindowCap) {
+		return false
+	}
+	for i := range this.SeizureWindowCap {
+		if !this.SeizureWindowCap[i].Equal(&that1.SeizureWindowCap[i]) {
+			return false
+		}
+	}
+	if this.MaxSeizuresPerWindow != that1.MaxSeizuresPerWindow {
+		return false
+	}
+	if this.Ombudsman != that1.Ombudsman {
+		return false
+	}
 	return true
 }
+func (m *SeizureDelayTier) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SeizureDelayTier) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SeizureDelayTier) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.DelayBlocks != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.DelayBlocks))
+		i--
+		dAtA[i] = 0x10
+	}
+	{
+		size, err := m.Threshold.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintParams(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -294,6 +575,56 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Ombudsman) > 0 {
+		i -= len(m.Ombudsman)
+		copy(dAtA[i:], m.Ombudsman)
+		i = encodeVarintParams(dAtA, i, uint64(len(m.Ombudsman)))
+		i--
+		dAtA[i] = 0x72
+	}
+	if m.MaxSeizuresPerWindow != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.MaxSeizuresPerWindow))
+		i--
+		dAtA[i] = 0x68
+	}
+	if len(m.SeizureWindowCap) > 0 {
+		for iNdEx := len(m.SeizureWindowCap) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.SeizureWindowCap[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintParams(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if m.SeizureWindowBlocks != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.SeizureWindowBlocks))
+		i--
+		dAtA[i] = 0x58
+	}
+	if len(m.SeizureDelayTiers) > 0 {
+		for iNdEx := len(m.SeizureDelayTiers) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.SeizureDelayTiers[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintParams(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x52
+		}
+	}
+	if m.SeizureDelayBlocks != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.SeizureDelayBlocks))
+		i--
+		dAtA[i] = 0x48
+	}
 	if len(m.EmergencyAuthority) > 0 {
 		i -= len(m.EmergencyAuthority)
 		copy(dAtA[i:], m.EmergencyAuthority)
@@ -357,6 +688,20 @@ func encodeVarintParams(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *SeizureDelayTier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Threshold.Size()
+	n += 1 + l + sovParams(uint64(l))
+	if m.DelayBlocks != 0 {
+		n += 1 + sovParams(uint64(m.DelayBlocks))
+	}
+	return n
+}
+
 func (m *Params) Size() (n int) {
 	if m == nil {
 		return 0
@@ -389,6 +734,31 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovParams(uint64(l))
 	}
+	if m.SeizureDelayBlocks != 0 {
+		n += 1 + sovParams(uint64(m.SeizureDelayBlocks))
+	}
+	if len(m.SeizureDelayTiers) > 0 {
+		for _, e := range m.SeizureDelayTiers {
+			l = e.Size()
+			n += 1 + l + sovParams(uint64(l))
+		}
+	}
+	if m.SeizureWindowBlocks != 0 {
+		n += 1 + sovParams(uint64(m.SeizureWindowBlocks))
+	}
+	if len(m.SeizureWindowCap) > 0 {
+		for _, e := range m.SeizureWindowCap {
+			l = e.Size()
+			n += 1 + l + sovParams(uint64(l))
+		}
+	}
+	if m.MaxSeizuresPerWindow != 0 {
+		n += 1 + sovParams(uint64(m.MaxSeizuresPerWindow))
+	}
+	l = len(m.Ombudsman)
+	if l > 0 {
+		n += 1 + l + sovParams(uint64(l))
+	}
 	return n
 }
 
@@ -397,6 +767,108 @@ func sovParams(x uint64) (n int) {
 }
 func sozParams(x uint64) (n int) {
 	return sovParams(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *SeizureDelayTier) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowParams
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SeizureDelayTier: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SeizureDelayTier: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Threshold", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Threshold.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DelayBlocks", wireType)
+			}
+			m.DelayBlocks = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DelayBlocks |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipParams(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthParams
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *Params) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -605,6 +1077,163 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.EmergencyAuthority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SeizureDelayBlocks", wireType)
+			}
+			m.SeizureDelayBlocks = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SeizureDelayBlocks |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SeizureDelayTiers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SeizureDelayTiers = append(m.SeizureDelayTiers, SeizureDelayTier{})
+			if err := m.SeizureDelayTiers[len(m.SeizureDelayTiers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SeizureWindowBlocks", wireType)
+			}
+			m.SeizureWindowBlocks = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SeizureWindowBlocks |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SeizureWindowCap", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SeizureWindowCap = append(m.SeizureWindowCap, types.Coin{})
+			if err := m.SeizureWindowCap[len(m.SeizureWindowCap)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 13:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxSeizuresPerWindow", wireType)
+			}
+			m.MaxSeizuresPerWindow = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxSeizuresPerWindow |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 14:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ombudsman", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ombudsman = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

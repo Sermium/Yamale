@@ -53,4 +53,22 @@ var (
 
 	// CasesPassedKey counts the cases that passed, for the same reason.
 	CasesPassedKey = collections.NewPrefix("recovered/passed/")
+
+	// ExecutionQueueKey indexes the seizures the validators have agreed to and
+	// that are waiting out their delay, keyed by (execute height, case id).
+	//
+	// Same reasoning as the other two queues: the end blocker's cost has to
+	// depend on what falls due at this height, not on how many seizures the
+	// chain has ever carried out.
+	ExecutionQueueKey = collections.NewPrefix("queue/execution/")
+
+	// SeizureLedgerKey holds one record per executed seizure, keyed by
+	// (height, case id), and is the whole of the rolling window's state.
+	//
+	// Height first, so summing the window is a range scan from its start height
+	// rather than a filter over every seizure there has ever been. There is
+	// deliberately no running-total item beside it: a total kept next to the
+	// records it is derived from is a second copy that can disagree with the
+	// first, and the one that would be believed is the one that is wrong.
+	SeizureLedgerKey = collections.NewPrefix("window/seizure/")
 )

@@ -57,6 +57,22 @@ type Keeper struct {
 	// used" should not require replaying the chain.
 	Recovered   collections.Map[string, math.Int]
 	CasesPassed collections.Item[uint64]
+
+	// ExecutionQueue indexes the seizures the set has agreed to and that are
+	// waiting out the delay their size earned, keyed by (execute height, case
+	// id). Walked by the end blocker for the same reason the other queues are.
+	ExecutionQueue collections.KeySet[collections.Pair[int64, uint64]]
+
+	// SeizureLedger is the rolling window, and all of it. One record per
+	// executed seizure, keyed by (height, case id), summed by range scan from
+	// the window's start height.
+	//
+	// There is no running total beside it on purpose. A total kept next to the
+	// records it is derived from is a second copy of the same fact, and the day
+	// they disagree the module will believe the cheap one. The number of
+	// records inside a window is bounded by the cap itself, so summing them is
+	// bounded too — the cap pays for its own enforcement.
+	SeizureLedger collections.Map[collections.Pair[int64, uint64], types.SeizureRecord]
 }
 
 func NewKeeper(
@@ -108,6 +124,13 @@ func NewKeeper(
 
 		Recovered:   collections.NewMap(sb, types.RecoveredKey, "recovered", collections.StringKey, sdk.IntValue),
 		CasesPassed: collections.NewItem(sb, types.CasesPassedKey, "casesPassed", collections.Uint64Value),
+
+		ExecutionQueue: collections.NewKeySet(sb, types.ExecutionQueueKey, "executionQueue",
+			collections.PairKeyCodec(collections.Int64Key, collections.Uint64Key)),
+
+		SeizureLedger: collections.NewMap(sb, types.SeizureLedgerKey, "seizureLedger",
+			collections.PairKeyCodec(collections.Int64Key, collections.Uint64Key),
+			codec.CollValue[types.SeizureRecord](cdc)),
 	}
 
 	schema, err := sb.Build()

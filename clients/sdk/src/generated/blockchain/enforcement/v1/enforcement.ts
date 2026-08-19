@@ -111,6 +111,31 @@ export const CaseStatus = {
    * pretending otherwise would be a lie told by an enum value.
    */
   CASE_STATUS_REVERSED: 6,
+  /**
+   * CASE_STATUS_HELD - CASE_STATUS_HELD is a seizure the validators have agreed to that has not
+   * been carried out yet: it is waiting out the delay its size earned.
+   *
+   * It is a status of its own rather than a flag on PASSED because it is the
+   * only window in which the seizure can still be stopped without anything
+   * having to be given back. The ombudsman's veto lives here, and so does
+   * governance's chance to reverse a case before it costs anybody anything.
+   * A reader who cannot tell "decided" from "done" cannot tell those apart.
+   *
+   * The account stays frozen throughout, and the freeze no longer lapses: the
+   * set has decided, so there is nothing left for a lapse to protect against.
+   */
+  CASE_STATUS_HELD: 7,
+  /**
+   * CASE_STATUS_VETOED - CASE_STATUS_VETOED means the ombudsman stopped the case. Any freeze is
+   * lifted and nothing is taken.
+   *
+   * Distinct from REJECTED and from REVERSED on purpose. Rejected is the
+   * validator set disagreeing; reversed is an authority undoing something that
+   * already happened; vetoed is one office outside the set refusing to let it
+   * happen at all. Collapsing them would hide which check actually caught the
+   * case, and that is the only thing the record of a stopped case is for.
+   */
+  CASE_STATUS_VETOED: 8,
   UNRECOGNIZED: -1,
 } as const;
 
@@ -124,6 +149,8 @@ export namespace CaseStatus {
   export type CASE_STATUS_EXPIRED = typeof CaseStatus.CASE_STATUS_EXPIRED;
   export type CASE_STATUS_WITHDRAWN = typeof CaseStatus.CASE_STATUS_WITHDRAWN;
   export type CASE_STATUS_REVERSED = typeof CaseStatus.CASE_STATUS_REVERSED;
+  export type CASE_STATUS_HELD = typeof CaseStatus.CASE_STATUS_HELD;
+  export type CASE_STATUS_VETOED = typeof CaseStatus.CASE_STATUS_VETOED;
   export type UNRECOGNIZED = typeof CaseStatus.UNRECOGNIZED;
 }
 
@@ -150,6 +177,12 @@ export function caseStatusFromJSON(object: any): CaseStatus {
     case 6:
     case "CASE_STATUS_REVERSED":
       return CaseStatus.CASE_STATUS_REVERSED;
+    case 7:
+    case "CASE_STATUS_HELD":
+      return CaseStatus.CASE_STATUS_HELD;
+    case 8:
+    case "CASE_STATUS_VETOED":
+      return CaseStatus.CASE_STATUS_VETOED;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -173,7 +206,83 @@ export function caseStatusToJSON(object: CaseStatus): string {
       return "CASE_STATUS_WITHDRAWN";
     case CaseStatus.CASE_STATUS_REVERSED:
       return "CASE_STATUS_REVERSED";
+    case CaseStatus.CASE_STATUS_HELD:
+      return "CASE_STATUS_HELD";
+    case CaseStatus.CASE_STATUS_VETOED:
+      return "CASE_STATUS_VETOED";
     case CaseStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/**
+ * LegalInstrumentKind is the sort of external authority a seizure rests on.
+ *
+ * It is a closed list rather than free text because the list is the point: a
+ * seizure on this chain is the execution of something a court, a regulator or a
+ * magistrate already ordered, and "other" would let a case name its own
+ * paperwork as its authority.
+ */
+export const LegalInstrumentKind = {
+  /** LEGAL_INSTRUMENT_KIND_UNSPECIFIED - LEGAL_INSTRUMENT_KIND_UNSPECIFIED is the unset default and is never valid. */
+  LEGAL_INSTRUMENT_KIND_UNSPECIFIED: 0,
+  /** LEGAL_INSTRUMENT_KIND_COURT_ORDER - LEGAL_INSTRUMENT_KIND_COURT_ORDER is an order of a court. */
+  LEGAL_INSTRUMENT_KIND_COURT_ORDER: 1,
+  /**
+   * LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION - LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION is a direction issued by a
+   * financial supervisor under its own statutory power — a central bank's
+   * directive, a financial intelligence unit's freezing direction.
+   */
+  LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION: 2,
+  /** LEGAL_INSTRUMENT_KIND_WARRANT - LEGAL_INSTRUMENT_KIND_WARRANT is a warrant issued in a criminal matter. */
+  LEGAL_INSTRUMENT_KIND_WARRANT: 3,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type LegalInstrumentKind = typeof LegalInstrumentKind[keyof typeof LegalInstrumentKind];
+
+export namespace LegalInstrumentKind {
+  export type LEGAL_INSTRUMENT_KIND_UNSPECIFIED = typeof LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_UNSPECIFIED;
+  export type LEGAL_INSTRUMENT_KIND_COURT_ORDER = typeof LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_COURT_ORDER;
+  export type LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION =
+    typeof LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION;
+  export type LEGAL_INSTRUMENT_KIND_WARRANT = typeof LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_WARRANT;
+  export type UNRECOGNIZED = typeof LegalInstrumentKind.UNRECOGNIZED;
+}
+
+export function legalInstrumentKindFromJSON(object: any): LegalInstrumentKind {
+  switch (object) {
+    case 0:
+    case "LEGAL_INSTRUMENT_KIND_UNSPECIFIED":
+      return LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_UNSPECIFIED;
+    case 1:
+    case "LEGAL_INSTRUMENT_KIND_COURT_ORDER":
+      return LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_COURT_ORDER;
+    case 2:
+    case "LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION":
+      return LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION;
+    case 3:
+    case "LEGAL_INSTRUMENT_KIND_WARRANT":
+      return LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_WARRANT;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return LegalInstrumentKind.UNRECOGNIZED;
+  }
+}
+
+export function legalInstrumentKindToJSON(object: LegalInstrumentKind): string {
+  switch (object) {
+    case LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_UNSPECIFIED:
+      return "LEGAL_INSTRUMENT_KIND_UNSPECIFIED";
+    case LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_COURT_ORDER:
+      return "LEGAL_INSTRUMENT_KIND_COURT_ORDER";
+    case LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION:
+      return "LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION";
+    case LegalInstrumentKind.LEGAL_INSTRUMENT_KIND_WARRANT:
+      return "LEGAL_INSTRUMENT_KIND_WARRANT";
+    case LegalInstrumentKind.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -247,6 +356,81 @@ export function voteOptionToJSON(object: VoteOption): string {
 }
 
 /**
+ * LegalInstrument is the external authority a seizure is carried out under.
+ *
+ * This is deliberately not the evidence fields. Evidence is why the chain
+ * believes the allegation; an instrument is who, outside this chain, ordered
+ * that something be done about it. Keeping them in one pair of fields would let
+ * a case satisfy its authority requirement by attaching its own investigation
+ * report, which is exactly the substitution the requirement exists to prevent.
+ *
+ * There is no URI here, and that is the design rather than an omission. A link
+ * is a document somebody controls: whoever hosts it can change it, take it
+ * down, or never have had it. What is stored instead is an identifier that
+ * names the instrument in the world — the issuing body and its own reference
+ * number — so that verification means going to that body's register, plus a
+ * hash that pins the content of what was served. A reader with the reference
+ * can find the instrument without this chain's help; a reader with the hash can
+ * prove the copy they were shown is the one the case was opened on. Neither
+ * depends on anyone keeping a web server up.
+ */
+export interface LegalInstrument {
+  /**
+   * issuing_authority names the body that issued it, as it names itself —
+   * "High Court of Kenya at Nairobi", "Bank of Ghana". Free text because the
+   * set of courts and supervisors in the world is not enumerable in a proto
+   * file, and a wrong enum would be worse than an honest string.
+   */
+  issuingAuthority: string;
+  /**
+   * reference is the instrument's own identifier in the issuer's register:
+   * the case number, the direction number, the warrant number. This is the
+   * half that makes the instrument findable by somebody who does not trust
+   * this chain.
+   */
+  reference: string;
+  kind: LegalInstrumentKind;
+  /**
+   * hash is the SHA-256, lowercase hex, of the instrument as it was served.
+   * It pins the content: an order that is later amended can be shown to have
+   * been amended, and a copy produced afterwards can be checked against what
+   * the validators actually voted on.
+   */
+  hash: string;
+  /**
+   * issued_at is when the instrument was issued, as Unix seconds. Refused if it
+   * is in the future relative to the block: an order dated tomorrow has not
+   * been issued, and a case that claims one is either mistaken or manufactured.
+   */
+  issuedAt: string;
+}
+
+/**
+ * SeizureRecord is one executed seizure, kept so the rolling window can be
+ * summed without replaying the chain.
+ *
+ * Records fall out of the window by height, and the number that can be inside
+ * one is bounded by the cap itself — which is what keeps both the sum and the
+ * pruning bounded no matter how long the chain has been running.
+ */
+export interface SeizureRecord {
+  caseId: string;
+  /**
+   * height is when the seizure executed. It is the first component of the key,
+   * so the window is a range scan over recent heights rather than a filter over
+   * every seizure there has ever been.
+   */
+  height: string;
+  /**
+   * amount is what this seizure counted for against the cap: the value assessed
+   * when the case was decided, or what execution actually moved if that was
+   * larger. Taking the larger of the two is what stops a deposit arriving
+   * during the hold from being taken outside the window's arithmetic.
+   */
+  amount: Coin[];
+}
+
+/**
  * Case is an accusation against one address, and everything the chain did about
  * it. Cases are never deleted: the record of who was frozen, on whose word, on
  * what evidence, and by whose votes is the only thing that makes this power
@@ -307,6 +491,30 @@ export interface Case {
    * founders acted directly.
    */
   emergency: boolean;
+  /**
+   * legal_instrument is the external authority a seizure is carried out under.
+   * Required for a seizure and empty for a freeze: a freeze takes nothing and
+   * is meant to be openable in the minute a theft is noticed, which is not a
+   * minute in which anybody has a court order.
+   */
+  legalInstrument:
+    | LegalInstrument
+    | undefined;
+  /**
+   * execute_at_height is when a held seizure may be carried out — the height
+   * the delay its size earned runs to. Zero on any case that is not a seizure
+   * the validators have passed.
+   */
+  executeAtHeight: string;
+  /**
+   * assessed_value is what the target was found to hold when the case was
+   * decided: balance, stake and unbonding together. It is the figure the delay
+   * was sized from and the figure charged against the rolling cap, recorded on
+   * the case so that "why did this one wait a week" is answerable from the
+   * record rather than from a re-run of the arithmetic against state that has
+   * since moved.
+   */
+  assessedValue: Coin[];
 }
 
 /**
@@ -347,6 +555,214 @@ export interface Freeze {
   frozenAtHeight: string;
 }
 
+function createBaseLegalInstrument(): LegalInstrument {
+  return { issuingAuthority: "", reference: "", kind: 0, hash: "", issuedAt: "0" };
+}
+
+export const LegalInstrument = {
+  encode(message: LegalInstrument, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.issuingAuthority !== "") {
+      writer.uint32(10).string(message.issuingAuthority);
+    }
+    if (message.reference !== "") {
+      writer.uint32(18).string(message.reference);
+    }
+    if (message.kind !== 0) {
+      writer.uint32(24).int32(message.kind);
+    }
+    if (message.hash !== "") {
+      writer.uint32(34).string(message.hash);
+    }
+    if (message.issuedAt !== "0") {
+      writer.uint32(40).int64(message.issuedAt);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): LegalInstrument {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLegalInstrument();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.issuingAuthority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.reference = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.kind = reader.int32() as any;
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.hash = reader.string();
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.issuedAt = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LegalInstrument {
+    return {
+      issuingAuthority: isSet(object.issuingAuthority) ? globalThis.String(object.issuingAuthority) : "",
+      reference: isSet(object.reference) ? globalThis.String(object.reference) : "",
+      kind: isSet(object.kind) ? legalInstrumentKindFromJSON(object.kind) : 0,
+      hash: isSet(object.hash) ? globalThis.String(object.hash) : "",
+      issuedAt: isSet(object.issuedAt) ? globalThis.String(object.issuedAt) : "0",
+    };
+  },
+
+  toJSON(message: LegalInstrument): unknown {
+    const obj: any = {};
+    if (message.issuingAuthority !== "") {
+      obj.issuingAuthority = message.issuingAuthority;
+    }
+    if (message.reference !== "") {
+      obj.reference = message.reference;
+    }
+    if (message.kind !== 0) {
+      obj.kind = legalInstrumentKindToJSON(message.kind);
+    }
+    if (message.hash !== "") {
+      obj.hash = message.hash;
+    }
+    if (message.issuedAt !== "0") {
+      obj.issuedAt = message.issuedAt;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<LegalInstrument>): LegalInstrument {
+    return LegalInstrument.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<LegalInstrument>): LegalInstrument {
+    const message = createBaseLegalInstrument();
+    message.issuingAuthority = object.issuingAuthority ?? "";
+    message.reference = object.reference ?? "";
+    message.kind = object.kind ?? 0;
+    message.hash = object.hash ?? "";
+    message.issuedAt = object.issuedAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseSeizureRecord(): SeizureRecord {
+  return { caseId: "0", height: "0", amount: [] };
+}
+
+export const SeizureRecord = {
+  encode(message: SeizureRecord, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.caseId !== "0") {
+      writer.uint32(8).uint64(message.caseId);
+    }
+    if (message.height !== "0") {
+      writer.uint32(16).int64(message.height);
+    }
+    for (const v of message.amount) {
+      Coin.encode(v!, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): SeizureRecord {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSeizureRecord();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.caseId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.height = longToString(reader.int64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount.push(Coin.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SeizureRecord {
+    return {
+      caseId: isSet(object.caseId) ? globalThis.String(object.caseId) : "0",
+      height: isSet(object.height) ? globalThis.String(object.height) : "0",
+      amount: globalThis.Array.isArray(object?.amount) ? object.amount.map((e: any) => Coin.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: SeizureRecord): unknown {
+    const obj: any = {};
+    if (message.caseId !== "0") {
+      obj.caseId = message.caseId;
+    }
+    if (message.height !== "0") {
+      obj.height = message.height;
+    }
+    if (message.amount?.length) {
+      obj.amount = message.amount.map((e) => Coin.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<SeizureRecord>): SeizureRecord {
+    return SeizureRecord.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<SeizureRecord>): SeizureRecord {
+    const message = createBaseSeizureRecord();
+    message.caseId = object.caseId ?? "0";
+    message.height = object.height ?? "0";
+    message.amount = object.amount?.map((e) => Coin.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 function createBaseCase(): Case {
   return {
     id: "0",
@@ -367,6 +783,9 @@ function createBaseCase(): Case {
     recovered: [],
     sweepComplete: false,
     emergency: false,
+    legalInstrument: undefined,
+    executeAtHeight: "0",
+    assessedValue: [],
   };
 }
 
@@ -425,6 +844,15 @@ export const Case = {
     }
     if (message.emergency !== false) {
       writer.uint32(144).bool(message.emergency);
+    }
+    if (message.legalInstrument !== undefined) {
+      LegalInstrument.encode(message.legalInstrument, writer.uint32(154).fork()).ldelim();
+    }
+    if (message.executeAtHeight !== "0") {
+      writer.uint32(160).int64(message.executeAtHeight);
+    }
+    for (const v of message.assessedValue) {
+      Coin.encode(v!, writer.uint32(170).fork()).ldelim();
     }
     return writer;
   },
@@ -562,6 +990,27 @@ export const Case = {
 
           message.emergency = reader.bool();
           continue;
+        case 19:
+          if (tag !== 154) {
+            break;
+          }
+
+          message.legalInstrument = LegalInstrument.decode(reader, reader.uint32());
+          continue;
+        case 20:
+          if (tag !== 160) {
+            break;
+          }
+
+          message.executeAtHeight = longToString(reader.int64() as Long);
+          continue;
+        case 21:
+          if (tag !== 170) {
+            break;
+          }
+
+          message.assessedValue.push(Coin.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -591,6 +1040,11 @@ export const Case = {
       recovered: globalThis.Array.isArray(object?.recovered) ? object.recovered.map((e: any) => Coin.fromJSON(e)) : [],
       sweepComplete: isSet(object.sweepComplete) ? globalThis.Boolean(object.sweepComplete) : false,
       emergency: isSet(object.emergency) ? globalThis.Boolean(object.emergency) : false,
+      legalInstrument: isSet(object.legalInstrument) ? LegalInstrument.fromJSON(object.legalInstrument) : undefined,
+      executeAtHeight: isSet(object.executeAtHeight) ? globalThis.String(object.executeAtHeight) : "0",
+      assessedValue: globalThis.Array.isArray(object?.assessedValue)
+        ? object.assessedValue.map((e: any) => Coin.fromJSON(e))
+        : [],
     };
   },
 
@@ -650,6 +1104,15 @@ export const Case = {
     if (message.emergency !== false) {
       obj.emergency = message.emergency;
     }
+    if (message.legalInstrument !== undefined) {
+      obj.legalInstrument = LegalInstrument.toJSON(message.legalInstrument);
+    }
+    if (message.executeAtHeight !== "0") {
+      obj.executeAtHeight = message.executeAtHeight;
+    }
+    if (message.assessedValue?.length) {
+      obj.assessedValue = message.assessedValue.map((e) => Coin.toJSON(e));
+    }
     return obj;
   },
 
@@ -676,6 +1139,11 @@ export const Case = {
     message.recovered = object.recovered?.map((e) => Coin.fromPartial(e)) || [];
     message.sweepComplete = object.sweepComplete ?? false;
     message.emergency = object.emergency ?? false;
+    message.legalInstrument = (object.legalInstrument !== undefined && object.legalInstrument !== null)
+      ? LegalInstrument.fromPartial(object.legalInstrument)
+      : undefined;
+    message.executeAtHeight = object.executeAtHeight ?? "0";
+    message.assessedValue = object.assessedValue?.map((e) => Coin.fromPartial(e)) || [];
     return message;
   },
 };

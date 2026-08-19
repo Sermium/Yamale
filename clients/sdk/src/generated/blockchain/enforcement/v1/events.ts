@@ -76,6 +76,68 @@ export interface EventSeized {
 }
 
 /**
+ * EventCaseHeld is emitted when a seizure is agreed and starts waiting out its
+ * delay. This is the block in which anybody who wants to object still can, so
+ * it carries the height the objection window closes at and the value the delay
+ * was sized from.
+ */
+export interface EventCaseHeld {
+  caseId: string;
+  target: string;
+  /**
+   * assessed_value is what the target was found to hold: balance, stake and
+   * unbonding together.
+   */
+  assessedValue: Coin[];
+  executeAtHeight: string;
+  delayBlocks: string;
+}
+
+/**
+ * EventCaseVetoed is emitted when the ombudsman stops a case.
+ *
+ * Its own event rather than an EventCaseResolved with a different status,
+ * because "the office outside the validator set refused this" is the single
+ * most important thing that can happen in this module and it should not have to
+ * be inferred from an enum by whoever is watching.
+ */
+export interface EventCaseVetoed {
+  caseId: string;
+  target: string;
+  ombudsman: string;
+  reason: string;
+  /**
+   * was_held distinguishes a veto that stopped a seizure the validators had
+   * already agreed to from one that stopped a case still being argued. They are
+   * very different acts by the same office.
+   */
+  wasHeld: boolean;
+}
+
+/**
+ * EventSeizureDeferred is emitted when a seizure comes due and the rolling cap
+ * refuses it.
+ *
+ * Emitted every time it is refused, not once. A case that is quietly waiting is
+ * indistinguishable from a case that has been forgotten, and the difference
+ * matters to the person whose account is still frozen.
+ */
+export interface EventSeizureDeferred {
+  caseId: string;
+  target: string;
+  /**
+   * retry_at_height is the next height at which the window could have room —
+   * when the oldest seizure in it falls out.
+   */
+  retryAtHeight: string;
+  /**
+   * reason says which limit refused it, in words, so that nobody has to
+   * reconstruct the arithmetic from the parameters to find out.
+   */
+  reason: string;
+}
+
+/**
  * EventFreezeLifted is emitted whenever an address becomes able to send again,
  * whatever the reason — expiry, rejection, withdrawal or reversal.
  */
@@ -587,6 +649,350 @@ export const EventSeized = {
     message.destination = object.destination ?? "";
     message.collected = object.collected?.map((e) => Coin.fromPartial(e)) || [];
     message.complete = object.complete ?? false;
+    return message;
+  },
+};
+
+function createBaseEventCaseHeld(): EventCaseHeld {
+  return { caseId: "0", target: "", assessedValue: [], executeAtHeight: "0", delayBlocks: "0" };
+}
+
+export const EventCaseHeld = {
+  encode(message: EventCaseHeld, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.caseId !== "0") {
+      writer.uint32(8).uint64(message.caseId);
+    }
+    if (message.target !== "") {
+      writer.uint32(18).string(message.target);
+    }
+    for (const v of message.assessedValue) {
+      Coin.encode(v!, writer.uint32(26).fork()).ldelim();
+    }
+    if (message.executeAtHeight !== "0") {
+      writer.uint32(32).int64(message.executeAtHeight);
+    }
+    if (message.delayBlocks !== "0") {
+      writer.uint32(40).uint64(message.delayBlocks);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventCaseHeld {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventCaseHeld();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.caseId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.target = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.assessedValue.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.executeAtHeight = longToString(reader.int64() as Long);
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.delayBlocks = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventCaseHeld {
+    return {
+      caseId: isSet(object.caseId) ? globalThis.String(object.caseId) : "0",
+      target: isSet(object.target) ? globalThis.String(object.target) : "",
+      assessedValue: globalThis.Array.isArray(object?.assessedValue)
+        ? object.assessedValue.map((e: any) => Coin.fromJSON(e))
+        : [],
+      executeAtHeight: isSet(object.executeAtHeight) ? globalThis.String(object.executeAtHeight) : "0",
+      delayBlocks: isSet(object.delayBlocks) ? globalThis.String(object.delayBlocks) : "0",
+    };
+  },
+
+  toJSON(message: EventCaseHeld): unknown {
+    const obj: any = {};
+    if (message.caseId !== "0") {
+      obj.caseId = message.caseId;
+    }
+    if (message.target !== "") {
+      obj.target = message.target;
+    }
+    if (message.assessedValue?.length) {
+      obj.assessedValue = message.assessedValue.map((e) => Coin.toJSON(e));
+    }
+    if (message.executeAtHeight !== "0") {
+      obj.executeAtHeight = message.executeAtHeight;
+    }
+    if (message.delayBlocks !== "0") {
+      obj.delayBlocks = message.delayBlocks;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventCaseHeld>): EventCaseHeld {
+    return EventCaseHeld.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventCaseHeld>): EventCaseHeld {
+    const message = createBaseEventCaseHeld();
+    message.caseId = object.caseId ?? "0";
+    message.target = object.target ?? "";
+    message.assessedValue = object.assessedValue?.map((e) => Coin.fromPartial(e)) || [];
+    message.executeAtHeight = object.executeAtHeight ?? "0";
+    message.delayBlocks = object.delayBlocks ?? "0";
+    return message;
+  },
+};
+
+function createBaseEventCaseVetoed(): EventCaseVetoed {
+  return { caseId: "0", target: "", ombudsman: "", reason: "", wasHeld: false };
+}
+
+export const EventCaseVetoed = {
+  encode(message: EventCaseVetoed, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.caseId !== "0") {
+      writer.uint32(8).uint64(message.caseId);
+    }
+    if (message.target !== "") {
+      writer.uint32(18).string(message.target);
+    }
+    if (message.ombudsman !== "") {
+      writer.uint32(26).string(message.ombudsman);
+    }
+    if (message.reason !== "") {
+      writer.uint32(34).string(message.reason);
+    }
+    if (message.wasHeld !== false) {
+      writer.uint32(40).bool(message.wasHeld);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventCaseVetoed {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventCaseVetoed();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.caseId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.target = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.ombudsman = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.wasHeld = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventCaseVetoed {
+    return {
+      caseId: isSet(object.caseId) ? globalThis.String(object.caseId) : "0",
+      target: isSet(object.target) ? globalThis.String(object.target) : "",
+      ombudsman: isSet(object.ombudsman) ? globalThis.String(object.ombudsman) : "",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+      wasHeld: isSet(object.wasHeld) ? globalThis.Boolean(object.wasHeld) : false,
+    };
+  },
+
+  toJSON(message: EventCaseVetoed): unknown {
+    const obj: any = {};
+    if (message.caseId !== "0") {
+      obj.caseId = message.caseId;
+    }
+    if (message.target !== "") {
+      obj.target = message.target;
+    }
+    if (message.ombudsman !== "") {
+      obj.ombudsman = message.ombudsman;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    if (message.wasHeld !== false) {
+      obj.wasHeld = message.wasHeld;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventCaseVetoed>): EventCaseVetoed {
+    return EventCaseVetoed.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventCaseVetoed>): EventCaseVetoed {
+    const message = createBaseEventCaseVetoed();
+    message.caseId = object.caseId ?? "0";
+    message.target = object.target ?? "";
+    message.ombudsman = object.ombudsman ?? "";
+    message.reason = object.reason ?? "";
+    message.wasHeld = object.wasHeld ?? false;
+    return message;
+  },
+};
+
+function createBaseEventSeizureDeferred(): EventSeizureDeferred {
+  return { caseId: "0", target: "", retryAtHeight: "0", reason: "" };
+}
+
+export const EventSeizureDeferred = {
+  encode(message: EventSeizureDeferred, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.caseId !== "0") {
+      writer.uint32(8).uint64(message.caseId);
+    }
+    if (message.target !== "") {
+      writer.uint32(18).string(message.target);
+    }
+    if (message.retryAtHeight !== "0") {
+      writer.uint32(24).int64(message.retryAtHeight);
+    }
+    if (message.reason !== "") {
+      writer.uint32(34).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventSeizureDeferred {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventSeizureDeferred();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.caseId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.target = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.retryAtHeight = longToString(reader.int64() as Long);
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventSeizureDeferred {
+    return {
+      caseId: isSet(object.caseId) ? globalThis.String(object.caseId) : "0",
+      target: isSet(object.target) ? globalThis.String(object.target) : "",
+      retryAtHeight: isSet(object.retryAtHeight) ? globalThis.String(object.retryAtHeight) : "0",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+    };
+  },
+
+  toJSON(message: EventSeizureDeferred): unknown {
+    const obj: any = {};
+    if (message.caseId !== "0") {
+      obj.caseId = message.caseId;
+    }
+    if (message.target !== "") {
+      obj.target = message.target;
+    }
+    if (message.retryAtHeight !== "0") {
+      obj.retryAtHeight = message.retryAtHeight;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventSeizureDeferred>): EventSeizureDeferred {
+    return EventSeizureDeferred.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventSeizureDeferred>): EventSeizureDeferred {
+    const message = createBaseEventSeizureDeferred();
+    message.caseId = object.caseId ?? "0";
+    message.target = object.target ?? "";
+    message.retryAtHeight = object.retryAtHeight ?? "0";
+    message.reason = object.reason ?? "";
     return message;
   },
 };

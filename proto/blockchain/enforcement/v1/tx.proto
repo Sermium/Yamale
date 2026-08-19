@@ -41,6 +41,10 @@ service Msg {
   // EmergencyRelease lets them let it go again, just as fast.
   rpc EmergencyRelease(MsgEmergencyRelease) returns (MsgEmergencyReleaseResponse);
 
+  // OmbudsmanVeto stops a case that has not taken anything yet. The only
+  // message the ombudsman may sign, and the only thing it can do.
+  rpc OmbudsmanVeto(MsgOmbudsmanVeto) returns (MsgOmbudsmanVetoResponse);
+
   // ReverseCase is governance overturning a passed case: the appeal. It lifts
   // the freeze and records the reversal, and it is deliberately a slower
   // instrument than the one that imposed the freeze, because it is the one used
@@ -97,6 +101,13 @@ message MsgOpenCase {
   // off-chain. Required for a seizure unless the parameters say otherwise.
   string evidence_uri = 5;
   string evidence_hash = 6;
+
+  // legal_instrument names the external authority the seizure is carried out
+  // under and pins its content. Required for a seizure, always, with no
+  // parameter that turns it off — a requirement governance can vote away is a
+  // default, and this one is meant to be a requirement. Ignored for a freeze,
+  // which takes nothing and has to be openable the minute a theft is noticed.
+  LegalInstrument legal_instrument = 7 [(gogoproto.nullable) = false];
 }
 
 // MsgOpenCaseResponse returns the new case's id.
@@ -154,6 +165,43 @@ message MsgSweepResponse {
   ];
   bool complete = 2;
 }
+
+// MsgOmbudsmanVeto stops a case before it takes anything.
+//
+// This is the only message whose signer is the ombudsman, and stopping a case
+// is the only thing it does. There is no companion message that opens one,
+// votes on one, or advances one, and there deliberately never will be: an
+// office that could do both would be a second way into this module rather than
+// a check on the first.
+//
+// It works on a case still being voted on and on a seizure waiting out its
+// delay — both states in which nothing has been taken. It does not work on a
+// seizure that has already executed, because a veto cannot un-take money and a
+// message that pretended to would be telling the record a lie. Reversing an
+// executed case is governance's job, through MsgReverseCase, and even that only
+// gives the account back rather than the funds.
+//
+// A veto is not permanent protection and is not meant to be. Any validator may
+// open a fresh case against the same target in the next block; what the veto
+// buys is that doing so is a new, public accusation, and stopping it again
+// costs the ombudsman another signature on the record.
+message MsgOmbudsmanVeto {
+  option (cosmos.msg.v1.signer) = "ombudsman";
+  option (amino.name) = "blockchain/x/enforcement/MsgOmbudsmanVeto";
+
+  // ombudsman must equal the ombudsman parameter.
+  string ombudsman = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  uint64 case_id = 2;
+
+  // reason is why the case was stopped, kept beside the original accusation.
+  // Required: an office whose refusals need no grounds is not accountable
+  // either, and this one is a check rather than a privilege.
+  string reason = 3;
+}
+
+// MsgOmbudsmanVetoResponse defines the response structure.
+message MsgOmbudsmanVetoResponse {}
 
 // MsgReverseCase overturns a passed case. Governance only.
 message MsgReverseCase {

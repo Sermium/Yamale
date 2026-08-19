@@ -27,4 +27,32 @@ var (
 	// group" are different facts, and telling somebody the first when the second
 	// is true sends them looking for a key that does not exist.
 	ErrNoEmergencyAuthority = errors.Register(ModuleName, 1114, "no emergency authority is configured")
+
+	// ErrLegalInstrumentRequired is separate from ErrEvidenceRequired because
+	// the two are different failures and telling somebody the wrong one sends
+	// them to fetch the wrong document. Evidence is what the chain was shown;
+	// an instrument is what a court or a regulator ordered.
+	ErrLegalInstrumentRequired = errors.Register(ModuleName, 1115, "a seizure case requires an external legal instrument")
+
+	// ErrNoOmbudsman is distinct from ErrInvalidSigner for the same reason
+	// ErrNoEmergencyAuthority is: "you are not the ombudsman" and "this chain
+	// has no ombudsman" are different facts.
+	ErrNoOmbudsman = errors.Register(ModuleName, 1116, "no ombudsman is appointed")
+
+	// ErrOmbudsmanCannotInitiate is what every path that opens or advances a
+	// case returns to the ombudsman. It is its own error so that an attempt is
+	// legible in a log as what it was rather than as a generic rejection: the
+	// office that can only stop things tried to start one.
+	ErrOmbudsmanCannotInitiate = errors.Register(ModuleName, 1117,
+		"the ombudsman may only stop cases, never open, vote on, or advance one")
+
+	// ErrSeizureCapReached is returned by nothing a user sends — it is carried
+	// on the event a deferred seizure emits — but it is registered so the
+	// deferral has a stable, documented identity rather than a string.
+	ErrSeizureCapReached = errors.Register(ModuleName, 1118,
+		"this seizure would breach the rolling cap on what may be taken per window")
+
+	// ErrNotHeld is returned when something is asked of a case that is not
+	// waiting out its delay.
+	ErrNotHeld = errors.Register(ModuleName, 1119, "case is not waiting to be carried out")
 )

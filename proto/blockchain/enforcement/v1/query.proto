@@ -59,6 +59,18 @@ service Query {
   rpc Recovered(QueryRecoveredRequest) returns (QueryRecoveredResponse) {
     option (google.api.http).get = "/yamale/blockchain/enforcement/v1/recovered";
   }
+
+  // HeldCases queries the seizures that have been agreed and are waiting out
+  // their delay. This is the list an ombudsman reads: everything still stoppable
+  // at no cost to anybody, and how long there is left to stop it.
+  rpc HeldCases(QueryHeldCasesRequest) returns (QueryHeldCasesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/case/held";
+  }
+
+  // SeizureWindow queries how much of the rolling cap is left.
+  rpc SeizureWindow(QuerySeizureWindowRequest) returns (QuerySeizureWindowResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/window";
+  }
 }
 
 // QueryParamsRequest is the request type for the Query/Params RPC method.
@@ -163,4 +175,48 @@ message QueryRecoveredResponse {
   // cases_passed and cases_opened put that total in proportion.
   uint64 cases_opened = 2;
   uint64 cases_passed = 3;
+}
+
+// QueryHeldCasesRequest asks for the seizures waiting out their delay.
+message QueryHeldCasesRequest {}
+
+// QueryHeldCasesResponse carries them, soonest to execute first.
+message QueryHeldCasesResponse {
+  repeated Case case = 1 [(gogoproto.nullable) = false];
+}
+
+// QuerySeizureWindowRequest asks how much of the rolling cap is left.
+message QuerySeizureWindowRequest {}
+
+// QuerySeizureWindowResponse says what has been seized inside the current
+// window and what is still permitted.
+//
+// It reports the window's start height alongside the totals, because "seized
+// this much" means nothing without the period it was measured over, and a
+// caller that computed that period itself from the parameters could compute it
+// differently from the chain.
+message QuerySeizureWindowResponse {
+  int64 window_start_height = 1;
+  int64 current_height = 2;
+
+  // seized is the total inside the window; cap is the parameter it is measured
+  // against; remaining is cap minus seized, floored at zero and carrying only
+  // the denominations the cap names.
+  repeated cosmos.base.v1beta1.Coin seized = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin cap = 4 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  repeated cosmos.base.v1beta1.Coin remaining = 5 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  // seizure_count and max_seizures are the other half of the cap: the one that
+  // binds every denomination, including ones the value cap does not name.
+  uint64 seizure_count = 6;
+  uint64 max_seizures = 7;
 }

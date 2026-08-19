@@ -2,10 +2,33 @@ syntax = "proto3";
 package blockchain.enforcement.v1;
 
 import "amino/amino.proto";
+import "cosmos/base/v1beta1/coin.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/enforcement/types";
+
+// SeizureDelayTier is one step in the schedule that decides how long a seizure
+// waits between being decided and being carried out.
+//
+// A tier matches when the value the case assessed reaches its threshold in that
+// denomination, and a case takes the longest delay of every tier it matches.
+// Longest rather than first, so the schedule does not depend on the order
+// governance happened to write it in — an ordering bug in a parameter list is
+// invisible until the day it lets somebody's life savings move at the speed
+// meant for pocket change.
+message SeizureDelayTier {
+  // Params compares itself field by field, so every message inside it needs to
+  // be comparable too.
+  option (gogoproto.equal) = true;
+
+  // threshold is the smallest amount, in base units, that falls into this tier.
+  cosmos.base.v1beta1.Coin threshold = 1 [(gogoproto.nullable) = false];
+
+  // delay_blocks is how long a case in this tier waits after the vote before
+  // anything moves.
+  uint64 delay_blocks = 2;
+}
 
 // Params defines the parameters for the module.
 //
@@ -88,4 +111,77 @@ message Params {
   // not named a founders' group has no emergency authority rather than an
   // implicit one.
   string emergency_authority = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // seizure_delay_blocks is the shortest a seizure can ever wait between the
+  // validators deciding it and it being carried out. Every seizure waits at
+  // least this long, whatever it is worth.
+  //
+  // The delay is not caution for its own sake, it is the window in which a
+  // decision can still be undone at no cost to anybody: the ombudsman's veto
+  // and governance's reversal both land here, and before it expires nothing has
+  // been taken and nothing has to be given back. A delay of zero is refused
+  // because a veto that has no window in which to be cast is not a veto.
+  uint64 seizure_delay_blocks = 9;
+
+  // seizure_delay_tiers scales that wait with what is being taken.
+  //
+  // Taking a market trader's float and taking a family's savings should not
+  // move at the same speed, because the cost of getting the second one wrong is
+  // not the same and the time somebody needs to notice and object is not the
+  // same either. The schedule is a parameter rather than a constant so that a
+  // deployment sets it against its own currency and its own idea of what a
+  // large sum is; there is no amount that means "large" on every chain this is
+  // shipped to.
+  //
+  // At least one tier is required, and that is the whole point of the field: a
+  // chain with no tiers has a constant, and a constant is what this exists to
+  // replace.
+  repeated SeizureDelayTier seizure_delay_tiers = 10 [(gogoproto.nullable) = false];
+
+  // seizure_window_blocks is the length of the rolling window that the caps
+  // below are measured over.
+  //
+  // Rolling, not periodic. A window that reset on a fixed boundary would let
+  // twice the cap through by placing half the seizures either side of it, and
+  // whoever was doing that would be doing it on purpose.
+  uint64 seizure_window_blocks = 11;
+
+  // seizure_window_cap is the most that may be seized, per denomination, within
+  // any window. A denomination with no entry here is not capped by value —
+  // only by the count below.
+  //
+  // This is the limit that makes mass expropriation impossible rather than
+  // merely unpopular. A chain that can take a bounded amount per week cannot be
+  // turned on its own users in one sitting, whoever has captured the validator
+  // set, because the arithmetic refuses before anybody has to.
+  repeated cosmos.base.v1beta1.Coin seizure_window_cap = 12 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  // max_seizures_per_window is how many seizures may be carried out within one
+  // window, whatever they are worth.
+  //
+  // It is the half of the cap that cannot be walked around by choosing a
+  // denomination nobody thought to price. A value cap only binds the
+  // denominations it names; a count cap binds everything, including a currency
+  // issued the day after the parameters were last set.
+  uint64 max_seizures_per_window = 13;
+
+  // ombudsman is an office appointed outside the validator set that can stop a
+  // case and can never start one.
+  //
+  // The asymmetry is the entire point. An office that can only refuse cannot be
+  // used to take anything from anybody, so appointing one adds a check without
+  // adding a power — which is the only kind of oversight worth having over a
+  // module like this one. It is enforced structurally rather than by trust:
+  // there is no message in this service that the ombudsman may sign and that
+  // opens, votes on, sweeps or otherwise advances a case, and the parameters
+  // refuse an ombudsman that is also the emergency authority or the recovery
+  // destination, because either of those would hand the same office a way in.
+  //
+  // Empty means there is no ombudsman, which is the default for the same reason
+  // the emergency authority's is: no address compiled into a binary is anybody
+  // else's independent office, and an implicit one would be worse than none.
+  string ombudsman = 14 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }

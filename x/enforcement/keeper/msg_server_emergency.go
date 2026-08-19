@@ -29,6 +29,14 @@ func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyF
 	if err := k.assertEmergencyAuthority(params, msg.Authority); err != nil {
 		return nil, err
 	}
+	// Belt and braces over Params.Validate, which already refuses parameters in
+	// which the ombudsman and the emergency authority are the same address. If
+	// that check were ever relaxed or bypassed by a migration writing params
+	// directly, this is the one that still holds: opening a case is the power
+	// the ombudsman must not have, and this is where a case is opened.
+	if err := k.assertNotOmbudsman(params, msg.Authority); err != nil {
+		return nil, err
+	}
 
 	targetBz, err := k.addressCodec.StringToBytes(msg.Target)
 	if err != nil {
@@ -134,7 +142,11 @@ func (k msgServer) EmergencyRelease(ctx context.Context, msg *types.MsgEmergency
 		return nil, types.ErrCaseNotFound.Wrapf("case %d", msg.CaseId)
 	}
 	switch enforcementCase.Status {
-	case types.CASE_STATUS_VOTING, types.CASE_STATUS_PASSED:
+	// HELD belongs here beside VOTING and PASSED: a seizure waiting out its
+	// delay is an account still frozen, which is exactly the situation this
+	// message exists for. Leaving it out would have made the founders' release
+	// unable to reach the state a seizure now spends most of its life in.
+	case types.CASE_STATUS_VOTING, types.CASE_STATUS_HELD, types.CASE_STATUS_PASSED:
 	default:
 		return nil, types.ErrCaseClosed.Wrapf(
 			"case %d is %s, so there is nothing to release", msg.CaseId, enforcementCase.Status)
@@ -142,6 +154,7 @@ func (k msgServer) EmergencyRelease(ctx context.Context, msg *types.MsgEmergency
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	wasVoting := enforcementCase.Status == types.CASE_STATUS_VOTING
+	wasHeld := enforcementCase.Status == types.CASE_STATUS_HELD
 
 	enforcementCase.Status = types.CASE_STATUS_REVERSED
 	enforcementCase.ResolvedAtHeight = sdkCtx.BlockHeight()
@@ -157,6 +170,14 @@ func (k msgServer) EmergencyRelease(ctx context.Context, msg *types.MsgEmergency
 	// longer voting and would have to guess what to do with it.
 	if wasVoting {
 		if err := k.dequeueVoting(ctx, enforcementCase); err != nil {
+			return nil, err
+		}
+	}
+	// A held seizure has an entry waiting in the execution queue. Left there,
+	// the end blocker would reach its height and carry out a seizure against an
+	// account the founders had already released.
+	if wasHeld {
+		if err := k.dequeueExecution(ctx, enforcementCase); err != nil {
 			return nil, err
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"cosmossdk.io/collections"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -211,6 +212,88 @@ func (q queryServer) Recovered(ctx context.Context, req *types.QueryRecoveredReq
 	}
 
 	return &types.QueryRecoveredResponse{Total: total, CasesOpened: opened, CasesPassed: passed}, nil
+}
+
+// HeldCases returns the seizures that have been agreed and are waiting out
+// their delay.
+//
+// This is the ombudsman's list, and it is the reason the delay is worth having:
+// everything still stoppable at no cost to anybody, with the height it stops
+// being stoppable at. An office that had to poll every case ever opened to find
+// out what it could still veto would find out too late.
+//
+// It walks the execution queue rather than every case, so it stays cheap, and
+// the queue is ordered by execute height — so the answer comes back soonest
+// first, which is the order somebody deciding what to look at needs.
+func (q queryServer) HeldCases(ctx context.Context, req *types.QueryHeldCasesRequest) (*types.QueryHeldCasesResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	// One entry per case, so no de-duplication is needed: a deferral moves the
+	// entry and the case's execute_at_height together rather than adding a
+	// second one. If that ever stopped being true this query would report the
+	// chain as about to seize from the same account twice.
+	held := make([]types.Case, 0)
+	err := q.k.ExecutionQueue.Walk(ctx, nil, func(key collections.Pair[int64, uint64]) (bool, error) {
+		enforcementCase, err := q.k.Case.Get(ctx, key.K2())
+		if err != nil {
+			return false, err
+		}
+		if enforcementCase.Status == types.CASE_STATUS_HELD {
+			held = append(held, enforcementCase)
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryHeldCasesResponse{Case: held}, nil
+}
+
+// SeizureWindow reports how much of the rolling cap is left.
+//
+// The window's start height is returned alongside the totals rather than left
+// for the caller to work out from the parameters, because a caller that
+// computed it themselves could compute it differently from the chain — and the
+// number that matters is the one the chain will actually enforce.
+func (q queryServer) SeizureWindow(ctx context.Context, req *types.QuerySeizureWindowRequest) (*types.QuerySeizureWindowResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	params, err := q.k.Params.Get(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	seized, count, err := q.k.seizureWindow(ctx, params, height)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Only the denominations the cap names, and never below zero. A "remaining"
+	// that went negative would read as a debt the chain was owed rather than as
+	// a limit that has been reached.
+	remaining := sdk.NewCoins()
+	for _, capped := range params.SeizureWindowCap {
+		left := capped.Amount.Sub(seized.AmountOf(capped.Denom))
+		if left.IsPositive() {
+			remaining = remaining.Add(sdk.NewCoin(capped.Denom, left))
+		}
+	}
+
+	return &types.QuerySeizureWindowResponse{
+		WindowStartHeight: params.WindowStartHeight(height),
+		CurrentHeight:     height,
+		Seized:            seized,
+		Cap:               params.SeizureWindowCap,
+		Remaining:         remaining,
+		SeizureCount:      count,
+		MaxSeizures:       params.MaxSeizuresPerWindow,
+	}, nil
 }
 
 func (q queryServer) votesOf(ctx context.Context, caseID uint64) ([]types.Vote, error) {

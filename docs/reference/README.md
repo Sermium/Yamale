@@ -19,7 +19,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/constitution](constitution.md) |  | 3 | 4 |
 | [x/custody](custody.md) |  | 7 | 5 |
 | [x/emission](emission.md) | Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply. | 1 | 2 |
-| [x/enforcement](enforcement.md) |  | 8 | 8 |
+| [x/enforcement](enforcement.md) |  | 9 | 10 |
 | [x/land](land.md) |  | 13 | 10 |
 | [x/oracle](oracle.md) |  | 7 | 9 |
 | [x/paymsg](paymsg.md) | ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry. | 5 | 7 |

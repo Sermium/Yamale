@@ -28,6 +28,17 @@ func (k msgServer) Sweep(ctx context.Context, msg *types.MsgSweep) (*types.MsgSw
 	if enforcementCase.Action != types.CASE_ACTION_SEIZE {
 		return nil, types.ErrNotSeizure.Wrapf("case %d ordered a freeze, not a seizure", msg.CaseId)
 	}
+	// A held case is decided and not yet carried out, and this refusal is what
+	// stops the sweep being a way around the delay. Without it anyone could
+	// call Sweep the moment a seizure passed and collect the balance before the
+	// window in which the ombudsman could still veto had opened — which would
+	// leave the delay, the schedule and the veto all in place and all bypassed
+	// by a permissionless message.
+	if enforcementCase.Status == types.CASE_STATUS_HELD {
+		return nil, types.ErrNotPassed.Wrapf(
+			"case %d is waiting until height %d before it may be carried out",
+			msg.CaseId, enforcementCase.ExecuteAtHeight)
+	}
 	if enforcementCase.Status != types.CASE_STATUS_PASSED {
 		return nil, types.ErrNotPassed.Wrapf("case %d is %s", msg.CaseId, enforcementCase.Status)
 	}
@@ -39,6 +50,16 @@ func (k msgServer) Sweep(ctx context.Context, msg *types.MsgSweep) (*types.MsgSw
 
 	params, err := k.Params.Get(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	// The ombudsman may not sweep either. This is the one bar in the module
+	// that is not strictly necessary — a sweep only collects what an executed
+	// case already ordered, and the destination is fixed — but the claim this
+	// office makes is total: no message in this service that the ombudsman may
+	// sign moves any case any distance towards taking anything. A single
+	// exception would turn that into a claim with a footnote.
+	if err := k.assertNotOmbudsman(params, msg.Sender); err != nil {
 		return nil, err
 	}
 

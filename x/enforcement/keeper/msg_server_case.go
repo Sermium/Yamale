@@ -27,6 +27,13 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		return nil, err
 	}
 
+	// The ombudsman may not open a case, and the bar is here rather than only
+	// in the parameters because whether that key is also a bonded validator is
+	// a fact about chain state that can change after the parameters were set.
+	if err := k.assertNotOmbudsman(params, msg.Opener); err != nil {
+		return nil, err
+	}
+
 	// Only a bonded validator may accuse. The opener's own vote is not assumed
 	// from opening: they cast it like everyone else, so a tally never contains
 	// a vote nobody sent.
@@ -43,8 +50,20 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		return nil, err
 	}
 
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
 	switch msg.Action {
 	case types.CASE_ACTION_FREEZE:
+		// A freeze needs no instrument: it takes nothing, and it has to be
+		// openable in the minute a theft is noticed, which is not a minute in
+		// which anybody has a court order. One may still be attached — a freeze
+		// ordered by a regulator is an ordinary thing — and if it is, it is
+		// checked, so the record never holds an instrument nobody validated.
+		if !msg.LegalInstrument.IsZero() {
+			if err := msg.LegalInstrument.Validate(sdkCtx.BlockTime().Unix()); err != nil {
+				return nil, types.ErrLegalInstrumentRequired.Wrap(err.Error())
+			}
+		}
 	case types.CASE_ACTION_SEIZE:
 		// Nowhere to send what is taken means the case cannot be carried out,
 		// and a case that passes and then does nothing is worse than one that
@@ -55,6 +74,23 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		}
 		if params.SeizeRequiresEvidence && (strings.TrimSpace(msg.EvidenceUri) == "" || strings.TrimSpace(msg.EvidenceHash) == "") {
 			return nil, types.ErrEvidenceRequired.Wrap("a seizure case needs both an evidence URI and its hash")
+		}
+		// The external legal authority. Required always, with no parameter that
+		// turns it off — unlike the evidence above, which governance can waive.
+		//
+		// That difference is the design. Evidence is the chain's own record of
+		// what it was shown, and a deployment can reasonably decide how much of
+		// it to demand. An instrument is somebody outside this chain ordering
+		// that the assets be taken, and a requirement governance can vote away
+		// is a default rather than a requirement. A validator set able to
+		// remove its own need for a court order is a validator set that does
+		// not need one.
+		if msg.LegalInstrument.IsZero() {
+			return nil, types.ErrLegalInstrumentRequired.Wrap(
+				"a seizure must name the court order, regulatory direction or warrant it is carried out under, and the hash of that instrument")
+		}
+		if err := msg.LegalInstrument.Validate(sdkCtx.BlockTime().Unix()); err != nil {
+			return nil, types.ErrLegalInstrumentRequired.Wrap(err.Error())
 		}
 	default:
 		return nil, types.ErrInvalidCase.Wrapf("unknown action %s", msg.Action)
@@ -84,7 +120,6 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		return nil, err
 	}
 
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := sdkCtx.BlockHeight()
 
 	// The sequence is seeded at one in InitGenesis: a case id of zero is
@@ -107,6 +142,7 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		OpenedAtHeight:     height,
 		VotingEndsAtHeight: height + int64(params.VotingPeriodBlocks),
 		TotalPowerAtOpen:   totalPower.Int64(),
+		LegalInstrument:    msg.LegalInstrument,
 	}
 	if err := k.Case.Set(ctx, id, newCase); err != nil {
 		return nil, err
@@ -140,6 +176,18 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 // reason, and a scammer whose seizure is already agreed should not get the rest
 // of the period to argue with the unbonding queue.
 func (k msgServer) VoteCase(ctx context.Context, msg *types.MsgVoteCase) (*types.MsgVoteCaseResponse, error) {
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Voting yes advances a case towards taking somebody's assets, so it is an
+	// initiation power in everything but name and the ombudsman is barred from
+	// it here — including from voting no, because an office that could vote at
+	// all would be inside the process it is appointed to check.
+	if err := k.assertNotOmbudsman(params, msg.Voter); err != nil {
+		return nil, err
+	}
+
 	operator, validator, err := k.bondedValidatorOf(ctx, msg.Voter)
 	if err != nil {
 		return nil, err
@@ -195,10 +243,6 @@ func (k msgServer) VoteCase(ctx context.Context, msg *types.MsgVoteCase) (*types
 		return nil, err
 	}
 
-	params, err := k.Params.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
 	required := params.RequiredPower(enforcementCase.TotalPowerAtOpen)
 
 	switch {
@@ -267,11 +311,20 @@ func (k msgServer) ReverseCase(ctx context.Context, msg *types.MsgReverseCase) (
 	if err != nil {
 		return nil, types.ErrCaseNotFound.Wrapf("case %d", msg.CaseId)
 	}
-	if enforcementCase.Status != types.CASE_STATUS_PASSED {
+	// HELD as well as PASSED. A seizure the validators agreed to and that is
+	// waiting out its delay is the case governance is most likely to want to
+	// overturn, because it is the only point at which overturning it costs
+	// nobody anything — nothing has moved yet. Refusing here until the funds
+	// had gone would have made the appeal available only once it was too late
+	// to be worth having.
+	switch enforcementCase.Status {
+	case types.CASE_STATUS_PASSED, types.CASE_STATUS_HELD:
+	default:
 		return nil, types.ErrNotPassed.Wrapf("case %d is %s", msg.CaseId, enforcementCase.Status)
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	wasHeld := enforcementCase.Status == types.CASE_STATUS_HELD
 	enforcementCase.Status = types.CASE_STATUS_REVERSED
 	enforcementCase.ResolvedAtHeight = sdkCtx.BlockHeight()
 	if msg.Reason != "" {
@@ -279,6 +332,13 @@ func (k msgServer) ReverseCase(ctx context.Context, msg *types.MsgReverseCase) (
 	}
 	if err := k.Case.Set(ctx, enforcementCase.Id, enforcementCase); err != nil {
 		return nil, err
+	}
+	// The execution queue entry has to go with it, or the end blocker would
+	// carry out the seizure governance has just overturned.
+	if wasHeld {
+		if err := k.dequeueExecution(ctx, enforcementCase); err != nil {
+			return nil, err
+		}
 	}
 	if err := k.unfreeze(ctx, enforcementCase.Target); err != nil {
 		return nil, err

@@ -2,13 +2,13 @@ package keeper_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
@@ -41,6 +41,13 @@ type stubValidator struct {
 func (v stubValidator) GetOperator() string              { return v.operator }
 func (v stubValidator) IsBonded() bool                   { return v.bonded }
 func (v stubValidator) GetConsensusPower(math.Int) int64 { return v.power }
+
+// TokensFromShares is one-to-one here. On a real chain it is not — a slashed
+// validator returns fewer tokens per share — and the assessment that sizes a
+// seizure's delay goes through this conversion for exactly that reason. The
+// stub keeps the ratio at one so a test that stakes 800,000 can assert on
+// 800,000 rather than on an arithmetic detail of the staking module.
+func (v stubValidator) TokensFromShares(shares math.LegacyDec) math.LegacyDec { return shares }
 
 type stubStaking struct {
 	validators  []stubValidator
@@ -189,6 +196,23 @@ func initFixture(t *testing.T) *fixture {
 	params := types.DefaultParams()
 	params.RecoveryDestination = destinationStr
 
+	// The delay schedule and the rolling cap have no defaults — both are
+	// denominated, and no denomination compiled into the binary is anybody's
+	// currency — so the fixture states them, exactly as a real genesis has to.
+	//
+	// The numbers are scaled down from a deployment's so that a test can run a
+	// case to execution in a few blocks rather than a few days. The shape is
+	// the same: a floor everything waits, and tiers that make a large seizure
+	// wait longer than a small one.
+	params.SeizureDelayBlocks = 10
+	params.SeizureDelayTiers = []types.SeizureDelayTier{
+		{Threshold: sdk.NewCoin("uyml", math.NewInt(1_000_000)), DelayBlocks: 100},
+		{Threshold: sdk.NewCoin("uyml", math.NewInt(10_000_000)), DelayBlocks: 1_000},
+	}
+	params.SeizureWindowBlocks = 5_000
+	params.SeizureWindowCap = sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(100_000_000)))
+	params.MaxSeizuresPerWindow = 5
+
 	// Through InitGenesis rather than by setting params directly: the case
 	// sequence is seeded there, and a fixture that skipped it would number the
 	// first case zero — which is exactly the state the module is written to
@@ -241,4 +265,56 @@ func (f *fixture) addValidator(t *testing.T, power int64) string {
 
 func coins(amount int64) sdk.Coins {
 	return sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(amount)))
+}
+
+// endBlock runs the module's end blocker at the current height.
+func (f *fixture) endBlock(t *testing.T) {
+	t.Helper()
+	require.NoError(t, f.keeper.EndBlocker(f.ctx))
+}
+
+// runTo moves the chain to a height and runs the end blocker there.
+//
+// It does not run every intervening block, which is deliberate and is also what
+// a real chain does not do: the queues are keyed by the height work falls due
+// at and every walk is "at or before this height", so a module that only
+// resolved things when the exact block was executed would strand any case whose
+// height was skipped. Jumping here is what proves that.
+func (f *fixture) runTo(t *testing.T, height int64) {
+	t.Helper()
+	f.atHeight(height)
+	f.endBlock(t)
+}
+
+// setParams writes a modified parameter set, through the same validation a
+// governance proposal would go through.
+func (f *fixture) setParams(t *testing.T, mutate func(*types.Params)) types.Params {
+	t.Helper()
+	params, err := f.keeper.Params.Get(f.ctx)
+	require.NoError(t, err)
+	mutate(&params)
+	require.NoError(t, params.Validate(), "the test asked for parameters the chain would refuse")
+	require.NoError(t, f.keeper.Params.Set(f.ctx, params))
+	return params
+}
+
+// appointOmbudsman names an ombudsman and returns the address it signs with.
+func (f *fixture) appointOmbudsman(t *testing.T) string {
+	t.Helper()
+	_, ombudsman := f.env.Addr(t)
+	f.setParams(t, func(p *types.Params) { p.Ombudsman = ombudsman })
+	return ombudsman
+}
+
+// instrument is a valid legal instrument, dated before the fixture's block
+// time. Every seizure needs one, so almost every test in this package builds
+// one, and building it wrong is not what any of them are trying to test.
+func instrument() types.LegalInstrument {
+	return types.LegalInstrument{
+		IssuingAuthority: "High Court of Kenya at Nairobi",
+		Reference:        "HCCC/2026/0412",
+		Kind:             types.LEGAL_INSTRUMENT_KIND_COURT_ORDER,
+		Hash:             strings.Repeat("a1b2", 16),
+		IssuedAt:         1_699_000_000,
+	}
 }

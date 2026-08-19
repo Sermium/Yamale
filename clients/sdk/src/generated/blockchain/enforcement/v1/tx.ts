@@ -12,6 +12,7 @@ import {
   CaseAction,
   caseActionFromJSON,
   caseActionToJSON,
+  LegalInstrument,
   VoteOption,
   voteOptionFromJSON,
   voteOptionToJSON,
@@ -62,6 +63,14 @@ export interface MsgOpenCase {
    */
   evidenceUri: string;
   evidenceHash: string;
+  /**
+   * legal_instrument names the external authority the seizure is carried out
+   * under and pins its content. Required for a seizure, always, with no
+   * parameter that turns it off — a requirement governance can vote away is a
+   * default, and this one is meant to be a requirement. Ignored for a freeze,
+   * which takes nothing and has to be openable the minute a theft is noticed.
+   */
+  legalInstrument: LegalInstrument | undefined;
 }
 
 /** MsgOpenCaseResponse returns the new case's id. */
@@ -114,6 +123,43 @@ export interface MsgSweep {
 export interface MsgSweepResponse {
   collected: Coin[];
   complete: boolean;
+}
+
+/**
+ * MsgOmbudsmanVeto stops a case before it takes anything.
+ *
+ * This is the only message whose signer is the ombudsman, and stopping a case
+ * is the only thing it does. There is no companion message that opens one,
+ * votes on one, or advances one, and there deliberately never will be: an
+ * office that could do both would be a second way into this module rather than
+ * a check on the first.
+ *
+ * It works on a case still being voted on and on a seizure waiting out its
+ * delay — both states in which nothing has been taken. It does not work on a
+ * seizure that has already executed, because a veto cannot un-take money and a
+ * message that pretended to would be telling the record a lie. Reversing an
+ * executed case is governance's job, through MsgReverseCase, and even that only
+ * gives the account back rather than the funds.
+ *
+ * A veto is not permanent protection and is not meant to be. Any validator may
+ * open a fresh case against the same target in the next block; what the veto
+ * buys is that doing so is a new, public accusation, and stopping it again
+ * costs the ombudsman another signature on the record.
+ */
+export interface MsgOmbudsmanVeto {
+  /** ombudsman must equal the ombudsman parameter. */
+  ombudsman: string;
+  caseId: string;
+  /**
+   * reason is why the case was stopped, kept beside the original accusation.
+   * Required: an office whose refusals need no grounds is not accountable
+   * either, and this one is a check rather than a privilege.
+   */
+  reason: string;
+}
+
+/** MsgOmbudsmanVetoResponse defines the response structure. */
+export interface MsgOmbudsmanVetoResponse {
 }
 
 /** MsgReverseCase overturns a passed case. Governance only. */
@@ -303,7 +349,15 @@ export const MsgUpdateParamsResponse = {
 };
 
 function createBaseMsgOpenCase(): MsgOpenCase {
-  return { opener: "", target: "", action: 0, reason: "", evidenceUri: "", evidenceHash: "" };
+  return {
+    opener: "",
+    target: "",
+    action: 0,
+    reason: "",
+    evidenceUri: "",
+    evidenceHash: "",
+    legalInstrument: undefined,
+  };
 }
 
 export const MsgOpenCase = {
@@ -325,6 +379,9 @@ export const MsgOpenCase = {
     }
     if (message.evidenceHash !== "") {
       writer.uint32(50).string(message.evidenceHash);
+    }
+    if (message.legalInstrument !== undefined) {
+      LegalInstrument.encode(message.legalInstrument, writer.uint32(58).fork()).ldelim();
     }
     return writer;
   },
@@ -378,6 +435,13 @@ export const MsgOpenCase = {
 
           message.evidenceHash = reader.string();
           continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.legalInstrument = LegalInstrument.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -395,6 +459,7 @@ export const MsgOpenCase = {
       reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
       evidenceUri: isSet(object.evidenceUri) ? globalThis.String(object.evidenceUri) : "",
       evidenceHash: isSet(object.evidenceHash) ? globalThis.String(object.evidenceHash) : "",
+      legalInstrument: isSet(object.legalInstrument) ? LegalInstrument.fromJSON(object.legalInstrument) : undefined,
     };
   },
 
@@ -418,6 +483,9 @@ export const MsgOpenCase = {
     if (message.evidenceHash !== "") {
       obj.evidenceHash = message.evidenceHash;
     }
+    if (message.legalInstrument !== undefined) {
+      obj.legalInstrument = LegalInstrument.toJSON(message.legalInstrument);
+    }
     return obj;
   },
 
@@ -432,6 +500,9 @@ export const MsgOpenCase = {
     message.reason = object.reason ?? "";
     message.evidenceUri = object.evidenceUri ?? "";
     message.evidenceHash = object.evidenceHash ?? "";
+    message.legalInstrument = (object.legalInstrument !== undefined && object.legalInstrument !== null)
+      ? LegalInstrument.fromPartial(object.legalInstrument)
+      : undefined;
     return message;
   },
 };
@@ -886,6 +957,138 @@ export const MsgSweepResponse = {
     const message = createBaseMsgSweepResponse();
     message.collected = object.collected?.map((e) => Coin.fromPartial(e)) || [];
     message.complete = object.complete ?? false;
+    return message;
+  },
+};
+
+function createBaseMsgOmbudsmanVeto(): MsgOmbudsmanVeto {
+  return { ombudsman: "", caseId: "0", reason: "" };
+}
+
+export const MsgOmbudsmanVeto = {
+  encode(message: MsgOmbudsmanVeto, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.ombudsman !== "") {
+      writer.uint32(10).string(message.ombudsman);
+    }
+    if (message.caseId !== "0") {
+      writer.uint32(16).uint64(message.caseId);
+    }
+    if (message.reason !== "") {
+      writer.uint32(26).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgOmbudsmanVeto {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgOmbudsmanVeto();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.ombudsman = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.caseId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgOmbudsmanVeto {
+    return {
+      ombudsman: isSet(object.ombudsman) ? globalThis.String(object.ombudsman) : "",
+      caseId: isSet(object.caseId) ? globalThis.String(object.caseId) : "0",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+    };
+  },
+
+  toJSON(message: MsgOmbudsmanVeto): unknown {
+    const obj: any = {};
+    if (message.ombudsman !== "") {
+      obj.ombudsman = message.ombudsman;
+    }
+    if (message.caseId !== "0") {
+      obj.caseId = message.caseId;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgOmbudsmanVeto>): MsgOmbudsmanVeto {
+    return MsgOmbudsmanVeto.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgOmbudsmanVeto>): MsgOmbudsmanVeto {
+    const message = createBaseMsgOmbudsmanVeto();
+    message.ombudsman = object.ombudsman ?? "";
+    message.caseId = object.caseId ?? "0";
+    message.reason = object.reason ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgOmbudsmanVetoResponse(): MsgOmbudsmanVetoResponse {
+  return {};
+}
+
+export const MsgOmbudsmanVetoResponse = {
+  encode(_: MsgOmbudsmanVetoResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgOmbudsmanVetoResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgOmbudsmanVetoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgOmbudsmanVetoResponse {
+    return {};
+  },
+
+  toJSON(_: MsgOmbudsmanVetoResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgOmbudsmanVetoResponse>): MsgOmbudsmanVetoResponse {
+    return MsgOmbudsmanVetoResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgOmbudsmanVetoResponse>): MsgOmbudsmanVetoResponse {
+    const message = createBaseMsgOmbudsmanVetoResponse();
     return message;
   },
 };
@@ -1357,6 +1560,11 @@ export interface Msg {
   /** EmergencyRelease lets them let it go again, just as fast. */
   EmergencyRelease(request: MsgEmergencyRelease): Promise<MsgEmergencyReleaseResponse>;
   /**
+   * OmbudsmanVeto stops a case that has not taken anything yet. The only
+   * message the ombudsman may sign, and the only thing it can do.
+   */
+  OmbudsmanVeto(request: MsgOmbudsmanVeto): Promise<MsgOmbudsmanVetoResponse>;
+  /**
    * ReverseCase is governance overturning a passed case: the appeal. It lifts
    * the freeze and records the reversal, and it is deliberately a slower
    * instrument than the one that imposed the freeze, because it is the one used
@@ -1379,6 +1587,7 @@ export class MsgClientImpl implements Msg {
     this.Sweep = this.Sweep.bind(this);
     this.EmergencyFreeze = this.EmergencyFreeze.bind(this);
     this.EmergencyRelease = this.EmergencyRelease.bind(this);
+    this.OmbudsmanVeto = this.OmbudsmanVeto.bind(this);
     this.ReverseCase = this.ReverseCase.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
@@ -1421,6 +1630,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgEmergencyRelease.encode(request).finish();
     const promise = this.rpc.request(this.service, "EmergencyRelease", data);
     return promise.then((data) => MsgEmergencyReleaseResponse.decode(_m0.Reader.create(data)));
+  }
+
+  OmbudsmanVeto(request: MsgOmbudsmanVeto): Promise<MsgOmbudsmanVetoResponse> {
+    const data = MsgOmbudsmanVeto.encode(request).finish();
+    const promise = this.rpc.request(this.service, "OmbudsmanVeto", data);
+    return promise.then((data) => MsgOmbudsmanVetoResponse.decode(_m0.Reader.create(data)));
   }
 
   ReverseCase(request: MsgReverseCase): Promise<MsgReverseCaseResponse> {

@@ -180,6 +180,45 @@ emergency = os.environ.get("EMERGENCY_AUTHORITY", "").strip()
 if emergency:
     enforcement["emergency_authority"] = emergency
 
+# The ombudsman: an office appointed outside the validator set that can stop a
+# case and can never start one. Unset means there is no veto, not an implicit
+# one, so leaving it out is safe — but a sovereign deployment that ships without
+# one has no check on enforcement outside the set that operates it, and that is
+# the check §4 calls critical for sovereign sale.
+#
+# It may not be the emergency authority (which can open cases) or the recovery
+# destination (which receives what seizures take). The module refuses both, so
+# a genesis that names one of them fails at height 1 rather than here.
+ombudsman = os.environ.get("OMBUDSMAN", "").strip()
+if ombudsman:
+    enforcement["ombudsman"] = ombudsman
+
+# The seizure delay schedule and the rolling cap. Both are denominated, so
+# neither has a default — the same reason the destination has none. These are
+# the settlement profile's currency, and they are the values the constitutional
+# layer is expected to hold as genesis-fixed invariants.
+#
+# Twelve hours' floor, a week for anything over a thousand YML, and a fortnight
+# over a hundred thousand. The delay is the window in which a decided seizure
+# can still be stopped for free, so it is sized by how long somebody would
+# plausibly need to notice and object — which is longer for a larger sum
+# because a larger sum is likelier to belong to somebody with lawyers in a
+# different timezone.
+enforcement["seizure_delay_blocks"] = "8640"
+enforcement["seizure_delay_tiers"] = [
+    {"threshold": {"denom": "uyml", "amount": "1000000000"}, "delay_blocks": "120960"},
+    {"threshold": {"denom": "uyml", "amount": "100000000000"}, "delay_blocks": "241920"},
+]
+
+# Seven days, and within any seven days this chain may take at most a hundred
+# thousand YML across at most five accounts. A chain that can seize a bounded
+# amount per period cannot be used for mass expropriation in one sitting,
+# whoever has captured the validator set, because the arithmetic refuses before
+# anybody has to.
+enforcement["seizure_window_blocks"] = "120960"
+enforcement["seizure_window_cap"] = [{"denom": "uyml", "amount": "100000000000"}]
+enforcement["max_seizures_per_window"] = "5"
+
 # The threshold is a share of bonded power, and at three equally-bonded
 # validators two thirds rounds up to all three. Reported rather than adjusted:
 # it is the same arithmetic that makes this network stop producing blocks when
@@ -204,6 +243,10 @@ print(f"  interchain accounts:    disabled (host and controller)")
 print(f"  enforcement threshold:  {enforcement_threshold_bps / 100:g}% of bonded power to freeze or seize")
 print(f"  recovery destination:   {enforcement['recovery_destination']}")
 print(f"  emergency authority:    {enforcement['emergency_authority'] or 'unset — no emergency freeze or release path'}")
+print(f"  ombudsman:              {enforcement.get('ombudsman') or 'unset — no veto on enforcement from outside the validator set'}")
+print(f"  seizure delay floor:    {enforcement['seizure_delay_blocks']} blocks (~12h at 5s), rising with the amount")
+print(f"  rolling seizure cap:    {int(enforcement['seizure_window_cap'][0]['amount']) // 1_000_000:,} YML or "
+      f"{enforcement['max_seizures_per_window']} seizures per {enforcement['seizure_window_blocks']} blocks (~7d)")
 PYEOF
 
 blockchaind genesis validate --home "$HOME_DIR"
@@ -247,6 +290,38 @@ if int(enforcement["threshold_bps"]) <= 5000:
     problems.append(
         "enforcement threshold_bps is %s, which would let a minority of the validator "
         "set freeze and seize accounts" % enforcement["threshold_bps"]
+    )
+if not enforcement.get("seizure_delay_tiers"):
+    problems.append(
+        "enforcement seizure_delay_tiers is empty, so every seizure would wait the same "
+        "time whether it took a day's takings or somebody's life savings — and this "
+        "genesis will not start a chain"
+    )
+if not enforcement.get("seizure_window_cap"):
+    problems.append(
+        "enforcement seizure_window_cap is empty, so there is no ceiling on how much "
+        "this chain may seize in a window — and this genesis will not start a chain"
+    )
+if int(enforcement.get("max_seizures_per_window", 0)) == 0:
+    problems.append(
+        "enforcement max_seizures_per_window is zero, which would leave every seizure the "
+        "validators passed waiting forever with its target still frozen"
+    )
+if int(enforcement.get("seizure_delay_blocks", 0)) == 0:
+    problems.append(
+        "enforcement seizure_delay_blocks is zero, so a seizure would execute in the block "
+        "it was decided and the ombudsman's veto would have no window to be cast in"
+    )
+ombudsman_set = enforcement.get("ombudsman", "").strip()
+if ombudsman_set and ombudsman_set == enforcement.get("emergency_authority", "").strip():
+    problems.append(
+        "enforcement ombudsman is also the emergency_authority, which can open cases — the "
+        "ombudsman must only ever be able to stop them"
+    )
+if ombudsman_set and ombudsman_set == enforcement.get("recovery_destination", "").strip():
+    problems.append(
+        "enforcement ombudsman is also the recovery_destination, so the office that can stop "
+        "a seizure is the one that receives what seizures take"
     )
 if int(enforcement["provisional_freeze_blocks"]) < int(enforcement["voting_period_blocks"]):
     problems.append(

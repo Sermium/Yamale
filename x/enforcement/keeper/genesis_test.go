@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/stretchr/testify/require"
@@ -20,12 +21,21 @@ var testRecoveryDestination = sdk.AccAddress([]byte("foundation-test-addr")).Str
 // proposal cannot repoint where seized assets go.
 var otherDestination = sdk.AccAddress([]byte("somebody-elses-addr")).String()
 
-// startableGenesis is DefaultGenesis with the one field that has no default
-// filled in — the same thing every setup script in scripts/ does with the
-// `foundation` key.
+// startableGenesis is DefaultGenesis with the fields that have no default
+// filled in — the same thing every setup script in scripts/ does.
+//
+// There are three of them now, and they are all the same kind of thing: a value
+// this binary cannot guess for somebody else's network. The destination names
+// an institution, and the delay tiers and the window cap name a currency. A
+// default for any of them would be a live setting that looked configured and
+// was not, which is worse than an absent one because it satisfies the check.
 func startableGenesis() *types.GenesisState {
 	genesis := types.DefaultGenesis()
 	genesis.Params.RecoveryDestination = testRecoveryDestination
+	genesis.Params.SeizureDelayTiers = []types.SeizureDelayTier{
+		{Threshold: sdk.NewCoin("uyml", math.NewInt(1_000_000)), DelayBlocks: 100},
+	}
+	genesis.Params.SeizureWindowCap = sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(100_000_000)))
 	return genesis
 }
 

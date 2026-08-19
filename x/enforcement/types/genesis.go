@@ -89,10 +89,40 @@ func (gs GenesisState) Validate() error {
 			return fmt.Errorf("%s is frozen by case %d, which is against %s", f.Address, f.CaseId, enforcementCase.Target)
 		}
 		switch enforcementCase.Status {
-		case CASE_STATUS_VOTING, CASE_STATUS_PASSED:
+		// HELD is a frozen account by construction: the set has decided, the
+		// freeze no longer lapses, and the seizure is waiting. Omitting it here
+		// would make every export taken while a seizure was waiting fail to
+		// import — which is to say, fail at exactly the moment the module was
+		// in the middle of doing the thing it exists for.
+		case CASE_STATUS_VOTING, CASE_STATUS_HELD, CASE_STATUS_PASSED:
 		default:
 			return fmt.Errorf("%s is frozen by case %d, which is %s", f.Address, f.CaseId, enforcementCase.Status)
 		}
+	}
+
+	seenSeizure := make(map[string]bool, len(gs.Seizures))
+	for _, s := range gs.Seizures {
+		enforcementCase, ok := cases[s.CaseId]
+		if !ok {
+			return fmt.Errorf("the rolling window records a seizure by case %d, which does not exist", s.CaseId)
+		}
+		if enforcementCase.Action != CASE_ACTION_SEIZE {
+			return fmt.Errorf("the rolling window records a seizure by case %d, which ordered a freeze", s.CaseId)
+		}
+		if s.Height < 0 {
+			return fmt.Errorf("seizure record for case %d has a negative height", s.CaseId)
+		}
+		if !s.Amount.IsValid() {
+			return fmt.Errorf("seizure record for case %d has an invalid amount: %s", s.CaseId, s.Amount)
+		}
+		// The ledger is keyed by (height, case id), so two records sharing both
+		// would silently collapse into one on import and let a window carry
+		// less than it should — which is a cap that has quietly been raised.
+		key := fmt.Sprintf("%d/%d", s.Height, s.CaseId)
+		if seenSeizure[key] {
+			return fmt.Errorf("two seizure records for case %d at height %d", s.CaseId, s.Height)
+		}
+		seenSeizure[key] = true
 	}
 
 	return nil

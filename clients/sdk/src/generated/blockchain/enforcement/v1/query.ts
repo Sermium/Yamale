@@ -117,6 +117,47 @@ export interface QueryRecoveredResponse {
   casesPassed: string;
 }
 
+/** QueryHeldCasesRequest asks for the seizures waiting out their delay. */
+export interface QueryHeldCasesRequest {
+}
+
+/** QueryHeldCasesResponse carries them, soonest to execute first. */
+export interface QueryHeldCasesResponse {
+  case: Case[];
+}
+
+/** QuerySeizureWindowRequest asks how much of the rolling cap is left. */
+export interface QuerySeizureWindowRequest {
+}
+
+/**
+ * QuerySeizureWindowResponse says what has been seized inside the current
+ * window and what is still permitted.
+ *
+ * It reports the window's start height alongside the totals, because "seized
+ * this much" means nothing without the period it was measured over, and a
+ * caller that computed that period itself from the parameters could compute it
+ * differently from the chain.
+ */
+export interface QuerySeizureWindowResponse {
+  windowStartHeight: string;
+  currentHeight: string;
+  /**
+   * seized is the total inside the window; cap is the parameter it is measured
+   * against; remaining is cap minus seized, floored at zero and carrying only
+   * the denominations the cap names.
+   */
+  seized: Coin[];
+  cap: Coin[];
+  remaining: Coin[];
+  /**
+   * seizure_count and max_seizures are the other half of the cap: the one that
+   * binds every denomination, including ones the value cap does not name.
+   */
+  seizureCount: string;
+  maxSeizures: string;
+}
+
 function createBaseQueryParamsRequest(): QueryParamsRequest {
   return {};
 }
@@ -1191,6 +1232,306 @@ export const QueryRecoveredResponse = {
   },
 };
 
+function createBaseQueryHeldCasesRequest(): QueryHeldCasesRequest {
+  return {};
+}
+
+export const QueryHeldCasesRequest = {
+  encode(_: QueryHeldCasesRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryHeldCasesRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryHeldCasesRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QueryHeldCasesRequest {
+    return {};
+  },
+
+  toJSON(_: QueryHeldCasesRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryHeldCasesRequest>): QueryHeldCasesRequest {
+    return QueryHeldCasesRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QueryHeldCasesRequest>): QueryHeldCasesRequest {
+    const message = createBaseQueryHeldCasesRequest();
+    return message;
+  },
+};
+
+function createBaseQueryHeldCasesResponse(): QueryHeldCasesResponse {
+  return { case: [] };
+}
+
+export const QueryHeldCasesResponse = {
+  encode(message: QueryHeldCasesResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.case) {
+      Case.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryHeldCasesResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryHeldCasesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.case.push(Case.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryHeldCasesResponse {
+    return { case: globalThis.Array.isArray(object?.case) ? object.case.map((e: any) => Case.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: QueryHeldCasesResponse): unknown {
+    const obj: any = {};
+    if (message.case?.length) {
+      obj.case = message.case.map((e) => Case.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryHeldCasesResponse>): QueryHeldCasesResponse {
+    return QueryHeldCasesResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryHeldCasesResponse>): QueryHeldCasesResponse {
+    const message = createBaseQueryHeldCasesResponse();
+    message.case = object.case?.map((e) => Case.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseQuerySeizureWindowRequest(): QuerySeizureWindowRequest {
+  return {};
+}
+
+export const QuerySeizureWindowRequest = {
+  encode(_: QuerySeizureWindowRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QuerySeizureWindowRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQuerySeizureWindowRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QuerySeizureWindowRequest {
+    return {};
+  },
+
+  toJSON(_: QuerySeizureWindowRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QuerySeizureWindowRequest>): QuerySeizureWindowRequest {
+    return QuerySeizureWindowRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QuerySeizureWindowRequest>): QuerySeizureWindowRequest {
+    const message = createBaseQuerySeizureWindowRequest();
+    return message;
+  },
+};
+
+function createBaseQuerySeizureWindowResponse(): QuerySeizureWindowResponse {
+  return {
+    windowStartHeight: "0",
+    currentHeight: "0",
+    seized: [],
+    cap: [],
+    remaining: [],
+    seizureCount: "0",
+    maxSeizures: "0",
+  };
+}
+
+export const QuerySeizureWindowResponse = {
+  encode(message: QuerySeizureWindowResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.windowStartHeight !== "0") {
+      writer.uint32(8).int64(message.windowStartHeight);
+    }
+    if (message.currentHeight !== "0") {
+      writer.uint32(16).int64(message.currentHeight);
+    }
+    for (const v of message.seized) {
+      Coin.encode(v!, writer.uint32(26).fork()).ldelim();
+    }
+    for (const v of message.cap) {
+      Coin.encode(v!, writer.uint32(34).fork()).ldelim();
+    }
+    for (const v of message.remaining) {
+      Coin.encode(v!, writer.uint32(42).fork()).ldelim();
+    }
+    if (message.seizureCount !== "0") {
+      writer.uint32(48).uint64(message.seizureCount);
+    }
+    if (message.maxSeizures !== "0") {
+      writer.uint32(56).uint64(message.maxSeizures);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QuerySeizureWindowResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQuerySeizureWindowResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.windowStartHeight = longToString(reader.int64() as Long);
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.currentHeight = longToString(reader.int64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.seized.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.cap.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.remaining.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.seizureCount = longToString(reader.uint64() as Long);
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.maxSeizures = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QuerySeizureWindowResponse {
+    return {
+      windowStartHeight: isSet(object.windowStartHeight) ? globalThis.String(object.windowStartHeight) : "0",
+      currentHeight: isSet(object.currentHeight) ? globalThis.String(object.currentHeight) : "0",
+      seized: globalThis.Array.isArray(object?.seized) ? object.seized.map((e: any) => Coin.fromJSON(e)) : [],
+      cap: globalThis.Array.isArray(object?.cap) ? object.cap.map((e: any) => Coin.fromJSON(e)) : [],
+      remaining: globalThis.Array.isArray(object?.remaining) ? object.remaining.map((e: any) => Coin.fromJSON(e)) : [],
+      seizureCount: isSet(object.seizureCount) ? globalThis.String(object.seizureCount) : "0",
+      maxSeizures: isSet(object.maxSeizures) ? globalThis.String(object.maxSeizures) : "0",
+    };
+  },
+
+  toJSON(message: QuerySeizureWindowResponse): unknown {
+    const obj: any = {};
+    if (message.windowStartHeight !== "0") {
+      obj.windowStartHeight = message.windowStartHeight;
+    }
+    if (message.currentHeight !== "0") {
+      obj.currentHeight = message.currentHeight;
+    }
+    if (message.seized?.length) {
+      obj.seized = message.seized.map((e) => Coin.toJSON(e));
+    }
+    if (message.cap?.length) {
+      obj.cap = message.cap.map((e) => Coin.toJSON(e));
+    }
+    if (message.remaining?.length) {
+      obj.remaining = message.remaining.map((e) => Coin.toJSON(e));
+    }
+    if (message.seizureCount !== "0") {
+      obj.seizureCount = message.seizureCount;
+    }
+    if (message.maxSeizures !== "0") {
+      obj.maxSeizures = message.maxSeizures;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QuerySeizureWindowResponse>): QuerySeizureWindowResponse {
+    return QuerySeizureWindowResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QuerySeizureWindowResponse>): QuerySeizureWindowResponse {
+    const message = createBaseQuerySeizureWindowResponse();
+    message.windowStartHeight = object.windowStartHeight ?? "0";
+    message.currentHeight = object.currentHeight ?? "0";
+    message.seized = object.seized?.map((e) => Coin.fromPartial(e)) || [];
+    message.cap = object.cap?.map((e) => Coin.fromPartial(e)) || [];
+    message.remaining = object.remaining?.map((e) => Coin.fromPartial(e)) || [];
+    message.seizureCount = object.seizureCount ?? "0";
+    message.maxSeizures = object.maxSeizures ?? "0";
+    return message;
+  },
+};
+
 /**
  * Query defines the gRPC querier service.
  *
@@ -1219,6 +1560,14 @@ export interface Query {
    * number that says how much this power has actually been used.
    */
   Recovered(request: QueryRecoveredRequest): Promise<QueryRecoveredResponse>;
+  /**
+   * HeldCases queries the seizures that have been agreed and are waiting out
+   * their delay. This is the list an ombudsman reads: everything still stoppable
+   * at no cost to anybody, and how long there is left to stop it.
+   */
+  HeldCases(request: QueryHeldCasesRequest): Promise<QueryHeldCasesResponse>;
+  /** SeizureWindow queries how much of the rolling cap is left. */
+  SeizureWindow(request: QuerySeizureWindowRequest): Promise<QuerySeizureWindowResponse>;
 }
 
 export const QueryServiceName = "blockchain.enforcement.v1.Query";
@@ -1236,6 +1585,8 @@ export class QueryClientImpl implements Query {
     this.FreezeStatus = this.FreezeStatus.bind(this);
     this.ListFreeze = this.ListFreeze.bind(this);
     this.Recovered = this.Recovered.bind(this);
+    this.HeldCases = this.HeldCases.bind(this);
+    this.SeizureWindow = this.SeizureWindow.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -1283,6 +1634,18 @@ export class QueryClientImpl implements Query {
     const data = QueryRecoveredRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Recovered", data);
     return promise.then((data) => QueryRecoveredResponse.decode(_m0.Reader.create(data)));
+  }
+
+  HeldCases(request: QueryHeldCasesRequest): Promise<QueryHeldCasesResponse> {
+    const data = QueryHeldCasesRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "HeldCases", data);
+    return promise.then((data) => QueryHeldCasesResponse.decode(_m0.Reader.create(data)));
+  }
+
+  SeizureWindow(request: QuerySeizureWindowRequest): Promise<QuerySeizureWindowResponse> {
+    const data = QuerySeizureWindowRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "SeizureWindow", data);
+    return promise.then((data) => QuerySeizureWindowResponse.decode(_m0.Reader.create(data)));
   }
 }
 

@@ -7,7 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
-import { Case, Freeze, Vote } from "./enforcement.ts";
+import { Case, Freeze, SeizureRecord, Vote } from "./enforcement.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.enforcement.v1";
@@ -32,10 +32,21 @@ export interface GenesisState {
    * present would collide the moment a case is ever removed.
    */
   caseCount: string;
+  /**
+   * seizures is the rolling window's ledger: one record per executed seizure,
+   * still inside the window or not yet pruned.
+   *
+   * Exported because dropping it would reset the cap at every upgrade, which is
+   * the one moment a chain that wanted to seize more than its window allows
+   * would choose to do it. There is no separate running total in genesis on
+   * purpose: a total beside the records it is derived from is a second copy
+   * that can disagree with the first, and the module sums the records instead.
+   */
+  seizures: SeizureRecord[];
 }
 
 function createBaseGenesisState(): GenesisState {
-  return { params: undefined, cases: [], votes: [], freezes: [], caseCount: "0" };
+  return { params: undefined, cases: [], votes: [], freezes: [], caseCount: "0", seizures: [] };
 }
 
 export const GenesisState = {
@@ -54,6 +65,9 @@ export const GenesisState = {
     }
     if (message.caseCount !== "0") {
       writer.uint32(40).uint64(message.caseCount);
+    }
+    for (const v of message.seizures) {
+      SeizureRecord.encode(v!, writer.uint32(50).fork()).ldelim();
     }
     return writer;
   },
@@ -100,6 +114,13 @@ export const GenesisState = {
 
           message.caseCount = longToString(reader.uint64() as Long);
           continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.seizures.push(SeizureRecord.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -116,6 +137,9 @@ export const GenesisState = {
       votes: globalThis.Array.isArray(object?.votes) ? object.votes.map((e: any) => Vote.fromJSON(e)) : [],
       freezes: globalThis.Array.isArray(object?.freezes) ? object.freezes.map((e: any) => Freeze.fromJSON(e)) : [],
       caseCount: isSet(object.caseCount) ? globalThis.String(object.caseCount) : "0",
+      seizures: globalThis.Array.isArray(object?.seizures)
+        ? object.seizures.map((e: any) => SeizureRecord.fromJSON(e))
+        : [],
     };
   },
 
@@ -136,6 +160,9 @@ export const GenesisState = {
     if (message.caseCount !== "0") {
       obj.caseCount = message.caseCount;
     }
+    if (message.seizures?.length) {
+      obj.seizures = message.seizures.map((e) => SeizureRecord.toJSON(e));
+    }
     return obj;
   },
 
@@ -151,6 +178,7 @@ export const GenesisState = {
     message.votes = object.votes?.map((e) => Vote.fromPartial(e)) || [];
     message.freezes = object.freezes?.map((e) => Freeze.fromPartial(e)) || [];
     message.caseCount = object.caseCount ?? "0";
+    message.seizures = object.seizures?.map((e) => SeizureRecord.fromPartial(e)) || [];
     return message;
   },
 };

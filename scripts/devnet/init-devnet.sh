@@ -35,7 +35,7 @@ echo "  three accounts funded"
 echo "=== seeding currencies ==="
 $CURRENCIES --genesis "$HOME_DIR/config/genesis.json" --issuer "$FOUNDATION"
 
-echo "=== enforcement recovery destination ==="
+echo "=== enforcement oversight ==="
 # Where seized assets go. The foundation is the trust body administering the
 # chain, and it holds what is recovered so it can be restituted to the people it
 # was taken from. It is the same account that issues every currency here, so it
@@ -46,16 +46,60 @@ echo "=== enforcement recovery destination ==="
 # devnet: it ran for weeks with the parameter empty, which meant two thirds of
 # the validator set could have passed a seizure that then had nowhere to send
 # what it took. Nobody noticed until a console printed the parameter.
+#
+# The delay schedule and the rolling cap have no defaults either, and for the
+# same kind of reason: both are denominated, and no denomination compiled into
+# the binary is anybody's currency. A default priced in uyml would be a live
+# schedule that silently matched nothing on a chain issuing shillings, which is
+# worse than an absent one because it satisfies the check.
+#
+# The values here are a devnet's, deliberately shorter than a deployment's:
+# twenty minutes' floor rather than twelve hours, so that a seizure can actually
+# be watched through its hold in an afternoon rather than being taken on trust.
+#
+# There is no `sed` fallback here any more, and that is deliberate: the tiers
+# and the cap are nested JSON that sed cannot write, and a fallback that half
+# applied would produce a genesis the chain refuses to start from — after the
+# script had reported success. Failing loudly on a missing python3 is the
+# smaller problem.
 G=$HOME_DIR/config/genesis.json
-python3 - "$G" "$FOUNDATION" <<'PY' 2>/dev/null || sed -i \
-  -e "s|\"recovery_destination\": *\"[^\"]*\"|\"recovery_destination\": \"$FOUNDATION\"|" "$G"
+python3 - "$G" "$FOUNDATION" <<'PY'
 import json, sys
 path, destination = sys.argv[1], sys.argv[2]
 g = json.load(open(path))
-g["app_state"]["enforcement"]["params"]["recovery_destination"] = destination
+p = g["app_state"]["enforcement"]["params"]
+p["recovery_destination"] = destination
+
+# ~20 minutes at 5s blocks. Every seizure waits at least this long after the
+# vote, which is the window the ombudsman's veto lands in.
+p["seizure_delay_blocks"] = "240"
+
+# Scaled to this devnet's faucet amounts rather than to a real economy: a
+# million uyml is a large balance here, so it is where the wait steps up.
+p["seizure_delay_tiers"] = [
+    {"threshold": {"denom": "uyml", "amount": "1000000"}, "delay_blocks": "720"},
+    {"threshold": {"denom": "uyml", "amount": "100000000"}, "delay_blocks": "2880"},
+]
+
+# ~24 hours, and a cap that a devnet cannot casually exceed but a test can.
+p["seizure_window_blocks"] = "17280"
+p["seizure_window_cap"] = [{"denom": "uyml", "amount": "500000000"}]
+p["max_seizures_per_window"] = "5"
+
+# No ombudsman by default. An unappointed office means nobody, never anybody,
+# and appointing one on a devnet with a single operator would be theatre.
+# Set OMBUDSMAN=yml1... to name one.
+import os
+ombudsman = os.environ.get("OMBUDSMAN", "").strip()
+if ombudsman:
+    p["ombudsman"] = ombudsman
+
 json.dump(g, open(path, "w"), indent=2)
 PY
 echo "  recovery destination: $(grep -o '"recovery_destination": *"[^"]*"' "$G" | head -1)"
+echo "  seizure delay floor:  240 blocks (~20m), stepping to 720 over 1 YML and 2880 over 100 YML"
+echo "  rolling cap:          500 YML or 5 seizures per 17280 blocks (~24h)"
+echo "  ombudsman:            ${OMBUDSMAN:-unset — no veto}"
 
 echo "=== validator ==="
 $BIN genesis gentx alice 100000000000uyml --chain-id "$CHAIN_ID" $KR 2>&1 | tail -1

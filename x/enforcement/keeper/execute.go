@@ -20,31 +20,31 @@ type stakingValidator = stakingtypes.ValidatorI
 // which is slower but cannot become a block that never finishes.
 const maxDelegations = 100
 
-// passCase carries out a case the validators have agreed to.
+// passCase is the validators agreeing. What that means depends on what was
+// asked for.
 //
 // A freeze case ends here: the provisional freeze becomes one that does not
-// lapse. A seizure goes further — every delegation is unbonded so that staked
-// funds start coming back, and whatever is liquid right now is taken. What is
-// still unbonding is collected later, by Sweep, which is why this is not the
-// end of the story for a seizure.
+// lapse, and nothing else happens because a freeze takes nothing.
+//
+// A seizure does not end here. It is assessed, given a delay proportionate to
+// what it would take, and left waiting — frozen, decided, and still stoppable
+// for free. Nothing is unbonded and nothing is moved until that delay expires,
+// which is deliberate and does cost something: a seizure against staked funds
+// now waits the delay *and then* the unbonding period, rather than running them
+// together. That is the price of the veto window being real. A case the
+// ombudsman stops during the hold leaves its target exactly as they were —
+// still staked, still earning — instead of unstaked by an accusation that was
+// then withdrawn.
 func (k Keeper) passCase(ctx context.Context, enforcementCase *types.Case) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := sdkCtx.BlockHeight()
 
-	enforcementCase.Status = types.CASE_STATUS_PASSED
-	enforcementCase.ResolvedAtHeight = sdkCtx.BlockHeight()
+	enforcementCase.ResolvedAtHeight = height
 
 	if err := k.makePermanent(ctx, enforcementCase.Target); err != nil {
 		return err
 	}
 	if err := k.dequeueVoting(ctx, *enforcementCase); err != nil {
-		return err
-	}
-
-	passed, err := k.CasesPassed.Get(ctx)
-	if err != nil && !isNotFound(err) {
-		return err
-	}
-	if err := k.CasesPassed.Set(ctx, passed+1); err != nil {
 		return err
 	}
 
@@ -54,18 +54,150 @@ func (k Keeper) passCase(ctx context.Context, enforcementCase *types.Case) error
 	}
 
 	if enforcementCase.Action == types.CASE_ACTION_SEIZE {
-		if err := k.unbondEverything(ctx, enforcementCase.Target); err != nil {
-			return err
-		}
-		if _, _, err := k.collect(ctx, enforcementCase, params); err != nil {
-			return err
-		}
+		return k.holdSeizure(ctx, enforcementCase, params, height)
 	}
 
+	// Counted here, where a freeze case reaches PASSED, and for a seizure in
+	// executeSeizure where it does. Not when the vote is won.
+	//
+	// The distinction is not pedantry, it is what keeps this counter equal to
+	// what a genesis import rebuilds. InitGenesis has only the cases to work
+	// from, so it counts the ones whose status is PASSED; a counter incremented
+	// when the validators agreed would be one ahead for every seizure still
+	// waiting out its delay, and would stay ahead for every one the ombudsman
+	// then vetoed. Export, import, and the chain would quietly disagree with
+	// itself about how often this power has been used.
+	if err := k.countPassed(ctx); err != nil {
+		return err
+	}
+
+	enforcementCase.Status = types.CASE_STATUS_PASSED
 	if err := k.Case.Set(ctx, enforcementCase.Id, *enforcementCase); err != nil {
 		return err
 	}
 
+	return sdkCtx.EventManager().EmitTypedEvent(&types.EventCaseResolved{
+		CaseId:        enforcementCase.Id,
+		Target:        enforcementCase.Target,
+		Status:        enforcementCase.Status,
+		YesPower:      enforcementCase.YesPower,
+		NoPower:       enforcementCase.NoPower,
+		RequiredPower: params.RequiredPower(enforcementCase.TotalPowerAtOpen),
+	})
+}
+
+// holdSeizure puts an agreed seizure into the waiting state its size earns.
+//
+// The assessment is taken once, here, and recorded on the case. Re-measuring at
+// execution would let the delay be shortened by anything that moved the balance
+// afterwards, and would make "why did this one wait a week" unanswerable from
+// the record once the state it was measured against had moved on.
+func (k Keeper) holdSeizure(ctx context.Context, enforcementCase *types.Case, params types.Params, height int64) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	targetBz, err := k.addressCodec.StringToBytes(enforcementCase.Target)
+	if err != nil {
+		return err
+	}
+	assessed, err := k.assessSeizableValue(ctx, sdk.AccAddress(targetBz))
+	if err != nil {
+		return err
+	}
+
+	delay := params.SeizureDelayFor(assessed)
+
+	enforcementCase.Status = types.CASE_STATUS_HELD
+	enforcementCase.AssessedValue = assessed
+	enforcementCase.ExecuteAtHeight = height + int64(delay)
+
+	if err := k.Case.Set(ctx, enforcementCase.Id, *enforcementCase); err != nil {
+		return err
+	}
+	if err := k.ExecutionQueue.Set(ctx, collections.Join(enforcementCase.ExecuteAtHeight, enforcementCase.Id)); err != nil {
+		return err
+	}
+
+	// EventCaseHeld and not EventCaseResolved, because HELD is not a resolution.
+	// EventCaseResolved is documented as being emitted once, at a case's final
+	// status, and anything watching case lifecycles keys off that — so emitting
+	// it here would announce every agreed seizure as finished and then never
+	// correct itself, leaving an explorer showing "resolved: held" for a case
+	// whose money moved a week later.
+	return sdkCtx.EventManager().EmitTypedEvent(&types.EventCaseHeld{
+		CaseId:          enforcementCase.Id,
+		Target:          enforcementCase.Target,
+		AssessedValue:   assessed,
+		ExecuteAtHeight: enforcementCase.ExecuteAtHeight,
+		DelayBlocks:     delay,
+	})
+}
+
+// executeSeizure carries out a held seizure whose delay has expired.
+//
+// The rolling cap is checked here rather than when the case was decided,
+// because the window it is checked against is the one in force at the moment
+// the money would actually move. A case admitted at decision time and executed
+// a week later would take room in a window that had already been spent.
+//
+// A case the cap refuses is not cancelled and not lost. It stays held, its
+// target stays frozen, and it is re-queued for the height at which the window
+// could next have room — with an event saying so every time, because a case
+// quietly waiting is indistinguishable from a case that has been forgotten and
+// the difference matters most to the person still frozen.
+func (k Keeper) executeSeizure(ctx context.Context, enforcementCase *types.Case, params types.Params, height int64) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	admitted, retryAt, refusal, err := k.admitSeizure(ctx, params, height, enforcementCase.AssessedValue)
+	if err != nil {
+		return err
+	}
+	if !admitted {
+		// execute_at_height moves with the queue entry, so the two can never
+		// disagree: it is where this case is queued now, not where it was
+		// queued first. Keeping the original instead would leave every stop
+		// path — veto, reversal, emergency release — deleting a key that is not
+		// there, and a deferred case would stay queued after being stopped.
+		// That is a released account being seized from, at a height nobody is
+		// watching. What the original wait was remains on the record, in the
+		// EventCaseHeld emitted when the case was agreed and in every
+		// EventSeizureDeferred since.
+		enforcementCase.ExecuteAtHeight = retryAt
+		if err := k.Case.Set(ctx, enforcementCase.Id, *enforcementCase); err != nil {
+			return err
+		}
+		if err := k.ExecutionQueue.Set(ctx, collections.Join(retryAt, enforcementCase.Id)); err != nil {
+			return err
+		}
+		return sdkCtx.EventManager().EmitTypedEvent(&types.EventSeizureDeferred{
+			CaseId:        enforcementCase.Id,
+			Target:        enforcementCase.Target,
+			RetryAtHeight: retryAt,
+			Reason:        refusal,
+		})
+	}
+
+	enforcementCase.Status = types.CASE_STATUS_PASSED
+	if err := k.countPassed(ctx); err != nil {
+		return err
+	}
+
+	if err := k.unbondEverything(ctx, enforcementCase.Target); err != nil {
+		return err
+	}
+	collected, _, err := k.collect(ctx, enforcementCase, params)
+	if err != nil {
+		return err
+	}
+	if err := k.Case.Set(ctx, enforcementCase.Id, *enforcementCase); err != nil {
+		return err
+	}
+	if err := k.recordSeizure(ctx, enforcementCase.Id, height, enforcementCase.AssessedValue, collected); err != nil {
+		return err
+	}
+
+	// Now the case is finished, so now it is resolved. This is the event a
+	// seizure's lifecycle ends on, and the only one it emits with a final
+	// status.
 	return sdkCtx.EventManager().EmitTypedEvent(&types.EventCaseResolved{
 		CaseId:        enforcementCase.Id,
 		Target:        enforcementCase.Target,
@@ -128,8 +260,87 @@ func (k Keeper) liftFreeze(ctx context.Context, addr string, caseID uint64, stat
 	})
 }
 
+// countPassed records that one more case has been carried out.
+//
+// Kept as state rather than computed on demand because the honest answer to
+// "how often has this been used" should not require replaying the chain — and
+// incremented in exactly the two places a case reaches CASE_STATUS_PASSED, so
+// that it equals what InitGenesis rebuilds from the cases alone.
+func (k Keeper) countPassed(ctx context.Context) error {
+	passed, err := k.CasesPassed.Get(ctx)
+	if err != nil && !isNotFound(err) {
+		return err
+	}
+	return k.CasesPassed.Set(ctx, passed+1)
+}
+
 func (k Keeper) dequeueVoting(ctx context.Context, enforcementCase types.Case) error {
 	return k.VotingQueue.Remove(ctx, collections.Join(enforcementCase.VotingEndsAtHeight, enforcementCase.Id))
+}
+
+// dequeueExecution takes a held seizure out of the execution queue.
+//
+// One removal, by exact key, because a case has exactly one entry in the queue
+// at any time: execute_at_height is where it is queued *now*, and a deferral
+// moves both together. An earlier version searched the whole queue for stale
+// entries instead, which made stopping one case cost a walk over every held
+// case — unbounded work reachable from the end blocker, which is the shape of
+// problem that makes blocks late.
+func (k Keeper) dequeueExecution(ctx context.Context, enforcementCase types.Case) error {
+	return k.ExecutionQueue.Remove(ctx, collections.Join(enforcementCase.ExecuteAtHeight, enforcementCase.Id))
+}
+
+// stopCase closes a case that has taken nothing, whatever state it was in, and
+// gives the account back.
+//
+// Used by the ombudsman's veto, which is the one instrument that reaches both a
+// case still being argued and a seizure already decided and waiting. Everything
+// else in this module acts on one or the other, so this is the only place that
+// has to clear both queues without knowing which one the case was in.
+func (k Keeper) stopCase(ctx context.Context, enforcementCase *types.Case, status types.CaseStatus) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	wasVoting := enforcementCase.Status == types.CASE_STATUS_VOTING
+	wasHeld := enforcementCase.Status == types.CASE_STATUS_HELD
+
+	enforcementCase.Status = status
+	enforcementCase.ResolvedAtHeight = sdkCtx.BlockHeight()
+	if err := k.Case.Set(ctx, enforcementCase.Id, *enforcementCase); err != nil {
+		return err
+	}
+
+	if wasVoting {
+		if err := k.dequeueVoting(ctx, *enforcementCase); err != nil {
+			return err
+		}
+	}
+	if wasHeld {
+		if err := k.dequeueExecution(ctx, *enforcementCase); err != nil {
+			return err
+		}
+	}
+
+	if err := k.liftFreeze(ctx, enforcementCase.Target, enforcementCase.Id, status); err != nil {
+		return err
+	}
+
+	// A veto is a terminal status like any other, so it announces itself the
+	// same way. EventCaseVetoed is emitted alongside this by the handler and
+	// says who stopped it and why; this is the one an indexer following case
+	// lifecycles reads, and leaving it out would make a vetoed case the only
+	// kind that ends without saying so.
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return err
+	}
+	return sdkCtx.EventManager().EmitTypedEvent(&types.EventCaseResolved{
+		CaseId:        enforcementCase.Id,
+		Target:        enforcementCase.Target,
+		Status:        status,
+		YesPower:      enforcementCase.YesPower,
+		NoPower:       enforcementCase.NoPower,
+		RequiredPower: params.RequiredPower(enforcementCase.TotalPowerAtOpen),
+	})
 }
 
 // unbondEverything starts the return of staked funds.

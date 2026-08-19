@@ -19,13 +19,14 @@ func (f *fixture) someValidatorAddress(t *testing.T) string {
 	return sdk.ValAddress(addr).String()
 }
 
-// openAndPassSeizure walks a seizure case through to passing.
+// openAndHoldSeizure walks a seizure case through to the validators agreeing
+// it, and stops there — with the case held and its delay still running.
 //
 // Every registered validator votes, including any the test added itself: the
 // threshold is measured against the whole bonded set, so a helper that voted
 // with a fixed number would quietly stop passing the moment a test needed one
 // more validator for its own reasons.
-func (f *fixture) openAndPassSeizure(t *testing.T, target string) uint64 {
+func (f *fixture) openAndHoldSeizure(t *testing.T, target string) uint64 {
 	t.Helper()
 
 	for len(f.staking.validators) < 4 {
@@ -37,12 +38,13 @@ func (f *fixture) openAndPassSeizure(t *testing.T, target string) uint64 {
 	}
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
-		Opener:       validators[0],
-		Target:       target,
-		Action:       types.CASE_ACTION_SEIZE,
-		Reason:       "drained a pool and sent the proceeds here",
-		EvidenceUri:  "https://example.org/cases/1",
-		EvidenceHash: "9f2c0e1b",
+		Opener:          validators[0],
+		Target:          target,
+		Action:          types.CASE_ACTION_SEIZE,
+		Reason:          "drained a pool and sent the proceeds here",
+		EvidenceUri:     "https://example.org/cases/1",
+		EvidenceHash:    "9f2c0e1b",
+		LegalInstrument: instrument(),
 	})
 	require.NoError(t, err)
 
@@ -57,7 +59,37 @@ func (f *fixture) openAndPassSeizure(t *testing.T, target string) uint64 {
 		require.NoError(t, err)
 	}
 
+	held, err := f.keeper.Case.Get(f.ctx, resp.Id)
+	require.NoError(t, err)
+	require.Equal(t, types.CASE_STATUS_HELD, held.Status,
+		"an agreed seizure waits out its delay; it is not carried out in the block it is decided")
+
 	return resp.Id
+}
+
+// openAndPassSeizure agrees a seizure and then runs the chain forward to the
+// height it may be carried out at, so the funds actually move.
+//
+// The two halves are separate helpers because they are separate facts. Passing
+// the vote no longer takes anything — that is the delay — and a test that wants
+// to observe the money moving has to say that it waited.
+func (f *fixture) openAndPassSeizure(t *testing.T, target string) uint64 {
+	t.Helper()
+
+	id := f.openAndHoldSeizure(t, target)
+	f.executeHeld(t, id)
+	return id
+}
+
+// executeHeld runs the chain to a held case's execute height and lets the end
+// blocker carry it out.
+func (f *fixture) executeHeld(t *testing.T, id uint64) {
+	t.Helper()
+
+	held, err := f.keeper.Case.Get(f.ctx, id)
+	require.NoError(t, err)
+	require.Equal(t, types.CASE_STATUS_HELD, held.Status)
+	f.runTo(t, held.ExecuteAtHeight)
 }
 
 // The whole point of the module, in one test: the funds end up with the

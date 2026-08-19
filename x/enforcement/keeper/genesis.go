@@ -59,6 +59,17 @@ func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) er
 				return err
 			}
 		}
+		// Same reasoning for the execution queue, and the same derivation: a
+		// held seizure carries the height it is due at, so the queue is rebuilt
+		// from the cases rather than exported beside them. Two copies of when a
+		// seizure executes is one copy too many, and an import that restored the
+		// case without the queue entry would leave it held forever with its
+		// target frozen and no block ever coming to carry it out.
+		if enforcementCase.Status == types.CASE_STATUS_HELD {
+			if err := k.ExecutionQueue.Set(ctx, collections.Join(enforcementCase.ExecuteAtHeight, enforcementCase.Id)); err != nil {
+				return err
+			}
+		}
 		if enforcementCase.Action == types.CASE_ACTION_SEIZE && !enforcementCase.Recovered.IsZero() {
 			if err := k.addRecovered(ctx, enforcementCase.Recovered); err != nil {
 				return err
@@ -89,6 +100,12 @@ func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) er
 			if err := k.FreezeExpiryQueue.Set(ctx, collections.Join(freeze.ExpiresAtHeight, freeze.Address)); err != nil {
 				return err
 			}
+		}
+	}
+
+	for _, record := range genState.Seizures {
+		if err := k.SeizureLedger.Set(ctx, collections.Join(record.Height, record.CaseId), record); err != nil {
+			return err
 		}
 	}
 
@@ -127,6 +144,17 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 
 	if err := k.Freeze.Walk(ctx, nil, func(_ string, freeze types.Freeze) (bool, error) {
 		genesis.Freezes = append(genesis.Freezes, freeze)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// The rolling window's ledger. Exported because dropping it would reset the
+	// cap at every upgrade — which is the one moment a chain that wanted to
+	// seize more than a window allows would choose to do it, and the one moment
+	// nobody is watching balances.
+	if err := k.SeizureLedger.Walk(ctx, nil, func(_ collections.Pair[int64, uint64], record types.SeizureRecord) (bool, error) {
+		genesis.Seizures = append(genesis.Seizures, record)
 		return false, nil
 	}); err != nil {
 		return nil, err

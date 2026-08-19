@@ -23,7 +23,80 @@ func (k Keeper) EndBlocker(ctx context.Context) error {
 	if err := k.resolveDueCases(ctx, height); err != nil {
 		return err
 	}
-	return k.expireFreezes(ctx, height)
+	if err := k.executeDueSeizures(ctx, height); err != nil {
+		return err
+	}
+	if err := k.expireFreezes(ctx, height); err != nil {
+		return err
+	}
+
+	// Read once, here, rather than inside the prune: a parameter fetch that
+	// fails must not be the reason a block does not end.
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return err
+	}
+	return k.pruneSeizureLedger(ctx, params, height)
+}
+
+// executeDueSeizures carries out the seizures whose delay has expired.
+//
+// It runs after resolveDueCases and never in the same block as the vote that
+// decided a case, because the shortest delay any parameter set may carry is one
+// block and a delay of zero is refused where the parameters are validated and
+// again where they are used. A seizure that executed in the block it was agreed
+// would leave the ombudsman's veto with nowhere to land.
+func (k Keeper) executeDueSeizures(ctx context.Context, height int64) error {
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	// The whole key, not just the case id. Removing by the key the iterator
+	// actually produced is what keeps this exact: a case that was deferred is
+	// queued at its retry height rather than at the height its delay expired,
+	// and reconstructing that from the case would be a second source of truth
+	// for where the entry is.
+	due := make([]collections.Pair[int64, uint64], 0)
+	iter, err := k.ExecutionQueue.Iterate(ctx, collections.NewPrefixUntilPairRange[int64, uint64](height))
+	if err != nil {
+		return err
+	}
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		key, err := iter.Key()
+		if err != nil {
+			return err
+		}
+		due = append(due, key)
+	}
+
+	// Collected first, then acted on, for the same reason resolveDueCases does
+	// it: executing a case removes its entry from the queue being iterated, and
+	// a deferral adds a new one.
+	for _, key := range due {
+		if err := k.ExecutionQueue.Remove(ctx, key); err != nil {
+			return err
+		}
+
+		enforcementCase, err := k.Case.Get(ctx, key.K2())
+		if err != nil {
+			return err
+		}
+		// Anything that is no longer held was stopped after it was queued — a
+		// veto, a reversal, an emergency release. The entry has already been
+		// removed above, which is all that was left to do; carrying the case
+		// out would be seizing from an account that has been given back.
+		if enforcementCase.Status != types.CASE_STATUS_HELD {
+			continue
+		}
+		if err := k.executeSeizure(ctx, &enforcementCase, params, height); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // resolveDueCases closes every case whose voting period ended at or before this

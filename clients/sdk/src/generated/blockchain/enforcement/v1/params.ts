@@ -7,8 +7,32 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 
 export const protobufPackage = "blockchain.enforcement.v1";
+
+/**
+ * SeizureDelayTier is one step in the schedule that decides how long a seizure
+ * waits between being decided and being carried out.
+ *
+ * A tier matches when the value the case assessed reaches its threshold in that
+ * denomination, and a case takes the longest delay of every tier it matches.
+ * Longest rather than first, so the schedule does not depend on the order
+ * governance happened to write it in — an ordering bug in a parameter list is
+ * invisible until the day it lets somebody's life savings move at the speed
+ * meant for pocket change.
+ */
+export interface SeizureDelayTier {
+  /** threshold is the smallest amount, in base units, that falls into this tier. */
+  threshold:
+    | Coin
+    | undefined;
+  /**
+   * delay_blocks is how long a case in this tier waits after the vote before
+   * anything moves.
+   */
+  delayBlocks: string;
+}
 
 /**
  * Params defines the parameters for the module.
@@ -98,7 +122,159 @@ export interface Params {
    * implicit one.
    */
   emergencyAuthority: string;
+  /**
+   * seizure_delay_blocks is the shortest a seizure can ever wait between the
+   * validators deciding it and it being carried out. Every seizure waits at
+   * least this long, whatever it is worth.
+   *
+   * The delay is not caution for its own sake, it is the window in which a
+   * decision can still be undone at no cost to anybody: the ombudsman's veto
+   * and governance's reversal both land here, and before it expires nothing has
+   * been taken and nothing has to be given back. A delay of zero is refused
+   * because a veto that has no window in which to be cast is not a veto.
+   */
+  seizureDelayBlocks: string;
+  /**
+   * seizure_delay_tiers scales that wait with what is being taken.
+   *
+   * Taking a market trader's float and taking a family's savings should not
+   * move at the same speed, because the cost of getting the second one wrong is
+   * not the same and the time somebody needs to notice and object is not the
+   * same either. The schedule is a parameter rather than a constant so that a
+   * deployment sets it against its own currency and its own idea of what a
+   * large sum is; there is no amount that means "large" on every chain this is
+   * shipped to.
+   *
+   * At least one tier is required, and that is the whole point of the field: a
+   * chain with no tiers has a constant, and a constant is what this exists to
+   * replace.
+   */
+  seizureDelayTiers: SeizureDelayTier[];
+  /**
+   * seizure_window_blocks is the length of the rolling window that the caps
+   * below are measured over.
+   *
+   * Rolling, not periodic. A window that reset on a fixed boundary would let
+   * twice the cap through by placing half the seizures either side of it, and
+   * whoever was doing that would be doing it on purpose.
+   */
+  seizureWindowBlocks: string;
+  /**
+   * seizure_window_cap is the most that may be seized, per denomination, within
+   * any window. A denomination with no entry here is not capped by value —
+   * only by the count below.
+   *
+   * This is the limit that makes mass expropriation impossible rather than
+   * merely unpopular. A chain that can take a bounded amount per week cannot be
+   * turned on its own users in one sitting, whoever has captured the validator
+   * set, because the arithmetic refuses before anybody has to.
+   */
+  seizureWindowCap: Coin[];
+  /**
+   * max_seizures_per_window is how many seizures may be carried out within one
+   * window, whatever they are worth.
+   *
+   * It is the half of the cap that cannot be walked around by choosing a
+   * denomination nobody thought to price. A value cap only binds the
+   * denominations it names; a count cap binds everything, including a currency
+   * issued the day after the parameters were last set.
+   */
+  maxSeizuresPerWindow: string;
+  /**
+   * ombudsman is an office appointed outside the validator set that can stop a
+   * case and can never start one.
+   *
+   * The asymmetry is the entire point. An office that can only refuse cannot be
+   * used to take anything from anybody, so appointing one adds a check without
+   * adding a power — which is the only kind of oversight worth having over a
+   * module like this one. It is enforced structurally rather than by trust:
+   * there is no message in this service that the ombudsman may sign and that
+   * opens, votes on, sweeps or otherwise advances a case, and the parameters
+   * refuse an ombudsman that is also the emergency authority or the recovery
+   * destination, because either of those would hand the same office a way in.
+   *
+   * Empty means there is no ombudsman, which is the default for the same reason
+   * the emergency authority's is: no address compiled into a binary is anybody
+   * else's independent office, and an implicit one would be worse than none.
+   */
+  ombudsman: string;
 }
+
+function createBaseSeizureDelayTier(): SeizureDelayTier {
+  return { threshold: undefined, delayBlocks: "0" };
+}
+
+export const SeizureDelayTier = {
+  encode(message: SeizureDelayTier, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.threshold !== undefined) {
+      Coin.encode(message.threshold, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.delayBlocks !== "0") {
+      writer.uint32(16).uint64(message.delayBlocks);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): SeizureDelayTier {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSeizureDelayTier();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.threshold = Coin.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.delayBlocks = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SeizureDelayTier {
+    return {
+      threshold: isSet(object.threshold) ? Coin.fromJSON(object.threshold) : undefined,
+      delayBlocks: isSet(object.delayBlocks) ? globalThis.String(object.delayBlocks) : "0",
+    };
+  },
+
+  toJSON(message: SeizureDelayTier): unknown {
+    const obj: any = {};
+    if (message.threshold !== undefined) {
+      obj.threshold = Coin.toJSON(message.threshold);
+    }
+    if (message.delayBlocks !== "0") {
+      obj.delayBlocks = message.delayBlocks;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<SeizureDelayTier>): SeizureDelayTier {
+    return SeizureDelayTier.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<SeizureDelayTier>): SeizureDelayTier {
+    const message = createBaseSeizureDelayTier();
+    message.threshold = (object.threshold !== undefined && object.threshold !== null)
+      ? Coin.fromPartial(object.threshold)
+      : undefined;
+    message.delayBlocks = object.delayBlocks ?? "0";
+    return message;
+  },
+};
 
 function createBaseParams(): Params {
   return {
@@ -110,6 +286,12 @@ function createBaseParams(): Params {
     maxEvidenceUriLength: "0",
     seizeRequiresEvidence: false,
     emergencyAuthority: "",
+    seizureDelayBlocks: "0",
+    seizureDelayTiers: [],
+    seizureWindowBlocks: "0",
+    seizureWindowCap: [],
+    maxSeizuresPerWindow: "0",
+    ombudsman: "",
   };
 }
 
@@ -138,6 +320,24 @@ export const Params = {
     }
     if (message.emergencyAuthority !== "") {
       writer.uint32(66).string(message.emergencyAuthority);
+    }
+    if (message.seizureDelayBlocks !== "0") {
+      writer.uint32(72).uint64(message.seizureDelayBlocks);
+    }
+    for (const v of message.seizureDelayTiers) {
+      SeizureDelayTier.encode(v!, writer.uint32(82).fork()).ldelim();
+    }
+    if (message.seizureWindowBlocks !== "0") {
+      writer.uint32(88).uint64(message.seizureWindowBlocks);
+    }
+    for (const v of message.seizureWindowCap) {
+      Coin.encode(v!, writer.uint32(98).fork()).ldelim();
+    }
+    if (message.maxSeizuresPerWindow !== "0") {
+      writer.uint32(104).uint64(message.maxSeizuresPerWindow);
+    }
+    if (message.ombudsman !== "") {
+      writer.uint32(114).string(message.ombudsman);
     }
     return writer;
   },
@@ -205,6 +405,48 @@ export const Params = {
 
           message.emergencyAuthority = reader.string();
           continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.seizureDelayBlocks = longToString(reader.uint64() as Long);
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.seizureDelayTiers.push(SeizureDelayTier.decode(reader, reader.uint32()));
+          continue;
+        case 11:
+          if (tag !== 88) {
+            break;
+          }
+
+          message.seizureWindowBlocks = longToString(reader.uint64() as Long);
+          continue;
+        case 12:
+          if (tag !== 98) {
+            break;
+          }
+
+          message.seizureWindowCap.push(Coin.decode(reader, reader.uint32()));
+          continue;
+        case 13:
+          if (tag !== 104) {
+            break;
+          }
+
+          message.maxSeizuresPerWindow = longToString(reader.uint64() as Long);
+          continue;
+        case 14:
+          if (tag !== 114) {
+            break;
+          }
+
+          message.ombudsman = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -228,6 +470,16 @@ export const Params = {
         ? globalThis.Boolean(object.seizeRequiresEvidence)
         : false,
       emergencyAuthority: isSet(object.emergencyAuthority) ? globalThis.String(object.emergencyAuthority) : "",
+      seizureDelayBlocks: isSet(object.seizureDelayBlocks) ? globalThis.String(object.seizureDelayBlocks) : "0",
+      seizureDelayTiers: globalThis.Array.isArray(object?.seizureDelayTiers)
+        ? object.seizureDelayTiers.map((e: any) => SeizureDelayTier.fromJSON(e))
+        : [],
+      seizureWindowBlocks: isSet(object.seizureWindowBlocks) ? globalThis.String(object.seizureWindowBlocks) : "0",
+      seizureWindowCap: globalThis.Array.isArray(object?.seizureWindowCap)
+        ? object.seizureWindowCap.map((e: any) => Coin.fromJSON(e))
+        : [],
+      maxSeizuresPerWindow: isSet(object.maxSeizuresPerWindow) ? globalThis.String(object.maxSeizuresPerWindow) : "0",
+      ombudsman: isSet(object.ombudsman) ? globalThis.String(object.ombudsman) : "",
     };
   },
 
@@ -257,6 +509,24 @@ export const Params = {
     if (message.emergencyAuthority !== "") {
       obj.emergencyAuthority = message.emergencyAuthority;
     }
+    if (message.seizureDelayBlocks !== "0") {
+      obj.seizureDelayBlocks = message.seizureDelayBlocks;
+    }
+    if (message.seizureDelayTiers?.length) {
+      obj.seizureDelayTiers = message.seizureDelayTiers.map((e) => SeizureDelayTier.toJSON(e));
+    }
+    if (message.seizureWindowBlocks !== "0") {
+      obj.seizureWindowBlocks = message.seizureWindowBlocks;
+    }
+    if (message.seizureWindowCap?.length) {
+      obj.seizureWindowCap = message.seizureWindowCap.map((e) => Coin.toJSON(e));
+    }
+    if (message.maxSeizuresPerWindow !== "0") {
+      obj.maxSeizuresPerWindow = message.maxSeizuresPerWindow;
+    }
+    if (message.ombudsman !== "") {
+      obj.ombudsman = message.ombudsman;
+    }
     return obj;
   },
 
@@ -273,6 +543,12 @@ export const Params = {
     message.maxEvidenceUriLength = object.maxEvidenceUriLength ?? "0";
     message.seizeRequiresEvidence = object.seizeRequiresEvidence ?? false;
     message.emergencyAuthority = object.emergencyAuthority ?? "";
+    message.seizureDelayBlocks = object.seizureDelayBlocks ?? "0";
+    message.seizureDelayTiers = object.seizureDelayTiers?.map((e) => SeizureDelayTier.fromPartial(e)) || [];
+    message.seizureWindowBlocks = object.seizureWindowBlocks ?? "0";
+    message.seizureWindowCap = object.seizureWindowCap?.map((e) => Coin.fromPartial(e)) || [];
+    message.maxSeizuresPerWindow = object.maxSeizuresPerWindow ?? "0";
+    message.ombudsman = object.ombudsman ?? "";
     return message;
   },
 };

@@ -38,6 +38,20 @@ EmergencyRelease lets them let it go again, just as fast.
 | `case_id` | uint64 |  |
 | `reason` | string | reason is why it was released, kept beside the original accusation. The case is not deleted: a freeze that was lifted as a mistake is part of the record of how this power has been used. |
 
+### MsgOmbudsmanVeto
+
+`/blockchain.enforcement.v1.MsgOmbudsmanVeto`
+
+Signed by the `ombudsman` field.
+
+OmbudsmanVeto stops a case that has not taken anything yet. The only message the ombudsman may sign, and the only thing it can do.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ombudsman` | string | ombudsman must equal the ombudsman parameter. |
+| `case_id` | uint64 |  |
+| `reason` | string | reason is why the case was stopped, kept beside the original accusation. Required: an office whose refusals need no grounds is not accountable either, and this one is a check rather than a privilege. |
+
 ### MsgOpenCase
 
 `/blockchain.enforcement.v1.MsgOpenCase`
@@ -54,6 +68,7 @@ OpenCase accuses an address, and freezes it while the validators decide.
 | `reason` | string | reason is the grounds, in words the accused can read. |
 | `evidence_uri` | string | evidence_uri and evidence_hash point at and pin the evidence held off-chain. Required for a seizure unless the parameters say otherwise. |
 | `evidence_hash` | string |  |
+| `legal_instrument` | LegalInstrument | legal_instrument names the external authority the seizure is carried out under and pins its content. Required for a seizure, always, with no parameter that turns it off — a requirement governance can vote away is a default, and this one is meant to be a requirement. Ignored for a freeze, which takes nothing and has to be openable the minute a theft is noticed. |
 
 ### MsgReverseCase
 
@@ -186,6 +201,18 @@ Response:
 | `case` | Case |  |
 | `votes` | repeated Vote |  |
 
+### HeldCases
+
+`GET /yamale/blockchain/enforcement/v1/case/held`
+
+HeldCases queries the seizures that have been agreed and are waiting out their delay. This is the list an ombudsman reads: everything still stoppable at no cost to anybody, and how long there is left to stop it.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `case` | repeated Case |  |
+
 ### ListCase
 
 `GET /yamale/blockchain/enforcement/v1/case`
@@ -262,6 +289,24 @@ Response:
 | `cases_opened` | uint64 | cases_passed and cases_opened put that total in proportion. |
 | `cases_passed` | uint64 |  |
 
+### SeizureWindow
+
+`GET /yamale/blockchain/enforcement/v1/window`
+
+SeizureWindow queries how much of the rolling cap is left.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `window_start_height` | int64 |  |
+| `current_height` | int64 |  |
+| `seized` | repeated Coin | seized is the total inside the window; cap is the parameter it is measured against; remaining is cap minus seized, floored at zero and carrying only the denominations the cap names. |
+| `cap` | repeated Coin |  |
+| `remaining` | repeated Coin |  |
+| `seizure_count` | uint64 | seizure_count and max_seizures are the other half of the cap: the one that binds every denomination, including ones the value cap does not name. |
+| `max_seizures` | uint64 |  |
+
 ## State
 
 ### Case
@@ -288,6 +333,21 @@ Case is an accusation against one address, and everything the chain did about it
 | `recovered` | repeated Coin | recovered is everything this case has taken so far. It grows as unbonding funds arrive and are swept, which is why it is a running total rather than a single figure written once. |
 | `sweep_complete` | bool | sweep_complete is set when a seizure has nothing left to collect: the account is empty and no unbonding remains. Until then the case stays sweepable by anyone. |
 | `emergency` | bool | emergency marks a case opened by the emergency authority rather than by a validator. It changes nothing about how the case is decided — the validators still confirm or refuse it on the same terms — and exists so that nobody reading the record has to work out from an address whether the founders acted directly. |
+| `legal_instrument` | LegalInstrument | legal_instrument is the external authority a seizure is carried out under. Required for a seizure and empty for a freeze: a freeze takes nothing and is meant to be openable in the minute a theft is noticed, which is not a minute in which anybody has a court order. |
+| `execute_at_height` | int64 | execute_at_height is when a held seizure may be carried out — the height the delay its size earned runs to. Zero on any case that is not a seizure the validators have passed. |
+| `assessed_value` | repeated Coin | assessed_value is what the target was found to hold when the case was decided: balance, stake and unbonding together. It is the figure the delay was sized from and the figure charged against the rolling cap, recorded on the case so that "why did this one wait a week" is answerable from the record rather than from a re-run of the arithmetic against state that has since moved. |
+
+### EventCaseHeld
+
+EventCaseHeld is emitted when a seizure is agreed and starts waiting out its delay. This is the block in which anybody who wants to object still can, so it carries the height the objection window closes at and the value the delay was sized from.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `case_id` | uint64 |  |
+| `target` | string |  |
+| `assessed_value` | repeated Coin | assessed_value is what the target was found to hold: balance, stake and unbonding together. |
+| `execute_at_height` | int64 |  |
+| `delay_blocks` | uint64 |  |
 
 ### EventCaseOpened
 
@@ -315,6 +375,20 @@ EventCaseResolved is emitted once, when a case reaches its final status — incl
 | `yes_power` | int64 |  |
 | `no_power` | int64 |  |
 | `required_power` | int64 |  |
+
+### EventCaseVetoed
+
+EventCaseVetoed is emitted when the ombudsman stops a case.
+
+Its own event rather than an EventCaseResolved with a different status, because "the office outside the validator set refused this" is the single most important thing that can happen in this module and it should not have to be inferred from an enum by whoever is watching.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `case_id` | uint64 |  |
+| `target` | string |  |
+| `ombudsman` | string |  |
+| `reason` | string |  |
+| `was_held` | bool | was_held distinguishes a veto that stopped a seizure the validators had already agreed to from one that stopped a case still being argued. They are very different acts by the same office. |
 
 ### EventCaseVoted
 
@@ -349,6 +423,19 @@ EventSeized is emitted every time a sweep collects something, which for a target
 | `collected` | repeated Coin |  |
 | `complete` | bool | complete is set on the sweep that finishes the job: nothing liquid left, nothing staked, nothing unbonding. |
 
+### EventSeizureDeferred
+
+EventSeizureDeferred is emitted when a seizure comes due and the rolling cap refuses it.
+
+Emitted every time it is refused, not once. A case that is quietly waiting is indistinguishable from a case that has been forgotten, and the difference matters to the person whose account is still frozen.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `case_id` | uint64 |  |
+| `target` | string |  |
+| `retry_at_height` | int64 | retry_at_height is the next height at which the window could have room — when the oldest seizure in it falls out. |
+| `reason` | string | reason says which limit refused it, in words, so that nobody has to reconstruct the arithmetic from the parameters to find out. |
+
 ### Freeze
 
 Freeze is the fact that stops the money moving.
@@ -361,6 +448,45 @@ It is kept as its own record rather than being derived by scanning cases, becaus
 | `case_id` | uint64 | case_id is the case that put it there — so an account holder who is refused a transfer can be told which case to read, rather than "no". |
 | `expires_at_height` | int64 | expires_at_height is the height the freeze lapses at, for the provisional freeze that comes with opening a case. Zero means it does not expire on its own: the validators voted for it, and lifting it takes a decision. |
 | `frozen_at_height` | int64 |  |
+
+### LegalInstrument
+
+LegalInstrument is the external authority a seizure is carried out under.
+
+This is deliberately not the evidence fields. Evidence is why the chain believes the allegation; an instrument is who, outside this chain, ordered that something be done about it. Keeping them in one pair of fields would let a case satisfy its authority requirement by attaching its own investigation report, which is exactly the substitution the requirement exists to prevent.
+
+There is no URI here, and that is the design rather than an omission. A link is a document somebody controls: whoever hosts it can change it, take it down, or never have had it. What is stored instead is an identifier that names the instrument in the world — the issuing body and its own reference number — so that verification means going to that body's register, plus a hash that pins the content of what was served. A reader with the reference can find the instrument without this chain's help; a reader with the hash can prove the copy they were shown is the one the case was opened on. Neither depends on anyone keeping a web server up.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `issuing_authority` | string | issuing_authority names the body that issued it, as it names itself — "High Court of Kenya at Nairobi", "Bank of Ghana". Free text because the set of courts and supervisors in the world is not enumerable in a proto file, and a wrong enum would be worse than an honest string. |
+| `reference` | string | reference is the instrument's own identifier in the issuer's register: the case number, the direction number, the warrant number. This is the half that makes the instrument findable by somebody who does not trust this chain. |
+| `kind` | LegalInstrumentKind |  |
+| `hash` | string | hash is the SHA-256, lowercase hex, of the instrument as it was served. It pins the content: an order that is later amended can be shown to have been amended, and a copy produced afterwards can be checked against what the validators actually voted on. |
+| `issued_at` | int64 | issued_at is when the instrument was issued, as Unix seconds. Refused if it is in the future relative to the block: an order dated tomorrow has not been issued, and a case that claims one is either mistaken or manufactured. |
+
+### SeizureDelayTier
+
+SeizureDelayTier is one step in the schedule that decides how long a seizure waits between being decided and being carried out.
+
+A tier matches when the value the case assessed reaches its threshold in that denomination, and a case takes the longest delay of every tier it matches. Longest rather than first, so the schedule does not depend on the order governance happened to write it in — an ordering bug in a parameter list is invisible until the day it lets somebody's life savings move at the speed meant for pocket change.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `threshold` | Coin | threshold is the smallest amount, in base units, that falls into this tier. |
+| `delay_blocks` | uint64 | delay_blocks is how long a case in this tier waits after the vote before anything moves. |
+
+### SeizureRecord
+
+SeizureRecord is one executed seizure, kept so the rolling window can be summed without replaying the chain.
+
+Records fall out of the window by height, and the number that can be inside one is bounded by the cap itself — which is what keeps both the sum and the pruning bounded no matter how long the chain has been running.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `case_id` | uint64 |  |
+| `height` | int64 | height is when the seizure executed. It is the first component of the key, so the window is a range scan over recent heights rather than a filter over every seizure there has ever been. |
+| `amount` | repeated Coin | amount is what this seizure counted for against the cap: the value assessed when the case was decided, or what execution actually moved if that was larger. Taking the larger of the two is what stops a deposit arriving during the hold from being taken outside the window's arithmetic. |
 
 ### Vote
 
@@ -398,6 +524,21 @@ CaseStatus is where a case has got to.
 | `CASE_STATUS_EXPIRED` | CASE_STATUS_EXPIRED means the voting period ended without the threshold being reached — including the ordinary case where nobody voted at all. The freeze is lifted. This is deliberately not the same outcome as rejection: silence is not a finding, and the record should not claim it was. |
 | `CASE_STATUS_WITHDRAWN` | CASE_STATUS_WITHDRAWN means whoever opened it took it back before the vote ended, which also lifts the freeze. |
 | `CASE_STATUS_REVERSED` | CASE_STATUS_REVERSED means an authority overturned the case rather than the validators deciding it: governance reversing one that passed, or the emergency authority releasing an account it or a validator had frozen. Any freeze is lifted. What was already seized is not returned by this module — that takes a transfer from the recovery destination, by whoever controls it, and pretending otherwise would be a lie told by an enum value. |
+| `CASE_STATUS_HELD` | CASE_STATUS_HELD is a seizure the validators have agreed to that has not been carried out yet: it is waiting out the delay its size earned. It is a status of its own rather than a flag on PASSED because it is the only window in which the seizure can still be stopped without anything having to be given back. The ombudsman's veto lives here, and so does governance's chance to reverse a case before it costs anybody anything. A reader who cannot tell "decided" from "done" cannot tell those apart. The account stays frozen throughout, and the freeze no longer lapses: the set has decided, so there is nothing left for a lapse to protect against. |
+| `CASE_STATUS_VETOED` | CASE_STATUS_VETOED means the ombudsman stopped the case. Any freeze is lifted and nothing is taken. Distinct from REJECTED and from REVERSED on purpose. Rejected is the validator set disagreeing; reversed is an authority undoing something that already happened; vetoed is one office outside the set refusing to let it happen at all. Collapsing them would hide which check actually caught the case, and that is the only thing the record of a stopped case is for. |
+
+### LegalInstrumentKind
+
+LegalInstrumentKind is the sort of external authority a seizure rests on.
+
+It is a closed list rather than free text because the list is the point: a seizure on this chain is the execution of something a court, a regulator or a magistrate already ordered, and "other" would let a case name its own paperwork as its authority.
+
+| Value | Meaning |
+| --- | --- |
+| `LEGAL_INSTRUMENT_KIND_UNSPECIFIED` | LEGAL_INSTRUMENT_KIND_UNSPECIFIED is the unset default and is never valid. |
+| `LEGAL_INSTRUMENT_KIND_COURT_ORDER` | LEGAL_INSTRUMENT_KIND_COURT_ORDER is an order of a court. |
+| `LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION` | LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION is a direction issued by a financial supervisor under its own statutory power — a central bank's directive, a financial intelligence unit's freezing direction. |
+| `LEGAL_INSTRUMENT_KIND_WARRANT` | LEGAL_INSTRUMENT_KIND_WARRANT is a warrant issued in a criminal matter. |
 
 ### VoteOption
 
@@ -431,3 +572,8 @@ Every way a transaction to this module can be rejected.
 | 1112 | `ErrProtectedAddress` | address cannot be frozen or seized |
 | 1113 | `ErrLimitReached` | exceeds a configured maximum |
 | 1114 | `ErrNoEmergencyAuthority` | no emergency authority is configured |
+| 1115 | `ErrLegalInstrumentRequired` | a seizure case requires an external legal instrument |
+| 1116 | `ErrNoOmbudsman` | no ombudsman is appointed |
+| 1117 | `ErrOmbudsmanCannotInitiate` | the ombudsman may only stop cases, never open, vote on, or advance one |
+| 1118 | `ErrSeizureCapReached` | this seizure would breach the rolling cap on what may be taken per window |
+| 1119 | `ErrNotHeld` | case is not waiting to be carried out |

@@ -62,6 +62,62 @@ message EventSeized {
   bool complete = 5;
 }
 
+// EventCaseHeld is emitted when a seizure is agreed and starts waiting out its
+// delay. This is the block in which anybody who wants to object still can, so
+// it carries the height the objection window closes at and the value the delay
+// was sized from.
+message EventCaseHeld {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // assessed_value is what the target was found to hold: balance, stake and
+  // unbonding together.
+  repeated cosmos.base.v1beta1.Coin assessed_value = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  int64 execute_at_height = 4;
+  uint64 delay_blocks = 5;
+}
+
+// EventCaseVetoed is emitted when the ombudsman stops a case.
+//
+// Its own event rather than an EventCaseResolved with a different status,
+// because "the office outside the validator set refused this" is the single
+// most important thing that can happen in this module and it should not have to
+// be inferred from an enum by whoever is watching.
+message EventCaseVetoed {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string ombudsman = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string reason = 4;
+
+  // was_held distinguishes a veto that stopped a seizure the validators had
+  // already agreed to from one that stopped a case still being argued. They are
+  // very different acts by the same office.
+  bool was_held = 5;
+}
+
+// EventSeizureDeferred is emitted when a seizure comes due and the rolling cap
+// refuses it.
+//
+// Emitted every time it is refused, not once. A case that is quietly waiting is
+// indistinguishable from a case that has been forgotten, and the difference
+// matters to the person whose account is still frozen.
+message EventSeizureDeferred {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // retry_at_height is the next height at which the window could have room —
+  // when the oldest seizure in it falls out.
+  int64 retry_at_height = 3;
+
+  // reason says which limit refused it, in words, so that nobody has to
+  // reconstruct the arithmetic from the parameters to find out.
+  string reason = 4;
+}
+
 // EventFreezeLifted is emitted whenever an address becomes able to send again,
 // whatever the reason — expiry, rejection, withdrawal or reversal.
 message EventFreezeLifted {

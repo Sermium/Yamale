@@ -56,6 +56,22 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "recovered",
 					Short:     "Shows what this module has taken in total, and how often",
 				},
+				{
+					RpcMethod: "HeldCases",
+					Use:       "held-cases",
+					Short:     "Lists the seizures waiting out their delay, and when each may be carried out",
+					Long: "Lists the seizures the validators have agreed to that have not been carried\n" +
+						"out yet.\n\n" +
+						"This is the list the ombudsman reads: every case here can still be stopped\n" +
+						"at no cost to anybody, because nothing has moved. Once a case leaves this\n" +
+						"list the funds are with the recovery destination and only they can send them\n" +
+						"back.",
+				},
+				{
+					RpcMethod: "SeizureWindow",
+					Use:       "window",
+					Short:     "Shows how much of the rolling seizure cap is left",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -101,6 +117,15 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						"reason":        {Name: "reason", Usage: "the grounds for the case, in words the accused can read"},
 						"evidence_uri":  {Name: "evidence-uri", Usage: "where the evidence is held"},
 						"evidence_hash": {Name: "evidence-hash", Usage: "SHA-256 of the evidence, so a later edit can be shown"},
+						// The instrument is a nested message, so autocli takes
+						// it as JSON rather than as four separate flags. Named
+						// explicitly here because the default flag name for a
+						// nested field is not one anybody would guess.
+						"legal_instrument": {
+							Name: "legal-instrument",
+							Usage: `the court order, regulatory direction or warrant the seizure is carried out under, as JSON: ` +
+								`{"issuing_authority":"...","reference":"...","kind":"LEGAL_INSTRUMENT_KIND_COURT_ORDER","hash":"<sha256>","issued_at":"<unix seconds>"}`,
+						},
 					},
 				},
 				{
@@ -123,6 +148,27 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
 						{ProtoField: "opener"},
 						{ProtoField: "case_id"},
+					},
+				},
+				{
+					RpcMethod: "OmbudsmanVeto",
+					Use:       "veto [ombudsman] [case-id]",
+					Short:     "Stop a case before it takes anything",
+					Long: "Stop a case before it takes anything.\n\n" +
+						"The only message the ombudsman may send, and the only thing that office can\n" +
+						"do. It works on a case still being voted on and on a seizure waiting out its\n" +
+						"delay — both states in which nothing has moved. It does not work on a\n" +
+						"seizure that has already been carried out, because a veto cannot un-take\n" +
+						"money and this command will not pretend it can.\n\n" +
+						"A veto is not permanent protection. Any validator may open a fresh case\n" +
+						"against the same target in the next block; what the veto buys is that doing\n" +
+						"so is a new accusation on the public record every time.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "ombudsman"},
+						{ProtoField: "case_id"},
+					},
+					FlagOptions: map[string]*autocliv1.FlagOptions{
+						"reason": {Name: "reason", Usage: "why the case was stopped, kept beside the original accusation"},
 					},
 				},
 				{

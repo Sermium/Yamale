@@ -91,8 +91,11 @@ func TestUpdateParamsStillChangesWhatIsNotFixed(t *testing.T) {
 func TestInitGenesisRefusesParamsThatDisagreeWithTheConstitution(t *testing.T) {
 	f := initFixture(t)
 
-	genesis := types.DefaultGenesis()
-	genesis.Params.RecoveryDestination = testRecoveryDestination
+	// startableGenesis rather than DefaultGenesis: the delay tiers and the
+	// window cap have no defaults either, so a bare DefaultGenesis is refused
+	// by ordinary parameter validation before the constitutional check is
+	// reached — and this test is about the constitutional check.
+	genesis := startableGenesis()
 	genesis.Params.ThresholdBps = 9_000
 
 	require.ErrorContains(t, f.keeper.InitGenesis(f.ctx, *genesis),

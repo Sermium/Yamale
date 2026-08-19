@@ -357,6 +357,251 @@ func (m *EventSeized) GetComplete() bool {
 	return false
 }
 
+// EventCaseHeld is emitted when a seizure is agreed and starts waiting out its
+// delay. This is the block in which anybody who wants to object still can, so
+// it carries the height the objection window closes at and the value the delay
+// was sized from.
+type EventCaseHeld struct {
+	CaseId uint64 `protobuf:"varint,1,opt,name=case_id,json=caseId,proto3" json:"case_id,omitempty"`
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// assessed_value is what the target was found to hold: balance, stake and
+	// unbonding together.
+	AssessedValue   github_com_cosmos_cosmos_sdk_types.Coins `protobuf:"bytes,3,rep,name=assessed_value,json=assessedValue,proto3,castrepeated=github.com/cosmos/cosmos-sdk/types.Coins" json:"assessed_value"`
+	ExecuteAtHeight int64                                    `protobuf:"varint,4,opt,name=execute_at_height,json=executeAtHeight,proto3" json:"execute_at_height,omitempty"`
+	DelayBlocks     uint64                                   `protobuf:"varint,5,opt,name=delay_blocks,json=delayBlocks,proto3" json:"delay_blocks,omitempty"`
+}
+
+func (m *EventCaseHeld) Reset()         { *m = EventCaseHeld{} }
+func (m *EventCaseHeld) String() string { return proto.CompactTextString(m) }
+func (*EventCaseHeld) ProtoMessage()    {}
+func (*EventCaseHeld) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1f8c13fd3aae41c0, []int{4}
+}
+func (m *EventCaseHeld) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventCaseHeld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventCaseHeld.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventCaseHeld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventCaseHeld.Merge(m, src)
+}
+func (m *EventCaseHeld) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventCaseHeld) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventCaseHeld.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventCaseHeld proto.InternalMessageInfo
+
+func (m *EventCaseHeld) GetCaseId() uint64 {
+	if m != nil {
+		return m.CaseId
+	}
+	return 0
+}
+
+func (m *EventCaseHeld) GetTarget() string {
+	if m != nil {
+		return m.Target
+	}
+	return ""
+}
+
+func (m *EventCaseHeld) GetAssessedValue() github_com_cosmos_cosmos_sdk_types.Coins {
+	if m != nil {
+		return m.AssessedValue
+	}
+	return nil
+}
+
+func (m *EventCaseHeld) GetExecuteAtHeight() int64 {
+	if m != nil {
+		return m.ExecuteAtHeight
+	}
+	return 0
+}
+
+func (m *EventCaseHeld) GetDelayBlocks() uint64 {
+	if m != nil {
+		return m.DelayBlocks
+	}
+	return 0
+}
+
+// EventCaseVetoed is emitted when the ombudsman stops a case.
+//
+// Its own event rather than an EventCaseResolved with a different status,
+// because "the office outside the validator set refused this" is the single
+// most important thing that can happen in this module and it should not have to
+// be inferred from an enum by whoever is watching.
+type EventCaseVetoed struct {
+	CaseId    uint64 `protobuf:"varint,1,opt,name=case_id,json=caseId,proto3" json:"case_id,omitempty"`
+	Target    string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	Ombudsman string `protobuf:"bytes,3,opt,name=ombudsman,proto3" json:"ombudsman,omitempty"`
+	Reason    string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	// was_held distinguishes a veto that stopped a seizure the validators had
+	// already agreed to from one that stopped a case still being argued. They are
+	// very different acts by the same office.
+	WasHeld bool `protobuf:"varint,5,opt,name=was_held,json=wasHeld,proto3" json:"was_held,omitempty"`
+}
+
+func (m *EventCaseVetoed) Reset()         { *m = EventCaseVetoed{} }
+func (m *EventCaseVetoed) String() string { return proto.CompactTextString(m) }
+func (*EventCaseVetoed) ProtoMessage()    {}
+func (*EventCaseVetoed) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1f8c13fd3aae41c0, []int{5}
+}
+func (m *EventCaseVetoed) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventCaseVetoed) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventCaseVetoed.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventCaseVetoed) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventCaseVetoed.Merge(m, src)
+}
+func (m *EventCaseVetoed) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventCaseVetoed) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventCaseVetoed.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventCaseVetoed proto.InternalMessageInfo
+
+func (m *EventCaseVetoed) GetCaseId() uint64 {
+	if m != nil {
+		return m.CaseId
+	}
+	return 0
+}
+
+func (m *EventCaseVetoed) GetTarget() string {
+	if m != nil {
+		return m.Target
+	}
+	return ""
+}
+
+func (m *EventCaseVetoed) GetOmbudsman() string {
+	if m != nil {
+		return m.Ombudsman
+	}
+	return ""
+}
+
+func (m *EventCaseVetoed) GetReason() string {
+	if m != nil {
+		return m.Reason
+	}
+	return ""
+}
+
+func (m *EventCaseVetoed) GetWasHeld() bool {
+	if m != nil {
+		return m.WasHeld
+	}
+	return false
+}
+
+// EventSeizureDeferred is emitted when a seizure comes due and the rolling cap
+// refuses it.
+//
+// Emitted every time it is refused, not once. A case that is quietly waiting is
+// indistinguishable from a case that has been forgotten, and the difference
+// matters to the person whose account is still frozen.
+type EventSeizureDeferred struct {
+	CaseId uint64 `protobuf:"varint,1,opt,name=case_id,json=caseId,proto3" json:"case_id,omitempty"`
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// retry_at_height is the next height at which the window could have room —
+	// when the oldest seizure in it falls out.
+	RetryAtHeight int64 `protobuf:"varint,3,opt,name=retry_at_height,json=retryAtHeight,proto3" json:"retry_at_height,omitempty"`
+	// reason says which limit refused it, in words, so that nobody has to
+	// reconstruct the arithmetic from the parameters to find out.
+	Reason string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+}
+
+func (m *EventSeizureDeferred) Reset()         { *m = EventSeizureDeferred{} }
+func (m *EventSeizureDeferred) String() string { return proto.CompactTextString(m) }
+func (*EventSeizureDeferred) ProtoMessage()    {}
+func (*EventSeizureDeferred) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1f8c13fd3aae41c0, []int{6}
+}
+func (m *EventSeizureDeferred) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventSeizureDeferred) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventSeizureDeferred.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventSeizureDeferred) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventSeizureDeferred.Merge(m, src)
+}
+func (m *EventSeizureDeferred) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventSeizureDeferred) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventSeizureDeferred.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventSeizureDeferred proto.InternalMessageInfo
+
+func (m *EventSeizureDeferred) GetCaseId() uint64 {
+	if m != nil {
+		return m.CaseId
+	}
+	return 0
+}
+
+func (m *EventSeizureDeferred) GetTarget() string {
+	if m != nil {
+		return m.Target
+	}
+	return ""
+}
+
+func (m *EventSeizureDeferred) GetRetryAtHeight() int64 {
+	if m != nil {
+		return m.RetryAtHeight
+	}
+	return 0
+}
+
+func (m *EventSeizureDeferred) GetReason() string {
+	if m != nil {
+		return m.Reason
+	}
+	return ""
+}
+
 // EventFreezeLifted is emitted whenever an address becomes able to send again,
 // whatever the reason — expiry, rejection, withdrawal or reversal.
 type EventFreezeLifted struct {
@@ -369,7 +614,7 @@ func (m *EventFreezeLifted) Reset()         { *m = EventFreezeLifted{} }
 func (m *EventFreezeLifted) String() string { return proto.CompactTextString(m) }
 func (*EventFreezeLifted) ProtoMessage()    {}
 func (*EventFreezeLifted) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1f8c13fd3aae41c0, []int{4}
+	return fileDescriptor_1f8c13fd3aae41c0, []int{7}
 }
 func (m *EventFreezeLifted) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -424,6 +669,9 @@ func init() {
 	proto.RegisterType((*EventCaseVoted)(nil), "blockchain.enforcement.v1.EventCaseVoted")
 	proto.RegisterType((*EventCaseResolved)(nil), "blockchain.enforcement.v1.EventCaseResolved")
 	proto.RegisterType((*EventSeized)(nil), "blockchain.enforcement.v1.EventSeized")
+	proto.RegisterType((*EventCaseHeld)(nil), "blockchain.enforcement.v1.EventCaseHeld")
+	proto.RegisterType((*EventCaseVetoed)(nil), "blockchain.enforcement.v1.EventCaseVetoed")
+	proto.RegisterType((*EventSeizureDeferred)(nil), "blockchain.enforcement.v1.EventSeizureDeferred")
 	proto.RegisterType((*EventFreezeLifted)(nil), "blockchain.enforcement.v1.EventFreezeLifted")
 }
 
@@ -432,49 +680,59 @@ func init() {
 }
 
 var fileDescriptor_1f8c13fd3aae41c0 = []byte{
-	// 669 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0x4d, 0x6f, 0xd3, 0x4a,
-	0x14, 0x8d, 0x93, 0xd6, 0x49, 0xa6, 0x7a, 0x7d, 0x7a, 0xa3, 0x3e, 0x70, 0x0a, 0xb8, 0x21, 0x52,
-	0x91, 0x25, 0x54, 0xbb, 0x29, 0x2b, 0x90, 0xaa, 0xaa, 0xad, 0x8a, 0x40, 0x42, 0x2a, 0x72, 0xa5,
-	0x2e, 0xd8, 0x44, 0x13, 0xfb, 0xd6, 0x19, 0xd5, 0x99, 0x31, 0x9e, 0xa9, 0x21, 0xfd, 0x15, 0xec,
-	0x59, 0xb0, 0x67, 0xdd, 0x7d, 0xb7, 0x5d, 0x56, 0x5d, 0xb1, 0x02, 0xd4, 0xfe, 0x0d, 0x16, 0xc8,
-	0xe3, 0xc9, 0x47, 0x91, 0x08, 0x95, 0xe8, 0xca, 0xbe, 0xf7, 0x9c, 0x73, 0xe7, 0xde, 0x33, 0x1f,
-	0xe8, 0x51, 0x37, 0xe6, 0xc1, 0x61, 0xd0, 0x23, 0x94, 0x79, 0xc0, 0x0e, 0x78, 0x1a, 0x40, 0x1f,
-	0x98, 0xf4, 0xb2, 0xb6, 0x07, 0x19, 0x30, 0x29, 0xdc, 0x24, 0xe5, 0x92, 0xe3, 0xc6, 0x98, 0xe7,
-	0x4e, 0xf0, 0xdc, 0xac, 0xbd, 0xf8, 0x78, 0x4a, 0x89, 0x09, 0xa6, 0xaa, 0xb3, 0x68, 0x07, 0x5c,
-	0xf4, 0xb9, 0xf0, 0xba, 0x44, 0x80, 0x97, 0xb5, 0xbb, 0x20, 0x49, 0xdb, 0x0b, 0x38, 0x65, 0x1a,
-	0x6f, 0x14, 0x78, 0x47, 0x45, 0x5e, 0x11, 0x68, 0x68, 0x21, 0xe2, 0x11, 0x2f, 0xf2, 0xf9, 0x5f,
-	0x91, 0x6d, 0x9d, 0x96, 0xd1, 0xbf, 0x3b, 0x79, 0xa7, 0xdb, 0x44, 0xc0, 0x6e, 0x02, 0x0c, 0x42,
-	0x7c, 0x17, 0x55, 0x03, 0x22, 0xa0, 0x43, 0x43, 0xcb, 0x68, 0x1a, 0xce, 0x8c, 0x6f, 0xe6, 0xe1,
-	0xcb, 0x10, 0xaf, 0x22, 0x53, 0x92, 0x34, 0x02, 0x69, 0x95, 0x9b, 0x86, 0x53, 0xdf, 0xb2, 0x2e,
-	0x4e, 0x56, 0x16, 0xf4, 0x22, 0x9b, 0x61, 0x98, 0x82, 0x10, 0x7b, 0x32, 0xa5, 0x2c, 0xf2, 0x35,
-	0x0f, 0x3f, 0x45, 0x26, 0xcf, 0x8b, 0xa6, 0x56, 0x45, 0x29, 0x1e, 0x5e, 0x9c, 0xac, 0x3c, 0xd0,
-	0x8a, 0x7d, 0x12, 0xd3, 0x90, 0x48, 0x9e, 0xfe, 0x22, 0x2d, 0x04, 0x78, 0x1d, 0x99, 0x24, 0x90,
-	0x94, 0x33, 0x6b, 0xa6, 0x69, 0x38, 0xf3, 0x6b, 0xcb, 0xee, 0x6f, 0x3d, 0x74, 0xf3, 0xe6, 0x37,
-	0x15, 0xd9, 0xd7, 0x22, 0x7c, 0x07, 0x99, 0x29, 0x10, 0xc1, 0x99, 0x35, 0x9b, 0xaf, 0xec, 0xeb,
-	0x08, 0xb7, 0xd1, 0xff, 0x19, 0x97, 0x94, 0x45, 0x1d, 0x60, 0xa1, 0xe8, 0x10, 0xd9, 0xe9, 0x01,
-	0x8d, 0x7a, 0xd2, 0x32, 0x9b, 0x86, 0x53, 0xf1, 0x71, 0x01, 0xee, 0xb0, 0x50, 0x6c, 0xca, 0x17,
-	0x0a, 0xc1, 0xf7, 0x51, 0x1d, 0xfa, 0x90, 0x46, 0xc0, 0x82, 0x81, 0x55, 0x6d, 0x1a, 0x4e, 0xcd,
-	0x1f, 0x27, 0x5a, 0xa7, 0x06, 0x9a, 0x1f, 0x39, 0xb8, 0xcf, 0xe5, 0x34, 0x03, 0x37, 0x50, 0x3d,
-	0x1b, 0x4e, 0xad, 0x3d, 0xbc, 0x81, 0x23, 0x63, 0x4d, 0x6e, 0x0a, 0x4f, 0x94, 0x29, 0x95, 0x3f,
-	0x9a, 0x92, 0xf7, 0xb2, 0x9b, 0x14, 0xa6, 0x14, 0x22, 0xbc, 0x80, 0x66, 0x13, 0xfe, 0x0e, 0x52,
-	0x65, 0x69, 0xc5, 0x2f, 0x82, 0xd6, 0x0f, 0x03, 0xfd, 0x37, 0x9a, 0xc0, 0x07, 0xc1, 0xe3, 0xec,
-	0x76, 0x4f, 0xc1, 0x3a, 0x32, 0x85, 0x24, 0xf2, 0x48, 0xdc, 0xa0, 0xeb, 0xbc, 0x87, 0x3d, 0x45,
-	0xf6, 0xb5, 0x08, 0xdf, 0x43, 0xf5, 0x01, 0x88, 0xce, 0x64, 0xe7, 0xb5, 0x01, 0x88, 0xd7, 0x79,
-	0x8c, 0x1b, 0xa8, 0xc6, 0xb8, 0xc6, 0x66, 0x15, 0x56, 0x65, 0xbc, 0x80, 0x96, 0xd1, 0x7c, 0x0a,
-	0x6f, 0x8f, 0x68, 0x0a, 0xa1, 0x26, 0x14, 0x7b, 0xfc, 0xcf, 0x30, 0xab, 0x68, 0xad, 0x8f, 0x65,
-	0x34, 0xa7, 0xc6, 0xdf, 0x03, 0x7a, 0x7c, 0xbb, 0x83, 0x3f, 0x43, 0x73, 0x21, 0x08, 0x49, 0x19,
-	0x19, 0xed, 0xd9, 0x34, 0xd9, 0x24, 0x19, 0x53, 0x54, 0x0f, 0x78, 0x1c, 0x43, 0x20, 0x21, 0xb4,
-	0x66, 0x9a, 0x15, 0x67, 0x6e, 0xad, 0xe1, 0x6a, 0x59, 0x7e, 0xfd, 0x5d, 0x7d, 0xfd, 0xdd, 0x6d,
-	0x4e, 0xd9, 0xd6, 0xea, 0xd9, 0xd7, 0xa5, 0xd2, 0xe7, 0x6f, 0x4b, 0x4e, 0x44, 0x65, 0xef, 0xa8,
-	0xeb, 0x06, 0xbc, 0xaf, 0xaf, 0xbf, 0xfe, 0xac, 0x88, 0xf0, 0xd0, 0x93, 0x83, 0x04, 0x84, 0x12,
-	0x08, 0x7f, 0x5c, 0x1d, 0x2f, 0xa2, 0x5a, 0xc0, 0xfb, 0x49, 0x0c, 0x12, 0x94, 0x87, 0x35, 0x7f,
-	0x14, 0xb7, 0x3e, 0x0d, 0x0f, 0xc7, 0xf3, 0x14, 0xe0, 0x18, 0x5e, 0xd1, 0x83, 0x5c, 0xb1, 0x86,
-	0xaa, 0xa4, 0x68, 0x5d, 0x79, 0x34, 0x6d, 0xa8, 0x21, 0x71, 0xd2, 0xd7, 0xf2, 0x35, 0x5f, 0xff,
-	0xee, 0x78, 0x6c, 0x6d, 0x9c, 0x5d, 0xda, 0xc6, 0xf9, 0xa5, 0x6d, 0x7c, 0xbf, 0xb4, 0x8d, 0x0f,
-	0x57, 0x76, 0xe9, 0xfc, 0xca, 0x2e, 0x7d, 0xb9, 0xb2, 0x4b, 0x6f, 0x96, 0x07, 0xa4, 0x4f, 0x62,
-	0xf0, 0x26, 0x5e, 0xd8, 0xf7, 0xd7, 0xde, 0x58, 0xe5, 0x47, 0xd7, 0x54, 0x4f, 0xe1, 0x93, 0x9f,
-	0x01, 0x00, 0x00, 0xff, 0xff, 0x44, 0x4c, 0x5e, 0x62, 0xcd, 0x05, 0x00, 0x00,
+	// 830 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xcf, 0x8b, 0xdb, 0x46,
+	0x14, 0x5e, 0xd9, 0x5e, 0xd9, 0x9e, 0xed, 0xee, 0x12, 0xb1, 0x6d, 0xe5, 0x6d, 0xeb, 0x38, 0x82,
+	0x0d, 0xa6, 0x65, 0xa5, 0x78, 0x0b, 0x85, 0x16, 0x42, 0x58, 0xa7, 0x29, 0x29, 0x14, 0x52, 0xb4,
+	0xe0, 0x43, 0x2f, 0x62, 0xac, 0x79, 0x2b, 0x8b, 0x48, 0x33, 0xee, 0xcc, 0x58, 0x1b, 0xe5, 0xaf,
+	0xe8, 0xbd, 0x94, 0xd2, 0x6b, 0xcf, 0xb9, 0xe7, 0xd8, 0x1c, 0x43, 0x4e, 0x3d, 0xb5, 0x65, 0xf7,
+	0xdf, 0xe8, 0xa1, 0x68, 0x34, 0x96, 0xb5, 0x85, 0x38, 0x81, 0xf8, 0x64, 0xbf, 0x79, 0xdf, 0x37,
+	0xf3, 0xde, 0xf7, 0x7e, 0x08, 0xdd, 0x9e, 0x26, 0x2c, 0x7c, 0x1c, 0xce, 0x70, 0x4c, 0x3d, 0xa0,
+	0xe7, 0x8c, 0x87, 0x90, 0x02, 0x95, 0x5e, 0x36, 0xf2, 0x20, 0x03, 0x2a, 0x85, 0x3b, 0xe7, 0x4c,
+	0x32, 0xab, 0xb7, 0xc2, 0xb9, 0x35, 0x9c, 0x9b, 0x8d, 0x0e, 0x3f, 0x5b, 0x73, 0x45, 0x0d, 0xa9,
+	0xee, 0x39, 0xec, 0x87, 0x4c, 0xa4, 0x4c, 0x78, 0x53, 0x2c, 0xc0, 0xcb, 0x46, 0x53, 0x90, 0x78,
+	0xe4, 0x85, 0x2c, 0xa6, 0xda, 0xdf, 0x2b, 0xfd, 0x81, 0xb2, 0xbc, 0xd2, 0xd0, 0xae, 0x83, 0x88,
+	0x45, 0xac, 0x3c, 0x2f, 0xfe, 0x95, 0xa7, 0xce, 0xf3, 0x06, 0xda, 0x7f, 0x50, 0x44, 0x7a, 0x1f,
+	0x0b, 0x78, 0x34, 0x07, 0x0a, 0xc4, 0xfa, 0x10, 0xb5, 0x43, 0x2c, 0x20, 0x88, 0x89, 0x6d, 0x0c,
+	0x8c, 0x61, 0xcb, 0x37, 0x0b, 0xf3, 0x5b, 0x62, 0xdd, 0x41, 0xa6, 0xc4, 0x3c, 0x02, 0x69, 0x37,
+	0x06, 0xc6, 0xb0, 0x3b, 0xb6, 0x5f, 0x3d, 0x3b, 0x3e, 0xd0, 0x8f, 0x9c, 0x12, 0xc2, 0x41, 0x88,
+	0x33, 0xc9, 0x63, 0x1a, 0xf9, 0x1a, 0x67, 0x7d, 0x89, 0x4c, 0x56, 0x5c, 0xca, 0xed, 0xa6, 0x62,
+	0xdc, 0x7a, 0xf5, 0xec, 0xf8, 0x13, 0xcd, 0x98, 0xe0, 0x24, 0x26, 0x58, 0x32, 0xfe, 0x3f, 0x6a,
+	0x49, 0xb0, 0xee, 0x22, 0x13, 0x87, 0x32, 0x66, 0xd4, 0x6e, 0x0d, 0x8c, 0xe1, 0xde, 0xc9, 0x91,
+	0xfb, 0x5a, 0x0d, 0xdd, 0x22, 0xf8, 0x53, 0x05, 0xf6, 0x35, 0xc9, 0xfa, 0x00, 0x99, 0x1c, 0xb0,
+	0x60, 0xd4, 0xde, 0x2e, 0x5e, 0xf6, 0xb5, 0x65, 0x8d, 0xd0, 0xfb, 0x19, 0x93, 0x31, 0x8d, 0x02,
+	0xa0, 0x44, 0x04, 0x58, 0x06, 0x33, 0x88, 0xa3, 0x99, 0xb4, 0xcd, 0x81, 0x31, 0x6c, 0xfa, 0x56,
+	0xe9, 0x7c, 0x40, 0x89, 0x38, 0x95, 0x0f, 0x95, 0xc7, 0xfa, 0x18, 0x75, 0x21, 0x05, 0x1e, 0x01,
+	0x0d, 0x73, 0xbb, 0x3d, 0x30, 0x86, 0x1d, 0x7f, 0x75, 0xe0, 0x3c, 0x37, 0xd0, 0x5e, 0xa5, 0xe0,
+	0x84, 0xc9, 0x75, 0x02, 0xde, 0x43, 0xdd, 0x6c, 0x99, 0xb5, 0xd6, 0xf0, 0x2d, 0x14, 0x59, 0x71,
+	0x0a, 0x51, 0xd8, 0x5c, 0x89, 0xd2, 0x7c, 0xa3, 0x28, 0x45, 0x2c, 0x8f, 0xe6, 0xa5, 0x28, 0x25,
+	0xc9, 0x3a, 0x40, 0xdb, 0x73, 0x76, 0x01, 0x5c, 0x49, 0xda, 0xf4, 0x4b, 0xc3, 0xf9, 0xd7, 0x40,
+	0x37, 0xaa, 0x0c, 0x7c, 0x10, 0x2c, 0xc9, 0x36, 0xdb, 0x05, 0x77, 0x91, 0x29, 0x24, 0x96, 0x0b,
+	0xf1, 0x16, 0x51, 0x17, 0x31, 0x9c, 0x29, 0xb0, 0xaf, 0x49, 0xd6, 0x47, 0xa8, 0x9b, 0x83, 0x08,
+	0xea, 0x91, 0x77, 0x72, 0x10, 0xdf, 0x17, 0xb6, 0xd5, 0x43, 0x1d, 0xca, 0xb4, 0x6f, 0x5b, 0xf9,
+	0xda, 0x94, 0x95, 0xae, 0x23, 0xb4, 0xc7, 0xe1, 0xc7, 0x45, 0xcc, 0x81, 0x68, 0x40, 0x59, 0xe3,
+	0xdd, 0xe5, 0xa9, 0x82, 0x39, 0x3f, 0x37, 0xd0, 0x8e, 0x4a, 0xff, 0x0c, 0xe2, 0xa7, 0x9b, 0x4d,
+	0xfc, 0x2b, 0xb4, 0x43, 0x40, 0xc8, 0x98, 0xe2, 0xaa, 0x66, 0xeb, 0x68, 0x75, 0xb0, 0x15, 0xa3,
+	0x6e, 0xc8, 0x92, 0x04, 0x42, 0x09, 0xc4, 0x6e, 0x0d, 0x9a, 0xc3, 0x9d, 0x93, 0x9e, 0xab, 0x69,
+	0xc5, 0xf8, 0xbb, 0x7a, 0xfc, 0xdd, 0xfb, 0x2c, 0xa6, 0xe3, 0x3b, 0x2f, 0xfe, 0xba, 0xb9, 0xf5,
+	0xfb, 0xdf, 0x37, 0x87, 0x51, 0x2c, 0x67, 0x8b, 0xa9, 0x1b, 0xb2, 0x54, 0x8f, 0xbf, 0xfe, 0x39,
+	0x16, 0xe4, 0xb1, 0x27, 0xf3, 0x39, 0x08, 0x45, 0x10, 0xfe, 0xea, 0x76, 0xeb, 0x10, 0x75, 0x42,
+	0x96, 0xce, 0x13, 0x90, 0xa0, 0x34, 0xec, 0xf8, 0x95, 0xed, 0xfc, 0xd2, 0x40, 0xbb, 0x55, 0x73,
+	0x3c, 0x84, 0x64, 0xa3, 0xfa, 0x70, 0xb4, 0x87, 0x85, 0x00, 0x21, 0x80, 0x04, 0x19, 0x4e, 0x16,
+	0x60, 0x37, 0x37, 0x9f, 0xe8, 0xee, 0xf2, 0x89, 0x49, 0xf1, 0x82, 0xf5, 0x29, 0xba, 0x01, 0x4f,
+	0x20, 0x5c, 0x48, 0xa8, 0x0d, 0x7f, 0xd9, 0x55, 0xfb, 0xda, 0x51, 0x4d, 0xfe, 0x2d, 0xf4, 0x1e,
+	0x81, 0x04, 0xe7, 0x81, 0xea, 0x57, 0xa1, 0xc4, 0x69, 0x15, 0x65, 0x4a, 0x70, 0x3e, 0x56, 0x47,
+	0xce, 0x1f, 0x46, 0x6d, 0x81, 0x4e, 0x40, 0xb2, 0xcd, 0x76, 0xd0, 0x17, 0xa8, 0xcb, 0xd2, 0xe9,
+	0x82, 0x88, 0x14, 0xbf, 0xb9, 0x7f, 0x56, 0xd0, 0xda, 0xfa, 0x6b, 0x5d, 0x5b, 0x7f, 0x3d, 0xd4,
+	0xb9, 0xc0, 0x22, 0x98, 0x41, 0x42, 0x74, 0xa9, 0xdb, 0x17, 0x58, 0x14, 0x75, 0x75, 0x7e, 0x33,
+	0xd0, 0x41, 0x35, 0x07, 0x0b, 0x0e, 0x5f, 0xc3, 0x39, 0x70, 0xbe, 0xd9, 0x74, 0x6e, 0xa3, 0x7d,
+	0x0e, 0x92, 0xe7, 0x35, 0xe9, 0x9b, 0xcb, 0x99, 0x94, 0x3c, 0xaf, 0x84, 0x7f, 0x4d, 0xf8, 0xce,
+	0xaf, 0xcb, 0x55, 0xf5, 0x0d, 0x07, 0x78, 0x0a, 0xdf, 0xc5, 0xe7, 0x45, 0xff, 0x9e, 0xa0, 0x36,
+	0x2e, 0x9f, 0x53, 0x01, 0xae, 0x0b, 0x64, 0x09, 0xac, 0x27, 0xd5, 0xb8, 0x96, 0xd4, 0xbb, 0x2d,
+	0xab, 0xf1, 0xbd, 0x17, 0x97, 0x7d, 0xe3, 0xe5, 0x65, 0xdf, 0xf8, 0xe7, 0xb2, 0x6f, 0xfc, 0x74,
+	0xd5, 0xdf, 0x7a, 0x79, 0xd5, 0xdf, 0xfa, 0xf3, 0xaa, 0xbf, 0xf5, 0xc3, 0x51, 0x8e, 0x53, 0x9c,
+	0x80, 0x57, 0xfb, 0xde, 0x3f, 0xb9, 0xf6, 0xc5, 0x57, 0x4d, 0x3b, 0x35, 0xd5, 0x87, 0xf9, 0xf3,
+	0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0xec, 0xa5, 0xad, 0xa1, 0x5b, 0x08, 0x00, 0x00,
 }
 
 func (m *EventCaseOpened) Marshal() (dAtA []byte, err error) {
@@ -712,6 +970,171 @@ func (m *EventSeized) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *EventCaseHeld) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventCaseHeld) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventCaseHeld) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.DelayBlocks != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.DelayBlocks))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.ExecuteAtHeight != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.ExecuteAtHeight))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.AssessedValue) > 0 {
+		for iNdEx := len(m.AssessedValue) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AssessedValue[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintEvents(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Target) > 0 {
+		i -= len(m.Target)
+		copy(dAtA[i:], m.Target)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Target)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.CaseId != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.CaseId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventCaseVetoed) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventCaseVetoed) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventCaseVetoed) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.WasHeld {
+		i--
+		if m.WasHeld {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Ombudsman) > 0 {
+		i -= len(m.Ombudsman)
+		copy(dAtA[i:], m.Ombudsman)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Ombudsman)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Target) > 0 {
+		i -= len(m.Target)
+		copy(dAtA[i:], m.Target)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Target)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.CaseId != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.CaseId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventSeizureDeferred) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventSeizureDeferred) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventSeizureDeferred) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.RetryAtHeight != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.RetryAtHeight))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Target) > 0 {
+		i -= len(m.Target)
+		copy(dAtA[i:], m.Target)
+		i = encodeVarintEvents(dAtA, i, uint64(len(m.Target)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.CaseId != 0 {
+		i = encodeVarintEvents(dAtA, i, uint64(m.CaseId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *EventFreezeLifted) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -871,6 +1294,84 @@ func (m *EventSeized) Size() (n int) {
 	}
 	if m.Complete {
 		n += 2
+	}
+	return n
+}
+
+func (m *EventCaseHeld) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CaseId != 0 {
+		n += 1 + sovEvents(uint64(m.CaseId))
+	}
+	l = len(m.Target)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if len(m.AssessedValue) > 0 {
+		for _, e := range m.AssessedValue {
+			l = e.Size()
+			n += 1 + l + sovEvents(uint64(l))
+		}
+	}
+	if m.ExecuteAtHeight != 0 {
+		n += 1 + sovEvents(uint64(m.ExecuteAtHeight))
+	}
+	if m.DelayBlocks != 0 {
+		n += 1 + sovEvents(uint64(m.DelayBlocks))
+	}
+	return n
+}
+
+func (m *EventCaseVetoed) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CaseId != 0 {
+		n += 1 + sovEvents(uint64(m.CaseId))
+	}
+	l = len(m.Target)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	l = len(m.Ombudsman)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	l = len(m.Reason)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.WasHeld {
+		n += 2
+	}
+	return n
+}
+
+func (m *EventSeizureDeferred) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CaseId != 0 {
+		n += 1 + sovEvents(uint64(m.CaseId))
+	}
+	l = len(m.Target)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
+	}
+	if m.RetryAtHeight != 0 {
+		n += 1 + sovEvents(uint64(m.RetryAtHeight))
+	}
+	l = len(m.Reason)
+	if l > 0 {
+		n += 1 + l + sovEvents(uint64(l))
 	}
 	return n
 }
@@ -1605,6 +2106,516 @@ func (m *EventSeized) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Complete = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventCaseHeld) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventCaseHeld: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventCaseHeld: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaseId", wireType)
+			}
+			m.CaseId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CaseId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Target = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssessedValue", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AssessedValue = append(m.AssessedValue, types.Coin{})
+			if err := m.AssessedValue[len(m.AssessedValue)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExecuteAtHeight", wireType)
+			}
+			m.ExecuteAtHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExecuteAtHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DelayBlocks", wireType)
+			}
+			m.DelayBlocks = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DelayBlocks |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventCaseVetoed) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventCaseVetoed: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventCaseVetoed: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaseId", wireType)
+			}
+			m.CaseId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CaseId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Target = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ombudsman", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ombudsman = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Reason", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Reason = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WasHeld", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.WasHeld = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEvents(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventSeizureDeferred) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEvents
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventSeizureDeferred: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventSeizureDeferred: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaseId", wireType)
+			}
+			m.CaseId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CaseId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Target = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryAtHeight", wireType)
+			}
+			m.RetryAtHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RetryAtHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Reason", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEvents
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthEvents
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Reason = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipEvents(dAtA[iNdEx:])

@@ -63,6 +63,121 @@ enum CaseStatus {
   // transfer from the recovery destination, by whoever controls it, and
   // pretending otherwise would be a lie told by an enum value.
   CASE_STATUS_REVERSED = 6;
+
+  // CASE_STATUS_HELD is a seizure the validators have agreed to that has not
+  // been carried out yet: it is waiting out the delay its size earned.
+  //
+  // It is a status of its own rather than a flag on PASSED because it is the
+  // only window in which the seizure can still be stopped without anything
+  // having to be given back. The ombudsman's veto lives here, and so does
+  // governance's chance to reverse a case before it costs anybody anything.
+  // A reader who cannot tell "decided" from "done" cannot tell those apart.
+  //
+  // The account stays frozen throughout, and the freeze no longer lapses: the
+  // set has decided, so there is nothing left for a lapse to protect against.
+  CASE_STATUS_HELD = 7;
+
+  // CASE_STATUS_VETOED means the ombudsman stopped the case. Any freeze is
+  // lifted and nothing is taken.
+  //
+  // Distinct from REJECTED and from REVERSED on purpose. Rejected is the
+  // validator set disagreeing; reversed is an authority undoing something that
+  // already happened; vetoed is one office outside the set refusing to let it
+  // happen at all. Collapsing them would hide which check actually caught the
+  // case, and that is the only thing the record of a stopped case is for.
+  CASE_STATUS_VETOED = 8;
+}
+
+// LegalInstrumentKind is the sort of external authority a seizure rests on.
+//
+// It is a closed list rather than free text because the list is the point: a
+// seizure on this chain is the execution of something a court, a regulator or a
+// magistrate already ordered, and "other" would let a case name its own
+// paperwork as its authority.
+enum LegalInstrumentKind {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // LEGAL_INSTRUMENT_KIND_UNSPECIFIED is the unset default and is never valid.
+  LEGAL_INSTRUMENT_KIND_UNSPECIFIED = 0;
+
+  // LEGAL_INSTRUMENT_KIND_COURT_ORDER is an order of a court.
+  LEGAL_INSTRUMENT_KIND_COURT_ORDER = 1;
+
+  // LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION is a direction issued by a
+  // financial supervisor under its own statutory power — a central bank's
+  // directive, a financial intelligence unit's freezing direction.
+  LEGAL_INSTRUMENT_KIND_REGULATORY_DIRECTION = 2;
+
+  // LEGAL_INSTRUMENT_KIND_WARRANT is a warrant issued in a criminal matter.
+  LEGAL_INSTRUMENT_KIND_WARRANT = 3;
+}
+
+// LegalInstrument is the external authority a seizure is carried out under.
+//
+// This is deliberately not the evidence fields. Evidence is why the chain
+// believes the allegation; an instrument is who, outside this chain, ordered
+// that something be done about it. Keeping them in one pair of fields would let
+// a case satisfy its authority requirement by attaching its own investigation
+// report, which is exactly the substitution the requirement exists to prevent.
+//
+// There is no URI here, and that is the design rather than an omission. A link
+// is a document somebody controls: whoever hosts it can change it, take it
+// down, or never have had it. What is stored instead is an identifier that
+// names the instrument in the world — the issuing body and its own reference
+// number — so that verification means going to that body's register, plus a
+// hash that pins the content of what was served. A reader with the reference
+// can find the instrument without this chain's help; a reader with the hash can
+// prove the copy they were shown is the one the case was opened on. Neither
+// depends on anyone keeping a web server up.
+message LegalInstrument {
+  // issuing_authority names the body that issued it, as it names itself —
+  // "High Court of Kenya at Nairobi", "Bank of Ghana". Free text because the
+  // set of courts and supervisors in the world is not enumerable in a proto
+  // file, and a wrong enum would be worse than an honest string.
+  string issuing_authority = 1;
+
+  // reference is the instrument's own identifier in the issuer's register:
+  // the case number, the direction number, the warrant number. This is the
+  // half that makes the instrument findable by somebody who does not trust
+  // this chain.
+  string reference = 2;
+
+  LegalInstrumentKind kind = 3;
+
+  // hash is the SHA-256, lowercase hex, of the instrument as it was served.
+  // It pins the content: an order that is later amended can be shown to have
+  // been amended, and a copy produced afterwards can be checked against what
+  // the validators actually voted on.
+  string hash = 4;
+
+  // issued_at is when the instrument was issued, as Unix seconds. Refused if it
+  // is in the future relative to the block: an order dated tomorrow has not
+  // been issued, and a case that claims one is either mistaken or manufactured.
+  int64 issued_at = 5;
+}
+
+// SeizureRecord is one executed seizure, kept so the rolling window can be
+// summed without replaying the chain.
+//
+// Records fall out of the window by height, and the number that can be inside
+// one is bounded by the cap itself — which is what keeps both the sum and the
+// pruning bounded no matter how long the chain has been running.
+message SeizureRecord {
+  uint64 case_id = 1;
+
+  // height is when the seizure executed. It is the first component of the key,
+  // so the window is a range scan over recent heights rather than a filter over
+  // every seizure there has ever been.
+  int64 height = 2;
+
+  // amount is what this seizure counted for against the cap: the value assessed
+  // when the case was decided, or what execution actually moved if that was
+  // larger. Taking the larger of the two is what stops a deposit arriving
+  // during the hold from being taken outside the window's arithmetic.
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 // VoteOption is how a validator voted.
@@ -146,6 +261,28 @@ message Case {
   // that nobody reading the record has to work out from an address whether the
   // founders acted directly.
   bool emergency = 18;
+
+  // legal_instrument is the external authority a seizure is carried out under.
+  // Required for a seizure and empty for a freeze: a freeze takes nothing and
+  // is meant to be openable in the minute a theft is noticed, which is not a
+  // minute in which anybody has a court order.
+  LegalInstrument legal_instrument = 19 [(gogoproto.nullable) = false];
+
+  // execute_at_height is when a held seizure may be carried out — the height
+  // the delay its size earned runs to. Zero on any case that is not a seizure
+  // the validators have passed.
+  int64 execute_at_height = 20;
+
+  // assessed_value is what the target was found to hold when the case was
+  // decided: balance, stake and unbonding together. It is the figure the delay
+  // was sized from and the figure charged against the rolling cap, recorded on
+  // the case so that "why did this one wait a week" is answerable from the
+  // record rather than from a re-run of the arithmetic against state that has
+  // since moved.
+  repeated cosmos.base.v1beta1.Coin assessed_value = 21 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
 }
 
 // Vote is one validator's judgement on one case, with the power it carried when
