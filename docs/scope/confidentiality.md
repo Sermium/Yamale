@@ -1,9 +1,19 @@
 # Payment confidentiality
 
-**Decided:** confidential amounts, using Pedersen commitments and range proofs,
-with viewing keys granted to the parties and functions that need to see. This
-note records what that means, what must deliberately stay public, and what has to
-happen *now* versus what can follow.
+> **Current position (2026-08-19).** Confidentiality comes from **architecture,
+> not cryptography**: a tiered ledger where individual customer payments never
+> reach the chain, read authorisation over what remains, and encrypted metadata
+> for the detail. Confidential amounts by zero-knowledge proof are **deferred**,
+> for reasons measured and recorded at the end of this document. The reserved
+> proto fields stay reserved, so the door remains open at no cost.
+>
+> Read [the tiering resolution](#the-resolution-tier-the-ledger) first; the
+> sections between are the reasoning that led there and remain accurate.
+
+**Originally decided:** confidential amounts, using Pedersen commitments and
+range proofs, with viewing keys granted to the parties and functions that need to
+see. This note records what that means, what must deliberately stay public, and
+what has to happen *now* versus what can follow.
 
 ---
 
@@ -216,3 +226,68 @@ proof must never serve as a replay key or uniqueness index; and BN254 is roughly
 100-bit security post-exTNFS, not 128.
 
 Do not vendor and patch kryptology for a system a central bank is meant to trust.
+
+---
+
+## The resolution: tier the ledger
+
+The measurements above priced the cryptographic route and it is not worth the
+money. This is the design that replaces it.
+
+### Why "encrypt it lightly" is not an option
+
+It is worth stating once, plainly, because it is the natural thing to reach for.
+The chain must verify that a sender has the balance and that the sums add up. If
+it can decrypt the amount to check, then every validator can decrypt it and
+nothing is hidden — least of all from the participants, who are the ones the
+confidentiality was for. If it cannot decrypt, it needs a proof that the hidden
+number is valid, and that proof *is* the expensive thing.
+
+There is no middle position. Every design that looks like one turns out to hide
+amounts from outsiders reading a block explorer while leaving them legible to
+everyone running a node. That is not a limitation of Go's libraries; it is
+arithmetic, and it is the entire reason zero-knowledge proofs cost what they do.
+
+### No settlement system does this
+
+Not SWIFT, not CHIPS, not TARGET2, not PAPSS. Every real-time gross settlement
+system in the world protects amounts with **authorisation, contract and
+supervision**, not cryptography. Confidential amounts was a requirement this
+project invented for itself; no central banker will ask for it.
+
+### What replaces it
+
+Scope §6 already calls for a tiered architecture — participants run retail
+ledgers, the chain settles net positions and high-value items. Taking that
+seriously dissolves most of the problem:
+
+- **Individual customer payments never touch the chain**, so there is nothing to
+  hide. One participant cannot read another's customer flows because those flows
+  are not on the ledger.
+- **What the chain carries is net positions between institutions** — figures a
+  supervisor is entitled to see anyway, and which disclose nothing about any
+  individual customer.
+- **Read authorisation covers the rest.** The `/api/rest/` gate is already
+  deny-by-default; a participant sees its own records and the supervisor sees
+  all. Not cryptography, but the same control every RTGS relies on, and free.
+- **Encrypted metadata covers the legal exposure**, which was always the real
+  problem: personal data on an append-only ledger with no erasure path under the
+  NDPA, Ghana's DPA, POPIA or GDPR. Already built, at no performance cost.
+
+### And it makes the expensive option affordable later
+
+Net settlement is low-volume by construction — tens to hundreds of transactions a
+day between institutions, not thousands a second. At that volume even gnark's
+measured 130/s is enormous headroom. So this defers confidential amounts to a
+layer where they would cost nothing, rather than abandoning them. If a customer
+ever asks, the reserved fields and this document are what they need.
+
+### What this obliges
+
+Tiering is not free — it moves the work rather than removing it. A netting layer
+has to answer what no ledger of individual payments has to: what happens when a
+participant cannot cover its net position at settlement. That is *unwinding
+risk*, it is the reason modern systems moved away from pure deferred net
+settlement, and it must be designed rather than discovered. Multilateral netting
+must also settle atomically — a cycle where A owes B, B owes C and C owes A
+either clears entirely or not at all.
