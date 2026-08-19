@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { CHAIN_MESSAGE_TYPES, chainRegistry } from './registry.ts';
 import { BasicAllowance } from './generated/cosmos/feegrant/v1beta1/feegrant.ts';
@@ -136,18 +139,66 @@ test('every message this chain adds is registered', () => {
   }
 });
 
+const generatedRoot = join(dirname(fileURLToPath(import.meta.url)), 'generated', 'blockchain');
+
+/**
+ * The protobuf package of every module on this chain that declares a Msg
+ * service, read out of the generated tree.
+ *
+ * This is derived rather than listed because the list is exactly the thing
+ * that rots. It used to be a hand-written alternation inside the regex below,
+ * and it had already fallen three modules behind — custody, land and
+ * tokenisation were missing — so the day one of their messages was registered,
+ * the assertion would have rejected a perfectly correct type URL and reported
+ * it as not looking like one of this chain's messages. Reading the packages
+ * from `./generated`, which `make proto-ts` rebuilds from the .proto files the
+ * chain itself is compiled from, means the next module added cannot break it.
+ */
+function chainProtoPackages(): Set<string> {
+  const packages = new Set<string>();
+  for (const module of readdirSync(generatedRoot, { withFileTypes: true })) {
+    if (!module.isDirectory()) continue;
+    const modulePath = join(generatedRoot, module.name);
+    for (const version of readdirSync(modulePath, { withFileTypes: true })) {
+      if (!version.isDirectory()) continue;
+      let source: string;
+      try {
+        // Only a module with a Msg service has messages to register, and only
+        // tx.proto declares one.
+        source = readFileSync(join(modulePath, version.name, 'tx.ts'), 'utf8');
+      } catch {
+        continue;
+      }
+      const declared = /^export const protobufPackage = "([^"]+)";$/m.exec(source);
+      if (declared) packages.add(declared[1]);
+    }
+  }
+  return packages;
+}
+
 // A type URL is a string, and a string with a typo in it registers just as
-// happily as a correct one. These are compared against the package names in the
-// .proto files rather than against themselves.
+// happily as a correct one. These are compared against the package names the
+// .proto files declare rather than against themselves.
 test('type urls match the proto packages they come from', () => {
+  const packages = chainProtoPackages();
+  // If this ever reads zero packages the test below passes vacuously, which is
+  // the failure mode that hides every other one.
+  assert.ok(
+    packages.size > 0,
+    `no generated Msg services found under ${generatedRoot} — run \`make proto-ts\``,
+  );
+
+  const known = [...packages].sort().join(', ');
   for (const [typeUrl] of CHAIN_MESSAGE_TYPES) {
     // Fee grants are Cosmos messages carried here because CosmJS's default
     // registry omits them; they are not this chain's own.
     if (typeUrl.startsWith('/cosmos.feegrant.')) continue;
-    assert.match(
-      typeUrl,
-      /^\/blockchain\.(alias|amm|builderfee|emission|enforcement|oracle|paymsg|stablecoin|treasury|validatorgov)\.v1\.Msg[A-Z]/,
-      `${typeUrl} does not look like one of this chain's messages`,
+
+    const parsed = /^\/(.+)\.(Msg[A-Z]\w*)$/.exec(typeUrl);
+    assert.ok(parsed, `${typeUrl} is not a /<proto package>.Msg<Name> type url`);
+    assert.ok(
+      packages.has(parsed[1]),
+      `${typeUrl} claims to come from ${parsed[1]}, which no generated Msg service declares (declared: ${known})`,
     );
   }
 });
