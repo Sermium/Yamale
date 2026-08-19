@@ -41,9 +41,16 @@ func RegisterOpenAPIService(appName string, rtr *mux.Router, linkedModules []str
 	rtr.HandleFunc("/", handler(appName))
 }
 
-// modulePath matches the two shapes this chain's generated REST paths take,
-// capturing the module name in both.
-var modulePath = regexp.MustCompile(`^(?:/yamale)?/blockchain/([a-z]+)/`)
+// modulePath matches this chain's generated REST paths, capturing the module
+// name.
+//
+// This used to accept an optional /yamale prefix, because x/tokenisation was
+// generated without one. Now that every module carries it, matching only the
+// one shape is what makes the filter fail loudly: a path that regresses to the
+// bare /blockchain/ form stops matching, and an unmatched path is kept — so a
+// profile binary would advertise a module it does not link, which is the exact
+// thing this filter exists to prevent.
+var modulePath = regexp.MustCompile(`^/yamale/blockchain/([a-z]+)/`)
 
 // specForProfile drops every path belonging to a chain module this binary does
 // not link.

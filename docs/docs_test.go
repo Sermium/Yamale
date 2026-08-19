@@ -51,13 +51,50 @@ func TestTheUnfilteredSpecStillCarriesEveryModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "/blockchain/emission/v1") {
+	if !strings.Contains(string(raw), "/yamale/blockchain/emission/v1") {
 		t.Skip("the generated specification no longer describes x/emission")
 	}
 
 	filtered := string(specForProfile([]string{"paymsg", "treasury"}))
-	if strings.Contains(filtered, "/blockchain/emission/v1/params") {
+	if strings.Contains(filtered, "/yamale/blockchain/emission/v1/params") {
 		t.Error("an emission path survived filtering")
+	}
+}
+
+// Every path this chain owns has to carry the /yamale prefix. x/tokenisation
+// shipped without it, and nothing noticed because no client called it: the
+// filter above quietly grew a second path shape to cope, and the published
+// specification advertised one module under a prefix the others did not use.
+// A path that regresses is invisible to the tests that merely substring-match,
+// so this one checks the shape of the whole document.
+func TestEveryChainPathCarriesTheYamalePrefix(t *testing.T) {
+	raw, err := Static.ReadFile("static/openapi.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var doc struct {
+		Paths map[string]json.RawMessage `json:"paths"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("specification is not valid JSON: %v", err)
+	}
+
+	seen := 0
+	for path := range doc.Paths {
+		// An SDK path belongs to no chain module and is correct as it is.
+		if strings.HasPrefix(path, "/cosmos/") {
+			continue
+		}
+		if !strings.HasPrefix(path, "/yamale/blockchain/") {
+			t.Errorf("%s does not carry the /yamale/blockchain/ prefix every other module uses", path)
+			continue
+		}
+		seen++
+	}
+
+	if seen == 0 {
+		t.Fatal("no chain paths found, which would mean the path shapes have changed")
 	}
 }
 

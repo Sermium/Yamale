@@ -12,21 +12,21 @@ option go_package = "yamale/blockchain/x/tokenisation/types";
 
 service Query {
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
-    option (google.api.http).get = "/blockchain/tokenisation/v1/params";
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/params";
   }
   rpc Collections(QueryCollectionsRequest) returns (QueryCollectionsResponse) {
-    option (google.api.http).get = "/blockchain/tokenisation/v1/collections";
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/collections";
   }
   rpc Assets(QueryAssetsRequest) returns (QueryAssetsResponse) {
-    option (google.api.http).get = "/blockchain/tokenisation/v1/assets";
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets";
   }
   rpc Asset(QueryAssetRequest) returns (QueryAssetResponse) {
-    option (google.api.http).get = "/blockchain/tokenisation/v1/assets/{asset_id}";
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}";
   }
   // What an account is owed right now, including income that has accrued since
   // its balance last moved.
   rpc Entitlement(QueryEntitlementRequest) returns (QueryEntitlementResponse) {
-    option (google.api.http).get = "/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}";
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}";
   }
 }
 

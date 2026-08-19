@@ -209,7 +209,7 @@ Governance only.
 
 ### Asset
 
-`GET /blockchain/tokenisation/v1/assets/{asset_id}`
+`GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}`
 
 Request:
 
@@ -227,7 +227,7 @@ Response:
 
 ### Assets
 
-`GET /blockchain/tokenisation/v1/assets`
+`GET /yamale/blockchain/tokenisation/v1/assets`
 
 Request:
 
@@ -245,7 +245,7 @@ Response:
 
 ### Collections
 
-`GET /blockchain/tokenisation/v1/collections`
+`GET /yamale/blockchain/tokenisation/v1/collections`
 
 Request:
 
@@ -262,7 +262,7 @@ Response:
 
 ### Entitlement
 
-`GET /blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}`
+`GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}`
 
 What an account is owed right now, including income that has accrued since its balance last moved.
 
@@ -281,7 +281,7 @@ Response:
 
 ### Params
 
-`GET /blockchain/tokenisation/v1/params`
+`GET /yamale/blockchain/tokenisation/v1/params`
 
 Response:
 
