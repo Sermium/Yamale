@@ -33,7 +33,7 @@ limits, evidence requirements, rotation delays, the attestation interval — the
 operational knobs. Nothing about how they work has changed.
 
 **Invariants** live in `x/constitution`. They are set once, at genesis, and
-`MsgUpdateParams` refuses to change them. There are eleven:
+`MsgUpdateParams` refuses to change them. There are thirteen:
 
 | Invariant | What it decides |
 |---|---|
@@ -48,6 +48,8 @@ operational knobs. Nothing about how they work has changed.
 | `enforcement_provisional_freeze_blocks` | how long one validator's freeze lasts unconfirmed |
 | `amendment_delay_blocks` | how long a change to this table waits in public |
 | `amendment_threshold_bps` | the share of power that must ratify such a change |
+| `foundation_custodian_count` | how many people hold the account seizures are sent to |
+| `foundation_signature_threshold` | how many of them must sign for it to act |
 
 ```bash
 blockchaind query constitution invariants
@@ -61,6 +63,44 @@ genesis — the chain does not start.
 The epoch length is in this table for the same reason as the ceilings it
 governs. A ceiling enforced at an interval the same vote can lengthen to a
 billion blocks has been repealed without appearing to have been touched.
+
+## The foundation's shape
+
+`enforcement_recovery_destination` names an `x/group` policy account, and the
+last two rows say what that policy has to look like: exactly five custodians,
+any three of whom can act. Together the three values describe the whole custody
+arrangement rather than just its address. See
+[the key ceremony](key-ceremony.md) for how it is built.
+
+They are constitutional because the group is **its own admin** — which is what
+stops any single key rewriting the membership, and also means the custodians
+could otherwise vote to change their own rule. Three of them agreeing to make it
+two of five would be an ordinary group proposal with a week's notice. Making it
+an amendment puts it where it belongs: three weeks in public and a four-fifths
+ratification, which is the right weight for "how many people it takes to move
+seized property".
+
+The count is exact, not a floor, and an ante decorator enforces it on every
+route a change can arrive by — a direct message, a group proposal, the execution
+of one submitted earlier, `x/authz`, or a governance proposal. A departing
+custodian is replaced in the same message or the update is refused:
+
+```
+this update would leave the foundation group with 4 custodians; the
+constitution fixes it at 5. A departing custodian is replaced in the same
+message …
+```
+
+The reason it is exact is that the alternative drifts quietly. Five custodians
+of whom three must sign is sixty per cent; four of whom three must sign is
+seventy-five, so everyone who stayed holds more authority than the ceremony gave
+them. At three it is unanimity and one unreachable custodian freezes the account
+permanently, with the chain still sending seizures into it. Nobody decides on
+that — it is reached by two reasonable decisions taken months apart.
+
+`MsgLeaveGroup` is refused outright for this group, for the same reason:
+leaving changes how much authority everybody else holds, so it is not a decision
+one custodian takes alone.
 
 ## Why amendment is possible at all
 

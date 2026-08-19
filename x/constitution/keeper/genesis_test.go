@@ -73,6 +73,14 @@ func TestInitGenesisRefusesAnUnsetInvariant(t *testing.T) {
 			func(inv *types.Invariants) { inv.AmendmentThresholdBps = 0 },
 			"must exceed enforcement_threshold_bps",
 		},
+		"custodian count": {
+			func(inv *types.Invariants) { inv.FoundationCustodianCount = 0 },
+			"foundation_custodian_count must be set",
+		},
+		"signature threshold": {
+			func(inv *types.Invariants) { inv.FoundationSignatureThreshold = 0 },
+			"foundation_signature_threshold must be set",
+		},
 	}
 
 	for name, tc := range cases {
@@ -115,6 +123,70 @@ func TestInitGenesisRefusesAnUnsatisfiableCeiling(t *testing.T) {
 
 	require.ErrorContains(t, k.InitGenesis(env.Ctx, *genesis),
 		"no set this small could ever satisfy it")
+}
+
+// The foundation group's shape is refused when it is legal in x/group and
+// wrong for this account. Each case here is a group x/group would happily
+// create and that no chain should be sending seized property to.
+func TestInitGenesisRefusesAnUnworkableFoundation(t *testing.T) {
+	cases := map[string]struct {
+		count, threshold uint32
+		expect           string
+	}{
+		"threshold above the membership": {
+			5, 6, "no set of custodians could ever act",
+		},
+		"a bare majority is not one": {
+			// 3 of 6 is exactly half: two disjoint halves could each pass a
+			// different proposal, and "the custodians agreed" would mean
+			// nothing.
+			6, 3, "not more than half",
+		},
+		"a minority": {
+			5, 2, "not more than half",
+		},
+		"unanimity": {
+			// The setting that looks safest and is the least safe available.
+			5, 5, "would freeze the account seized assets are sent to",
+		},
+		"a single custodian": {
+			1, 1, "would freeze the account seized assets are sent to",
+		},
+		"more custodians than the gate can read": {
+			// x/group's member query pages. Past the cap the ante gate reads a
+			// page instead of the group and would refuse every legitimate
+			// change to it — so the constitution refuses the count instead.
+			types.MaxFoundationCustodians + 1, 60, "above the ceiling",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			env := integration.New(t, types.ModuleName, module.AppModule{})
+			k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority, newStubStaking())
+
+			genesis := types.DefaultGenesis()
+			genesis.Invariants.EnforcementRecoveryDestination = testRecoveryDestination
+			genesis.Invariants.FoundationCustodianCount = tc.count
+			genesis.Invariants.FoundationSignatureThreshold = tc.threshold
+
+			err := k.InitGenesis(env.Ctx, *genesis)
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.expect)
+		})
+	}
+}
+
+// Three of five is what the ceremony produces, so a genesis carrying it has to
+// start. A validation that refused the arrangement the runbook builds would be
+// found on launch day.
+func TestTheCeremonysThreeOfFiveIsAcceptable(t *testing.T) {
+	inv := types.DefaultInvariants()
+	inv.EnforcementRecoveryDestination = testRecoveryDestination
+
+	require.Equal(t, uint32(5), inv.FoundationCustodianCount)
+	require.Equal(t, uint32(3), inv.FoundationSignatureThreshold)
+	require.NoError(t, inv.Validate())
 }
 
 // Round-tripped into a second environment, not the same one. Three round-trip

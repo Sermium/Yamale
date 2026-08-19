@@ -428,7 +428,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>enforcement_recovery_destination</code></td>
 <td>string</td>
-<td>enforcement_recovery_destination is the only address seized assets may be sent to. Fixed here because a mutable destination is the difference between a recovery mechanism and a theft mechanism: the threshold decides whether funds move, this decides who ends up with them.</td>
+<td>enforcement_recovery_destination is the only address seized assets may be sent to. Fixed here because a mutable destination is the difference between a recovery mechanism and a theft mechanism: the threshold decides whether funds move, this decides who ends up with them. It is an x/group policy account, so the two fields below say what that policy has to look like. Together the three describe the whole custody arrangement: this address, held by exactly foundation_custodian_count people, any foundation_signature_threshold of whom can act.</td>
 </tr>
 <tr>
 <td><code>enforcement_voting_period_blocks</code></td>
@@ -449,6 +449,16 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>amendment_threshold_bps</code></td>
 <td>uint64</td>
 <td>amendment_threshold_bps is the share of the voting power recorded when the amendment was proposed that must separately ratify it, in basis points. Separately, because a gov proposal passes on whatever threshold x/gov happens to carry, and x/gov&#39;s thresholds are ordinary mutable params — so an amendment ratified only through gov could be ratified by first voting gov&#39;s own numbers down. The ratification here is measured against a snapshot taken when the amendment opened, so it cannot be passed by shrinking the electorate either.</td>
+</tr>
+<tr>
+<td><code>foundation_custodian_count</code></td>
+<td>uint32</td>
+<td>foundation_custodian_count is how many people hold the account seized assets are sent to, and it is an exact number rather than a floor. Exact, because the failure it prevents is a ratchet rather than an event. A custodian leaves and the group drops to four: that is not &quot;one short&quot;, it moves the rule from three of five to three of four, so the people who remain each hold more of the authority than the set agreed they should. Lose another and it is three of three, where every custodian holds a veto and one unreachable person freezes the account permanently. Nobody votes for that; it is arrived at by taking two individually reasonable decisions in sequence, months apart, each one obviously fine on its own. So a departure and a replacement are one decision. x/group&#39;s MsgUpdateGroupMembers carries adds and removes in the same message, which makes the swap the native operation rather than a convention, and an ante decorator refuses any update that would leave the foundation group at a different size — including MsgLeaveGroup, which is a custodian shrinking the set with nobody&#39;s agreement but their own.</td>
+</tr>
+<tr>
+<td><code>foundation_signature_threshold</code></td>
+<td>uint32</td>
+<td>foundation_signature_threshold is how many of them must sign. Constitutional rather than an ordinary group decision because the group is its own admin: without this, three custodians could vote to make it two, and the arrangement that took a ceremony to establish would be changed by the people it constrains, in one proposal, with a week&#39;s notice. Moving it now costs a proposal, three weeks in public and a four-fifths ratification — which is the right weight for &quot;how many people it takes to move seized property&quot;.</td>
 </tr>
 </tbody></table>
 <h3>Ratification</h3>
@@ -557,6 +567,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>1106</td>
 <td><code>ErrNoInvariants</code></td>
 <td>this chain has no constitution</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrConstitutionalInvariant</code></td>
+<td>this would break a value the constitution fixes</td>
 </tr>
 </tbody></table>
 

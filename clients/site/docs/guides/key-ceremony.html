@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The key ceremony — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>The key ceremony</h1>
+<p>How the account that holds every seized asset on this chain comes into
+existence, in a room, on paper, with five people watching each other.</p>
+<p><strong>You need:</strong> two laptops that will never touch a network again in their current
+form, printed sheets, pens, tamper-evident envelopes, and eight people with half
+a day.</p>
+<p><strong>You will end with:</strong> a 3-of-5 group policy address to put in genesis, five
+sealed envelopes leaving in five different directions, and a signed record.</p>
+<hr>
+<h2>Why this exists</h2>
+<p>The <code>foundation</code> account on the devnet — <code>x/enforcement</code>&#39;s
+<code>recovery_destination</code>, the address every seized asset is sent to — was a single
+secp256k1 key in a <code>keyring-test</code> backend on a cloud VM. Unencrypted. Created by
+a setup script, printed once to a terminal nobody was reading, and written down
+nowhere.</p>
+<p>Anyone who could read that disk owned every asset the chain had ever recovered,
+and losing the VM would have lost them permanently. Nothing about it was
+malicious or even careless in the moment; it is simply what happens when the
+account that matters most is created by the same line of shell as the account
+that funds a test.</p>
+<p>This runbook is the version of that which cannot happen.</p>
+<h2>What is being built</h2>
+<p>Not a key. A <strong>3-of-5 <code>x/group</code> policy account</strong>: five named custodians, each
+holding their own key, any three of whom can act together.</p>
+<p>That is different from a key with five backup copies in three ways that matter:</p>
+<ul>
+<li><strong>The authority is distributed, not the backup.</strong> No single person ever holds
+a key that can move anything, so there is no moment at which somebody could.</li>
+<li><strong>Every signature is attributable.</strong> The chain records which three custodians
+agreed. A key with five copies records only that &quot;the foundation&quot; acted.</li>
+<li><strong>A custodian can be lost.</strong> Two can, in fact. Nothing has to be migrated,
+re-issued or announced.</li>
+</ul>
+<p>The chain enforces the shape as well as the address.
+<a href="constitution.html"><code>x/constitution</code></a> holds three values about this account —
+where seizures go, that there are exactly five custodians, and that three must
+sign — and none of them can be changed by an ordinary vote.</p>
+<h2>What this is not</h2>
+<p><strong>It is not an HSM ceremony.</strong> <a href="../scope/revised-scope.html">Scope §6</a> calls for
+hardware custody, and this is the version that works today with nothing to
+procure. Everything below is arranged so a hardware or HSM path substitutes for
+one step — &quot;the custodian&#39;s key is generated and stays on device X&quot; — without
+changing the roles, the sequence, the verification, the record or the group. If
+you buy hardware later, you replace step 5 and keep the rest.</p>
+<p><strong>It is not a way of hiding the address.</strong> The group policy address is public,
+printed in the record, and written into a genesis file everybody has. It has to
+be: it is where seizures go, and an address nobody can check is an address
+nobody can hold you to.</p>
+<hr>
+<h2>Roles</h2>
+<p>Eight people. The roles are not ceremonial — each exists because a ceremony run
+without it produces exactly the same files as one run properly, and nothing
+afterwards can tell the difference.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Who</th>
+<th>What they are responsible for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Lead</strong></td>
+<td>one person, named in advance</td>
+<td>Runs the sequence. Does not hold a key. Does not touch a keyboard while a phrase is on screen.</td>
+</tr>
+<tr>
+<td><strong>Custodians</strong></td>
+<td>five, from five different organisations or at minimum five different reporting lines</td>
+<td>Each generates one key, transcribes it, verifies it, seals it, and leaves with it.</td>
+</tr>
+<tr>
+<td><strong>Scribe</strong></td>
+<td>one person, not a custodian</td>
+<td>Writes the record as it happens — addresses, fingerprints, times, and anything that goes wrong.</td>
+</tr>
+<tr>
+<td><strong>Observer</strong></td>
+<td>one person from outside the organisation running the chain</td>
+<td>Watches. Checks the binary hash independently. Signs that what the record says is what they saw.</td>
+</tr>
+</tbody></table>
+<p><strong>Five custodians who all work for the same person is not a 3-of-5.</strong> The
+arrangement&#39;s whole value is that three of them would have to agree against the
+interests of the other two, and colleagues with a shared manager cannot do that.
+If five organisations are not available, five people with different line
+managers and different offices is the floor.</p>
+<p><strong>The observer&#39;s independence is the thing being bought.</strong> An observer from the
+same team as the lead is a witness. Record their organisation in the record so a
+reader can see which one they were.</p>
+<hr>
+<h2>Before the day</h2>
+<h3>The machines</h3>
+<p>Two laptops. The second one is for the restore drill and is not optional.</p>
+<ol>
+<li><strong>Wipe and reinstall</strong> from known media. Not &quot;a clean user account&quot; — a fresh
+install.</li>
+<li><strong>Disable swap and hibernation.</strong> This is the one item most often skipped and
+it defeats everything the tool does about memory: a phrase this program
+carefully zeroes is a phrase the kernel may already have written to disk.
+On Linux, <code>swapoff -a</code> and remove the swap entry from <code>/etc/fstab</code>. Boot from
+a read-only or RAM-backed image if you can.</li>
+<li><strong>Disable the radios in firmware</strong>, not in software. A Wi-Fi card switched
+off in the operating system is a Wi-Fi card one command away from being on.</li>
+<li><strong>Bare metal.</strong> Not a virtual machine: a hypervisor can write guest memory to
+the host&#39;s disk, and the guest has no way to know.</li>
+<li><strong>No dock, no cable, no phone plugged in</strong>, and none for the duration.</li>
+</ol>
+<p>Both machines are destroyed or wiped afterwards. Plan for that before you use
+them for anything else.</p>
+<h3>The tool</h3>
+<p>Build <code>ceremony</code> on a normal machine and carry the binary across on removable
+media:</p>
+<pre><code class="language-bash">go build -o ceremony ./tools/ceremony
+sha256sum ceremony
+</code></pre>
+<p><strong>The observer computes that hash independently</strong> — on their own machine, from
+their own checkout, with their own <code>sha256sum</code> — and again on the ceremony
+machine before anything is generated. The tool prints its own hash when it
+starts, and that number proves nothing on its own: a substituted binary would
+print whatever hash it liked. It is there so the observer has something to
+compare against, and the comparison is the check.</p>
+<p>Carry <code>blockchaind</code> too. It is not needed to generate keys, and it is what the
+restore drill&#39;s independent check uses.</p>
+<h3>The paper</h3>
+<p>Per custodian: a numbered sheet with twenty-four ruled lines, a line for the
+fingerprint, a line for their name and the date, and a tamper-evident envelope.</p>
+<p>Print them. Handwriting twenty-four lines onto blank paper is how words end up
+in the wrong order.</p>
+<hr>
+<h2>The sequence</h2>
+<h3>1. Open</h3>
+<p>The lead states the date, the chain id, who is present and in what role. The
+scribe writes it down. Phones go in a box outside the room, including the
+lead&#39;s.</p>
+<p>Read this out:</p>
+<blockquote>
+<p>Nothing that appears on that screen may be photographed, copied to another
+medium, read aloud, or written anywhere except on the sheet belonging to the
+custodian it belongs to. If any of that happens, we destroy the key and
+generate a new one. Nobody has to argue for that and nobody has to feel
+awkward about calling it.</p>
+</blockquote>
+<h3>2. Prepare the machine</h3>
+<p>Boot it. Confirm it is offline as far as anybody can. Show the observer the
+firmware settings for the radios.</p>
+<pre><code class="language-bash">./ceremony preflight
+</code></pre>
+<p>The tool prints its own hash, reports what it found about the network, and then
+prints what it could <strong>not</strong> check. Read that second list aloud. It is there so
+nobody hears &quot;no network detected&quot; as a guarantee — the check cannot see a radio
+that is present but unassociated, a cable plugged in one second later, whether
+this machine has ever been online, or whether anything in the room is recording
+the screen.</p>
+<p>Then it asks ten questions and you answer <code>yes</code> to each, out loud, with the
+observer listening. Any answer that is not <code>yes</code> stops the ceremony. There is no
+<code>--force</code>; if the machine has a network, proceeding needs
+<code>--network-acknowledged &quot;&lt;reason&gt;&quot;</code> and the reason goes into the record where
+somebody will read it later.</p>
+<h3>3. Generate the first custodian&#39;s key</h3>
+<p>Everyone except that custodian, the lead and the observer turns away from the
+screen or leaves. The custodian sits down with their sheet.</p>
+<pre><code class="language-bash">./ceremony custodian --name &quot;Amara Okafor&quot; --ceremony &quot;yamale-testnet-1 foundation&quot;
+</code></pre>
+<p>The pre-flight runs again — this is deliberate, not a leftover — and then
+twenty-four numbered words appear.</p>
+<p>The custodian writes them down. In order. Numbered. There is no hurry and the
+room waits.</p>
+<h3>4. Verify the transcription — with the screen cleared</h3>
+<p>They press return. <strong>The screen clears, scrollback included.</strong> The tool then
+asks for five words at random positions, and one of them is always the last.</p>
+<p>The clearing is what makes this a check rather than a formality. With the phrase
+still visible the custodian reads it off the monitor, the sheet in their hand is
+never consulted, and the tool has confirmed only that the screen agrees with
+itself.</p>
+<p>A wrong answer names every position that disagreed, redisplays the phrase, and
+tries again. Three failed passes and the tool stops and tells you to destroy the
+sheet and start over. <strong>Do that.</strong> A sheet that cannot be read back three times
+has something wrong with it, and a fresh key costs five minutes.</p>
+<p><strong>Why five words and not twenty-four.</strong> Sampling five of twenty-four catches a
+single transcription error about one time in five, which sounds poor until you
+notice what the check is really for: it makes the custodian read their own sheet
+back, in order, under someone else&#39;s eye, before the room moves on. Asking for
+all twenty-four would be better and nobody would do it a second time.</p>
+<h3>5. Record the public half</h3>
+<p>The tool prints the address, the public key, and a <strong>fingerprint</strong> — eight
+characters in two groups, like <code>08DZ-S1VA</code>.</p>
+<p>The custodian writes the fingerprint on their own sheet, next to the phrase, and
+reads it aloud. The scribe writes it on the record.</p>
+<p>That is what makes a swapped or mis-filed envelope detectable. Five years from
+now an envelope labelled &quot;custodian 3&quot; either recovers to a key whose
+fingerprint matches the record or it does not, and that check needs no network,
+no node, and nobody&#39;s word. The alphabet has no <code>I</code>, <code>L</code>, <code>O</code> or <code>U</code> in it, so
+there is nothing to misread when it is read across a room.</p>
+<p>Then: seal the sheet in the envelope, sign across the seal, and the custodian
+keeps it.</p>
+<p><strong>Do not pass <code>--armor</code> for a custodian.</strong> It writes an encrypted copy of the
+key to a file, which is a second copy of something that should have exactly one,
+on a medium that leaves the room. It exists for validator operator keys, which
+have to get onto a node somehow.</p>
+<h3>6. Repeat, four more times</h3>
+<p>One custodian per invocation. The tool refuses to overwrite an existing public
+record, which is the check against two people being entered under the same name.</p>
+<h3>7. The restore drill</h3>
+<p><strong>Do this during the ceremony, not afterwards.</strong> It is the only step that tests
+the thing the whole ceremony produces — the paper — and a ceremony that skips it
+finds out the paper was wrong on the day it matters.</p>
+<p>Pick one custodian. Any one; let the observer choose.</p>
+<p>On <strong>the second machine</strong>, which has never seen the phrase:</p>
+<pre><code class="language-bash">./ceremony restore --expect yml1et6twxgwvfx7pkh9kt57sttz0qtjujmtx402rn
+</code></pre>
+<p>The custodian opens their envelope and types the phrase from the sheet. Not from
+memory — from the sheet, because the sheet is what is being tested.</p>
+<p>The tool derives the address and compares.</p>
+<ul>
+<li><strong>It matches.</strong> The paper works. Say so, write it in the record, then destroy
+this instance: wipe the second machine before it leaves the room. The phrase
+you just typed is on it until you do.</li>
+<li><strong>It does not match.</strong> The sheet is wrong. Destroy the key, destroy the sheet,
+and generate a new one from step 3. <strong>Do not</strong> try to work out which word is
+wrong and correct it: a sheet edited after the fact is a sheet nobody can
+trust, and the key it protects is a key nobody has proven.</li>
+</ul>
+<p>The custodian re-seals their sheet in a <strong>fresh</strong> envelope. The old one has been
+opened and its seal means nothing now.</p>
+<p>Independent check, if you want one — and you should:</p>
+<pre><code class="language-bash">blockchaind keys add drill --recover --keyring-backend test --home /tmp/drill
+blockchaind keys show drill -a --keyring-backend test --home /tmp/drill
+rm -rf /tmp/drill
+</code></pre>
+<p>Same phrase, same address, a completely different implementation. If
+<code>ceremony</code> and <code>blockchaind</code> disagree, stop the ceremony: one of them is wrong
+and you do not yet know which.</p>
+<h3>8. Assemble the group</h3>
+<pre><code class="language-bash">./ceremony group --threshold 3 custodian-*.json
+</code></pre>
+<p>This prints the <strong>group policy address</strong> and writes:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>group-genesis.json</code></td>
+<td>Spliced into <code>app_state.group</code>. This is the one a launch uses.</td>
+</tr>
+<tr>
+<td><code>constitution-invariants.json</code></td>
+<td>The three values <code>app_state.constitution.invariants</code> needs, so they cannot disagree with the group.</td>
+</tr>
+<tr>
+<td><code>group-members.json</code>, <code>group-policy.json</code></td>
+<td>For <code>blockchaind tx group create-group-with-policy</code>, on a chain that is already running.</td>
+</tr>
+<tr>
+<td><code>group-create-msg.json</code></td>
+<td>The same message as JSON, for review.</td>
+</tr>
+</tbody></table>
+<p>Read the policy address aloud. The scribe writes it on the record. Anyone can
+check it independently, without the custodian files:</p>
+<pre><code class="language-bash">./ceremony address --seq 1
+</code></pre>
+<p><strong>Why the group goes into genesis rather than being created afterwards.</strong> The
+address <code>x/group</code> gives a policy account is derived from the policy sequence
+number alone — not from the members, not from the threshold, not from the admin,
+not from the chain id. So it is perfectly knowable before genesis, and it
+commits to nothing whatsoever about who controls it. A genesis that named the
+address and left the group to be created by a transaction after launch would be
+pointing every future seizure at whichever group policy somebody created first.
+Putting the group in the same file closes that window rather than shortening it.</p>
+<h3>9. The record</h3>
+<p>The scribe fills in a config file and renders it:</p>
+<pre><code class="language-json">{
+  &quot;ceremony&quot;: &quot;yamale-testnet-1 foundation&quot;,
+  &quot;chain_id&quot;: &quot;yamale-testnet-1&quot;,
+  &quot;location&quot;: &quot;Geneva&quot;,
+  &quot;started_at&quot;: &quot;2026-09-01T09:00:00Z&quot;,
+  &quot;completed_at&quot;: &quot;2026-09-01T14:30:00Z&quot;,
+  &quot;threshold&quot;: 3,
+  &quot;policy_address&quot;: &quot;yml1afk9...&quot;,
+  &quot;binary_hash&quot;: &quot;…&quot;,
+  &quot;custodian_files&quot;: [&quot;custodian-amara-okafor.json&quot;, &quot;…&quot;],
+  &quot;participants&quot;: [
+    {&quot;name&quot;: &quot;R. Lead&quot;, &quot;role&quot;: &quot;ceremony lead&quot;, &quot;organisation&quot;: &quot;Yamale Foundation&quot;},
+    {&quot;name&quot;: &quot;S. Scribe&quot;, &quot;role&quot;: &quot;scribe&quot;, &quot;organisation&quot;: &quot;Yamale Foundation&quot;},
+    {&quot;name&quot;: &quot;O. Observer&quot;, &quot;role&quot;: &quot;independent observer&quot;, &quot;organisation&quot;: &quot;External Auditors LLP&quot;}
+  ],
+  &quot;notes&quot;: []
+}
+</code></pre>
+<pre><code class="language-bash">./ceremony record --config record.json
+</code></pre>
+<p>The addresses and fingerprints are read from the custodian files rather than
+typed, so the scribe cannot mistype one into the document that exists to catch
+mistyped addresses.</p>
+<p><strong>Print it. Everybody signs the paper copy before leaving</strong> — all five
+custodians, the lead, the scribe and the observer. A record everybody signs in a
+shared document afterwards is a record signed by whoever had the link.</p>
+<p><code>notes</code> is where anything unusual goes: an interruption, a key destroyed and
+regenerated, a phrase exposed. An empty list is itself a claim — that nothing
+happened — and signing the record is signing that claim.</p>
+<h3>10. Close the machines</h3>
+<p>Wipe both, in the room, with everybody watching. Not &quot;later&quot;. The phrases are
+recoverable from a disk that leaves the building with a filesystem on it.</p>
+<p>If the machines are being kept as evidence rather than wiped, they go into a
+sealed container and the record says who holds it.</p>
+<hr>
+<h2>When a phrase is exposed</h2>
+<p>Somebody photographs the screen. A stranger opens the door. A custodian reads a
+word out loud to check it. A laptop&#39;s screen is visible from the corridor and
+somebody notices halfway through.</p>
+<p><strong>Destroy the key and generate a new one. Always. Every time.</strong></p>
+<p>There is no version of this where the answer is &quot;it was only for a second&quot; or
+&quot;it was only one word&quot; or &quot;that was a colleague&quot;. Not because those are
+necessarily dangerous, but because a rule with an exception is a rule somebody
+has to argue for in a room where everybody wants to go home — and the person who
+would have to make that argument is usually the one who made the mistake.</p>
+<p>It is written here in plain words so that nobody has to make that call under
+social pressure. The rule already made it. Say &quot;we&#39;re regenerating&quot;, start again
+from step 3, and put both the exposure and the regeneration in the record.</p>
+<p>Regenerating one custodian&#39;s key costs about ten minutes. Nothing else has to
+change: the other four keys are untouched, and the group is assembled at the end
+from whatever the five current public records say.</p>
+<p><strong>If the exposure is noticed after the group has been assembled and genesis
+built</strong>, it is not a ceremony problem any more — it is a custodian replacement,
+below.</p>
+<hr>
+<h2>Validators are different, and the difference matters</h2>
+<p>A validator has two keys, and they are handled in opposite ways.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Operator key</th>
+<th>Consensus key</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>What it does</strong></td>
+<td>Moves the stake, changes commission, signs governance</td>
+<td>Signs blocks, thousands of times a day</td>
+</tr>
+<tr>
+<td><strong>Where it is made</strong></td>
+<td>Here, on the air-gapped machine</td>
+<td>On the node, by <code>blockchaind init</code></td>
+</tr>
+<tr>
+<td><strong>Where it lives</strong></td>
+<td>Off the node entirely</td>
+<td><code>config/priv_validator_key.json</code>, and nowhere else, ever</td>
+</tr>
+<tr>
+<td><strong>Backups</strong></td>
+<td>On paper, like a custodian&#39;s</td>
+<td><strong>None</strong></td>
+</tr>
+</tbody></table>
+<pre><code class="language-bash">./ceremony validator --name &quot;Banque Nationale&quot; --armor operator.asc
+</code></pre>
+<p><code>--armor</code> is appropriate here: the key has to reach a node somehow, and retyping
+twenty-four words into a production server is worse than an encrypted file.
+Import it with <code>blockchaind keys import &lt;name&gt; operator.asc</code> and delete the file
+afterwards.</p>
+<p><strong>The consensus key is never generated here.</strong> <code>ceremony consensus</code> exists only
+to refuse and explain why:</p>
+<pre><code>blockchaind init &lt;moniker&gt; --chain-id &lt;chain&gt; --default-denom uyml
+</code></pre>
+<p>Two copies of a consensus key signing at once is double-signing, which the chain
+slashes and jails automatically, with no appeal and no way to distinguish malice
+from a restored backup. A copy taken &quot;for safety&quot; is the usual cause. Carry the
+<strong>public</strong> half — <code>blockchaind comet show-validator</code> — to wherever the
+<code>create-validator</code> transaction is built, and leave the private half where it was
+made for the whole life of the validator.</p>
+<hr>
+<h2>Replacing a custodian</h2>
+<p>Custodians leave. Somebody retires, changes employer, or is no longer somebody
+the other four would want holding a share of this.</p>
+<p><strong>A departure and a replacement are one decision, in one message.</strong> Never a
+removal now and an appointment later.</p>
+<p>The reason is that the drift is quiet and it ratchets:</p>
+<table>
+<thead>
+<tr>
+<th>Custodians</th>
+<th>Rule</th>
+<th>Share needed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>5</td>
+<td>3 of 5</td>
+<td>60%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>3 of 4</td>
+<td>75%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>3 of 3</td>
+<td>unanimity — every custodian holds a veto</td>
+</tr>
+</tbody></table>
+<p>Dropping to four is not &quot;one short&quot;. It concentrates authority in whoever
+remains, above what the ceremony gave them. Drop to three and one custodian who
+cannot be reached freezes the account the chain is still sending seized property
+into — permanently. Nobody ever votes for that outcome; it is arrived at by two
+individually reasonable decisions taken months apart.</p>
+<p>So:</p>
+<ol>
+<li><p><strong>The incoming custodian generates their key through this ceremony</strong>, from
+step 2. Same machine preparation, same transcription check, same restore
+drill, same envelope. They are not handed a key somebody else made, and they
+do not use a key they already had.</p>
+</li>
+<li><p><strong>Any current custodian proposes the swap.</strong> Build it with the tool, which
+has no way to express only half of it:</p>
+<pre><code class="language-bash">./ceremony replace-custodian \
+  --outgoing custodian-bernard-kouassi.json \
+  --incoming custodian-fatou-diallo.json \
+  custodian-*.json
+</code></pre>
+<p>Fill in the proposer&#39;s address and submit:</p>
+<pre><code class="language-bash">blockchaind tx group submit-proposal replace-custodian-proposal.json \
+  --chain-id yamale-testnet-1 --keyring-backend file
+</code></pre>
+</li>
+<li><p><strong>Three custodians vote yes</strong>, and one of them executes it. The same
+three-of-five that moves money moves membership.</p>
+</li>
+<li><p><strong>The outgoing custodian&#39;s envelope is destroyed</strong>, witnessed, and the
+destruction is recorded. Their key no longer controls anything, but an
+envelope in a drawer that nobody can account for is a question somebody will
+eventually have to answer.</p>
+</li>
+<li><p><strong>The record is amended</strong> with the swap, both fingerprints, and the date. The
+tool prints the line to use.</p>
+</li>
+</ol>
+<p><strong>The chain enforces this; it is not a convention.</strong> <code>x/constitution</code>&#39;s ante
+gate refuses any <code>MsgUpdateGroupMembers</code> that would leave the foundation group
+at a size other than <code>foundation_custodian_count</code> — whether it arrives directly,
+inside a group proposal, inside an <code>x/authz</code> <code>MsgExec</code>, inside a governance
+proposal, or as the execution of a proposal submitted earlier. It also refuses
+<code>MsgLeaveGroup</code> for the foundation group outright: leaving changes how much
+authority everybody else holds, so it is not a decision one custodian takes
+alone. And it refuses moving the group&#39;s admin, which would put a single key
+back in charge of the membership.</p>
+<p>Changing the numbers themselves — three of five to something else — is a
+<strong>constitutional amendment</strong>: a governance proposal, three weeks in public, and
+a four-fifths ratification by the validator set. See
+<a href="constitution.html">what governance can and cannot change</a>. That is deliberately
+much harder than a group vote, because the custodians should not be able to
+rewrite the rule that constrains them.</p>
+<hr>
+<h2>Into genesis</h2>
+<p>The ceremony happens <strong>before</strong> the genesis is built, not after.
+<code>x/constitution</code>&#39;s <code>InitGenesis</code> refuses to start a chain whose recovery
+destination is unset, so a genesis built without a foundation is a genesis that
+fails on every validator at height one.</p>
+<pre><code class="language-bash">CEREMONY_DIR=/path/to/ceremony ./02-build-canonical-genesis.sh accounts.txt
+</code></pre>
+<p>Step 2 of the <a href="../../scripts/testnet/README.html">deployment runbook</a> reads
+<code>group-genesis.json</code> and <code>constitution-invariants.json</code> from that directory,
+splices the group into <code>app_state.group</code>, sets the recovery destination in both
+the places that must agree, and then re-reads the file it is about to distribute
+to check that all of it took. It refuses to write <code>canonical-genesis.json</code>
+otherwise — because every one of these values is individually legal and
+collectively wrong in ways <code>genesis validate</code> cannot see. A constitution saying
+three-of-five over a group that is a two-of-four starts a chain perfectly
+happily.</p>
+<p>Verify it on the running chain:</p>
+<pre><code class="language-bash">blockchaind query constitution invariants
+blockchaind query enforcement params
+blockchaind query group group-policies-by-group 1
+</code></pre>
+<p>The address in all three has to be the one on the signed record.</p>
+<hr>
+<p><strong>Full reference:</strong> <a href="../reference/constitution.html">x/constitution</a> and
+<a href="../reference/enforcement.html">x/enforcement</a> — every message, query, parameter
+and error code, generated from the source.</p>
+
+</main>
+</body>
+</html>

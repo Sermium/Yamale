@@ -77,6 +77,34 @@ const (
 	// itself be amended is not a floor.
 	MinAmendmentDelayBlocks = 120_960
 
+	// DefaultFoundationCustodianCount and DefaultFoundationSignatureThreshold
+	// are the shape of the account seized assets are sent to: five people, any
+	// three of whom can act.
+	//
+	// Unlike the recovery destination itself these do have a default, because
+	// they are a shape rather than an identity. Five and three is the smallest
+	// arrangement that is neither a single point of failure nor a set where
+	// everybody holds a veto: two custodians can be unavailable and the
+	// foundation still works, two can collude and it still does not.
+	DefaultFoundationCustodianCount     = 5
+	DefaultFoundationSignatureThreshold = 3
+
+	// MaxFoundationCustodians is a ceiling on the count, and it exists for a
+	// mechanical reason rather than a philosophical one.
+	//
+	// The ante gate that enforces the count reads the group's members through
+	// x/group's own query service, and that query pages: asked for a group's
+	// members with no page request it returns at most a hundred of them. A
+	// constitution naming more custodians than the query returns would make the
+	// gate undercount and refuse every legitimate change to the group — so the
+	// count is capped well below the page size instead, and the gate asks for
+	// more than the cap so the two can never meet.
+	//
+	// Fifty is far past anything anybody would administer. A custody
+	// arrangement that needs more than fifty named people is not one where
+	// three of them can be found in a week.
+	MaxFoundationCustodians = 50
+
 	// BasisPoints is the denominator every share on this chain is measured
 	// against.
 	BasisPoints = 10_000
@@ -103,6 +131,8 @@ func DefaultInvariants() Invariants {
 		EnforcementProvisionalFreezeBlocks: DefaultEnforcementProvisionalFreezeBlocks,
 		AmendmentDelayBlocks:               DefaultAmendmentDelayBlocks,
 		AmendmentThresholdBps:              DefaultAmendmentThresholdBps,
+		FoundationCustodianCount:           DefaultFoundationCustodianCount,
+		FoundationSignatureThreshold:       DefaultFoundationSignatureThreshold,
 	}
 }
 
@@ -189,6 +219,10 @@ func (inv Invariants) Validate() error {
 		return fmt.Errorf("enforcement_recovery_destination is not a valid address: %w", err)
 	}
 
+	if err := inv.validateFoundation(); err != nil {
+		return err
+	}
+
 	if inv.AmendmentDelayBlocks < MinAmendmentDelayBlocks {
 		return fmt.Errorf(
 			"amendment_delay_blocks is %d, below the floor of %d; a delay short enough to pass unnoticed is the same as no delay",
@@ -208,6 +242,50 @@ func (inv Invariants) Validate() error {
 		)
 	}
 
+	return nil
+}
+
+// validateFoundation refuses a custody arrangement that cannot do its job.
+//
+// Every rule here rules out a group that is legal in x/group and wrong for this
+// account. x/group would happily create a 1-of-5, a 5-of-5 or a 3-of-2; none of
+// them is a thing the chain should be sending seized property to.
+func (inv Invariants) validateFoundation() error {
+	count := uint64(inv.FoundationCustodianCount)
+	threshold := uint64(inv.FoundationSignatureThreshold)
+
+	if count == 0 {
+		return fmt.Errorf("foundation_custodian_count must be set; a foundation group with no members is an account nobody can spend from, and the chain would keep sending seizures to it")
+	}
+	if threshold == 0 {
+		return fmt.Errorf("foundation_signature_threshold must be set; a threshold of zero would let anybody execute a proposal against the account holding seized assets")
+	}
+	if count > MaxFoundationCustodians {
+		return fmt.Errorf(
+			"foundation_custodian_count is %d, above the ceiling of %d; past it the ante gate cannot read the whole group and would refuse every change to it",
+			count, MaxFoundationCustodians)
+	}
+	if threshold > count {
+		return fmt.Errorf(
+			"foundation_signature_threshold (%d) exceeds foundation_custodian_count (%d), so no set of custodians could ever act",
+			threshold, count)
+	}
+	// Strictly more than half. At or below it, two disjoint groups of
+	// custodians could each pass a different proposal, and "the custodians
+	// agreed" would mean nothing.
+	if threshold*2 <= count {
+		return fmt.Errorf(
+			"foundation_signature_threshold (%d) is not more than half of foundation_custodian_count (%d); a minority could move seized assets, and two disjoint minorities could each pass a different proposal",
+			threshold, count)
+	}
+	// Unanimity is the setting that looks safest and is the least safe
+	// available: one custodian who dies, resigns or cannot be reached freezes
+	// the account permanently, with the chain still sending seizures into it.
+	if threshold == count {
+		return fmt.Errorf(
+			"foundation_signature_threshold (%d) equals foundation_custodian_count, so losing one custodian would freeze the account seized assets are sent to, permanently",
+			threshold)
+	}
 	return nil
 }
 

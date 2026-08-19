@@ -276,6 +276,15 @@ rather than preserve it.</p>
 <p><code>recovery_destination</code> is the foundation account: the trust body administering
 the chain, which holds what is recovered so it can be restituted to the people
 it was taken from.</p>
+<p><strong>It is not a key.</strong> It is a 3-of-5 <code>x/group</code> policy account — five named
+custodians, any three of whom can act, every signature attributable on chain.
+That is not a stylistic preference: the devnet&#39;s foundation account was a single
+unencrypted key in a <code>keyring-test</code> backend on a cloud VM, printed once and
+written down nowhere, and losing that VM would have lost every asset the chain
+had ever recovered. The constitution fixes the shape as well as the address —
+exactly five custodians, exactly three signatures — and a departing custodian is
+replaced in the same message or the update is refused. See
+<a href="key-ceremony.html">the key ceremony</a>.</p>
 <p>It has no default and it is not optional. No address compiled into the binary is
 anybody&#39;s foundation, so genesis has to name one — and a genesis that does not
 is refused at <code>InitGenesis</code>, which means the chain does not start rather than

@@ -6052,6 +6052,14 @@
         "amendment_threshold_bps": {
           "type": "string",
           "format": "uint64"
+        },
+        "foundation_custodian_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "foundation_signature_threshold": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

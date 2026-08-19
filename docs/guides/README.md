@@ -10,6 +10,7 @@ before publishing.
 | [Run a local chain](local-devnet.md) | A single-node network on your machine, with the API open. |
 | [Set up a treasury](treasury.md) | Shared funds with roles, spending limits and a vesting schedule. |
 | [What governance can and cannot change](constitution.md) | The line between an ordinary parameter and an invariant, and how one is amended. |
+| [The key ceremony](key-ceremony.md) | The room, the paper and the 3-of-5 that ends up holding every seized asset. |
 
 For exhaustive detail on any message, query, parameter or error code, see the
 [reference](../reference/), which is generated from the code and cannot drift
