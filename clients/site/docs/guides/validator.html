@@ -44,10 +44,31 @@ trusted with block production; having demonstrably kept up is the argument.</p>
 </code></pre>
 <h2>2. Apply</h2>
 <pre><code class="language-bash">blockchaind tx validatorgov apply-validator &quot;Carol Node&quot; &quot;carol@example.org&quot; \
+  &quot;5493001KJTIIGC8Y1R12&quot; &quot;5493001KJTIIGC8Y1R12&quot; &quot;CH&quot; \
   --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
 </code></pre>
 <p>A moniker and a way to reach you. Put something real in the second field — it is
 how governance asks you questions before voting.</p>
+<p>The last three are the declaration, and all three are required:</p>
+<ul>
+<li><strong>legal entity identifier</strong> — your LEI if you have one, your national register
+number otherwise.</li>
+<li><strong>ultimate beneficial owner identifier</strong> — whoever ultimately owns you. If
+nobody does, repeat your own identifier. &quot;Nobody owns us&quot; is a claim you sign,
+not a field you leave blank.</li>
+<li><strong>jurisdiction</strong> — an ISO 3166-1 alpha-2 country code. It is checked against
+the assigned list; <code>QK</code> and <code>ZZ</code> are two letters and neither is a country.</li>
+</ul>
+<p>They are required because the concentration ceilings are computed over declared
+entities, owners and jurisdictions. A validator that declared none would belong
+to no group and therefore sit under no ceiling, which is the one outcome a
+beneficial-ownership register exists to prevent. They are also what the vote is
+meant to be judging: a set asked to approve a candidate whose owner and
+jurisdiction it cannot see is being asked to approve an address.</p>
+<p>The chain cannot check any of this. What it can do is make it a signed statement
+with a date on it, so that a false one is documented and actionable — which is
+how the rest of the financial system handles beneficial ownership, and the most
+an honest chain can offer.</p>
 <pre><code class="language-bash">blockchaind query validatorgov list-validator-application
 </code></pre>
 <pre><code class="language-yaml">validator_application:
@@ -155,6 +176,54 @@ producing blocks even when the new node drops — which, for a node on a home
 connection, it will.</p>
 <p><strong>Full reference:</strong> <a href="../reference/validatorgov.html">x/validatorgov</a> — every
 message, query, parameter and error code, generated from the source.</p>
+<h2>Concentration ceilings</h2>
+<p>Your power is not only yours to keep. Three ceilings bound how much of the
+validator set any one entity, owner or country may carry, and they are checked
+at <strong>every epoch</strong> — not at admission.</p>
+<pre><code class="language-bash">blockchaind query validatorgov concentration
+</code></pre>
+<p>That is deliberate, and it is the part most easily got wrong. Admission is an
+event; concentration is a state. Nothing applies to vote on when a state-owned
+bank acquires a participant, when two members merge, when an operator is
+nationalised, or when a proposal grants somebody more seats. Power concentrates
+and there is no message for the chain to refuse. A ceiling that were only tested
+when somebody joined would be a ceiling on joining.</p>
+<p><strong>If your group goes over one</strong>, the epoch check jails validators from that
+group, largest first, until it is back inside. Nothing is slashed, no delegation
+unbonds, and no vote is taken:</p>
+<pre><code class="language-bash">blockchaind query validatorgov list-demotion
+</code></pre>
+<p><strong>It is undone automatically.</strong> At the first epoch where the breach has cleared,
+the demotion record goes and the validator is unjailed. You do not have to ask
+the validators who gained from your demotion for permission to come back — which
+is the difference between a ceiling and an expulsion. You cannot <code>unjail</code>
+yourself out of one, though: that path is closed while a demotion is in force,
+because it would otherwise be a one-transaction way to ignore the ceiling
+entirely.</p>
+<p><strong>A ceiling that cannot be satisfied is reported, not enforced.</strong> Three
+validators under three owners cannot all sit below a fifth of the power, and a
+check that kept demoting until the arithmetic worked would demote the chain into
+a halt. Below <code>min_active_validators</code> the breach is published as an event every
+epoch and nothing is done about it. Enforcement must never be the thing that
+stops block production.</p>
+<p>The ceilings themselves are invariants — see
+<a href="constitution.html">what governance can and cannot change</a>.</p>
+<h2>Re-attesting your declaration</h2>
+<p>The declaration you applied with goes stale. Re-sign for it:</p>
+<pre><code class="language-bash">blockchaind tx validatorgov attest-ownership \
+  &quot;5493001KJTIIGC8Y1R12&quot; &quot;5493001KJTIIGC8Y1R12&quot; &quot;CH&quot; \
+  --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
+</code></pre>
+<p>You restate the whole declaration, not just the date. That is the point: if your
+owner has changed and you re-attest the old values, you have put a false
+statement on the record under your own key, which is a fact a supervisor can act
+on. A bare heartbeat would have let you keep a stale declaration fresh without
+ever repeating it.</p>
+<p>Nothing happens to you if you let it lapse. The chain emits a
+<code>EventDeclarationStale</code> for you at every epoch and leaves your seats alone —
+turning inattention into a consensus event would be worse than the problem, and
+a chain cannot verify a declaration anyway. What it can do is publish the date
+and say so loudly, which is enough for admission governance to act on.</p>
 <h2>Rotating a validator&#39;s operator key</h2>
 <p>The operator address is a validator&#39;s identity, so it cannot simply be edited.
 But keys are lost — a phone drowns, a person leaves — and a design with no
