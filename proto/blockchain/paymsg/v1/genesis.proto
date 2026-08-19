@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package blockchain.paymsg.v1;
+
+import "amino/amino.proto";
+import "blockchain/paymsg/v1/approved_participant.proto";
+import "blockchain/paymsg/v1/customer.proto";
+import "blockchain/paymsg/v1/params.proto";
+import "blockchain/paymsg/v1/participant_application.proto";
+import "blockchain/paymsg/v1/payment_record.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// GenesisState defines the paymsg module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated ParticipantApplication participant_application_map = 2 [(gogoproto.nullable) = false];
+  repeated ApprovedParticipant approved_participant_map = 3 [(gogoproto.nullable) = false];
+  repeated PaymentRecord payment_record_map = 4 [(gogoproto.nullable) = false];
+  repeated Customer customer_map = 5 [(gogoproto.nullable) = false];
+}

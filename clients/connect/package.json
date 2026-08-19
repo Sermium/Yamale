@@ -1,0 +1,18 @@
+{
+  "name": "@yamale/connect",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Connect an application to the Yamale wallet: a postMessage protocol and a CosmJS-compatible signer.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cosmjs/proto-signing": "^0.33.1"
+  }
+}

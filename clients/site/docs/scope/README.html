@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scope of record — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Scope of record</h1>
+<p><a href="revised-scope.html"><code>revised-scope.md</code></a> is the authoritative scope for Yamale. It supersedes every
+earlier enhancement specification in this repository and in prior discussion.</p>
+<p>Two decisions in it reframe the work rather than extend it:</p>
+<ul>
+<li><strong>Payments and land are separate deployments</strong> sharing infrastructure, not a
+chain. Land is the most sovereign asset class there is; no state will place
+its cadastre on a ledger validated by other states. The shared component is
+therefore the stack, not the validator set.</li>
+<li><strong>Yamale is a distribution, not a network</strong> — a permissioned financial-ledger
+platform shipped as profiles and deployed by others. There is no network to
+operate and no continental rail to be granted permission to build.</li>
+</ul>
+<p>That second point dissolves the hardest problem in the previous framing and
+introduces obligations this repository does not yet meet: long-term support
+branches, a backport policy, upgrade tooling, deployment certification, and a
+legal entity able to sign warranties.</p>
+<p>Anything in <code>docs/guides/</code> that assumes a single chain carrying every module
+should be read against this document, not the other way round.</p>
+<h2>What is in this directory</h2>
+<ul>
+<li><a href="revised-scope.html">revised-scope.md</a> — the specification itself, as issued,
+with decisions taken since recorded at the end.</li>
+<li><a href="gaps.html">gaps.md</a> — what the tree does not yet meet, checked against the
+source rather than against the task list.</li>
+<li><a href="roles-and-perimeter.html">roles-and-perimeter.md</a> — how a stakeholder&#39;s powers
+get bounded by country, and why the country cannot live in the address.</li>
+</ul>
+
+</main>
+</body>
+</html>

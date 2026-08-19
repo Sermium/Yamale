@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issue a currency — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Issue a currency</h1>
+<p>How a bank or e-money institution gets permission to issue a fiat-referenced
+token on Yamale, and what it can do once it has.</p>
+<p><strong>You need:</strong> a running chain and an account with some YML.
+<a href="local-devnet.html">Run a local chain</a> gets you both. Every command below was run
+against a real node.</p>
+<p><strong>You will end with:</strong> a new currency on the chain, a supply of it you minted,
+and a demonstration that nobody else can mint it.</p>
+<hr>
+<h2>The rule this module exists to enforce</h2>
+<p>One currency, one issuer. Nobody may mint <code>ueur</code> except the party governance
+approved to issue <code>ueur</code>, and that permission is recorded on the chain rather
+than in a config file. It is per-denom, not global: being approved to issue
+euros grants nothing over francs.</p>
+<p>That is the whole model. Everything below is the mechanics of establishing it.</p>
+<h2>1. Register the currency</h2>
+<p>Registering <em>is</em> the application. There is no separate &quot;apply&quot; step — the
+registration describes the currency you propose to issue, and it lands as a
+pending application for governance to decide on:</p>
+<pre><code class="language-bash">blockchaind tx stablecoin register-currency \
+  ueur EUR 6 &quot;Euro&quot; &quot;EUR&quot; &quot;Euro issued by Alpine Bank&quot; \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The arguments are the base denom, the display denom, the exponent between them,
+then the name, symbol and description. <code>6</code> means one EUR is 1,000,000 ueur —
+the same relationship YML has to uyml, and the convention the whole chain
+assumes.</p>
+<pre><code class="language-bash">blockchaind query stablecoin list-issuer-application
+</code></pre>
+<pre><code class="language-yaml">issuer_application:
+- creator: yml1qmg7w7fn9qr5svggyf92qjgxsj46atny98jk07
+  denom: ueur
+  description: Euro issued by Alpine Bank
+  display_denom: EUR
+  exponent: &quot;6&quot;
+  name: Euro
+  status: pending
+  symbol: EUR
+</code></pre>
+<p><code>status: pending</code> grants nothing. Minting at this point fails.</p>
+<h2>2. Governance approves it</h2>
+<p>Approval is <code>MsgApproveIssuer</code>, which only the governance module account may
+sign — so it happens through a proposal. Write it to a file:</p>
+<pre><code class="language-json">{
+  &quot;messages&quot;: [{
+    &quot;@type&quot;: &quot;/blockchain.stablecoin.v1.MsgApproveIssuer&quot;,
+    &quot;authority&quot;: &quot;yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur&quot;,
+    &quot;denom&quot;: &quot;ueur&quot;,
+    &quot;approve&quot;: true
+  }],
+  &quot;metadata&quot;: &quot;&quot;,
+  &quot;deposit&quot;: &quot;10000000uyml&quot;,
+  &quot;title&quot;: &quot;Approve Alpine Bank as the issuer of ueur&quot;,
+  &quot;summary&quot;: &quot;Alpine Bank is FINMA-licensed. Approving this lets them, and only them, mint and redeem ueur.&quot;
+}
+</code></pre>
+<p>Two things about that payload:</p>
+<ul>
+<li><strong>The <code>authority</code> is the governance module account</strong>, not your address. Get it
+with:<pre><code class="language-bash">blockchaind query auth module-account gov
+</code></pre>
+A wrong value here fails with <code>decoding bech32 failed</code>, which does not
+obviously point at the cause.</li>
+<li><strong>The approval keys on the denom, not on an address.</strong> The chain already knows
+who applied for <code>ueur</code>; approving the denom approves that applicant. You
+cannot accidentally approve a different party for a currency somebody else
+registered.</li>
+</ul>
+<p>Submit and vote:</p>
+<pre><code class="language-bash">blockchaind tx gov submit-proposal proposal.json \
+  --from alice --chain-id yamale-testnet-1 --keyring-backend test \
+  --gas 400000 --fees 500uyml --yes
+</code></pre>
+<pre><code class="language-bash">blockchaind tx gov vote 3 yes --from alice \
+  --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<blockquote>
+<p>The default gas of 200,000 is not enough for a proposal carrying a message;
+it fails with <code>code: 11</code> (out of gas). <code>--gas 400000</code> covers it.</p>
+</blockquote>
+<p>Once the voting period closes:</p>
+<pre><code class="language-bash">blockchaind query stablecoin list-approved-issuer
+</code></pre>
+<pre><code class="language-yaml">approved_issuer:
+- denom: ueur
+  issuer: yml1qmg7w7fn9qr5svggyf92qjgxsj46atny98jk07
+</code></pre>
+<h2>3. Mint</h2>
+<pre><code class="language-bash">blockchaind tx stablecoin mint-coin ueur 50000000000 &lt;recipient&gt; \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>That is 50,000 EUR in base units. Check what actually happened — the code
+printed at broadcast only means the node accepted the transaction:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;txhash&gt;
+</code></pre>
+<p><code>code: 0</code> there is the real success.</p>
+<p>And the property the module exists for, from the same run:</p>
+<pre><code>mint 50,000 EUR by the approved issuer  -&gt; code 0
+mint 1 EUR by an unrelated account      -&gt; code 1104
+</code></pre>
+<p>Code 1104 is <code>address is not an approved issuer</code>. Holding the currency, or
+having registered a different one, changes nothing.</p>
+<h2>4. Redeem</h2>
+<p>Burning is the mirror of minting and is restricted the same way:</p>
+<pre><code class="language-bash">blockchaind tx stablecoin burn-coin ueur 1000000000 \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The issuer burns from its own balance, so redeeming means the holder returns the
+tokens to the issuer first, off-chain settlement happens, and the issuer burns
+what it received. The chain does not model the fiat leg; it records the token
+side of it accurately.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>The currency is ordinary money to the rest of the chain.</strong> Once minted it can
+be sent with <code>bank send</code>, paid with <code>paymsg</code>, held by a treasury, and pooled on
+the AMM — see <a href="amm.html">Trade and provide liquidity</a>, which uses the <code>ueur</code> from
+this guide.</p>
+<p><strong>Interfaces pick up the metadata automatically.</strong> The name, symbol and exponent
+you registered are published to x/bank, so the explorer and <code>@yamale/chain</code>
+render <code>50000000000ueur</code> as <code>50,000 EUR</code> without a client update.</p>
+<p><strong>Rejection is not permanent.</strong> A refused application can be resubmitted; what
+governance rejected was that proposal, not that party.</p>
+<p><strong>Full reference:</strong> <a href="../reference/stablecoin.html">x/stablecoin</a> — every message,
+query, parameter and error code, generated from the source.</p>
+
+</main>
+</body>
+</html>

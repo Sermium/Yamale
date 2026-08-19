@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accounts without a wallet — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Accounts without a wallet</h1>
+<p><strong>Status: designed, not built.</strong> The goal: a person signs up with a name, an
+email and a password, adds a second factor, and uses the network without ever
+seeing a seed phrase, an address, or the word &quot;wallet&quot;. The chain is plumbing.</p>
+<p>This is achievable. It is also the single largest decision in the product,
+because of one fact that cannot be designed around:</p>
+<blockquote>
+<p><strong>A password cannot authorise a transaction. Only a key can.</strong></p>
+</blockquote>
+<p>Every arrangement below is an answer to <em>where the key lives and who can use
+it</em>. Everything else — the login screen, the 2FA, the encrypted profile — is
+consequence.</p>
+<hr>
+<h2>Part 1 — where the key lives</h2>
+<h3>The three real options</h3>
+<p><strong>A. Server-held keys (fully custodial).</strong> The institution holds keys in an HSM.
+Login authenticates you <em>to the server</em>, which then signs on your behalf.</p>
+<ul>
+<li>Simplest to build, and the only one where a forgotten password is genuinely
+recoverable.</li>
+<li>The operator can move customer funds. In most jurisdictions that makes them a
+regulated custodian, not a software vendor. This is a licensing decision
+before it is an engineering one.</li>
+</ul>
+<p><strong>B. Password-wrapped keys (encrypted at rest, decrypted in the browser).</strong> The
+key is generated on the device, encrypted with a key derived from the user&#39;s
+password, and the <em>ciphertext</em> is stored server-side. Login fetches the blob;
+the browser decrypts it and signs locally.</p>
+<ul>
+<li>The server never sees a usable key. A database breach yields ciphertext.</li>
+<li>Feels exactly like a Web2 login.</li>
+<li><strong>A forgotten password is a lost account</strong>, unless you add a recovery path —
+and the recovery path is then the weakest link (see Part 4).</li>
+<li>This is what Magic.link and Coinbase Wallet&#39;s cloud backup do.</li>
+</ul>
+<p><strong>C. Threshold / MPC.</strong> The key is split; the server holds one share, the device
+another, and neither alone can sign.</p>
+<ul>
+<li>No single party can move funds, and password reset is possible without the
+server ever holding a whole key.</li>
+<li>Materially more complex, and usually means a vendor (Turnkey, Privy,
+Web3Auth) rather than something built in-house.</li>
+</ul>
+<h3>Decided: C — threshold keys, and the operator cannot sign alone</h3>
+<p>Model A was chosen first and then reversed, for a reason worth recording: the
+operator should <strong>not</strong> be able to move a user&#39;s funds. On a state-operated
+system &quot;the authority can spend any citizen&#39;s balance&quot; is a very different
+political object from &quot;the authority runs the payment rails&quot;, and the second is
+the one being sold.</p>
+<p>That rules out A. It also rules out B on its own, because B&#39;s honest
+consequence is that a forgotten password is a permanently lost account — not
+viable for a national system serving people who lose phones.</p>
+<p><strong>Threshold keys are the only arrangement that gives both.</strong> The key is split;
+the server holds one share and the device another. Neither alone can sign, so
+the operator genuinely cannot move funds. And password reset works, because the
+server&#39;s share can be re-wrapped without any party ever reconstructing a whole
+key.</p>
+<p>The cost, stated plainly: this is materially more complex than either
+alternative, and in practice it means a vendor (Turnkey, Privy, Web3Auth) or a
+serious in-house cryptography effort. <strong>That is a build-versus-buy decision, and
+it is the largest open question in the account model.</strong></p>
+<p>Institutions keep self-custody, and treasuries keep multi-signature through
+<code>x/group</code>. A single credential must never move institutional funds. Custody is a
+property of the account; the interface is identical either way.</p>
+<h3>Recovery: the design, since it is where these systems are actually robbed</h3>
+<p>Not the login. Recovery is used rarely, tested less, and grants exactly what an
+attacker wants. So it is specified rather than left to a support process:</p>
+<ul>
+<li><strong>Two approvers minimum</strong>, from different teams. Nobody may both initiate and
+approve.</li>
+<li><strong>72-hour delay</strong>, with notice at initiation to the registered email <em>and</em>
+every enrolled device. A legitimate owner can cancel; an attacker must keep
+them unaware for three days.</li>
+<li><strong>Outbound payments frozen for 24 hours</strong> after completion. Recovery restores
+access, not immediate spending.</li>
+<li><strong>Proof that is not public knowledge.</strong> Not name, date of birth and address —
+that is precisely what social engineering runs on. A prior device, a
+transaction the user can name, or in-person verification at an agent.</li>
+<li><strong>Recoveries published in aggregate</strong> — how many, how long they took — so an
+unusual rate is visible without exposing who.</li>
+</ul>
+<hr>
+<h2>Part 2 — three encryption problems, not one</h2>
+<p>&quot;Store everything encrypted so a breach leaks nothing&quot; is the right instinct and
+the wrong single mechanism. These are three different problems with three
+different answers, and using one for all three produces a system that looks
+encrypted and is not.</p>
+<h3>1. The password: hashed, never encrypted</h3>
+<p>Encryption is reversible. Anything reversible means a breach that takes the key
+takes every password — and people reuse passwords, so that breach spends beyond
+this system.</p>
+<p><strong>Argon2id</strong>, per-user salt, tuned to a real cost. Never store the password,
+never store anything that can be turned back into it, never log it, never email
+it.</p>
+<h3>2. The profile: encrypted at rest, but email must stay findable</h3>
+<p>Name and surname encrypt cleanly with a service key held in a KMS, ideally
+envelope-encrypted per record.</p>
+<p>Email is the awkward one: login has to <em>find</em> a user by it, and you cannot
+search a randomised ciphertext. The usual mistake is deterministic encryption —
+which makes equal emails produce equal ciphertext and hands an attacker a
+frequency-analysable index.</p>
+<p>The right shape is a <strong>blind index</strong>: store <code>HMAC(email, pepper)</code> for lookup,
+where the pepper lives outside the database, and store the email itself under
+normal randomised encryption for display. A dump of the database alone yields
+neither the addresses nor a way to test guesses at them.</p>
+<h3>3. The key material: split, so no single party holds it</h3>
+<p>Under threshold keys there is no whole key to protect, anywhere, at any moment.
+The server holds a share and the device holds a share; a signature is produced
+jointly and neither party ever sees the other half.</p>
+<p>That changes what a breach means. A stolen server database yields shares that
+cannot sign. A stolen device yields the same. An attacker needs both, at once,
+which is a materially harder position than compromising one system — and it is
+the property that makes &quot;the operator cannot move your money&quot; a statement about
+mathematics rather than about policy.</p>
+<p>The server share is still protected in an HSM or KMS, because defence in depth
+costs little here. But the argument does not rest on it.</p>
+<hr>
+<h2>Part 3 — what must never go on the chain</h2>
+<p>The chain is permanent, public, and cannot be corrected. So:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Name, surname, email, phone, document numbers</td>
+<td><strong>Off-chain only</strong>, encrypted</td>
+</tr>
+<tr>
+<td>User ID (<code>K3M9-7QRT-B</code>)</td>
+<td>On-chain — resolves to an address and nothing else</td>
+</tr>
+<tr>
+<td>Balances, payments, votes</td>
+<td>On-chain, and permanently public</td>
+</tr>
+</tbody></table>
+<p><code>x/alias</code> was built to hold an address and nothing else precisely so this line
+is easy to hold. The temptation once accounts have profiles is to put &quot;just the
+email&quot; on-chain for convenience. That is the decision that made PIX&#39;s leaks
+damaging: the keys were tied to names and document numbers. Ours resolve to a
+bech32 string.</p>
+<p><strong>A GDPR consequence worth stating plainly:</strong> personal data written to a chain
+cannot be erased on request. Keeping it off-chain is not tidiness, it is what
+makes the erasure right satisfiable at all.</p>
+<hr>
+<h2>Part 4 — the second factor, and where it actually has to sit</h2>
+<p>Ranked by what they survive:</p>
+<ol>
+<li><strong>Passkeys / WebAuthn</strong> — phishing-resistant by construction, and now
+well-supported. This is where to aim.</li>
+<li><strong>TOTP authenticator</strong> — the working default. The secret never leaves the
+device and there is no carrier to socially engineer.</li>
+<li><strong>Email code</strong> — acceptable as backup. Compromises when the mailbox does,
+which is also where password resets land, so it is one factor wearing two
+hats.</li>
+<li><strong>SMS — not as the primary factor.</strong> SIM-swap is not theoretical against a
+payments network; it is the attack, it is cheap, and it is run at scale
+against exactly the people moving money.</li>
+</ol>
+<p><strong>Google sign-in</strong> is fine as an identity provider, and it moves the security
+boundary to the Google account — which for most people is stronger than a
+password they chose. Under model B it needs care: an OAuth login yields no
+password to derive a key from, so either the key wraps under a separate
+user-chosen PIN, or the account moves to model A or C. This is the detail that
+most often forces a rushed architecture change late.</p>
+<p><strong>Gate the operations, not just the login.</strong> A second factor at sign-in and none
+at payment protects the session rather than the money. Require it for: changing
+the password, adding a device, rotating the user ID, and any payment over a
+threshold.</p>
+<hr>
+<h2>Part 5 — the part that actually gets robbed</h2>
+<p>Not the login. <strong>Account recovery.</strong></p>
+<p>Every custodial system&#39;s real attack surface is the path that exists for people
+who lost their password. It is used rarely, tested less, and it grants exactly
+what an attacker wants. Support-desk social engineering is the most reliable
+attack on consumer finance in general.</p>
+<p>So decide it deliberately, and write it down before building it:</p>
+<ul>
+<li>Who can approve a recovery, and does it need two people?</li>
+<li>Is there a mandatory delay, with notice to the account&#39;s email and every
+registered device, so a legitimate owner can cancel it?</li>
+<li>Are payments frozen for a period after a recovery?</li>
+<li>What is the standard of proof, and can it be defeated with information found
+on a social network?</li>
+</ul>
+<p>A recovery flow with no delay and one approver is a system where a convincing
+phone call is worth every account it holds.</p>
+<hr>
+<h2>What this changes about the interfaces</h2>
+<p>The existing self-custody wallet stays — institutions and treasuries need it,
+and multi-signature through <code>x/group</code> must never reduce to a single credential.</p>
+<p>The consumer interface becomes: sign in, see a balance, send to a user ID or a
+name from your contacts, confirm with a second factor. No phrase, no address, no
+&quot;connect wallet&quot;. The transfer app already resolves user IDs and names, so most
+of that screen exists; what does not exist is the account service behind it.</p>
+<p><strong>Nothing in this document is built.</strong> It needs an auth service, a key-wrapping
+scheme, an encrypted profile store, a 2FA enrolment flow, and a recovery
+process — none of which is on the chain, and all of which is the larger half of
+the product from here.</p>
+
+</main>
+</body>
+</html>

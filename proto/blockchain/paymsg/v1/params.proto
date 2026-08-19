@@ -1,0 +1,31 @@
+syntax = "proto3";
+package blockchain.paymsg.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/paymsg/Params";
+  option (gogoproto.equal) = true;
+
+  // require_settlement_jurisdiction refuses a payment that does not declare the
+  // country whose authority settles it.
+  //
+  // It has to be a parameter rather than a rule compiled into the binary, for a
+  // reason specific to how a chain is replayed: a node syncing from block 0
+  // re-executes every historical payment through today's handler, so a rule
+  // that refuses what was once accepted produces a different app hash and the
+  // node stops. A parameter is read from state at the height being replayed, so
+  // blocks from before the switch replay under the value that was in force when
+  // they were made, and blocks after it under the new one.
+  //
+  // Default false, because the deployments that exist hold payments with no
+  // jurisdiction. Governance turns it on once every sender populates the field,
+  // and it must be on before the metadata payload is encrypted for real: the
+  // declared jurisdiction names the regulator holding the third viewing key, so
+  // a payment sent without one is a payment no regulator can ever open.
+  bool require_settlement_jurisdiction = 1;
+}

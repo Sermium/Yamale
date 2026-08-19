@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment confidentiality — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Payment confidentiality</h1>
+<p><strong>Decided:</strong> confidential amounts, using Pedersen commitments and range proofs,
+with viewing keys granted to the parties and functions that need to see. This
+note records what that means, what must deliberately stay public, and what has to
+happen <em>now</em> versus what can follow.</p>
+<hr>
+<h2>Hash and encryption are not the same tool</h2>
+<p>Worth stating first, because the two get conflated and they do opposite jobs.</p>
+<p>A <strong>hash</strong> is a fingerprint. Putting one on-chain proves a payload existed and
+has not been altered since. Nobody can read anything from it — not the parties,
+not the regulator, not anyone. It is for integrity.</p>
+<p><strong>Encryption with viewing keys</strong> is what lets specific named parties read. That
+is what &quot;both ends plus the regulator can see it&quot; requires.</p>
+<p>The design uses both: a hash on-chain so the record is permanent and tamper
+evident, and an encrypted payload — held off-chain — that the payer, the payee
+and one regulator can decrypt.</p>
+<h2>What is hidden</h2>
+<p>Participant-to-participant transfers of issued currency: the <strong>amount</strong> becomes a
+commitment rather than a figure, and the ISO 20022 metadata (remittance
+information, purpose codes, references) becomes an encrypted payload with a hash
+on-chain.</p>
+<p>The mechanism is standard and deployed elsewhere. A Pedersen commitment is
+<code>C = aG + rH</code>, where <code>a</code> is the amount and <code>r</code> a blinding factor. Commitments add
+up — <code>C₁ + C₂</code> commits to <code>a₁ + a₂</code> — so the chain can verify that what went in
+equals what came out <strong>without ever seeing either figure</strong>. A range proof
+accompanies it to prove the amount is not negative, which without it would be an
+inflation bug rather than a privacy feature.</p>
+<h2>What stays public, and why</h2>
+<p>This is the part that has to be got right, because &quot;encrypt everything&quot; produces
+a ledger that cannot do its job. Each of these is public because a designed
+function depends on it:</p>
+<p><strong>AMM pool reserves.</strong> The ratio of the reserves <em>is</em> the price. A pool with a
+secret reserve cannot quote, and a chain that cannot quote cannot route a swap.
+Pool operations are public, and that is not a compromise — a market price is
+supposed to be public.</p>
+<p><strong>Issuance and redemption.</strong> Mint and burn by the issuer stay in the clear, so
+total supply remains publicly provable. This directly answers the objection a
+central bank will raise first: individual holdings are private, but <em>how much
+currency exists</em> is arithmetic anyone can check. Confidentiality applies between
+holders, never to the money&#39;s creation.</p>
+<p><strong>Staking weights and voting power.</strong> Consensus safety depends on knowing who
+holds what weight, and the concentration caps are computed from exactly these
+numbers. Hiding them would break both.</p>
+<p><strong>Fees.</strong> Every validator must verify the fee was paid.</p>
+<p><strong>Oracle rates.</strong> The whole point of them is publication.</p>
+<p><strong>Treasury commitments.</strong> Kept public by default. The reason to use <code>x/treasury</code>
+at all is that a commitment provably left spendable balance and cannot be
+redirected — for donor disbursement, subsidy programmes and public payroll, the
+auditability <em>is</em> the product. A confidential option can exist later for
+commercial escrow; it is not the default.</p>
+<p><strong>Enforcement amounts.</strong> A seizure has to be visible to the ombudsman and countable
+against the rolling-window cap. A secret seizure is the thing the oversight design
+exists to prevent.</p>
+<p>So the line is: <strong>confidential between holders, public at the edges.</strong> That is
+both defensible to a regulator and the only version that leaves the system able
+to function.</p>
+<h2>Who holds a viewing key</h2>
+<ul>
+<li><strong>The payer and the payee</strong> — over their own payments, derived from their
+account keys.</li>
+<li><strong>The regulator of the declared settlement jurisdiction</strong> — over any payment
+that settles in their jurisdiction. This is the same field that decides which
+authority may act on a cross-border deal (see
+<a href="roles-and-perimeter.html">roles-and-perimeter.md</a>), which is what makes it the
+right field: one declaration, two consistent consequences.</li>
+<li><strong>A time-boxed auditor role</strong>, granted by governance and expiring by itself,
+for aggregate checks that cross accounts.</li>
+</ul>
+<p>Because the payload is encrypted to the regulator&#39;s key at the moment of sending,
+the settlement jurisdiction has to be declared then. It cannot be decided later.</p>
+<h2>What this does not fix</h2>
+<p>Stated plainly, because overselling it is how a pilot ends badly.</p>
+<p><strong>The graph survives.</strong> Who paid whom, and when, remains visible even when
+amounts and purpose are not. Identifying one address later still exposes its
+counterparties across all of history. Only a fully shielded pool removes that,
+and no financial regulator will accept one. This is a large reduction in
+exposure, not an elimination, and it should be described that way in every
+external document.</p>
+<p><strong>Individual balances stop being enumerable.</strong> The chain can prove supply is
+conserved; it cannot list who holds what without the keys. That is the intent,
+but it changes what an explorer can show and what a supervisor&#39;s tooling must do.</p>
+<p><strong>A lost blinding factor makes funds unspendable.</strong> If a wallet loses <code>r</code>, the
+owner cannot prove the commitment is theirs. This is a genuine new way to lose
+money that does not exist today, and it lands squarely on the account service and
+the threshold-custody decision still open in §8 of the scope. It must be designed
+before this ships, not after.</p>
+<p><strong>This is the largest single item in the specification.</strong> It is research-grade
+work, it needs its own audit, and it touches the AMM, treasury and enforcement.
+It should not be estimated as a sprint.</p>
+<h2>Sequence</h2>
+<p><strong>Now, and genuinely urgent — reserve the proto field numbers.</strong> Before a pilot
+writes a single payment, <code>MsgPayment</code> gets reserved fields for the commitment,
+the range proof, the encrypted payload hash and the declared settlement
+jurisdiction. Field numbers cost nothing today and cannot be reclaimed once a
+deployment holds real balances. This is the same irreversibility class as the
+genesis-counter and import-uniqueness decisions already made in <code>x/land</code>.</p>
+<p><strong>Immediately after — encrypt the metadata.</strong> <code>remittance_information</code> and
+<code>purpose_code</code> move to an encrypted payload with a hash on-chain. No new
+cryptography, and it closes the concrete personal-data exposure: ISO 20022 free
+text is where operators actually put names, and it is currently written to an
+append-only ledger with no erasure path under the NDPA, the DPA, POPIA or GDPR.</p>
+<p><strong>Then — commitments and range proofs</strong>, as its own workstream with its own audit.</p>
+
+</main>
+</body>
+</html>

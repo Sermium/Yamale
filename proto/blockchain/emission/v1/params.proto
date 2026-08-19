@@ -1,0 +1,24 @@
+syntax = "proto3";
+package blockchain.emission.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/emission/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/emission/Params";
+  option (gogoproto.equal) = true;
+
+  // reduction_period_in_blocks is how many blocks make up one emission
+  // period; provisions_per_block is cut by reduction_factor at the start of
+  // each new period.
+  uint64 reduction_period_in_blocks = 1;
+  // reduction_factor (e.g. "0.666666666666666667" for a 1/3 cut every
+  // period) applied to provisions_per_block at each period boundary.
+  string reduction_factor = 2;
+  // genesis_provisions_per_block is the per-block emission amount (in the
+  // native base denom) during period 0, before any reduction is applied.
+  string genesis_provisions_per_block = 3;
+}

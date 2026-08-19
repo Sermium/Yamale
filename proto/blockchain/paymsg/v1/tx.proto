@@ -1,0 +1,202 @@
+syntax = "proto3";
+
+package blockchain.paymsg.v1;
+
+import "amino/amino.proto";
+import "blockchain/paymsg/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // ApplyParticipant defines the ApplyParticipant RPC.
+  rpc ApplyParticipant(MsgApplyParticipant) returns (MsgApplyParticipantResponse);
+
+  // SendPayment defines the SendPayment RPC.
+  rpc SendPayment(MsgSendPayment) returns (MsgSendPaymentResponse);
+
+  // ApproveParticipant defines the ApproveParticipant RPC. It is
+  // authority-gated (the x/gov module account) and approves or rejects a
+  // pending participant application submitted via MsgApplyParticipant.
+  rpc ApproveParticipant(MsgApproveParticipant) returns (MsgApproveParticipantResponse);
+
+  // RegisterCustomer records that an account banks with the signing
+  // participant, which is what entitles a payment from that account to name
+  // the participant as its instructing agent.
+  rpc RegisterCustomer(MsgRegisterCustomer) returns (MsgRegisterCustomerResponse);
+}
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/paymsg/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgApplyParticipant defines the MsgApplyParticipant message.
+message MsgApplyParticipant {
+  option (cosmos.msg.v1.signer) = "creator";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string code = 2;
+  string name = 3;
+}
+
+// MsgApplyParticipantResponse defines the MsgApplyParticipantResponse message.
+message MsgApplyParticipantResponse {}
+
+// MsgSendPayment defines the MsgSendPayment message.
+//
+// Fields 10 through 13 carry the confidentiality design. They are added now,
+// while the chain holds no real balances, because a field number is the one
+// thing in a protobuf schema that can never be taken back: once a deployment
+// has encoded payments with a given numbering, changing it makes every
+// historical message decode as something it is not, and there is no migration
+// that repairs a record whose bytes have been reinterpreted. Reserving costs a
+// few unset fields today and is unbuyable later.
+//
+// 10-13 specifically because protobuf encodes the tag for field numbers 1-15
+// in a single byte and needs two from 16 up. This is the highest-volume message
+// on the chain, so the four fields that will be present on every payment take
+// the last of the cheap slots; 14 and 15 are what remain.
+message MsgSendPayment {
+  option (cosmos.msg.v1.signer) = "debtor";
+  string debtor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string end_to_end_id = 2;
+  string instructing_participant = 3;
+  string instructed_participant = 4;
+  string creditor = 5;
+  string denom = 6;
+  string amount = 7;
+
+  // purpose_code and remittance_information are ISO 20022 free text, and are
+  // superseded by metadata_hash. A sender that sets metadata_hash must leave
+  // both empty.
+  //
+  // They keep their numbers rather than being removed or reused: a deployment
+  // already holds payments encoded with 8 and 9 as strings, and every ledger
+  // entry, statement export and client that has ever read one depends on that
+  // staying true. Emptying them is a client-side change; renumbering them
+  // would silently corrupt history.
+  //
+  // The reason to stop writing them is not tidiness. This is where operators
+  // put customer names in practice, and the module writes them to a ledger
+  // that has no erasure path — which is the exposure under the NDPA, Ghana's
+  // DPA, POPIA and the GDPR.
+  string purpose_code = 8;
+  string remittance_information = 9;
+
+  // amount_commitment is the Pedersen commitment C = aG + rH that will replace
+  // the plaintext amount above.
+  //
+  // Not yet populated and not yet verified: commitments are their own
+  // workstream with their own audit. It is numbered now because the switch is
+  // exactly the moment the chain is holding balances that cannot be re-encoded.
+  bytes amount_commitment = 10;
+
+  // amount_range_proof proves the committed amount is non-negative.
+  //
+  // Not yet populated. It travels with amount_commitment and is not optional
+  // once that is live: a commitment the chain accepts without a range proof
+  // lets a negative amount balance the sums, which is an inflation bug wearing
+  // a privacy feature's clothes.
+  bytes amount_range_proof = 11;
+
+  // metadata_hash is SHA-256 over the canonical metadata payload held
+  // off-chain — the "encrypted payload hash" of docs/scope/confidentiality.md.
+  //
+  // It hashes the payload itself, not the ciphertext, because the check that
+  // matters is a party who holds the payload proving it is the one recorded.
+  // Encryption is randomised, so a hash over ciphertext could be verified by
+  // nobody: the payer, the payee and the regulator all decrypt to the same
+  // payload and all get different bytes back if they re-encrypt.
+  //
+  // The payload carries a random salt for a reason that is easy to miss: a
+  // purpose code is four characters from a published list, so an unsalted hash
+  // of one is not a fingerprint, it is a lookup table. Hashing without the salt
+  // would publish the field it was meant to hide.
+  bytes metadata_hash = 12;
+
+  // settlement_jurisdiction is the ISO 3166-1 alpha-2 country whose authority
+  // settles this payment.
+  //
+  // Unlike the three above it means something today. A cross-border payment
+  // touches two perimeters, and both endpoint authorities may see it, but only
+  // this one may act on it — so without the declaration there is a contest over
+  // standing that the chain cannot resolve, and the record cannot show which
+  // authority had the right to act. See docs/scope/roles-and-perimeter.md.
+  //
+  // The same declaration names the regulator who holds the third viewing key
+  // over the payload metadata_hash commits to. That is why it has to be stated
+  // when the payment is sent rather than decided afterwards: the payload is
+  // encrypted to that regulator's key at that moment, and a payment sent
+  // without a jurisdiction is one no regulator can ever open.
+  //
+  // Accepted empty for now, and required once
+  // Params.require_settlement_jurisdiction is turned on. Refusing it outright
+  // today would refuse payments that were valid when they were included, and a
+  // node syncing from block 0 re-runs every one of them.
+  string settlement_jurisdiction = 13;
+}
+
+// MsgSendPaymentResponse defines the MsgSendPaymentResponse message.
+message MsgSendPaymentResponse {}
+
+// MsgApproveParticipant is the Msg/ApproveParticipant request type.
+message MsgApproveParticipant {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/paymsg/MsgApproveParticipant";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string participant = 2;
+  bool approve = 3;
+}
+
+// MsgApproveParticipantResponse defines the MsgApproveParticipantResponse message.
+message MsgApproveParticipantResponse {}
+
+// MsgRegisterCustomer records or removes the relationship between an approved
+// participant and an account it acts for.
+//
+// Without it, naming a participant on a payment was an unverified claim: any
+// account could file an instruction attributing it to two institutions that had
+// never seen it, and those institutions would find payments they never
+// processed recorded against their name in the ledger their customers
+// reconcile against. Nothing was stealable — the transfer always came from the
+// signer's own balance — but the statement record, which is what this module
+// exists to produce, could not be trusted to say who handled a payment.
+message MsgRegisterCustomer {
+  option (cosmos.msg.v1.signer) = "participant";
+  // participant is the approved institution, and the only signer that may
+  // claim or disclaim an account as its customer.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string customer = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // registered false removes the relationship, so a participant can end one
+  // without governance being involved.
+  bool registered = 3;
+}
+
+// MsgRegisterCustomerResponse defines the MsgRegisterCustomer response.
+message MsgRegisterCustomerResponse {}

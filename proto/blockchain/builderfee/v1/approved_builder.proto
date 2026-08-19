@@ -1,0 +1,10 @@
+syntax = "proto3";
+package blockchain.builderfee.v1;
+
+option go_package = "yamale/blockchain/x/builderfee/types";
+
+// ApprovedBuilder defines the ApprovedBuilder message.
+message ApprovedBuilder {
+  string msg_type_url = 1;
+  string payout_address = 2;
+}

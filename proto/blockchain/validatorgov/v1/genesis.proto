@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package blockchain.validatorgov.v1;
+
+import "amino/amino.proto";
+import "blockchain/validatorgov/v1/approved_validator.proto";
+import "blockchain/validatorgov/v1/params.proto";
+import "blockchain/validatorgov/v1/rotation.proto";
+import "blockchain/validatorgov/v1/validator_application.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// GenesisState defines the validatorgov module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated ValidatorApplication validator_application_map = 2 [(gogoproto.nullable) = false];
+  repeated ApprovedValidator approved_validator_map = 3 [(gogoproto.nullable) = false];
+
+  // operator_rotations carries every rotation ever opened, pending ones
+  // included. A chain that dropped a pending rotation on export would complete
+  // it silently at the next upgrade, or lose a challenge window that delegators
+  // were relying on — at exactly the moment nobody is watching.
+  repeated OperatorRotation operator_rotations = 4 [(gogoproto.nullable) = false];
+
+  // rotation_count is the next id to hand out. Exported explicitly rather than
+  // rebuilt from the highest rotation present, so that a genesis edited by hand
+  // says what it means and importing it cannot collide.
+  uint64 rotation_count = 5;
+}

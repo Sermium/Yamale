@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package blockchain.paymsg.v1;
+
+import "amino/amino.proto";
+import "blockchain/paymsg/v1/approved_participant.proto";
+import "blockchain/paymsg/v1/params.proto";
+import "blockchain/paymsg/v1/participant_application.proto";
+import "blockchain/paymsg/v1/payment_record.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/params";
+  }
+
+  // ListParticipantApplication Queries a list of ParticipantApplication items.
+  rpc GetParticipantApplication(QueryGetParticipantApplicationRequest) returns (QueryGetParticipantApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/participant_application/{creator}";
+  }
+
+  // ListParticipantApplication defines the ListParticipantApplication RPC.
+  rpc ListParticipantApplication(QueryAllParticipantApplicationRequest) returns (QueryAllParticipantApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/participant_application";
+  }
+
+  // ListApprovedParticipant Queries a list of ApprovedParticipant items.
+  rpc GetApprovedParticipant(QueryGetApprovedParticipantRequest) returns (QueryGetApprovedParticipantResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/approved_participant/{participant}";
+  }
+
+  // ListApprovedParticipant defines the ListApprovedParticipant RPC.
+  rpc ListApprovedParticipant(QueryAllApprovedParticipantRequest) returns (QueryAllApprovedParticipantResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/approved_participant";
+  }
+
+  // ListPaymentRecord Queries a list of PaymentRecord items.
+  rpc GetPaymentRecord(QueryGetPaymentRecordRequest) returns (QueryGetPaymentRecordResponse) {
+    // Both keys travel in the query string. An ISO 20022 end-to-end id is
+    // Max35Text, whose character set includes '/' and ':', and structured
+    // references routinely use both — so the path form was unroutable for
+    // exactly the references institutions actually send.
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/payment_record_by_id";
+  }
+
+  // ListPaymentRecord defines the ListPaymentRecord RPC.
+  rpc ListPaymentRecord(QueryAllPaymentRecordRequest) returns (QueryAllPaymentRecordResponse) {
+    option (google.api.http).get = "/yamale/blockchain/paymsg/v1/payment_record";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetParticipantApplicationRequest defines the QueryGetParticipantApplicationRequest message.
+message QueryGetParticipantApplicationRequest {
+  string creator = 1;
+}
+
+// QueryGetParticipantApplicationResponse defines the QueryGetParticipantApplicationResponse message.
+message QueryGetParticipantApplicationResponse {
+  ParticipantApplication participant_application = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllParticipantApplicationRequest defines the QueryAllParticipantApplicationRequest message.
+message QueryAllParticipantApplicationRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllParticipantApplicationResponse defines the QueryAllParticipantApplicationResponse message.
+message QueryAllParticipantApplicationResponse {
+  repeated ParticipantApplication participant_application = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetApprovedParticipantRequest defines the QueryGetApprovedParticipantRequest message.
+message QueryGetApprovedParticipantRequest {
+  string participant = 1;
+}
+
+// QueryGetApprovedParticipantResponse defines the QueryGetApprovedParticipantResponse message.
+message QueryGetApprovedParticipantResponse {
+  ApprovedParticipant approved_participant = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllApprovedParticipantRequest defines the QueryAllApprovedParticipantRequest message.
+message QueryAllApprovedParticipantRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllApprovedParticipantResponse defines the QueryAllApprovedParticipantResponse message.
+message QueryAllApprovedParticipantResponse {
+  repeated ApprovedParticipant approved_participant = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetPaymentRecordRequest defines the QueryGetPaymentRecordRequest message.
+message QueryGetPaymentRecordRequest {
+  string end_to_end_id = 1;
+  // instructing_participant scopes the id. End-to-end ids are unique per
+  // instructing party in ISO 20022, not globally, so the id alone does not
+  // identify a payment.
+  string instructing_participant = 2;
+}
+
+// QueryGetPaymentRecordResponse defines the QueryGetPaymentRecordResponse message.
+message QueryGetPaymentRecordResponse {
+  PaymentRecord payment_record = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllPaymentRecordRequest defines the QueryAllPaymentRecordRequest message.
+message QueryAllPaymentRecordRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllPaymentRecordResponse defines the QueryAllPaymentRecordResponse message.
+message QueryAllPaymentRecordResponse {
+  repeated PaymentRecord payment_record = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

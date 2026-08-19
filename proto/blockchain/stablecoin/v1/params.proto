@@ -1,0 +1,13 @@
+syntax = "proto3";
+package blockchain.stablecoin.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/stablecoin/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/stablecoin/Params";
+  option (gogoproto.equal) = true;
+}

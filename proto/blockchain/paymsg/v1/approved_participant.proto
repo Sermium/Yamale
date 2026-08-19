@@ -1,0 +1,11 @@
+syntax = "proto3";
+package blockchain.paymsg.v1;
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// ApprovedParticipant defines the ApprovedParticipant message.
+message ApprovedParticipant {
+  string participant = 1;
+  string code = 2;
+  string name = 3;
+}

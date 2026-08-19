@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bringing outside assets in — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Bringing outside assets in</h1>
+<p><strong>Status: decided, not built.</strong> This is the design agreed on 14 August 2026 and
+the reasoning behind it. No code exists yet.</p>
+<p>Yamale does not bridge. It <strong>issues against custody</strong> — the same thing it
+already does for fiat, applied to crypto assets.</p>
+<hr>
+<h2>The decision</h2>
+<p>A wrapped bridge was rejected outright. Bridges are the largest single category
+of loss in this industry — Ronin $624M, BNB Bridge $586M, Wormhole $326M, Nomad
+$190M — and a bridge secured by four validators is secured by four keys.</p>
+<p>What replaces it: a custodian holds the asset on its own chain and an equivalent
+claim is issued here. Deposit 1 ETH, receive 1 <code>yeth</code>. Return 1 <code>yeth</code>, receive
+1 ETH.</p>
+<h2>The one thing this design gets right and the obvious version gets wrong</h2>
+<p>The tempting shape is &quot;deposit ETH, receive YML&quot;. It is the wrong shape, and the
+difference is solvency.</p>
+<p>Deposit 1 ETH at $3,000; mint 3,000 YML at $1. The treasury now holds ETH and
+owes YML.</p>
+<ul>
+<li><strong>ETH falls 40%</strong> → $1,800 of collateral against a 3,000 YML claim. Insolvent
+on that position, and nothing in the chain noticed.</li>
+<li><strong>YML doubles</strong> → returning 3,000 YML costs $6,000 to reclaim $3,000 of ETH.
+Nobody would. <strong>They only redeem when it hurts you.</strong></li>
+</ul>
+<p>That asymmetry is a written option: the treasury would be short a put,
+permanently, unhedged, for free. It is the Terra shape — a native token issued
+against volatile collateral, redeemable at a floating rate — and it works right
+up until the collateral falls.</p>
+<p>Worse, if redemption is priced by oracle and YML&#39;s price comes from this chain&#39;s
+own AMM pool, pushing the pool up and redeeming against it drains the reserve.
+That is not hypothetical; it is how several protocols were emptied.</p>
+<p><strong>The rule that avoids all of it: the asset and the liability must be the same
+unit.</strong> Deposit ETH, owe ETH. Deposit NGN, owe NGN. No price risk exists,
+because there is no price in the arrangement.</p>
+<h2>So it is two steps, not one</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What it is</th>
+<th>Who carries the risk</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>1. Issuance</strong></td>
+<td>ETH in → <code>yeth</code> out, 1:1, custodial</td>
+<td>nobody — asset equals liability</td>
+</tr>
+<tr>
+<td><strong>2. Exchange</strong></td>
+<td><code>yeth</code> → YML on the AMM</td>
+<td>the liquidity providers, knowingly</td>
+</tr>
+</tbody></table>
+<p>The user experience is unchanged: arrive with ETH, leave holding YML. What
+changes is who carries the price risk — liquidity providers who chose to, rather
+than the treasury silently.</p>
+<p>And step 2 is a <strong>real bid for YML</strong>, at a visible price with slippage the buyer
+accepts. Minting YML on deposit would have expanded supply exactly in step with
+demand, which pins the price rather than raising it.</p>
+<p>If the foundation wants to accumulate ETH by selling YML, it should do that
+openly — seed a pool, or run an OTC desk. Just without a redemption promise
+stapled to it. A sale is a sale; a redeemable claim is a liability.</p>
+<h2>USDC is the exception: do not custody it</h2>
+<p>Noble already issues native USDC in the Cosmos ecosystem and it arrives over
+IBC. No bridge, no wrapper, no reserve, no custodian, and it is the established
+standard. One IBC connection gets real USDC.</p>
+<p>Keep the custodial model for ETH, SOL and BNB, where no such path exists.</p>
+<h2>Reserves</h2>
+<p>Yield on the reserve is allowed and must never become the business. Every
+custodian failure ran the same way: a reserve pushed into riskier assets to fund
+operations. <strong>Fees on issuance and redemption are the revenue model.</strong></p>
+<p>Three tiers:</p>
+<ol>
+<li><strong>Instant</strong> — plain, unencumbered, sized to cover normal redemption flow.</li>
+<li><strong>Short duration</strong> — tokenised T-bills and similar, T+1 rather than instant.</li>
+<li><strong>Slower</strong> — staked or lent, capped at the portion statistically unlikely to
+be called.</li>
+</ol>
+<p>Liquid staking tokens are the trap. &quot;Unlock&quot; there means <em>sell</em>, at whatever the
+market pays during the event that made you need the money.</p>
+<p>Staked ETH takes days to weeks to exit, SOL a few days, BNB seven. A redemption
+wave inside that window cannot be honoured: solvent on paper, unable to pay.
+That is the duration mismatch that killed Celsius and BlockFi, and it has to be
+designed against rather than discovered. <strong>State the redemption delay out loud.</strong>
+&quot;Instant&quot; that sometimes isn&#39;t is far worse than &quot;up to 7 days&quot; that always is.</p>
+<h2>Solvency must be a query</h2>
+<p>&quot;Are we solvent?&quot; should be a chain query returning issued-versus-held per
+asset, not a spreadsheet somebody maintains.</p>
+<p>If the number cannot be checked by anyone, the whole model rests on trusting the
+foundation — and this is a chain whose entire purpose is not having to.</p>
+<h2>What exists and what does not</h2>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Issue and redeem against custody</td>
+<td><code>x/stablecoin</code> — exists, and already allows exponent 18, which ETH needs</td>
+</tr>
+<tr>
+<td>YML ↔ yETH market</td>
+<td><code>x/amm</code> — exists</td>
+</tr>
+<tr>
+<td>Pricing both sides</td>
+<td><code>x/oracle</code> — exists, 48 denoms</td>
+</tr>
+<tr>
+<td>Custody with roles and limits</td>
+<td><code>x/treasury</code> — exists</td>
+</tr>
+<tr>
+<td><strong>Deposit attestation</strong> — confirming an external deposit before minting</td>
+<td><strong>new</strong></td>
+</tr>
+<tr>
+<td><strong>Redemption queue and reserve accounting</strong></td>
+<td><strong>new</strong></td>
+</tr>
+<tr>
+<td><strong>Proof of reserves as a query</strong></td>
+<td><strong>new</strong></td>
+</tr>
+</tbody></table>
+<h2>Two problems to solve before building</h2>
+<p><strong>A bridged or issued asset has no approved issuer in the x/paymsg sense.</strong>
+Everything on this chain assumes permission: one issuer per currency, both
+participants approved for a payment. An asset arriving from outside sits outside
+that. The issuance model helps — every unit is minted by a named issuer — but
+the participant gating still needs a decision.</p>
+<p><strong>An enforcement freeze cannot reach the far side.</strong> A scammer bridges out and
+the case is moot. Custody helps here too: the custodian can refuse a redemption
+to a frozen account, which a wrapped bridge could not. That refusal should be a
+chain rule, not an operational promise.</p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,181 @@
+syntax = "proto3";
+package blockchain.enforcement.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/enforcement/types";
+
+// CaseAction is what a case asks the chain to do.
+enum CaseAction {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // CASE_ACTION_UNSPECIFIED is the unset default and is never valid.
+  CASE_ACTION_UNSPECIFIED = 0;
+
+  // CASE_ACTION_FREEZE stops the account from sending anything. Nothing is
+  // taken and nothing is redistributed; the funds stay where they are and stay
+  // the account's.
+  CASE_ACTION_FREEZE = 1;
+
+  // CASE_ACTION_SEIZE freezes the account and, if the case passes, moves what
+  // it holds to the recovery destination. Delegations are unbonded so that
+  // staked funds come back and can be recovered as they mature.
+  CASE_ACTION_SEIZE = 2;
+}
+
+// CaseStatus is where a case has got to.
+enum CaseStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // CASE_STATUS_UNSPECIFIED is the unset default and is never valid.
+  CASE_STATUS_UNSPECIFIED = 0;
+
+  // CASE_STATUS_VOTING is open. The target is frozen for as long as it stays
+  // that way, or until the provisional freeze expires.
+  CASE_STATUS_VOTING = 1;
+
+  // CASE_STATUS_PASSED means the validators agreed. A freeze case ends here
+  // with the account frozen indefinitely; a seizure case sweeps and then keeps
+  // sweeping as unbonding funds arrive.
+  CASE_STATUS_PASSED = 2;
+
+  // CASE_STATUS_REJECTED means they did not, and the freeze is lifted.
+  CASE_STATUS_REJECTED = 3;
+
+  // CASE_STATUS_EXPIRED means the voting period ended without the threshold
+  // being reached — including the ordinary case where nobody voted at all. The
+  // freeze is lifted. This is deliberately not the same outcome as rejection:
+  // silence is not a finding, and the record should not claim it was.
+  CASE_STATUS_EXPIRED = 4;
+
+  // CASE_STATUS_WITHDRAWN means whoever opened it took it back before the vote
+  // ended, which also lifts the freeze.
+  CASE_STATUS_WITHDRAWN = 5;
+
+  // CASE_STATUS_REVERSED means an authority overturned the case rather than the
+  // validators deciding it: governance reversing one that passed, or the
+  // emergency authority releasing an account it or a validator had frozen. Any
+  // freeze is lifted.
+  //
+  // What was already seized is not returned by this module — that takes a
+  // transfer from the recovery destination, by whoever controls it, and
+  // pretending otherwise would be a lie told by an enum value.
+  CASE_STATUS_REVERSED = 6;
+}
+
+// VoteOption is how a validator voted.
+enum VoteOption {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // VOTE_OPTION_UNSPECIFIED is the unset default and is never valid. A vote
+  // has to say something.
+  VOTE_OPTION_UNSPECIFIED = 0;
+
+  // VOTE_OPTION_YES supports the case: freeze, or freeze and seize.
+  VOTE_OPTION_YES = 1;
+
+  // VOTE_OPTION_NO opposes it.
+  VOTE_OPTION_NO = 2;
+
+  // VOTE_OPTION_ABSTAIN counts towards nothing. It exists so a validator can
+  // put on the record that they saw the case and declined to judge it, which
+  // is a different statement from not voting.
+  VOTE_OPTION_ABSTAIN = 3;
+}
+
+// Case is an accusation against one address, and everything the chain did about
+// it. Cases are never deleted: the record of who was frozen, on whose word, on
+// what evidence, and by whose votes is the only thing that makes this power
+// answerable.
+message Case {
+  uint64 id = 1;
+
+  // target is the account accused.
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // opener is the validator operator that opened the case, or the emergency
+  // authority when `emergency` is set. Not typed as a validator address for
+  // exactly that reason: an emergency case is opened by a group policy account,
+  // and rendering it as an operator address would name a validator that does
+  // not exist.
+  string opener = 3;
+
+  CaseAction action = 4;
+  CaseStatus status = 5;
+
+  // reason is the stated grounds, in plain words, for whoever is accused.
+  string reason = 6;
+
+  // evidence_uri points at the evidence held off-chain; evidence_hash is the
+  // SHA-256 of what it pointed at when the case was opened, so a document that
+  // is later edited can be shown to have been edited.
+  string evidence_uri = 7;
+  string evidence_hash = 8;
+
+  int64 opened_at_height = 9;
+  int64 voting_ends_at_height = 10;
+  int64 resolved_at_height = 11;
+
+  // total_power_at_open is the bonded power the threshold is measured against.
+  // Frozen at open so that power leaving the set mid-vote cannot lower the bar
+  // for what is already being decided.
+  int64 total_power_at_open = 12;
+
+  int64 yes_power = 13;
+  int64 no_power = 14;
+  int64 abstain_power = 15;
+
+  // recovered is everything this case has taken so far. It grows as unbonding
+  // funds arrive and are swept, which is why it is a running total rather than
+  // a single figure written once.
+  repeated cosmos.base.v1beta1.Coin recovered = 16 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  // sweep_complete is set when a seizure has nothing left to collect: the
+  // account is empty and no unbonding remains. Until then the case stays
+  // sweepable by anyone.
+  bool sweep_complete = 17;
+
+  // emergency marks a case opened by the emergency authority rather than by a
+  // validator. It changes nothing about how the case is decided — the
+  // validators still confirm or refuse it on the same terms — and exists so
+  // that nobody reading the record has to work out from an address whether the
+  // founders acted directly.
+  bool emergency = 18;
+}
+
+// Vote is one validator's judgement on one case, with the power it carried when
+// it was cast.
+message Vote {
+  uint64 case_id = 1;
+  string validator = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  VoteOption option = 3;
+
+  // power is recorded as it was at the moment of voting. Reading it live at
+  // resolution instead would let a validator vote and then change what their
+  // vote meant.
+  int64 power = 4;
+}
+
+// Freeze is the fact that stops the money moving.
+//
+// It is kept as its own record rather than being derived by scanning cases,
+// because it is read on every single transfer the chain processes.
+message Freeze {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // case_id is the case that put it there — so an account holder who is
+  // refused a transfer can be told which case to read, rather than "no".
+  uint64 case_id = 2;
+
+  // expires_at_height is the height the freeze lapses at, for the provisional
+  // freeze that comes with opening a case. Zero means it does not expire on its
+  // own: the validators voted for it, and lifting it takes a decision.
+  int64 expires_at_height = 3;
+
+  int64 frozen_at_height = 4;
+}

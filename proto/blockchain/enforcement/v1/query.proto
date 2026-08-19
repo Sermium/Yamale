@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package blockchain.enforcement.v1;
+
+import "amino/amino.proto";
+import "blockchain/enforcement/v1/enforcement.proto";
+import "blockchain/enforcement/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/enforcement/types";
+
+// Query defines the gRPC querier service.
+//
+// The whole of this module's activity is queryable by anyone, including from
+// the accused account's point of view: FreezeStatus answers "why can I not send
+// anything, and who decided that" in one call, because an account that is
+// frozen without being told why is the failure this module has to avoid most.
+service Query {
+  // Params queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/params";
+  }
+
+  // GetCase queries one case, with its votes.
+  rpc GetCase(QueryGetCaseRequest) returns (QueryGetCaseResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/case/{id}";
+  }
+
+  // ListCase queries every case ever opened, resolved or not.
+  rpc ListCase(QueryListCaseRequest) returns (QueryListCaseResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/case";
+  }
+
+  // OpenCases queries the cases still being voted on.
+  rpc OpenCases(QueryOpenCasesRequest) returns (QueryOpenCasesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/case/open";
+  }
+
+  // CaseVotes queries how each validator voted on a case.
+  rpc CaseVotes(QueryCaseVotesRequest) returns (QueryCaseVotesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/case/{case_id}/votes";
+  }
+
+  // FreezeStatus answers whether one address can send, and if not, why.
+  rpc FreezeStatus(QueryFreezeStatusRequest) returns (QueryFreezeStatusResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/freeze/{address}";
+  }
+
+  // ListFreeze queries every frozen address.
+  rpc ListFreeze(QueryListFreezeRequest) returns (QueryListFreezeResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/freeze";
+  }
+
+  // Recovered totals what this module has taken, across every case. It is the
+  // number that says how much this power has actually been used.
+  rpc Recovered(QueryRecoveredRequest) returns (QueryRecoveredResponse) {
+    option (google.api.http).get = "/yamale/blockchain/enforcement/v1/recovered";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetCaseRequest asks for one case by id.
+message QueryGetCaseRequest {
+  uint64 id = 1;
+}
+
+// QueryGetCaseResponse carries the case and every vote cast on it.
+message QueryGetCaseResponse {
+  Case case = 1 [(gogoproto.nullable) = false];
+  repeated Vote votes = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryListCaseRequest asks for every case, paginated.
+message QueryListCaseRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryListCaseResponse carries a page of cases, oldest id first.
+message QueryListCaseResponse {
+  repeated Case case = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryOpenCasesRequest asks for the cases still being voted on.
+message QueryOpenCasesRequest {}
+
+// QueryOpenCasesResponse carries the cases a validator still has to vote on.
+message QueryOpenCasesResponse {
+  repeated Case case = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryCaseVotesRequest asks how a case has been voted on so far.
+message QueryCaseVotesRequest {
+  uint64 case_id = 1;
+}
+
+// QueryCaseVotesResponse carries the votes and the tally they add up to.
+message QueryCaseVotesResponse {
+  repeated Vote votes = 1 [(gogoproto.nullable) = false];
+
+  // The tallies as they stand, so a caller does not have to add up the votes
+  // and reach a different answer from the chain's.
+  int64 yes_power = 2;
+  int64 no_power = 3;
+  int64 abstain_power = 4;
+  int64 total_power_at_open = 5;
+
+  // required_power is what yes_power has to reach for the case to pass.
+  int64 required_power = 6;
+}
+
+// QueryFreezeStatusRequest asks whether one address can send.
+message QueryFreezeStatusRequest {
+  string address = 1;
+}
+
+// QueryFreezeStatusResponse says whether it can, and if not, on what grounds.
+message QueryFreezeStatusResponse {
+  bool frozen = 1;
+
+  // freeze and case are set only when frozen. Together they are the answer to
+  // "why", which is the question this query exists for.
+  Freeze freeze = 2 [(gogoproto.nullable) = false];
+  Case case = 3 [(gogoproto.nullable) = false];
+}
+
+// QueryListFreezeRequest asks for every frozen address, paginated.
+message QueryListFreezeRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryListFreezeResponse carries a page of freezes.
+message QueryListFreezeResponse {
+  repeated Freeze freeze = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryRecoveredRequest asks what this module has taken in total.
+message QueryRecoveredRequest {}
+
+// QueryRecoveredResponse carries the running total and the case counts that
+// put it in proportion.
+message QueryRecoveredResponse {
+  repeated cosmos.base.v1beta1.Coin total = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  // cases_passed and cases_opened put that total in proportion.
+  uint64 cases_opened = 2;
+  uint64 cases_passed = 3;
+}

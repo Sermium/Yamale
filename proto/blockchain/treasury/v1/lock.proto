@@ -1,0 +1,110 @@
+syntax = "proto3";
+package blockchain.treasury.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// LockType selects how a lock releases its funds over time.
+enum LockType {
+  // LOCK_TYPE_UNSPECIFIED is the unset default and is never valid.
+  LOCK_TYPE_UNSPECIFIED = 0;
+  // LOCK_TYPE_TIME releases the whole amount at once, when end_time passes.
+  // Use it for a simple escrow or a delayed disbursement.
+  LOCK_TYPE_TIME = 1;
+  // LOCK_TYPE_VESTING releases progressively between cliff_time and end_time.
+  // Use it for grants, payroll and token allocations.
+  LOCK_TYPE_VESTING = 2;
+  // LOCK_TYPE_CONDITIONAL releases when the depositor says so, not when a clock
+  // says so. This is escrow: a buyer commits the money, the seller ships
+  // knowing it exists, and the funds move on confirmation.
+  //
+  // Deliberately no deadline. An automatic release rewards precisely the seller
+  // who ships nothing and waits, and it lands hardest on buyers who are ill,
+  // travelling or offline. Instead either party may open a case, which is why
+  // silence is not a weapon: the seller escalates rather than waiting forever.
+  LOCK_TYPE_CONDITIONAL = 3;
+}
+
+// DisputeState tracks a conditional lock that somebody has escalated.
+enum DisputeState {
+  DISPUTE_STATE_NONE = 0;
+  // Frozen. Neither release nor refund happens until the moderator decides.
+  DISPUTE_STATE_OPEN = 1;
+  DISPUTE_STATE_RESOLVED = 2;
+}
+
+// Lock commits treasury funds to a beneficiary on a schedule.
+//
+// Creating a lock does not transfer anything; it moves funds from the
+// treasury's available balance into its locked balance. The beneficiary pulls
+// what has vested by claiming, so the treasury never needs to run a scheduler
+// and a beneficiary who never claims costs the chain nothing.
+message Lock {
+  uint64 id = 1;
+  uint64 treasury_id = 2;
+  // beneficiary is the only address that may claim from this lock.
+  string beneficiary = 3;
+  string denom = 4;
+  // total_amount is the full commitment; released_amount is how much of it the
+  // beneficiary has already claimed. The difference is what remains locked.
+  string total_amount = 5;
+  string released_amount = 6;
+
+  // start_time is when the schedule begins, in Unix seconds.
+  int64 start_time = 7;
+  // cliff_time is the earliest moment anything may be claimed. Before it, a
+  // vesting lock releases nothing at all — that is the whole point of a cliff.
+  // Set equal to start_time for no cliff.
+  int64 cliff_time = 8;
+  // end_time is when the lock is fully released.
+  int64 end_time = 9;
+
+  // release_intervals splits vesting into discrete tranches rather than a
+  // continuous drip: 4 over a year means quarterly. Zero or one means
+  // continuous, releasing proportionally to elapsed time.
+  uint64 release_intervals = 10;
+
+  LockType lock_type = 11;
+
+  // revocable lets the admin cancel the lock and return the *unreleased*
+  // portion to available. Already-vested funds are never clawed back, whether
+  // or not the beneficiary has claimed them — a promise that can be withdrawn
+  // retroactively is not a promise.
+  bool revocable = 12;
+
+  // active is false once the lock is fully claimed or revoked. Inactive locks
+  // are retained rather than deleted so the disbursement history stays
+  // auditable.
+  bool active = 13;
+
+  uint64 created_at_height = 14;
+
+  // --- conditional locks only ---------------------------------------------
+
+  // depositor funded the lock and is the only account that may release it.
+  //
+  // Held separately from the treasury's admin on purpose: in an escrow the
+  // buyer is not an administrator of anything, and an admin who could release
+  // somebody else's escrow would be the trusted party this design exists to
+  // remove.
+  string depositor = 15 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // moderator decides a disputed lock, and is named when the lock is created
+  // rather than chosen afterwards. Both parties see who will judge them before
+  // they commit money, which is the whole of what makes this honest.
+  //
+  // A moderator has exactly one power: deciding an *open* case. They cannot
+  // release, refund, or touch a lock nobody has disputed.
+  string moderator = 16 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  DisputeState dispute = 17;
+
+  // Why the case was opened, kept because a moderator judging between two
+  // strangers has nothing else to go on.
+  string dispute_reason = 18;
+
+  // Which side escalated. "The seller cannot get confirmed" and "the buyer says
+  // it never came" are different disputes with the same shape.
+  string dispute_opened_by = 19 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}

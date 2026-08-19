@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Validator console</title>
+<!--
+  The operator's view of the validator set.
+
+  Deliberately one file with no build step and no dependencies. This is the page
+  somebody opens when the chain is misbehaving at three in the morning, possibly
+  from a phone on a bad connection, and a console that needs npm install before
+  it can tell you whether blocks are being signed is a console that will not be
+  open when it matters.
+
+  Everything here is read from the public REST/RPC surface. No key, no account,
+  no signing — an operations view that could move funds is a view nobody will
+  leave open on a shared screen.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --navy:#12253f; --ink:#0b1523; --brass:#a87b3c; --paper:#f6f7f9;
+    --bg:var(--paper); --panel:#fff; --text:var(--ink); --muted:#5c6e88;
+    --border:#e3e7ee; --ok:#0d7a4a; --warn:#a8791b; --bad:#b02a25;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme=light]) {
+      --bg:var(--ink); --panel:var(--navy); --text:#e8eef7; --muted:#8fa4c4;
+      --border:#24405f; --ok:#6fbfa5; --warn:#d2a65e; --bad:#ef8a85;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
+         border-bottom:1px solid var(--border)}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.2rem}
+  .grid{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:1.4rem}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:.9rem 1rem}
+  .stat__label{font-size:.74rem;color:var(--muted);letter-spacing:.03em}
+  .stat__value{font-size:1.5rem;font-weight:680;line-height:1.2;margin-top:.15rem;
+               font-variant-numeric:tabular-nums}
+  .stat__note{font-size:.76rem;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+        border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  th,td{padding:.6rem .8rem;text-align:left;border-bottom:1px solid var(--border);font-size:.87rem}
+  th{font-size:.72rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  tr:last-child td{border-bottom:0}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:.45rem}
+  .ok{background:var(--ok)} .warn{background:var(--warn)} .bad{background:var(--bad)}
+  .t-ok{color:var(--ok)} .t-warn{color:var(--warn)} .t-bad{color:var(--bad)}
+  h2{font-size:.95rem;margin:1.6rem 0 .6rem}
+  .muted{color:var(--muted);font-size:.82rem}
+  .err{background:#fbe9e8;color:#b02a25;padding:.7rem .9rem;border-radius:10px;font-size:.86rem}
+  @media (prefers-color-scheme: dark){:root:not([data-theme=light]) .err{background:#3a1c1b;color:#f0a9a5}}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+</style>
+</head>
+<body>
+<header>
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
+  <h1>Validator console</h1>
+  <span class="muted" id="clock" style="margin-inline-start:auto"></span>
+</header>
+
+<div class="wrap">
+  <div id="error"></div>
+
+  <div class="grid" id="stats"></div>
+
+  <h2>The validator set</h2>
+  <div id="vals"></div>
+
+  <p class="muted" id="foot"></p>
+</div>
+
+<script>
+const REST = '/api/rest';
+const RPC  = '/api/rpc';
+
+const get = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(url.split('?')[0] + ' → ' + res.status);
+  return res.json();
+};
+
+// A validator's health is not one number. Bonded says it is in the set;
+// jailed says the chain removed it; missed blocks say it is failing right now
+// but has not been punished yet. The last is the one an operator can still act
+// on, so it gets the prominence.
+function health(v, signing) {
+  if (v.jailed) return { cls:'bad', word:'jailed' };
+  if (v.status !== 'BOND_STATUS_BONDED') return { cls:'warn', word:'not bonded' };
+  const missed = Number(signing?.missed_blocks_counter ?? 0);
+  if (missed > 100) return { cls:'bad', word:'missing blocks' };
+  if (missed > 0)   return { cls:'warn', word:'some misses' };
+  return { cls:'ok', word:'signing' };
+}
+
+const fmt = (n) => Number(n).toLocaleString();
+// Voting power is stored in the staking denom's base units.
+const power = (tokens) => Math.floor(Number(tokens) / 1e6);
+
+async function load() {
+  try {
+    document.getElementById('error').innerHTML = '';
+
+    const [vals, infos, status, block] = await Promise.all([
+      get(`${REST}/cosmos/staking/v1beta1/validators?pagination.limit=100`),
+      get(`${REST}/cosmos/slashing/v1beta1/signing_infos?pagination.limit=100`),
+      get(`${RPC}/status`),
+      get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/latest`),
+    ]);
+
+    const validators = vals.validators ?? [];
+    const bonded = validators.filter(v => v.status === 'BOND_STATUS_BONDED' && !v.jailed);
+    const total  = bonded.reduce((s, v) => s + power(v.tokens), 0);
+
+    // Signing info is keyed by the consensus address, which does not appear on
+    // the validator record — so it is matched by position in the shared order
+    // the two endpoints return. Imperfect, and flagged rather than hidden: if
+    // the counts differ, the misses column is left blank instead of guessing.
+    const signing = infos.info ?? [];
+    const alignable = signing.length === validators.length;
+
+    const h = Number(status?.result?.sync_info?.latest_block_height
+                     ?? block?.block?.header?.height ?? 0);
+    const signatures = block?.block?.last_commit?.signatures ?? [];
+    const signed = signatures.filter(s => s.signature).length;
+
+    // 2/3 of voting power is what the chain actually needs. Showing the margin
+    // above it is more useful than showing the count, because losing one large
+    // validator can halt a chain that has ten small ones.
+    const quorum = Math.ceil(total * 2 / 3);
+    const margin = total - quorum;
+
+    document.getElementById('stats').innerHTML = `
+      <div class="stat">
+        <div class="stat__label">HEIGHT</div>
+        <div class="stat__value">${fmt(h)}</div>
+        <div class="stat__note">last block signed by ${signed} of ${signatures.length}</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">ACTIVE VALIDATORS</div>
+        <div class="stat__value">${bonded.length}</div>
+        <div class="stat__note">${validators.length - bonded.length} inactive or jailed</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">VOTING POWER</div>
+        <div class="stat__value">${fmt(total)}</div>
+        <div class="stat__note">needs ${fmt(quorum)} to produce blocks</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">MARGIN ABOVE ⅔</div>
+        <div class="stat__value ${margin <= 0 ? 't-bad' : 't-ok'}">${fmt(margin)}</div>
+        <div class="stat__note">${
+          bonded.length < 2
+            ? 'single validator — any outage halts the chain'
+            : 'power that can drop before blocks stop'
+        }</div>
+      </div>`;
+
+    const rows = validators.map((v, i) => {
+      const info = alignable ? signing[i] : null;
+      const st = health(v, info);
+      const share = total ? (100 * power(v.tokens) / total) : 0;
+      return `<tr>
+        <td><span class="dot ${st.cls}"></span>${v.description?.moniker || '—'}</td>
+        <td class="t-${st.cls}">${st.word}</td>
+        <td class="num">${fmt(power(v.tokens))}</td>
+        <td class="num">${share.toFixed(1)}%</td>
+        <td class="num">${info ? fmt(info.missed_blocks_counter ?? 0) : '—'}</td>
+        <td class="num">${(Number(v.commission?.commission_rates?.rate ?? 0) * 100).toFixed(0)}%</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('vals').innerHTML = `<table>
+      <thead><tr>
+        <th>Validator</th><th>State</th><th style="text-align:right">Power</th>
+        <th style="text-align:right">Share</th><th style="text-align:right">Missed</th>
+        <th style="text-align:right">Commission</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+
+    document.getElementById('foot').textContent = alignable
+      ? 'Missed-block counts are cumulative since each validator joined.'
+      : 'Missed-block counts hidden: the signing-info list does not line up with the validator list, and a guessed alignment would attribute failures to the wrong operator.';
+
+    document.getElementById('clock').textContent =
+      'updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    // Say which call failed. "Something went wrong" at 3am is worse than useless.
+    document.getElementById('error').innerHTML =
+      `<p class="err">Could not read the chain — ${e.message}</p>`;
+  }
+}
+
+load();
+setInterval(load, 10000);
+</script>
+</body>
+</html>

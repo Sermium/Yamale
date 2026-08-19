@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land title deeds on Yamale — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Land title deeds on Yamale</h1>
+<p>How a parcel of land becomes a record that cannot be owned twice, and how it
+changes hands without anybody being able to buy the outcome.</p>
+<p><strong>Status:</strong> design. The module (<code>x/land</code>) is specified here and not yet
+implemented. This document is the specification the implementation must satisfy.</p>
+<h2>The problem this solves</h2>
+<p>Land registries in much of the world fail in four specific ways, and each one is
+a design requirement rather than a vague aspiration:</p>
+<ol>
+<li><strong>The same parcel is sold twice.</strong> Two paper deeds exist for one field,
+issued years apart by offices that never spoke. Both buyers paid.</li>
+<li><strong>A record is quietly altered.</strong> A boundary moves, a name changes, and the
+only evidence of the original is a ledger controlled by whoever altered it.</li>
+<li><strong>One official can be bought.</strong> A single signature transfers a family&#39;s land.
+The cost of theft is the price of one bribe.</li>
+<li><strong>The dispossessed cannot prove anything.</strong> The person who lost the land has
+no copy, no timestamp, and no standing.</li>
+</ol>
+<p>A blockchain does not fix corruption. What it can do is make the <em>cost of
+corruption</em> legible and high: force collusion instead of a single bribe, make
+alteration detectable rather than deniable, and give the loser a receipt.</p>
+<h2>What a title is here</h2>
+<p>A <strong>parcel</strong> is a record with an identity that cannot be duplicated, because the
+chain refuses to create a second one over the same ground:</p>
+<ul>
+<li><code>parcel_id</code> — assigned by the chain, never reused, never reassigned.</li>
+<li><code>geometry_hash</code> — the hash of the surveyed boundary (GeoJSON, or the cadastral
+reference). The survey itself is too large and too sensitive for a block; the
+hash proves which survey the title refers to.</li>
+<li><code>cadastral_ref</code> — the registry&#39;s own human reference, so this record can be
+reconciled against the paper world it has to coexist with.</li>
+<li><code>holder</code> — exactly one account. Not a list.</li>
+<li><code>authority</code> — the registry office whose jurisdiction this parcel falls in.</li>
+<li><code>status</code> — <code>REGISTERED</code>, <code>TRANSFER_PENDING</code>, <code>DISPUTED</code>, <code>FROZEN</code>.</li>
+<li><code>encumbrances</code> — mortgages, liens, rights of way. Recorded, because a title
+without them is a lie that gets somebody&#39;s house taken.</li>
+<li><code>deeds</code> — the chain of title as token metadata: each document&#39;s kind, hash,
+reference and where the registry serves it from.</li>
+<li><code>restrictions</code> — what may lawfully be done with this land.</li>
+<li><code>vehicle_id</code> — the tokenisation vehicle opened over it, if any. The title
+itself never moves into the vehicle.</li>
+</ul>
+<p><strong>Single ownership is enforced at registration, not by convention.</strong> The keeper
+keeps an index on <code>geometry_hash</code>; registering a parcel whose hash already exists
+fails. Overlap of <em>different</em> geometries is a survey problem the chain cannot
+see, so the module makes the honest move: the geometry hash is unique, and a
+claimed overlap is raised as a dispute by a human, not detected by code.</p>
+<h2>Why a transfer needs more than a signature</h2>
+<p>A transfer is the moment land is stolen, so it is the moment that gets the
+weight. Four things must happen, and no one party controls two of them:</p>
+<ol>
+<li><strong>The holder consents.</strong> They sign <code>MsgProposeTransfer</code> naming the recipient
+and the price. Without this nothing starts — an authority cannot move land on
+its own.</li>
+<li><strong>The authority in charge validates.</strong> The registry office for that
+jurisdiction signs. This is the office holding the paper file, which can check
+the seller is who they say they are.</li>
+<li><strong>M-of-N registrars attest.</strong> A quorum of <em>independent</em> registrars, drawn from
+a set that does <strong>not</strong> include the proposing authority, each sign
+<code>MsgAttestTransfer</code>. This is the anti-bribery mechanism: to steal a parcel you
+must buy the holder&#39;s key <em>and</em> the local office <em>and</em> a quorum of officials in
+other offices with no relationship to the buyer. One bribe is not enough, and
+every additional conspirator is a person who can defect or leak.</li>
+<li><strong>A challenge window elapses.</strong> Between quorum and completion the transfer is
+public and objectable. Anybody may file <code>MsgObject</code> with a reason; an objection
+moves the parcel to <code>DISPUTED</code> and stops the transfer dead.</li>
+</ol>
+<p>Only when all four hold does <code>MsgCompleteTransfer</code> move the holder. Completion is
+mechanical — it checks conditions and applies them — so no official holds a
+discretionary final step they can sell.</p>
+<h3>Parameters worth arguing about</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>attestation_quorum</code></td>
+<td>3</td>
+<td>Below three, two colluding officials suffice.</td>
+</tr>
+<tr>
+<td><code>challenge_window</code></td>
+<td>14 days</td>
+<td>Long enough for word to reach a family member in another city; short enough that legitimate sales are not strangled.</td>
+</tr>
+<tr>
+<td><code>same_authority_attestation</code></td>
+<td>false</td>
+<td>An attestor from the proposing office is not independent; allowing it collapses the mechanism back to one bribe.</td>
+</tr>
+</tbody></table>
+<p>These belong to governance, not to code, and the defaults are a starting position
+rather than a finding.</p>
+<h2>Every office is a group, not a person</h2>
+<p>A registry office is admitted as an <strong>x/group account</strong>, never a plain key, and
+the keeper refuses anything else (<code>ErrOfficeNotGroup</code>). This matters because the
+cross-office quorum only guards <em>transfers</em> — registration, validation,
+restrictions and freezes are each done by one office, and if that office were a
+single key, each of them would cost exactly one bribe.</p>
+<p>With group accounts there are two independent layers:</p>
+<ul>
+<li><strong>Inside an office:</strong> M-of-N registrars must agree before the office signs
+anything at all. This comes free from x/group; the keeper still sees one
+signer, but that signer is a policy.</li>
+<li><strong>Across offices:</strong> a transfer additionally needs the independent quorum
+described above.</li>
+</ul>
+<p>The check happens once, at admission, rather than on every message — it costs a
+single lookup and it cannot be forgotten later. Trusting governance to only ever
+admit group addresses would put the whole intra-office protection in a human
+review step that will eventually be rushed.</p>
+<p>Two consequences worth stating plainly:</p>
+<ul>
+<li><strong>First registration is the cheapest remaining attack.</strong> Creating a title over
+ground nobody has claimed needs one office (M-of-N inside it) and no
+cross-office quorum. That is deliberate for seeding a registry, and arguably
+wrong afterwards — extending the attestation quorum to registration is the
+next thing to decide.</li>
+<li><strong>Freezing needs only the office.</strong> With a group account that is already
+several people, but a captured office can still freeze land and extort its
+owner. The remedy in that case is <code>MsgObject</code> and a court, not the chain.</li>
+</ul>
+<h2>What this deliberately does not do</h2>
+<ul>
+<li><strong>It does not decide who owns land today.</strong> Seeding the registry is a political
+act performed by the state that adopts it. The chain records the seeding as
+first registration by a named authority, timestamped, so the initial allocation
+is as auditable as everything after it.</li>
+<li><strong>It does not resolve disputes.</strong> <code>DISPUTED</code> is a terminal state for the
+transfer and an entry point for a court. The chain&#39;s job is to stop the
+transfer and preserve the evidence, not to adjudicate.</li>
+<li><strong>It does not publish personal data.</strong> Holders are accounts; names live in the
+registry&#39;s own records. A public list of who owns what, with names attached, is
+a targeting list.</li>
+<li><strong>It cannot detect a fraudulent survey.</strong> If two honest-looking geometries
+describe overlapping ground, only a surveyor can say so. The module gives them
+a way to say it (<code>MsgObject</code>) and refuses to pretend it knows.</li>
+</ul>
+<h2>Messages</h2>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Signer</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MsgRegisterAuthority</code></td>
+<td>governance</td>
+<td>Admits a registry office, with its jurisdiction.</td>
+</tr>
+<tr>
+<td><code>MsgRegisterParcel</code></td>
+<td>authority</td>
+<td>First registration. Fails if <code>geometry_hash</code> exists.</td>
+</tr>
+<tr>
+<td><code>MsgProposeTransfer</code></td>
+<td>holder</td>
+<td>Opens a transfer to a named recipient.</td>
+</tr>
+<tr>
+<td><code>MsgValidateTransfer</code></td>
+<td>authority in charge</td>
+<td>The jurisdiction&#39;s validation.</td>
+</tr>
+<tr>
+<td><code>MsgAttestTransfer</code></td>
+<td>registrar (another office)</td>
+<td>One attestation toward quorum.</td>
+</tr>
+<tr>
+<td><code>MsgObject</code></td>
+<td>anyone</td>
+<td>Halts the transfer, sets <code>DISPUTED</code>.</td>
+</tr>
+<tr>
+<td><code>MsgCompleteTransfer</code></td>
+<td>anyone</td>
+<td>Mechanical: applies a transfer that has met every condition.</td>
+</tr>
+<tr>
+<td><code>MsgRecordEncumbrance</code></td>
+<td>authority</td>
+<td>Adds or releases a lien or right of way.</td>
+</tr>
+<tr>
+<td><code>MsgFreezeParcel</code></td>
+<td>authority</td>
+<td>Stops all movement — a court order, a fraud investigation.</td>
+</tr>
+<tr>
+<td><code>MsgAttachDeed</code></td>
+<td>authority</td>
+<td>Adds a document to the chain of title.</td>
+</tr>
+<tr>
+<td><code>MsgSetRestriction</code></td>
+<td>authority</td>
+<td>Imposes or lifts a limit on what may be done with the land.</td>
+</tr>
+<tr>
+<td><code>MsgAuthoriseFractionalisation</code></td>
+<td>authority</td>
+<td>Permits a tokenisation vehicle over the parcel, with a ceiling and an expiry.</td>
+</tr>
+</tbody></table>
+<p><code>MsgCompleteTransfer</code> being open to anyone is deliberate: if only an official
+could finalise, an official could refuse to, and refusal is leverage.</p>
+<h2>A parcel is an NFT, and it can be fractionalised later — supervised</h2>
+<p>A parcel is one indivisible token with one holder. The deed documents ride with
+it as metadata: each <code>Deed</code> carries the kind, the hash of the document the
+registry holds, a URI to fetch it, and its reference in the paper world. The
+scans stay with the registry — a 1974 grant is megabytes and usually contains
+somebody&#39;s personal details — but the hash proves which paper the title means.</p>
+<p><strong>Fractionalising land is legitimate and useful.</strong> An owner may want to sell an
+exploitation right in shares and collect rent from it; that is real financing for
+people whose only asset is land they cannot borrow against. The danger is not
+fractionalisation itself, it is fractionalisation the registry cannot see:
+selling around a restriction, or moving control of the land without a transfer
+ever being recorded.</p>
+<p>So the bridge to <code>x/tokenisation</code> is supervised, and built on one rule: <strong>the
+title never leaves this module.</strong></p>
+<ul>
+<li>The authority signs <code>MsgAuthoriseFractionalisation</code>, naming the <em>right</em> being
+sold (exploitation, lease, revenue share — never the title), a ceiling
+<code>max_share_bps</code>, and an expiry.</li>
+<li><code>x/tokenisation</code> refuses to open a vehicle over a parcel without a live
+authorisation, and refuses to issue beyond the ceiling.</li>
+<li>The parcel stays here, held by the same account, with <code>vehicle_id</code> pointing at
+what was opened over it. The vehicle sells rights that <em>reference</em> the parcel.</li>
+</ul>
+<p>That separation is what lets a land service still answer the only two questions
+that matter — <em>who owns this, and is what is being sold over it lawful</em> — after
+the asset has been financialised. Withdrawing an authorisation stops new
+issuance; it does not expropriate existing holders, because that is a taking and
+belongs to a court, not to a registry office.</p>
+<p><code>Restriction</code> entries are the standing instruction all of this obeys:
+<code>agricultural_use_only</code>, <code>heritage_protected</code>, <code>foreign_ownership_capped</code>,
+<code>minimum_parcel_size</code>, <code>customary_tenure</code>. They are data rather than code
+because land law differs by country, and a chain that hard-codes one country&#39;s
+rules is a chain only that country can use.</p>
+<h2>Nobody sees a wallet</h2>
+<p>The same abstraction the payments app enforces applies here, and matters more: a
+farmer proving they own their field should never meet the words <em>address</em>,
+<em>key</em>, <em>token</em> or <em>gas</em>.</p>
+<ul>
+<li>A holder is a <strong>person or an office with a name</strong>, resolved through the user
+ID system. Addresses appear nowhere in the interface.</li>
+<li>A parcel is found by its <strong>cadastral reference</strong> — the number on the paper
+somebody is holding — not by a chain id.</li>
+<li>Signing a transfer is <strong>&quot;approve this transfer&quot;</strong>, with the fee sponsored, so
+a citizen never needs to hold YML to defend their own title.</li>
+<li>The deed history reads as <em>who did what, when</em> — not as transactions.</li>
+</ul>
+<h2>The application</h2>
+<p>A separate client (<code>clients/land</code>), because its audience is not the audience for
+a wallet:</p>
+<ul>
+<li><strong>Search</strong> by cadastral reference or parcel id — read-only, no account needed.
+A citizen must be able to check a claim before paying anybody.</li>
+<li><strong>A parcel page</strong> showing holder, status, encumbrances, and the full transfer
+history with every signature and timestamp. This is the receipt the
+dispossessed currently do not have.</li>
+<li><strong>A registrar console</strong> for proposing, validating and attesting, which shows an
+official exactly what they are signing and who else has signed.</li>
+<li><strong>An objection form</strong> needing no credentials beyond an account, because the
+person being robbed is often not the person with the official relationships.</li>
+</ul>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,113 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// RotationKind is which of the two paths a rotation took, and it decides
+// everything about how the rotation is treated. The two are separated at the
+// type level rather than inferred from who signed, so that a reader of the
+// record — or of an event — never has to reconstruct which set of rules
+// applied to a rotation that already happened.
+enum RotationKind {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // ROTATION_KIND_UNSPECIFIED is the unset default and is never valid.
+  ROTATION_KIND_UNSPECIFIED = 0;
+
+  // ROTATION_KIND_PLANNED was signed by the operator being replaced.
+  // Possession of the key is the whole proof, so nothing else is required of
+  // it: anyone able to submit this already controls everything it protects.
+  ROTATION_KIND_PLANNED = 1;
+
+  // ROTATION_KIND_RECOVERY was proposed by somebody who does not hold the key,
+  // which is also exactly what an attacker would be doing. It carries the
+  // admission quorum, the pause and the challenge window because of that.
+  ROTATION_KIND_RECOVERY = 2;
+}
+
+// RotationStatus is where a rotation has got to.
+enum RotationStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // ROTATION_STATUS_UNSPECIFIED is the unset default and is never valid.
+  ROTATION_STATUS_UNSPECIFIED = 0;
+
+  // ROTATION_STATUS_PENDING is open. A planned rotation is counting down its
+  // delay; a recovery is either waiting for the admission quorum or counting
+  // down its challenge window.
+  ROTATION_STATUS_PENDING = 1;
+
+  // ROTATION_STATUS_COMPLETED means the new operator is now the operator of
+  // record.
+  ROTATION_STATUS_COMPLETED = 2;
+
+  // ROTATION_STATUS_CANCELLED means the current operator withdrew it
+  // deliberately, by message, before it took effect.
+  ROTATION_STATUS_CANCELLED = 3;
+
+  // ROTATION_STATUS_VETOED means the current operator signed a transaction
+  // while the recovery claiming their key was lost was open. It is deliberately
+  // not the same status as cancelled: cancelled is somebody changing their
+  // mind, vetoed is a claim about a lost key being disproved, and conflating
+  // the two would hide the only evidence that a recovery was false.
+  ROTATION_STATUS_VETOED = 4;
+
+  // ROTATION_STATUS_REJECTED means the admission quorum refused the recovery.
+  ROTATION_STATUS_REJECTED = 5;
+}
+
+// OperatorRotation is one attempt to move a validator's operator key, and
+// everything the chain did about it. Rotations are never deleted: a recovery
+// that was vetoed is the record of somebody having claimed a key was lost when
+// it was not, and that is precisely the history worth keeping.
+message OperatorRotation {
+  // id is numbered from one. Zero is reserved because in proto3 an id of 0 is
+  // indistinguishable from an unset field, and "rotation 0" would be a record
+  // nobody could look up.
+  uint64 id = 1;
+
+  // current_operator is the address being replaced. It is the same address the
+  // ApprovedValidator allowlist is keyed by, which is the account form of the
+  // validator's operator address.
+  string current_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // new_operator is the address that takes over.
+  string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  RotationKind kind = 4;
+  RotationStatus status = 5;
+
+  // proposer is whoever submitted it. For a planned rotation this equals
+  // current_operator; for a recovery it is whoever noticed, which is anybody.
+  string proposer = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // reason is the stated grounds. Required on a recovery — a claim that
+  // somebody's key is gone should have to say so in words — and unused on a
+  // planned rotation, where the signature says everything.
+  string reason = 7;
+
+  // approved is set once the admission quorum has agreed to a recovery. Until
+  // then a recovery is inert: it is a claim on the record, and it neither
+  // pauses the validator nor runs a clock. Otherwise anyone could pause any
+  // validator on this chain for the price of one transaction.
+  bool approved = 8;
+
+  int64 opened_at_height = 9;
+
+  // completes_at_height is the height the rotation takes effect at. Zero means
+  // no clock is running yet, which for a recovery is the ordinary state
+  // between being proposed and being approved.
+  int64 completes_at_height = 10;
+
+  int64 resolved_at_height = 11;
+
+  // paused_validator records that this rotation is what jailed the validator,
+  // so that resolving it un-jails only what it jailed. A validator already
+  // jailed for downtime when the recovery was approved must stay jailed when
+  // the recovery ends: releasing it would turn a contested rotation into a way
+  // of clearing somebody else's downtime.
+  bool paused_validator = 12;
+}

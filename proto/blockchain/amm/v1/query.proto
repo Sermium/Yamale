@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package blockchain.amm.v1;
+
+import "amino/amino.proto";
+import "blockchain/amm/v1/params.proto";
+import "blockchain/amm/v1/pool.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/amm/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/amm/v1/params";
+  }
+
+  // ListPool Queries a list of Pool items.
+  rpc GetPool(QueryGetPoolRequest) returns (QueryGetPoolResponse) {
+    option (google.api.http).get = "/yamale/blockchain/amm/v1/pool/{id}";
+  }
+
+  // ListPool defines the ListPool RPC.
+  rpc ListPool(QueryAllPoolRequest) returns (QueryAllPoolResponse) {
+    option (google.api.http).get = "/yamale/blockchain/amm/v1/pool";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetPoolRequest defines the QueryGetPoolRequest message.
+message QueryGetPoolRequest {
+  uint64 id = 1;
+}
+
+// QueryGetPoolResponse defines the QueryGetPoolResponse message.
+message QueryGetPoolResponse {
+  Pool pool = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllPoolRequest defines the QueryAllPoolRequest message.
+message QueryAllPoolRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllPoolResponse defines the QueryAllPoolResponse message.
+message QueryAllPoolResponse {
+  repeated Pool pool = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

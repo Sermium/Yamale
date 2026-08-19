@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Governance and enforcement</title>
+<!--
+  Governance proposals, and the two emergency powers, on one page.
+
+  The design problem here is not layout, it is making an irreversible act look
+  irreversible. Freezing a wallet and seizing its contents are handled by the
+  same module and appear next to each other, but they are not the same kind of
+  thing at all:
+
+    freeze  — one validator, effective in a block, reversible, temporary
+    seize   — two thirds of voting power, evidence required, permanent
+
+  A UI that renders those as two similar buttons is a UI that will eventually
+  be used to take somebody's money by accident. So they are visually separated,
+  the seizure panel states its threshold and evidence requirement in words, and
+  the page never offers to perform either — it shows what has been proposed and
+  who has voted. Acting is done by validators from their own nodes, with their
+  own keys, which is where an irreversible decision belongs.
+
+  Read-only, single file, no build step, no keys.
+-->
+<style>
+  :root{
+    color-scheme:light dark;
+    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
+    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
+    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
+    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;}}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;border-bottom:1px solid var(--border)}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  .wrap{max-width:1000px;margin:0 auto;padding:1.2rem}
+  h2{font-size:.95rem;margin:1.7rem 0 .5rem}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:1rem;margin-bottom:.8rem}
+  /* The seizure panel carries a red edge wherever it appears. Colour is the
+     fastest signal that this is the dangerous one. */
+  .card--seize{border-inline-start:3px solid var(--bad)}
+  .card--freeze{border-inline-start:3px solid var(--warn)}
+  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline}
+  .pill{font-size:.7rem;font-weight:650;padding:.12rem .5rem;border-radius:999px;letter-spacing:.03em}
+  .p-ok{background:rgba(13,122,74,.14);color:var(--ok)}
+  .p-warn{background:rgba(168,121,27,.16);color:var(--warn)}
+  .p-bad{background:rgba(176,42,37,.14);color:var(--bad)}
+  .p-mute{background:rgba(92,110,136,.16);color:var(--muted)}
+  .muted{color:var(--muted);font-size:.84rem}
+  .small{font-size:.78rem}
+  .bar{height:7px;border-radius:99px;background:rgba(92,110,136,.2);overflow:hidden;margin:.5rem 0 .3rem}
+  .bar span{display:block;height:100%}
+  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
+  .err{background:#fbe9e8;color:#b02a25;padding:.7rem .9rem;border-radius:10px;font-size:.86rem}
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .err{background:#3a1c1b;color:#f0a9a5}}
+  .empty{color:var(--muted);font-size:.86rem;padding:.6rem 0}
+  .vrow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid var(--border)}
+  .cmds{display:flex;gap:.4rem;flex-wrap:wrap;margin-inline-start:auto}
+  .copy{font:inherit;font-size:.76rem;padding:.3rem .6rem;border-radius:8px;cursor:pointer;
+        background:transparent;color:var(--text);border:1px solid var(--border)}
+  .copy:hover{border-color:var(--brass)}
+  .vote{font:inherit;font-size:.8rem;font-weight:600;padding:.4rem .8rem;border-radius:9px;
+        cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
+  .vote.ok{border-color:var(--ok);color:var(--ok)}
+  .vote.bad{border-color:var(--bad);color:var(--bad)}
+  .vote:disabled{opacity:.6;cursor:default}
+  input{font:inherit;padding:.45rem .6rem;border-radius:9px;border:1px solid var(--border);
+        background:var(--bg);color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
+  <h1>Governance and enforcement</h1>
+  <span class="pill p-warn" id="acting" style="margin-inline-start:auto"></span>
+  <span class="muted" id="clock"></span>
+</header>
+
+<div class="wrap">
+  <div id="error"></div>
+
+  <h2>The rules in force</h2>
+  <div class="grid" id="rules"></div>
+
+  <h2>Open for voting</h2>
+  <p class="muted small">Each validator votes from its own node, where its key is.
+     Copy the command for your validator and run it there.</p>
+  <div id="open"></div>
+
+  <h2>Decided</h2>
+  <div id="proposals"></div>
+
+  <h2>Emergency powers</h2>
+  <div class="grid" id="emergency"></div>
+
+  <h2>Frozen wallets</h2>
+  <p class="muted small">One validator can freeze in a single block. It is fast on purpose —
+     stopping money moving is reversible, so it is worth being wrong about.</p>
+  <div id="freezes"></div>
+
+  <h2>Asset recovery cases</h2>
+  <p class="muted small">Taking somebody's funds is not. These need a supermajority of voting
+     power and, where required, evidence — and once executed they cannot be undone.</p>
+  <div id="cases"></div>
+</div>
+
+<script type="module">
+import { VALIDATORS, voteCommand } from '/validator/vote.js';
+
+// A validator votes with its *account* address, not its valoper address.
+const VOTER_ADDR = {
+  'pi':   'yml1nls726x7n7ucd8a6ku0ykdp20c0dl6de5zd782',
+  'pi-2': 'yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas',
+};
+
+// Which validator this page is acting as. ?as=pi or ?as=pi-2 — one URL per
+// operator, so a validator opens its own page and every action on it is
+// unambiguously theirs. Without it the page is read-only.
+const ME = new URLSearchParams(location.search).get('as');
+const REST = '/api/rest';
+
+// pi signs on the VM; pi-2's key lives on the Pi, so its requests are proxied
+// there. The path differs per validator because the signer does.
+const opsUrl = (v, action) =>
+  v === 'pi-2' ? `/api/ops/pi-2/${action}` : `/api/ops/${action}`;
+
+async function act(validator, action, body, btn) {
+  const was = btn.textContent;
+  btn.textContent = 'sending…'; btn.disabled = true;
+  try {
+    const r = await fetch(opsUrl(validator, action), {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ validator, ...body }),
+    });
+    const out = await r.json();
+    // The service waits for the block before it answers, so by the time this
+    // runs the thing has either happened or failed — there is no third state
+    // to report. It used to answer the moment the mempool accepted the
+    // transaction, which is why this said "waiting for the block" and why a
+    // freeze that failed in the block still read as sent. `stage` says where a
+    // failure happened: refused before it was broadcast, or failed executing.
+    btn.textContent = out.ok
+      ? 'done — ' + (out.txhash || '').slice(0, 10)
+      : ((out.stage === 'executed' ? 'failed in the block: ' : '') +
+         (out.log || out.error || 'refused')).slice(0, 60);
+    if (out.ok) load();
+  } catch (e) {
+    btn.textContent = 'failed: ' + e.message;
+  }
+  setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 6000);
+}
+const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(u.split('?')[0]+' → '+r.status); return r.json(); };
+
+const pct = (n, d) => d > 0 ? (100 * n / d) : 0;
+const fmt = (n) => Number(n || 0).toLocaleString();
+
+// Blocks are the chain's unit but nobody thinks in them. ~5s blocks here.
+const asTime = (blocks) => {
+  const s = Number(blocks) * 5;
+  if (s >= 86400) return (s / 86400).toFixed(1).replace(/\.0$/, '') + ' days';
+  if (s >= 3600)  return (s / 3600).toFixed(1).replace(/\.0$/, '') + ' hours';
+  return Math.round(s / 60) + ' min';
+};
+
+const statusPill = (s) => {
+  const t = String(s).replace('PROPOSAL_STATUS_', '').toLowerCase();
+  const cls = t === 'passed' ? 'p-ok'
+            : t === 'rejected' || t === 'failed' ? 'p-bad'
+            : t.includes('voting') ? 'p-warn' : 'p-mute';
+  return `<span class="pill ${cls}">${t.replace(/_/g, ' ')}</span>`;
+};
+
+function tally(t) {
+  const yes = Number(t?.yes_count || 0), no = Number(t?.no_count || 0);
+  const veto = Number(t?.no_with_veto_count || 0), abs = Number(t?.abstain_count || 0);
+  const total = yes + no + veto + abs;
+  if (!total) return '<p class="muted small">No votes recorded.</p>';
+  return `<div class="bar">
+      <span style="width:${pct(yes,total)}%;background:var(--ok);float:left"></span>
+      <span style="width:${pct(no+veto,total)}%;background:var(--bad);float:left"></span>
+    </div>
+    <p class="muted small">${fmt(yes)} yes · ${fmt(no)} no · ${fmt(veto)} veto · ${fmt(abs)} abstain</p>`;
+}
+
+async function load() {
+  try {
+    document.getElementById('error').innerHTML = '';
+    const [gov, params, freezes, cases] = await Promise.all([
+      get(`${REST}/cosmos/gov/v1/proposals?pagination.limit=30`),
+      get(`${REST}/yamale/blockchain/enforcement/v1/params`),
+      get(`${REST}/yamale/blockchain/enforcement/v1/freeze?pagination.limit=50`),
+      get(`${REST}/yamale/blockchain/enforcement/v1/case?pagination.limit=50`),
+    ]);
+
+    const p = params.params || {};
+    // The threshold is the single most important number on this page: it is
+    // what stops a minority of validators seizing funds.
+    document.getElementById('rules').innerHTML = `
+      <div class="card card--seize">
+        <div class="muted small">TO SEIZE FUNDS</div>
+        <div style="font-size:1.4rem;font-weight:680">${(Number(p.threshold_bps||0)/100).toFixed(2)}%</div>
+        <div class="muted small">of voting power must agree${p.seize_requires_evidence ? ', with evidence' : ''}</div>
+      </div>
+      <div class="card card--freeze">
+        <div class="muted small">PROVISIONAL FREEZE LASTS</div>
+        <div style="font-size:1.4rem;font-weight:680">${asTime(p.provisional_freeze_blocks)}</div>
+        <div class="muted small">then lapses unless a case is opened</div>
+      </div>
+      <div class="card">
+        <div class="muted small">VOTING PERIOD</div>
+        <div style="font-size:1.4rem;font-weight:680">${asTime(p.voting_period_blocks)}</div>
+        <div class="muted small">${fmt(p.voting_period_blocks)} blocks</div>
+      </div>
+      <div class="card">
+        <div class="muted small">RECOVERED FUNDS GO TO</div>
+        <div style="font-size:.95rem;font-weight:600;margin-top:.35rem">${
+          p.recovery_destination ? `<code>${p.recovery_destination}</code>`
+                                 : '<span class="p-bad pill">not set</span>'}</div>
+        <div class="muted small">${p.recovery_destination ? 'the foundation, which holds recovered assets for restitution' : 'this chain should not have started — seizures have nowhere to send what they take'}</div>
+      </div>`;
+
+    const proposals = gov.proposals || [];
+    const isOpen = (pr) => String(pr.status).includes('VOTING_PERIOD');
+
+    // Who has already voted, so an operator can see at a glance whether their
+    // own validator still needs to act.
+    const votesFor = async (id) => {
+      try {
+        const r = await get(`${REST}/cosmos/gov/v1/proposals/${id}/votes`);
+        return r.votes || [];
+      } catch { return []; }
+    };
+
+    const open = proposals.filter(isOpen);
+    const openHtml = await Promise.all(open.map(async (pr) => {
+      const votes = await votesFor(pr.id);
+      const rows = VALIDATORS.map(v => {
+        const cast = votes.find(x => (x.voter || '') === (VOTER_ADDR[v.moniker] || ''));
+        const opt = cast ? (cast.options?.[0]?.option || '').replace('VOTE_OPTION_', '').toLowerCase() : null;
+        return `<div class="vrow">
+            <strong>${v.moniker}</strong>
+            <span class="muted small">on ${v.host}</span>
+            ${opt ? `<span class="pill ${opt==='yes'?'p-ok':'p-bad'}">voted ${opt}</span>`
+                  : '<span class="pill p-warn">not voted</span>'}
+            ${opt ? '' : (ME === v.moniker ? `
+              <div class="cmds">
+                <button class="vote ok" data-v="${v.moniker}" data-p="${pr.id}" data-o="yes">vote yes</button>
+                <button class="vote bad" data-v="${v.moniker}" data-p="${pr.id}" data-o="no">vote no</button>
+              </div>` : `
+              <div class="cmds"><span class="muted small">open
+                <a href="?as=${v.moniker}">this page as ${v.moniker}</a> to vote</span></div>`)}
+          </div>`;
+      }).join('');
+      return `<div class="card">
+          <div class="row"><strong>#${pr.id} ${pr.title || ''}</strong>${statusPill(pr.status)}</div>
+          <p class="muted small">${pr.summary || ''}</p>
+          ${rows}
+          ${tally(pr.final_tally_result)}
+        </div>`;
+    }));
+    document.getElementById('open').innerHTML = openHtml.join('') ||
+      '<p class="empty">Nothing is open for voting. Proposals appear here during their voting period.</p>';
+
+    // Wire the copy buttons.
+    document.querySelectorAll('.vote').forEach(b => b.onclick = () =>
+      act(b.dataset.v, 'vote', { proposal: b.dataset.p, option: b.dataset.o }, b));
+
+    // Emergency actions, only on the page of the validator that would sign.
+    document.getElementById('emergency').innerHTML = ME ? `
+      <div class="card card--freeze">
+        <h3 style="margin:.1rem 0 .3rem;font-size:.9rem">Freeze a wallet</h3>
+        <p class="muted small">Takes effect in one block on ${ME}'s signature alone.
+           Reversible — that is why one validator is enough.</p>
+        <input id="fz-addr" placeholder="yml1…" style="width:100%;margin:.3rem 0">
+        <input id="fz-why" placeholder="why (required, on the record)" style="width:100%;margin:.3rem 0">
+        <button class="vote" id="fz-go">freeze this wallet</button>
+      </div>
+      <div class="card card--seize">
+        <h3 style="margin:.1rem 0 .3rem;font-size:.9rem">Open an asset-recovery case</h3>
+        <p class="muted small">Starts a vote to <strong>take</strong> the funds. Needs
+           ${(Number(p.threshold_bps||0)/100).toFixed(2)}% of voting power${p.seize_requires_evidence ? ' and evidence' : ''},
+           and cannot be undone once executed.</p>
+        <input id="cs-addr" placeholder="yml1…" style="width:100%;margin:.3rem 0">
+        <input id="cs-why" placeholder="why (required)" style="width:100%;margin:.3rem 0">
+        <input id="cs-ev" placeholder="evidence URI" style="width:100%;margin:.3rem 0">
+        <!-- Both halves, because the chain refuses a seizure without them when
+             seize_requires_evidence is set. The hash is of the document, not of
+             the link: it is what shows that the evidence somebody read on the
+             day of the vote is the evidence still sitting at that URI. -->
+        <input id="cs-evh" placeholder="SHA-256 of that evidence" style="width:100%;margin:.3rem 0">
+        <button class="vote bad" id="cs-go">open recovery case</button>
+      </div>` : '<p class="muted small">Open this page as a validator to act: <a href="?as=pi">as pi</a> · <a href="?as=pi-2">as pi-2</a></p>';
+
+    const freezeBtn = document.getElementById('fz-go');
+    if (freezeBtn) freezeBtn.onclick = () => act(ME, 'freeze', {
+      address: document.getElementById('fz-addr').value.trim(),
+      reason: document.getElementById('fz-why').value.trim(),
+    }, freezeBtn);
+    const caseBtn = document.getElementById('cs-go');
+    if (caseBtn) caseBtn.onclick = () => act(ME, 'case', {
+      address: document.getElementById('cs-addr').value.trim(),
+      reason: document.getElementById('cs-why').value.trim(),
+      evidence: document.getElementById('cs-ev').value.trim(),
+      evidence_hash: document.getElementById('cs-evh').value.trim(),
+    }, caseBtn);
+
+    document.getElementById('proposals').innerHTML = proposals.filter(p => !isOpen(p)).map(pr => `
+      <div class="card">
+        <div class="row">
+          <strong>#${pr.id} ${pr.title || pr.summary || ''}</strong>
+          ${statusPill(pr.status)}
+        </div>
+        <p class="muted small">${(pr.messages||[]).map(m => m['@type']).join(', ') || '—'}</p>
+        ${tally(pr.final_tally_result)}
+      </div>`).join('') || '<p class="empty">No decided proposals yet.</p>';
+
+    const fr = freezes.freeze || [];
+    document.getElementById('freezes').innerHTML = fr.length ? fr.map(f => `
+      <div class="card card--freeze">
+        <div class="row"><code>${f.address || f.account || ''}</code>
+          <span class="pill p-warn">frozen</span></div>
+        <p class="muted small">${f.reason || ''}</p>
+      </div>`).join('') : '<p class="empty">No wallet is frozen.</p>';
+
+    const cs = cases.case || [];
+    document.getElementById('cases').innerHTML = cs.length ? cs.map(c => `
+      <div class="card card--seize">
+        <div class="row"><code>${c.target || c.address || ''}</code>
+          <span class="pill ${String(c.status||'').includes('EXECUTED') ? 'p-bad' : 'p-warn'}">${
+            String(c.status||'open').replace(/^CASE_STATUS_/,'').toLowerCase()}</span></div>
+        <p class="muted small">${c.reason || ''}</p>
+        ${c.evidence_uri ? `<p class="small">Evidence: <code>${c.evidence_uri}</code></p>` : ''}
+        ${c.evidence_hash ? `<p class="muted small">SHA-256 <code>${c.evidence_hash}</code> — check the document against this before voting.</p>` : ''}
+      </div>`).join('') : '<p class="empty">No recovery case has been opened.</p>';
+
+    document.getElementById('clock').textContent = 'updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('error').innerHTML = `<p class="err">Could not read the chain — ${e.message}</p>`;
+  }
+}
+document.getElementById('acting').textContent = ME ? 'acting as ' + ME : 'read only';
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

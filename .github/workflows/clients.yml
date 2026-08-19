@@ -1,0 +1,42 @@
+name: Clients
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The SDK and the explorer were outside CI entirely, so their tests and
+# typechecks only ran when somebody remembered to run them. That is a poor
+# arrangement anywhere and a bad one here: the SDK encodes the chain's own
+# arithmetic — swap output and its rounding direction, staleness windows,
+# governance tallying — so a regression in it makes an interface quietly
+# disagree with the chain rather than visibly fail.
+jobs:
+  clients:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # The SDK is run directly from TypeScript source via Node's
+          # type-stripping, so the version floor is what supports that.
+          node-version: "22"
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Test
+        run: npm run test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The explorer has no test suite of its own; that it builds is the check
+      # that its pages still compile against the SDK's current types.
+      - name: Build
+        run: npm run build

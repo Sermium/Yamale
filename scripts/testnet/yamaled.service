@@ -1,0 +1,26 @@
+[Unit]
+Description=Yamale testnet validator node (blockchaind)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Adjust User/Group and paths to match your VM's deployment user.
+User=yamale
+Group=yamale
+Type=simple
+ExecStart=/usr/local/bin/blockchaind start --home /home/yamale/.blockchain
+# `always`, not `on-failure`. With three equal-power validators the network
+# tolerates no failures — losing one stops block production entirely, verified
+# in the deployment rehearsal — so a node that exits cleanly for any reason must
+# still come back. Restarting is safe: a stopped validator rejoins from its own
+# state and the chain resumes with no intervention.
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+# Uncomment to send logs to a dedicated file instead of the journal only.
+# StandardOutput=append:/var/log/yamale/blockchaind.log
+# StandardError=append:/var/log/yamale/blockchaind.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freezing a scammer, and getting the money back — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Freezing a scammer, and getting the money back</h1>
+<p>Yamale can stop a stolen balance from moving, and — if the validators agree —
+take it and hand it to the foundation. This page is how that works, what it
+costs the people it is aimed at, and what stops it being aimed at you.</p>
+<p><strong>You need:</strong> a running chain (<a href="local-devnet.html">local devnet</a> is enough), and
+for the acting parts, a bonded validator&#39;s key.</p>
+<p><strong>You will end with:</strong> an account frozen mid-theft, a case voted through, and
+the funds in the recovery destination — plus the same account released again
+when a case fails.</p>
+<hr>
+<h2>The shape of it</h2>
+<p>A theft is drained in minutes. A vote takes hours. Any design where the money
+only stops once everyone has agreed is a design that arrives after the money has
+gone, so the two are deliberately split apart:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Who</th>
+<th>How fast</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Freeze</strong></td>
+<td>one bonded validator</td>
+<td>the same block</td>
+<td>the account cannot send anything</td>
+</tr>
+<tr>
+<td><strong>Emergency freeze</strong></td>
+<td>the founders&#39; group</td>
+<td>the same block</td>
+<td>the same, without waiting for a validator</td>
+</tr>
+<tr>
+<td><strong>Release</strong></td>
+<td>the founders&#39; group</td>
+<td>the same block</td>
+<td>lifts any freeze, whoever imposed it</td>
+</tr>
+<tr>
+<td><strong>Seizure</strong></td>
+<td>two thirds of bonded power</td>
+<td>a vote</td>
+<td>the balance moves to the recovery destination</td>
+</tr>
+</tbody></table>
+<p>That asymmetry is the whole design. One validator, acting alone and under their
+own name, can stop transfers for a day. Nothing else. The freeze <strong>expires by
+itself</strong> if the set does not confirm it, the case is public from the block it
+was opened in, and no case can ever send funds anywhere except the one address
+governance has set.</p>
+<h2>1. Open a case</h2>
+<pre><code class="language-bash">blockchaind tx enforcement open-case &lt;your-account&gt; &lt;target&gt; seize \
+  --reason &quot;drained the YML/EUR pool at block 812,400 and moved the proceeds here&quot; \
+  --evidence-uri &quot;https://example.org/reports/2026-08-11.pdf&quot; \
+  --evidence-hash &quot;$(sha256sum report.pdf | cut -d&#39; &#39; -f1)&quot; \
+  --from validator --chain-id yamale-testnet-1
+</code></pre>
+<p><code>&lt;your-account&gt;</code> is the validator&#39;s own account — the key it signs with. The
+chain works out the operator address and records <strong>that</strong> on the case, so the
+accusation carries a name people recognise.</p>
+<p>The target is frozen in this block. Check it from the other side:</p>
+<pre><code class="language-bash">blockchaind query enforcement freeze-status &lt;target&gt;
+</code></pre>
+<p>That answers <em>why</em>, not just <em>whether</em> — it returns the case, its grounds and
+its evidence alongside the freeze. An account that is frozen without being told
+why is the failure this module has to avoid most, so the answer is one query.</p>
+<p>A transfer from a frozen account now fails with:</p>
+<pre><code>account yml1... is frozen by enforcement case 1; query
+enforcement/v1/freeze/yml1... for the case and its grounds
+</code></pre>
+<h3>Freeze or seize</h3>
+<p><code>freeze</code> stops the account and takes nothing — the funds stay where they are and
+stay the account&#39;s. Use it when something is wrong and you do not yet know what.</p>
+<p><code>seize</code> freezes and, if the case passes, moves the balance. It needs evidence:
+a URI and the SHA-256 of what it pointed at. Freezing on suspicion is
+defensible; taking somebody&#39;s assets with nothing on the record is not.</p>
+<h2>2. Vote</h2>
+<pre><code class="language-bash">blockchaind query enforcement open-cases
+blockchaind tx enforcement vote-case &lt;your-account&gt; 1 yes --from validator
+</code></pre>
+<p>Options are <code>yes</code>, <code>no</code> and <code>abstain</code>. Abstain counts towards nothing; it is
+there so a validator can put on the record that they saw the case and declined
+to judge it, which is a different statement from not voting.</p>
+<p>Votes are weighed by consensus power, measured against the power bonded <strong>when
+the case was opened</strong>. Power leaving the set mid-vote cannot lower the bar for a
+decision already in progress.</p>
+<p>The case resolves the moment the answer can no longer change — in either
+direction. Enough yes power and it passes immediately; enough no power that the
+threshold is unreachable and it is rejected immediately, and the account is
+released in that same block.</p>
+<blockquote>
+<p><strong>At three validators, two thirds means all three.</strong> With equal power, two of
+three carry 66.6% and the threshold is 66.67%. That is the same arithmetic
+that makes this chain stop producing blocks when one of three nodes is down,
+and it means a single validator being offline blocks enforcement entirely.
+Worth knowing before the set grows.</p>
+</blockquote>
+<h2>3. What passing does</h2>
+<p>For a <code>freeze</code> case: the freeze stops expiring. It is the set&#39;s decision now,
+not one validator&#39;s suspicion, and lifting it takes another decision.</p>
+<p>For a <code>seize</code> case, in the block it passes:</p>
+<ol>
+<li>every delegation the target holds is unbonded;</li>
+<li>everything spendable in the account is sent to the recovery destination;</li>
+<li>the account <strong>stays frozen</strong>.</li>
+</ol>
+<pre><code class="language-bash">blockchaind query enforcement case 1
+blockchaind query enforcement recovered
+</code></pre>
+<h2>4. Sweeping, and why a seizure is not over when it passes</h2>
+<p>Staked funds do not come back instantly. Unbonding them starts a clock the
+module does not shorten — nothing here overrides the chain&#39;s security
+assumptions — so the stake arrives weeks later, in an account that is still
+frozen.</p>
+<p>Anyone can collect it:</p>
+<pre><code class="language-bash">blockchaind tx enforcement sweep &lt;any-account&gt; 1 --from anyone
+</code></pre>
+<p>Permissionless because the destination is fixed by the parameters: there is
+nothing to gain by being the one who calls it, and nothing to lose by letting
+somebody else. Repeatable because funds keep arriving — matured unbonding, a
+late payment from an accomplice. The response says what it actually collected,
+which may be nothing:</p>
+<pre><code class="language-json">{ &quot;collected&quot;: [], &quot;complete&quot;: false }
+</code></pre>
+<p><code>complete</code> means nothing liquid, nothing staked, nothing unbonding. Even then
+the case can be swept again if something new turns up; a case marked finished is
+not sealed shut, because the account is still frozen and funds arriving into it
+would otherwise be stuck forever.</p>
+<h2>The founders&#39; emergency path</h2>
+<p>The validator process has two failure modes a real network cannot simply wait
+out. A theft at three in the morning with nobody awake to open a case. And a
+freeze that was plainly wrong, sitting on a business&#39;s payroll for the twelve
+hours until the voting period ends — &quot;wait a day, it expires by itself&quot; is not
+an answer anyone can give a customer.</p>
+<p>So one address, <code>emergency_authority</code>, can do two things immediately: <strong>freeze</strong>
+and <strong>release</strong>. In practice it is a founders&#39; M-of-N group policy from
+<code>x/group</code>, so those actions still take several people.</p>
+<p>It cannot seize, and there is no message that would let it. That is the whole
+shape of the power:</p>
+<blockquote>
+<p>Stopping money is recoverable — release the account and nothing was lost but
+time. Taking it is not. So taking it stays with the validator supermajority,
+whoever is asking.</p>
+</blockquote>
+<p>A freeze the founders impose is <strong>provisional exactly like a validator&#39;s</strong>. It
+opens a real case, it goes into the same voting queue, it lapses if nobody
+confirms it, and the validators can refuse it — which releases the account in
+that same block. The founders are faster than the set; they are not above it.</p>
+<p>Both messages are signed by the group policy, so they go through an <code>x/group</code>
+proposal rather than a key at a terminal:</p>
+<pre><code class="language-json">{
+  &quot;@type&quot;: &quot;/blockchain.enforcement.v1.MsgEmergencyFreeze&quot;,
+  &quot;authority&quot;: &quot;&lt;founders group policy address&gt;&quot;,
+  &quot;target&quot;: &quot;yml1...&quot;,
+  &quot;reason&quot;: &quot;exchange reported the deposit as stolen at 03:14 UTC&quot;,
+  &quot;evidence_uri&quot;: &quot;https://…/report.pdf&quot;,
+  &quot;evidence_hash&quot;: &quot;&lt;sha256&gt;&quot;
+}
+</code></pre>
+<pre><code class="language-bash">blockchaind tx group submit-proposal proposal.json --from founder-1
+blockchaind tx group vote &lt;proposal-id&gt; &lt;founder&gt; VOTE_OPTION_YES --from founder-2
+blockchaind tx group exec &lt;proposal-id&gt; --from founder-1
+</code></pre>
+<p>Releasing is the same shape:</p>
+<pre><code class="language-json">{
+  &quot;@type&quot;: &quot;/blockchain.enforcement.v1.MsgEmergencyRelease&quot;,
+  &quot;authority&quot;: &quot;&lt;founders group policy address&gt;&quot;,
+  &quot;case_id&quot;: &quot;4&quot;,
+  &quot;reason&quot;: &quot;the counterparty was the exchange&#39;s own settlement account&quot;
+}
+</code></pre>
+<p>Release works on a case that is still being voted on and on one that already
+passed. What it does <strong>not</strong> do is undo a seizure: if the funds have moved,
+releasing gives the account back and nothing else. Those funds are the recovery
+destination&#39;s to return.</p>
+<p>Everything the emergency path does is marked as such — on the case, in the
+events, and with its own badge in the explorer. &quot;A validator saw this&quot; and &quot;the
+founders acted directly&quot; are different facts about how the chain is being run,
+and only one of them is the normal case.</p>
+<p>If <code>emergency_authority</code> is unset there is no emergency path at all, which is
+the default. An unset authority means nobody, never anybody.</p>
+<h2>When it goes wrong</h2>
+<p>Three ways out, in increasing order of how much the chain has already done:</p>
+<p><strong>Withdraw.</strong> The validator who opened a case can take it back while it is still
+being voted on, which releases the account immediately. The person trusted to
+impose a freeze alone is trusted to admit alone that they were wrong.</p>
+<pre><code class="language-bash">blockchaind tx enforcement withdraw-case &lt;your-account&gt; 1 --from validator
+</code></pre>
+<p><strong>Let it lapse.</strong> A case nobody votes on expires at the end of its voting
+period, and the account is released. The status is <code>EXPIRED</code>, deliberately not
+<code>REJECTED</code>: silence is not a finding, and the record should not claim it was.</p>
+<p><strong>Release or appeal.</strong> The founders&#39; group can lift any freeze immediately (see
+above). Governance can also overturn a case that already passed, through a
+proposal carrying <code>MsgReverseCase</code>. Either way the freeze is lifted and the
+reversal is recorded beside the original accusation.</p>
+<p>It does <strong>not</strong> return what was already seized. Those funds are in the recovery
+destination&#39;s hands, and only they can send them back. The module could pretend
+otherwise, and the state machine would then be telling a comforting lie.</p>
+<h2>What cannot be frozen</h2>
+<p>Module accounts. The bonded pool, the fee collector, the treasury and payments
+custody accounts — freezing one would stop staking, distribution or every
+payment on the chain for everybody, and there is nobody behind such an address
+to accuse. The attempt is refused outright rather than left to whoever happens
+to be voting.</p>
+<h2>Where the freeze is enforced</h2>
+<p>On the bank keeper, as a send restriction — not in the ante chain.</p>
+<p>An ante decorator only ever sees messages that arrive as transactions. A freeze
+enforced there would be walked around by authz, by interchain accounts, by a
+treasury spend, by a swap against a pool. Every one of those ends in a bank
+transfer, and that is the one place all of them pass through.</p>
+<p>There is exactly one exception, and it is one address wide: a frozen account can
+still send <strong>to the recovery destination</strong>, because a seizure has to be able to
+move what it seized. Since that address is fixed by governance, the exception
+cannot be used to send anywhere else.</p>
+<p>The freeze stops sending, not receiving. Refusing incoming funds would bounce
+payments from people who have done nothing wrong, and would scatter the trail
+rather than preserve it.</p>
+<h2>The parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>voting_period_blocks</code></td>
+<td>8,640 (~12h)</td>
+<td>how long validators have</td>
+</tr>
+<tr>
+<td><code>provisional_freeze_blocks</code></td>
+<td>17,280 (~24h)</td>
+<td>how long one validator&#39;s freeze lasts unconfirmed</td>
+</tr>
+<tr>
+<td><code>threshold_bps</code></td>
+<td>6,667</td>
+<td>the share of bonded power a case needs</td>
+</tr>
+<tr>
+<td><code>recovery_destination</code></td>
+<td><em>(required, no default)</em></td>
+<td>the only address seized funds can go to</td>
+</tr>
+<tr>
+<td><code>seize_requires_evidence</code></td>
+<td>true</td>
+<td>whether a seizure can be opened without a record</td>
+</tr>
+<tr>
+<td><code>emergency_authority</code></td>
+<td><em>(unset)</em></td>
+<td>the founders&#39; group, which can freeze and release at once</td>
+</tr>
+</tbody></table>
+<p><code>recovery_destination</code> is the foundation account: the trust body administering
+the chain, which holds what is recovered so it can be restituted to the people
+it was taken from.</p>
+<p>It has no default and it is not optional. No address compiled into the binary is
+anybody&#39;s foundation, so genesis has to name one — and a genesis that does not
+is refused at <code>InitGenesis</code>, which means the chain does not start rather than
+starting wrong. That is deliberate, and it is a change: it used to be empty by
+default, on the argument that a chain which can freeze but not seize is a safe
+place to launch from. The devnet then ran for weeks in exactly that state, and
+what it actually bought was a chain where two thirds of the validator set could
+pass a seizure that had nowhere to send what it took. Nobody noticed until a
+console printed the parameter.</p>
+<p>Changing it afterwards is a governance proposal, visible to everyone, like any
+other parameter.</p>
+<p><code>threshold_bps</code> cannot be set at or below 5,000. There is no configuration of
+this module worth having in which a minority of the validator set can take
+somebody&#39;s assets, so that is refused at the parameter level rather than left to
+a proposal that happens to read reasonably.</p>
+<h2>What this costs</h2>
+<p>Be clear about what has been built here. The validator set can stop any account
+on this chain from spending, within one block, on one member&#39;s say-so; and with
+two thirds it can take what that account holds. That is a real power over other
+people&#39;s money, and no amount of process makes it not one.</p>
+<p>The founders&#39; group can stop any account on its own signature too, though it
+can never take anything and any account it stops is released the moment the
+validators say so.</p>
+<p>What is offered against all that is not a promise but a shape: every case is
+public from the block it opens, carries its author&#39;s name and its grounds,
+expires unless confirmed, can only ever move funds to one governance-set
+address, and leaves a record — including of the cases that were rejected,
+withdrawn, released or overturned — that is never deleted.</p>
+<p>Whether that trade is the right one is a question for the people running the
+chain, not for the code. What the code can do is make sure the trade is visible.</p>
+
+</main>
+</body>
+</html>

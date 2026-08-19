@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package blockchain.amm.v1;
+
+import "amino/amino.proto";
+import "blockchain/amm/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/amm/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // CreatePool defines the CreatePool RPC.
+  rpc CreatePool(MsgCreatePool) returns (MsgCreatePoolResponse);
+
+  // JoinPool defines the JoinPool RPC.
+  rpc JoinPool(MsgJoinPool) returns (MsgJoinPoolResponse);
+
+  // ExitPool defines the ExitPool RPC.
+  rpc ExitPool(MsgExitPool) returns (MsgExitPoolResponse);
+
+  // Swap defines the Swap RPC.
+  rpc Swap(MsgSwap) returns (MsgSwapResponse);
+}
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/amm/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgCreatePool defines the MsgCreatePool message.
+message MsgCreatePool {
+  option (cosmos.msg.v1.signer) = "creator";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom_a = 2;
+  string amount_a = 3;
+  string denom_b = 4;
+  string amount_b = 5;
+  uint64 swap_fee_bps = 6;
+}
+
+// MsgCreatePoolResponse defines the MsgCreatePoolResponse message.
+message MsgCreatePoolResponse {}
+
+// MsgJoinPool defines the MsgJoinPool message.
+message MsgJoinPool {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 pool_id = 2;
+  string amount_a = 3;
+  string amount_b = 4;
+}
+
+// MsgJoinPoolResponse defines the MsgJoinPoolResponse message.
+message MsgJoinPoolResponse {}
+
+// MsgExitPool defines the MsgExitPool message.
+message MsgExitPool {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 pool_id = 2;
+  string shares = 3;
+}
+
+// MsgExitPoolResponse defines the MsgExitPoolResponse message.
+message MsgExitPoolResponse {}
+
+// MsgSwap defines the MsgSwap message.
+message MsgSwap {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 pool_id = 2;
+  string token_in_denom = 3;
+  string token_in_amount = 4;
+  string token_out_denom = 5;
+  string min_amount_out = 6;
+}
+
+// MsgSwapResponse defines the MsgSwapResponse message.
+message MsgSwapResponse {}

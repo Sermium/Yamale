@@ -1,0 +1,10 @@
+syntax = "proto3";
+package blockchain.emission.v1;
+
+option go_package = "yamale/blockchain/x/emission/types";
+
+// EmissionState defines the EmissionState message.
+message EmissionState {
+  string current_provisions_per_block = 1;
+  uint64 last_reduction_period = 2;
+}

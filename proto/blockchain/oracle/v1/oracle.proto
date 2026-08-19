@@ -1,0 +1,152 @@
+syntax = "proto3";
+package blockchain.oracle.v1;
+
+option go_package = "yamale/blockchain/x/oracle/types";
+
+// The module answers one question — what is this worth? — for two kinds of
+// thing that arrive at their answer in completely different ways.
+//
+// **Exchange rates** are market data. No single party knows the price of a
+// currency, so validators each report what they observe and the chain takes the
+// median weighted by stake. Being wrong is visible; being absent is counted.
+//
+// **Appraisals** are attestations. Nobody discovers the price of a tokenised
+// building by polling exchanges — an appointed, independent valuer inspects it
+// and signs a number. There is no median to take and no wisdom of crowds to
+// appeal to; the value is only as good as the named party who signed it, and
+// the chain's job is to record exactly who that was and when.
+//
+// Both live here because lending needs one interface to ask "what is this
+// collateral worth", and because they share the rule that matters most: a value
+// too old to trust is not a value.
+
+// ExchangeRate is the chain's agreed price for one denom, in terms of the
+// quote symbol set in the module's parameters.
+//
+// The rate prices one *display* unit, not one base unit — 1 YML, not 1 uyml —
+// because that is the number a person quotes and the number a feeder reads off
+// a market. Consumers scale by the denom's exponent.
+message ExchangeRate {
+  string denom = 1;
+  // rate is a decimal string, e.g. "0.4213".
+  string rate = 2;
+  // updated_at is when this rate was agreed, in Unix seconds. Staleness is
+  // judged from here, so a feed that stops reporting stops being usable rather
+  // than silently freezing at its last value.
+  int64 updated_at = 3;
+  int64 updated_height = 4;
+  // voting_power is the share of stake, in basis points, that contributed to
+  // this median. A rate agreed by a bare quorum deserves less trust than one
+  // agreed by everybody, and consumers can see the difference.
+  uint64 voting_power_bps = 5;
+}
+
+// ExchangeRateVote is one validator's report for the current vote period.
+message ExchangeRateVote {
+  string validator = 1;
+  string denom = 2;
+  string rate = 3;
+}
+
+// FeederDelegation lets a validator nominate a hot key to submit its votes.
+//
+// Without this a validator would have to sign with its operator key every vote
+// period, which means keeping that key online — the one key whose compromise
+// costs the most. The delegate can only vote; it cannot move stake, change
+// commission, or do anything else on the validator's behalf.
+message FeederDelegation {
+  string validator = 1;
+  string feeder = 2;
+}
+
+// MissCounter records how many vote periods a validator failed to report in.
+//
+// It is recorded rather than punished. On a small permissioned network an
+// automatic slash mostly punishes the operator whose VM rebooted, and the
+// social layer — a known set of accountable validators — handles absence
+// better than an incentive that fires during an outage. Governance can add a
+// penalty later; it cannot easily undo one that fired wrongly.
+message MissCounter {
+  string validator = 1;
+  uint64 misses = 2;
+  uint64 windows = 3;
+}
+
+// AppraiserStatus mirrors the application lifecycle used elsewhere on the
+// chain.
+enum AppraiserStatus {
+  // APPRAISER_STATUS_UNSPECIFIED is the unset default.
+  APPRAISER_STATUS_UNSPECIFIED = 0;
+  // APPRAISER_STATUS_PENDING is awaiting a governance decision.
+  APPRAISER_STATUS_PENDING = 1;
+  // APPRAISER_STATUS_APPROVED may sign appraisals within its scope.
+  APPRAISER_STATUS_APPROVED = 2;
+  // APPRAISER_STATUS_REJECTED was refused, and may apply again.
+  APPRAISER_STATUS_REJECTED = 3;
+}
+
+// Appraiser is an independent party that governance has admitted to value
+// real-world assets.
+//
+// Independence is the whole point: the party that values the collateral must
+// not be the party that benefits from the valuation. The chain cannot verify
+// independence, so it does the next best thing — it records who governance
+// admitted, what they were admitted to value, and attributes every number they
+// sign.
+message Appraiser {
+  string address = 1;
+  // name is the firm or individual, for the audit trail.
+  string name = 2;
+  // credentials points at the licence, registration or accreditation that
+  // governance relied on when admitting them.
+  string credentials = 3;
+  // class_ids limits what they may value: an NFT class each corresponds to an
+  // asset type. Empty means every class, which governance should grant rarely.
+  repeated string class_ids = 4;
+  AppraiserStatus status = 5;
+  uint64 approved_at_height = 6;
+}
+
+// Appraisal is one valuer's signed opinion of what a specific tokenised asset
+// is worth.
+//
+// It is bound to an NFT — the token that represents the asset — rather than to
+// a denom, because each real-world asset is individual. Two invoices from the
+// same issuer are not interchangeable, and a fungible price for them would be
+// a fiction.
+message Appraisal {
+  // class_id and nft_id identify the asset in x/nft.
+  string class_id = 1;
+  string nft_id = 2;
+
+  // value is what the asset is worth, in base units of value_denom.
+  string value = 3;
+  string value_denom = 4;
+
+  // appraiser is the address that signed this valuation.
+  string appraiser = 5;
+
+  // valued_at is the date the valuation reflects, in Unix seconds. This is the
+  // date of the inspection or the NAV, which is not the same as when it was
+  // submitted — a monthly NAV published late is still a month-end number, and
+  // treating the two as the same would overstate how current it is.
+  int64 valued_at = 6;
+  // submitted_at is when the chain recorded it.
+  int64 submitted_at = 7;
+  uint64 submitted_height = 8;
+
+  // method describes how the number was reached, e.g. "RICS Red Book",
+  // "discounted cash flow", "administrator NAV".
+  string method = 9;
+  // report_uri points at the signed valuation document, and report_hash pins
+  // its contents so the on-chain number and the off-chain report cannot drift
+  // apart unnoticed.
+  string report_uri = 10;
+  string report_hash = 11;
+
+  // superseded is true once a newer appraisal for the same asset exists. Old
+  // appraisals are retained rather than overwritten, because the history of
+  // what an asset was said to be worth, and by whom, is exactly what an auditor
+  // needs after a dispute.
+  bool superseded = 12;
+}

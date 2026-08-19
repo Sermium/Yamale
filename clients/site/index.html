@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale — a payments network for regulated institutions</title>
+<meta name="description" content="Yamale is a blockchain for institutional payments: ISO 20022 transfers, licensed currency issuers, treasuries with real spending controls, and prices that carry their own age.">
+<link rel="icon" type="image/svg+xml" href="mark.svg">
+<!-- Not "styles.css": that filename is matched by content-blocker filter lists,
+     and a visitor running one gets the page with no stylesheet at all. -->
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap masthead__inner">
+    <a class="wordmark" href="/"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale</a>
+    <nav aria-label="Sections">
+      <a href="#what" data-i18n="site.what">What it does</a>
+      <a href="#different" data-i18n="site.different">How it differs</a>
+      <a href="#status" data-i18n="site.status">Status</a>
+
+      <!--
+        Plain relative links. The applications used to sit on their own ports,
+        which meant the hrefs needed a host and a script to fill it in; they are
+        now served under paths on this same origin, so an ordinary href is both
+        correct and the only thing that survives moving from a LAN address to a
+        Tailscale name to a domain.
+
+        A details/summary rather than a hover menu: it works by keyboard and on
+        a touch screen without a line of JavaScript, and a hover-only menu is
+        unreachable on a phone.
+      -->
+      <details class="menu">
+        <summary>Apps</summary>
+        <div class="menu__panel">
+          <a class="app-link" href="/app/">
+            <strong>Yamale Pay</strong><span>The citizen app: sign in, hold money, get paid</span>
+          </a>
+          <a class="app-link" href="/explorer/">
+            <strong>Explorer</strong><span>Blocks, payments, accounts, prices</span>
+          </a>
+          <a class="app-link" href="/wallet/">
+            <strong>Wallet</strong><span>Create or load an account, see balances</span>
+          </a>
+          <a class="app-link" href="/wallet/faucet">
+            <strong>Faucet</strong><span>Claim test funds in six currencies</span>
+          </a>
+          <a class="app-link" href="/safe/">
+            <strong>Safe</strong><span>Shared treasuries, approvals, commitments</span>
+          </a>
+          <a class="app-link" href="/safe/operations">
+            <strong>Operations</strong><span>Validator votes and enforcement cases</span>
+          </a>
+          <a class="app-link" href="/explorer/capabilities">
+            <strong>Capabilities</strong><span>What the chain can do, measured live</span>
+          </a>
+        </div>
+      </details>
+
+      <a href="docs/index.html">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!--
+    The hero leads with the use case, in words somebody outside the industry
+    uses. A visitor deciding whether this solves their problem is not helped by
+    the consensus algorithm, and the people who care about that will find it in
+    the docs.
+  -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Institutional payments infrastructure</p>
+      <h1>Money that moves in seconds, between institutions that know each other.</h1>
+      <p class="lede">
+        Yamale settles payments between banks, funds and businesses in the time it takes to
+        read this sentence — carrying the reference and purpose codes reconciliation actually
+        needs, on a network where every participant has been approved rather than merely
+        allowed.
+      </p>
+      <div class="cta">
+        <a class="button button--primary" href="docs/guides/local-devnet.html">Run a chain in two minutes</a>
+        <a class="button" href="docs/guides/concepts.html">What it is, and why</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap prose">
+      <h2 data-i18n="site.problem">The problem</h2>
+      <p>
+        A cross-border payment between two institutions still takes days, passes through
+        correspondents that each take a cut, and arrives stripped of the reference that
+        would let anyone match it to an invoice. The money is fine. The <em>information</em>
+        about the money is what gets lost, and reconciling it is somebody's whole job.
+      </p>
+      <p>
+        Public blockchains fix the speed and lose everything else: no idea who is on the
+        other side, no licensed issuer behind the currency, no way to satisfy a supervisor
+        asking who processed a transaction.
+      </p>
+      <p><strong>Yamale keeps the speed and puts the accountability back.</strong></p>
+    </div>
+  </section>
+
+  <section id="what" class="band band--alt">
+    <div class="wrap">
+      <h2 data-i18n="site.what">What it does</h2>
+      <div class="grid">
+
+        <article class="card">
+          <h3>Payments</h3>
+          <p>
+            Credit transfers shaped like ISO 20022, the standard banks already use. The
+            end-to-end reference and purpose code are first-class fields, not a memo — so a
+            payment arrives already matched to what it was for.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Currencies</h3>
+          <p>
+            Fiat-referenced tokens with exactly one approved issuer each. Only that issuer
+            can mint or redeem, and the permission is a governance decision recorded on the
+            chain rather than a setting in a config file.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Treasuries</h3>
+          <p>
+            Shared funds with roles, spending limits and time locks. Money committed to
+            somebody — a vesting grant, a scheduled disbursement — leaves the spendable
+            balance entirely and cannot be redirected by anyone.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Trading</h3>
+          <p>
+            Liquidity pools anyone may open or add to, so a holder of one currency can move
+            into another without leaving the network. Prices come from the pool's own
+            reserves.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Prices</h3>
+          <p>
+            Exchange rates agreed by the validators, weighted by stake, so moving one costs
+            as much as attacking the network. Real-world assets are valued instead by an
+            appointed independent party, and every figure stays attributed to whoever signed it.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Recovery</h3>
+          <p>
+            A validator can freeze a stolen balance in the block they see it move — because a
+            theft takes minutes and a vote takes hours. Taking it needs two thirds of the
+            validator set, goes to one address set by governance, and leaves a public record
+            of who accused whom, on what evidence, and how every validator voted. Cases that
+            failed stay on that record too.
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Governance</h3>
+          <p>
+            Who may validate, who may issue, who may route payments — every one of those is a
+            vote of everyone who has staked, with the decision and its reasoning kept on the
+            chain next to what it authorised.
+          </p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="different" class="band">
+    <div class="wrap prose">
+      <h2>Four decisions that shape everything else</h2>
+
+      <h3>The validator set is closed. The ledger is not.</h3>
+      <p>
+        Block production is a decision the network makes by vote, because an institution has
+        to be able to say who processes its transactions. Reading the chain, holding
+        currency and being paid need nobody's permission.
+      </p>
+
+      <h3>A commitment is stronger than a policy</h3>
+      <p>
+        When a treasury commits funds to somebody, they leave its spendable balance. No
+        administrator, no governance proposal and no group of signers clearing their
+        threshold can spend them. That is enforced by where the money sits rather than by a
+        rule that checks — which is the difference between a commitment and an intention.
+      </p>
+
+      <h3>A value too old to trust is not a value</h3>
+      <p>
+        Every price carries when it was observed and how old that makes it. Nothing is
+        silently frozen at its last known number: a feed that stops becomes explicitly
+        unusable, and the operations that act on a price immediately refuse a stale one
+        rather than guess.
+      </p>
+
+      <h3>Supply is capped, and approaches the cap</h3>
+      <p>
+        New issuance decays geometrically, so the total ever created converges on a fixed
+        number instead of growing indefinitely. What validators earn is predictable years
+        ahead.
+      </p>
+    </div>
+  </section>
+
+  <!--
+    A status section on a project page is unusual and deliberate: the honest
+    version is more persuasive to the audience that matters here than an
+    implied production-readiness that a first conversation would puncture.
+  -->
+  <section id="status" class="band band--alt">
+    <div class="wrap prose">
+      <h2 data-i18n="site.where">Where the project actually is</h2>
+      <p>
+        Yamale is pre-testnet. The chain runs, the modules are built and tested, and the
+        launch ceremony has been rehearsed with three validators reaching consensus. It has
+        not been deployed to real infrastructure, and it has not been audited by anybody
+        outside the project.
+      </p>
+      <ul class="status">
+        <li><span class="tick" aria-hidden="true">✓</span> Payments, currencies, treasuries, trading, staking, governance, prices — built and covered by tests</li>
+        <li><span class="tick" aria-hidden="true">✓</span> Genesis ceremony rehearsed end to end; deployment scripts verify their own output</li>
+        <li><span class="tick" aria-hidden="true">✓</span> Block explorer with a plain-language view and a full technical view</li>
+        <li><span class="cross" aria-hidden="true">✗</span> Not yet running on real hosts, and not externally audited</li>
+        <li><span class="cross" aria-hidden="true">✗</span> Lending against real-world assets is a later phase — the valuation layer it needs is in place, nothing consumes it yet</li>
+      </ul>
+      <p>
+        Everything above is documented in the open, including the parts that are missing:
+        the <a href="docs/index.html">documentation</a> keeps its own honest list.
+      </p>
+    </div>
+  </section>
+
+  <section class="band band--cta">
+    <div class="wrap prose">
+      <h2 data-i18n="site.lookAt">Look at it yourself</h2>
+      <p>
+        A single-node network takes about two minutes to start, and the explorer points at
+        it without any further setup.
+      </p>
+      <div class="cta">
+        <a class="button button--primary" href="docs/guides/local-devnet.html">Run a local chain</a>
+        <a class="button" href="../../docs/reference/">Read the reference</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot__grid">
+
+      <div class="foot__col foot__col--brand">
+        <a class="wordmark" href="/"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale</a>
+        <p class="small">
+          A permissioned payments network for regulated institutions. Open source; the reference
+          documentation is generated from the code, so it cannot drift from what the chain does.
+        </p>
+      </div>
+
+      <div class="foot__col">
+        <h3>Apps</h3>
+        <ul>
+          <li><a class="app-link" href="/app/"><strong>Yamale Pay</strong></a></li>
+          <li><a class="app-link" href="/explorer/"><strong>Explorer</strong></a></li>
+          <li><a class="app-link" href="/wallet/"><strong>Wallet</strong></a></li>
+          <li><a class="app-link" href="/wallet/faucet"><strong>Faucet</strong></a></li>
+          <li><a class="app-link" href="/safe/"><strong>Safe</strong></a></li>
+          <li><a class="app-link" href="/safe/operations"><strong>Operations</strong></a></li>
+          <li><a class="app-link" href="/explorer/capabilities"><strong>Capabilities</strong></a></li>
+        </ul>
+      </div>
+
+      <div class="foot__col">
+        <h3>Product</h3>
+        <ul>
+          <li><a href="docs/index.html">Documentation</a></li>
+          <li><a href="docs/guides/local-devnet.html">Run a chain</a></li>
+          <li><a href="docs/guides/concepts.html">What it is</a></li>
+          <li><a href="docs/reference/README.html">Reference</a></li>
+        </ul>
+      </div>
+
+      <div class="foot__col">
+        <h3>Network</h3>
+        <ul>
+          <li><a href="docs/guides/validator.html">Run a validator</a></li>
+          <li><a href="docs/guides/enforcement.html">Asset recovery</a></li>
+          <li><a href="docs/guides/identity.html">User IDs</a></li>
+          <li><a href="docs/guides/custody.html">Bringing assets in</a></li>
+        </ul>
+      </div>
+
+      <div class="foot__col">
+        <h3>Contact</h3>
+        <ul>
+          <li><a href="mailto:contact@yamale.network">contact@yamale.network</a></li>
+          <li><a href="mailto:security@yamale.network">security@yamale.network</a></li>
+        </ul>
+        <p class="small muted">
+          Security issues: please report privately to the address above and allow time for a fix
+          before disclosing.
+        </p>
+      </div>
+
+    </div>
+
+    <!--
+      The disclaimer is not boilerplate here and should not read like it.
+      This is a pre-testnet chain with a token that has no price, a faucet that
+      hands out worthless units, and a single validator on a Raspberry Pi. Saying
+      so plainly is both the honest position and the legally safer one: nothing
+      on this site is an offer, and no reader should be able to claim otherwise.
+    -->
+    <div class="foot__legal">
+      <h3>Important notices</h3>
+
+      <p>
+        <strong>No offer, no solicitation, no investment advice.</strong> Nothing on this site or
+        in the linked documentation constitutes an offer to sell, a solicitation to buy, or a
+        recommendation regarding any token, security or financial instrument, in any jurisdiction.
+        Nothing here is investment, legal, tax or accounting advice. YML is a network utility token
+        used to pay transaction fees and to secure the chain through staking; it is not offered as
+        an investment and carries no claim on any entity, asset, revenue or profit.
+      </p>
+
+      <p>
+        <strong>Pre-production software.</strong> Yamale has not launched a public network. What is
+        described here is under active development, has not completed an independent security
+        audit, and may change without notice. Test networks carry tokens with no monetary value,
+        may be reset or discontinued at any time, and provide no guarantee of availability, data
+        retention or continuity. Do not use test networks to hold anything of value.
+      </p>
+
+      <p>
+        <strong>No warranty.</strong> The software is provided “as is”, without warranty of any
+        kind, express or implied, including but not limited to warranties of merchantability,
+        fitness for a particular purpose and non-infringement. To the maximum extent permitted by
+        applicable law, the contributors and operators accept no liability for any claim, damages
+        or other liability arising from the software or its use, including loss of funds, loss of
+        access to funds, or loss of data.
+      </p>
+
+      <p>
+        <strong>Your keys are your responsibility.</strong> Self-custodied accounts cannot be
+        recovered by anyone. A lost recovery phrase means a permanently lost account; nobody
+        operating this network can restore it, reverse a transaction or freeze funds on request.
+        Asset recovery through the enforcement module requires a supermajority validator vote on a
+        public case and is not a support channel.
+      </p>
+
+      <p>
+        <strong>Regulatory status.</strong> Yamale is infrastructure, not a financial institution.
+        Issuing a currency, holding customer funds, providing payment services or acting as a
+        custodian on this network may require authorisation in your jurisdiction. Participants are
+        responsible for their own licensing, sanctions screening, anti-money-laundering obligations
+        and customer due diligence. Access may be restricted where use would breach applicable law.
+      </p>
+
+      <p>
+        <strong>Privacy.</strong> Transactions, balances, account identifiers and governance votes
+        recorded on a public blockchain are permanent and cannot be deleted, corrected or made
+        private after the fact — including by us. Consider that before writing anything to the
+        chain. This website sets no advertising or analytics cookies.
+      </p>
+
+      <p>
+        <strong>Third-party links.</strong> Links to external sites are provided for convenience.
+        We do not control them and are not responsible for their content, security or practices.
+      </p>
+    </div>
+
+    <div class="foot__base">
+      <p class="small muted">
+        © 2026 Yamale contributors · Open source ·
+        <a href="docs/index.html">Documentation</a> ·
+        <a href="mailto:contact@yamale.network">Contact</a>
+      </p>
+      <p class="small muted">
+        Trade marks and product names referenced are the property of their respective owners.
+      </p>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+/* The site is static, so this is the whole i18n layer: a dictionary, a sweep
+   over [data-i18n], and the direction flip. Long-form prose stays English on
+   purpose -- machine-translating a pitch to a central bank is worse than not
+   translating it. Headings and navigation are what a reader orients by. */
+(function () {
+  var D = {
+    en: {'site.what':'What it does','site.different':'How it differs','site.status':'Status',
+         'site.problem':'The problem','site.where':'Where the project actually is',
+         'site.lookAt':'Look at it yourself'},
+    fr: {'site.what':'Ce qu’il fait','site.different':'Ce qui le distingue','site.status':'État',
+         'site.problem':'Le problème','site.where':'Où en est le projet',
+         'site.lookAt':'Voyez par vous-même'},
+    pt: {'site.what':'O que faz','site.different':'Como se distingue','site.status':'Estado',
+         'site.problem':'O problema','site.where':'Onde está o projeto',
+         'site.lookAt':'Veja por si próprio'},
+    sw: {'site.what':'Inafanya nini','site.different':'Inatofautianaje','site.status':'Hali',
+         'site.problem':'Tatizo','site.where':'Mradi ulipo',
+         'site.lookAt':'Jionee mwenyewe'},
+    ar: {'site.what':'ما الذي يفعله','site.different':'ما الذي يميّزه','site.status':'الحالة',
+         'site.problem':'المشكلة','site.where':'أين وصل المشروع',
+         'site.lookAt':'انظر بنفسك'}
+  };
+  var RTL = {ar:1, he:1, fa:1, ur:1};
+  var LANGS = [['en','English'],['fr','Français'],['ar','العربية'],['pt','Português'],['sw','Kiswahili']];
+
+  function apply(loc) {
+    var d = D[loc] || D.en;
+    document.documentElement.lang = loc;
+    document.documentElement.dir = RTL[loc] ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var v = d[el.getAttribute('data-i18n')];
+      if (v) el.textContent = v;
+    });
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem('yamale.locale'); } catch (e) {}
+  var loc = saved || (navigator.language || 'en').split('-')[0];
+  if (!D[loc]) loc = 'en';
+
+  var nav = document.querySelector('nav[aria-label="Sections"]');
+  if (nav) {
+    var sel = document.createElement('select');
+    sel.className = 'lang';
+    sel.setAttribute('aria-label', 'Language');
+    LANGS.forEach(function (l) {
+      var o = document.createElement('option');
+      o.value = l[0]; o.textContent = l[1];
+      if (l[0] === loc) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () {
+      try { localStorage.setItem('yamale.locale', sel.value); } catch (e) {}
+      apply(sel.value);
+    });
+    nav.appendChild(sel);
+  }
+  apply(loc);
+})();
+</script>
+</body>
+</html>

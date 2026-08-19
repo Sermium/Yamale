@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package blockchain.emission.v1;
+
+import "amino/amino.proto";
+import "blockchain/emission/v1/emission_state.proto";
+import "blockchain/emission/v1/params.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/emission/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/emission/v1/params";
+  }
+
+  // Queries a EmissionState by index.
+  rpc GetEmissionState(QueryGetEmissionStateRequest) returns (QueryGetEmissionStateResponse) {
+    option (google.api.http).get = "/yamale/blockchain/emission/v1/emission_state";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetEmissionStateRequest defines the QueryGetEmissionStateRequest message.
+message QueryGetEmissionStateRequest {}
+
+// QueryGetEmissionStateResponse defines the QueryGetEmissionStateResponse message.
+message QueryGetEmissionStateResponse {
+  EmissionState emission_state = 1 [(gogoproto.nullable) = false];
+}

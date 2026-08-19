@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/emission — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/emission</h1>
+<p>Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply.</p>
+<h2>Transactions</h2>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.emission.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params defines the module parameters to update. NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>GetEmissionState</h3>
+<p><code>GET /yamale/blockchain/emission/v1/emission_state</code></p>
+<p>Queries a EmissionState by index.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>emission_state</code></td>
+<td>EmissionState</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/emission/v1/params</code></p>
+<p>Parameters queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>EmissionState</h3>
+<p>EmissionState defines the EmissionState message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>current_provisions_per_block</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>last_reduction_period</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Parameters</h2>
+<p>Changed by governance through <code>MsgUpdateParams</code>. Defaults are the values a chain starts with at genesis.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>reduction_period_in_blocks</code></td>
+<td><code>100</code></td>
+<td>reduction_period_in_blocks is how many blocks make up one emission period; provisions_per_block is cut by reduction_factor at the start of each new period.</td>
+</tr>
+<tr>
+<td><code>reduction_factor</code></td>
+<td><code>0.666666666666666667</code></td>
+<td>reduction_factor (e.g. &quot;0.666666666666666667&quot; for a 1/3 cut every period) applied to provisions_per_block at each period boundary.</td>
+</tr>
+<tr>
+<td><code>genesis_provisions_per_block</code></td>
+<td><code>3333333333333</code></td>
+<td>genesis_provisions_per_block is the per-block emission amount (in the native base denom) during period 0, before any reduction is applied.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrInvalidState</code></td>
+<td>emission state contains an invalid provisions amount</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run a validator — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Run a validator</h1>
+<p>How to join the set of nodes that produce blocks on Yamale — which, unlike most
+chains, requires a vote first.</p>
+<p><strong>You need:</strong> a Linux host, the <code>blockchaind</code> binary, and enough YML to
+self-bond. Every command below was run against a real node.</p>
+<p><strong>You will end with:</strong> an approved candidacy and a bonded validator.</p>
+<hr>
+<h2>Why there is an approval step</h2>
+<p>On a permissionless chain, anyone with enough stake validates. Yamale is
+permissioned: the token is a payments instrument for institutions that have to
+know who is processing their transactions, so the validator set is a decision
+the chain makes rather than an auction it runs.</p>
+<p>That decision lives in <code>x/validatorgov</code>. Its enforcement is not advisory — an
+unapproved account&#39;s <code>create-validator</code> transaction is rejected before it is
+even processed, by the ante handler.</p>
+<p><strong>One exception:</strong> the gate does not apply at genesis. That is what makes the
+founding ceremony possible — the initial validators are established by the
+genesis file itself, not by voting. See the
+<a href="../../scripts/testnet/README.html">deployment runbook</a>.</p>
+<h2>1. Sync a node first</h2>
+<p>Before applying, run a full node and let it catch up. You are asking to be
+trusted with block production; having demonstrably kept up is the argument.</p>
+<pre><code class="language-bash">blockchaind init &lt;your-moniker&gt; --chain-id yamale-testnet-1 --default-denom uyml
+</code></pre>
+<p>Replace <code>~/.blockchain/config/genesis.json</code> with the network&#39;s genesis, set
+<code>persistent_peers</code> in <code>config.toml</code> to existing nodes, and start it. Confirm
+<code>catching_up</code> has gone false:</p>
+<pre><code class="language-bash">blockchaind status
+</code></pre>
+<h2>2. Apply</h2>
+<pre><code class="language-bash">blockchaind tx validatorgov apply-validator &quot;Carol Node&quot; &quot;carol@example.org&quot; \
+  --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
+</code></pre>
+<p>A moniker and a way to reach you. Put something real in the second field — it is
+how governance asks you questions before voting.</p>
+<pre><code class="language-bash">blockchaind query validatorgov list-validator-application
+</code></pre>
+<pre><code class="language-yaml">validator_application:
+- candidate: yml1yu77rjnwumn4kr9jhezshhddujj2cugzy5ffwp
+  status: pending
+</code></pre>
+<h2>3. Governance decides</h2>
+<p>Somebody with a stake submits <code>MsgApproveValidator</code>, which only the governance
+module account may sign:</p>
+<pre><code class="language-json">{
+  &quot;messages&quot;: [{
+    &quot;@type&quot;: &quot;/blockchain.validatorgov.v1.MsgApproveValidator&quot;,
+    &quot;authority&quot;: &quot;yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur&quot;,
+    &quot;candidate&quot;: &quot;yml1yu77rjnwumn4kr9jhezshhddujj2cugzy5ffwp&quot;,
+    &quot;approve&quot;: true
+  }],
+  &quot;metadata&quot;: &quot;&quot;,
+  &quot;deposit&quot;: &quot;10000000uyml&quot;,
+  &quot;title&quot;: &quot;Admit Carol Node as a validator&quot;,
+  &quot;summary&quot;: &quot;Carol Node has run a full node for three months without a missed block.&quot;
+}
+</code></pre>
+<p>Get the <code>authority</code> value from <code>blockchaind query auth module-account gov</code> — it
+is the gov module&#39;s address, not yours.</p>
+<pre><code class="language-bash">blockchaind tx gov submit-proposal proposal.json \
+  --from alice --chain-id yamale-testnet-1 --keyring-backend file \
+  --gas 400000 --fees 500uyml --yes
+</code></pre>
+<blockquote>
+<p><code>--gas 400000</code>: the 200,000 default is not enough for a proposal carrying a
+message, and it fails with <code>code: 11</code>, out of gas.</p>
+</blockquote>
+<p>After the voting period:</p>
+<pre><code class="language-bash">blockchaind query validatorgov list-approved-validator
+</code></pre>
+<pre><code class="language-yaml">approved_validator:
+- approved: &quot;true&quot;
+  candidate: yml1yu77rjnwumn4kr9jhezshhddujj2cugzy5ffwp
+</code></pre>
+<h2>4. Create the validator</h2>
+<p>Now the standard staking transaction works. Write the description to a file:</p>
+<pre><code class="language-json">{
+  &quot;pubkey&quot;: {&quot;@type&quot;:&quot;/cosmos.crypto.ed25519.PubKey&quot;,&quot;key&quot;:&quot;&lt;from `blockchaind comet show-validator`&gt;&quot;},
+  &quot;amount&quot;: &quot;100000000000uyml&quot;,
+  &quot;moniker&quot;: &quot;Carol Node&quot;,
+  &quot;commission-rate&quot;: &quot;0.10&quot;,
+  &quot;commission-max-rate&quot;: &quot;0.20&quot;,
+  &quot;commission-max-change-rate&quot;: &quot;0.01&quot;,
+  &quot;min-self-delegation&quot;: &quot;1&quot;
+}
+</code></pre>
+<pre><code class="language-bash">blockchaind tx staking create-validator validator.json \
+  --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
+</code></pre>
+<p>Confirm you are bonded:</p>
+<pre><code class="language-bash">blockchaind query staking validators --output json | grep -c BOND_STATUS_BONDED
+</code></pre>
+<p>Or run the network&#39;s own health check, which also confirms every node agrees on
+the same block:</p>
+<pre><code class="language-bash">./scripts/testnet/07-verify.sh http://&lt;peer1&gt;:26657 http://&lt;peer2&gt;:26657
+</code></pre>
+<h2>5. Feed prices</h2>
+<p><strong>This is not optional in practice.</strong> <code>x/oracle</code> needs a majority of <em>stake</em> to
+report, so on a small validator set a couple of non-participating validators
+leave the chain with no prices at all — measured on a three-validator network,
+one reporter of three agrees nothing, two agree a rate.</p>
+<p>Delegate to a hot key so the operator key stays offline, then submit once per
+vote period:</p>
+<pre><code class="language-bash">blockchaind tx oracle delegate-feeder &lt;your-valoper-address&gt; &lt;feeder-address&gt; \
+  --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
+</code></pre>
+<p>See <a href="oracle.html">Price feeds and asset valuations</a> for the whole picture.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>Keep the operator key offline.</strong> It is the key that can move your stake and
+change your commission. The feeder delegation above exists so that voting on
+prices — the thing you must do every minute — does not require it.</p>
+<p><strong>Losing your node stops more than your rewards.</strong> With three equal validators
+the network tolerates no failures; a fourth would let it survive one. Run under
+systemd with <code>Restart=always</code>, as the <a href="../../scripts/testnet/README.html">runbook</a>
+does.</p>
+<p><strong>Your reliability is on the chain.</strong> <code>blockchaind query oracle misses</code> shows
+how many vote periods each validator failed to report in. Nothing is slashed for
+it — the record is the consequence.</p>
+<h2>Peering privately over Tailscale</h2>
+<p>A validator does not need a public P2P port. The Yamale devnet peers its nodes
+over a <a href="https://tailscale.com">Tailscale</a> tailnet: every node joins the same
+tailnet and sets the others as <code>persistent_peers</code> at their <code>100.x</code> addresses, so
+consensus traffic never touches the public internet and no <code>26656</code> is exposed on
+any host. This is how the second validator (a Raspberry Pi behind home NAT)
+joins the cloud node — the home connection accepts no inbound, but the tailnet
+does not need it to.</p>
+<p>The steps, once the new node is synced as a full node (matching binary, same
+genesis — a mismatched binary forks at the first block):</p>
+<ol>
+<li><code>apply-validator</code> from the node&#39;s operator key (an application).</li>
+<li>A governance proposal carrying <code>MsgApproveValidator</code> for that candidate;
+it passes after the voting period and the ante gate then admits the operator.</li>
+<li><code>staking create-validator</code> with the node&#39;s consensus pubkey and a
+self-delegation.</li>
+</ol>
+<p>Keep a joining validator&#39;s stake a <strong>minority</strong> of the set while you test it: if
+the existing validators still hold more than two-thirds, the chain keeps
+producing blocks even when the new node drops — which, for a node on a home
+connection, it will.</p>
+<p><strong>Full reference:</strong> <a href="../reference/validatorgov.html">x/validatorgov</a> — every
+message, query, parameter and error code, generated from the source.</p>
+<h2>Rotating a validator&#39;s operator key</h2>
+<p>The operator address is a validator&#39;s identity, so it cannot simply be edited.
+But keys are lost — a phone drowns, a person leaves — and a design with no
+answer for that is a design that loses validators permanently.</p>
+<p>There are two paths, and the difference between them is whether the current key
+can still sign.</p>
+<h3>Planned rotation — the operator still holds the key</h3>
+<p><code>MsgRotateOperator</code>, signed by the <strong>current</strong> operator, naming the new address.
+Possession of the old key is itself the proof of legitimacy, so this needs
+nothing more: a short delay (<code>planned_rotation_delay_blocks</code>, one voting period
+— 48 hours by default) and it takes effect. Cheap, because an attacker who could
+sign this already controls everything it protects.</p>
+<pre><code class="language-sh">blockchaind tx validatorgov rotate-operator &lt;new-operator-address&gt; --from &lt;operator&gt;
+</code></pre>
+<p>Changed your mind during the delay? <code>cancel-operator-rotation &lt;id&gt;</code>, signed by
+the same operator.</p>
+<p><strong>This is the path operators should be pushed towards.</strong> Rotate deliberately
+when a person leaves or a device is replaced, rather than waiting for a loss.</p>
+<h3>Recovery — the key is gone</h3>
+<p>The dangerous one, because it is what an attacker claims. It is deliberately
+slow and public:</p>
+<ol>
+<li><p><strong>Anyone may propose it</strong> with <code>MsgProposeOperatorRecovery</code>, stating the
+grounds — but it takes effect only with the <strong>same quorum that admitted the
+validator</strong>, the independent offices under <code>validatorgov</code>, voting
+<code>MsgApproveOperatorRecovery</code>. Recovering a validator should be exactly as
+hard as admitting one.</p>
+<p>A proposal on its own does <em>nothing</em>: no pause, no clock. If it did, one
+transaction from any address on the chain would be enough to stop any
+validator on it.</p>
+</li>
+<li><p><strong>The validator is paused from the moment the quorum approves.</strong> It is
+jailed: removed from the active set, so it stops signing blocks and its
+power stops counting — but nothing is slashed and no delegation unbonds. A
+validator whose control is disputed should not be exercising control.</p>
+</li>
+<li><p><strong>A long challenge window</strong> — <code>recovery_challenge_window_blocks</code>, 7 days by
+default — measured in days, not minutes. It runs from the approval, which is
+also when the pause starts.</p>
+</li>
+<li><p><strong>The old key can veto by existing.</strong> If the current operator signs <em>anything
+at all</em> while the recovery is open, it is cancelled automatically and the
+pause lifts in the same block. That is the cleanest possible disproof of &quot;the
+key is lost&quot;, it costs the real owner one transaction, and an attacker cannot
+produce it. The veto is live from the moment the recovery is <em>proposed</em>, not
+just from the approval, so an operator who notices early does not have to
+wait to object.</p>
+<p>It is enforced in the ante handler, which is the only place the chain looks
+at who signed independently of what they signed — a rule that required a
+particular message would be invisible to exactly the operator it protects.
+Two consequences worth knowing: a simulated transaction does not count (its
+signature was never verified), and neither does one that fails the fee or
+signature checks. It has to be a transaction the chain actually executes.</p>
+</li>
+</ol>
+<p>Anybody can see what is pending, which is the point:</p>
+<pre><code class="language-sh">blockchaind query validatorgov pending-operator-rotation &lt;operator-address&gt;
+</code></pre>
+<h3>What does not change</h3>
+<p>Rotation moves <strong>who signs</strong>, and nothing else:</p>
+<ul>
+<li>The consensus key is untouched — the node keeps producing blocks with the same
+identity, so no re-peering and no downtime beyond the pause.</li>
+<li>The stake and the delegations stay exactly where they are.</li>
+<li><strong>Delegators did not consent to a new operator</strong>, so the challenge window is
+also their window: they can undelegate before it completes. The pending
+rotation is published as a chain event and answerable by query, which is what
+makes that possible — the window is public rather than a quiet administrative
+action.</li>
+</ul>
+<h3>What rotation cannot do</h3>
+<p>The Cosmos SDK keys a validator record — and every delegation pointing at it —
+by the operator address the validator was created with, and offers no operation
+that re-keys one. Moving the address itself would mean unwinding and rebuilding
+every delegation behind it, which is the cost this whole design exists to avoid.</p>
+<p>So a completed rotation does two things instead:</p>
+<ul>
+<li>The <code>validatorgov</code> allowlist entry <strong>moves</strong> to the new address. The old
+address is no longer an approved operator and cannot create a validator.</li>
+<li>The new address is <strong>granted authorisation</strong> (via <code>x/authz</code>) over the messages
+that operate the validator: <code>MsgEditValidator</code>, <code>MsgUnjail</code>, and
+<code>MsgWithdrawValidatorCommission</code>.</li>
+</ul>
+<p>Two limits follow, and neither is a bug to be fixed later:</p>
+<ul>
+<li><strong>The validator&#39;s on-chain operator address stays the old one.</strong> Block
+explorers and <code>staking</code> queries will keep showing it. What changed is who can
+act through it.</li>
+<li><strong>The old key is not revoked.</strong> The SDK has no way to stop an address signing
+for its own validator record. For a genuinely lost key this costs nothing,
+because a key that can still sign would have vetoed the recovery — that is
+what the veto rule is for. But rotation is not a remedy for a <em>stolen</em> key,
+and it should not be reached for as one: a thief who still holds the key can
+veto every recovery attempt indefinitely. That case is an
+<a href="../reference/enforcement.html"><code>x/enforcement</code></a> matter, not a rotation.</li>
+<li><strong>Self-delegated stake stays with the old address</strong>, along with anything else
+that account holds. <code>MsgUndelegate</code> and <code>MsgSetWithdrawAddress</code> are
+deliberately <em>not</em> granted: each would let the incoming operator move the
+outgoing one&#39;s money, and a recovery that could move somebody&#39;s funds would be
+a false claim worth filing. An operator whose key is genuinely lost loses
+their self-delegation with it.</li>
+</ul>
+<h3>Why not simply re-admit as a new validator</h3>
+<p>Because the stake and the delegations would have to be unwound and rebuilt, and
+delegators would bear the unbonding period for somebody else&#39;s lost phone. The
+whole point of rotation is to move the key without moving the money.</p>
+
+</main>
+</body>
+</html>

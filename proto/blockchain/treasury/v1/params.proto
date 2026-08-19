@@ -1,0 +1,55 @@
+syntax = "proto3";
+package blockchain.treasury.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/treasury/Params";
+  option (gogoproto.equal) = true;
+
+  // max_locks_per_treasury bounds how many active locks one treasury may hold.
+  // Releasing funds walks a treasury's locks, so an unbounded count would let
+  // anyone make that walk arbitrarily expensive.
+  uint64 max_locks_per_treasury = 1;
+
+  // max_role_assignments_per_treasury bounds the size of a treasury's access
+  // control list, for the same reason.
+  uint64 max_role_assignments_per_treasury = 2;
+
+  // min_lock_seconds is the shortest duration a lock may run for. A lock that
+  // ends the moment it is created commits nothing and only wastes state.
+  uint64 min_lock_seconds = 3;
+
+  // max_spend_policy_addresses bounds the combined size of a spend policy's
+  // allowlist and blocklist. Both are scanned on every spend and stored
+  // indefinitely, so leaving them unbounded would let a treasury make its own
+  // payments arbitrarily expensive to validate and bloat state while doing it.
+  uint64 max_spend_policy_addresses = 4;
+
+  // fee_operating_treasury_id names the treasury that network fees are paid
+  // into on a deployment that has no native token.
+  //
+  // The destination is a treasury rather than an address because fees are
+  // operating income of the deployment, and income that lands in somebody's
+  // account is spendable by whoever holds that key. A treasury puts it behind
+  // the same roles, spend policies and M-of-N group control as every other
+  // committed balance, and leaves the audit trail those produce.
+  //
+  // Nothing reads this unless route_fees_to_operating_treasury is set.
+  uint64 fee_operating_treasury_id = 5;
+
+  // route_fees_to_operating_treasury turns fee routing on.
+  //
+  // It is a separate field rather than a zero sentinel on the id above, because
+  // in proto3 a uint64 of 0 is indistinguishable from a field nobody set, and
+  // whether zero names a treasury is x/treasury's numbering convention rather
+  // than this parameter's. Ids start at one today, so zero would work; if that
+  // ever changed, every chain that had not configured routing would start
+  // paying its fees into whichever treasury was created first, and nothing here
+  // would have changed to say so.
+  bool route_fees_to_operating_treasury = 6;
+}

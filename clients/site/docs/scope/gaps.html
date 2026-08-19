@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gaps against the revised scope — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Gaps against the revised scope</h1>
+<p>What is unfinished, and what the revised scope newly requires. Every claim here
+was checked against the tree rather than against the task list — task #48 was
+marked complete while its artifact did not exist, so the task list is not
+evidence of what is built.</p>
+<hr>
+<h2>A. Carried over — started, not finished</h2>
+<p><strong>x/land has no user surface.</strong> <code>x/land/module/</code> contains <code>depinject.go</code> and
+<code>module.go</code> only: no <code>autocli.go</code>, so there are no CLI commands, and there is no
+<code>clients/land</code>. The keeper, the genesis round-trip and 14 tests are done.</p>
+<p><strong>x/tokenisation cannot enforce anything x/land decides.</strong> <code>Fractionalise</code>
+(<code>x/tokenisation/keeper/msg_server.go:127</code>) contains no reference to x/land. A
+parcel carrying <code>RestrictionNoFractionalisation</code> can be fractionalised today,
+and nothing checks a <code>MsgAuthoriseFractionalisation</code> or a <code>max_share_bps</code>. This
+is a correctness hole, not a missing feature: the land module&#39;s restrictions are
+currently decorative.</p>
+<p><strong>The governance console&#39;s write paths are untested.</strong> <code>/vote</code> has been
+exercised end to end. <code>/freeze</code> and <code>/case</code> have not.</p>
+<p><strong>Operator key rotation is documented but not implemented.</strong>
+<code>docs/guides/validator.md</code> describes <code>MsgRotateOperator</code>, the pause, the
+challenge window and the veto-by-signing rule. None of it exists in code. Docs
+ahead of code is worse than no docs.</p>
+<p><strong>The signing service is a devnet crutch.</strong> <code>opsd.py</code> signs with the node&#39;s own
+keyring on behalf of a browser. It must be replaced by client-side signing
+through <code>@yamale/connect</code>, after which <code>/api/ops/</code>, both htpasswd files and both
+copies of <code>opsd.py</code> are deleted and the consoles move onto the tailnet.</p>
+<p><del><strong>Devnet <code>voting_period</code> is 180s</strong>, so proposals expire while they are being
+debugged.</del> Fixed: the devnet setup and upgrade scripts now write 1800s (30
+minutes), with a 900s expedited period. A chain already running still carries
+the old value in its state — that takes a governance proposal, or the next
+<code>upgrade.sh</code>.</p>
+<p>Also open and untouched: #51 bridge strategy, #65 browser extension wallet.</p>
+<hr>
+<h2>B. New — required by the revised scope, nothing exists yet</h2>
+<h3>1. The constitutional layer</h3>
+<p><strong>There is no such thing today. Every parameter is an ordinary mutable gov
+param.</strong> The proof is already on the record: <code>recovery_destination</code> is a plain
+<code>string</code> in <code>blockchain.enforcement.v1.Params</code>, and it was found <strong>empty on the
+running chain</strong>. A seizure carried by two thirds of validators would have had
+nowhere to send the funds. Nobody noticed until a console printed it.</p>
+<p>Needed:</p>
+<ul>
+<li>a genesis-fixed invariant set — concentration caps, <code>threshold_bps</code>,
+<code>recovery_destination</code>, the delays;</li>
+<li><code>MsgUpdateParams</code> refusing to change any of them;</li>
+<li><del>validation at <code>InitGenesis</code> that refuses a genesis leaving one unset</del> —
+done for x/enforcement: <code>Params.Validate()</code> now refuses an empty or malformed
+<code>recovery_destination</code> as a bech32 address, and <code>InitGenesis</code> validates the
+whole genesis state before writing any of it, so a chain cannot start in that
+condition. The other modules still do not validate at <code>InitGenesis</code>;</li>
+<li>amendment only by supermajority <em>and</em> delay, if at all.</li>
+</ul>
+<p>This is the same irreversibility class as the genesis-counter and
+uniqueness-at-import problems already solved in x/land: cheap now, unfixable
+after a deployment holds real value.</p>
+<h3>2. Concentration caps</h3>
+<p><strong><code>blockchain.validatorgov.v1.Params</code> is an empty message.</strong> There is nowhere to
+put a cap, and no entity, beneficial-owner or jurisdiction attribute on a
+validator application, so no cap could be computed even if there were.</p>
+<p>Needed: those attributes on the application record; the three caps as invariants
+(§1); and — the part that matters — <strong>enforcement in an EndBlocker that can
+demote, every epoch</strong>, not an ante gate at admission. Admission-time-only
+enforcement is precisely the hole x/land has: the cross-office quorum protects
+the moment of transfer and leaves the standing state unguarded. A cap checked
+only when a validator joins is not a cap.</p>
+<p>Whatever divides in that epoch check must guard its divisor. A zero from genesis
+in a Begin/EndBlocker halts the chain.</p>
+<h3>3. Payment confidentiality</h3>
+<p>Highest irreversibility, so first. <code>MsgPayment</code>
+(<code>proto/blockchain/paymsg/v1/tx.proto:72-80</code>) carries <code>debtor</code>, <code>creditor</code>,
+<code>denom</code>, <code>amount</code>, <code>purpose_code</code> and <code>remittance_information</code> — all plaintext,
+all in the transaction, all in state forever. Under the revised positioning
+(institutions, capital-control compliance, supervisors) this is the blocker.</p>
+<p>The decision to take now is the shape, not the implementation: commitment
+on-chain with detail off-chain, or an encrypted payload with viewing keys for
+the supervisor. Either way the field numbers must be reserved before a pilot
+writes a single payment.</p>
+<h3>4. Profiles</h3>
+<p><strong>The build has no concept of a profile.</strong> One binary wires all thirteen modules
+unconditionally in <code>app/app_config.go</code>. The settlement profile needs no native
+token, so <code>x/emission</code> must compile out — it is referenced at six points in
+<code>app_config.go</code>, including the BeginBlocker ordering. The registry profile needs
+land without payments. And IBC is wired unconditionally in <code>app/ibc.go</code> with no
+build tag anywhere in <code>app/</code>, so &quot;excluded by build tag&quot; is not currently
+possible.</p>
+<p>These two — emission compile-out and the IBC tag — are small and should land
+<strong>before audit scope is fixed</strong>. A module absent from the binary is absent from
+the review; a module merely disabled is not.</p>
+<h3>5. The obligations of being a distribution</h3>
+<p>None of this exists: LTS branches, a backport policy, upgrade tooling beyond the
+single handler from #38, a deployment certification procedure, or a legal entity
+able to sign a warranty. Whether any of it is needed depends on open decision
+four (vendor versus reference implementation), which is why that decision gates
+the rest.</p>
+<h3>6. The document itself</h3>
+<p><code>docs/scope/README.md</code> names <code>revised-scope.md</code> as authoritative. That file does
+not exist in the tree. Everything in <code>docs/guides/</code> still assumes a single chain
+carrying every module.</p>
+<hr>
+<h2>Order</h2>
+<ol>
+<li>Payment confidentiality (schema) and the constitutional layer — both are
+impossible to retrofit.</li>
+<li>Concentration caps with epoch enforcement; the two profile build tags.</li>
+<li>Finish x/land: autocli, client, and the x/tokenisation enforcement half.</li>
+<li>Replace the signing service; implement rotation; test the enforcement paths.</li>
+<li>Everything in §5, if and only if open decision four says vendor.</li>
+</ol>
+
+</main>
+</body>
+</html>

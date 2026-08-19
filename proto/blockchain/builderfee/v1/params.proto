@@ -1,0 +1,18 @@
+syntax = "proto3";
+package blockchain.builderfee.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/builderfee/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/builderfee/Params";
+  option (gogoproto.equal) = true;
+
+  // builder_fee_share_bps is the share of each tx's gas fee (in basis
+  // points, out of 10000) paid to the registered builder for the first
+  // message type in the tx that has an approved builder.
+  uint64 builder_fee_share_bps = 1;
+}

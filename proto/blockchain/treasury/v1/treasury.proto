@@ -1,0 +1,67 @@
+syntax = "proto3";
+package blockchain.treasury.v1;
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// Treasury is a pool of funds under programmable control.
+//
+// Funds deposited into a treasury are held by the treasury module account, not
+// by the admin's own address. That indirection is what makes the locked/available
+// split enforceable: because no ordinary bank transfer can reach the balance,
+// the only way out is a treasury message, and every treasury message checks the
+// available balance first.
+message Treasury {
+  uint64 id = 1;
+  // name is a human label, for display only.
+  string name = 2;
+  // admin manages roles, policies and locks. Point this at an x/group policy
+  // address to get M-of-N control with a full on-chain approval trail; a plain
+  // account address gives single-key control.
+  string admin = 3;
+  // paused halts spending and claiming without unwinding any state, so a
+  // compromise can be contained while the admins decide what to do.
+  bool paused = 4;
+  uint64 created_at_height = 5;
+}
+
+// Role is what an address may do to a treasury.
+//
+// Proposing, voting and executing are deliberately absent: on this chain that
+// machinery belongs to x/group, which already records every approval and
+// rejection as an attributable on-chain event. Setting a treasury's admin to a
+// group policy composes the two — the group decides, the treasury enforces.
+enum Role {
+  // ROLE_UNSPECIFIED is the unset default and grants nothing.
+  ROLE_UNSPECIFIED = 0;
+  // ROLE_ADMIN may manage roles and policies, create locks, and revoke
+  // revocable locks. Equivalent to the treasury's admin address.
+  ROLE_ADMIN = 1;
+  // ROLE_SPENDER may move funds out directly, without an admin decision, so
+  // long as the spend policy allows it. This is the role that makes routine
+  // operational payments possible without a governance round trip.
+  ROLE_SPENDER = 2;
+  // ROLE_PAUSER may pause and unpause the treasury. Held separately from admin
+  // so an emergency responder can freeze funds without also being able to move
+  // them.
+  ROLE_PAUSER = 3;
+}
+
+// RoleAssignment grants an address a role over one treasury.
+message RoleAssignment {
+  uint64 treasury_id = 1;
+  string address = 2;
+  Role role = 3;
+}
+
+// TreasuryBalance is the module's ledger of what one treasury holds in one
+// denom, and how much of it is already committed to locks.
+//
+// available = total - locked, and it is `available` that every outbound path
+// checks. Once funds back a lock they cannot be spent by anyone, including the
+// admin and including a proposal that clears its signing threshold.
+message TreasuryBalance {
+  uint64 treasury_id = 1;
+  string denom = 2;
+  string total = 3;
+  string locked = 4;
+}

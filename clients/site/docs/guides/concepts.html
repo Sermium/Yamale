@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What Yamale is — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>What Yamale is</h1>
+<p>A blockchain for moving money between institutions that know who each other are.</p>
+<p>That constraint is the design. Most chains are built for anonymous participants
+and treat permissioning as something applications bolt on afterwards. Yamale
+inverts it: who may validate, who may issue a currency, and who may route a
+payment are all decisions the chain itself enforces, decided by governance and
+visible to anyone.</p>
+<p>The trade is deliberate. You give up permissionless participation at the
+infrastructure layer, and you get a network where a payment&#39;s counterparties are
+accountable entities rather than addresses.</p>
+<hr>
+<h2>The ideas the rest of the documentation assumes</h2>
+<h3>Money is integers</h3>
+<p>Every amount on the chain is a whole number in a base unit. <code>uyml</code> is the base
+unit of YML at six decimal places, so <code>12500000uyml</code> is 12.5 YML. There are no
+fractional base units and no floating point anywhere near a balance.</p>
+<p>Interfaces convert only when displaying. If you are writing one, do the same:
+compute in base units, convert at the last moment, and truncate rather than
+round, so a number you show is never larger than the number that exists.</p>
+<h3>Permission is on-chain, and so is the decision</h3>
+<p>Four things on this chain require governance approval: becoming a validator,
+issuing a currency, routing payments as an institution, and receiving a share of
+transaction fees as a developer.</p>
+<p>Each follows the same shape. Anyone may apply — that is a permissionless
+message that records a pending application. Approval is a separate message whose
+only valid signer is the governance account, which means it can only ever happen
+as the payload of a proposal that passed. There is no path where an applicant
+approves themselves, and every decision leaves a record of who voted for it.</p>
+<h3>The validator set is closed, but the ledger is not</h3>
+<p>Only approved validators produce blocks. Everything else — holding funds,
+sending payments, trading, opening a treasury — is open to any account. Reading
+is open to everyone: there are no private balances and no permissioned queries.</p>
+<h3>Supply is capped and decays toward it</h3>
+<p>Instead of open-ended inflation, new YML is issued on a fixed schedule that
+halves toward a ceiling. Every block mints slightly less than the last, and the
+total approaches a fixed number rather than growing forever.</p>
+<h3>Commitments are stronger than policies</h3>
+<p>The treasury module draws a line most systems do not. When funds are committed
+to somebody — a vesting grant, a scheduled disbursement — they leave the
+treasury&#39;s spendable balance entirely. No administrator, no governance proposal
+and no group of signers clearing their threshold can spend them.</p>
+<p>This is enforced by where the money sits rather than by a rule that checks it,
+which is the difference between a commitment and an intention.</p>
+<h3>A value too old to trust is not a value</h3>
+<p>Every price the chain holds carries the moment it was observed, and every answer
+carries how old it is. Nothing is silently frozen at its last known number: a feed
+that stops reporting becomes explicitly unusable rather than quietly wrong, and
+the paths that act on a price immediately — lending, liquidation — refuse a stale
+one rather than guess.</p>
+<p>The two kinds of value get there differently. A currency&#39;s rate is discovered:
+validators each report what they observe and the chain takes the median weighted
+by stake, so moving it costs the same as attacking consensus. A building&#39;s value
+is attested: an appointed, independent party inspects it and signs a number, and
+what the chain can guarantee is not that the number is right but that it is
+attributable — who signed it, what they were admitted to value, and against which
+report.</p>
+<hr>
+<h2>What the chain does</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Payments</strong></td>
+<td>ISO 20022-shaped credit transfers between approved institutions, each leaving a queryable statement entry with its reference and purpose.</td>
+</tr>
+<tr>
+<td><strong>Currencies</strong></td>
+<td>Fiat-referenced tokens with a single governance-approved issuer each, who alone may mint and redeem.</td>
+</tr>
+<tr>
+<td><strong>Treasuries</strong></td>
+<td>Shared funds with roles, spending limits, time locks and vesting.</td>
+</tr>
+<tr>
+<td><strong>Trading</strong></td>
+<td>Constant-product liquidity pools; anyone may open one or provide liquidity.</td>
+</tr>
+<tr>
+<td><strong>Staking</strong></td>
+<td>Standard proof-of-stake economics over the approved validator set.</td>
+</tr>
+<tr>
+<td><strong>Governance</strong></td>
+<td>Proposals, deposits and voting, plus the four approval flows above.</td>
+</tr>
+<tr>
+<td><strong>Valuation</strong></td>
+<td>Exchange rates agreed by stake-weighted validator vote, and real-world assets valued by governance-appointed independent parties.</td>
+</tr>
+</tbody></table>
+<p>Not built yet: lending against real-world assets. The valuation layer it needs is
+in place — see below — but the credit logic itself is a later phase.</p>
+<hr>
+<h2>Where to go next</h2>
+<ul>
+<li>Try it: <a href="local-devnet.html">Run a local chain</a>.</li>
+<li>See the strongest idea in practice: <a href="treasury.html">Set up a treasury</a>.</li>
+<li>Feed the chain prices: <a href="oracle.html">Price feeds and asset valuations</a>.</li>
+<li>Look something up: the <a href="../reference/">reference</a> covers every message,
+query, parameter and error code, generated from the source.</li>
+</ul>
+
+</main>
+</body>
+</html>

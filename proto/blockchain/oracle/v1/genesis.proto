@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package blockchain.oracle.v1;
+
+import "amino/amino.proto";
+import "blockchain/oracle/v1/oracle.proto";
+import "blockchain/oracle/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/oracle/types";
+
+// GenesisState defines the oracle module's genesis state.
+//
+// Votes in flight are deliberately absent: a voting round that was open when
+// the chain stopped is abandoned rather than resumed, because the prices in it
+// describe a moment that has passed. Restarting mid-round with stale votes
+// would agree a rate nobody currently stands behind.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+
+  repeated ExchangeRate exchange_rates = 2 [(gogoproto.nullable) = false];
+  repeated Appraiser appraisers = 3 [(gogoproto.nullable) = false];
+  repeated Appraisal appraisals = 4 [(gogoproto.nullable) = false];
+  repeated FeederDelegation feeder_delegations = 5 [(gogoproto.nullable) = false];
+  repeated MissCounter miss_counters = 6 [(gogoproto.nullable) = false];
+
+  // appraisal_history carries superseded valuations. They are exported rather
+  // than dropped because they cannot be reconstructed from the current
+  // valuations, and the record of what an asset was said to be worth over time
+  // is the thing an auditor needs after a dispute. Their sequence numbers are
+  // not carried: they are contiguous per asset and are rebuilt on import, so an
+  // exported genesis cannot disagree with itself.
+  repeated Appraisal appraisal_history = 7 [(gogoproto.nullable) = false];
+}

@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package blockchain.land.v1;
+
+import "blockchain/land/v1/params.proto";
+import "blockchain/land/v1/parcel.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/land/types";
+
+// Query is deliberately generous about reading.
+//
+// A citizen must be able to check a title before paying anybody: without an
+// account, without an official's permission, and without anybody knowing they
+// looked. Every read below is public and unauthenticated for that reason — the
+// secrecy that protects a corrupt registry is the same secrecy that stops a
+// buyer discovering the land was already sold.
+service Query {
+  // Params returns the quorum and challenge window currently in force.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/params";
+  }
+
+  // Parcel returns one parcel by its chain id.
+  rpc Parcel(QueryParcelRequest) returns (QueryParcelResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/parcel/{id}";
+  }
+
+  // ParcelByRef finds a parcel by the registry's own reference — the number
+  // written on the paper somebody is actually holding.
+  //
+  // The reference travels in the query string rather than as a path segment,
+  // and that is not a style choice. Registry references contain slashes —
+  // ACC/GA/2019/00412 is an ordinary one — and a path template binds `{field}`
+  // to a single URL segment. A reference with slashes in it therefore matches
+  // no route at all, percent-encoded or raw, which made the module's primary
+  // lookup the one lookup that could not be performed over REST.
+  rpc ParcelByRef(QueryParcelByRefRequest) returns (QueryParcelByRefResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/parcel_by_ref";
+  }
+
+  // ParcelByGeometry exposes the uniqueness check, so a surveyor can ask "is
+  // this ground already registered" before a second title is ever proposed.
+  //
+  // In the query string for the same reason as ParcelByRef. The keeper accepts
+  // any non-empty string as a survey hash and deliberately does not impose an
+  // encoding, so a registry that records its hashes in base64 — an alphabet
+  // that includes '/' — would find this route unreachable for exactly the
+  // parcels it was asked about. A lookup that works until somebody changes
+  // their hash encoding is a lookup nobody can rely on.
+  rpc ParcelByGeometry(QueryParcelByGeometryRequest) returns (QueryParcelByGeometryResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/parcel_by_geometry";
+  }
+
+  // Transfer returns one transfer, including who signed it and when.
+  rpc Transfer(QueryTransferRequest) returns (QueryTransferResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/transfer/{id}";
+  }
+
+  // TransfersByParcel returns every transfer ever proposed for a parcel,
+  // including the abandoned and the disputed. This is the history that makes a
+  // theft arguable afterwards.
+  rpc TransfersByParcel(QueryTransfersByParcelRequest) returns (QueryTransfersByParcelResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/transfers_by_parcel/{parcel_id}";
+  }
+
+  // PendingTransfers lists transfers awaiting completion. The public list is
+  // what makes the challenge window meaningful: an objection cannot be filed
+  // against a transfer nobody can see.
+  rpc PendingTransfers(QueryPendingTransfersRequest) returns (QueryPendingTransfersResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/pending_transfers";
+  }
+
+  // Authorities lists the registry offices governance has admitted.
+  rpc Authorities(QueryAuthoritiesRequest) returns (QueryAuthoritiesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/authorities";
+  }
+
+  // ParcelsByHolder lists what one account holds.
+  rpc ParcelsByHolder(QueryParcelsByHolderRequest) returns (QueryParcelsByHolderResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/parcels_by_holder/{holder}";
+  }
+
+  // FractionalisationAuthority returns the registry's standing permission to
+  // fractionalise a parcel, and whether it is still live.
+  //
+  // Public for the same reason every other read here is: somebody being sold a
+  // share in a piece of land must be able to check, before paying, that the
+  // registry ever permitted the sale and that the permission has not been
+  // withdrawn or run out.
+  rpc FractionalisationAuthority(QueryFractionalisationAuthorityRequest) returns (QueryFractionalisationAuthorityResponse) {
+    option (google.api.http).get = "/yamale/blockchain/land/v1/fractionalisation_authority/{parcel_id}";
+  }
+}
+
+// QueryParamsRequest is the request type for the Params RPC.
+message QueryParamsRequest {}
+
+// QueryParamsResponse carries the module parameters.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryParcelRequest asks for a parcel by chain id.
+message QueryParcelRequest {
+  uint64 id = 1;
+}
+
+// QueryParcelResponse carries one parcel.
+message QueryParcelResponse {
+  Parcel parcel = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryParcelByRefRequest asks for a parcel by cadastral reference.
+message QueryParcelByRefRequest {
+  string cadastral_ref = 1;
+}
+
+// QueryParcelByRefResponse carries the matching parcel.
+message QueryParcelByRefResponse {
+  Parcel parcel = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryParcelByGeometryRequest asks whether a survey hash is already titled.
+message QueryParcelByGeometryRequest {
+  string geometry_hash = 1;
+}
+
+// QueryParcelByGeometryResponse carries the parcel holding that geometry.
+message QueryParcelByGeometryResponse {
+  Parcel parcel = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryParcelsByHolderRequest asks what one account holds.
+message QueryParcelsByHolderRequest {
+  string holder = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryParcelsByHolderResponse carries that account's parcels.
+message QueryParcelsByHolderResponse {
+  repeated Parcel parcels = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryTransferRequest asks for one transfer by id.
+message QueryTransferRequest {
+  uint64 id = 1;
+}
+
+// QueryTransferResponse carries one transfer and its signatures.
+message QueryTransferResponse {
+  Transfer transfer = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryTransfersByParcelRequest asks for a parcel's whole transfer history.
+message QueryTransfersByParcelRequest {
+  uint64 parcel_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryTransfersByParcelResponse carries that history.
+message QueryTransfersByParcelResponse {
+  repeated Transfer transfers = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryPendingTransfersRequest asks for transfers awaiting completion.
+message QueryPendingTransfersRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryPendingTransfersResponse carries the objectable transfers.
+message QueryPendingTransfersResponse {
+  repeated Transfer transfers = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryAuthoritiesRequest asks for the admitted registry offices.
+message QueryAuthoritiesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAuthoritiesResponse carries the registry offices.
+message QueryAuthoritiesResponse {
+  repeated Authority authorities = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryFractionalisationAuthorityRequest asks whether a parcel may be
+// fractionalised.
+message QueryFractionalisationAuthorityRequest {
+  uint64 parcel_id = 1;
+}
+
+// QueryFractionalisationAuthorityResponse carries the permission and the answer
+// x/tokenisation would give.
+message QueryFractionalisationAuthorityResponse {
+  FractionalisationAuthority authorisation = 1 [(gogoproto.nullable) = false];
+
+  // False when the permission has been withdrawn, has expired against the
+  // current block time, or the parcel now carries a restriction forbidding
+  // fractionalisation. Answered here rather than left to the caller so that a
+  // wallet and the keeper cannot disagree about what "live" means.
+  bool live = 2;
+}

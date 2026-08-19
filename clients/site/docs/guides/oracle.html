@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Price feeds and asset valuations — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Price feeds and asset valuations</h1>
+<p>How Yamale answers &quot;what is this worth&quot; — for currencies, which are priced by
+validator vote, and for real-world assets, which are valued by an appointed
+independent party.</p>
+<p><strong>You need:</strong> a running chain. <a href="local-devnet.html">Run a local chain</a> gets you one
+in about two minutes. Every command below was run against a node built from this
+repository.</p>
+<p><strong>You will end with:</strong> an agreed exchange rate on the chain, a hot key voting on
+your validator&#39;s behalf, and an appraiser application awaiting governance.</p>
+<hr>
+<h2>Why two mechanisms</h2>
+<p>Nobody knows the price of a currency on their own, so validators each report what
+they observe and the chain takes the median weighted by stake. Moving that median
+requires controlling half the stake — the same thing that securing the chain
+requires — which is what stops a minority from setting the price.</p>
+<p>Nobody discovers the price of a building by polling exchanges. An appointed valuer
+inspects it and signs a number. There is no median to take and no crowd to appeal
+to; the value is exactly as good as the named party who signed it, so the chain&#39;s
+job is to record precisely who that was, when, and against what report.</p>
+<p>Both answer through one interface, because a lending module asking &quot;what is this
+collateral worth&quot; should not have to care which kind it is. And both obey the rule
+that matters most: <strong>a value too old to trust is not a value.</strong></p>
+<hr>
+<h2>1. Look at what the chain expects</h2>
+<pre><code class="language-bash">blockchaind query oracle params
+</code></pre>
+<pre><code class="language-yaml">params:
+  accepted_denoms:
+  - uyml
+  - uusd
+  - uchf
+  - ueur
+  - ugbp
+  - ujpy
+  max_appraisal_age_seconds: &quot;8640000&quot;
+  max_class_ids_per_appraiser: &quot;50&quot;
+  max_rate_age_seconds: &quot;900&quot;
+  quote_symbol: USD
+  vote_period: &quot;12&quot;
+  vote_threshold_bps: &quot;5000&quot;
+</code></pre>
+<p><code>vote_period: 12</code> means a rate is agreed every twelve blocks — about once a
+minute at five-second blocks. <code>vote_threshold_bps: 5000</code> means half the stake has
+to report or no rate is agreed at all.</p>
+<p>The two ages differ by four orders of magnitude on purpose. <code>max_rate_age_seconds</code>
+is fifteen minutes: long enough to survive a validator restart, short enough that
+a feed which has genuinely stopped is refused before anyone lends against it.
+<code>max_appraisal_age_seconds</code> is a hundred days, covering a quarterly valuation
+cycle with room for the report to arrive.</p>
+<p>Before any votes, asking for a price is an explicit failure rather than a zero:</p>
+<pre><code class="language-bash">blockchaind query oracle rate uusd
+</code></pre>
+<pre><code>rpc error: code = NotFound desc = no rate has ever been agreed for uusd
+</code></pre>
+<p>That is different from a rate that exists and has gone stale, and the difference
+matters: the first is a configuration gap, the second is an emergency.</p>
+<h2>2. Vote</h2>
+<p>Every bonded validator may report. By default it votes with its own account —
+the same bytes as the operator address, in account form:</p>
+<pre><code class="language-bash">blockchaind query oracle feeder $(blockchaind keys show alice --bech val -a --keyring-backend test)
+</code></pre>
+<pre><code class="language-yaml">feeder: yml16v5yy9dgnw9h3g85pgvcw3d2ylg86gndadv7c5
+</code></pre>
+<p>Submit prices. Each <code>--rates</code> is one denom, repeated as many times as you have
+prices; the rate prices one <strong>display</strong> unit — 1 YML, not 1 uyml:</p>
+<pre><code class="language-bash">blockchaind tx oracle submit-rates $(blockchaind keys show alice --bech val -a --keyring-backend test) \
+  --rates &#39;{&quot;denom&quot;:&quot;uusd&quot;,&quot;rate&quot;:&quot;1.00&quot;}&#39; \
+  --rates &#39;{&quot;denom&quot;:&quot;uyml&quot;,&quot;rate&quot;:&quot;0.4213&quot;}&#39; \
+  --from alice --chain-id oracle-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<blockquote>
+<p><code>--rates</code> takes one JSON object per occurrence, not a JSON array. An array is
+rejected with <code>proto: syntax error (line 1:1): unexpected token [</code>.</p>
+</blockquote>
+<p>As always, the <code>code</code> printed by the broadcast only means the node accepted the
+transaction for inclusion. Check what it actually did:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;txhash&gt;
+</code></pre>
+<p>Nothing is agreed yet. Votes sit until the round closes, so no one can see the
+others&#39; prices before choosing their own. At the next height divisible by
+<code>vote_period</code>, the tally runs:</p>
+<pre><code class="language-bash">blockchaind query oracle rates
+</code></pre>
+<pre><code class="language-yaml">rates:
+- denom: uyml
+  rate: &quot;0.421300000000000000&quot;
+  updated_at: &quot;1786378422&quot;
+  updated_height: &quot;24&quot;
+  voting_power_bps: &quot;10000&quot;
+- denom: uusd
+  rate: &quot;1.000000000000000000&quot;
+  updated_at: &quot;1786378422&quot;
+  updated_height: &quot;24&quot;
+  voting_power_bps: &quot;10000&quot;
+</code></pre>
+<p><code>voting_power_bps: 10000</code> is the share of stake that contributed, in basis
+points — here a single-validator devnet, so all of it. A rate agreed by a bare
+quorum deserves less trust than one agreed by everybody, and this is how a
+consumer tells them apart.</p>
+<p>Asking for one denom also reports its age:</p>
+<pre><code class="language-bash">blockchaind query oracle rate uusd
+</code></pre>
+<pre><code class="language-yaml">age_seconds: &quot;16&quot;
+rate:
+  denom: uusd
+  rate: &quot;1.000000000000000000&quot;
+  updated_at: &quot;1786378422&quot;
+  updated_height: &quot;24&quot;
+  voting_power_bps: &quot;10000&quot;
+</code></pre>
+<p>Once <code>age_seconds</code> passes <code>max_rate_age_seconds</code>, the rate is still returned —
+hiding it would leave a caller unable to tell &quot;no feed&quot; from &quot;feed stopped&quot; — but
+it is flagged stale, and the lending paths refuse to act on it.</p>
+<p><strong>Correcting a vote.</strong> Submitting again in the same round replaces the earlier
+report rather than counting twice, so a feeder that spots its own mistake can fix
+it before the tally.</p>
+<p><strong>Absence is recorded.</strong></p>
+<pre><code class="language-bash">blockchaind query oracle misses
+</code></pre>
+<pre><code class="language-yaml">counters:
+- misses: &quot;1&quot;
+  validator: ymlvaloper16v5yy9dgnw9h3g85pgvcw3d2ylg86gndmhl9ml
+  windows: &quot;2&quot;
+</code></pre>
+<p>Two rounds have closed and one of them had no vote. Nothing is slashed for this.
+On a small permissioned network an automatic penalty mostly punishes the operator
+whose machine rebooted; governance can add one later using exactly this record,
+and cannot easily undo one that fired wrongly.</p>
+<h2>3. Move voting to a hot key</h2>
+<p>Voting every minute with the operator key means keeping online the one key whose
+compromise costs the most. Delegate it:</p>
+<pre><code class="language-bash">blockchaind tx oracle delegate-feeder \
+  $(blockchaind keys show alice --bech val -a --keyring-backend test) \
+  $(blockchaind keys show feeder -a --keyring-backend test) \
+  --from alice --chain-id oracle-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The delegate can only vote. It cannot move stake, change commission, or do
+anything else on the validator&#39;s behalf. And the change is one-directional: only
+the operator account may sign this message, so a compromised feeder cannot
+nominate its own successor to keep itself alive.</p>
+<p>From here the operator key is refused:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;txhash-of-a-vote-signed-by-alice&gt;
+</code></pre>
+<pre><code>code: 1102
+raw_log: &#39;failed to execute message; message index: 0: ... may not vote for ...
+</code></pre>
+<p>and the hot key works:</p>
+<pre><code class="language-bash">blockchaind tx oracle submit-rates $(blockchaind keys show alice --bech val -a --keyring-backend test) \
+  --rates &#39;{&quot;denom&quot;:&quot;uusd&quot;,&quot;rate&quot;:&quot;1.05&quot;}&#39; \
+  --from feeder --chain-id oracle-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>To take voting back, delegate to the operator account again — that removes the
+delegation rather than storing a self-delegation, so what is on the chain means
+exactly one thing: a hot key is in use.</p>
+<p><strong>Running this for real.</strong> A feeder is a small daemon: read prices from wherever
+you source them, submit once per vote period, and alert on your own miss counter.
+The chain does not ship one. What it does guarantee is that the rules a client
+applies to decide whether to show a price are the same rules the chain applies to
+decide whether to lend against it.</p>
+<h2>4. Have a real-world asset valued</h2>
+<p>An asset is represented by an NFT — one token per asset, because two invoices
+from the same issuer are not interchangeable and a fungible price for them would
+be a fiction. The valuation is bound to that token.</p>
+<p>Applying is open to anyone and grants nothing:</p>
+<pre><code class="language-bash">blockchaind tx oracle apply-appraiser \
+  &quot;Alpine Valuation SA&quot; \
+  &quot;RICS 12345 / FINMA-registered&quot; \
+  realestate \
+  --from valuer --chain-id oracle-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<pre><code class="language-bash">blockchaind query oracle appraiser $(blockchaind keys show valuer -a --keyring-backend test)
+</code></pre>
+<pre><code class="language-yaml">appraiser:
+  address: yml1jk3vecg9un9yldj5x725n3s7d68tzaj7ctl5zg
+  class_ids:
+  - realestate
+  credentials: RICS 12345 / FINMA-registered
+  name: Alpine Valuation SA
+  status: APPRAISER_STATUS_PENDING
+</code></pre>
+<p>The application exists so that what governance approved — the name, the
+credentials it relied on, the scope asked for — sits on the chain next to the
+decision, rather than in a forum post that can be edited after the vote.</p>
+<p>Pending grants nothing. Trying to value something now fails:</p>
+<pre><code>code: 1105
+raw_log: &#39;failed to execute message; message index: 0: ... is pending: address is not an approved appraiser
+</code></pre>
+<p>Admission is a governance decision (<code>MsgApproveAppraiser</code>, signed by the gov
+module account), submitted as a proposal. Governance may narrow the scope the
+applicant asked for without making them reapply; leaving <code>class_ids</code> empty on the
+approval keeps what they requested, so approving cannot widen a scope by accident.</p>
+<p>Once approved, a valuation is submitted against the asset&#39;s NFT:</p>
+<pre><code class="language-bash">blockchaind tx oracle submit-appraisal \
+  realestate building-1 2500000000 uusd 1786300000 &quot;RICS Red Book&quot; \
+  --report-uri &quot;ipfs://QmExample&quot; --report-hash &quot;9f2b...&quot; \
+  --from valuer --chain-id oracle-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Four things about that command are the point of the module:</p>
+<ul>
+<li><strong>The date is the valuation date, not today.</strong> A monthly NAV published late is
+still a month-end number, and staleness is measured from when the valuation
+describes the world — not from when it was typed in.</li>
+<li><strong>The report is pinned.</strong> <code>--report-uri</code> and <code>--report-hash</code> mean the on-chain
+number and the off-chain document cannot drift apart unnoticed.</li>
+<li><strong>The asset must exist.</strong> A valuation of a token that was never minted is
+refused, because a lending module reading it would extend credit against
+nothing.</li>
+<li><strong>Scope is enforced.</strong> A valuer admitted for property cannot value invoices.</li>
+</ul>
+<p>Revaluing supersedes rather than overwrites:</p>
+<pre><code class="language-bash">blockchaind query oracle appraisal realestate building-1
+blockchaind query oracle appraisal-history realestate building-1
+</code></pre>
+<p>The current query also reports <code>appraiser_still_approved</code>. If a valuer&#39;s
+authority is later withdrawn, their existing valuations stay exactly as they are —
+they were validly signed when they were made, and deleting them would rewrite the
+record rather than correct it — but a consumer can see that the chain no longer
+stands behind the signer.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>A round that was open when the chain stopped is abandoned.</strong> Votes are not
+carried in an exported genesis: they describe a moment that has passed, and
+resuming them would agree a price on reports nobody currently stands behind. The
+next round starts empty.</p>
+<p><strong>A stale price is returned, not hidden.</strong> Queries always answer with the value
+plus its age and a staleness flag. The paths that act immediately on a
+price — lending, liquidation — use the stricter form that refuses instead, because
+there the safe failure is to stop.</p>
+<p><strong>No commit-reveal.</strong> Votes are visible in the mempool, so a validator could in
+principle copy another&#39;s report instead of observing prices itself. On a
+permissioned network with a known, accountable validator set the cost of that is
+social rather than economic, and the two-phase alternative doubles the traffic and
+adds a whole class of &quot;revealed late&quot; failures. Both this and the absence of a
+miss penalty are parameters governance can revisit; neither is baked in.</p>
+<p><strong>Full reference:</strong> <a href="../reference/oracle.html">x/oracle</a> — every message, query,
+parameter and error code, generated from the source.</p>
+
+</main>
+</body>
+</html>

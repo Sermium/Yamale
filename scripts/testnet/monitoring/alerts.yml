@@ -1,0 +1,123 @@
+# What is worth waking somebody for on a Yamale network.
+#
+# Written against metric names scraped from a running node, with their live
+# values checked. Ordered by what the alert actually means rather than by
+# severity label, because the first question at 3am is "what is broken", not
+# "how bad is it".
+groups:
+  - name: yamale-liveness
+    rules:
+      # The one that matters most on a small set. With four equal validators
+      # consensus needs three; with three it needs all three. So a single
+      # missing validator is not a warning here, it is the last one before the
+      # chain stops.
+      - alert: ValidatorMissing
+        expr: cometbft_consensus_missing_validators > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} validator(s) not signing on {{ $labels.chain_id }}"
+          description: >-
+            With a small equal-power set the chain tolerates almost no absence:
+            at four validators it needs three to agree, at three it needs all
+            three. Find the missing node before a second one goes.
+
+      # Blocks stopped. Measured as the height not moving rather than as an
+      # absent scrape, so a monitoring outage does not look like a halt.
+      - alert: ChainHalted
+        expr: increase(cometbft_consensus_height[3m]) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No new blocks on {{ $labels.chain_id }} for 3 minutes"
+          description: >-
+            At a five-second interval this is roughly thirty-six missed blocks.
+            Check whether a validator is down: losing one of three stops
+            production entirely.
+
+      # Rounds above zero mean consensus is retrying — a proposer is slow, or
+      # the network between validators is. It is not an outage, and it is what
+      # an outage looks like beforehand.
+      - alert: ConsensusRetrying
+        expr: cometbft_consensus_rounds > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consensus is taking extra rounds on {{ $labels.chain_id }}"
+          description: >-
+            Blocks are still being made but not on the first attempt. Usually a
+            slow proposer or latency between validators; if it persists, block
+            times will drift above the configured interval.
+
+      - alert: ByzantineEvidence
+        expr: cometbft_consensus_byzantine_validators > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Byzantine evidence recorded on {{ $labels.chain_id }}"
+          description: >-
+            A validator has double-signed or otherwise misbehaved and the chain
+            has the evidence. On a permissioned network this is an incident with
+            a named institution behind it, not a technical fault.
+
+  - name: yamale-health
+    rules:
+      # A node that stops being scraped tells you nothing about the chain and
+      # everything about that node.
+      - alert: NodeUnreachable
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is not answering"
+
+      - alert: MempoolBacklog
+        expr: cometbft_mempool_size > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} transactions queued on {{ $labels.instance }}"
+          description: >-
+            Transactions are arriving faster than they are being included.
+            Execution was measured at about 2 ms each, so this is far more
+            likely to be a stuck proposer than a capacity limit.
+
+      # Block time drifting away from what it is set to. The interval is a
+      # deliberate wait, so this firing means the chain is no longer keeping it.
+      - alert: BlockTimeDrift
+        expr: |
+          histogram_quantile(0.5, rate(cometbft_consensus_block_interval_seconds_bucket[10m])) > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Median block interval above 8s on {{ $labels.chain_id }}"
+          description: >-
+            The configured interval is 5s. Sustained drift above it points at
+            consensus rounds, a slow disk, or a validator struggling to keep up.
+
+  # Application-level alerting is NOT configured, and this section says so
+  # rather than shipping a rule that quietly never fires.
+  #
+  # The alert worth having is a stale price feed: the oracle refuses a rate
+  # older than fifteen minutes, so a feeder that has stopped is invisible until
+  # something tries to price against it. But CometBFT exports consensus and
+  # mempool metrics only — nothing from this chain's own modules — so there is
+  # no `yamale_oracle_rate_updated_at` to alert on. Every metric name above was
+  # scraped from a running node; this one would have been invented, and an
+  # invented metric produces a rule that never fires and never says why.
+  #
+  # Two ways to close it, neither built:
+  #
+  #   1. A small exporter that polls /yamale/blockchain/oracle/v1/rate and
+  #      publishes the age of each rate. Perhaps fifty lines.
+  #   2. A Prometheus blackbox probe against the same endpoint, which catches
+  #      the API being down but not a rate going stale behind a healthy API.
+  #
+  # The first is the real answer, because the failure being watched for is a
+  # feeder that stopped while everything around it stayed up.

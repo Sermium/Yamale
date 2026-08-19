@@ -1,0 +1,1574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/treasury — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/treasury</h1>
+<p>Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone.</p>
+<h2>Transactions</h2>
+<h3>MsgAssignRole</h3>
+<p><code>/blockchain.treasury.v1.MsgAssignRole</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>AssignRole grants an address a role over a treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgClaimLock</h3>
+<p><code>/blockchain.treasury.v1.MsgClaimLock</code></p>
+<p>Signed by the <code>beneficiary</code> field.</p>
+<p>ClaimLock releases whatever has vested to the beneficiary.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>beneficiary</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgCreateLock</h3>
+<p><code>/blockchain.treasury.v1.MsgCreateLock</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>CreateLock commits treasury funds to a beneficiary on a schedule.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>beneficiary</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_type</code></td>
+<td>LockType</td>
+<td></td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cliff_time</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>end_time</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>release_intervals</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>revocable</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgCreateTreasury</h3>
+<p><code>/blockchain.treasury.v1.MsgCreateTreasury</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>CreateTreasury opens a new treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td>admin defaults to the creator when empty.</td>
+</tr>
+</tbody></table>
+<h3>MsgDeposit</h3>
+<p><code>/blockchain.treasury.v1.MsgDeposit</code></p>
+<p>Signed by the <code>depositor</code> field.</p>
+<p>Deposit moves funds from an account into a treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>depositor</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgDisputeEscrow</h3>
+<p><code>/blockchain.treasury.v1.MsgDisputeEscrow</code></p>
+<p>Signed by the <code>party</code> field.</p>
+<p>MsgDisputeEscrow freezes a lock and refers it to the named moderator.</p>
+<p>Either party may send it. That symmetry is what removes the need for a deadline: a seller facing a buyer who has gone quiet escalates rather than waiting forever, and a buyer who received nothing does the same.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>party</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgOpenEscrow</h3>
+<p><code>/blockchain.treasury.v1.MsgOpenEscrow</code></p>
+<p>Signed by the <code>depositor</code> field.</p>
+<p>--- conditional locks (escrow) ----------------------------------------</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>depositor</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>beneficiary</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>moderator</code></td>
+<td>string</td>
+<td>Named at creation, never afterwards.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>memo</code></td>
+<td>string</td>
+<td>What is being bought, so a moderator reading the case later knows.</td>
+</tr>
+<tr>
+<td><code>amount_commitment</code></td>
+<td>bytes</td>
+<td>6-8 mirror MsgSpend, and matter more here than there. An escrow is two private parties and a consumer purchase: the amount is nobody else&#39;s business, and &quot;what is being bought&quot; is a description of a person&#39;s life written to a public ledger that cannot forget it. Unpopulated for now; numbered now because escrow is the first thing on this chain that a member of the public will use with their own money.</td>
+</tr>
+<tr>
+<td><code>amount_range_proof</code></td>
+<td>bytes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata_hash</code></td>
+<td>bytes</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgReleaseEscrow</h3>
+<p><code>/blockchain.treasury.v1.MsgReleaseEscrow</code></p>
+<p>Signed by the <code>depositor</code> field.</p>
+<p>MsgReleaseEscrow pays the beneficiary. Only the depositor may send it.</p>
+<p>The buyer confirming is the whole condition. Nobody else can confirm on their behalf — not the seller, not the moderator, not the treasury admin.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>depositor</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgResolveEscrow</h3>
+<p><code>/blockchain.treasury.v1.MsgResolveEscrow</code></p>
+<p>Signed by the <code>moderator</code> field.</p>
+<p>MsgResolveEscrow is the moderator deciding an open case.</p>
+<p>Their only power, and only on a lock somebody actually disputed. A moderator who could act on a quiet lock would be a custodian with a different name.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>moderator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pay_beneficiary</code></td>
+<td>bool</td>
+<td>true pays the beneficiary, false returns the money to the depositor. There is no third option: a case that stays open forever is the failure this whole mechanism exists to prevent.</td>
+</tr>
+</tbody></table>
+<h3>MsgRevokeLock</h3>
+<p><code>/blockchain.treasury.v1.MsgRevokeLock</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>RevokeLock cancels a revocable lock, returning the unreleased portion.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRevokeRole</h3>
+<p><code>/blockchain.treasury.v1.MsgRevokeRole</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>RevokeRole removes an address&#39;s role.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSetAdmin</h3>
+<p><code>/blockchain.treasury.v1.MsgSetAdmin</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>SetAdmin transfers administrative control of a treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>new_admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSetPaused</h3>
+<p><code>/blockchain.treasury.v1.MsgSetPaused</code></p>
+<p>Signed by the <code>sender</code> field.</p>
+<p>SetPaused freezes or unfreezes a treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>paused</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSetSpendPolicy</h3>
+<p><code>/blockchain.treasury.v1.MsgSetSpendPolicy</code></p>
+<p>Signed by the <code>admin</code> field.</p>
+<p>SetSpendPolicy sets the spending constraints for one denom.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>policy</code></td>
+<td>SpendPolicy</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSpend</h3>
+<p><code>/blockchain.treasury.v1.MsgSpend</code></p>
+<p>Signed by the <code>spender</code> field.</p>
+<p>Spend moves funds out of a treasury to a recipient.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>spender</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipient</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>memo</code></td>
+<td>string</td>
+<td>memo records why the payment was made, for the audit trail.</td>
+</tr>
+<tr>
+<td><code>amount_commitment</code></td>
+<td>bytes</td>
+<td>6-8 are reserved for confidentiality, unpopulated and unverified. See docs/scope/confidentiality.md and MsgSendPayment, which these mirror. A treasury spend is public by default and that is deliberate: for donor disbursement, subsidy and public payroll the auditability is the product. The numbers are taken anyway, because the exception the design already anticipates — commercial escrow — is a spend like any other, and by the time it is wanted the treasuries holding real money will have written spends that cannot be re-encoded. memo is the field with a problem today rather than later: it is free text on a value transfer, which is where a payroll run acquires an employee&#39;s name, and it goes to a ledger with no erasure path. metadata_hash is where that moves.</td>
+</tr>
+<tr>
+<td><code>amount_range_proof</code></td>
+<td>bytes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata_hash</code></td>
+<td>bytes</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.treasury.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>ClaimableAmount</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/lock/{lock_id}/claimable</code></p>
+<p>ClaimableAmount reports what a lock would release if claimed right now.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>lock_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>claimable</code></td>
+<td>string</td>
+<td>claimable is releasable right now; vested is the cumulative amount the schedule has unlocked so far, including what was already claimed.</td>
+</tr>
+<tr>
+<td><code>vested</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>remaining</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetLock</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/lock/{id}</code></p>
+<p>GetLock queries one lock by id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>lock</code></td>
+<td>Lock</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetSpendPolicy</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{treasury_id}/policy</code></p>
+<p>GetSpendPolicy queries the spending policy for one treasury and denom.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>policy</code></td>
+<td>SpendPolicy</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetTreasury</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{id}</code></p>
+<p>GetTreasury queries one treasury by id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury</code></td>
+<td>Treasury</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListLock</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/lock</code></p>
+<p>ListLock queries all locks.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>lock</code></td>
+<td>repeated Lock</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListRole</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{treasury_id}/roles</code></p>
+<p>ListRole queries the role assignments of one treasury.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>role</code></td>
+<td>repeated RoleAssignment</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListTreasury</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury</code></p>
+<p>ListTreasury queries all treasuries.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury</code></td>
+<td>repeated Treasury</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>LocksByBeneficiary</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/beneficiary/{beneficiary}/locks</code></p>
+<p>LocksByBeneficiary queries the locks payable to one address, so a beneficiary can find what is owed to them without knowing any treasury id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>beneficiary</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>lock</code></td>
+<td>repeated Lock</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>LocksByTreasury</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{treasury_id}/locks</code></p>
+<p>LocksByTreasury queries the locks held by one treasury.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>lock</code></td>
+<td>repeated Lock</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/params</code></p>
+<p>Params queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h3>SpendCapacity</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{treasury_id}/capacity</code></p>
+<p>SpendCapacity reports how much may still be spent in the current period.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>remaining_this_period</code></td>
+<td>string</td>
+<td>remaining_this_period is what the period limit still allows; available is what the treasury actually holds unlocked. A spend is bounded by whichever is smaller, which is why both are reported.</td>
+</tr>
+<tr>
+<td><code>available</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>per_transaction_limit</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>period_resets_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>TreasuryBalances</h3>
+<p><code>GET /yamale/blockchain/treasury/v1/treasury/{treasury_id}/balances</code></p>
+<p>TreasuryBalances reports total, locked and available amounts per denom.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>balances</code></td>
+<td>repeated DenomBalance</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>DenomBalance</h3>
+<p>DenomBalance is one denom&#39;s position in a treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>locked</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>available</code></td>
+<td>string</td>
+<td>available is total minus locked: what may actually be spent.</td>
+</tr>
+</tbody></table>
+<h3>Lock</h3>
+<p>Lock commits treasury funds to a beneficiary on a schedule.</p>
+<p>Creating a lock does not transfer anything; it moves funds from the treasury&#39;s available balance into its locked balance. The beneficiary pulls what has vested by claiming, so the treasury never needs to run a scheduler and a beneficiary who never claims costs the chain nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>beneficiary</code></td>
+<td>string</td>
+<td>beneficiary is the only address that may claim from this lock.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total_amount</code></td>
+<td>string</td>
+<td>total_amount is the full commitment; released_amount is how much of it the beneficiary has already claimed. The difference is what remains locked.</td>
+</tr>
+<tr>
+<td><code>released_amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>int64</td>
+<td>start_time is when the schedule begins, in Unix seconds.</td>
+</tr>
+<tr>
+<td><code>cliff_time</code></td>
+<td>int64</td>
+<td>cliff_time is the earliest moment anything may be claimed. Before it, a vesting lock releases nothing at all — that is the whole point of a cliff. Set equal to start_time for no cliff.</td>
+</tr>
+<tr>
+<td><code>end_time</code></td>
+<td>int64</td>
+<td>end_time is when the lock is fully released.</td>
+</tr>
+<tr>
+<td><code>release_intervals</code></td>
+<td>uint64</td>
+<td>release_intervals splits vesting into discrete tranches rather than a continuous drip: 4 over a year means quarterly. Zero or one means continuous, releasing proportionally to elapsed time.</td>
+</tr>
+<tr>
+<td><code>lock_type</code></td>
+<td>LockType</td>
+<td></td>
+</tr>
+<tr>
+<td><code>revocable</code></td>
+<td>bool</td>
+<td>revocable lets the admin cancel the lock and return the <em>unreleased</em> portion to available. Already-vested funds are never clawed back, whether or not the beneficiary has claimed them — a promise that can be withdrawn retroactively is not a promise.</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>bool</td>
+<td>active is false once the lock is fully claimed or revoked. Inactive locks are retained rather than deleted so the disbursement history stays auditable.</td>
+</tr>
+<tr>
+<td><code>created_at_height</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>depositor</code></td>
+<td>string</td>
+<td>depositor funded the lock and is the only account that may release it. Held separately from the treasury&#39;s admin on purpose: in an escrow the buyer is not an administrator of anything, and an admin who could release somebody else&#39;s escrow would be the trusted party this design exists to remove.</td>
+</tr>
+<tr>
+<td><code>moderator</code></td>
+<td>string</td>
+<td>moderator decides a disputed lock, and is named when the lock is created rather than chosen afterwards. Both parties see who will judge them before they commit money, which is the whole of what makes this honest. A moderator has exactly one power: deciding an <em>open</em> case. They cannot release, refund, or touch a lock nobody has disputed.</td>
+</tr>
+<tr>
+<td><code>dispute</code></td>
+<td>DisputeState</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dispute_reason</code></td>
+<td>string</td>
+<td>Why the case was opened, kept because a moderator judging between two strangers has nothing else to go on.</td>
+</tr>
+<tr>
+<td><code>dispute_opened_by</code></td>
+<td>string</td>
+<td>Which side escalated. &quot;The seller cannot get confirmed&quot; and &quot;the buyer says it never came&quot; are different disputes with the same shape.</td>
+</tr>
+</tbody></table>
+<h3>RoleAssignment</h3>
+<p>RoleAssignment grants an address a role over one treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>SpendPolicy</h3>
+<p>SpendPolicy constrains what a ROLE_SPENDER may move out of a treasury in one denom, without needing an admin decision per payment.</p>
+<p>The policy is what makes a spender role safe to hand out: it bounds the blast radius of a compromised operational key to one period&#39;s limit, rather than the whole treasury.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>per_transaction_limit</code></td>
+<td>string</td>
+<td>per_transaction_limit caps a single spend. Empty means no cap.</td>
+</tr>
+<tr>
+<td><code>period_limit</code></td>
+<td>string</td>
+<td>period_limit caps the total spent within one window, and period_seconds is the window length. Empty period_limit means no cap. The window is fixed, not rolling: it resets when period_seconds elapses since the window opened, which keeps the accounting to a single stored value per denom.</td>
+</tr>
+<tr>
+<td><code>period_seconds</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>allowlist</code></td>
+<td>repeated string</td>
+<td>allowlist restricts destinations. Empty means any destination is allowed; non-empty means only these are.</td>
+</tr>
+<tr>
+<td><code>blocklist</code></td>
+<td>repeated string</td>
+<td>blocklist forbids destinations outright. It is checked after the allowlist, so an address in both is denied — the safer reading of a contradiction.</td>
+</tr>
+</tbody></table>
+<h3>SpendWindow</h3>
+<p>SpendWindow tracks consumption of a SpendPolicy&#39;s period_limit.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>spent</code></td>
+<td>string</td>
+<td>spent is the amount already used in the current window.</td>
+</tr>
+<tr>
+<td><code>window_start</code></td>
+<td>int64</td>
+<td>window_start is when the current window opened, in Unix seconds.</td>
+</tr>
+</tbody></table>
+<h3>Treasury</h3>
+<p>Treasury is a pool of funds under programmable control.</p>
+<p>Funds deposited into a treasury are held by the treasury module account, not by the admin&#39;s own address. That indirection is what makes the locked/available split enforceable: because no ordinary bank transfer can reach the balance, the only way out is a treasury message, and every treasury message checks the available balance first.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>name is a human label, for display only.</td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td>string</td>
+<td>admin manages roles, policies and locks. Point this at an x/group policy address to get M-of-N control with a full on-chain approval trail; a plain account address gives single-key control.</td>
+</tr>
+<tr>
+<td><code>paused</code></td>
+<td>bool</td>
+<td>paused halts spending and claiming without unwinding any state, so a compromise can be contained while the admins decide what to do.</td>
+</tr>
+<tr>
+<td><code>created_at_height</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>TreasuryBalance</h3>
+<p>TreasuryBalance is the module&#39;s ledger of what one treasury holds in one denom, and how much of it is already committed to locks.</p>
+<p>available = total - locked, and it is <code>available</code> that every outbound path checks. Once funds back a lock they cannot be spent by anyone, including the admin and including a proposal that clears its signing threshold.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>treasury_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>locked</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>DisputeState</h3>
+<p>DisputeState tracks a conditional lock that somebody has escalated.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>DISPUTE_STATE_NONE</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>DISPUTE_STATE_OPEN</code></td>
+<td>Frozen. Neither release nor refund happens until the moderator decides.</td>
+</tr>
+<tr>
+<td><code>DISPUTE_STATE_RESOLVED</code></td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>LockType</h3>
+<p>LockType selects how a lock releases its funds over time.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>LOCK_TYPE_UNSPECIFIED</code></td>
+<td>LOCK_TYPE_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>LOCK_TYPE_TIME</code></td>
+<td>LOCK_TYPE_TIME releases the whole amount at once, when end_time passes. Use it for a simple escrow or a delayed disbursement.</td>
+</tr>
+<tr>
+<td><code>LOCK_TYPE_VESTING</code></td>
+<td>LOCK_TYPE_VESTING releases progressively between cliff_time and end_time. Use it for grants, payroll and token allocations.</td>
+</tr>
+<tr>
+<td><code>LOCK_TYPE_CONDITIONAL</code></td>
+<td>LOCK_TYPE_CONDITIONAL releases when the depositor says so, not when a clock says so. This is escrow: a buyer commits the money, the seller ships knowing it exists, and the funds move on confirmation. Deliberately no deadline. An automatic release rewards precisely the seller who ships nothing and waits, and it lands hardest on buyers who are ill, travelling or offline. Instead either party may open a case, which is why silence is not a weapon: the seller escalates rather than waiting forever.</td>
+</tr>
+</tbody></table>
+<h3>Role</h3>
+<p>Role is what an address may do to a treasury.</p>
+<p>Proposing, voting and executing are deliberately absent: on this chain that machinery belongs to x/group, which already records every approval and rejection as an attributable on-chain event. Setting a treasury&#39;s admin to a group policy composes the two — the group decides, the treasury enforces.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROLE_UNSPECIFIED</code></td>
+<td>ROLE_UNSPECIFIED is the unset default and grants nothing.</td>
+</tr>
+<tr>
+<td><code>ROLE_ADMIN</code></td>
+<td>ROLE_ADMIN may manage roles and policies, create locks, and revoke revocable locks. Equivalent to the treasury&#39;s admin address.</td>
+</tr>
+<tr>
+<td><code>ROLE_SPENDER</code></td>
+<td>ROLE_SPENDER may move funds out directly, without an admin decision, so long as the spend policy allows it. This is the role that makes routine operational payments possible without a governance round trip.</td>
+</tr>
+<tr>
+<td><code>ROLE_PAUSER</code></td>
+<td>ROLE_PAUSER may pause and unpause the treasury. Held separately from admin so an emergency responder can freeze funds without also being able to move them.</td>
+</tr>
+</tbody></table>
+<h2>Parameters</h2>
+<p>Changed by governance through <code>MsgUpdateParams</code>. Defaults are the values a chain starts with at genesis.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>max_locks_per_treasury</code></td>
+<td><code>500</code></td>
+<td>max_locks_per_treasury bounds how many active locks one treasury may hold. Releasing funds walks a treasury&#39;s locks, so an unbounded count would let anyone make that walk arbitrarily expensive.</td>
+</tr>
+<tr>
+<td><code>max_role_assignments_per_treasury</code></td>
+<td><code>100</code></td>
+<td>max_role_assignments_per_treasury bounds the size of a treasury&#39;s access control list, for the same reason.</td>
+</tr>
+<tr>
+<td><code>min_lock_seconds</code></td>
+<td><code>60</code></td>
+<td>min_lock_seconds is the shortest duration a lock may run for. A lock that ends the moment it is created commits nothing and only wastes state.</td>
+</tr>
+<tr>
+<td><code>max_spend_policy_addresses</code></td>
+<td><code>200</code></td>
+<td>max_spend_policy_addresses bounds the combined size of a spend policy&#39;s allowlist and blocklist. Both are scanned on every spend and stored indefinitely, so leaving them unbounded would let a treasury make its own payments arbitrarily expensive to validate and bloat state while doing it.</td>
+</tr>
+<tr>
+<td><code>fee_operating_treasury_id</code></td>
+<td><code>0</code></td>
+<td>fee_operating_treasury_id names the treasury that network fees are paid into on a deployment that has no native token. The destination is a treasury rather than an address because fees are operating income of the deployment, and income that lands in somebody&#39;s account is spendable by whoever holds that key. A treasury puts it behind the same roles, spend policies and M-of-N group control as every other committed balance, and leaves the audit trail those produce. Nothing reads this unless route_fees_to_operating_treasury is set.</td>
+</tr>
+<tr>
+<td><code>route_fees_to_operating_treasury</code></td>
+<td><code>false</code></td>
+<td>route_fees_to_operating_treasury turns fee routing on. It is a separate field rather than a zero sentinel on the id above, because in proto3 a uint64 of 0 is indistinguishable from a field nobody set, and whether zero names a treasury is x/treasury&#39;s numbering convention rather than this parameter&#39;s. Ids start at one today, so zero would work; if that ever changed, every chain that had not configured routing would start paying its fees into whichever treasury was created first, and nothing here would have changed to say so.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrTreasuryNotFound</code></td>
+<td>treasury not found</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrUnauthorized</code></td>
+<td>signer is not authorized to perform this action on this treasury</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrInvalidAmount</code></td>
+<td>invalid coin amount</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrInsufficientFunds</code></td>
+<td>treasury does not have enough available balance</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrLockNotFound</code></td>
+<td>lock not found</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrInvalidSchedule</code></td>
+<td>invalid lock schedule</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrLockInactive</code></td>
+<td>lock is no longer active</td>
+</tr>
+<tr>
+<td>1108</td>
+<td><code>ErrNotRevocable</code></td>
+<td>lock is not revocable</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrNothingToClaim</code></td>
+<td>nothing has vested yet</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrTreasuryPaused</code></td>
+<td>treasury is paused</td>
+</tr>
+<tr>
+<td>1111</td>
+<td><code>ErrSpendLimit</code></td>
+<td>spend exceeds the policy limit</td>
+</tr>
+<tr>
+<td>1112</td>
+<td><code>ErrDestinationDenied</code></td>
+<td>destination is not permitted by the spend policy</td>
+</tr>
+<tr>
+<td>1113</td>
+<td><code>ErrLimitReached</code></td>
+<td>treasury has reached a configured maximum</td>
+</tr>
+<tr>
+<td>1114</td>
+<td><code>ErrInvalidRole</code></td>
+<td>invalid role</td>
+</tr>
+<tr>
+<td>1115</td>
+<td><code>ErrSelfEscrow</code></td>
+<td>an escrow cannot pay its own depositor</td>
+</tr>
+<tr>
+<td>1116</td>
+<td><code>ErrModeratorIsParty</code></td>
+<td>the moderator cannot be the buyer or the seller</td>
+</tr>
+<tr>
+<td>1117</td>
+<td><code>ErrNotEscrow</code></td>
+<td>that lock is not an escrow</td>
+</tr>
+<tr>
+<td>1118</td>
+<td><code>ErrNotDepositor</code></td>
+<td>only the depositor may release an escrow</td>
+</tr>
+<tr>
+<td>1119</td>
+<td><code>ErrNotParty</code></td>
+<td>only the buyer or the seller may open a case</td>
+</tr>
+<tr>
+<td>1120</td>
+<td><code>ErrNotModerator</code></td>
+<td>only the named moderator may decide this case</td>
+</tr>
+<tr>
+<td>1121</td>
+<td><code>ErrEscrowDisputed</code></td>
+<td>this escrow is under review and cannot be released directly</td>
+</tr>
+<tr>
+<td>1122</td>
+<td><code>ErrAlreadyDisputed</code></td>
+<td>a case is already open on this escrow</td>
+</tr>
+<tr>
+<td>1123</td>
+<td><code>ErrNoOpenCase</code></td>
+<td>there is no open case on this escrow</td>
+</tr>
+<tr>
+<td>1124</td>
+<td><code>ErrNoReason</code></td>
+<td>a case must say what happened</td>
+</tr>
+<tr>
+<td>1125</td>
+<td><code>ErrLockClosed</code></td>
+<td>that lock is already settled</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

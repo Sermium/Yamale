@@ -1,0 +1,1434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/land — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/land</h1>
+<h2>Transactions</h2>
+<h3>MsgAttachDeed</h3>
+<p><code>/blockchain.land.v1.MsgAttachDeed</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>AttachDeed adds a document to the chain of title.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>document_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>issued_on</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgAttestTransfer</h3>
+<p><code>/blockchain.land.v1.MsgAttestTransfer</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>AttestTransfer adds one independent attestation toward quorum.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transfer_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgAuthoriseFractionalisation</h3>
+<p><code>/blockchain.land.v1.MsgAuthoriseFractionalisation</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>AuthoriseFractionalisation is the registry&#39;s permission for a tokenisation vehicle to be opened over a parcel. Without it, x/tokenisation refuses.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td>The authority in charge of the parcel.</td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>right</code></td>
+<td>string</td>
+<td>What may be sold: an exploitation right, a lease, a revenue share. Not the title — the title is not for sale in pieces.</td>
+</tr>
+<tr>
+<td><code>max_share_bps</code></td>
+<td>uint32</td>
+<td>Ceiling on the fraction that may be issued, in basis points. A holder permitted to sell 40% of the rent has 4000 here and keeps the other 6000. It is compared against the share the issued tokens carry, not against what the sponsor retains. Reading it the other way round inverts the rule and authorises exactly the issuance the office meant to forbid.</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>int64</td>
+<td>Unix seconds at which the authorisation stops being live, so a permission granted for one purpose does not sit open for years. Required, and refused if it is already in the past: an authorisation with no expiry is indistinguishable from an unset field, and defaults to forever.</td>
+</tr>
+<tr>
+<td><code>withdraw</code></td>
+<td>bool</td>
+<td>Withdrawing it stops new issuance. Existing holders are not expropriated by the registry — that would be a taking, and it belongs to a court.</td>
+</tr>
+</tbody></table>
+<h3>MsgCompleteTransfer</h3>
+<p><code>/blockchain.land.v1.MsgCompleteTransfer</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>CompleteTransfer applies a transfer that has met every condition.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transfer_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgFreezeParcel</h3>
+<p><code>/blockchain.land.v1.MsgFreezeParcel</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>FreezeParcel stops all movement, or lifts a freeze.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>The grounds. Required when freezing and recorded on the parcel as a Freeze entry, not merely checked and dropped: the reason a court order gives is the only part of it the holder can act on, and a stop with no readable grounds cannot be told apart from an arbitrary one. Optional when lifting, and recorded there too. An unattributed release is as hard to question as an unexplained freeze.</td>
+</tr>
+<tr>
+<td><code>unfreeze</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgObject</h3>
+<p><code>/blockchain.land.v1.MsgObject</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>Object halts a transfer and marks the parcel disputed.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transfer_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgProposeTransfer</h3>
+<p><code>/blockchain.land.v1.MsgProposeTransfer</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>ProposeTransfer opens a transfer. Signed by the holder.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRecordEncumbrance</h3>
+<p><code>/blockchain.land.v1.MsgRecordEncumbrance</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>RecordEncumbrance adds or releases a lien or right of way.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>detail</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>release</code></td>
+<td>bool</td>
+<td>Releasing marks the existing entry rather than deleting it: an encumbrance that disappears takes with it the evidence that it ever existed.</td>
+</tr>
+<tr>
+<td><code>index</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRegisterAuthority</h3>
+<p><code>/blockchain.land.v1.MsgRegisterAuthority</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>Admitting a registry office is a governance act. If an authority could admit another authority, buying one office would buy the power to manufacture the independent attestors the quorum depends on.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>x/gov. Registry offices are admitted by the chain&#39;s governance, never by each other.</td>
+</tr>
+<tr>
+<td><code>office</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRegisterParcel</h3>
+<p><code>/blockchain.land.v1.MsgRegisterParcel</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>RegisterParcel records a parcel for the first time.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>geometry_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cadastral_ref</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSetRestriction</h3>
+<p><code>/blockchain.land.v1.MsgSetRestriction</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>SetRestriction imposes or lifts a limit on what may be done with a parcel.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>detail</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lift</code></td>
+<td>bool</td>
+<td>Lifting marks the restriction rather than removing it, so the record still shows the land was once constrained and who released it.</td>
+</tr>
+<tr>
+<td><code>index</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.land.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams sets the quorum and challenge window. Governance only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgValidateTransfer</h3>
+<p><code>/blockchain.land.v1.MsgValidateTransfer</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>ValidateTransfer records the jurisdiction&#39;s own validation.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transfer_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>Authorities</h3>
+<p><code>GET /yamale/blockchain/land/v1/authorities</code></p>
+<p>Authorities lists the registry offices governance has admitted.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authorities</code></td>
+<td>repeated Authority</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>FractionalisationAuthority</h3>
+<p><code>GET /yamale/blockchain/land/v1/fractionalisation_authority/{parcel_id}</code></p>
+<p>FractionalisationAuthority returns the registry&#39;s standing permission to fractionalise a parcel, and whether it is still live.</p>
+<p>Public for the same reason every other read here is: somebody being sold a share in a piece of land must be able to check, before paying, that the registry ever permitted the sale and that the permission has not been withdrawn or run out.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authorisation</code></td>
+<td>FractionalisationAuthority</td>
+<td></td>
+</tr>
+<tr>
+<td><code>live</code></td>
+<td>bool</td>
+<td>False when the permission has been withdrawn, has expired against the current block time, or the parcel now carries a restriction forbidding fractionalisation. Answered here rather than left to the caller so that a wallet and the keeper cannot disagree about what &quot;live&quot; means.</td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/land/v1/params</code></p>
+<p>Params returns the quorum and challenge window currently in force.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Parcel</h3>
+<p><code>GET /yamale/blockchain/land/v1/parcel/{id}</code></p>
+<p>Parcel returns one parcel by its chain id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel</code></td>
+<td>Parcel</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ParcelByGeometry</h3>
+<p><code>GET /yamale/blockchain/land/v1/parcel_by_geometry</code></p>
+<p>ParcelByGeometry exposes the uniqueness check, so a surveyor can ask &quot;is this ground already registered&quot; before a second title is ever proposed.</p>
+<p>In the query string for the same reason as ParcelByRef. The keeper accepts any non-empty string as a survey hash and deliberately does not impose an encoding, so a registry that records its hashes in base64 — an alphabet that includes &#39;/&#39; — would find this route unreachable for exactly the parcels it was asked about. A lookup that works until somebody changes their hash encoding is a lookup nobody can rely on.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>geometry_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel</code></td>
+<td>Parcel</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ParcelByRef</h3>
+<p><code>GET /yamale/blockchain/land/v1/parcel_by_ref</code></p>
+<p>ParcelByRef finds a parcel by the registry&#39;s own reference — the number written on the paper somebody is actually holding.</p>
+<p>The reference travels in the query string rather than as a path segment, and that is not a style choice. Registry references contain slashes — ACC/GA/2019/00412 is an ordinary one — and a path template binds <code>{field}</code> to a single URL segment. A reference with slashes in it therefore matches no route at all, percent-encoded or raw, which made the module&#39;s primary lookup the one lookup that could not be performed over REST.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cadastral_ref</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel</code></td>
+<td>Parcel</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ParcelsByHolder</h3>
+<p><code>GET /yamale/blockchain/land/v1/parcels_by_holder/{holder}</code></p>
+<p>ParcelsByHolder lists what one account holds.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcels</code></td>
+<td>repeated Parcel</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>PendingTransfers</h3>
+<p><code>GET /yamale/blockchain/land/v1/pending_transfers</code></p>
+<p>PendingTransfers lists transfers awaiting completion. The public list is what makes the challenge window meaningful: an objection cannot be filed against a transfer nobody can see.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transfers</code></td>
+<td>repeated Transfer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Transfer</h3>
+<p><code>GET /yamale/blockchain/land/v1/transfer/{id}</code></p>
+<p>Transfer returns one transfer, including who signed it and when.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transfer</code></td>
+<td>Transfer</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>TransfersByParcel</h3>
+<p><code>GET /yamale/blockchain/land/v1/transfers_by_parcel/{parcel_id}</code></p>
+<p>TransfersByParcel returns every transfer ever proposed for a parcel, including the abandoned and the disputed. This is the history that makes a theft arguable afterwards.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transfers</code></td>
+<td>repeated Transfer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Authority</h3>
+<p>Authority is a registry office permitted to register and validate.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>Where this office may act. A parcel is validated by the office whose jurisdiction it falls in, and attested by offices elsewhere.</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Deed</h3>
+<p>Deed is one document in the chain of title.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td>What it is: grant, sale, inheritance, court order, survey.</td>
+</tr>
+<tr>
+<td><code>document_hash</code></td>
+<td>string</td>
+<td>Hash of the document the registry holds. Proves which paper this refers to without publishing a scan that may carry somebody&#39;s personal details.</td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td>Where the registry serves it from, for anyone entitled to read it.</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>string</td>
+<td>The registry&#39;s reference for the document, and its date in the paper world.</td>
+</tr>
+<tr>
+<td><code>issued_on</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recorded_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Encumbrance</h3>
+<p>Encumbrance is a claim against a parcel that is not ownership.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>detail</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recorded_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>released</code></td>
+<td>bool</td>
+<td>Released rather than deleted: an encumbrance that vanishes from the record takes with it the evidence that it ever constrained the title.</td>
+</tr>
+</tbody></table>
+<h3>FractionalisationAuthority</h3>
+<p>FractionalisationAuthority is a registry office&#39;s standing permission for a tokenisation vehicle to be opened over one parcel.</p>
+<p>It is a record of its own rather than a flag on the parcel because x/tokenisation has to be able to answer &quot;may this be issued, and how much of it&quot; at every issuance, long after the grant. A permission that existed only as a message in a past block is a permission nothing can enforce, which is how the ceiling and the expiry come to be decorative.</p>
+<p>One per parcel: granting again replaces the terms rather than accumulating permissions, because a parcel carrying two ceilings has the higher one.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>right</code></td>
+<td>string</td>
+<td>What may be sold: an exploitation right, a lease, a revenue share. Not the title — the title is not for sale in pieces and never leaves this module.</td>
+</tr>
+<tr>
+<td><code>max_share_bps</code></td>
+<td>uint32</td>
+<td>Ceiling on the fraction that may be issued, in basis points. A holder permitted to sell 40% of the rent has 4000 here and keeps the other 6000.</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>int64</td>
+<td>Unix seconds. Past this the authorisation is not live and x/tokenisation refuses to issue against it, so a permission granted for one purpose does not sit open for years.</td>
+</tr>
+<tr>
+<td><code>granted_by</code></td>
+<td>string</td>
+<td>The office that granted it, so the decision can be argued with.</td>
+</tr>
+<tr>
+<td><code>granted_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>withdrawn</code></td>
+<td>bool</td>
+<td>Withdrawn rather than deleted, for the same reason a lifted restriction is marked rather than removed: a permission that vanishes takes with it the evidence that the registry ever gave it, and who gave it. Withdrawal stops new issuance and expropriates nobody.</td>
+</tr>
+<tr>
+<td><code>withdrawn_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Freeze</h3>
+<p>Freeze is one order stopping every dealing with a parcel, and the grounds the office gave for it.</p>
+<p>Kept as a list on the parcel rather than as a single current entry, because a parcel frozen, released and frozen again by a different office is the exact history somebody contesting the second freeze needs to be able to show.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>Why the land was stopped: the court order, the fraud inquiry, the succession dispute. Required by the keeper, and stored because a stop whose grounds cannot be read is indistinguishable from an arbitrary one.</td>
+</tr>
+<tr>
+<td><code>imposed_by</code></td>
+<td>string</td>
+<td>The office that imposed it, so it can be argued with.</td>
+</tr>
+<tr>
+<td><code>imposed_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lifted</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lifted_by</code></td>
+<td>string</td>
+<td>The office that lifted it and the grounds it gave, recorded for the same reason as the freeze itself: releasing land is as consequential a decision as stopping it, and an unattributed release is one nobody can question.</td>
+</tr>
+<tr>
+<td><code>lift_reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lifted_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Parcel</h3>
+<p>Parcel is a piece of ground that can be owned exactly once.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>Assigned by the chain. Never reused, never reassigned.</td>
+</tr>
+<tr>
+<td><code>geometry_hash</code></td>
+<td>string</td>
+<td>Hash of the surveyed boundary (GeoJSON or the cadastral document). The survey itself is too large for a block and often too sensitive to publish; the hash proves which survey this title refers to without disclosing it. This field is the uniqueness constraint. The keeper indexes it, and registering a parcel whose hash already exists fails — that refusal is the whole &quot;cannot be owned twice&quot; guarantee.</td>
+</tr>
+<tr>
+<td><code>cadastral_ref</code></td>
+<td>string</td>
+<td>The registry&#39;s own human reference, so this record can be reconciled with the paper world it has to coexist with for a very long time.</td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td>Exactly one account. Deliberately not a list: co-ownership is a legal arrangement between people, expressed by the account being a group account, not by the chain holding several owners and having to rank them.</td>
+</tr>
+<tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>The registry office whose jurisdiction this parcel falls in.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Status</td>
+<td></td>
+</tr>
+<tr>
+<td><code>encumbrances</code></td>
+<td>repeated Encumbrance</td>
+<td>Mortgages, liens, rights of way. Recorded because a title shown without its encumbrances is a lie that gets somebody&#39;s house taken.</td>
+</tr>
+<tr>
+<td><code>registered_at</code></td>
+<td>int64</td>
+<td>Block height of first registration. The audit trail starts here, including for the initial seeding of the registry, which is a political act and should be as auditable as everything after it.</td>
+</tr>
+<tr>
+<td><code>deeds</code></td>
+<td>repeated Deed</td>
+<td>The deed documents themselves, as metadata on the token. A parcel is an NFT: one indivisible token, one holder, and everything a reader needs to understand the title travelling with it. Deeds are listed rather than embedded — a scan of a 1974 grant is megabytes and often contains personal data, so the chain carries its hash and a pointer, and the registry serves the document itself.</td>
+</tr>
+<tr>
+<td><code>restrictions</code></td>
+<td>repeated Restriction</td>
+<td>What may lawfully be done with this land, set by the registry. These are the reason the registry stays in the loop after issuance. A parcel can be fractionalised later — an exploitation right sold in shares, rents flowing to holders — but only within these limits, and the land service must be able to see and stop a breach. Without them, tokenisation becomes a way to sell around the law.</td>
+</tr>
+<tr>
+<td><code>vehicle_id</code></td>
+<td>uint64</td>
+<td>Set when a tokenisation vehicle has been opened over this parcel. The parcel itself never moves into the vehicle: the title stays here, held by the same account, and the vehicle sells rights <em>referencing</em> it. That separation is what keeps a fractionalised parcel still governed by the registry rather than by whoever accumulated the tokens.</td>
+</tr>
+<tr>
+<td><code>freezes</code></td>
+<td>repeated Freeze</td>
+<td>Every freeze ever imposed on this parcel, and the grounds given for it. The keeper refuses a freeze without a reason, so recording the status without the reason threw away the only part a court order actually consists of. A holder shown &quot;your land is frozen&quot; with no readable grounds cannot tell an inquiry from an extortion, and cannot argue with either — which is precisely the unaccountable act this module is written against. Lifting marks the entry rather than removing it, like a released encumbrance and a lifted restriction: a freeze that vanishes takes with it the evidence that an office ever stopped this land, and who did it.</td>
+</tr>
+</tbody></table>
+<h3>Restriction</h3>
+<p>Restriction is a limit on what may be done with a parcel.</p>
+<p>Kept as data rather than code because the limits differ by country and by parcel, and a chain that hard-codes one country&#39;s land law is a chain only that country can use.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td>agricultural_use_only, no_fractionalisation, foreign_ownership_capped, heritage_protected, minimum_parcel_size, customary_tenure.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td>The limit itself, where one applies — a percentage cap, a minimum size.</td>
+</tr>
+<tr>
+<td><code>detail</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>imposed_by</code></td>
+<td>string</td>
+<td>The office that imposed it, so it can be argued with.</td>
+</tr>
+<tr>
+<td><code>imposed_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>lifted</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Transfer</h3>
+<p>Transfer is a proposed change of holder, and the record of who agreed to it.</p>
+<p>It is kept after completion, not deleted. The history of who signed what and when is the receipt that a dispossessed owner currently does not have, and deleting it to save space would remove the only thing that makes the theft arguable afterwards.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Declared consideration. Recorded for the audit trail; the chain does not move it. Land paid for off-chain is the common case and pretending otherwise would make the record false.</td>
+</tr>
+<tr>
+<td><code>validated</code></td>
+<td>bool</td>
+<td>Set when the jurisdiction&#39;s own office validates.</td>
+</tr>
+<tr>
+<td><code>validated_by</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>attestors</code></td>
+<td>repeated string</td>
+<td>Independent registrars who have attested, one entry each. The keeper refuses an attestation from the proposing authority: an attestor from the same office is not independent, and allowing it collapses the whole mechanism back to a single bribe.</td>
+</tr>
+<tr>
+<td><code>quorum_at</code></td>
+<td>int64</td>
+<td>When quorum was reached. The challenge window runs from here, not from proposal, so the public clock starts only once the transfer is real.</td>
+</tr>
+<tr>
+<td><code>objected_by</code></td>
+<td>string</td>
+<td>First objection, if any. One is enough to stop everything.</td>
+</tr>
+<tr>
+<td><code>objection_reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>proposed_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>completed_at</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>Status</h3>
+<p>Status is where a parcel is in its life. A parcel that is not REGISTERED cannot begin a transfer, which is what makes FROZEN and DISPUTED effective: they are not warnings, they are stops.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>STATUS_UNSPECIFIED</code></td>
+<td>Never set on a stored parcel; the zero value only appears on a message that forgot to set one, and the keeper rejects it.</td>
+</tr>
+<tr>
+<td><code>STATUS_REGISTERED</code></td>
+<td>Held by exactly one account, and movable.</td>
+</tr>
+<tr>
+<td><code>STATUS_TRANSFER_PENDING</code></td>
+<td>A transfer is under way. No second transfer may start.</td>
+</tr>
+<tr>
+<td><code>STATUS_DISPUTED</code></td>
+<td>Somebody objected. Terminal for the transfer, and an entry point for a court. The chain preserves the evidence and does not adjudicate.</td>
+</tr>
+<tr>
+<td><code>STATUS_FROZEN</code></td>
+<td>Stopped by an authority plus quorum — a court order, a fraud inquiry.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>ErrNotAuthority</code></td>
+<td>signer is not a registry office</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>ErrParcelNotTransferable</code></td>
+<td>this parcel cannot be transferred in its current state</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>ErrInvalidRecipient</code></td>
+<td>the recipient is not a valid account</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>ErrSelfTransfer</code></td>
+<td>the recipient is already the holder</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>ErrNoTransfer</code></td>
+<td>no such transfer</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>ErrTransferClosed</code></td>
+<td>this transfer is already complete</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>ErrTransferDisputed</code></td>
+<td>this transfer has been objected to</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>ErrWrongJurisdiction</code></td>
+<td>only the office holding this parcel may validate it</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>ErrAlreadyValidated</code></td>
+<td>already validated</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>ErrNotIndependent</code></td>
+<td>an attestor from the parcel&#39;s own office is not independent</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>ErrAlreadyAttested</code></td>
+<td>this office has already attested</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ErrAuthorityInactive</code></td>
+<td>this registry office is not active</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>ErrNotValidated</code></td>
+<td>not yet validated by the office in charge</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>ErrNoQuorum</code></td>
+<td>not enough independent attestations</td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>ErrChallengeWindowOpen</code></td>
+<td>the challenge window has not closed yet</td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>ErrNoReason</code></td>
+<td>an objection must give a reason</td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>ErrNotGovernance</code></td>
+<td>this message may only come from governance</td>
+</tr>
+<tr>
+<td>25</td>
+<td><code>ErrNoDocument</code></td>
+<td>a document hash is required</td>
+</tr>
+<tr>
+<td>26</td>
+<td><code>ErrNoRestriction</code></td>
+<td>no such restriction</td>
+</tr>
+<tr>
+<td>27</td>
+<td><code>ErrNoRestrictionKind</code></td>
+<td>a restriction kind is required</td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>ErrNoEncumbrance</code></td>
+<td>no such encumbrance</td>
+</tr>
+<tr>
+<td>29</td>
+<td><code>ErrNotFrozen</code></td>
+<td>this parcel is not frozen</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>ErrNoGeometry</code></td>
+<td>a survey hash is required</td>
+</tr>
+<tr>
+<td>30</td>
+<td><code>ErrBadShareCeiling</code></td>
+<td>the share ceiling must be between 1 and 10000 basis points</td>
+</tr>
+<tr>
+<td>31</td>
+<td><code>ErrFractionalisationForbidden</code></td>
+<td>a restriction on this parcel forbids fractionalisation</td>
+</tr>
+<tr>
+<td>32</td>
+<td><code>ErrOfficeNotGroup</code></td>
+<td>a registry office must be a group account, so its decisions need several signatures</td>
+</tr>
+<tr>
+<td>33</td>
+<td><code>ErrBadExpiry</code></td>
+<td>the authorisation must expire at a time in the future</td>
+</tr>
+<tr>
+<td>34</td>
+<td><code>ErrNoAuthorisation</code></td>
+<td>this parcel has no fractionalisation authorisation to withdraw</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>ErrNoCadastralRef</code></td>
+<td>a cadastral reference is required</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>ErrInvalidHolder</code></td>
+<td>the holder is not a valid account</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>ErrGeometryTitled</code></td>
+<td>this ground is already titled</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>ErrRefTaken</code></td>
+<td>this cadastral reference is already used</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>ErrNoParcel</code></td>
+<td>no such parcel</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>ErrNotHolder</code></td>
+<td>only the holder may propose a transfer</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

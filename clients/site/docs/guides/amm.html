@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade and provide liquidity — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Trade and provide liquidity</h1>
+<p>How to open a liquidity pool, swap against it, and take your share back out.</p>
+<p><strong>You need:</strong> a running chain and two currencies. <a href="local-devnet.html">Run a local chain</a>
+gives you YML; <a href="stablecoin.html">Issue a currency</a> gives you the second one. This
+guide continues from that one, using the <code>ueur</code> it created. Every command below
+was run against a real node.</p>
+<p><strong>You will end with:</strong> a pool, a completed trade, and a withdrawal — with the
+figures the chain actually produced.</p>
+<hr>
+<h2>What a pool is</h2>
+<p>Two currencies held together, with the price set by their ratio rather than by
+an order book. Anyone may open one and anyone may add to one; there is no
+permission step, unlike issuing a currency or validating.</p>
+<p>The price is a consequence of the reserves, so <strong>every trade moves it against
+the trader</strong>, and the larger the trade relative to the pool, the further. That
+is not a fee — it is the mechanism — and it is the single thing to understand
+before trading on one.</p>
+<h2>1. Open a pool</h2>
+<pre><code class="language-bash">blockchaind tx amm create-pool uyml 20000000000 ueur 8400000000 30 \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>That is 20,000 YML against 8,400 EUR, with a 30 basis point (0.30%) swap fee.
+The opening ratio is your declaration of the price — 8400/20000 = <strong>0.42 EUR per
+YML</strong> — because nothing else defines it yet. Open a pool at a ratio the market
+disagrees with and the first trader will correct it at your expense.</p>
+<blockquote>
+<p><strong>YML is the hub.</strong> On the live network every currency is pooled against YML
+and nothing else, so a swap between two other currencies routes through YML as
+a <em>double hop</em> (sell A → YML, buy B ← YML). That is why the chain runs one
+pool per currency, not one per pair — see <a href="currencies.html">Currencies Yamale carries</a>.
+The wallet performs both hops as a single &quot;change&quot; action, so a person never
+sees the intermediate YML.</p>
+</blockquote>
+<pre><code class="language-bash">blockchaind query amm get-pool 1
+</code></pre>
+<pre><code class="language-yaml">pool:
+  denom_a: uyml
+  denom_b: ueur
+  id: &quot;1&quot;
+  reserve_a: &quot;20000000000&quot;
+  reserve_b: &quot;8400000000&quot;
+  swap_fee_bps: &quot;30&quot;
+  total_shares: &quot;14248139292&quot;
+</code></pre>
+<p><code>total_shares</code> is your claim on the pool. It is a token like any other —
+<code>amm/pool/1</code> — held in your balance, and it is what you hand back to withdraw.</p>
+<h2>2. Swap</h2>
+<pre><code class="language-bash">blockchaind tx amm swap 1 uyml 100000000 ueur 1 \
+  --from alice --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The arguments are the pool id, what you are putting in and how much, what you
+want out, and <strong>the least you will accept</strong>.</p>
+<p>That last one is the important one. <code>1</code> means &quot;any amount at all&quot;, which is fine
+on a quiet devnet and reckless anywhere else: between your quote and your
+transaction landing, somebody else can trade and move the price. The floor is
+what protects you, and setting it is the difference between a bad fill and an
+unbounded one.</p>
+<p>To find the right number, ask before you sign. The
+<a href="../../clients/explorer">explorer&#39;s Trade page</a> quotes it using the chain&#39;s own
+formula and rounding, so the figure it shows is the figure the chain produces —
+verified by executing a swap with the quoted amount as the floor and receiving
+exactly that. It also shows the minimum received at 0.5%, 1% or 5% tolerance;
+put that number here.</p>
+<p>Check what happened:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;txhash&gt;
+</code></pre>
+<h2>3. Add liquidity</h2>
+<pre><code class="language-bash">blockchaind tx amm join-pool 1 1000000000 420000000 \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Both sides, in proportion to the current reserves — which are not the ratio you
+opened at if anyone has traded since. Query the pool first and match what is
+there, or the excess of one side is wasted.</p>
+<p>You receive more <code>amm/pool/1</code> shares for it.</p>
+<h2>4. Withdraw</h2>
+<pre><code class="language-bash">blockchaind tx amm exit-pool 1 1000000000 \
+  --from bank --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>You hand back shares and receive both currencies in proportion to what the pool
+holds <em>now</em>. From a real run, burning 1,000,000,000 of 14,248,139,292 shares:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>before</th>
+<th>after</th>
+<th>returned</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>YML reserve</td>
+<td>22,200.000000</td>
+<td>20,641.901813</td>
+<td>1,558.098187</td>
+</tr>
+<tr>
+<td>EUR reserve</td>
+<td>9,144.836767</td>
+<td>8,503.010029</td>
+<td>641.826738</td>
+</tr>
+<tr>
+<td>shares</td>
+<td>14,248,139,292</td>
+<td>13,248,139,292</td>
+<td>1,000,000,000</td>
+</tr>
+</tbody></table>
+<p>Note what that says: 7% of the shares returned 7% of each reserve. You get back
+a share of the pool, not the assets you put in.</p>
+<h2>What you earn, and what it costs</h2>
+<p>Every swap leaves its fee in the pool, so the reserves grow slightly faster than
+the shares. That is the yield — it accrues to the shares themselves rather than
+being paid out, and it is why the withdrawal above returned more than a
+proportional share of the original deposit.</p>
+<p>Set against that: if the two currencies move apart in price, a pool
+automatically sells the one that rose and buys the one that fell. Withdraw after
+that and you hold less of the winner than if you had simply kept both. The fees
+have to exceed that difference for providing liquidity to have been worth it,
+and on a quiet pair they may not.</p>
+<p>The chain does not estimate this for you, and any interface that shows a
+headline yield without it is telling you half the story.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>Rounding always favours the pool.</strong> Any fraction of a base unit stays with the
+liquidity providers rather than the trader. This is deliberate and it is
+load-bearing: rounding the other way lets somebody drain a pool one unit at a
+time with repeated tiny trades.</p>
+<p><strong>The pool&#39;s price is not the chain&#39;s price.</strong> Validators agree exchange rates
+separately — see <a href="oracle.html">Price feeds</a> — and a pool is free to differ. A wide
+gap means either the pool is thin or it has drifted; the explorer&#39;s Trade page
+flags it and says by how much.</p>
+<p><strong>Pool shares are ordinary tokens.</strong> They can be sent, and they appear in
+balances as <code>amm/pool/&lt;id&gt;</code>. Sending them transfers the claim on the pool.</p>
+<p><strong>Full reference:</strong> <a href="../reference/amm.html">x/amm</a> — every message, query,
+parameter and error code, generated from the source.</p>
+
+</main>
+</body>
+</html>

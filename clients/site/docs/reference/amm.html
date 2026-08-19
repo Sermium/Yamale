@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/amm — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/amm</h1>
+<p>A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool&#39;s own reserves.</p>
+<h2>Transactions</h2>
+<h3>MsgCreatePool</h3>
+<p><code>/blockchain.amm.v1.MsgCreatePool</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>CreatePool defines the CreatePool RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom_a</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount_a</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom_b</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount_b</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>swap_fee_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgExitPool</h3>
+<p><code>/blockchain.amm.v1.MsgExitPool</code></p>
+<p>Signed by the <code>sender</code> field.</p>
+<p>ExitPool defines the ExitPool RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pool_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>shares</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgJoinPool</h3>
+<p><code>/blockchain.amm.v1.MsgJoinPool</code></p>
+<p>Signed by the <code>sender</code> field.</p>
+<p>JoinPool defines the JoinPool RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pool_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount_a</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount_b</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSwap</h3>
+<p><code>/blockchain.amm.v1.MsgSwap</code></p>
+<p>Signed by the <code>sender</code> field.</p>
+<p>Swap defines the Swap RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pool_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>token_in_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>token_in_amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>token_out_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>min_amount_out</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.amm.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>GetPool</h3>
+<p><code>GET /yamale/blockchain/amm/v1/pool/{id}</code></p>
+<p>ListPool Queries a list of Pool items.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pool</code></td>
+<td>Pool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListPool</h3>
+<p><code>GET /yamale/blockchain/amm/v1/pool</code></p>
+<p>ListPool defines the ListPool RPC.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pool</code></td>
+<td>repeated Pool</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/amm/v1/params</code></p>
+<p>Parameters queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Pool</h3>
+<p>Pool defines the Pool message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom_a</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom_b</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reserve_a</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reserve_b</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total_shares</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>swap_fee_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrSameDenom</code></td>
+<td>pool denoms must be different</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrInvalidAmount</code></td>
+<td>invalid coin amount</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrPoolNotFound</code></td>
+<td>pool not found</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrDenomNotInPool</code></td>
+<td>denom is not part of this pool</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrInsufficientDeposit</code></td>
+<td>deposit does not cover the required proportional amount</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrInsufficientShares</code></td>
+<td>insufficient LP shares</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrSlippage</code></td>
+<td>swap output is below the minimum requested amount</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrInvalidSwapFee</code></td>
+<td>swap fee is outside the permitted range</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrInvalidDenom</code></td>
+<td>invalid denom</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

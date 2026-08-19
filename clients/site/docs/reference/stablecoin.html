@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/stablecoin — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/stablecoin</h1>
+<p>Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom.</p>
+<h2>Transactions</h2>
+<h3>MsgApproveIssuer</h3>
+<p><code>/blockchain.stablecoin.v1.MsgApproveIssuer</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ApproveIssuer defines the ApproveIssuer RPC. It is authority-gated (the x/gov module account) and approves or rejects a pending currency registration submitted via MsgRegisterCurrency.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>approve</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgBurnCoin</h3>
+<p><code>/blockchain.stablecoin.v1.MsgBurnCoin</code></p>
+<p>Signed by the <code>issuer</code> field.</p>
+<p>BurnCoin defines the BurnCoin RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>issuer</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgMintCoin</h3>
+<p><code>/blockchain.stablecoin.v1.MsgMintCoin</code></p>
+<p>Signed by the <code>issuer</code> field.</p>
+<p>MintCoin defines the MintCoin RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>issuer</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipient</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRegisterCurrency</h3>
+<p><code>/blockchain.stablecoin.v1.MsgRegisterCurrency</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>RegisterCurrency defines the RegisterCurrency RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>display_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>exponent</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.stablecoin.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>GetApprovedIssuer</h3>
+<p><code>GET /yamale/blockchain/stablecoin/v1/approved_issuer_by_denom</code></p>
+<p>ListApprovedIssuer Queries a list of ApprovedIssuer items.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>approved_issuer</code></td>
+<td>ApprovedIssuer</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetIssuerApplication</h3>
+<p><code>GET /yamale/blockchain/stablecoin/v1/issuer_application_by_denom</code></p>
+<p>ListIssuerApplication Queries a list of IssuerApplication items.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>issuer_application</code></td>
+<td>IssuerApplication</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListApprovedIssuer</h3>
+<p><code>GET /yamale/blockchain/stablecoin/v1/approved_issuer</code></p>
+<p>ListApprovedIssuer defines the ListApprovedIssuer RPC.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>approved_issuer</code></td>
+<td>repeated ApprovedIssuer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListIssuerApplication</h3>
+<p><code>GET /yamale/blockchain/stablecoin/v1/issuer_application</code></p>
+<p>ListIssuerApplication defines the ListIssuerApplication RPC.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>issuer_application</code></td>
+<td>repeated IssuerApplication</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/stablecoin/v1/params</code></p>
+<p>Parameters queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>ApprovedIssuer</h3>
+<p>ApprovedIssuer defines the ApprovedIssuer message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>issuer</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>IssuerApplication</h3>
+<p>IssuerApplication defines the IssuerApplication message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>display_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>exponent</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrCurrencyExists</code></td>
+<td>a currency is already registered or pending for this denom</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrApplicationNotFound</code></td>
+<td>issuer application not found</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrApplicationNotPending</code></td>
+<td>issuer application is not pending</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrNotApprovedIssuer</code></td>
+<td>sender is not the approved issuer for this denom</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrInvalidAmount</code></td>
+<td>invalid coin amount</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrInvalidCurrency</code></td>
+<td>currency registration field is invalid or outside its limit</td>
+</tr>
+<tr>
+<td>1111</td>
+<td><code>ErrFeeDenomNotIssued</code></td>
+<td>fee denomination has no approved issuer</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

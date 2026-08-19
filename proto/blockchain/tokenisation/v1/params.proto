@@ -1,0 +1,23 @@
+syntax = "proto3";
+package blockchain.tokenisation.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+
+option go_package = "yamale/blockchain/x/tokenisation/types";
+
+message Params {
+  option (amino.name) = "blockchain/x/tokenisation/Params";
+  option (gogoproto.equal) = true;
+
+  // Floor and ceiling on what a collection may set as its challenge window.
+  // A window of zero would make verification decorative: redemption is
+  // irreversible, so a figure nobody can contest before it pays out is a figure
+  // that only needed to survive one block.
+  int64 min_challenge_window_seconds = 1;
+  int64 max_challenge_window_seconds = 2;
+
+  // Ceiling on a collection's dispute bond, so a registry cannot price
+  // challenges out of reach of the holders they exist to protect.
+  uint32 max_dispute_bond_bps = 3;
+}

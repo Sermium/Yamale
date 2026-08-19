@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/enforcement — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/enforcement</h1>
+<h2>Transactions</h2>
+<h3>MsgEmergencyFreeze</h3>
+<p><code>/blockchain.enforcement.v1.MsgEmergencyFreeze</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>EmergencyFreeze lets the founders&#39; group stop an account in one block, without waiting for a validator to open a case.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority must equal the emergency_authority parameter.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the grounds, in words the accused can read. Required, the same as for a validator&#39;s case: acting in an emergency is not a reason to leave the record blank, it is the reason the record matters.</td>
+</tr>
+<tr>
+<td><code>evidence_uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>evidence_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgEmergencyRelease</h3>
+<p><code>/blockchain.enforcement.v1.MsgEmergencyRelease</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>EmergencyRelease lets them let it go again, just as fast.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is why it was released, kept beside the original accusation. The case is not deleted: a freeze that was lifted as a mistake is part of the record of how this power has been used.</td>
+</tr>
+</tbody></table>
+<h3>MsgOpenCase</h3>
+<p><code>/blockchain.enforcement.v1.MsgOpenCase</code></p>
+<p>Signed by the <code>opener</code> field.</p>
+<p>OpenCase accuses an address, and freezes it while the validators decide.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>opener</code></td>
+<td>string</td>
+<td>opener is the account address of a bonded validator — the key it signs with, not its operator address. The chain derives the operator from it and records that on the case, so the accusation is attributed to the validator rather than to an address nobody recognises.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>CaseAction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the grounds, in words the accused can read.</td>
+</tr>
+<tr>
+<td><code>evidence_uri</code></td>
+<td>string</td>
+<td>evidence_uri and evidence_hash point at and pin the evidence held off-chain. Required for a seizure unless the parameters say otherwise.</td>
+</tr>
+<tr>
+<td><code>evidence_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgReverseCase</h3>
+<p><code>/blockchain.enforcement.v1.MsgReverseCase</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ReverseCase is governance overturning a passed case: the appeal. It lifts the freeze and records the reversal, and it is deliberately a slower instrument than the one that imposed the freeze, because it is the one used when the chain got it wrong.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is why it was overturned, kept beside the original accusation.</td>
+</tr>
+</tbody></table>
+<h3>MsgSweep</h3>
+<p><code>/blockchain.enforcement.v1.MsgSweep</code></p>
+<p>Signed by the <code>sender</code> field.</p>
+<p>Sweep collects whatever a passed seizure can now reach. Permissionless and repeatable: funds that were staked arrive later, when unbonding matures, and somebody has to be able to collect them without another vote.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td>sender pays for the transaction and gets nothing for it. Anyone may send this: the destination is fixed by the parameters, so there is nothing to gain by being the one who calls it and nothing to lose by letting somebody else.</td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.enforcement.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h3>MsgVoteCase</h3>
+<p><code>/blockchain.enforcement.v1.MsgVoteCase</code></p>
+<p>Signed by the <code>voter</code> field.</p>
+<p>VoteCase records one validator&#39;s judgement.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>voter</code></td>
+<td>string</td>
+<td>voter is the validator&#39;s account address, the key it signs with. Its operator address and its voting power are read from the staking module.</td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>option</code></td>
+<td>VoteOption</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgWithdrawCase</h3>
+<p><code>/blockchain.enforcement.v1.MsgWithdrawCase</code></p>
+<p>Signed by the <code>opener</code> field.</p>
+<p>WithdrawCase takes back a case before the vote ends, lifting its freeze.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>opener</code></td>
+<td>string</td>
+<td>opener is the account address of the validator that opened the case.</td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>CaseVotes</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/case/{case_id}/votes</code></p>
+<p>CaseVotes queries how each validator voted on a case.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>votes</code></td>
+<td>repeated Vote</td>
+<td></td>
+</tr>
+<tr>
+<td><code>yes_power</code></td>
+<td>int64</td>
+<td>The tallies as they stand, so a caller does not have to add up the votes and reach a different answer from the chain&#39;s.</td>
+</tr>
+<tr>
+<td><code>no_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>abstain_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total_power_at_open</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td>required_power is what yes_power has to reach for the case to pass.</td>
+</tr>
+</tbody></table>
+<h3>FreezeStatus</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/freeze/{address}</code></p>
+<p>FreezeStatus answers whether one address can send, and if not, why.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>frozen</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+<tr>
+<td><code>freeze</code></td>
+<td>Freeze</td>
+<td>freeze and case are set only when frozen. Together they are the answer to &quot;why&quot;, which is the question this query exists for.</td>
+</tr>
+<tr>
+<td><code>case</code></td>
+<td>Case</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetCase</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/case/{id}</code></p>
+<p>GetCase queries one case, with its votes.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case</code></td>
+<td>Case</td>
+<td></td>
+</tr>
+<tr>
+<td><code>votes</code></td>
+<td>repeated Vote</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListCase</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/case</code></p>
+<p>ListCase queries every case ever opened, resolved or not.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case</code></td>
+<td>repeated Case</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListFreeze</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/freeze</code></p>
+<p>ListFreeze queries every frozen address.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>freeze</code></td>
+<td>repeated Freeze</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>OpenCases</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/case/open</code></p>
+<p>OpenCases queries the cases still being voted on.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case</code></td>
+<td>repeated Case</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/params</code></p>
+<p>Params queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h3>Recovered</h3>
+<p><code>GET /yamale/blockchain/enforcement/v1/recovered</code></p>
+<p>Recovered totals what this module has taken, across every case. It is the number that says how much this power has actually been used.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>total</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cases_opened</code></td>
+<td>uint64</td>
+<td>cases_passed and cases_opened put that total in proportion.</td>
+</tr>
+<tr>
+<td><code>cases_passed</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Case</h3>
+<p>Case is an accusation against one address, and everything the chain did about it. Cases are never deleted: the record of who was frozen, on whose word, on what evidence, and by whose votes is the only thing that makes this power answerable.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td>target is the account accused.</td>
+</tr>
+<tr>
+<td><code>opener</code></td>
+<td>string</td>
+<td>opener is the validator operator that opened the case, or the emergency authority when <code>emergency</code> is set. Not typed as a validator address for exactly that reason: an emergency case is opened by a group policy account, and rendering it as an operator address would name a validator that does not exist.</td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>CaseAction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>CaseStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the stated grounds, in plain words, for whoever is accused.</td>
+</tr>
+<tr>
+<td><code>evidence_uri</code></td>
+<td>string</td>
+<td>evidence_uri points at the evidence held off-chain; evidence_hash is the SHA-256 of what it pointed at when the case was opened, so a document that is later edited can be shown to have been edited.</td>
+</tr>
+<tr>
+<td><code>evidence_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>opened_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>voting_ends_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>resolved_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>total_power_at_open</code></td>
+<td>int64</td>
+<td>total_power_at_open is the bonded power the threshold is measured against. Frozen at open so that power leaving the set mid-vote cannot lower the bar for what is already being decided.</td>
+</tr>
+<tr>
+<td><code>yes_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>no_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>abstain_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recovered</code></td>
+<td>repeated Coin</td>
+<td>recovered is everything this case has taken so far. It grows as unbonding funds arrive and are swept, which is why it is a running total rather than a single figure written once.</td>
+</tr>
+<tr>
+<td><code>sweep_complete</code></td>
+<td>bool</td>
+<td>sweep_complete is set when a seizure has nothing left to collect: the account is empty and no unbonding remains. Until then the case stays sweepable by anyone.</td>
+</tr>
+<tr>
+<td><code>emergency</code></td>
+<td>bool</td>
+<td>emergency marks a case opened by the emergency authority rather than by a validator. It changes nothing about how the case is decided — the validators still confirm or refuse it on the same terms — and exists so that nobody reading the record has to work out from an address whether the founders acted directly.</td>
+</tr>
+</tbody></table>
+<h3>EventCaseOpened</h3>
+<p>EventCaseOpened is emitted when a case is opened and its target frozen.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>opener</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>CaseAction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>voting_ends_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>emergency</code></td>
+<td>bool</td>
+<td>emergency is set when the founders&#39; group opened it directly rather than a validator. Anyone watching for this module&#39;s events should be able to tell the two apart without fetching the case.</td>
+</tr>
+</tbody></table>
+<h3>EventCaseResolved</h3>
+<p>EventCaseResolved is emitted once, when a case reaches its final status — including when it expires with nobody having voted.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>CaseStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>yes_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>no_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>required_power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventCaseVoted</h3>
+<p>EventCaseVoted is emitted for each validator&#39;s vote.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>option</code></td>
+<td>VoteOption</td>
+<td></td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventFreezeLifted</h3>
+<p>EventFreezeLifted is emitted whenever an address becomes able to send again, whatever the reason — expiry, rejection, withdrawal or reversal.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>CaseStatus</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventSeized</h3>
+<p>EventSeized is emitted every time a sweep collects something, which for a target with staked funds is more than once.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>destination</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>collected</code></td>
+<td>repeated Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>complete</code></td>
+<td>bool</td>
+<td>complete is set on the sweep that finishes the job: nothing liquid left, nothing staked, nothing unbonding.</td>
+</tr>
+</tbody></table>
+<h3>Freeze</h3>
+<p>Freeze is the fact that stops the money moving.</p>
+<p>It is kept as its own record rather than being derived by scanning cases, because it is read on every single transfer the chain processes.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td>case_id is the case that put it there — so an account holder who is refused a transfer can be told which case to read, rather than &quot;no&quot;.</td>
+</tr>
+<tr>
+<td><code>expires_at_height</code></td>
+<td>int64</td>
+<td>expires_at_height is the height the freeze lapses at, for the provisional freeze that comes with opening a case. Zero means it does not expire on its own: the validators voted for it, and lifting it takes a decision.</td>
+</tr>
+<tr>
+<td><code>frozen_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Vote</h3>
+<p>Vote is one validator&#39;s judgement on one case, with the power it carried when it was cast.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>case_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>option</code></td>
+<td>VoteOption</td>
+<td></td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>int64</td>
+<td>power is recorded as it was at the moment of voting. Reading it live at resolution instead would let a validator vote and then change what their vote meant.</td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>CaseAction</h3>
+<p>CaseAction is what a case asks the chain to do.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CASE_ACTION_UNSPECIFIED</code></td>
+<td>CASE_ACTION_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>CASE_ACTION_FREEZE</code></td>
+<td>CASE_ACTION_FREEZE stops the account from sending anything. Nothing is taken and nothing is redistributed; the funds stay where they are and stay the account&#39;s.</td>
+</tr>
+<tr>
+<td><code>CASE_ACTION_SEIZE</code></td>
+<td>CASE_ACTION_SEIZE freezes the account and, if the case passes, moves what it holds to the recovery destination. Delegations are unbonded so that staked funds come back and can be recovered as they mature.</td>
+</tr>
+</tbody></table>
+<h3>CaseStatus</h3>
+<p>CaseStatus is where a case has got to.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CASE_STATUS_UNSPECIFIED</code></td>
+<td>CASE_STATUS_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_VOTING</code></td>
+<td>CASE_STATUS_VOTING is open. The target is frozen for as long as it stays that way, or until the provisional freeze expires.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_PASSED</code></td>
+<td>CASE_STATUS_PASSED means the validators agreed. A freeze case ends here with the account frozen indefinitely; a seizure case sweeps and then keeps sweeping as unbonding funds arrive.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_REJECTED</code></td>
+<td>CASE_STATUS_REJECTED means they did not, and the freeze is lifted.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_EXPIRED</code></td>
+<td>CASE_STATUS_EXPIRED means the voting period ended without the threshold being reached — including the ordinary case where nobody voted at all. The freeze is lifted. This is deliberately not the same outcome as rejection: silence is not a finding, and the record should not claim it was.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_WITHDRAWN</code></td>
+<td>CASE_STATUS_WITHDRAWN means whoever opened it took it back before the vote ended, which also lifts the freeze.</td>
+</tr>
+<tr>
+<td><code>CASE_STATUS_REVERSED</code></td>
+<td>CASE_STATUS_REVERSED means an authority overturned the case rather than the validators deciding it: governance reversing one that passed, or the emergency authority releasing an account it or a validator had frozen. Any freeze is lifted. What was already seized is not returned by this module — that takes a transfer from the recovery destination, by whoever controls it, and pretending otherwise would be a lie told by an enum value.</td>
+</tr>
+</tbody></table>
+<h3>VoteOption</h3>
+<p>VoteOption is how a validator voted.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>VOTE_OPTION_UNSPECIFIED</code></td>
+<td>VOTE_OPTION_UNSPECIFIED is the unset default and is never valid. A vote has to say something.</td>
+</tr>
+<tr>
+<td><code>VOTE_OPTION_YES</code></td>
+<td>VOTE_OPTION_YES supports the case: freeze, or freeze and seize.</td>
+</tr>
+<tr>
+<td><code>VOTE_OPTION_NO</code></td>
+<td>VOTE_OPTION_NO opposes it.</td>
+</tr>
+<tr>
+<td><code>VOTE_OPTION_ABSTAIN</code></td>
+<td>VOTE_OPTION_ABSTAIN counts towards nothing. It exists so a validator can put on the record that they saw the case and declined to judge it, which is a different statement from not voting.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrUnknownValidator</code></td>
+<td>not a bonded validator</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrCaseNotFound</code></td>
+<td>no such case</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrCaseClosed</code></td>
+<td>case is no longer open</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrAlreadyVoted</code></td>
+<td>this validator has already voted on this case</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrAlreadyFrozen</code></td>
+<td>an open case already freezes this address</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrNotTheOpener</code></td>
+<td>only the validator that opened the case may withdraw it</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrFrozen</code></td>
+<td>account is frozen by an enforcement case</td>
+</tr>
+<tr>
+<td>1108</td>
+<td><code>ErrEvidenceRequired</code></td>
+<td>a seizure case requires evidence</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrInvalidCase</code></td>
+<td>case is not valid</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrNotSeizure</code></td>
+<td>case did not order a seizure</td>
+</tr>
+<tr>
+<td>1111</td>
+<td><code>ErrNotPassed</code></td>
+<td>case has not passed</td>
+</tr>
+<tr>
+<td>1112</td>
+<td><code>ErrProtectedAddress</code></td>
+<td>address cannot be frozen or seized</td>
+</tr>
+<tr>
+<td>1113</td>
+<td><code>ErrLimitReached</code></td>
+<td>exceeds a configured maximum</td>
+</tr>
+<tr>
+<td>1114</td>
+<td><code>ErrNoEmergencyAuthority</code></td>
+<td>no emergency authority is configured</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

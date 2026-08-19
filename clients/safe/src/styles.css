@@ -1,0 +1,147 @@
+/* Yamale Safe.
+   Quieter than the explorer on purpose: this is a tool people use to move
+   money, not a site they browse. Numbers are the loudest thing on the page. */
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #0b1523;
+  --text-muted: #5c6e88;
+  --border: #e3e7ee;
+  --accent: #12253f;
+  --negative: #8a2020;
+  --negative-bg: #fbeaea;
+  --positive-bg: #eaf3ef;
+  --warning-bg: #f7efd9;
+  --warning-fg: #6b4e00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1523; --panel: #12253f; --text: #e8eef7; --text-muted: #8fa4c4;
+    --border: #24405f; --accent: #8fa4c4; --negative: #e88; --negative-bg: #2e1c1c;
+    --positive-bg: #17271f; --warning-bg: #2b2413; --warning-fg: #e5c877;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
+.masthead { border-bottom: 1px solid var(--border); background: var(--panel); }
+.masthead__inner { display: flex; align-items: center; gap: 2rem; height: 3.5rem; }
+.brand { font-weight: 650; text-decoration: none; color: var(--text); }
+.brand span { color: var(--accent); }
+.nav a { color: var(--text-muted); text-decoration: none; font-size: 0.92rem; }
+.nav a.active { color: var(--text); }
+main.wrap { padding-top: 2rem; padding-bottom: 3rem; }
+h1 { font-size: 1.6rem; margin: 0 0 0.35rem; }
+h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
+.lede { color: var(--text-muted); max-width: 44rem; margin: 0 0 1.5rem; }
+.muted, .small.muted { color: var(--text-muted); }
+.small { font-size: 0.86rem; }
+.crumb { font-size: 0.86rem; color: var(--text-muted); margin: 0 0 0.5rem; }
+.crumb a { color: var(--text-muted); }
+.page-head { display: flex; align-items: center; gap: 0.75rem; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; }
+.card--link { display: block; text-decoration: none; color: inherit; }
+.card--link:hover { border-color: var(--accent); }
+.card__head { display: flex; align-items: center; gap: 0.6rem; }
+.card__foot { margin: 0.9rem 0 0; }
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); }
+
+.figures { display: flex; gap: 2rem; margin: 0.9rem 0 0.6rem; }
+.figures dt { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.15rem; }
+.figures dd { margin: 0; }
+.figure { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.figure--muted { color: var(--text-muted); font-weight: 500; }
+
+.tabs { display: flex; gap: 0.25rem; margin: 1.5rem 0 1rem; border-bottom: 1px solid var(--border); }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0.5rem 0.85rem;
+  font: inherit; font-size: 0.94rem; color: var(--text-muted); cursor: pointer; }
+.tab--on { color: var(--text); border-bottom-color: var(--accent); }
+
+.table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.table th { text-align: start; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted); font-weight: 600; padding: 0 0.6rem 0.5rem 0; }
+.table td { padding: 0.5rem 0.6rem 0.5rem 0; border-top: 1px solid var(--border); }
+.table .num { text-align: end; }
+.table .strong { font-weight: 600; }
+.row--off { opacity: 0.5; text-decoration: line-through; }
+
+.field { display: block; margin-bottom: 0.9rem; }
+.field span { display: block; font-size: 0.84rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+.field input, .field select { width: 100%; padding: 0.55rem 0.7rem; font: inherit;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+.field-row { display: grid; gap: 0.9rem; grid-template-columns: 2fr 1fr; }
+
+.notice { padding: 0.7rem 0.9rem; border-radius: 7px; background: var(--warning-bg);
+  color: var(--warning-fg); font-size: 0.9rem; margin: 0.9rem 0; }
+.notice--bad { background: var(--negative-bg); color: var(--negative); }
+.notice--ok { background: var(--positive-bg); color: var(--accent); }
+
+.badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px;
+  background: var(--border); color: var(--text-muted); }
+.badge-paused { background: var(--warning-bg); color: var(--warning-fg); }
+
+.payload { margin-top: 1rem; }
+.payload summary { cursor: pointer; font-size: 0.9rem; color: var(--text-muted); }
+.payload pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 7px; padding: 0.8rem; font-size: 0.82rem; }
+
+.foot { border-top: 1px solid var(--border); padding-top: 1rem; }
+.foot p { color: var(--text-muted); font-size: 0.85rem; max-width: 44rem; }
+code { font-size: 0.88em; background: var(--border); padding: 0.1rem 0.3rem; border-radius: 4px; }
+
+/* Operations. The chips are choices, not buttons that do something — nothing
+   on that page signs, so nothing on it should look like a commit action. */
+.actions { margin-top: 0.9rem; }
+.actions__row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.chip {
+  font: inherit; font-size: 0.9rem; padding: 0.35rem 0.8rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); cursor: pointer;
+}
+.chip--on { border-color: var(--accent); color: var(--text); background: var(--panel); }
+.payload__pre {
+  overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 7px; padding: 0.8rem; font-size: 0.82rem; margin: 0.6rem 0 0;
+}
+.badge-voting { background: var(--warning-bg); color: var(--warning-fg); }
+
+/* The mark sits on the text baseline in the masthead. currentColor means it
+   picks up the brand link's colour in both themes without a second file. */
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; }
+.brand__mark { width: 1.25rem; height: 1.25rem; flex: none; color: var(--accent); }
+
+/* Language picker. A native <select> on purpose: it inherits the platform's
+   own font stack, so Ge'ez and Arabic endonyms render with whatever the device
+   actually has rather than a webfont we would have to ship for twenty scripts. */
+.lang {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  /* Not transparent: the native popup is painted by the OS, and a transparent
+     control renders white-on-white in dark mode. An explicit surface plus
+     color-scheme is what makes the dropdown itself follow the theme. */
+  background: var(--surface, var(--panel));
+  color-scheme: light dark;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  max-width: 9rem;
+}
+.lang option {
+  background: var(--surface, var(--panel));
+  color: var(--text);
+}
+.lang:hover { color: var(--text); border-color: var(--border-strong, var(--text-muted)); }
+.lang:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Brass earns its place as the identity's second colour rather than sitting
+   unused in a token. The mark's descender is brass, so the same stroke reappears
+   as the active-state marker and the eyebrow -- sparing, and always structural
+   rather than decorative. Never body text: it fails contrast at small sizes. */
+.eyebrow { color: var(--brass); letter-spacing: .06em; }
+.nav a[aria-current="page"],
+.nav a.active { box-shadow: inset 0 -2px 0 var(--brass); }
+.brand__mark { border-radius: 6px; }

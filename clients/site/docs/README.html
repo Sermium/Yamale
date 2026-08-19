@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale documentation — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../mark.svg">
+<link rel="stylesheet" href="doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Yamale documentation</h1>
+<p>Three layers, split by what you are trying to do. They are deliberately not
+blended: mixing conceptual explanation into a task guide makes the task longer,
+and mixing tasks into a reference makes the reference incomplete.</p>
+<h2><a href="guides/concepts.html">Learn</a></h2>
+<p>What this chain is, what it is for, and the handful of ideas the rest of the
+documentation assumes. Read this if you are deciding whether Yamale solves a
+problem you have. No commands.</p>
+<h2><a href="guides/">Do</a></h2>
+<p>Task-shaped walkthroughs with a stated starting point and an end state you can
+verify. Every command in these pages has been run against a real node before
+publishing.</p>
+<ul>
+<li><a href="guides/local-devnet.html">Run a local chain</a> — a single-node network on your
+machine in about two minutes.</li>
+<li><a href="guides/wallet.html">Make a key</a> — a recovery phrase, its addresses, and an
+encrypted keystore, generated on a machine with no network.</li>
+<li><a href="guides/payments.html">Send a payment</a> — approved institutions, registered
+customers, and the statement entry a payment leaves behind.</li>
+<li><a href="guides/treasury.html">Set up a treasury</a> — shared funds, roles, spending
+limits, and a vesting schedule.</li>
+<li><a href="guides/oracle.html">Price feeds and asset valuations</a> — running a feeder,
+delegating a hot key, and having a real-world asset valued.</li>
+<li><a href="guides/currencies.html">Currencies Yamale carries</a> — the 42 African currencies,
+their denoms, and the YML-hub pool model (generated from the currency table).</li>
+<li><a href="guides/stablecoin.html">Issue a currency</a> — registering, being approved, and
+minting a fiat-referenced token.</li>
+<li><a href="guides/amm.html">Trade and provide liquidity</a> — pools, swaps, slippage, and
+what providing liquidity actually earns.</li>
+<li><a href="guides/enforcement.html">Freeze a scammer and recover the funds</a> — the case,
+the vote, the seizure, and what stops the same power being aimed at you.</li>
+<li><a href="guides/validator.html">Run a validator</a> — applying, being approved, bonding,
+and feeding prices.</li>
+<li><a href="guides/ibc.html">IBC: what is exposed, and what is turned off</a> — the surface
+reviewed, the interchain-accounts decision, and what is still untested.</li>
+</ul>
+<h2><a href="reference/">Reference</a></h2>
+<p>Every message, query, state type, parameter and error code, <strong>generated</strong> from
+the protobuf definitions, each module&#39;s registered errors, and its own
+<code>DefaultParams()</code>.</p>
+<p>These pages are not written by hand and must not be edited. A reference that
+drifts from the code is worse than no reference, because somebody trusts it and
+finds out in production. Regenerate with:</p>
+<pre><code class="language-bash">make docs
+</code></pre>
+<p><code>static/openapi.json</code> describes the same REST surface as a machine-readable
+Swagger document, merged from the protobuf annotations by <code>make openapi</code>. It is
+generated on the same terms and guarded the same way — it had drifted two whole
+modules behind the chain before that check existed.</p>
+<p><code>make docs-check</code> fails the build if the committed output has fallen behind the
+code, so drift is caught in CI rather than by a reader.</p>
+<h2>What is missing</h2>
+<p>Honest list, so nobody hunts for something that does not exist yet:</p>
+<ul>
+<li>No API tutorial for the <code>@yamale/chain</code> client; see
+<a href="../clients/README.html">clients/README.md</a> for what it does.</li>
+<li>The explorer signs transfers, staking and governance votes. The SDK can now
+sign this chain&#39;s own messages too — payments, treasury spends, swaps, price
+submissions — but the explorer does not yet expose screens for them, so the
+guides above still describe those flows through the CLI.</li>
+<li>IBC has never been exercised: no connection, channel, relayer or packet, and
+no tests. The surface is reviewed in <a href="guides/ibc.html">the IBC guide</a> and the
+ceremony disables interchain accounts, but nothing about it has been seen
+working.</li>
+<li>Accounts have no human-readable identity. <code>yml1chm…</code> is the only way to name
+someone. The replacement — a chain-assigned user ID and a private address book
+— is designed in <a href="guides/identity.html">User IDs and the address book</a> and not
+yet built.</li>
+<li>Outside assets cannot come in. There is no bridge and there will not be one —
+the model is custodial issuance, decided and written up in
+<a href="guides/custody.html">Bringing outside assets in</a>, but nothing is built. Read it
+as a design note, not a guide: it has no commands, because there is nothing yet
+to run.</li>
+<li>Nothing consumes the oracle&#39;s prices yet. The <code>PriceSource</code> interface and its
+refuse-when-stale behaviour are in place and tested, but lending against
+real-world assets — the thing that would use them — is a later phase.</li>
+</ul>
+
+</main>
+</body>
+</html>

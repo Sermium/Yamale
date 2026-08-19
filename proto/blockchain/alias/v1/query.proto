@@ -1,0 +1,137 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "blockchain/alias/v1/alias.proto";
+import "blockchain/alias/v1/jurisdiction.proto";
+import "blockchain/alias/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// Query defines the alias query service.
+//
+// There is deliberately no list endpoint. A typable identifier space is
+// enumerable in principle — eight characters is 2^40, which is hours of GPU
+// time — and no storage trick changes that. What the module can do is refuse to
+// hand out the directory as a convenience: walking it should cost an indexer's
+// effort, not one paginated request.
+//
+// The constraint that actually limits the damage is elsewhere: an identifier
+// maps to an address and to nothing else. No name, no telephone number, no
+// document number lives in this module, so somebody who does enumerate it
+// learns which addresses have identifiers — visible on a public chain
+// already — and nothing about who owns them.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/params";
+  }
+
+  // Alias resolves an identifier to an address. The hot path.
+  rpc Alias(QueryAliasRequest) returns (QueryAliasResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/alias/{id}";
+  }
+
+  // AliasOf returns the identifier held by an address, for interfaces that
+  // need to show a person their own handle.
+  rpc AliasOf(QueryAliasOfRequest) returns (QueryAliasOfResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/alias_of/{address}";
+  }
+
+  // Retired reports whether an identifier has been tombstoned. A client that
+  // resolves nothing should be able to tell "never existed" from "existed and
+  // was retired", because those mean very different things to somebody about
+  // to send money.
+  rpc Retired(QueryRetiredRequest) returns (QueryRetiredResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/retired/{id}";
+  }
+
+  // Jurisdiction reports the country recorded against one account.
+  rpc Jurisdiction(QueryJurisdictionRequest) returns (QueryJurisdictionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/jurisdiction/{address}";
+  }
+
+  // Perimeter lists the accounts recorded in one country, so an authority can
+  // see the accounts it may act on and no others.
+  //
+  // This is a list endpoint in a module that deliberately has none, so note
+  // what it returns and what it does not: jurisdiction records, never
+  // identifiers. Walking it tells you which addresses are recorded in a
+  // country — a supervisory fact, and the reason the endpoint exists — and
+  // gives no shortcut to the alias directory that is withheld above.
+  rpc Perimeter(QueryPerimeterRequest) returns (QueryPerimeterResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/perimeter/{country}";
+  }
+}
+
+// QueryParamsRequest is the request for the module parameters.
+message QueryParamsRequest {}
+
+// QueryParamsResponse carries the module parameters.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAliasRequest asks which address an identifier resolves to.
+message QueryAliasRequest {
+  // id in any form the client has it: hyphenated, lower case, with the
+  // confusable characters unfolded. The module normalises before looking up.
+  string id = 1;
+}
+
+// QueryAliasResponse carries the binding, or a not-found error when the identifier was never issued.
+message QueryAliasResponse {
+  Alias alias = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAliasOfRequest asks which identifier an address holds.
+message QueryAliasOfRequest {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// QueryAliasOfResponse carries that binding.
+message QueryAliasOfResponse {
+  Alias alias = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryRetiredRequest asks whether an identifier has been tombstoned.
+message QueryRetiredRequest {
+  string id = 1;
+}
+
+// QueryRetiredResponse distinguishes "retired" from "never existed" — different facts for somebody about to send money.
+message QueryRetiredResponse {
+  bool retired = 1;
+}
+
+// QueryJurisdictionRequest asks which country an account is recorded in.
+message QueryJurisdictionRequest {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// QueryJurisdictionResponse carries that record, or a not-found error.
+//
+// Not-found is a real answer here rather than a gap: outside the foundation
+// administrators, an account with no jurisdiction holds no identifier and never
+// will.
+message QueryJurisdictionResponse {
+  Jurisdiction jurisdiction = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryPerimeterRequest asks for the accounts recorded in one country.
+message QueryPerimeterRequest {
+  // country is an ISO 3166-1 alpha-2 code, in any case.
+  string country = 1;
+
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryPerimeterResponse carries one page of that country's accounts.
+message QueryPerimeterResponse {
+  repeated Jurisdiction jurisdictions = 1 [(gogoproto.nullable) = false];
+
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

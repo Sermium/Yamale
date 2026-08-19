@@ -1,0 +1,47 @@
+syntax = "proto3";
+package blockchain.paymsg.v1;
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// PaymentRecord defines the PaymentRecord message.
+//
+// This is the camt.053-style statement entry, and it is what participants
+// reconcile against, so its numbering is as unreclaimable as the message's:
+// records already written decode by field number and nothing can re-encode
+// them. Fields 11-13 are added while that is still cheap.
+message PaymentRecord {
+  string end_to_end_id = 1;
+  string instructing_participant = 2;
+  string instructed_participant = 3;
+  string debtor = 4;
+  string creditor = 5;
+  string denom = 6;
+  string amount = 7;
+
+  // Kept, and kept at 8 and 9, for records written before metadata_hash
+  // existed. Payments sent since carry the hash and leave these empty; nothing
+  // rewrites the old ones, because a statement entry that changes after the
+  // fact is not a statement entry.
+  string purpose_code = 8;
+  string remittance_information = 9;
+
+  uint64 block_height = 10;
+
+  // amount_commitment mirrors the field on MsgSendPayment. Not yet populated.
+  bytes amount_commitment = 11;
+
+  // metadata_hash pins the off-chain payload this payment's ISO 20022 detail
+  // was recorded in, so a party holding the payload can prove it is the one
+  // the chain saw and cannot substitute another afterwards.
+  //
+  // The range proof that will accompany amount_commitment is deliberately not
+  // stored here. It is checked once, at execution, and is worth nothing
+  // afterwards — keeping kilobytes of it against every payment forever is
+  // state bloat priced at one transaction fee.
+  bytes metadata_hash = 12;
+
+  // settlement_jurisdiction is recorded because the perimeter check has to run
+  // against the payment, not against a memory of it: which authority may act on
+  // this payment is a question asked long after the block that carried it.
+  string settlement_jurisdiction = 13;
+}

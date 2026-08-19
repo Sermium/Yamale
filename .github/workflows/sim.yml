@@ -1,0 +1,60 @@
+name: Simulations
+
+# The simulation tests are flag-gated, so `go test ./...` in the unit-test
+# workflow skips them. Without this workflow the modules' randomized operations
+# would never run in CI and could rot unnoticed.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    # A nightly run over seeds the pull-request job does not cover.
+    - cron: "0 3 * * *"
+
+jobs:
+  full-app:
+    name: Full app simulation
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [7, 42, 99]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Simulate
+        run: make test-sim SIM_SEED=${{ matrix.seed }}
+
+  import-export:
+    name: Export/import round trip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Simulate
+        run: make test-sim-import-export
+
+  determinism:
+    name: State determinism
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Simulate
+        run: make test-sim-determinism

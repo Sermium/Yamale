@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/validatorgov — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/validatorgov</h1>
+<p>Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted.</p>
+<h2>Transactions</h2>
+<h3>MsgApplyValidator</h3>
+<p><code>/blockchain.validatorgov.v1.MsgApplyValidator</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>ApplyValidator defines the ApplyValidator RPC.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>moniker</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgApproveOperatorRecovery</h3>
+<p><code>/blockchain.validatorgov.v1.MsgApproveOperatorRecovery</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ApproveOperatorRecovery defines the ApproveOperatorRecovery RPC. It is authority-gated by the same account that admits validators, because recovering one should be exactly as hard as admitting one.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>rotation_id</code></td>
+<td>uint64</td>
+<td>rotation_id is the recovery being decided.</td>
+</tr>
+<tr>
+<td><code>approve</code></td>
+<td>bool</td>
+<td>approve is the decision.</td>
+</tr>
+</tbody></table>
+<h3>MsgApproveValidator</h3>
+<p><code>/blockchain.validatorgov.v1.MsgApproveValidator</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ApproveValidator defines the ApproveValidator RPC. It is authority-gated (the x/gov module account) and approves or rejects a pending validator application submitted via ApplyValidator.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>approve</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgCancelOperatorRotation</h3>
+<p><code>/blockchain.validatorgov.v1.MsgCancelOperatorRotation</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets the current operator withdraw a rotation before it takes effect.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td>creator is the current operator address.</td>
+</tr>
+<tr>
+<td><code>rotation_id</code></td>
+<td>uint64</td>
+<td>rotation_id is the rotation being withdrawn.</td>
+</tr>
+</tbody></table>
+<h3>MsgProposeOperatorRecovery</h3>
+<p><code>/blockchain.validatorgov.v1.MsgProposeOperatorRecovery</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>ProposeOperatorRecovery defines the ProposeOperatorRecovery RPC: the recovery path, openable by anybody and inert until approved.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td>creator is whoever noticed, which is anybody.</td>
+</tr>
+<tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td>current_operator is the operator address whose key is claimed to be lost.</td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td>new_operator is the address proposed to take over.</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the stated grounds, in plain words. Required: a claim that somebody&#39;s key is gone should have to say how that is known.</td>
+</tr>
+</tbody></table>
+<h3>MsgRotateOperator</h3>
+<p><code>/blockchain.validatorgov.v1.MsgRotateOperator</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>RotateOperator defines the RotateOperator RPC: the planned path, signed by the operator being replaced.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td>creator is the current operator address.</td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td>new_operator is the address that takes over after the delay.</td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.validatorgov.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>GetApprovedValidator</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/approved_validator/{candidate}</code></p>
+<p>ListApprovedValidator Queries a list of ApprovedValidator items.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>approved_validator</code></td>
+<td>ApprovedValidator</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetOperatorRotation</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/operator_rotation/{id}</code></p>
+<p>GetOperatorRotation queries one rotation by id.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator_rotation</code></td>
+<td>OperatorRotation</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>GetValidatorApplication</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/validator_application/{candidate}</code></p>
+<p>ListValidatorApplication Queries a list of ValidatorApplication items.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator_application</code></td>
+<td>ValidatorApplication</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListApprovedValidator</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/approved_validator</code></p>
+<p>ListApprovedValidator defines the ListApprovedValidator RPC.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>approved_validator</code></td>
+<td>repeated ApprovedValidator</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListOperatorRotation</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/operator_rotation</code></p>
+<p>ListOperatorRotation queries every rotation ever opened.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator_rotation</code></td>
+<td>repeated OperatorRotation</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListValidatorApplication</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/validator_application</code></p>
+<p>ListValidatorApplication defines the ListValidatorApplication RPC.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator_application</code></td>
+<td>repeated ValidatorApplication</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/params</code></p>
+<p>Parameters queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h3>PendingOperatorRotation</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/pending_operator_rotation/{current_operator}</code></p>
+<p>PendingOperatorRotation queries the open rotation against one operator, if there is one. This is the query a delegator runs before deciding whether to undelegate, so it answers from the address they already know rather than from a rotation id they would have to go and find.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>found</code></td>
+<td>bool</td>
+<td>found is false when nothing is pending against the operator. Reported as a field rather than as a not-found error, because &quot;no rotation is pending&quot; is the answer the question has, not a failure to answer it.</td>
+</tr>
+<tr>
+<td><code>operator_rotation</code></td>
+<td>OperatorRotation</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>ApprovedValidator</h3>
+<p>ApprovedValidator defines the ApprovedValidator message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>approved</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventRecoveryApproved</h3>
+<p>EventRecoveryApproved is emitted when the admission quorum agrees to a recovery. This is the moment the validator is paused and the challenge window starts, so it is the moment anybody watching needs to hear about.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rotation_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>completes_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator_paused</code></td>
+<td>bool</td>
+<td>validator_paused is false when there was no validator to pause — an approved candidate who never created one — or when it was already jailed for something else.</td>
+</tr>
+</tbody></table>
+<h3>EventRotationProposed</h3>
+<p>EventRotationProposed is emitted when a rotation is opened, by either path.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rotation_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>proposer</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>RotationKind</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>completes_at_height</code></td>
+<td>int64</td>
+<td>completes_at_height is zero for a recovery that has not been approved yet, because no clock is running on it.</td>
+</tr>
+</tbody></table>
+<h3>EventRotationResolved</h3>
+<p>EventRotationResolved is emitted once, when a rotation reaches its final status, including when it is vetoed by the old key signing.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rotation_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>RotationKind</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>RotationStatus</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>OperatorRotation</h3>
+<p>OperatorRotation is one attempt to move a validator&#39;s operator key, and everything the chain did about it. Rotations are never deleted: a recovery that was vetoed is the record of somebody having claimed a key was lost when it was not, and that is precisely the history worth keeping.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id is numbered from one. Zero is reserved because in proto3 an id of 0 is indistinguishable from an unset field, and &quot;rotation 0&quot; would be a record nobody could look up.</td>
+</tr>
+<tr>
+<td><code>current_operator</code></td>
+<td>string</td>
+<td>current_operator is the address being replaced. It is the same address the ApprovedValidator allowlist is keyed by, which is the account form of the validator&#39;s operator address.</td>
+</tr>
+<tr>
+<td><code>new_operator</code></td>
+<td>string</td>
+<td>new_operator is the address that takes over.</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>RotationKind</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>RotationStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>proposer</code></td>
+<td>string</td>
+<td>proposer is whoever submitted it. For a planned rotation this equals current_operator; for a recovery it is whoever noticed, which is anybody.</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>reason is the stated grounds. Required on a recovery — a claim that somebody&#39;s key is gone should have to say so in words — and unused on a planned rotation, where the signature says everything.</td>
+</tr>
+<tr>
+<td><code>approved</code></td>
+<td>bool</td>
+<td>approved is set once the admission quorum has agreed to a recovery. Until then a recovery is inert: it is a claim on the record, and it neither pauses the validator nor runs a clock. Otherwise anyone could pause any validator on this chain for the price of one transaction.</td>
+</tr>
+<tr>
+<td><code>opened_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>completes_at_height</code></td>
+<td>int64</td>
+<td>completes_at_height is the height the rotation takes effect at. Zero means no clock is running yet, which for a recovery is the ordinary state between being proposed and being approved.</td>
+</tr>
+<tr>
+<td><code>resolved_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>paused_validator</code></td>
+<td>bool</td>
+<td>paused_validator records that this rotation is what jailed the validator, so that resolving it un-jails only what it jailed. A validator already jailed for downtime when the recovery was approved must stay jailed when the recovery ends: releasing it would turn a contested rotation into a way of clearing somebody else&#39;s downtime.</td>
+</tr>
+</tbody></table>
+<h3>ValidatorApplication</h3>
+<p>ValidatorApplication defines the ValidatorApplication message.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>RotationKind</h3>
+<p>RotationKind is which of the two paths a rotation took, and it decides everything about how the rotation is treated. The two are separated at the type level rather than inferred from who signed, so that a reader of the record — or of an event — never has to reconstruct which set of rules applied to a rotation that already happened.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROTATION_KIND_UNSPECIFIED</code></td>
+<td>ROTATION_KIND_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>ROTATION_KIND_PLANNED</code></td>
+<td>ROTATION_KIND_PLANNED was signed by the operator being replaced. Possession of the key is the whole proof, so nothing else is required of it: anyone able to submit this already controls everything it protects.</td>
+</tr>
+<tr>
+<td><code>ROTATION_KIND_RECOVERY</code></td>
+<td>ROTATION_KIND_RECOVERY was proposed by somebody who does not hold the key, which is also exactly what an attacker would be doing. It carries the admission quorum, the pause and the challenge window because of that.</td>
+</tr>
+</tbody></table>
+<h3>RotationStatus</h3>
+<p>RotationStatus is where a rotation has got to.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROTATION_STATUS_UNSPECIFIED</code></td>
+<td>ROTATION_STATUS_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>ROTATION_STATUS_PENDING</code></td>
+<td>ROTATION_STATUS_PENDING is open. A planned rotation is counting down its delay; a recovery is either waiting for the admission quorum or counting down its challenge window.</td>
+</tr>
+<tr>
+<td><code>ROTATION_STATUS_COMPLETED</code></td>
+<td>ROTATION_STATUS_COMPLETED means the new operator is now the operator of record.</td>
+</tr>
+<tr>
+<td><code>ROTATION_STATUS_CANCELLED</code></td>
+<td>ROTATION_STATUS_CANCELLED means the current operator withdrew it deliberately, by message, before it took effect.</td>
+</tr>
+<tr>
+<td><code>ROTATION_STATUS_VETOED</code></td>
+<td>ROTATION_STATUS_VETOED means the current operator signed a transaction while the recovery claiming their key was lost was open. It is deliberately not the same status as cancelled: cancelled is somebody changing their mind, vetoed is a claim about a lost key being disproved, and conflating the two would hide the only evidence that a recovery was false.</td>
+</tr>
+<tr>
+<td><code>ROTATION_STATUS_REJECTED</code></td>
+<td>ROTATION_STATUS_REJECTED means the admission quorum refused the recovery.</td>
+</tr>
+</tbody></table>
+<h2>Parameters</h2>
+<p>Changed by governance through <code>MsgUpdateParams</code>. Defaults are the values a chain starts with at genesis.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>planned_rotation_delay_blocks</code></td>
+<td><code>34560</code></td>
+<td>planned_rotation_delay_blocks is how long a rotation signed by the current operator waits before it takes effect. Short on purpose: whoever submitted it already holds the key, so the delay is not there to prove anything, only to give delegators and the other validators a block window in which to see it happen.</td>
+</tr>
+<tr>
+<td><code>recovery_challenge_window_blocks</code></td>
+<td><code>120960</code></td>
+<td>recovery_challenge_window_blocks is how long an approved recovery waits before it takes effect, during which the validator is paused and the current operator can end it by signing anything at all. Measured in days, because the thing it is defending against is somebody who does not hold the key claiming that nobody does.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrApplicationNotFound</code></td>
+<td>validator application not found</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrApplicationNotPending</code></td>
+<td>validator application is not pending</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrNotApprovedValidator</code></td>
+<td>address is not an approved validator operator</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrRotationInProgress</code></td>
+<td>a rotation is already open against this operator</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrRotationNotFound</code></td>
+<td>operator rotation not found</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrRotationNotPending</code></td>
+<td>operator rotation is no longer pending</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrRotationNotRecovery</code></td>
+<td>operator rotation is not a recovery</td>
+</tr>
+<tr>
+<td>1108</td>
+<td><code>ErrRecoveryAlreadyDecided</code></td>
+<td>operator recovery has already been decided</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrOperatorUnchanged</code></td>
+<td>the new operator is the current operator</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrOperatorInUse</code></td>
+<td>the new operator address is already an approved validator operator</td>
+</tr>
+<tr>
+<td>1111</td>
+<td><code>ErrNotCurrentOperator</code></td>
+<td>signer is not the current operator</td>
+</tr>
+<tr>
+<td>1112</td>
+<td><code>ErrMissingReason</code></td>
+<td>a recovery must state its grounds</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

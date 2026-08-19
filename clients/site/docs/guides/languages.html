@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Languages — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Languages</h1>
+<p>Covering &quot;most of the 54&quot; is not 54 translations. Four languages reach the
+official language of about fifty countries; the work that actually matters is
+the second tier, where people count money in the language they think in.</p>
+<h2>Three tiers</h2>
+<p><strong>Tier 1 — pivot languages.</strong> English, French, Arabic, Portuguese. Between them
+these are official or co-official in roughly fifty of the fifty-four member
+states. Everything ships in all four or it does not ship. Swahili belongs here
+in practice rather than by status: it is a working lingua franca across the East
+African Community and reaches more daily speakers than Portuguese does.</p>
+<p><strong>Tier 2 — the languages people actually transact in.</strong> Ordered by speakers, not
+by state:</p>
+<pre><code>Hausa       Nigeria, Niger, Ghana, Chad          ~80M
+Amharic     Ethiopia                             ~35M
+Oromo       Ethiopia, Kenya                      ~37M
+Yoruba      Nigeria, Benin, Togo                 ~45M
+Igbo        Nigeria                              ~30M
+Zulu        South Africa                         ~28M
+Somali      Somalia, Ethiopia, Kenya, Djibouti   ~22M
+Fula        Sahel, fifteen countries             ~35M
+Akan/Twi    Ghana                                ~20M
+Shona       Zimbabwe                             ~15M
+Malagasy    Madagascar                           ~25M
+Kinyarwanda Rwanda, Burundi                      ~20M
+Wolof       Senegal, Gambia, Mauritania          ~12M
+Bambara     Mali                                 ~15M
+Xhosa       South Africa                         ~11M
+</code></pre>
+<p><strong>Tier 3 — everything else.</strong> Real, but reached through community contribution
+rather than commissioned translation. The system has to make that possible from
+day one or it never happens.</p>
+<p>Note what tier 2 does that tier 1 cannot: Fula follows the Sahel across fifteen
+borders, and Hausa crosses four. These are trade languages. A cross-border
+payments network that speaks only the coloniser&#39;s language at the border post
+has missed who is actually moving money.</p>
+<h2>The hard parts are not translation</h2>
+<p><strong>Arabic is right-to-left.</strong> This is a layout problem, and it is the single
+largest piece of engineering here. Every flex direction, every icon that means
+&quot;forward&quot;, every transaction row with an amount on one side and a name on the
+other has to mirror. CSS logical properties (<code>margin-inline-start</code>, not
+<code>margin-left</code>) make this nearly free if adopted before the UI is built and
+extremely expensive afterwards. <strong>Adopt them now, while there are four
+frontends and not forty screens.</strong></p>
+<p><strong>Amharic and Tigrinya use Ge&#39;ez script; Tifinagh and N&#39;Ko are not Latin
+either.</strong> These fonts are absent from many Android devices in the field. Either
+subset and self-host the fonts or the user sees boxes — and a payment screen
+full of boxes is worse than English.</p>
+<p><strong>Text expands.</strong> French runs 15–25% longer than English, German more, and
+compound-forming languages worse still. Any button sized to its English label
+breaks. Test the layout in the longest language, not the shortest.</p>
+<p><strong>Arabic has six plural forms</strong>; most Bantu languages have noun-class agreement
+that plural rules do not model at all. Use ICU MessageFormat and let the
+catalogue carry the rule, rather than concatenating a count with a noun in code.</p>
+<p><strong>Numbers and money are locale data, not string data.</strong> Decimal separators,
+digit grouping, and currency symbol placement all vary — and Arabic may use
+Eastern Arabic numerals. Format through <code>Intl.NumberFormat</code> with the currency
+and locale, never by string manipulation.</p>
+<h2>Never translate the chain&#39;s errors</h2>
+<p>The chain returns errors in English from Go, and they are not user-facing text —
+they are diagnostics that happen to be in words. Translating them means shipping
+a translation pipeline that runs at the speed of chain upgrades and produces
+sentences no user asked for.</p>
+<p>Instead: <strong>the chain returns stable error codes; the client owns the message.</strong>
+<code>ErrDuplicateRef</code> becomes a catalogue key, and the catalogue says, in Wolof,
+what the user should do about it. This also means an error&#39;s wording can be
+fixed without a consensus-breaking upgrade, which is the same reasoning that
+keeps search and presentation out of consensus.</p>
+<p>This has a prerequisite worth naming: every module&#39;s errors need stable,
+enumerated codes that clients can switch on. That is worth auditing before
+translation starts, not after.</p>
+<h2>Money words are not ordinary words</h2>
+<p>&quot;Balance&quot;, &quot;pending&quot;, &quot;fee&quot;, &quot;settled&quot;, &quot;frozen&quot;, &quot;available&quot; carry meaning a
+central bank will hold you to. A volunteer translator rendering &quot;pending&quot; as
+something closer to &quot;maybe&quot; produces a legally different product.</p>
+<p>So the glossary is a deliverable, not a by-product: a fixed list of financial
+terms with a definition in English, translated once by someone accountable, and
+locked. Community contribution applies to the rest of the interface, not to
+these. <code>x/enforcement</code> freezing an account and the word for &quot;frozen&quot; have to
+mean the same thing in every language, because someone will read it in court.</p>
+<h2>Architecture</h2>
+<p>One catalogue, shared by every surface. The four frontends, the site, and the
+docs all consume the same keys from the SDK — a term translated once is
+translated everywhere, and a term that drifts is visible immediately.</p>
+<ul>
+<li><strong>ICU MessageFormat</strong>, for plural and gender rules the catalogue can express
+and code cannot.</li>
+<li><strong>Locale resolution</strong>: explicit user choice, then device locale, then the
+country&#39;s tier 1 language, then English. Never infer from IP.</li>
+<li><strong>Lazy-load catalogues.</strong> Fifty locales in one bundle is a mobile data bill in
+a region where data is the constraint.</li>
+<li><strong>Language is a device preference, not account state.</strong> It does not belong
+on-chain: it is not consensus, and putting it there makes changing your
+interface language a transaction that costs money.</li>
+</ul>
+<h2>Sequencing</h2>
+<ol>
+<li><strong>CSS logical properties and an RTL audit</strong>, before more UI is built. This is
+the decision that gets expensive with delay.</li>
+<li><strong>Extract strings to a catalogue</strong> with ICU, English as source.</li>
+<li><strong>Stable error codes</strong> across every module, replacing English strings at the
+client boundary.</li>
+<li><strong>Financial glossary</strong>, locked, translated accountably.</li>
+<li><strong>Tier 1</strong> — French, Arabic, Portuguese, Swahili.</li>
+<li><strong>Community contribution</strong>, with the glossary enforced and the tier 2 list as
+the target.</li>
+</ol>
+<p>Step 1 is the only one that is harder tomorrow than today.</p>
+
+</main>
+</body>
+</html>

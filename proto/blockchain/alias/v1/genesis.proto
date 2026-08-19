@@ -1,0 +1,43 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "blockchain/alias/v1/alias.proto";
+import "blockchain/alias/v1/jurisdiction.proto";
+import "blockchain/alias/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// GenesisState defines the alias module's genesis state.
+//
+// Note what is *not* here: the address-to-identifier index, and the
+// country-to-address index. Both are derived from the records below by
+// InitGenesis and deliberately not exported, because a derived index emitted
+// alongside its source is a second copy that can disagree with it — and an
+// export that does not round-trip byte-for-byte breaks upgrades and state
+// migrations.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  // aliases is every live binding.
+  repeated Alias aliases = 2 [(gogoproto.nullable) = false];
+
+  // retired is every identifier that has been rotated away from. They are kept
+  // forever and never issued again: reissuing one would send a payment aimed at
+  // a handle somebody memorised into a stranger's account, with no error and no
+  // way to notice. Nine bytes each is a cheap price for that.
+  //
+  // It also holds the prefixless identifiers issued before jurisdictions
+  // existed, tombstoned by the v1-to-v2 migration. They are kept for the same
+  // reason as any other tombstone: somebody still holds one written down, and
+  // "this was given up" is a truthful answer where "never existed" is not.
+  repeated string retired = 3;
+
+  // jurisdictions is the country recorded against each account.
+  //
+  // Every alias above must agree with the record for its address, and Validate
+  // checks that rather than trusting it: a genesis file that seeded an alias
+  // prefixed NG against an account recorded in GH would put a lying identifier
+  // on the chain at height zero, which no later check would ever catch.
+  repeated Jurisdiction jurisdictions = 4 [(gogoproto.nullable) = false];
+}

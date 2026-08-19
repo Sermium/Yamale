@@ -1,0 +1,48 @@
+vue/node_modules
+vue/dist
+node_modules/
+clients/**/dist/
+clients/**/node_modules/
+release/
+.idea/
+.vscode/
+.DS_Store
+*.dot
+*.log
+*.ign
+
+# Ceremony outputs. These are produced per launch by scripts/testnet/02 and 04
+# and carry that launch's validator accounts, so a committed copy is always
+# stale — one predating a module is rejected by `genesis validate` with
+# "section is missing in the app_state", which is a confusing way to discover
+# you distributed the wrong file.
+scripts/testnet/canonical-genesis.json
+scripts/testnet/final-genesis.json
+
+# The same outputs, when step 2 is run from the repository root, plus stray
+# build artifacts from tooling and blocked-binary test workarounds.
+canonical-genesis.json
+final-genesis.json
+docgen.exe
+*.test.exe
+
+# Scratch directory for the OpenAPI merge.
+.openapi-tmp/
+
+# Local tool and test binaries. Windows application control refuses to execute
+# anything Go builds into the user temp directory, which is where `go tool`,
+# `go run` and `go test` all put their binaries — so buf, the protoc plugins and
+# the odd test binary get built here instead, and GOTMPDIR is pointed here too.
+# Machine-local workarounds, never part of a build.
+.bin/
+.gotmp/
+
+# Compiled binaries. Every .exe here is a build artifact — the chain daemon, the
+# doc generator, the price feeder, the wallet CLI. Committing one means shipping
+# a stale binary that disagrees with the source beside it, which is exactly how
+# a validator ends up producing a different app hash from its peers.
+*.exe
+
+# Local editor tooling. Machine-specific, never part of a build.
+.claude/
+.vscode/

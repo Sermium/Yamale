@@ -1,0 +1,25 @@
+[Unit]
+Description=Yamale testnet activity bot
+After=yamaled.service
+Wants=yamaled.service
+
+[Service]
+User=yamale
+Group=yamale
+Type=simple
+WorkingDirectory=/home/yamale/bot
+
+# The bot shells out to blockchaind, so it has to be on PATH for this unit —
+# systemd does not inherit a login shell's PATH. Point `binary:` in config.yaml
+# at an absolute path instead if it lives somewhere else.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+ExecStart=/home/yamale/bot/yamale-bot -config /home/yamale/bot/config.yaml
+
+# `on-failure`, unlike the node's `always`: the bot only generates traffic, so
+# a bot that exits deliberately should stay stopped. Nothing depends on it.
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

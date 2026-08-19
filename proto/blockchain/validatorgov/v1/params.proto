@@ -1,0 +1,27 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/validatorgov/Params";
+  option (gogoproto.equal) = true;
+
+  // planned_rotation_delay_blocks is how long a rotation signed by the current
+  // operator waits before it takes effect. Short on purpose: whoever submitted
+  // it already holds the key, so the delay is not there to prove anything, only
+  // to give delegators and the other validators a block window in which to see
+  // it happen.
+  uint64 planned_rotation_delay_blocks = 1;
+
+  // recovery_challenge_window_blocks is how long an approved recovery waits
+  // before it takes effect, during which the validator is paused and the
+  // current operator can end it by signing anything at all. Measured in days,
+  // because the thing it is defending against is somebody who does not hold
+  // the key claiming that nobody does.
+  uint64 recovery_challenge_window_blocks = 2;
+}

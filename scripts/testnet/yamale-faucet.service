@@ -1,0 +1,44 @@
+[Unit]
+Description=Yamale testnet faucet
+After=yamaled.service
+Wants=yamaled.service
+
+[Service]
+User=yamale
+Group=yamale
+Type=simple
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# The faucet key is a hot key with money on an open port. Give it what a
+# testnet needs and no more: refill it deliberately rather than funding it once
+# from the foundation account, so a drained faucet is an empty faucet rather
+# than an empty treasury.
+#
+# --sponsor grants each recipient a capped, dated fee allowance rather than
+# bundling the native token into every request. That is how the chain is meant
+# to work — an institution pays its customers' fees — so a tester exercising it
+# is exercising the real arrangement. It also means the faucet keeps custody:
+# an allowance can be revoked, a transfer cannot.
+ExecStart=/usr/local/bin/faucet \
+  --binary /usr/local/bin/blockchaind \
+  --home /home/yamale/.blockchain \
+  --chain-id yamale-testnet-1 \
+  --from faucet \
+  --listen 127.0.0.1:8080 \
+  --amount 1000000000uyml \
+  --currencies ungn,ukes,uzar,uxof \
+  --cooldown 12h \
+  --daily-cap 500
+
+# Bound to localhost above. Put it behind the same reverse proxy as the
+# explorer, with rate limiting there as well: the cooldown in this process
+# stops one address asking twice, and does nothing about one script asking from
+# ten thousand addresses.
+Restart=on-failure
+RestartSec=10
+
+# The cooldown table lives in memory, so a restart forgets who was funded. That
+# is survivable at this cadence and is the reason the restart delay is not
+# shorter — a crash loop would hand out the daily cap in a minute.
+[Install]
+WantedBy=multi-user.target

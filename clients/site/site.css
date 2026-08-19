@@ -1,0 +1,352 @@
+/*
+ * The presentation site shares the explorer's tokens on purpose: somebody who
+ * clicks through from here to a block should feel they are still in the same
+ * product. Only the type scale is larger — a page read once wants more air than
+ * one read every day.
+ *
+ * No build step and no framework. This is a page of text; anything that needs
+ * npm install to render a paragraph is a liability on the one surface that has
+ * to load fast for somebody who has never heard of the project.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Brand palette. Navy carries the weight and brass is the accent -- the
+     institutional reading the earlier blue did not have. Token names are kept
+     so the change is one block rather than a hunt through every rule. */
+  --bg: #f6f7f9;        /* paper */
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --border: #e3e7ee;    /* mist */
+
+  --text: #0b1523;      /* ink */
+  --text-muted: #5c6e88; /* slate */
+
+  --accent: #12253f;    /* navy -- links and primary actions */
+  --accent-soft: #e8eef7;
+  --brass: #a87b3c;     /* reserved for emphasis, never for body text */
+  --positive: #0d7a4a;
+  --negative: #b02a25;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16, 20, 30, 0.06), 0 4px 12px rgba(16, 20, 30, 0.04);
+  --measure: 62ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark grounds are the brand's ink lightened in steps, so the two themes
+       are the same palette rather than two palettes that happen to coexist.
+       Accent lifts to #8fa4c4 because navy on ink fails contrast outright. */
+    --bg: #0b1523;        /* ink */
+    --surface: #12253f;   /* navy */
+    --surface-2: #18304f;
+    --border: #24405f;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+
+    --accent: #8fa4c4;
+    --accent-soft: #18304f;
+    --brass: #d2a65e;     /* brass lifted for dark grounds */
+    --positive: #4cc38a;
+    --negative: #f2777a;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* .prose carries no width of its own.
+
+   It shares an element with .wrap ("class=wrap prose"), so any max-width here
+   overrides .wrap's 1060px container. Setting it to none did not widen the
+   text — it removed the container, and those sections rendered flush to the
+   viewport edge while every other band stayed inset. Leaving the property
+   unset is what makes them measure exactly what "What it does" measures. */
+
+a { color: var(--accent); }
+a:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+.masthead__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 60px;
+  flex-wrap: wrap;
+}
+.wordmark {
+  font-weight: 650;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--text);
+}
+.masthead nav {
+  display: flex;
+  gap: 1.25rem;
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+}
+.masthead nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.94rem;
+}
+.masthead nav a:hover { color: var(--text); }
+
+/* -------------------------------------------------------------------- hero */
+
+.hero { padding: 5rem 0 4rem; }
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 660;
+  /* No cap: the heading was 547px inside a 906px section, which read as the
+     hero being a different width from every band below it. */
+}
+
+.lede {
+  margin: 0 0 2rem;
+  font-size: clamp(1.05rem, 2vw, 1.28rem);
+  line-height: 1.55;
+  color: var(--text-muted);
+
+}
+
+/* ------------------------------------------------------------------ bands */
+
+.band { padding: 4rem 0; border-top: 1px solid var(--border); }
+.band--alt { background: var(--surface-2); }
+.band--cta { background: var(--accent-soft); }
+
+h2 {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 640;
+}
+
+.prose h3 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.12rem;
+  font-weight: 620;
+}
+.prose p { margin: 0 0 1rem; }
+
+/* ------------------------------------------------------------------- grid */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 1.1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 620;
+}
+.card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.96rem;
+}
+
+/* --------------------------------------------------------------- statuses */
+
+/* Each row carries a word as well as a mark, and the marks differ in shape as
+   well as colour — the list says what is and is not done, which is not a thing
+   to communicate by hue alone. */
+.status { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.status li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.status li:last-child { border-bottom: 0; }
+.tick { color: var(--positive); font-weight: 700; }
+.cross { color: var(--negative); font-weight: 700; }
+
+/* ---------------------------------------------------------------- buttons */
+
+.cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.button {
+  display: inline-block;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.97rem;
+  font-weight: 550;
+}
+.button:hover { border-color: var(--accent); }
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .button--primary { color: #0e1014; }
+}
+
+/* ----------------------------------------------------------------- footer */
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+footer p { margin: 0; max-width: var(--measure); }
+
+@media (prefers-reduced-motion: no-preference) {
+  a, .button { transition: color 120ms ease, border-color 120ms ease; }
+}
+
+/* Mark beside the wordmark in the masthead. */
+.wordmark { display: inline-flex; align-items: center; gap: 0.5rem; }
+.brand__mark { width: 1.3rem; height: 1.3rem; flex: none; }
+
+/* Footer.
+   Full container width like every other band — the old single paragraph was
+   capped at the reading measure and sat visibly narrower than the page. */
+footer p { max-width: none; }
+.foot__grid {
+  display: grid; gap: 2rem 2.5rem;
+  grid-template-columns: 2fr 1fr 1fr 1.4fr;
+  padding-bottom: 2rem;
+}
+@media (max-width: 780px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .foot__grid { grid-template-columns: 1fr; } }
+.foot__col h3 {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 0.75rem; color: var(--text-muted);
+}
+.foot__col ul { list-style: none; padding: 0; margin: 0; }
+.foot__col li { margin-bottom: 0.4rem; font-size: 0.9rem; }
+.foot__col--brand .wordmark { margin-bottom: 0.75rem; }
+
+/* The notices are long by necessity. Two columns keeps them readable without
+   turning the page into a wall, and they collapse to one on narrow screens. */
+.foot__legal { border-top: 1px solid var(--border); padding: 1.75rem 0; }
+.foot__legal h3 {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 1rem; color: var(--text-muted);
+}
+.foot__legal p {
+  font-size: 0.82rem; line-height: 1.6; color: var(--text-muted);
+  margin: 0 0 0.9rem; break-inside: avoid;
+}
+@media (min-width: 900px) { .foot__legal { columns: 2; column-gap: 2.5rem; } .foot__legal h3 { column-span: all; } }
+.foot__base {
+  border-top: 1px solid var(--border); padding-top: 1.25rem;
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.foot__base p { margin: 0; }
+
+/* The Apps menu.
+   details/summary rather than a hover menu: keyboard-reachable and usable on a
+   touch screen with no JavaScript. A hover-only menu simply does not open on a
+   phone. */
+.menu { position: relative; display: inline-block; }
+.menu > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  color: var(--text-muted); font-size: inherit;
+}
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary::after { content: " ▾"; opacity: 0.6; }
+.menu[open] > summary { color: var(--text); }
+.menu__panel {
+  /* Anchored to the inline end, not the start: the menu sits near the closing edge of the
+     masthead, so a left-anchored panel ran off the viewport and clipped every
+     description. */
+  position: absolute; top: calc(100% + 0.6rem); inset-inline-end: 0; inset-inline-start: auto; z-index: 40;
+  min-width: 20rem; padding: 0.4rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 14px 34px rgb(0 0 0 / 0.22);
+}
+.app-link {
+  display: block; padding: 0.55rem 0.7rem; border-radius: 7px;
+  text-decoration: none; color: var(--text);
+}
+.app-link:hover { background: var(--bg); }
+.app-link strong { display: block; font-weight: 600; font-size: 0.94rem; }
+.app-link span { display: block; font-size: 0.82rem; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .menu__panel { position: static; min-width: 0; box-shadow: none; margin-top: 0.4rem; }
+}
+
+/* The same destinations in the footer, as a plain column. */
+.foot__col .app-link { padding: 0.2rem 0; }
+.foot__col .app-link span { display: none; }
+
+/* Brass earns its place as the identity's second colour rather than sitting
+   unused in a token. The mark's descender is brass, so the same stroke reappears
+   as the active-state marker and the eyebrow -- sparing, and always structural
+   rather than decorative. Never body text: it fails contrast at small sizes. */
+.eyebrow { color: var(--brass); letter-spacing: .06em; }
+.nav a[aria-current="page"],
+.nav a.active { box-shadow: inset 0 -2px 0 var(--brass); }
+.brand__mark { border-radius: 6px; }

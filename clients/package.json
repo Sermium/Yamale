@@ -1,0 +1,26 @@
+{
+  "name": "@yamale/clients",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Client-side workspace for the Yamale chain: the abstraction SDK and the interfaces built on it.",
+  "workspaces": [
+    "sdk",
+    "connect",
+    "explorer",
+    "safe",
+    "wallet",
+    "app"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "npm run dev --workspace @yamale/explorer"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  },
+  "devDependencies": {
+    "marked": "^18.0.9"
+  }
+}

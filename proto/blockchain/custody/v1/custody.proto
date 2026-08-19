@@ -1,0 +1,153 @@
+syntax = "proto3";
+package blockchain.custody.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/custody/types";
+
+// Asset is one externally-custodied thing this chain can issue a claim on.
+//
+// The claim and the asset are the same unit, always. Deposit one ETH, hold one
+// yeth, redeem one ETH. That identity is the whole design: where the asset and
+// the liability are the same unit there is no price in the arrangement, so
+// there is no position for the treasury to be wrong about.
+//
+// The alternative — minting the native token against foreign collateral — is a
+// written put the treasury is short, permanently and unhedged. See
+// docs/guides/custody.md.
+message Asset {
+  // denom on this chain, e.g. "yeth".
+  string denom = 1;
+  // chain the real asset sits on, e.g. "ethereum". Informational: this module
+  // never talks to it.
+  string source_chain = 2;
+  // symbol and exponent for display. ETH needs 18, which x/stablecoin already
+  // permits.
+  string symbol = 3;
+  uint32 exponent = 4;
+  // paused stops new issuance without stopping redemption. Redemption must
+  // never be pausable by the operator — an issuer who can stop you leaving is
+  // not a custodian.
+  bool paused = 5;
+}
+
+// Attestation is one attestor's statement that a deposit happened.
+//
+// Held individually rather than as a counter so that who said what stays on the
+// record. A threshold reached by two attestors is a fact about those two, and
+// if one is later found compromised, every mint they contributed to is
+// identifiable.
+message Attestation {
+  string deposit_id = 1;
+  string attestor = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 attested_at_height = 3;
+}
+
+// Deposit is an external payment being turned into a claim on this chain.
+message Deposit {
+  string id = 1;
+  string denom = 2;
+  // recipient of the minted claim.
+  string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // external_ref is the transaction on the source chain. Unique per asset: the
+  // same deposit must never be creditable twice, and this is what makes a
+  // replay detectable rather than merely unlikely.
+  string external_ref = 5;
+  DepositStatus status = 6;
+  int64 created_at_height = 7;
+}
+
+// DepositStatus is where a deposit stands.
+enum DepositStatus {
+  // DEPOSIT_STATUS_UNSPECIFIED is the unset zero value.
+  DEPOSIT_STATUS_UNSPECIFIED = 0;
+  // waiting for enough attestors.
+  DEPOSIT_STATUS_PENDING = 1;
+  // threshold reached and the claim minted.
+  DEPOSIT_STATUS_CREDITED = 2;
+  // refused by governance before crediting.
+  DEPOSIT_STATUS_REJECTED = 3;
+}
+
+// Redemption is a claim being burned to release the real asset.
+//
+// The burn happens when the redemption is requested, not when it is paid.
+// Leaving the claim in circulation while the asset is being sent would let the
+// same claim be spent again and redeemed twice.
+message Redemption {
+  string id = 1;
+  string denom = 2;
+  string redeemer = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // destination on the source chain. Opaque to this module.
+  string destination = 5;
+  RedemptionStatus status = 6;
+  int64 requested_at_height = 7;
+  // payable_at_height is when the delay expires. Stored rather than computed so
+  // a parameter change cannot retroactively move an existing redemption.
+  int64 payable_at_height = 8;
+  // external_ref of the payout, once settled.
+  string settled_ref = 9;
+}
+
+// RedemptionStatus is where a redemption stands.
+enum RedemptionStatus {
+  // REDEMPTION_STATUS_UNSPECIFIED is the unset zero value.
+  REDEMPTION_STATUS_UNSPECIFIED = 0;
+  // REDEMPTION_STATUS_PENDING is burned and waiting out the delay.
+  REDEMPTION_STATUS_PENDING = 1;
+  // REDEMPTION_STATUS_SETTLED is paid on the source chain.
+  REDEMPTION_STATUS_SETTLED = 2;
+  // cancelled before payout; the claim is minted back to the redeemer.
+  REDEMPTION_STATUS_CANCELLED = 3;
+}
+
+// Reserve is what the custodian says it holds against an asset.
+//
+// Attested rather than derived: the chain cannot see another chain's balances,
+// so this is a signed statement, and it is only as good as the attestors. What
+// the chain *can* do is compare it with what it has issued, which is what makes
+// "are we solvent" answerable by anyone rather than by the operator.
+message Reserve {
+  string denom = 1;
+  string held = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  int64 as_of_height = 3;
+  string attestor = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// Solvency is the answer to the only question that matters, computed rather
+// than asserted: issued versus held, per asset.
+message Solvency {
+  string denom = 1;
+  // issued is the chain's own total supply of the claim. The chain knows this
+  // for certain.
+  string issued = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // held is the last attested reserve. The chain takes this on trust.
+  string held = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // reserve_age_blocks is how stale that statement is. A reserve figure with no
+  // age is a number somebody can leave unchanged while the money leaves.
+  int64 reserve_age_blocks = 4;
+  bool solvent = 5;
+}

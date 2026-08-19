@@ -1,0 +1,42 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// Alias binds one identifier to one address, permanently.
+//
+// One name, one address. One identifier per address. Neither is ever
+// repointed — an alias can be retired, and a retired identifier is never issued
+// again, but it cannot be made to resolve somewhere else. That is the property
+// a payment handle needs: an identifier somebody memorised last year either
+// still means what it meant, or it means nothing.
+message Alias {
+  // id is the normalised identifier: uppercase, no separators, ISO 3166-1
+  // alpha-2 country prefix first, check character last. The display form
+  // (NG-K3M9-7QRT-B) is a client concern; the chain stores and compares only
+  // this.
+  //
+  // The country is not stored as its own field, because two copies of one fact
+  // can disagree and the one in the identifier is the one people read. It is
+  // the first two characters, and it is true by construction: the chain refuses
+  // to issue an identifier whose prefix differs from the jurisdiction recorded
+  // against the address, and a correction to that jurisdiction retires the
+  // identifier rather than leaving it to age into a lie.
+  //
+  // The prefix is not Crockford Base32 and is not folded like the payload. A
+  // fold that turned I into 1 and O into 0 would map CI and CL onto the same
+  // prefix, and SI and SL onto another — Côte d'Ivoire indistinguishable from
+  // Chile, Slovenia from Sierra Leone. The prefix uses all 26 letters; only the
+  // payload after it is Crockford.
+  string id = 1;
+
+  // address is the account it resolves to, and never changes.
+  string address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // registered_at_height records when it was issued, so a client can show how
+  // long an identifier has been in use — a handle registered minutes ago
+  // deserves more caution than one that has been answering for a year.
+  int64 registered_at_height = 3;
+}

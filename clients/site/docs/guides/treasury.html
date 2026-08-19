@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up a treasury — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Set up a treasury</h1>
+<p>A treasury holds funds that more than one person is responsible for. This guide
+opens one, funds it, commits part of it to somebody on a vesting schedule, and
+shows what that commitment protects against.</p>
+<p><strong>You need:</strong> a running chain with two funded accounts — see
+<a href="local-devnet.html">Run a local chain</a>. Substitute your own addresses throughout.</p>
+<p><strong>You will end with:</strong> a treasury holding 5 YML, of which 4 is committed to a
+beneficiary and cannot be spent by anyone, including you.</p>
+<hr>
+<h2>Open a treasury</h2>
+<pre><code class="language-bash">./blockchaind tx treasury create-treasury &quot;Ops Treasury&quot; \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The admin defaults to the sender. Treasury ids start at <code>0</code>.</p>
+<pre><code class="language-bash">./blockchaind query treasury get-treasury 0
+</code></pre>
+<h2>Fund it</h2>
+<p>Depositing is permissionless — anyone may pay into any treasury, the way anyone
+may pay an invoice. It confers no control.</p>
+<pre><code class="language-bash">./blockchaind tx treasury deposit 0 5000000uyml \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<pre><code class="language-bash">./blockchaind query treasury balances 0
+</code></pre>
+<pre><code class="language-json">{&quot;balances&quot;:[{&quot;denom&quot;:&quot;uyml&quot;,&quot;total&quot;:&quot;5000000&quot;,&quot;locked&quot;:&quot;0&quot;,&quot;available&quot;:&quot;5000000&quot;}]}
+</code></pre>
+<p>The funds are held by the treasury module, not by alice&#39;s account. That
+indirection is what the rest of this guide depends on.</p>
+<h2>Commit funds to someone</h2>
+<p>A lock moves funds from <em>available</em> into <em>locked</em>. Nothing is transferred; the
+beneficiary claims what has vested, when it has vested.</p>
+<pre><code class="language-bash">NOW=$(date +%s)
+
+./blockchaind tx treasury create-lock \
+  0 \
+  $(./blockchaind keys show bob -a --keyring-backend test) \
+  uyml 4000000 \
+  vesting \
+  $NOW $((NOW + 60)) $((NOW + 300)) \
+  0 true \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The positional arguments are treasury, beneficiary, denom, amount, type, start,
+cliff, end, intervals, revocable. So this commits 4 YML to bob, vesting over
+five minutes, with nothing claimable for the first minute, and cancellable.</p>
+<blockquote>
+<p>The type is <code>vesting</code>, <code>time</code> or <code>unspecified</code> — the short form. The full
+proto name <code>LOCK_TYPE_VESTING</code> is rejected by the CLI.</p>
+</blockquote>
+<p><code>0</code> intervals means continuous vesting. Pass <code>4</code> for quarterly tranches, where
+nothing releases until each quarter completes.</p>
+<pre><code class="language-bash">./blockchaind query treasury balances 0
+</code></pre>
+<pre><code class="language-json">{&quot;balances&quot;:[{&quot;denom&quot;:&quot;uyml&quot;,&quot;total&quot;:&quot;5000000&quot;,&quot;locked&quot;:&quot;4000000&quot;,&quot;available&quot;:&quot;1000000&quot;}]}
+</code></pre>
+<h2>What the commitment protects</h2>
+<p>Try to spend more than is available, as the admin:</p>
+<pre><code class="language-bash">./blockchaind tx treasury spend 0 &lt;recipient&gt; 2000000uyml &quot;over the limit&quot; \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Look at the result with <code>query tx &lt;txhash&gt;</code>:</p>
+<pre><code>code: 1104
+treasury 0 has 1000000uyml available (5000000 held, 4000000 locked), needs 2000000
+</code></pre>
+<p>Alice is the administrator and has complete control of this treasury. She still
+cannot reach bob&#39;s 4 YML. Neither can a governance proposal, and neither could a
+group of signers that cleared its approval threshold — the funds are not
+reachable by any spending path, because the only paths out check <em>available</em>
+rather than <em>total</em>.</p>
+<p>That is the property to keep in mind when deciding what a treasury is for: a
+commitment made here is a commitment, not a policy that an administrator can
+change their mind about.</p>
+<p>Spending the 1 YML that <em>is</em> available works normally:</p>
+<pre><code class="language-bash">./blockchaind tx treasury spend 0 &lt;recipient&gt; 1000000uyml &quot;salary&quot; \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<h2>Claiming</h2>
+<p>The beneficiary can find what is owed to them without knowing any treasury id:</p>
+<pre><code class="language-bash">./blockchaind query treasury my-locks $(./blockchaind keys show bob -a --keyring-backend test)
+</code></pre>
+<p>And check what is available right now:</p>
+<pre><code class="language-bash">./blockchaind query treasury claimable 0
+</code></pre>
+<p>Before the cliff:</p>
+<pre><code class="language-json">{&quot;claimable&quot;:&quot;0&quot;,&quot;vested&quot;:&quot;0&quot;,&quot;remaining&quot;:&quot;4000000&quot;}
+</code></pre>
+<p>After it, vesting accrues from <code>start_time</code>, so the cliff releases everything
+earned up to that point at once rather than restarting the clock:</p>
+<pre><code class="language-json">{&quot;claimable&quot;:&quot;1106666&quot;,&quot;vested&quot;:&quot;1106666&quot;,&quot;remaining&quot;:&quot;4000000&quot;}
+</code></pre>
+<pre><code class="language-bash">./blockchaind tx treasury claim 0 \
+  --from bob --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Only bob can do this. Claiming before anything has vested fails with
+<code>nothing has vested yet</code> rather than transferring zero.</p>
+<h2>Sharing control</h2>
+<p>So far alice controls this treasury alone. To require several people to agree,
+create an <a href="https://docs.cosmos.network/main/build/modules/group"><code>x/group</code></a>
+policy with the members and threshold you want, then hand the treasury to it.</p>
+<p>Members go in one file and the threshold in another:</p>
+<pre><code class="language-json">// members.json
+{&quot;members&quot;:[
+ {&quot;address&quot;:&quot;&lt;alice&gt;&quot;,&quot;weight&quot;:&quot;1&quot;,&quot;metadata&quot;:&quot;alice&quot;},
+ {&quot;address&quot;:&quot;&lt;bob&gt;&quot;,&quot;weight&quot;:&quot;1&quot;,&quot;metadata&quot;:&quot;bob&quot;},
+ {&quot;address&quot;:&quot;&lt;carol&gt;&quot;,&quot;weight&quot;:&quot;1&quot;,&quot;metadata&quot;:&quot;carol&quot;}
+]}
+</code></pre>
+<pre><code class="language-json">// policy.json — two of the three must agree, within a minute
+{&quot;@type&quot;:&quot;/cosmos.group.v1.ThresholdDecisionPolicy&quot;,
+ &quot;threshold&quot;:&quot;2&quot;,
+ &quot;windows&quot;:{&quot;voting_period&quot;:&quot;60s&quot;,&quot;min_execution_period&quot;:&quot;0s&quot;}}
+</code></pre>
+<pre><code class="language-bash">./blockchaind tx group create-group-with-policy &lt;alice&gt; &quot;3 signers, 2 must agree&quot; &quot;ops policy&quot; \
+  members.json policy.json --group-policy-as-admin \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+
+./blockchaind query group group-policies-by-group 1   # prints the policy address
+</code></pre>
+<p>Hand the treasury over:</p>
+<pre><code class="language-bash">./blockchaind tx treasury set-admin 0 &lt;group-policy-address&gt; \
+  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Nothing moves and no schedule changes. But alice acting alone is now refused:</p>
+<pre><code>yml1lykpc… may not spend from treasury 0: signer is not authorized
+</code></pre>
+<p>From here every payment is proposed, voted on and executed through the group.
+The proposal carries the treasury message, with the <strong>policy address as its
+signer</strong>:</p>
+<pre><code class="language-json">// proposal.json
+{&quot;group_policy_address&quot;: &quot;&lt;policy&gt;&quot;,
+ &quot;messages&quot;: [{
+   &quot;@type&quot;: &quot;/blockchain.treasury.v1.MsgSpend&quot;,
+   &quot;spender&quot;: &quot;&lt;policy&gt;&quot;,
+   &quot;treasury_id&quot;: &quot;0&quot;,
+   &quot;recipient&quot;: &quot;&lt;carol&gt;&quot;,
+   &quot;amount&quot;: [{&quot;denom&quot;:&quot;uyml&quot;,&quot;amount&quot;:&quot;3000000&quot;}],
+   &quot;memo&quot;: &quot;supplier invoice, approved by the group&quot;
+ }],
+ &quot;metadata&quot;: &quot;pay supplier&quot;,
+ &quot;proposers&quot;: [&quot;&lt;alice&gt;&quot;]}
+</code></pre>
+<pre><code class="language-bash">./blockchaind tx group submit-proposal proposal.json --from alice ...
+./blockchaind tx group vote 1 &lt;alice&gt; VOTE_OPTION_YES &quot;yes&quot;     --from alice ...
+./blockchaind tx group vote 1 &lt;bob&gt;   VOTE_OPTION_YES &quot;agreed&quot;  --from bob ...
+./blockchaind tx group exec 1 --from bob ...
+</code></pre>
+<blockquote>
+<p><strong><code>exec</code> succeeds with <code>code: 0</code> even when the proposal has not passed.</strong> It
+simply does nothing. After one of the two required votes, the exec above
+returned success and the treasury balance was unchanged; after the second, the
+funds moved. Never read a successful <code>exec</code> as evidence that the payment
+happened — check the balance, or the proposal&#39;s status.</p>
+</blockquote>
+<p>Every approval and rejection is recorded on-chain against the member who cast
+it, which is what the compliance trail is built from.</p>
+<p>This is deliberately not built into the treasury. <code>x/group</code> already does
+membership, thresholds and the approval trail properly; a second, competing
+approval system on the same funds would be a liability rather than a feature.</p>
+<h2>Roles</h2>
+<p>Not everybody who touches a treasury should be able to reconfigure it.</p>
+<pre><code class="language-bash"># Can pay out, within the spending policy. Cannot change anything.
+./blockchaind tx treasury assign-role 0 &lt;address&gt; spender --from alice ...
+
+# Can freeze the treasury in an emergency. Cannot move funds.
+./blockchaind tx treasury assign-role 0 &lt;address&gt; pauser --from alice ...
+</code></pre>
+<p>Pauser is separate from admin on purpose: whoever is on call at three in the
+morning should be able to stop a suspected compromise without also being able to
+empty the account.</p>
+<p>Bound what a spender can do with a spending policy — per-transaction and
+per-period caps, and destination allow/block lists. See
+<a href="../reference/treasury.html">x/treasury</a> for the full shape.</p>
+<pre><code class="language-bash">./blockchaind query treasury capacity 0 uyml
+</code></pre>
+<p>reports the largest single payment that would be accepted right now, taking the
+balance, the per-transaction cap and the remaining period allowance together —
+so an interface never offers an amount the chain would refuse.</p>
+
+</main>
+</body>
+</html>

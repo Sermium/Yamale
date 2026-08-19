@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send a payment — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Send a payment</h1>
+<p>How money moves between institutions on Yamale, and how the statement entry
+that records it is kept trustworthy.</p>
+<p><strong>You need:</strong> a running chain and an account with some YML.
+<a href="local-devnet.html">Run a local chain</a> gets you both. Every command below was run
+against a real node.</p>
+<p><strong>You will end with:</strong> two approved institutions, a registered customer, a
+settled payment, and the statement entry it produced.</p>
+<hr>
+<h2>The shape of it</h2>
+<p>A payment is an ISO 20022 pacs.008 credit transfer: a real transfer of funds,
+plus the information that makes it reconcilable — an end-to-end reference, a
+purpose code, and remittance details. It settles in one block, and it leaves a
+queryable record that plays the part of a camt.053 statement entry.</p>
+<p>Three parties appear on every payment:</p>
+<ul>
+<li>the <strong>debtor</strong>, whose balance the money leaves, and who signs;</li>
+<li>the <strong>instructing participant</strong>, the debtor&#39;s institution;</li>
+<li>the <strong>instructed participant</strong>, the creditor&#39;s institution.</li>
+</ul>
+<p>Both participants must be approved by governance. And — this is the part that
+makes the record worth anything — <strong>the debtor must actually bank with the
+instructing participant it names.</strong></p>
+<h2>1. Both institutions apply</h2>
+<pre><code class="language-bash">blockchaind tx paymsg apply-participant 00000011 &quot;Bank A&quot; \
+  --from bank-a --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>The first argument is the participant code, the ISPB-equivalent identifier your
+institution is known by. Applications sit pending:</p>
+<pre><code class="language-bash">blockchaind query paymsg list-participant-application
+</code></pre>
+<h2>2. Governance approves them</h2>
+<p><code>MsgApproveParticipant</code> is signed only by the governance module account, so it
+goes through a proposal — one per institution:</p>
+<pre><code class="language-json">{
+  &quot;messages&quot;: [{
+    &quot;@type&quot;: &quot;/blockchain.paymsg.v1.MsgApproveParticipant&quot;,
+    &quot;authority&quot;: &quot;yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur&quot;,
+    &quot;participant&quot;: &quot;yml1rhd9xfc0a6nhetjqqdep0u2r3p30qj8c9cuk0v&quot;,
+    &quot;approve&quot;: true
+  }],
+  &quot;metadata&quot;: &quot;&quot;,
+  &quot;deposit&quot;: &quot;10000000uyml&quot;,
+  &quot;title&quot;: &quot;Admit Bank A as a payment participant&quot;,
+  &quot;summary&quot;: &quot;Licensed institution; approving lets it instruct and receive payments.&quot;
+}
+</code></pre>
+<p>Get the <code>authority</code> from <code>blockchaind query auth module-account gov</code>, and submit
+with <code>--gas 400000</code> — the 200,000 default is not enough for a proposal carrying
+a message and fails with <code>code: 11</code>.</p>
+<pre><code class="language-bash">blockchaind query paymsg list-approved-participant
+</code></pre>
+<pre><code class="language-yaml">approved_participant:
+- code: &quot;00000011&quot;
+  name: Bank A
+  participant: yml1rhd9xfc0a6nhetjqqdep0u2r3p30qj8c9cuk0v
+- code: &quot;00000012&quot;
+  name: Bank B
+  participant: yml1exg54yeg95hqt7u2gvmmzxey04qslusupk2v4q
+</code></pre>
+<h2>3. The bank registers its customer</h2>
+<p>An approved institution is not yet entitled to appear on anybody&#39;s payment. It
+has to claim the accounts it acts for:</p>
+<pre><code class="language-bash">blockchaind tx paymsg register-customer &lt;customer-address&gt; true \
+  --from bank-a --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>Only the participant may sign this, and an account can bank with <strong>one</strong>
+participant at a time — a second institution trying to claim it is refused.
+Passing <code>false</code> ends the relationship, which the participant can do without
+governance being involved.</p>
+<p><strong>Why this step exists.</strong> Without it, naming a participant on a payment was an
+unverified claim. Any account could file an instruction attributing it to two
+institutions that had never seen it, and those institutions would find payments
+they never processed recorded against their name — in the ledger their customers
+reconcile against. Nothing was stealable, because the transfer always came from
+the signer&#39;s own balance. What was broken was the meaning of every record in the
+module.</p>
+<p>Skipping it produces exactly that refusal:</p>
+<pre><code>code 1107: ... does not bank with ..., so that participant may not be named as
+instructing this payment
+</code></pre>
+<h2>4. Send</h2>
+<pre><code class="language-bash">blockchaind tx paymsg send-payment \
+  &quot;INV-2026-0001&quot; \
+  &lt;instructing-participant&gt; &lt;instructed-participant&gt; \
+  &lt;creditor&gt; uyml 250000000 GDSV &quot;Invoice 2026-0001&quot; \
+  --from customer --chain-id yamale-testnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>That is 250 YML with purpose code <code>GDSV</code> (goods and services). As always, check
+what the transaction actually did rather than trusting the broadcast:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;txhash&gt;
+</code></pre>
+<h2>5. Read the statement entry</h2>
+<pre><code class="language-bash">blockchaind query paymsg get-payment-record &lt;instructing-participant&gt; &quot;INV-2026-0001&quot;
+</code></pre>
+<pre><code class="language-yaml">payment_record:
+  amount: &quot;250000000&quot;
+  block_height: &quot;642&quot;
+  creditor: yml1t0nf0crxydpw3vvzvk27chxmuyfzma7v6ca8l2
+  debtor: yml1t0nf0crxydpw3vvzvk27chxmuyfzma7v6ca8l2
+  denom: uyml
+  end_to_end_id: INV-2026-0001
+  instructed_participant: yml1exg54yeg95hqt7u2gvmmzxey04qslusupk2v4q
+  instructing_participant: yml1rhd9xfc0a6nhetjqqdep0u2r3p30qj8c9cuk0v
+  purpose_code: GDSV
+  remittance_information: Invoice 2026-0001
+</code></pre>
+<p><strong>The query takes the participant as well as the reference</strong>, because that is how
+the record is keyed. End-to-end ids are unique <em>per instructing party</em> in ISO
+20022, not globally — so two banks can both use <code>INV-2026-0001</code> without
+colliding, and neither can take a reference the other intends to use. Verified:
+the same id was sent successfully under both banks in the run above.</p>
+<h2>Paying the fee for your customers</h2>
+<p>A customer who holds naira and no YML <strong>cannot send anything</strong>. Network fees are
+payable in YML, so their balance is stuck behind a currency they never asked
+for:</p>
+<pre><code>spendable balance 0uyml is smaller than 200uyml: insufficient funds
+</code></pre>
+<p>That is the wrong shape for a payments rail. In ISO 20022 the institution bears
+the cost of processing, not the customer, and this chain can work the same way —
+a participant grants its customers a fee allowance:</p>
+<pre><code class="language-bash">blockchaind tx feegrant grant &lt;participant&gt; &lt;customer&gt;   --spend-limit 1000000uyml   --expiration 2026-12-31T23:59:59Z   --from participant
+</code></pre>
+<p>The customer then transacts normally, naming the sponsor:</p>
+<pre><code class="language-bash">blockchaind tx bank send &lt;customer&gt; &lt;recipient&gt; 1000000ungn   --from customer --fee-granter &lt;participant&gt;
+</code></pre>
+<p>Verified on a live chain: a customer holding <strong>500 NGN and zero YML</strong> was
+refused, then granted an allowance, then moved the money — and their YML balance
+was still exactly zero afterwards. The bank paid.</p>
+<p>The allowance is a budget, not a blank cheque. It is consumed as it is spent
+(1,000,000 → 999,800 uyml after one 200 uyml fee), it can carry an expiry, and
+revoking it takes effect immediately:</p>
+<pre><code class="language-bash">blockchaind tx feegrant revoke &lt;participant&gt; &lt;customer&gt; --from participant
+</code></pre>
+<blockquote>
+<p>The chain&#39;s own error when a grant is missing renders the customer&#39;s address
+as raw bytes, which tells a support desk nothing. The client SDK translates it
+into <em>&quot;No fee allowance — this transaction asked another account to pay its
+network fee, but that account has not granted an allowance&quot;</em>, so build against
+the SDK rather than parsing raw logs.</p>
+</blockquote>
+<p>From an interface rather than the CLI, the SDK builds the same messages:</p>
+<pre><code class="language-ts">import { grantFeeAllowance, revokeFeeAllowance } from &#39;@yamale/chain&#39;;
+
+await signer.submit([
+  grantFeeAllowance({
+    granter: bank,
+    grantee: customer,
+    spendLimit: [{ denom: &#39;uyml&#39;, amount: &#39;1000000&#39; }],
+    expiresAt: new Date(&#39;2026-12-31T23:59:59Z&#39;),
+  }),
+]);
+</code></pre>
+<p>Both were signed from TypeScript against a live chain, and a customer with no
+grant comes back as <code>succeeded: false</code> carrying <em>&quot;No YML for the network fee&quot;</em> —
+not as a thrown exception, which is what CosmJS does on its own for anything
+rejected before it reaches a block.</p>
+<p>Grants are per-customer, which is deliberate: an institution sponsoring a
+thousand customers issues a thousand grants and can revoke any one of them
+without touching the rest.</p>
+<h2>Field limits</h2>
+<p>Taken from ISO 20022 rather than invented, because they are what every system on
+the other side of these payments already enforces:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Limit</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>end_to_end_id</code></td>
+<td>35 characters</td>
+<td>Max35Text; also a store key</td>
+</tr>
+<tr>
+<td><code>purpose_code</code></td>
+<td>4 characters</td>
+<td>ExternalPurpose1Code</td>
+</tr>
+<tr>
+<td><code>remittance_information</code></td>
+<td>140 characters</td>
+<td>Max140Text, unstructured</td>
+</tr>
+</tbody></table>
+<p>Exceeding one is refused with <code>code 1108</code>, naming the field and both lengths.</p>
+<h2>Keeping the detail off the ledger</h2>
+<p><code>purpose_code</code> and <code>remittance_information</code> are free text, and in practice they
+are where an operator puts a customer&#39;s name. Written here they are public,
+permanent and unerasable, which is the exposure under Nigeria&#39;s NDPA, Ghana&#39;s
+DPA, POPIA and the GDPR — this chain has no erasure path, and adding one to an
+append-only ledger is not a thing that can be done later.</p>
+<p>So send a <strong>hash</strong> instead. The detail becomes a payload the parties hold, and
+the chain records only SHA-256 over it:</p>
+<pre><code class="language-ts">import { metadataHash, newPaymentMetadata, payment, savePaymentMetadata } from &#39;@yamale/chain&#39;;
+
+const detail = newPaymentMetadata(&#39;GDSV&#39;, &#39;Invoice 2026-0001&#39;);
+savePaymentMetadata(instructingParticipant, &#39;INV-2026-0001&#39;, detail);
+
+const msg = payment({
+  debtor, endToEndId: &#39;INV-2026-0001&#39;,
+  instructingParticipant, instructedParticipant, creditor,
+  denom: &#39;uyml&#39;, amount: &#39;250000000&#39;,
+  metadataHash: await metadataHash(detail),
+  settlementJurisdiction: &#39;NG&#39;,
+});
+</code></pre>
+<p>Three things to be clear about:</p>
+<p><strong>The hash proves, it does not hide by itself.</strong> Anyone holding the payload can
+show it is the one this payment recorded — <code>verifyMetadata(payload, recorded)</code>
+either matches the block or it does not, so a counterparty cannot produce an
+edited remittance line and call it the record. Reading it still requires having
+it. The viewing keys that let the payer, the payee and the regulator decrypt a
+shared copy are the next workstream; see
+<a href="../scope/confidentiality.html">confidentiality</a>.</p>
+<p><strong>The payload carries a salt, and that is not optional.</strong> A purpose code is four
+characters from a published list. The unsalted hash of one is a lookup table,
+not a fingerprint, and the ledger gives an attacker unlimited time to try.
+<code>newPaymentMetadata</code> generates a fresh one per payment.</p>
+<p><strong>Send the hash or the plaintext, never both.</strong> A payment carrying both puts the
+name on the ledger <em>and</em> the hash beside it — the privacy of neither. The chain
+refuses it with <code>code 1110</code>.</p>
+<h2>Settlement jurisdiction</h2>
+<pre><code>--settlement-jurisdiction NG
+</code></pre>
+<p>An ISO 3166-1 alpha-2 country, and it answers two questions with one
+declaration. A payment from Nigeria to Ghana touches two perimeters and both
+authorities may <em>see</em> it, but only the declared one may <em>act</em> on it — otherwise
+there is a contest over standing the chain cannot settle. The same declaration
+names the regulator who will hold the third viewing key over the payload.</p>
+<p>It is <strong>optional today and validated when present</strong>: <code>NG</code> is accepted, <code>nga</code>,
+<code>NGA</code>, <code>N</code> and <code>ng</code> are refused with <code>code 1109</code>. It becomes mandatory when
+governance turns on <code>require_settlement_jurisdiction</code>. It is a parameter rather
+than a rule in the binary because a node syncing from block 0 re-executes every
+historical payment, and payments made before the field existed named no country;
+refusing them on replay would stop the node rather than improve anything.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>The transfer is real.</strong> This is not a message about a payment that settles
+elsewhere — <code>SendPayment</code> moves the funds through x/bank in the same
+transaction. If the debtor cannot cover it, nothing is recorded.</p>
+<p><strong>The purpose code and remittance information are first-class.</strong> They are the
+reason this module exists rather than using a plain transfer with a memo: they
+are the fields reconciliation actually needs. Send them as a hash rather than as
+text — the detail stays reconcilable to whoever holds the payload, without the
+customer&#39;s name going onto a public ledger that cannot forget it.</p>
+<p><strong>A participant can pay from its own balance.</strong> It is its own instructing agent,
+so no registration is needed for that case.</p>
+<p><strong>Full reference:</strong> <a href="../reference/paymsg.html">x/paymsg</a> — every message, query,
+parameter and error code, generated from the source.</p>
+
+</main>
+</body>
+</html>

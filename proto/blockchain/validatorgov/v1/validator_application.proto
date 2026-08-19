@@ -1,0 +1,10 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// ValidatorApplication defines the ValidatorApplication message.
+message ValidatorApplication {
+  string candidate = 1;
+  string status = 2;
+}

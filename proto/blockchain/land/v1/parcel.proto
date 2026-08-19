@@ -1,0 +1,262 @@
+syntax = "proto3";
+
+package blockchain.land.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/land/types";
+
+// Status is where a parcel is in its life. A parcel that is not REGISTERED
+// cannot begin a transfer, which is what makes FROZEN and DISPUTED effective:
+// they are not warnings, they are stops.
+enum Status {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never set on a stored parcel; the zero value only appears on a message
+  // that forgot to set one, and the keeper rejects it.
+  STATUS_UNSPECIFIED = 0;
+  // Held by exactly one account, and movable.
+  STATUS_REGISTERED = 1;
+  // A transfer is under way. No second transfer may start.
+  STATUS_TRANSFER_PENDING = 2;
+  // Somebody objected. Terminal for the transfer, and an entry point for a
+  // court. The chain preserves the evidence and does not adjudicate.
+  STATUS_DISPUTED = 3;
+  // Stopped by an authority plus quorum — a court order, a fraud inquiry.
+  STATUS_FROZEN = 4;
+}
+
+// Parcel is a piece of ground that can be owned exactly once.
+message Parcel {
+  // Assigned by the chain. Never reused, never reassigned.
+  uint64 id = 1;
+
+  // Hash of the surveyed boundary (GeoJSON or the cadastral document). The
+  // survey itself is too large for a block and often too sensitive to publish;
+  // the hash proves which survey this title refers to without disclosing it.
+  //
+  // This field is the uniqueness constraint. The keeper indexes it, and
+  // registering a parcel whose hash already exists fails — that refusal is the
+  // whole "cannot be owned twice" guarantee.
+  string geometry_hash = 2;
+
+  // The registry's own human reference, so this record can be reconciled with
+  // the paper world it has to coexist with for a very long time.
+  string cadastral_ref = 3;
+
+  // Exactly one account. Deliberately not a list: co-ownership is a legal
+  // arrangement between people, expressed by the account being a group account,
+  // not by the chain holding several owners and having to rank them.
+  string holder = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The registry office whose jurisdiction this parcel falls in.
+  string authority = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  Status status = 6;
+
+  // Mortgages, liens, rights of way. Recorded because a title shown without its
+  // encumbrances is a lie that gets somebody's house taken.
+  repeated Encumbrance encumbrances = 7 [(gogoproto.nullable) = false];
+
+  // Block height of first registration. The audit trail starts here, including
+  // for the initial seeding of the registry, which is a political act and
+  // should be as auditable as everything after it.
+  int64 registered_at = 8;
+
+  // The deed documents themselves, as metadata on the token.
+  //
+  // A parcel is an NFT: one indivisible token, one holder, and everything a
+  // reader needs to understand the title travelling with it. Deeds are listed
+  // rather than embedded — a scan of a 1974 grant is megabytes and often
+  // contains personal data, so the chain carries its hash and a pointer, and
+  // the registry serves the document itself.
+  repeated Deed deeds = 9 [(gogoproto.nullable) = false];
+
+  // What may lawfully be done with this land, set by the registry.
+  //
+  // These are the reason the registry stays in the loop after issuance. A
+  // parcel can be fractionalised later — an exploitation right sold in shares,
+  // rents flowing to holders — but only within these limits, and the land
+  // service must be able to see and stop a breach. Without them, tokenisation
+  // becomes a way to sell around the law.
+  repeated Restriction restrictions = 10 [(gogoproto.nullable) = false];
+
+  // Set when a tokenisation vehicle has been opened over this parcel. The
+  // parcel itself never moves into the vehicle: the title stays here, held by
+  // the same account, and the vehicle sells rights *referencing* it. That
+  // separation is what keeps a fractionalised parcel still governed by the
+  // registry rather than by whoever accumulated the tokens.
+  uint64 vehicle_id = 11;
+
+  // Every freeze ever imposed on this parcel, and the grounds given for it.
+  //
+  // The keeper refuses a freeze without a reason, so recording the status
+  // without the reason threw away the only part a court order actually
+  // consists of. A holder shown "your land is frozen" with no readable grounds
+  // cannot tell an inquiry from an extortion, and cannot argue with either —
+  // which is precisely the unaccountable act this module is written against.
+  //
+  // Lifting marks the entry rather than removing it, like a released
+  // encumbrance and a lifted restriction: a freeze that vanishes takes with it
+  // the evidence that an office ever stopped this land, and who did it.
+  repeated Freeze freezes = 12 [(gogoproto.nullable) = false];
+}
+
+// Freeze is one order stopping every dealing with a parcel, and the grounds
+// the office gave for it.
+//
+// Kept as a list on the parcel rather than as a single current entry, because
+// a parcel frozen, released and frozen again by a different office is the exact
+// history somebody contesting the second freeze needs to be able to show.
+message Freeze {
+  // Why the land was stopped: the court order, the fraud inquiry, the
+  // succession dispute. Required by the keeper, and stored because a stop
+  // whose grounds cannot be read is indistinguishable from an arbitrary one.
+  string reason = 1;
+
+  // The office that imposed it, so it can be argued with.
+  string imposed_by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 imposed_at = 3;
+
+  bool lifted = 4;
+  // The office that lifted it and the grounds it gave, recorded for the same
+  // reason as the freeze itself: releasing land is as consequential a decision
+  // as stopping it, and an unattributed release is one nobody can question.
+  string lifted_by = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string lift_reason = 6;
+  int64 lifted_at = 7;
+}
+
+// Deed is one document in the chain of title.
+message Deed {
+  // What it is: grant, sale, inheritance, court order, survey.
+  string kind = 1;
+  // Hash of the document the registry holds. Proves which paper this refers to
+  // without publishing a scan that may carry somebody's personal details.
+  string document_hash = 2;
+  // Where the registry serves it from, for anyone entitled to read it.
+  string uri = 3;
+  // The registry's reference for the document, and its date in the paper world.
+  string reference = 4;
+  string issued_on = 5;
+  int64 recorded_at = 6;
+}
+
+// Restriction is a limit on what may be done with a parcel.
+//
+// Kept as data rather than code because the limits differ by country and by
+// parcel, and a chain that hard-codes one country's land law is a chain only
+// that country can use.
+message Restriction {
+  // agricultural_use_only, no_fractionalisation, foreign_ownership_capped,
+  // heritage_protected, minimum_parcel_size, customary_tenure.
+  string kind = 1;
+  // The limit itself, where one applies — a percentage cap, a minimum size.
+  string value = 2;
+  string detail = 3;
+  // The office that imposed it, so it can be argued with.
+  string imposed_by = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 imposed_at = 5;
+  bool lifted = 6;
+}
+
+// FractionalisationAuthority is a registry office's standing permission for a
+// tokenisation vehicle to be opened over one parcel.
+//
+// It is a record of its own rather than a flag on the parcel because
+// x/tokenisation has to be able to answer "may this be issued, and how much of
+// it" at every issuance, long after the grant. A permission that existed only
+// as a message in a past block is a permission nothing can enforce, which is
+// how the ceiling and the expiry come to be decorative.
+//
+// One per parcel: granting again replaces the terms rather than accumulating
+// permissions, because a parcel carrying two ceilings has the higher one.
+message FractionalisationAuthority {
+  uint64 parcel_id = 1;
+
+  // What may be sold: an exploitation right, a lease, a revenue share. Not the
+  // title — the title is not for sale in pieces and never leaves this module.
+  string right = 2;
+
+  // Ceiling on the fraction that may be issued, in basis points. A holder
+  // permitted to sell 40% of the rent has 4000 here and keeps the other 6000.
+  uint32 max_share_bps = 3;
+
+  // Unix seconds. Past this the authorisation is not live and x/tokenisation
+  // refuses to issue against it, so a permission granted for one purpose does
+  // not sit open for years.
+  int64 expires_at = 4;
+
+  // The office that granted it, so the decision can be argued with.
+  string granted_by = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 granted_at = 6;
+
+  // Withdrawn rather than deleted, for the same reason a lifted restriction is
+  // marked rather than removed: a permission that vanishes takes with it the
+  // evidence that the registry ever gave it, and who gave it. Withdrawal stops
+  // new issuance and expropriates nobody.
+  bool withdrawn = 7;
+  int64 withdrawn_at = 8;
+}
+
+// Encumbrance is a claim against a parcel that is not ownership.
+message Encumbrance {
+  string kind = 1;      // mortgage, lien, right-of-way, caveat
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string detail = 3;
+  int64 recorded_at = 4;
+  // Released rather than deleted: an encumbrance that vanishes from the record
+  // takes with it the evidence that it ever constrained the title.
+  bool released = 5;
+}
+
+// Authority is a registry office permitted to register and validate.
+message Authority {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+  // Where this office may act. A parcel is validated by the office whose
+  // jurisdiction it falls in, and attested by offices elsewhere.
+  string jurisdiction = 3;
+  bool active = 4;
+}
+
+// Transfer is a proposed change of holder, and the record of who agreed to it.
+//
+// It is kept after completion, not deleted. The history of who signed what and
+// when is the receipt that a dispossessed owner currently does not have, and
+// deleting it to save space would remove the only thing that makes the theft
+// arguable afterwards.
+message Transfer {
+  uint64 id = 1;
+  uint64 parcel_id = 2;
+
+  string from = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Declared consideration. Recorded for the audit trail; the chain does not
+  // move it. Land paid for off-chain is the common case and pretending
+  // otherwise would make the record false.
+  string price = 5;
+
+  // Set when the jurisdiction's own office validates.
+  bool validated = 6;
+  string validated_by = 7 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Independent registrars who have attested, one entry each. The keeper
+  // refuses an attestation from the proposing authority: an attestor from the
+  // same office is not independent, and allowing it collapses the whole
+  // mechanism back to a single bribe.
+  repeated string attestors = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // When quorum was reached. The challenge window runs from here, not from
+  // proposal, so the public clock starts only once the transfer is real.
+  int64 quorum_at = 9;
+
+  // First objection, if any. One is enough to stop everything.
+  string objected_by = 10 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string objection_reason = 11;
+
+  int64 proposed_at = 12;
+  int64 completed_at = 13;
+}

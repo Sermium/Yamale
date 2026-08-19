@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package blockchain.enforcement.v1;
+
+import "amino/amino.proto";
+import "blockchain/enforcement/v1/enforcement.proto";
+import "blockchain/enforcement/v1/params.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/enforcement/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // OpenCase accuses an address, and freezes it while the validators decide.
+  rpc OpenCase(MsgOpenCase) returns (MsgOpenCaseResponse);
+
+  // VoteCase records one validator's judgement.
+  rpc VoteCase(MsgVoteCase) returns (MsgVoteCaseResponse);
+
+  // WithdrawCase takes back a case before the vote ends, lifting its freeze.
+  rpc WithdrawCase(MsgWithdrawCase) returns (MsgWithdrawCaseResponse);
+
+  // Sweep collects whatever a passed seizure can now reach. Permissionless and
+  // repeatable: funds that were staked arrive later, when unbonding matures,
+  // and somebody has to be able to collect them without another vote.
+  rpc Sweep(MsgSweep) returns (MsgSweepResponse);
+
+  // EmergencyFreeze lets the founders' group stop an account in one block,
+  // without waiting for a validator to open a case.
+  rpc EmergencyFreeze(MsgEmergencyFreeze) returns (MsgEmergencyFreezeResponse);
+
+  // EmergencyRelease lets them let it go again, just as fast.
+  rpc EmergencyRelease(MsgEmergencyRelease) returns (MsgEmergencyReleaseResponse);
+
+  // ReverseCase is governance overturning a passed case: the appeal. It lifts
+  // the freeze and records the reversal, and it is deliberately a slower
+  // instrument than the one that imposed the freeze, because it is the one used
+  // when the chain got it wrong.
+  rpc ReverseCase(MsgReverseCase) returns (MsgReverseCaseResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/enforcement/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgOpenCase opens a case against an address and freezes it immediately.
+//
+// One bonded validator is enough to open one, which is the point: a scam is
+// drained in minutes and a vote takes hours, so the freeze cannot wait for the
+// vote. What stops that being an arbitrary power is that the freeze expires by
+// itself, the case is public from the first block, and taking anything needs
+// the supermajority.
+message MsgOpenCase {
+  option (cosmos.msg.v1.signer) = "opener";
+  option (amino.name) = "blockchain/x/enforcement/MsgOpenCase";
+
+  // opener is the account address of a bonded validator — the key it signs
+  // with, not its operator address. The chain derives the operator from it and
+  // records that on the case, so the accusation is attributed to the validator
+  // rather than to an address nobody recognises.
+  string opener = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  CaseAction action = 3;
+
+  // reason is the grounds, in words the accused can read.
+  string reason = 4;
+
+  // evidence_uri and evidence_hash point at and pin the evidence held
+  // off-chain. Required for a seizure unless the parameters say otherwise.
+  string evidence_uri = 5;
+  string evidence_hash = 6;
+}
+
+// MsgOpenCaseResponse returns the new case's id.
+message MsgOpenCaseResponse {
+  uint64 id = 1;
+}
+
+// MsgVoteCase records a validator's judgement on an open case.
+message MsgVoteCase {
+  option (cosmos.msg.v1.signer) = "voter";
+  option (amino.name) = "blockchain/x/enforcement/MsgVoteCase";
+
+  // voter is the validator's account address, the key it signs with. Its
+  // operator address and its voting power are read from the staking module.
+  string voter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+  VoteOption option = 3;
+}
+
+// MsgVoteCaseResponse defines the response structure.
+message MsgVoteCaseResponse {}
+
+// MsgWithdrawCase withdraws an open case. Only whoever opened it may.
+message MsgWithdrawCase {
+  option (cosmos.msg.v1.signer) = "opener";
+  option (amino.name) = "blockchain/x/enforcement/MsgWithdrawCase";
+
+  // opener is the account address of the validator that opened the case.
+  string opener = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+}
+
+// MsgWithdrawCaseResponse defines the response structure.
+message MsgWithdrawCaseResponse {}
+
+// MsgSweep collects what a passed seizure can reach right now.
+message MsgSweep {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "blockchain/x/enforcement/MsgSweep";
+
+  // sender pays for the transaction and gets nothing for it. Anyone may send
+  // this: the destination is fixed by the parameters, so there is nothing to
+  // gain by being the one who calls it and nothing to lose by letting somebody
+  // else.
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+}
+
+// MsgSweepResponse reports what this sweep actually collected, which may be
+// nothing if the unbonding has not matured yet.
+message MsgSweepResponse {
+  repeated cosmos.base.v1beta1.Coin collected = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  bool complete = 2;
+}
+
+// MsgReverseCase overturns a passed case. Governance only.
+message MsgReverseCase {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/enforcement/MsgReverseCase";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+
+  // reason is why it was overturned, kept beside the original accusation.
+  string reason = 3;
+}
+
+// MsgReverseCaseResponse defines the response structure.
+message MsgReverseCaseResponse {}
+
+// MsgEmergencyFreeze freezes an account on the emergency authority's signature
+// alone.
+//
+// There is no matching emergency seizure, and that is the whole shape of this
+// power. Stopping money is recoverable — the account is released and nothing
+// was lost but time. Taking it is not, so it stays with the validator
+// supermajority no matter who is asking.
+//
+// The freeze this creates is provisional exactly like a validator's: it opens a
+// case, it lapses if nobody confirms it, and the validators can refuse it. The
+// founders are faster than the set; they are not above it.
+message MsgEmergencyFreeze {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/enforcement/MsgEmergencyFreeze";
+
+  // authority must equal the emergency_authority parameter.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // reason is the grounds, in words the accused can read. Required, the same
+  // as for a validator's case: acting in an emergency is not a reason to leave
+  // the record blank, it is the reason the record matters.
+  string reason = 3;
+
+  string evidence_uri = 4;
+  string evidence_hash = 5;
+}
+
+// MsgEmergencyFreezeResponse returns the new case's id.
+message MsgEmergencyFreezeResponse {
+  uint64 id = 1;
+}
+
+// MsgEmergencyRelease lifts a freeze immediately, whoever imposed it.
+//
+// This is the half that makes the emergency authority worth having. A freeze
+// opened on a misread transaction otherwise sits on somebody's account for the
+// whole voting period, and "wait a day, it expires by itself" is not an answer
+// anyone can give a customer whose payroll is stuck.
+message MsgEmergencyRelease {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/enforcement/MsgEmergencyRelease";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+
+  // reason is why it was released, kept beside the original accusation. The
+  // case is not deleted: a freeze that was lifted as a mistake is part of the
+  // record of how this power has been used.
+  string reason = 3;
+}
+
+// MsgEmergencyReleaseResponse defines the response structure.
+message MsgEmergencyReleaseResponse {}

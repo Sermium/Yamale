@@ -1,0 +1,334 @@
+syntax = "proto3";
+
+package blockchain.treasury.v1;
+
+import "amino/amino.proto";
+import "blockchain/treasury/v1/lock.proto";
+import "blockchain/treasury/v1/params.proto";
+import "blockchain/treasury/v1/spend_policy.proto";
+import "blockchain/treasury/v1/treasury.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // CreateTreasury opens a new treasury.
+  rpc CreateTreasury(MsgCreateTreasury) returns (MsgCreateTreasuryResponse);
+
+  // Deposit moves funds from an account into a treasury.
+  rpc Deposit(MsgDeposit) returns (MsgDepositResponse);
+
+  // Spend moves funds out of a treasury to a recipient.
+  rpc Spend(MsgSpend) returns (MsgSpendResponse);
+
+  // CreateLock commits treasury funds to a beneficiary on a schedule.
+  rpc CreateLock(MsgCreateLock) returns (MsgCreateLockResponse);
+
+  // ClaimLock releases whatever has vested to the beneficiary.
+  rpc ClaimLock(MsgClaimLock) returns (MsgClaimLockResponse);
+
+  // RevokeLock cancels a revocable lock, returning the unreleased portion.
+  rpc RevokeLock(MsgRevokeLock) returns (MsgRevokeLockResponse);
+
+  // --- conditional locks (escrow) ----------------------------------------
+  rpc OpenEscrow(MsgOpenEscrow) returns (MsgOpenEscrowResponse);
+  rpc ReleaseEscrow(MsgReleaseEscrow) returns (MsgReleaseEscrowResponse);
+  rpc DisputeEscrow(MsgDisputeEscrow) returns (MsgDisputeEscrowResponse);
+  rpc ResolveEscrow(MsgResolveEscrow) returns (MsgResolveEscrowResponse);
+
+  // AssignRole grants an address a role over a treasury.
+  rpc AssignRole(MsgAssignRole) returns (MsgAssignRoleResponse);
+
+  // RevokeRole removes an address's role.
+  rpc RevokeRole(MsgRevokeRole) returns (MsgRevokeRoleResponse);
+
+  // SetSpendPolicy sets the spending constraints for one denom.
+  rpc SetSpendPolicy(MsgSetSpendPolicy) returns (MsgSetSpendPolicyResponse);
+
+  // SetPaused freezes or unfreezes a treasury.
+  rpc SetPaused(MsgSetPaused) returns (MsgSetPausedResponse);
+
+  // SetAdmin transfers administrative control of a treasury.
+  rpc SetAdmin(MsgSetAdmin) returns (MsgSetAdminResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/treasury/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgCreateTreasury defines the MsgCreateTreasury message.
+message MsgCreateTreasury {
+  option (cosmos.msg.v1.signer) = "creator";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+  // admin defaults to the creator when empty.
+  string admin = 3;
+}
+
+// MsgCreateTreasuryResponse returns the new treasury's id.
+message MsgCreateTreasuryResponse {
+  uint64 id = 1;
+}
+
+// MsgDeposit defines the MsgDeposit message. Depositing is permissionless:
+// anyone may fund a treasury, the same way anyone may pay an invoice.
+message MsgDeposit {
+  option (cosmos.msg.v1.signer) = "depositor";
+  string depositor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// MsgDepositResponse defines the MsgDepositResponse message.
+message MsgDepositResponse {}
+
+// MsgSpend defines the MsgSpend message. The signer must be the treasury admin
+// or hold ROLE_SPENDER, and the spend must fit within the denom's SpendPolicy
+// and the treasury's available balance.
+message MsgSpend {
+  option (cosmos.msg.v1.signer) = "spender";
+  string spender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated cosmos.base.v1beta1.Coin amount = 4 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  // memo records why the payment was made, for the audit trail.
+  string memo = 5;
+
+  // 6-8 are reserved for confidentiality, unpopulated and unverified. See
+  // docs/scope/confidentiality.md and MsgSendPayment, which these mirror.
+  //
+  // A treasury spend is public by default and that is deliberate: for donor
+  // disbursement, subsidy and public payroll the auditability is the product.
+  // The numbers are taken anyway, because the exception the design already
+  // anticipates — commercial escrow — is a spend like any other, and by the
+  // time it is wanted the treasuries holding real money will have written
+  // spends that cannot be re-encoded.
+  //
+  // memo is the field with a problem today rather than later: it is free text
+  // on a value transfer, which is where a payroll run acquires an employee's
+  // name, and it goes to a ledger with no erasure path. metadata_hash is where
+  // that moves.
+  bytes amount_commitment = 6;
+  bytes amount_range_proof = 7;
+  bytes metadata_hash = 8;
+}
+
+// MsgSpendResponse defines the MsgSpendResponse message.
+message MsgSpendResponse {}
+
+// MsgCreateLock defines the MsgCreateLock message.
+message MsgCreateLock {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  string beneficiary = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 4;
+  string amount = 5;
+  LockType lock_type = 6;
+  int64 start_time = 7;
+  int64 cliff_time = 8;
+  int64 end_time = 9;
+  uint64 release_intervals = 10;
+  bool revocable = 11;
+}
+
+// MsgCreateLockResponse returns the new lock's id.
+message MsgCreateLockResponse {
+  uint64 id = 1;
+}
+
+// MsgClaimLock defines the MsgClaimLock message. Only the beneficiary may
+// claim, and only what has actually vested.
+message MsgClaimLock {
+  option (cosmos.msg.v1.signer) = "beneficiary";
+  string beneficiary = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 lock_id = 2;
+}
+
+// MsgClaimLockResponse reports how much was released.
+message MsgClaimLockResponse {
+  string released = 1;
+}
+
+// MsgRevokeLock defines the MsgRevokeLock message.
+message MsgRevokeLock {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 lock_id = 2;
+}
+
+// MsgRevokeLockResponse reports how much was returned to the treasury and how
+// much had already vested to the beneficiary.
+message MsgRevokeLockResponse {
+  string returned = 1;
+  string vested_to_beneficiary = 2;
+}
+
+// MsgAssignRole defines the MsgAssignRole message.
+message MsgAssignRole {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  string address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Role role = 4;
+}
+
+// MsgAssignRoleResponse defines the MsgAssignRoleResponse message.
+message MsgAssignRoleResponse {}
+
+// MsgRevokeRole defines the MsgRevokeRole message.
+message MsgRevokeRole {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  string address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgRevokeRoleResponse defines the MsgRevokeRoleResponse message.
+message MsgRevokeRoleResponse {}
+
+// MsgSetSpendPolicy defines the MsgSetSpendPolicy message.
+message MsgSetSpendPolicy {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  SpendPolicy policy = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgSetSpendPolicyResponse defines the MsgSetSpendPolicyResponse message.
+message MsgSetSpendPolicyResponse {}
+
+// MsgSetPaused defines the MsgSetPaused message. The signer must be the admin
+// or hold ROLE_PAUSER.
+message MsgSetPaused {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  bool paused = 3;
+}
+
+// MsgSetPausedResponse defines the MsgSetPausedResponse message.
+message MsgSetPausedResponse {}
+
+// MsgSetAdmin defines the MsgSetAdmin message.
+message MsgSetAdmin {
+  option (cosmos.msg.v1.signer) = "admin";
+  string admin = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 treasury_id = 2;
+  string new_admin = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgSetAdminResponse defines the MsgSetAdminResponse message.
+message MsgSetAdminResponse {}
+
+// MsgOpenEscrow funds a conditional lock from the depositor's own account.
+//
+// Unlike every other lock, this does not come out of a treasury's balance —
+// the money is the buyer's and moves straight into the module account, where
+// neither party nor the platform can reach it. That is the point: the chain is
+// the custodian, and no interface can make that untrue in either direction.
+message MsgOpenEscrow {
+  option (cosmos.msg.v1.signer) = "depositor";
+  option (amino.name) = "blockchain/x/treasury/MsgOpenEscrow";
+
+  string depositor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string beneficiary = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // Named at creation, never afterwards.
+  string moderator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  cosmos.base.v1beta1.Coin amount = 4 [(gogoproto.nullable) = false];
+  // What is being bought, so a moderator reading the case later knows.
+  string memo = 5;
+
+  // 6-8 mirror MsgSpend, and matter more here than there. An escrow is two
+  // private parties and a consumer purchase: the amount is nobody else's
+  // business, and "what is being bought" is a description of a person's life
+  // written to a public ledger that cannot forget it. Unpopulated for now;
+  // numbered now because escrow is the first thing on this chain that a member
+  // of the public will use with their own money.
+  bytes amount_commitment = 6;
+  bytes amount_range_proof = 7;
+  bytes metadata_hash = 8;
+}
+message MsgOpenEscrowResponse {
+  uint64 lock_id = 1;
+}
+
+// MsgReleaseEscrow pays the beneficiary. Only the depositor may send it.
+//
+// The buyer confirming is the whole condition. Nobody else can confirm on their
+// behalf — not the seller, not the moderator, not the treasury admin.
+message MsgReleaseEscrow {
+  option (cosmos.msg.v1.signer) = "depositor";
+  option (amino.name) = "blockchain/x/treasury/MsgReleaseEscrow";
+
+  string depositor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 lock_id = 2;
+}
+message MsgReleaseEscrowResponse {}
+
+// MsgDisputeEscrow freezes a lock and refers it to the named moderator.
+//
+// Either party may send it. That symmetry is what removes the need for a
+// deadline: a seller facing a buyer who has gone quiet escalates rather than
+// waiting forever, and a buyer who received nothing does the same.
+message MsgDisputeEscrow {
+  option (cosmos.msg.v1.signer) = "party";
+  option (amino.name) = "blockchain/x/treasury/MsgDisputeEscrow";
+
+  string party = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 lock_id = 2;
+  string reason = 3;
+}
+message MsgDisputeEscrowResponse {}
+
+// MsgResolveEscrow is the moderator deciding an open case.
+//
+// Their only power, and only on a lock somebody actually disputed. A moderator
+// who could act on a quiet lock would be a custodian with a different name.
+message MsgResolveEscrow {
+  option (cosmos.msg.v1.signer) = "moderator";
+  option (amino.name) = "blockchain/x/treasury/MsgResolveEscrow";
+
+  string moderator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 lock_id = 2;
+  // true pays the beneficiary, false returns the money to the depositor. There
+  // is no third option: a case that stays open forever is the failure this
+  // whole mechanism exists to prevent.
+  bool pay_beneficiary = 3;
+}
+message MsgResolveEscrowResponse {}

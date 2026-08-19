@@ -1,0 +1,16 @@
+syntax = "proto3";
+package blockchain.stablecoin.v1;
+
+option go_package = "yamale/blockchain/x/stablecoin/types";
+
+// IssuerApplication defines the IssuerApplication message.
+message IssuerApplication {
+  string denom = 1;
+  string status = 2;
+  string creator = 3;
+  string display_denom = 4;
+  uint64 exponent = 5;
+  string name = 6;
+  string symbol = 7;
+  string description = 8;
+}

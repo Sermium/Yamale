@@ -1,0 +1,43 @@
+# Generates TypeScript types for this chain's own messages, so they can be
+# signed from a browser or a script rather than only from the CLI.
+#
+# Signing a message means encoding it as protobuf, and CosmJS can only encode
+# types registered in its registry. Without this step the SDK could sign the
+# standard Cosmos messages and nothing of this chain's own — payments, treasury
+# spends, swaps were all CLI-only.
+#
+# Output lands in clients/sdk/src/generated/, which is generated and must not be
+# hand-edited; `make proto-ts` rebuilds it.
+version: v2
+managed:
+  enabled: true
+plugins:
+  # Pinned, and pinned to a 1.x deliberately. ts-proto 2.x encodes with
+  # @bufbuild/protobuf's BinaryWriter, while CosmJS's Registry accepts only the
+  # protobufjs Writer its own generated types use; the 2.x output typechecks
+  # against nothing and cannot be registered. 1.181.2 emits protobufjs/minimal,
+  # which is what CosmJS itself is built from.
+  - remote: buf.build/community/stephenh-ts-proto:v1.181.2
+    out: clients/sdk/src/generated
+    opt:
+      # esModuleInterop matches the SDK's module style; forceLong=string keeps
+      # 64-bit fields as strings, which is what every amount on this chain
+      # already is — converting them to Long here would mean two
+      # representations of the same number in one package.
+      - esModuleInterop=true
+      - forceLong=string
+      - snakeToCamel=true
+      - useExactTypes=false
+      # The chain's own messages are what this exists for; the encoders it
+      # needs from cosmos/* and google/* come along as imports.
+      - onlyTypes=false
+      # Relative imports carry an explicit .ts, matching the rest of the SDK:
+      # the tests run under Node's type stripping, which resolves ES module
+      # specifiers literally, so an extensionless import is a runtime failure
+      # that the bundler-mode typechecker would not have caught.
+      - importSuffix=.ts
+      # Enums as const objects rather than `enum`: the SDK and its tests run
+      # under Node's type stripping, which erases types but cannot compile a TS
+      # `enum` into anything, so a generated enum makes the whole package
+      # unloadable outside a bundler.
+      - enumsAsLiterals=true

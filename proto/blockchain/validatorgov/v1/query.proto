@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package blockchain.validatorgov.v1;
+
+import "amino/amino.proto";
+import "blockchain/validatorgov/v1/approved_validator.proto";
+import "blockchain/validatorgov/v1/params.proto";
+import "blockchain/validatorgov/v1/rotation.proto";
+import "blockchain/validatorgov/v1/validator_application.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/params";
+  }
+
+  // ListValidatorApplication Queries a list of ValidatorApplication items.
+  rpc GetValidatorApplication(QueryGetValidatorApplicationRequest) returns (QueryGetValidatorApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/validator_application/{candidate}";
+  }
+
+  // ListValidatorApplication defines the ListValidatorApplication RPC.
+  rpc ListValidatorApplication(QueryAllValidatorApplicationRequest) returns (QueryAllValidatorApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/validator_application";
+  }
+
+  // ListApprovedValidator Queries a list of ApprovedValidator items.
+  rpc GetApprovedValidator(QueryGetApprovedValidatorRequest) returns (QueryGetApprovedValidatorResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/approved_validator/{candidate}";
+  }
+
+  // ListApprovedValidator defines the ListApprovedValidator RPC.
+  rpc ListApprovedValidator(QueryAllApprovedValidatorRequest) returns (QueryAllApprovedValidatorResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/approved_validator";
+  }
+
+  // GetOperatorRotation queries one rotation by id.
+  rpc GetOperatorRotation(QueryGetOperatorRotationRequest) returns (QueryGetOperatorRotationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/operator_rotation/{id}";
+  }
+
+  // ListOperatorRotation queries every rotation ever opened.
+  rpc ListOperatorRotation(QueryAllOperatorRotationRequest) returns (QueryAllOperatorRotationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/operator_rotation";
+  }
+
+  // PendingOperatorRotation queries the open rotation against one operator, if
+  // there is one. This is the query a delegator runs before deciding whether to
+  // undelegate, so it answers from the address they already know rather than
+  // from a rotation id they would have to go and find.
+  rpc PendingOperatorRotation(QueryPendingOperatorRotationRequest) returns (QueryPendingOperatorRotationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/validatorgov/v1/pending_operator_rotation/{current_operator}";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetValidatorApplicationRequest defines the QueryGetValidatorApplicationRequest message.
+message QueryGetValidatorApplicationRequest {
+  string candidate = 1;
+}
+
+// QueryGetValidatorApplicationResponse defines the QueryGetValidatorApplicationResponse message.
+message QueryGetValidatorApplicationResponse {
+  ValidatorApplication validator_application = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllValidatorApplicationRequest defines the QueryAllValidatorApplicationRequest message.
+message QueryAllValidatorApplicationRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllValidatorApplicationResponse defines the QueryAllValidatorApplicationResponse message.
+message QueryAllValidatorApplicationResponse {
+  repeated ValidatorApplication validator_application = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetApprovedValidatorRequest defines the QueryGetApprovedValidatorRequest message.
+message QueryGetApprovedValidatorRequest {
+  string candidate = 1;
+}
+
+// QueryGetApprovedValidatorResponse defines the QueryGetApprovedValidatorResponse message.
+message QueryGetApprovedValidatorResponse {
+  ApprovedValidator approved_validator = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllApprovedValidatorRequest defines the QueryAllApprovedValidatorRequest message.
+message QueryAllApprovedValidatorRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllApprovedValidatorResponse defines the QueryAllApprovedValidatorResponse message.
+message QueryAllApprovedValidatorResponse {
+  repeated ApprovedValidator approved_validator = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetOperatorRotationRequest defines the QueryGetOperatorRotationRequest message.
+message QueryGetOperatorRotationRequest {
+  uint64 id = 1;
+}
+
+// QueryGetOperatorRotationResponse defines the QueryGetOperatorRotationResponse message.
+message QueryGetOperatorRotationResponse {
+  OperatorRotation operator_rotation = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllOperatorRotationRequest defines the QueryAllOperatorRotationRequest message.
+message QueryAllOperatorRotationRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllOperatorRotationResponse defines the QueryAllOperatorRotationResponse message.
+message QueryAllOperatorRotationResponse {
+  repeated OperatorRotation operator_rotation = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryPendingOperatorRotationRequest defines the QueryPendingOperatorRotationRequest message.
+message QueryPendingOperatorRotationRequest {
+  string current_operator = 1;
+}
+
+// QueryPendingOperatorRotationResponse defines the QueryPendingOperatorRotationResponse message.
+message QueryPendingOperatorRotationResponse {
+  // found is false when nothing is pending against the operator. Reported as a
+  // field rather than as a not-found error, because "no rotation is pending" is
+  // the answer the question has, not a failure to answer it.
+  bool found = 1;
+  OperatorRotation operator_rotation = 2 [(gogoproto.nullable) = false];
+}

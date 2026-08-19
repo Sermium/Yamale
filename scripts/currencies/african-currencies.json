@@ -1,0 +1,425 @@
+{
+  "_comment": "Canonical table of the currencies Yamale carries as stablecoins. One source of truth: the on-chain register/mint/pool scripts, the app's money.ts, the faucet's --currencies list, and the docs are all generated from this file. rate_per_yml is indicative units of the currency per 1 YML (YML stands in for 1 USD on the devnet); it sets both the AMM pool ratio and the seed oracle price. Real rates come from the oracle feeder in production — these are the right order of magnitude, not a peg. exponent is 6 (micro-units) for every currency, so the base denom is 'u'+code.",
+  "native": {
+    "denom": "uyml",
+    "code": "YML",
+    "name": "Yamale",
+    "symbol": "Y",
+    "exponent": 6
+  },
+  "currencies": [
+    {
+      "denom": "uxof",
+      "code": "XOF",
+      "name": "West African CFA franc",
+      "symbol": "CFA",
+      "exponent": 6,
+      "rate_per_yml": 600,
+      "existing": true,
+      "region": "west"
+    },
+    {
+      "denom": "uxaf",
+      "code": "XAF",
+      "name": "Central African CFA franc",
+      "symbol": "FCFA",
+      "exponent": 6,
+      "rate_per_yml": 600,
+      "existing": true,
+      "region": "central"
+    },
+    {
+      "denom": "ungn",
+      "code": "NGN",
+      "name": "Nigerian Naira",
+      "symbol": "₦",
+      "exponent": 6,
+      "rate_per_yml": 1550,
+      "existing": true,
+      "region": "west"
+    },
+    {
+      "denom": "ukes",
+      "code": "KES",
+      "name": "Kenyan Shilling",
+      "symbol": "KSh",
+      "exponent": 6,
+      "rate_per_yml": 129,
+      "existing": true,
+      "region": "east"
+    },
+    {
+      "denom": "uzar",
+      "code": "ZAR",
+      "name": "South African Rand",
+      "symbol": "R",
+      "exponent": 6,
+      "rate_per_yml": 18,
+      "existing": true,
+      "region": "southern"
+    },
+    {
+      "denom": "ughs",
+      "code": "GHS",
+      "name": "Ghanaian Cedi",
+      "symbol": "₵",
+      "exponent": 6,
+      "rate_per_yml": 15,
+      "existing": true,
+      "region": "west"
+    },
+    {
+      "denom": "uegp",
+      "code": "EGP",
+      "name": "Egyptian Pound",
+      "symbol": "E£",
+      "exponent": 6,
+      "rate_per_yml": 50,
+      "region": "north"
+    },
+    {
+      "denom": "umad",
+      "code": "MAD",
+      "name": "Moroccan Dirham",
+      "symbol": "DH",
+      "exponent": 6,
+      "rate_per_yml": 10,
+      "region": "north"
+    },
+    {
+      "denom": "udzd",
+      "code": "DZD",
+      "name": "Algerian Dinar",
+      "symbol": "DA",
+      "exponent": 6,
+      "rate_per_yml": 135,
+      "region": "north"
+    },
+    {
+      "denom": "utnd",
+      "code": "TND",
+      "name": "Tunisian Dinar",
+      "symbol": "DT",
+      "exponent": 6,
+      "rate_per_yml": 3,
+      "region": "north"
+    },
+    {
+      "denom": "uetb",
+      "code": "ETB",
+      "name": "Ethiopian Birr",
+      "symbol": "Br",
+      "exponent": 6,
+      "rate_per_yml": 120,
+      "region": "east"
+    },
+    {
+      "denom": "uugx",
+      "code": "UGX",
+      "name": "Ugandan Shilling",
+      "symbol": "USh",
+      "exponent": 6,
+      "rate_per_yml": 3700,
+      "region": "east"
+    },
+    {
+      "denom": "utzs",
+      "code": "TZS",
+      "name": "Tanzanian Shilling",
+      "symbol": "TSh",
+      "exponent": 6,
+      "rate_per_yml": 2600,
+      "region": "east"
+    },
+    {
+      "denom": "urwf",
+      "code": "RWF",
+      "name": "Rwandan Franc",
+      "symbol": "FRw",
+      "exponent": 6,
+      "rate_per_yml": 1350,
+      "region": "east"
+    },
+    {
+      "denom": "uzmw",
+      "code": "ZMW",
+      "name": "Zambian Kwacha",
+      "symbol": "ZK",
+      "exponent": 6,
+      "rate_per_yml": 26,
+      "region": "southern"
+    },
+    {
+      "denom": "umzn",
+      "code": "MZN",
+      "name": "Mozambican Metical",
+      "symbol": "MT",
+      "exponent": 6,
+      "rate_per_yml": 64,
+      "region": "southern"
+    },
+    {
+      "denom": "uaoa",
+      "code": "AOA",
+      "name": "Angolan Kwanza",
+      "symbol": "Kz",
+      "exponent": 6,
+      "rate_per_yml": 910,
+      "region": "central"
+    },
+    {
+      "denom": "ubwp",
+      "code": "BWP",
+      "name": "Botswana Pula",
+      "symbol": "P",
+      "exponent": 6,
+      "rate_per_yml": 13,
+      "region": "southern"
+    },
+    {
+      "denom": "unad",
+      "code": "NAD",
+      "name": "Namibian Dollar",
+      "symbol": "N$",
+      "exponent": 6,
+      "rate_per_yml": 18,
+      "region": "southern"
+    },
+    {
+      "denom": "umur",
+      "code": "MUR",
+      "name": "Mauritian Rupee",
+      "symbol": "₨",
+      "exponent": 6,
+      "rate_per_yml": 46,
+      "region": "indian"
+    },
+    {
+      "denom": "ugmd",
+      "code": "GMD",
+      "name": "Gambian Dalasi",
+      "symbol": "D",
+      "exponent": 6,
+      "rate_per_yml": 70,
+      "region": "west"
+    },
+    {
+      "denom": "ugnf",
+      "code": "GNF",
+      "name": "Guinean Franc",
+      "symbol": "FG",
+      "exponent": 6,
+      "rate_per_yml": 8600,
+      "region": "west"
+    },
+    {
+      "denom": "ulrd",
+      "code": "LRD",
+      "name": "Liberian Dollar",
+      "symbol": "L$",
+      "exponent": 6,
+      "rate_per_yml": 193,
+      "region": "west"
+    },
+    {
+      "denom": "usle",
+      "code": "SLE",
+      "name": "Sierra Leonean Leone",
+      "symbol": "Le",
+      "exponent": 6,
+      "rate_per_yml": 22,
+      "region": "west"
+    },
+    {
+      "denom": "umwk",
+      "code": "MWK",
+      "name": "Malawian Kwacha",
+      "symbol": "MK",
+      "exponent": 6,
+      "rate_per_yml": 1730,
+      "region": "southern"
+    },
+    {
+      "denom": "umga",
+      "code": "MGA",
+      "name": "Malagasy Ariary",
+      "symbol": "Ar",
+      "exponent": 6,
+      "rate_per_yml": 4500,
+      "region": "indian"
+    },
+    {
+      "denom": "ucdf",
+      "code": "CDF",
+      "name": "Congolese Franc",
+      "symbol": "FC",
+      "exponent": 6,
+      "rate_per_yml": 2800,
+      "region": "central"
+    },
+    {
+      "denom": "usdg",
+      "code": "SDG",
+      "name": "Sudanese Pound",
+      "symbol": "£SD",
+      "exponent": 6,
+      "rate_per_yml": 600,
+      "region": "east"
+    },
+    {
+      "denom": "ussp",
+      "code": "SSP",
+      "name": "South Sudanese Pound",
+      "symbol": "SSP",
+      "exponent": 6,
+      "rate_per_yml": 4500,
+      "region": "east"
+    },
+    {
+      "denom": "ulyd",
+      "code": "LYD",
+      "name": "Libyan Dinar",
+      "symbol": "LD",
+      "exponent": 6,
+      "rate_per_yml": 5,
+      "region": "north"
+    },
+    {
+      "denom": "usos",
+      "code": "SOS",
+      "name": "Somali Shilling",
+      "symbol": "Sh",
+      "exponent": 6,
+      "rate_per_yml": 571,
+      "region": "east"
+    },
+    {
+      "denom": "udjf",
+      "code": "DJF",
+      "name": "Djiboutian Franc",
+      "symbol": "Fdj",
+      "exponent": 6,
+      "rate_per_yml": 178,
+      "region": "east"
+    },
+    {
+      "denom": "uern",
+      "code": "ERN",
+      "name": "Eritrean Nakfa",
+      "symbol": "Nfk",
+      "exponent": 6,
+      "rate_per_yml": 15,
+      "region": "east"
+    },
+    {
+      "denom": "ubif",
+      "code": "BIF",
+      "name": "Burundian Franc",
+      "symbol": "FBu",
+      "exponent": 6,
+      "rate_per_yml": 2900,
+      "region": "east"
+    },
+    {
+      "denom": "uscr",
+      "code": "SCR",
+      "name": "Seychellois Rupee",
+      "symbol": "SR",
+      "exponent": 6,
+      "rate_per_yml": 13,
+      "region": "indian"
+    },
+    {
+      "denom": "ucve",
+      "code": "CVE",
+      "name": "Cape Verdean Escudo",
+      "symbol": "$",
+      "exponent": 6,
+      "rate_per_yml": 101,
+      "region": "west"
+    },
+    {
+      "denom": "ustn",
+      "code": "STN",
+      "name": "São Tomé and Príncipe Dobra",
+      "symbol": "Db",
+      "exponent": 6,
+      "rate_per_yml": 22,
+      "region": "central"
+    },
+    {
+      "denom": "ukmf",
+      "code": "KMF",
+      "name": "Comorian Franc",
+      "symbol": "CF",
+      "exponent": 6,
+      "rate_per_yml": 450,
+      "region": "indian"
+    },
+    {
+      "denom": "ulsl",
+      "code": "LSL",
+      "name": "Lesotho Loti",
+      "symbol": "L",
+      "exponent": 6,
+      "rate_per_yml": 18,
+      "region": "southern"
+    },
+    {
+      "denom": "uszl",
+      "code": "SZL",
+      "name": "Eswatini Lilangeni",
+      "symbol": "E",
+      "exponent": 6,
+      "rate_per_yml": 18,
+      "region": "southern"
+    },
+    {
+      "denom": "umru",
+      "code": "MRU",
+      "name": "Mauritanian Ouguiya",
+      "symbol": "UM",
+      "exponent": 6,
+      "rate_per_yml": 40,
+      "region": "west"
+    },
+    {
+      "denom": "uzwg",
+      "code": "ZWG",
+      "name": "Zimbabwe Gold",
+      "symbol": "ZiG",
+      "exponent": 6,
+      "rate_per_yml": 13,
+      "region": "southern"
+    },
+    {
+      "denom": "uusdc",
+      "code": "USDC",
+      "name": "USD Coin",
+      "symbol": "$",
+      "exponent": 6,
+      "rate_per_yml": 1,
+      "group": "remittance",
+      "region": "global"
+    },
+    {
+      "denom": "ueurc",
+      "code": "EURC",
+      "name": "Euro Coin",
+      "symbol": "€",
+      "exponent": 6,
+      "rate_per_yml": 0.92,
+      "group": "remittance",
+      "region": "global"
+    }
+  ],
+  "regions": {
+    "global": "Stablecoins",
+    "west": "West Africa",
+    "central": "Central Africa",
+    "east": "East Africa",
+    "north": "North Africa",
+    "southern": "Southern Africa",
+    "indian": "Indian Ocean"
+  }
+}

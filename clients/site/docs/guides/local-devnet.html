@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run a local chain — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Run a local chain</h1>
+<p>A single-node Yamale network on your machine, with the REST API open so you
+can point the explorer at it. About two minutes.</p>
+<p><strong>You need:</strong> Go 1.25.10 or later. Nothing else — protobuf generation and linting
+run through <code>go tool</code>.</p>
+<p><strong>You will end with:</strong> a chain producing blocks at <code>localhost:26657</code>, a REST API
+at <code>localhost:1317</code>, and two funded accounts.</p>
+<hr>
+<h2>1. Build the node</h2>
+<pre><code class="language-bash">go build -o blockchaind ./cmd/blockchaind
+</code></pre>
+<h2>2. Initialise</h2>
+<pre><code class="language-bash">./blockchaind init dev --chain-id yamale-devnet-1 --default-denom uyml
+</code></pre>
+<p>This writes <code>~/.blockchain</code>. Every command below takes <code>--home</code> if you would
+rather keep it somewhere else.</p>
+<h2>3. Create and fund two accounts</h2>
+<pre><code class="language-bash">./blockchaind keys add alice --keyring-backend test
+./blockchaind keys add bob --keyring-backend test
+</code></pre>
+<pre><code class="language-bash">./blockchaind genesis add-genesis-account $(./blockchaind keys show alice -a --keyring-backend test) 200000000000uyml --keyring-backend test
+./blockchaind genesis add-genesis-account $(./blockchaind keys show bob -a --keyring-backend test) 100000000000uyml --keyring-backend test
+</code></pre>
+<p>Amounts are in <code>uyml</code>, the base unit: <code>200000000000uyml</code> is 200,000 YML.</p>
+<p>The <code>test</code> keyring stores keys unencrypted on disk. That is fine for a throwaway
+local chain and wrong for anything else — a real validator uses
+<code>--keyring-backend file</code>.</p>
+<h2>4. Make alice a validator</h2>
+<pre><code class="language-bash">./blockchaind genesis gentx alice 100000000000uyml --chain-id yamale-devnet-1 --keyring-backend test
+./blockchaind genesis collect-gentxs
+./blockchaind genesis validate-genesis
+</code></pre>
+<p>The last command should print that the genesis file is valid.</p>
+<p>Validators normally need a governance vote to join this chain, but the gate does
+not apply at genesis — that is what makes the founding ceremony possible. See
+<a href="../reference/validatorgov.html">x/validatorgov</a>.</p>
+<h2>5. Open the API</h2>
+<p>Two settings in <code>~/.blockchain/config/app.toml</code>:</p>
+<pre><code class="language-toml">minimum-gas-prices = &quot;0uyml&quot;
+
+[api]
+enable = true
+</code></pre>
+<blockquote>
+<p><strong>Write these files without a byte-order mark.</strong> The TOML parser rejects a
+BOM with <code>invalid character at start of key</code>, and several editors add one
+silently when saving as UTF-8.</p>
+</blockquote>
+<p>Without <code>minimum-gas-prices</code> the node refuses to start at all, with
+<code>set min gas price in app.toml or flag or env variable</code>.</p>
+<h2>6. Start</h2>
+<pre><code class="language-bash">./blockchaind start
+</code></pre>
+<p>Blocks begin immediately. Check it:</p>
+<pre><code class="language-bash">curl -s localhost:26657/status | grep -o &#39;&quot;latest_block_height&quot;:&quot;[0-9]*&quot;&#39;
+curl -s localhost:1317/cosmos/bank/v1beta1/supply
+</code></pre>
+<h2>7. Send something</h2>
+<pre><code class="language-bash">./blockchaind tx bank send \
+  $(./blockchaind keys show alice -a --keyring-backend test) \
+  $(./blockchaind keys show bob -a --keyring-backend test) \
+  12500000uyml \
+  --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+</code></pre>
+<p>That is 12.5 YML. The command prints a <code>txhash</code>; the <code>code</code> in that output only
+means the node accepted it for inclusion. To see whether it actually succeeded:</p>
+<pre><code class="language-bash">./blockchaind query tx &lt;txhash&gt;
+</code></pre>
+<p><code>code: 0</code> there is the real success.</p>
+<h2>8. Point the explorer at it</h2>
+<pre><code class="language-bash">cd clients &amp;&amp; npm install &amp;&amp; npm run dev
+</code></pre>
+<p>Open <a href="http://localhost:5173">http://localhost:5173</a>. The dev server proxies the node, so nothing needs
+CORS opened up.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>Block time.</strong> The default is five seconds. One-second blocks are tempting for
+development, but a chain left running at that rate writes its consensus WAL hard
+enough to exhaust file resources on some machines — which shows up as a
+<code>CONSENSUS FAILURE</code> in the log and a node that keeps producing blocks while
+quietly including no transactions. If transactions stop landing, check the log
+before suspecting your transaction.</p>
+<p><strong>Supply grows fast.</strong> The default emission schedule is tuned so its decay curve
+is visible within a short run rather than over years. On a devnet that means
+total supply climbs from the genesis allocation into the hundreds of millions of
+YML within an hour. That is the schedule doing what it says; it is not what a
+long-lived testnet should launch with. See
+<a href="../reference/emission.html">x/emission</a>.</p>
+<p><strong>Resetting.</strong> <code>./blockchaind comet unsafe-reset-all</code> clears the chain data but
+keeps your keys and genesis, which is usually what you want when experimenting.</p>
+
+</main>
+</body>
+</html>

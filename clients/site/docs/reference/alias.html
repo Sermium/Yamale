@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/alias — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/alias</h1>
+<h2>Transactions</h2>
+<h3>MsgRegisterAlias</h3>
+<p><code>/blockchain.alias.v1.MsgRegisterAlias</code></p>
+<p>Signed by the <code>account</code> field.</p>
+<p>RegisterAlias issues an identifier to the sending account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>account</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRotateAlias</h3>
+<p><code>/blockchain.alias.v1.MsgRotateAlias</code></p>
+<p>Signed by the <code>account</code> field.</p>
+<p>RotateAlias retires the sender&#39;s identifier and issues a new one.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>account</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSetJurisdiction</h3>
+<p><code>/blockchain.alias.v1.MsgSetJurisdiction</code></p>
+<p>Signed by the <code>recorder</code> field.</p>
+<p>SetJurisdiction records or corrects the country an account belongs to.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>recorder</code></td>
+<td>string</td>
+<td>recorder is the approved participant that onboarded the account, or a foundation administrator, or governance.</td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td>string</td>
+<td>account is whose perimeter this is.</td>
+</tr>
+<tr>
+<td><code>country</code></td>
+<td>string</td>
+<td>country is an ISO 3166-1 alpha-2 code. It must be one ISO has actually assigned: the reserved codes, ZZ among them, are refused here so that the marker the foundation administrators carry cannot be handed to an ordinary account and read as chain-wide authority.</td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.alias.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams sets the module parameters. Governance only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>Alias</h3>
+<p><code>GET /yamale/blockchain/alias/v1/alias/{id}</code></p>
+<p>Alias resolves an identifier to an address. The hot path.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>id in any form the client has it: hyphenated, lower case, with the confusable characters unfolded. The module normalises before looking up.</td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>alias</code></td>
+<td>Alias</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>AliasOf</h3>
+<p><code>GET /yamale/blockchain/alias/v1/alias_of/{address}</code></p>
+<p>AliasOf returns the identifier held by an address, for interfaces that need to show a person their own handle.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>alias</code></td>
+<td>Alias</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Jurisdiction</h3>
+<p><code>GET /yamale/blockchain/alias/v1/jurisdiction/{address}</code></p>
+<p>Jurisdiction reports the country recorded against one account.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>jurisdiction</code></td>
+<td>Jurisdiction</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/alias/v1/params</code></p>
+<p>Params returns the module parameters.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Perimeter</h3>
+<p><code>GET /yamale/blockchain/alias/v1/perimeter/{country}</code></p>
+<p>Perimeter lists the accounts recorded in one country, so an authority can see the accounts it may act on and no others.</p>
+<p>This is a list endpoint in a module that deliberately has none, so note what it returns and what it does not: jurisdiction records, never identifiers. Walking it tells you which addresses are recorded in a country — a supervisory fact, and the reason the endpoint exists — and gives no shortcut to the alias directory that is withheld above.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>country</code></td>
+<td>string</td>
+<td>country is an ISO 3166-1 alpha-2 code, in any case.</td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>jurisdictions</code></td>
+<td>repeated Jurisdiction</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Retired</h3>
+<p><code>GET /yamale/blockchain/alias/v1/retired/{id}</code></p>
+<p>Retired reports whether an identifier has been tombstoned. A client that resolves nothing should be able to tell &quot;never existed&quot; from &quot;existed and was retired&quot;, because those mean very different things to somebody about to send money.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>retired</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Alias</h3>
+<p>Alias binds one identifier to one address, permanently.</p>
+<p>One name, one address. One identifier per address. Neither is ever repointed — an alias can be retired, and a retired identifier is never issued again, but it cannot be made to resolve somewhere else. That is the property a payment handle needs: an identifier somebody memorised last year either still means what it meant, or it means nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>id is the normalised identifier: uppercase, no separators, ISO 3166-1 alpha-2 country prefix first, check character last. The display form (NG-K3M9-7QRT-B) is a client concern; the chain stores and compares only this. The country is not stored as its own field, because two copies of one fact can disagree and the one in the identifier is the one people read. It is the first two characters, and it is true by construction: the chain refuses to issue an identifier whose prefix differs from the jurisdiction recorded against the address, and a correction to that jurisdiction retires the identifier rather than leaving it to age into a lie. The prefix is not Crockford Base32 and is not folded like the payload. A fold that turned I into 1 and O into 0 would map CI and CL onto the same prefix, and SI and SL onto another — Côte d&#39;Ivoire indistinguishable from Chile, Slovenia from Sierra Leone. The prefix uses all 26 letters; only the payload after it is Crockford.</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>string</td>
+<td>address is the account it resolves to, and never changes.</td>
+</tr>
+<tr>
+<td><code>registered_at_height</code></td>
+<td>int64</td>
+<td>registered_at_height records when it was issued, so a client can show how long an identifier has been in use — a handle registered minutes ago deserves more caution than one that has been answering for a year.</td>
+</tr>
+</tbody></table>
+<h3>Jurisdiction</h3>
+<p>Jurisdiction is the national perimeter an account belongs to.</p>
+<p>It lives here rather than in x/paymsg because every module that has to refuse an out-of-perimeter action — the land registry, enforcement, stablecoin issuance — would otherwise have to ask the payments module where an account is. A perimeter that only exists for accounts that happen to be somebody&#39;s payment customer is not a perimeter: validators, registry offices and treasury signers are none of those, and each one would sit in the unclaimed state the whole design exists to remove.</p>
+<p>It is recorded by the participant that onboarded the account, never self-declared, and changed only by a foundation administrator. That is what makes it evidence rather than a preference.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td>address is the account this perimeter belongs to.</td>
+</tr>
+<tr>
+<td><code>country</code></td>
+<td>string</td>
+<td>country is an ISO 3166-1 alpha-2 code, uppercase, checked against the assigned list. A code that is merely two letters would let a typo — NX for NG — become a perimeter no authority holds and no authority can act on.</td>
+</tr>
+<tr>
+<td><code>recorded_by</code></td>
+<td>string</td>
+<td>recorded_by is the participant or administrator that put it there. Kept because &quot;who says this account is Nigerian&quot; is the question an authority asks when the answer turns out to be wrong, and an unattributed record cannot answer it.</td>
+</tr>
+<tr>
+<td><code>recorded_at_height</code></td>
+<td>int64</td>
+<td>recorded_at_height is when it was last written, so a change is visible as a change rather than as a fact that was always there.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>10</td>
+<td><code>ErrInvalidCountry</code></td>
+<td>that is not an assigned ISO 3166-1 alpha-2 country code</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>ErrNotTheRecorder</code></td>
+<td>only the account&#39;s approved participant or a foundation administrator may record its jurisdiction</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>ErrJurisdictionSet</code></td>
+<td>this account&#39;s jurisdiction is already recorded; only a foundation administrator may correct it</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ErrAlreadyRegistered</code></td>
+<td>this account already holds an identifier</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>ErrNotRegistered</code></td>
+<td>this account holds no identifier</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>ErrNotFound</code></td>
+<td>no account holds that identifier</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>ErrMalformedID</code></td>
+<td>that is not a well-formed identifier</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>ErrInvalidParams</code></td>
+<td>invalid parameters</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>ErrExhausted</code></td>
+<td>could not derive an unused identifier</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>invalid authority for this message</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>ErrNoJurisdiction</code></td>
+<td>this account has no recorded jurisdiction</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

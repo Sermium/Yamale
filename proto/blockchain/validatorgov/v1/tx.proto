@@ -1,0 +1,187 @@
+syntax = "proto3";
+
+package blockchain.validatorgov.v1;
+
+import "amino/amino.proto";
+import "blockchain/validatorgov/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // ApplyValidator defines the ApplyValidator RPC.
+  rpc ApplyValidator(MsgApplyValidator) returns (MsgApplyValidatorResponse);
+
+  // ApproveValidator defines the ApproveValidator RPC. It is authority-gated
+  // (the x/gov module account) and approves or rejects a pending validator
+  // application submitted via ApplyValidator.
+  rpc ApproveValidator(MsgApproveValidator) returns (MsgApproveValidatorResponse);
+
+  // RotateOperator defines the RotateOperator RPC: the planned path, signed by
+  // the operator being replaced.
+  rpc RotateOperator(MsgRotateOperator) returns (MsgRotateOperatorResponse);
+
+  // ProposeOperatorRecovery defines the ProposeOperatorRecovery RPC: the
+  // recovery path, openable by anybody and inert until approved.
+  rpc ProposeOperatorRecovery(MsgProposeOperatorRecovery) returns (MsgProposeOperatorRecoveryResponse);
+
+  // ApproveOperatorRecovery defines the ApproveOperatorRecovery RPC. It is
+  // authority-gated by the same account that admits validators, because
+  // recovering one should be exactly as hard as admitting one.
+  rpc ApproveOperatorRecovery(MsgApproveOperatorRecovery) returns (MsgApproveOperatorRecoveryResponse);
+
+  // CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets
+  // the current operator withdraw a rotation before it takes effect.
+  rpc CancelOperatorRotation(MsgCancelOperatorRotation) returns (MsgCancelOperatorRotationResponse);
+}
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/validatorgov/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgApplyValidator defines the MsgApplyValidator message.
+message MsgApplyValidator {
+  option (cosmos.msg.v1.signer) = "creator";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string moniker = 2;
+  string description = 3;
+}
+
+// MsgApplyValidatorResponse defines the MsgApplyValidatorResponse message.
+message MsgApplyValidatorResponse {}
+
+// MsgApproveValidator is the Msg/ApproveValidator request type.
+message MsgApproveValidator {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/validatorgov/MsgApproveValidator";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string candidate = 2;
+  bool approve = 3;
+}
+
+// MsgApproveValidatorResponse defines the MsgApproveValidatorResponse message.
+message MsgApproveValidatorResponse {}
+
+// MsgRotateOperator moves a validator's operator key, signed by the operator
+// being replaced.
+//
+// There is nothing to prove here beyond the signature. Anyone who can submit
+// this already controls everything the operator address protects, so demanding
+// a vote for it would only push operators towards waiting for a loss — and the
+// path for a loss is the slow one.
+message MsgRotateOperator {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "blockchain/x/validatorgov/MsgRotateOperator";
+
+  // creator is the current operator address.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // new_operator is the address that takes over after the delay.
+  string new_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgRotateOperatorResponse returns the id of the rotation that was opened.
+message MsgRotateOperatorResponse {
+  uint64 rotation_id = 1;
+}
+
+// MsgProposeOperatorRecovery opens a claim that an operator's key is gone.
+//
+// Anybody may submit it, because the person best placed to notice is rarely the
+// person who lost the key. It does nothing on its own: the validator is not
+// paused and no clock starts until the admission quorum approves it, or a
+// single transaction from anybody would be enough to pause any validator on
+// the chain.
+message MsgProposeOperatorRecovery {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "blockchain/x/validatorgov/MsgProposeOperatorRecovery";
+
+  // creator is whoever noticed, which is anybody.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // current_operator is the operator address whose key is claimed to be lost.
+  string current_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // new_operator is the address proposed to take over.
+  string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // reason is the stated grounds, in plain words. Required: a claim that
+  // somebody's key is gone should have to say how that is known.
+  string reason = 4;
+}
+
+// MsgProposeOperatorRecoveryResponse returns the id of the rotation that was
+// opened.
+message MsgProposeOperatorRecoveryResponse {
+  uint64 rotation_id = 1;
+}
+
+// MsgApproveOperatorRecovery is the admission quorum's decision on a recovery.
+// Approving it pauses the validator and starts the challenge window; refusing
+// it closes the rotation.
+message MsgApproveOperatorRecovery {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/validatorgov/MsgApproveOperatorRecovery";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // rotation_id is the recovery being decided.
+  uint64 rotation_id = 2;
+
+  // approve is the decision.
+  bool approve = 3;
+}
+
+// MsgApproveOperatorRecoveryResponse defines the response structure for
+// executing a MsgApproveOperatorRecovery message.
+message MsgApproveOperatorRecoveryResponse {}
+
+// MsgCancelOperatorRotation withdraws a rotation before it takes effect,
+// signed by the operator being replaced.
+//
+// On a recovery this is redundant with the veto — signing anything at all ends
+// it — and it is offered anyway so that an operator who wants to object
+// explicitly has something to sign that says so, rather than having to
+// discover that any transaction would have done.
+message MsgCancelOperatorRotation {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "blockchain/x/validatorgov/MsgCancelOperatorRotation";
+
+  // creator is the current operator address.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // rotation_id is the rotation being withdrawn.
+  uint64 rotation_id = 2;
+}
+
+// MsgCancelOperatorRotationResponse defines the response structure for
+// executing a MsgCancelOperatorRotation message.
+message MsgCancelOperatorRotationResponse {}

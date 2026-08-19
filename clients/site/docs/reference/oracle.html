@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/oracle — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/oracle</h1>
+<h2>Transactions</h2>
+<h3>MsgApplyAppraiser</h3>
+<p><code>/blockchain.oracle.v1.MsgApplyAppraiser</code></p>
+<p>Signed by the <code>creator</code> field.</p>
+<p>ApplyAppraiser asks to be admitted as an independent valuer.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>creator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>class_ids</code></td>
+<td>repeated string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgApproveAppraiser</h3>
+<p><code>/blockchain.oracle.v1.MsgApproveAppraiser</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>ApproveAppraiser records governance&#39;s decision on an application.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>appraiser</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>approve</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+<tr>
+<td><code>class_ids</code></td>
+<td>repeated string</td>
+<td>class_ids may narrow the scope the applicant asked for. Governance admitting somebody to value less than they requested should not require them to reapply.</td>
+</tr>
+</tbody></table>
+<h3>MsgDelegateFeeder</h3>
+<p><code>/blockchain.oracle.v1.MsgDelegateFeeder</code></p>
+<p>Signed by the <code>operator</code> field.</p>
+<p>DelegateFeeder nominates a hot key to submit a validator&#39;s votes.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td>operator is the validator&#39;s own account, and the only signer that may change who votes on its behalf.</td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>feeder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgRevokeAppraiser</h3>
+<p><code>/blockchain.oracle.v1.MsgRevokeAppraiser</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>RevokeAppraiser withdraws an approved valuer&#39;s authority.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>appraiser</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSubmitAppraisal</h3>
+<p><code>/blockchain.oracle.v1.MsgSubmitAppraisal</code></p>
+<p>Signed by the <code>appraiser</code> field.</p>
+<p>SubmitAppraisal records a signed valuation of a tokenised asset.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>appraiser</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>class_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>nft_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>value_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>valued_at</code></td>
+<td>int64</td>
+<td>valued_at is the date the valuation reflects, not the date it was sent.</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>report_uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>report_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgSubmitExchangeRates</h3>
+<p><code>/blockchain.oracle.v1.MsgSubmitExchangeRates</code></p>
+<p>Signed by the <code>feeder</code> field.</p>
+<p>SubmitExchangeRates reports one validator&#39;s observed prices for the current voting round.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feeder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td>validator is the operator this report is on behalf of.</td>
+</tr>
+<tr>
+<td><code>rates</code></td>
+<td>repeated RateVote</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.oracle.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>Appraisal</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/appraisal</code></p>
+<p>Appraisal queries the current valuation of one tokenised asset.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>class_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>nft_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>appraisal</code></td>
+<td>Appraisal</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>bool</td>
+<td>stale is true when the valuation is older than max_appraisal_age_seconds, measured from valued_at rather than from when it was submitted.</td>
+</tr>
+<tr>
+<td><code>age_seconds</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>appraiser_still_approved</code></td>
+<td>bool</td>
+<td>appraiser_still_approved is false when the valuer&#39;s authority has since been withdrawn. The appraisal remains valid history, but a consumer should weigh it differently.</td>
+</tr>
+</tbody></table>
+<h3>AppraisalHistory</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/appraisal_history</code></p>
+<p>AppraisalHistory queries every valuation ever recorded for one asset, newest first.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>class_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>nft_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>appraisals</code></td>
+<td>repeated Appraisal</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ExchangeRate</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/rate_by_denom</code></p>
+<p>ExchangeRate queries the agreed price of one denom.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rate</code></td>
+<td>ExchangeRate</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>bool</td>
+<td>stale is true when the rate is older than max_rate_age_seconds. A stale rate is still returned — hiding it would leave a caller unable to tell &quot;no feed&quot; from &quot;feed stopped&quot; — but it must not be acted on.</td>
+</tr>
+<tr>
+<td><code>age_seconds</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ExchangeRates</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/rate</code></p>
+<p>ExchangeRates queries every agreed price.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rates</code></td>
+<td>repeated ExchangeRate</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>FeederDelegation</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/feeder/{validator}</code></p>
+<p>FeederDelegation queries which account votes for a validator.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feeder</code></td>
+<td>string</td>
+<td>feeder is the validator&#39;s own account when no delegation has been made.</td>
+</tr>
+</tbody></table>
+<h3>GetAppraiser</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/appraiser/{address}</code></p>
+<p>GetAppraiser queries one valuer.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>appraiser</code></td>
+<td>Appraiser</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ListAppraiser</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/appraiser</code></p>
+<p>ListAppraiser queries every valuer and applicant.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>appraisers</code></td>
+<td>repeated Appraiser</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MissCounters</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/miss</code></p>
+<p>MissCounters queries how reliably each validator has been reporting.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>counters</code></td>
+<td>repeated MissCounter</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/oracle/v1/params</code></p>
+<p>Params queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Appraisal</h3>
+<p>Appraisal is one valuer&#39;s signed opinion of what a specific tokenised asset is worth.</p>
+<p>It is bound to an NFT — the token that represents the asset — rather than to a denom, because each real-world asset is individual. Two invoices from the same issuer are not interchangeable, and a fungible price for them would be a fiction.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>class_id</code></td>
+<td>string</td>
+<td>class_id and nft_id identify the asset in x/nft.</td>
+</tr>
+<tr>
+<td><code>nft_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td>value is what the asset is worth, in base units of value_denom.</td>
+</tr>
+<tr>
+<td><code>value_denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>appraiser</code></td>
+<td>string</td>
+<td>appraiser is the address that signed this valuation.</td>
+</tr>
+<tr>
+<td><code>valued_at</code></td>
+<td>int64</td>
+<td>valued_at is the date the valuation reflects, in Unix seconds. This is the date of the inspection or the NAV, which is not the same as when it was submitted — a monthly NAV published late is still a month-end number, and treating the two as the same would overstate how current it is.</td>
+</tr>
+<tr>
+<td><code>submitted_at</code></td>
+<td>int64</td>
+<td>submitted_at is when the chain recorded it.</td>
+</tr>
+<tr>
+<td><code>submitted_height</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>string</td>
+<td>method describes how the number was reached, e.g. &quot;RICS Red Book&quot;, &quot;discounted cash flow&quot;, &quot;administrator NAV&quot;.</td>
+</tr>
+<tr>
+<td><code>report_uri</code></td>
+<td>string</td>
+<td>report_uri points at the signed valuation document, and report_hash pins its contents so the on-chain number and the off-chain report cannot drift apart unnoticed.</td>
+</tr>
+<tr>
+<td><code>report_hash</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>superseded</code></td>
+<td>bool</td>
+<td>superseded is true once a newer appraisal for the same asset exists. Old appraisals are retained rather than overwritten, because the history of what an asset was said to be worth, and by whom, is exactly what an auditor needs after a dispute.</td>
+</tr>
+</tbody></table>
+<h3>Appraiser</h3>
+<p>Appraiser is an independent party that governance has admitted to value real-world assets.</p>
+<p>Independence is the whole point: the party that values the collateral must not be the party that benefits from the valuation. The chain cannot verify independence, so it does the next best thing — it records who governance admitted, what they were admitted to value, and attributes every number they sign.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>address</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>name is the firm or individual, for the audit trail.</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>string</td>
+<td>credentials points at the licence, registration or accreditation that governance relied on when admitting them.</td>
+</tr>
+<tr>
+<td><code>class_ids</code></td>
+<td>repeated string</td>
+<td>class_ids limits what they may value: an NFT class each corresponds to an asset type. Empty means every class, which governance should grant rarely.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>AppraiserStatus</td>
+<td></td>
+</tr>
+<tr>
+<td><code>approved_at_height</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>ExchangeRate</h3>
+<p>ExchangeRate is the chain&#39;s agreed price for one denom, in terms of the quote symbol set in the module&#39;s parameters.</p>
+<p>The rate prices one <em>display</em> unit, not one base unit — 1 YML, not 1 uyml — because that is the number a person quotes and the number a feeder reads off a market. Consumers scale by the denom&#39;s exponent.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>rate</code></td>
+<td>string</td>
+<td>rate is a decimal string, e.g. &quot;0.4213&quot;.</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>int64</td>
+<td>updated_at is when this rate was agreed, in Unix seconds. Staleness is judged from here, so a feed that stops reporting stops being usable rather than silently freezing at its last value.</td>
+</tr>
+<tr>
+<td><code>updated_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>voting_power_bps</code></td>
+<td>uint64</td>
+<td>voting_power is the share of stake, in basis points, that contributed to this median. A rate agreed by a bare quorum deserves less trust than one agreed by everybody, and consumers can see the difference.</td>
+</tr>
+</tbody></table>
+<h3>ExchangeRateVote</h3>
+<p>ExchangeRateVote is one validator&#39;s report for the current vote period.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>rate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>FeederDelegation</h3>
+<p>FeederDelegation lets a validator nominate a hot key to submit its votes.</p>
+<p>Without this a validator would have to sign with its operator key every vote period, which means keeping that key online — the one key whose compromise costs the most. The delegate can only vote; it cannot move stake, change commission, or do anything else on the validator&#39;s behalf.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>feeder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MissCounter</h3>
+<p>MissCounter records how many vote periods a validator failed to report in.</p>
+<p>It is recorded rather than punished. On a small permissioned network an automatic slash mostly punishes the operator whose VM rebooted, and the social layer — a known set of accountable validators — handles absence better than an incentive that fires during an outage. Governance can add a penalty later; it cannot easily undo one that fired wrongly.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>validator</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>misses</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>windows</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>RateVote</h3>
+<p>RateVote is one reported price within a submission.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>rate</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>AppraiserStatus</h3>
+<p>AppraiserStatus mirrors the application lifecycle used elsewhere on the chain.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>APPRAISER_STATUS_UNSPECIFIED</code></td>
+<td>APPRAISER_STATUS_UNSPECIFIED is the unset default.</td>
+</tr>
+<tr>
+<td><code>APPRAISER_STATUS_PENDING</code></td>
+<td>APPRAISER_STATUS_PENDING is awaiting a governance decision.</td>
+</tr>
+<tr>
+<td><code>APPRAISER_STATUS_APPROVED</code></td>
+<td>APPRAISER_STATUS_APPROVED may sign appraisals within its scope.</td>
+</tr>
+<tr>
+<td><code>APPRAISER_STATUS_REJECTED</code></td>
+<td>APPRAISER_STATUS_REJECTED was refused, and may apply again.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrUnknownValidator</code></td>
+<td>not a bonded validator</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrNotTheFeeder</code></td>
+<td>signer is not the feeder for this validator</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrDenomNotAccepted</code></td>
+<td>denom is not in the accepted set</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrInvalidRate</code></td>
+<td>exchange rate must be a positive decimal</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrNotAnAppraiser</code></td>
+<td>address is not an approved appraiser</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrOutOfScope</code></td>
+<td>appraiser is not approved for this asset class</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrAssetNotFound</code></td>
+<td>no such tokenised asset</td>
+</tr>
+<tr>
+<td>1108</td>
+<td><code>ErrApplicationExists</code></td>
+<td>an appraiser application already exists for this address</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrApplicationMissing</code></td>
+<td>appraiser application not found</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrNotPending</code></td>
+<td>appraiser application is not pending</td>
+</tr>
+<tr>
+<td>1111</td>
+<td><code>ErrInvalidValuation</code></td>
+<td>invalid valuation amount</td>
+</tr>
+<tr>
+<td>1112</td>
+<td><code>ErrValuationInFuture</code></td>
+<td>valuation date is in the future</td>
+</tr>
+<tr>
+<td>1113</td>
+<td><code>ErrRateUnavailable</code></td>
+<td>no usable exchange rate for this denom</td>
+</tr>
+<tr>
+<td>1114</td>
+<td><code>ErrAppraisalMissing</code></td>
+<td>no appraisal for this asset</td>
+</tr>
+<tr>
+<td>1115</td>
+<td><code>ErrStale</code></td>
+<td>value is too old to be relied on</td>
+</tr>
+<tr>
+<td>1116</td>
+<td><code>ErrLimitReached</code></td>
+<td>exceeds a configured maximum</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

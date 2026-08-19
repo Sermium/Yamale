@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IBC: what is exposed, and what is turned off — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>IBC: what is exposed, and what is turned off</h1>
+<p>Yamale is built with IBC compiled in. This page says exactly what that opens,
+what the launch genesis turns off, and what has to be decided before any of it
+is switched on — because on a permissioned chain those are policy decisions, not
+configuration.</p>
+<p><strong>Status:</strong> IBC has never been exercised on this chain. No connection, channel
+or relayer has been set up, and there are no tests. What follows is a review of
+the surface, not a report of it working.</p>
+<hr>
+<h2>What is compiled in</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Core</strong></td>
+<td>Client, connection and channel handshakes; Tendermint and solo-machine light clients.</td>
+</tr>
+<tr>
+<td><strong>Transfer (ICS-20)</strong></td>
+<td>Sending and receiving fungible tokens across a channel.</td>
+</tr>
+<tr>
+<td><strong>Interchain accounts, host</strong></td>
+<td>Lets an account on another chain drive an account <strong>here</strong>.</td>
+</tr>
+<tr>
+<td><strong>Interchain accounts, controller</strong></td>
+<td>Lets an account here drive an account on another chain.</td>
+</tr>
+</tbody></table>
+<p>None of it can be reached without a connection, and a connection requires a
+relayer that somebody deliberately runs. On day one the surface is inert.</p>
+<h2>What the launch genesis turns off, and why</h2>
+<p><code>scripts/testnet/02-build-canonical-genesis.sh</code> disables <strong>both interchain
+account submodules</strong>, and refuses to produce a genesis in which they are on.</p>
+<p>The reason is specific. An interchain account executes messages through the
+message router:</p>
+<pre><code class="language-go">handler := k.msgRouter.Handler(msg)   // icahost/keeper/relay.go
+</code></pre>
+<p>The ante chain is never involved. This chain&#39;s validator permissioning is an
+<strong>ante decorator</strong>, so it does not apply to anything arriving that way. With the
+host enabled — and the module&#39;s default genesis enables it with
+<code>allow_messages: [&quot;*&quot;]</code> — anyone able to open a channel could execute
+<code>MsgCreateValidator</code> through an interchain account and join a permissioned
+validator set without a vote. Every other message on the chain is reachable by
+the same route.</p>
+<p>That is the general lesson, worth carrying to anything added later: <strong>an ante
+handler only guards messages that arrive as transactions.</strong> <code>authz.MsgExec</code>
+reaches the router from inside a transaction, which the validator gate now
+handles by descending into nested messages. Interchain accounts reach it from
+outside one, which no ante decorator can see.</p>
+<p><strong>Transfer is left enabled</strong>, because it cannot execute messages — it can only
+move tokens, and only once a channel exists.</p>
+<h2>Before enabling interchain accounts</h2>
+<p>Turning the host on is a governance decision that needs an explicit
+<code>allow_messages</code> list, never a wildcard. Work through, at minimum:</p>
+<ul>
+<li><strong>Anything the ante chain guards must be excluded.</strong> Today that is
+<code>MsgCreateValidator</code> (the validator gate) — check the ante handler in
+<code>app/ante.go</code> for what has been added since.</li>
+<li><strong>Anything authority-gated is already safe</strong>: the <code>Approve*</code> messages check
+the governance module account as their signer, and an interchain account is
+not it.</li>
+<li><strong>Value-moving messages</strong> — <code>MsgSend</code>, <code>MsgSendPayment</code>, treasury spends —
+are only as safe as the counterparty chain&#39;s own security. An interchain
+account is controlled by whoever controls the account on the other side.</li>
+</ul>
+<h2>The question transfer raises</h2>
+<p>An inbound ICS-20 transfer creates a voucher denom, <code>ibc/&lt;hash&gt;</code>, held like any
+other token. It can then be sent, pooled on the AMM, held by a treasury, and
+named as the amount on a payment record.</p>
+<p>That sits awkwardly with the chain&#39;s central claim. <code>x/stablecoin</code> exists so
+that every currency has exactly one governance-approved issuer, recorded on the
+chain — and a voucher is a currency nobody here approved, backed by an escrow
+account on a chain this one has no view of.</p>
+<p>Nothing about that is broken; it is a decision that has not been made yet. The
+options are the usual ones:</p>
+<ul>
+<li><strong>Leave it open.</strong> Any counterparty chain&#39;s assets can arrive. Simple, and
+entirely dependent on which chains relayers connect.</li>
+<li><strong>Restrict channels.</strong> Only open connections to counterparties governance has
+approved, which is the same shape as every other permission on this chain.</li>
+<li><strong>Restrict denoms downstream.</strong> Let vouchers exist but keep them out of the
+places where &quot;currency&quot; carries a claim — the payment records especially.</li>
+</ul>
+<p>Decide it before a relayer is running, not after somebody has an <code>ibc/…</code> balance.</p>
+<h2>What has been verified</h2>
+<ul>
+<li><strong>Blocked module accounts are refused as IBC receivers.</strong> The transfer keeper
+is constructed with this chain&#39;s bank keeper, and ibc-go checks
+<code>IsBlockedAddr</code> on both send and receive — so a transfer to a treasury or pool
+module account fails rather than stranding funds, exactly as a local
+<code>MsgSend</code> does. Those accounts are covered by <code>app/blocked_accounts_test.go</code>.</li>
+<li><strong>The ceremony genesis has the ICA host and controller off.</strong> Tested in both
+directions: a normal run produces <code>host_enabled: false</code>, and a run where that
+edit is removed is refused with a named reason and writes nothing.</li>
+</ul>
+<h2>What has not</h2>
+<p>Everything else. No handshake, no channel, no relayer, no packet has been
+exercised on this chain — not a transfer in either direction, not a timeout, not
+a channel closure. Before IBC is used for anything real, it needs the treatment
+the other modules got: a live counterparty, a relayer, and the failure cases
+driven deliberately.</p>
+<hr>
+<p><strong>Full reference:</strong> IBC&#39;s own messages and queries are not in
+<a href="../reference/">the generated reference</a>, which covers this chain&#39;s modules
+only. See <a href="https://ibc.cosmos.network/">ibc-go&#39;s documentation</a> for those.</p>
+
+</main>
+</body>
+</html>

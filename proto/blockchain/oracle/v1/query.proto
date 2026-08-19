@@ -1,0 +1,188 @@
+syntax = "proto3";
+
+package blockchain.oracle.v1;
+
+import "amino/amino.proto";
+import "blockchain/oracle/v1/oracle.proto";
+import "blockchain/oracle/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/oracle/types";
+
+// Query defines the gRPC querier service.
+//
+// Every response that carries a value also carries how old it is and whether
+// the module still considers it usable. A caller that had to work out staleness
+// for itself would eventually get it wrong, and the failure mode — acting on a
+// price nobody stands behind any more — is the one this module exists to
+// prevent.
+service Query {
+  // Params queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/params";
+  }
+
+  // ExchangeRate queries the agreed price of one denom.
+  rpc ExchangeRate(QueryExchangeRateRequest) returns (QueryExchangeRateResponse) {
+    // The denom travels in the query string. Nothing constrains the accepted
+    // denoms beyond a governance list, and the obvious entries for an FX oracle
+    // are IBC denoms, which are spelled ibc/<hash> — unroutable as a path
+    // segment.
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/rate_by_denom";
+  }
+
+  // ExchangeRates queries every agreed price.
+  rpc ExchangeRates(QueryExchangeRatesRequest) returns (QueryExchangeRatesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/rate";
+  }
+
+  // Appraisal queries the current valuation of one tokenised asset.
+  rpc Appraisal(QueryAppraisalRequest) returns (QueryAppraisalResponse) {
+    // Both identifiers travel in the query string. x/nft requires only that a
+    // class id and a token id be non-empty, so either may contain a slash — and
+    // this module's own genesis already joins them with one.
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/appraisal";
+  }
+
+  // AppraisalHistory queries every valuation ever recorded for one asset,
+  // newest first.
+  rpc AppraisalHistory(QueryAppraisalHistoryRequest) returns (QueryAppraisalHistoryResponse) {
+    // In the query string for the same reason as Appraisal.
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/appraisal_history";
+  }
+
+  // GetAppraiser queries one valuer.
+  rpc GetAppraiser(QueryGetAppraiserRequest) returns (QueryGetAppraiserResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/appraiser/{address}";
+  }
+
+  // ListAppraiser queries every valuer and applicant.
+  rpc ListAppraiser(QueryListAppraiserRequest) returns (QueryListAppraiserResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/appraiser";
+  }
+
+  // MissCounters queries how reliably each validator has been reporting.
+  rpc MissCounters(QueryMissCountersRequest) returns (QueryMissCountersResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/miss";
+  }
+
+  // FeederDelegation queries which account votes for a validator.
+  rpc FeederDelegation(QueryFeederDelegationRequest) returns (QueryFeederDelegationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/oracle/v1/feeder/{validator}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryExchangeRateRequest is the request type for the Query/ExchangeRate RPC.
+message QueryExchangeRateRequest {
+  string denom = 1;
+}
+
+// QueryExchangeRateResponse is the response type for the Query/ExchangeRate RPC.
+message QueryExchangeRateResponse {
+  ExchangeRate rate = 1 [(gogoproto.nullable) = false];
+  // stale is true when the rate is older than max_rate_age_seconds. A stale
+  // rate is still returned — hiding it would leave a caller unable to tell
+  // "no feed" from "feed stopped" — but it must not be acted on.
+  bool stale = 2;
+  int64 age_seconds = 3;
+}
+
+// QueryExchangeRatesRequest is the request type for the Query/ExchangeRates RPC.
+message QueryExchangeRatesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryExchangeRatesResponse is the response type for the Query/ExchangeRates RPC.
+message QueryExchangeRatesResponse {
+  repeated ExchangeRate rates = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryAppraisalRequest is the request type for the Query/Appraisal RPC.
+message QueryAppraisalRequest {
+  string class_id = 1;
+  string nft_id = 2;
+}
+
+// QueryAppraisalResponse is the response type for the Query/Appraisal RPC.
+message QueryAppraisalResponse {
+  Appraisal appraisal = 1 [(gogoproto.nullable) = false];
+  // stale is true when the valuation is older than max_appraisal_age_seconds,
+  // measured from valued_at rather than from when it was submitted.
+  bool stale = 2;
+  int64 age_seconds = 3;
+  // appraiser_still_approved is false when the valuer's authority has since
+  // been withdrawn. The appraisal remains valid history, but a consumer should
+  // weigh it differently.
+  bool appraiser_still_approved = 4;
+}
+
+// QueryAppraisalHistoryRequest is the request type for the Query/AppraisalHistory RPC.
+message QueryAppraisalHistoryRequest {
+  string class_id = 1;
+  string nft_id = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryAppraisalHistoryResponse is the response type for the Query/AppraisalHistory RPC.
+message QueryAppraisalHistoryResponse {
+  repeated Appraisal appraisals = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetAppraiserRequest is the request type for the Query/GetAppraiser RPC.
+message QueryGetAppraiserRequest {
+  string address = 1;
+}
+
+// QueryGetAppraiserResponse is the response type for the Query/GetAppraiser RPC.
+message QueryGetAppraiserResponse {
+  Appraiser appraiser = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryListAppraiserRequest is the request type for the Query/ListAppraiser RPC.
+message QueryListAppraiserRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryListAppraiserResponse is the response type for the Query/ListAppraiser RPC.
+message QueryListAppraiserResponse {
+  repeated Appraiser appraisers = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryMissCountersRequest is the request type for the Query/MissCounters RPC.
+message QueryMissCountersRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryMissCountersResponse is the response type for the Query/MissCounters RPC.
+message QueryMissCountersResponse {
+  repeated MissCounter counters = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryFeederDelegationRequest is the request type for the Query/FeederDelegation RPC.
+message QueryFeederDelegationRequest {
+  string validator = 1;
+}
+
+// QueryFeederDelegationResponse is the response type for the Query/FeederDelegation RPC.
+message QueryFeederDelegationResponse {
+  // feeder is the validator's own account when no delegation has been made.
+  string feeder = 1;
+}

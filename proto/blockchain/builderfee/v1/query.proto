@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package blockchain.builderfee.v1;
+
+import "amino/amino.proto";
+import "blockchain/builderfee/v1/approved_builder.proto";
+import "blockchain/builderfee/v1/builder_application.proto";
+import "blockchain/builderfee/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/builderfee/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/builderfee/v1/params";
+  }
+
+  // ListBuilderApplication Queries a list of BuilderApplication items.
+  rpc GetBuilderApplication(QueryGetBuilderApplicationRequest) returns (QueryGetBuilderApplicationResponse) {
+    // The type URL travels in the query string. A Cosmos message type URL
+    // always begins with a slash — /cosmos.bank.v1beta1.MsgSend — and a path
+    // template binds a field to one URL segment, so this route matched nothing
+    // for every value it can ever be asked about.
+    option (google.api.http).get = "/yamale/blockchain/builderfee/v1/builder_application_by_msg_type";
+  }
+
+  // ListBuilderApplication defines the ListBuilderApplication RPC.
+  rpc ListBuilderApplication(QueryAllBuilderApplicationRequest) returns (QueryAllBuilderApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/builderfee/v1/builder_application";
+  }
+
+  // ListApprovedBuilder Queries a list of ApprovedBuilder items.
+  rpc GetApprovedBuilder(QueryGetApprovedBuilderRequest) returns (QueryGetApprovedBuilderResponse) {
+    // In the query string for the same reason as GetBuilderApplication: a type
+    // URL's leading slash makes it unroutable as a path segment.
+    option (google.api.http).get = "/yamale/blockchain/builderfee/v1/approved_builder_by_msg_type";
+  }
+
+  // ListApprovedBuilder defines the ListApprovedBuilder RPC.
+  rpc ListApprovedBuilder(QueryAllApprovedBuilderRequest) returns (QueryAllApprovedBuilderResponse) {
+    option (google.api.http).get = "/yamale/blockchain/builderfee/v1/approved_builder";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetBuilderApplicationRequest defines the QueryGetBuilderApplicationRequest message.
+message QueryGetBuilderApplicationRequest {
+  string msg_type_url = 1;
+}
+
+// QueryGetBuilderApplicationResponse defines the QueryGetBuilderApplicationResponse message.
+message QueryGetBuilderApplicationResponse {
+  BuilderApplication builder_application = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllBuilderApplicationRequest defines the QueryAllBuilderApplicationRequest message.
+message QueryAllBuilderApplicationRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllBuilderApplicationResponse defines the QueryAllBuilderApplicationResponse message.
+message QueryAllBuilderApplicationResponse {
+  repeated BuilderApplication builder_application = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetApprovedBuilderRequest defines the QueryGetApprovedBuilderRequest message.
+message QueryGetApprovedBuilderRequest {
+  string msg_type_url = 1;
+}
+
+// QueryGetApprovedBuilderResponse defines the QueryGetApprovedBuilderResponse message.
+message QueryGetApprovedBuilderResponse {
+  ApprovedBuilder approved_builder = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllApprovedBuilderRequest defines the QueryAllApprovedBuilderRequest message.
+message QueryAllApprovedBuilderRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllApprovedBuilderResponse defines the QueryAllApprovedBuilderResponse message.
+message QueryAllApprovedBuilderResponse {
+  repeated ApprovedBuilder approved_builder = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A chain a country operates — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>A chain a country operates</h1>
+<p><strong>Status: framing, not built.</strong> The intended deployment: an African state — a
+central bank or a designated authority — runs the network, issues the currency,
+and custodies consumer accounts. Citizens use it as an everyday payment system
+and never see the chain.</p>
+<p>That changes the design questions. Not the code, mostly — the code already fits.
+What changes is which decisions are political rather than technical, and which
+defaults become dangerous in different hands.</p>
+<hr>
+<h2>What already fits</h2>
+<p>The chain was built permissioned, and that turns out to be the right shape here
+rather than a compromise:</p>
+<ul>
+<li><strong>One approved issuer per currency</strong> (<code>x/stablecoin</code>) is exactly a central bank
+issuing its own money. The permission is a governance record on the chain, not
+a configuration file — an auditor can see who was authorised and when.</li>
+<li><strong>Approved participants</strong> (<code>x/paymsg</code>) is a licensed-institutions register:
+banks, mobile money operators, microfinance. Payments carry ISO 20022
+references, which is what supervisors and reconciliation already speak.</li>
+<li><strong>Fee sponsorship</strong> (<code>x/feegrant</code>) means a citizen holding only local currency
+can transact without holding the network token. On a system meant for
+financial inclusion this is not a convenience; it is the difference between
+usable and not.</li>
+<li><strong>The 42 African currencies</strong> are already seeded and priced.</li>
+</ul>
+<hr>
+<h2>The decision that matters most: who holds the validators</h2>
+<p>A chain whose validators are all run by one ministry is not a network. It is a
+database with extra steps, and it inherits none of the properties that make a
+ledger worth using — no independent verification, no protection against a
+single administrator, nothing an opposition or an auditor can check.</p>
+<p>If the answer is &quot;the state runs all of them&quot;, be honest that a replicated
+database would be cheaper and simpler. The chain earns its place only when the
+validator set is <strong>plural</strong>: the central bank, several licensed banks, a
+telecommunications regulator, a university, an auditor-general&#39;s office. Then
+&quot;two thirds must agree&quot; means something.</p>
+<p><strong>The regional case is the strongest one.</strong> XOF and XAF are each used by eight
+and six countries, issued by BCEAO and BEAC. A shared chain across a monetary
+union is a genuinely better fit than a national one: the validator set is
+naturally multi-party because the members do not answer to one another, and
+cross-border settlement inside the union stops being a correspondent-banking
+problem. That is the deployment to lead with.</p>
+<hr>
+<h2>The position</h2>
+<p>Stated plainly, because the rest of this document is the reasoning behind it.</p>
+<p><strong>Why decentralised rather than a PIX.</strong> PIX works, at enormous scale, and it
+cannot be regional infrastructure: it is operated by Brazil, for Brazil. A
+neighbouring state can accept the method but cannot build sovereignty on a
+system another government runs. Cross-border is the argument, and it is
+decisive — a shared ledger between states only earns its complexity because no
+single state may own it.</p>
+<p><strong>Why a shared chain for a shared currency.</strong> XOF is one currency across eight
+states with one monetary authority. Splitting it across eight ledgers and
+reconciling it back would recreate the correspondent-banking problem the project
+exists to remove. Where the currency is already shared, the ledger should be.
+National currencies stay on national chains, joined by IBC.</p>
+<p><strong>Why the validator set answers the control objection.</strong> Eight states with equal
+power means no state controls anything: three would have to combine to halt, six
+to change consensus. And the set is not restricted to states. Licensed banks,
+mobile money operators, a telecommunications regulator, a university, an
+auditor-general&#39;s office — every non-state validator pushes those thresholds
+further out of reach of any political bloc. <strong>Dilution is the mechanism, and it
+is deliberate.</strong></p>
+<p>The honest residuals, stated rather than discovered:</p>
+<ul>
+<li>With eight equal validators, <strong>three can halt</strong> and <strong>six can change or
+seize</strong>. Adding non-state validators raises both bars; the numbers should be
+recomputed for the actual set and published.</li>
+<li><strong>An exit procedure should exist before anyone needs it.</strong> A member&#39;s citizens
+hold balances in shared state; how that sub-state is exported, settled and
+detached is far easier to agree while nobody wants to leave.</li>
+</ul>
+<p>This is a bet on the region&#39;s trajectory rather than its history. That is a
+legitimate bet to make, and it should be made explicitly — the architecture
+assumes members who disagree without sabotaging, and says so.</p>
+<h2>Sovereignty and a common core pull against each other</h2>
+<p>The stated goal is both: each country controls its own traffic and its own
+frontier, <strong>and</strong> the core is shared so neighbours interoperate. Those are the
+right goals and they cannot both be maximised on one chain. The shape of the
+compromise is the most consequential decision in the whole design.</p>
+<h3>&quot;Validators specialised in one currency&quot; is not possible on a single chain</h3>
+<p>This needs correcting before it gets built on. In CometBFT every validator
+executes <strong>every</strong> transaction and votes on <strong>every</strong> block. There is no way to
+have a validator that only validates XOF transfers: consensus is over the whole
+state machine, not over a subset of it. A validator that ignored some
+transactions would simply compute a different app hash and be slashed or halt.</p>
+<p>So on one shared chain:</p>
+<ul>
+<li>Every country&#39;s validators validate every other country&#39;s payments.</li>
+<li><strong>One third of the total voting power can halt the entire union</strong>, including
+the domestic payments of countries that had nothing to do with the dispute.</li>
+<li>A country cannot upgrade, pause, or change a parameter for itself. Every
+change is a change for everyone.</li>
+</ul>
+<p>That is not sovereignty. It is a shared central system with the word blockchain
+attached.</p>
+<h3>The architecture that gives both</h3>
+<p>Cosmos was designed for exactly this question, and the answer is <strong>one chain per
+country, connected by IBC</strong>:</p>
+<ul>
+<li>Each country runs its own chain with its own validator set, its own
+parameters, its own upgrade schedule. It can halt, fork, or change rules
+without asking anyone. That is the sovereignty in point 1, and it is real
+rather than nominal.</li>
+<li>Currencies move between chains over <strong>IBC</strong> — the transfer is verified by
+light clients on both sides, with no bridge operator and no multisig to trust.
+That is the interoperability in point 2, and it is stronger than a shared
+chain because it survives one member misbehaving.</li>
+<li>The &quot;common core&quot; becomes the <strong>shared codebase, shared standards and shared
+governance of the specification</strong> — every country runs the same software, the
+same ISO 20022 message shapes, the same identity format. Not one shared
+ledger.</li>
+<li>A monetary union like BCEAO can additionally run <strong>one chain for its shared
+currency</strong>, with the member states as its validator set. XOF belongs on a
+union chain because the currency itself is union-wide; national currencies do
+not.</li>
+</ul>
+<p>The cost is honest: IBC is real work, it has never been exercised on this
+codebase (see <a href="ibc.html">ibc.md</a> — the surface is reviewed, nothing has been
+relayed), and a relayer has to be operated. That is the price of the sovereignty
+being genuine.</p>
+<p><strong>Decided: lead with the monetary union.</strong> BCEAO first — one chain for XOF with
+the eight member states as its validator set, joined later by licensed banks and
+other non-state validators. National chains for national currencies come after,
+connected by IBC, once the union chain has proved the model with a real
+validator set rather than an argument about one.</p>
+<p>Leading with the union rather than a single country is what makes the
+sovereignty claim survive its first serious question. A one-country deployment
+has to answer &quot;so the ministry controls it?&quot; with a promise. A union deployment
+answers it with arithmetic.</p>
+<p><strong>Recommendation: one chain per country, one chain per monetary union, IBC
+between them, shared code and standards as the &quot;core&quot;.</strong> Present it that way and
+the sovereignty claim survives scrutiny from a finance ministry that asks who
+can stop their payments.</p>
+<h2>On replacing the incumbents rather than joining them</h2>
+<p>Point 4 — a government-sponsored system that supplants mobile money and card
+networks rather than complementing them — is the strategy with the clearest
+precedent, and it is not encouraging.</p>
+<p><strong>Nigeria&#39;s eNaira</strong> is the closest comparison: a central-bank digital currency,
+government-backed, launched 2021. After a year it had been used by well under
+one percent of the population, while cash and existing mobile money continued
+untouched. The technology worked. Adoption did not follow the mandate.</p>
+<p>What that suggests, and it is worth planning around rather than arguing with:</p>
+<ul>
+<li><strong>A mandate creates availability, not usage.</strong> People move money where the
+people they pay already are.</li>
+<li><strong>Distribution is the incumbents.</strong> M-Pesa, MTN MoMo, Orange Money and Wave
+own the agent networks — the human being in the village who turns cash into
+balance. Replacing them means rebuilding that network; joining them means
+inheriting it.</li>
+<li><strong>Merchant acceptance decides consumer adoption</strong>, and merchants adopt what
+their customers already carry. Outside the card networks, acceptance has to be
+built from zero.</li>
+</ul>
+<p>None of this argues against the goal. It argues for sequencing: <strong>be
+interoperable first and dominant later</strong>. A system that can receive from M-Pesa
+on day one starts with users; one that asks people to leave M-Pesa starts with
+none. The <code>x/paymsg</code> participant model already lets a mobile money operator join
+as an approved participant rather than be excluded — that door should stay open
+even if the long-term intent is to replace them.</p>
+<h2>&quot;Public ledger, no risk of tampering&quot; — two corrections</h2>
+<p>Both halves need qualifying, and the second one matters a great deal for this
+deployment.</p>
+<p><strong>Tamper-evident, not tamper-proof.</strong> History cannot be rewritten <em>unnoticed</em> —
+but two thirds of voting power can rewrite it by consensus, and the property
+holds only in proportion to how independent the validators are. If one ministry
+runs two thirds, the guarantee is a promise, not mathematics. This is the same
+point as the validator set above, arriving from a different direction: the
+integrity claim and the sovereignty claim both rest on plurality.</p>
+<p><strong>&quot;Public&quot; is a stronger word than it sounds for a national payment system.</strong> A
+public ledger means every payment every citizen makes is permanently visible to
+anyone, forever, and correlatable. That is a mass-surveillance property, and it
+is the opposite of what a bank statement is today.</p>
+<p>It also sits directly against the identity design: <a href="accounts.html">accounts.md</a>
+keeps names and identity numbers off-chain precisely so the ledger cannot be
+resolved to people. That firewall holds only while it holds. Anything that
+publishes the mapping — a national ID on-chain, a public directory, a leaked
+custodian database — retroactively deanonymises the entire history, and nothing
+can be deleted afterwards.</p>
+<h3>Decided: split the visibility by whose money it is</h3>
+<p>The trust argument comes almost entirely from <strong>public money</strong>, not from
+citizens&#39; payments. So the two are separated:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Visibility</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Treasury spends, procurement, disbursements</td>
+<td><strong>Public.</strong> Anyone, no account, forever</td>
+</tr>
+<tr>
+<td>Issuance and redemption of the currency</td>
+<td><strong>Public</strong> — how much exists, and who authorised it</td>
+</tr>
+<tr>
+<td>Validator governance, votes, parameter changes</td>
+<td><strong>Public</strong></td>
+</tr>
+<tr>
+<td>Enforcement cases, evidence, every vote cast</td>
+<td><strong>Public</strong></td>
+</tr>
+<tr>
+<td>Citizen-to-citizen payments</td>
+<td><strong>Not world-readable.</strong> Supervisors, auditors and courts, on authenticated access</td>
+</tr>
+</tbody></table>
+<p>That keeps the entire anti-corruption argument — <em>where did the money go</em> is
+answerable by any citizen with a browser — and drops the mass-surveillance
+property. It is also a far better answer when someone asks whether an opposition
+politician&#39;s transactions can be traced by whoever governs next.</p>
+<p><strong>What this actually means technically, stated honestly.</strong> Every validator
+executes every transaction, so <strong>every validator sees everything</strong>. There is no
+cryptographic privacy here and this document should not imply one. &quot;Not
+world-readable&quot; means:</p>
+<ol>
+<li>The <strong>public explorer and public API</strong> expose government flows, supply,
+governance and enforcement in full, and do not expose citizen payment detail.</li>
+<li>Supervisors, auditors and courts reach the rest through <strong>authenticated
+access</strong>, and those requests are logged.</li>
+<li>The confidentiality guarantee is therefore <strong>the composition of the validator
+set plus access control</strong> — not mathematics. It is the same guarantee a
+national payment system already gives, and it is worth saying so rather than
+overclaiming.</li>
+</ol>
+<p>If genuine cryptographic confidentiality is ever required, that is encrypted
+amounts and parties on-chain — a different and much larger project, and one that
+trades away the auditability this design is being sold on.</p>
+<p><strong>Not yet built.</strong> The explorer and REST proxy currently expose everything to
+anyone. Implementing this is an authorisation layer in front of the API and a
+split in the explorer between a public view and an authenticated one.</p>
+<h2><code>x/enforcement</code> in state hands is a different tool</h2>
+<p>This is the part that needs saying plainly rather than being left as an
+implementation detail.</p>
+<p>The module lets a validator freeze an account in one block and a two-thirds
+validator vote seize its balance to a governance-set address. It was designed
+against theft: a scam drains a wallet in minutes and a vote takes hours, so
+freezing has to be fast and taking has to be slow.</p>
+<p><strong>In the hands of a government, the same mechanism is asset forfeiture without a
+court.</strong> Everything that made it a good anti-fraud tool — speed, finality,
+irreversibility — makes it a good instrument of coercion. A political opponent&#39;s
+account, a journalist&#39;s, a protest fund&#39;s: the code cannot tell the difference,
+and it was never designed to.</p>
+<p>What the design already does, and why it matters more here:</p>
+<ul>
+<li>Every case is public, with its grounds and its evidence hash on the chain.</li>
+<li>Every validator&#39;s vote is recorded and attributed.</li>
+<li>Cases that failed stay on the record too, so a pattern of attempted seizures
+is visible even when none succeed.</li>
+<li>Seizure needs two thirds — which is only a protection if the validator set is
+plural. With one operator it is a formality.</li>
+</ul>
+<p>What should be decided before any deployment:</p>
+<ul>
+<li><strong>Should seizure exist at all in this deployment?</strong> Freezing pending a court
+order is a defensible power. Taking, by vote, may not be — and the module can
+ship with seizure disabled and freezing retained.</li>
+<li><strong>Should a judicial reference be mandatory</strong> in the case record, so a seizure
+without one is visibly irregular rather than merely unusual?</li>
+<li><strong>Who holds the recovery destination</strong>, and what is the process for returning
+funds when a case was wrong?</li>
+</ul>
+<p>A country deploying this should be told what the power is, in these words,
+rather than discovering it later. A vendor who does not raise it is selling
+something they do not understand.</p>
+<hr>
+<h2>Custody by the state: what changes</h2>
+<p>Model A (server-held keys) was chosen for consumer accounts. With a state as
+custodian:</p>
+<ul>
+<li><p><strong>The licensing question dissolves</strong> — the authority is the regulator. What
+replaces it is a governance question: what stops the custodian spending
+balances it holds, and who audits that? The solvency query in
+<a href="custody.html">custody</a> becomes a public accountability tool, not an internal
+one.</p>
+</li>
+<li><p><strong>Data residency is now a sovereignty requirement.</strong> Citizen names, national
+identity numbers and transaction histories cannot sit in a foreign cloud
+region. The encrypted profile store from <a href="accounts.html">accounts</a> has to run
+where the law requires, which constrains the whole architecture — and is a
+reason to keep the chain and the identity store separable.</p>
+</li>
+<li><p><strong>Decided: link to the government&#39;s own population database, in one
+direction only.</strong> The state already knows its people. Duplicating that onto a
+ledger would be redundant and unfixable, so the join is a key exchanged
+between the two systems — which is right. The direction is what matters:</p>
+<blockquote>
+<p>The chain&#39;s user ID goes <strong>into the government database as a column</strong>.
+The national ID never goes onto the chain.</p>
+</blockquote>
+<p>Same link, opposite direction, and the difference is total. <code>CAQ3-C04Z-M</code> on
+chain means nothing to anyone without the state&#39;s own records. A national ID
+on chain makes every payment permanently attributable to a named citizen — to
+anyone, forever, including whoever governs next — and cannot be deleted
+afterwards. <code>x/alias</code> was built to hold an address and nothing else precisely
+so this is the easy direction to take.</p>
+</li>
+</ul>
+<hr>
+<h2>What financial inclusion actually requires</h2>
+<p>The interface built so far assumes a smartphone and a browser. For the intended
+population that is the minority case, and the gap is not cosmetic:</p>
+<ul>
+<li><strong>Feature phones and USSD.</strong> A large share of mobile money in West and East
+Africa runs over USSD menus on phones with no data connection. A payment
+system that requires an app excludes exactly the people it claims to serve.
+This is a whole second interface, and it is the one that decides adoption.</li>
+<li><strong>Intermittent connectivity.</strong> Settlement can be online; <em>acceptance</em> often
+cannot. Offline-capable payment with later settlement is a hard problem and a
+real requirement.</li>
+<li><strong>Tiered identity.</strong> Many users have no formal identity document. A system
+that requires full KYC to open an account excludes them; one that requires
+none is a laundering vehicle. Tiered limits — small balances with light
+verification, higher limits with more — is the established answer and needs to
+be in the account model from the start.</li>
+<li><strong>Interoperability with existing mobile money.</strong> M-Pesa, MTN MoMo, Orange
+Money and Wave already have the users. A new system that cannot receive from
+them starts with nobody. This is an integration and a commercial negotiation,
+not a protocol feature, and it is probably the single largest determinant of
+whether any of this is used.</li>
+</ul>
+<hr>
+<h2>What to say when presenting it</h2>
+<p>Three things that are true and worth leading with:</p>
+<ol>
+<li><strong>The permissioning is the product.</strong> Every participant approved by vote,
+every issuer authorised on the record, every decision auditable — that is
+what a public blockchain cannot offer a finance ministry.</li>
+<li><strong>Sovereignty is real here.</strong> The state runs the validators, holds the keys,
+sets the parameters, and can leave. Nothing depends on a foreign company&#39;s
+continued goodwill.</li>
+<li><strong>Settlement is seconds, and the reference travels with the money</strong> — which
+is the actual daily cost of correspondent banking, not the headline fee.</li>
+</ol>
+<p>And one that should be said before anyone asks:</p>
+<blockquote>
+<p>This is pre-testnet software with no independent security audit. The design is
+complete and much of it is running; none of it has been reviewed by anyone
+outside the project, and it should not hold public money until it has.</p>
+</blockquote>
+
+</main>
+</body>
+</html>

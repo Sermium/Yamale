@@ -1,0 +1,17 @@
+syntax = "proto3";
+package blockchain.land.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "yamale/blockchain/x/land/types";
+
+// Module is the config object for the land registry.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {go_import: "yamale/blockchain/x/land"};
+
+  // authority defines the custom module authority.
+  // If not set, defaults to the governance module — which is the intended
+  // setting, because an office that could admit offices could manufacture the
+  // independent attestors the transfer quorum depends on.
+  string authority = 1;
+}

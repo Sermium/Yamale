@@ -1,0 +1,52 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+import "blockchain/validatorgov/v1/rotation.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// A pending rotation has to be visible in the block it is proposed in.
+// Delegators did not consent to a new operator, and the challenge window is
+// their window to undelegate as much as it is the old key's window to object —
+// a rotation that only showed up in a query nobody thought to run would take
+// that away from both of them.
+
+// EventRotationProposed is emitted when a rotation is opened, by either path.
+message EventRotationProposed {
+  uint64 rotation_id = 1;
+  string current_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string proposer = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  RotationKind kind = 5;
+  string reason = 6;
+
+  // completes_at_height is zero for a recovery that has not been approved yet,
+  // because no clock is running on it.
+  int64 completes_at_height = 7;
+}
+
+// EventRecoveryApproved is emitted when the admission quorum agrees to a
+// recovery. This is the moment the validator is paused and the challenge window
+// starts, so it is the moment anybody watching needs to hear about.
+message EventRecoveryApproved {
+  uint64 rotation_id = 1;
+  string current_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 completes_at_height = 4;
+
+  // validator_paused is false when there was no validator to pause — an
+  // approved candidate who never created one — or when it was already jailed
+  // for something else.
+  bool validator_paused = 5;
+}
+
+// EventRotationResolved is emitted once, when a rotation reaches its final
+// status, including when it is vetoed by the old key signing.
+message EventRotationResolved {
+  uint64 rotation_id = 1;
+  string current_operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string new_operator = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  RotationKind kind = 4;
+  RotationStatus status = 5;
+}

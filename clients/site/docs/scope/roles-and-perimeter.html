@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles, stakeholders and jurisdictional perimeter — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Roles, stakeholders and jurisdictional perimeter</h1>
+<p>It answers one requirement from the revised scope: multiple stakeholders hold
+roles that are bounded by country, so a national authority can act on its own
+jurisdiction&#39;s accounts and records and on nobody else&#39;s.</p>
+<p><strong>Status.</strong> Piece 1 below — the jurisdiction on the account, the country prefix
+in the identifier, and both of the decided rules — is built, in <code>x/alias</code>.
+Pieces 2 and 3 — role grants and the single <code>AssertScope</code> every authority action
+routes through — are still a design. The registry the roles will be scoped
+against exists and is queryable, which is the part that had to come first: a
+grant naming a country is meaningless until the chain knows which country an
+account is in.</p>
+<hr>
+<h2>The requirement</h2>
+<p>A deployment carries many kinds of actor — a central bank, a lands commission, a
+supervisor, commercial participants, agents, ordinary users. Their powers are not
+chain-wide. Ghana&#39;s lands commission has no business freezing a Kenyan parcel,
+and Nigeria&#39;s central bank has no business acting on a Senegalese account. The
+chain must be able to <em>refuse</em> those actions, not merely discourage them.</p>
+<p>So the perimeter has to be known to the state machine, and it has to be attached
+to the account.</p>
+<h2>The country code goes in the identifier, not the address</h2>
+<p><strong>Decided.</strong> The visible country marker is real and required — sovereignty is the
+point of the deployment, and an operator must be able to see at a glance which
+perimeter an account belongs to. It lives in the <code>x/alias</code> identifier:</p>
+<pre><code>NG-K3M9-7QRT-B
+</code></pre>
+<p>Not in the address, for a reason that is concrete rather than aesthetic.</p>
+<p>A bech32 address is <code>yml1</code> followed by the base32 encoding of a <strong>hash of the
+public key</strong>. Nothing in it is chosen; it is derived. And <strong>bech32 has no <code>b</code>, no
+<code>i</code> and no <code>o</code></strong> — they are excluded from its alphabet. So <code>BEN</code>, <code>CIV</code>, <code>MOZ</code>,
+<code>SOM</code>, <code>GIN</code>, <code>LBR</code>, <code>BFA</code>, <code>COD</code> and <code>TGO</code> cannot be written in an address at
+all. A prefix scheme would have to fall back to an arbitrary token table, at
+which point it is no longer readable and the reason for wanting it is gone.</p>
+<p>The alias does not have that problem, and it is better on every other axis too:</p>
+<ul>
+<li>It is <strong>chain state</strong>, so registration can refuse an alias whose country does
+not match the account&#39;s registered jurisdiction. The marker cannot be a lie,
+because the chain never issues a lying one.</li>
+<li>It uses the <strong>full alphabet</strong>, so every ISO code fits.</li>
+<li>It is <strong>correctable</strong> when somebody moves or a firm redomiciles, without
+reissuing a key.</li>
+<li>It <strong>breaks no tooling</strong> — no forked address codec, no explorer or wallet
+rewrite.</li>
+<li>It is already the thing users read, share and type. In this design the address
+is abstracted away from them entirely.</li>
+</ul>
+<p>The underlying principle still holds and is what rules out the address version:
+<strong>a string is not enforcement.</strong> The chain refuses things by consulting state.
+The alias works precisely because it <em>is</em> state, checked against the jurisdiction
+registry when it is issued.</p>
+<h2>The shape that works</h2>
+<p>Three pieces, each small.</p>
+<h3>1. Jurisdiction on the account record — built</h3>
+<p>Record an ISO 3166-1 alpha-2 country against the account. This system already has
+the right moment to capture it — accounts do not appear from nowhere here. A user
+is onboarded by an approved participant, which has already performed KYC and
+already knows the country; <code>x/alias</code> already registers an identifier, and
+<code>x/paymsg</code> already registers customers against participants.</p>
+<p>The jurisdiction is <strong>set by the onboarding participant, not self-declared</strong>, and
+changed only by an authority, leaving a record. That is what makes it evidence
+rather than a preference.</p>
+<p>The record lives in <strong><code>x/alias</code></strong>, not in <code>x/paymsg</code>, though the participant is
+still the one who writes it. Two reasons. The perimeter has to be readable by
+every module that refuses an out-of-perimeter action — the land registry,
+enforcement, stablecoin issuance — and none of them should have to ask the
+payments module where an account is. And a jurisdiction keyed on the customer
+record would be undefined for every account that is not somebody&#39;s payment
+customer: validators, registry offices, treasury signers. Those are exactly the
+unclaimed states the rules below abolish. <code>x/alias</code> reads a two-method,
+read-only view of <code>x/paymsg</code> to check who onboarded an account; the dependency
+runs one way and moves no money.</p>
+<p>A correction retires the account&#39;s identifier and issues a replacement in the
+same message. It has to: the prefix would otherwise name a country the chain no
+longer records, and a prefix that can go stale is a prefix that can lie. Every
+existing property of the module survives — the old identifier is tombstoned
+rather than repointed, and is never issued again.</p>
+<h3>2. Roles scoped to a jurisdiction — not yet built</h3>
+<p>A grant is a triple — <strong>who, what role, where</strong>:</p>
+<pre><code>(yml1lands…, REGISTRY_AUTHORITY,   GH)
+(yml1cbn…,   MONETARY_AUTHORITY,   NG)
+(yml1audit…, SUPERVISOR,           *)
+</code></pre>
+<p><code>*</code> means chain-wide and should be rare, granted visibly, and listed on the
+governance console precisely because it is the exception.</p>
+<p>Roles are held by <code>x/group</code> accounts wherever a decision matters, so an authority
+action is M-of-N rather than one official — which is already how <code>x/land</code> treats
+registry offices, and the same reasoning applies everywhere else.</p>
+<h3>3. One check, called everywhere — not yet built</h3>
+<p>A single keeper function — <code>AssertScope(ctx, actor, role, target)</code> — resolves the
+target&#39;s jurisdiction and refuses when the actor&#39;s grant does not cover it. Every
+authority action routes through it: registering, validating and freezing in
+<code>x/land</code>; freezing and opening cases in <code>x/enforcement</code>; issuer approval in
+<code>x/stablecoin</code>; participant approval in <code>x/paymsg</code>.</p>
+<p>One function, because a perimeter enforced in eleven places is a perimeter with
+eleven ways to be wrong.</p>
+<h2>Two rules, decided</h2>
+<p><strong>Every account has a jurisdiction. There is exactly one exception.</strong> <em>(Built.)</em>
+Registration refuses an account with no country recorded — not a permissive
+default, a refusal. The only accounts without one are the <strong>foundation
+administrators</strong>, the highest authority on the rail, who hold the chain-wide <code>*</code>
+scope. There is therefore no ambiguous unclaimed state for anyone to reason about
+or exploit, and no migration limbo in which the perimeter is advisory.</p>
+<p>The identifiers issued before this existed are prefixless, and there was no
+source of truth to give them a country from — the registry is what the change
+introduces, so any prefix written for them would have been invented. They are
+therefore <strong>tombstoned</strong> by the module&#39;s v1-to-v2 migration: they stop resolving
+at the upgrade height, and the account registers again once its participant has
+recorded where it is. Tombstoned rather than deleted, because somebody has an
+old handle written down and &quot;this was given up&quot; is a truthful answer to them
+where &quot;never existed&quot; is not.</p>
+<p><strong>A cross-border deal names its settlement jurisdiction, and that authority
+enforces.</strong> A payment from Nigeria to Ghana touches two perimeters, so both
+endpoint authorities may <em>see</em> it. Only the authority of the <strong>declared
+settlement jurisdiction</strong> may <em>act</em> on it. One declaration, no contest over who
+has standing, and the record shows which authority acted.</p>
+<p>That same declaration does a second job: it names the regulator who holds the
+third viewing key over the payment&#39;s encrypted payload. See
+<a href="confidentiality.html">confidentiality.md</a>. One field, two consistent consequences
+— which is the sign that it is the right field.</p>
+<h2>The connection to concentration caps</h2>
+<p>This is the same structural point as the caps in §4 of the revised scope, in a
+different costume. A jurisdiction stamped once at account creation and never
+re-examined is an <em>event</em>; a perimeter is a <em>state</em>. The check must run at the
+moment of every action, against current state, or it protects only the moment it
+ran.</p>
+
+</main>
+</body>
+</html>

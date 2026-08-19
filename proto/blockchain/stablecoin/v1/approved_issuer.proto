@@ -1,0 +1,10 @@
+syntax = "proto3";
+package blockchain.stablecoin.v1;
+
+option go_package = "yamale/blockchain/x/stablecoin/types";
+
+// ApprovedIssuer defines the ApprovedIssuer message.
+message ApprovedIssuer {
+  string denom = 1;
+  string issuer = 2;
+}

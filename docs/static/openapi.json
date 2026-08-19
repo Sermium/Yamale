@@ -1,0 +1,5562 @@
+{
+  "id": "openapi",
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "contact": {
+      "name": "yamale/blockchain"
+    },
+    "description": "Chain yamale/blockchain REST API",
+    "title": "HTTP API Console",
+    "version": "version not set"
+  },
+  "paths": {
+    "/blockchain/tokenisation/v1/assets": {
+      "get": {
+        "operationId": "Query_Assets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAssetsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/blockchain/tokenisation/v1/assets/{asset_id}": {
+      "get": {
+        "operationId": "Query_Asset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAssetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}": {
+      "get": {
+        "operationId": "Query_Entitlement",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryEntitlementResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "holder",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/blockchain/tokenisation/v1/collections": {
+      "get": {
+        "operationId": "Query_Collections",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCollectionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/blockchain/tokenisation/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/alias/{id}": {
+      "get": {
+        "operationId": "Query_Alias",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAliasResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "id in any form the client has it: hyphenated, lower case, with the\nconfusable characters unfolded. The module normalises before looking up.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/alias_of/{address}": {
+      "get": {
+        "operationId": "Query_AliasOf",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAliasOfResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/jurisdiction/{address}": {
+      "get": {
+        "operationId": "Query_Jurisdiction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJurisdictionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/perimeter/{country}": {
+      "get": {
+        "operationId": "Query_Perimeter",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPerimeterResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "country",
+            "description": "country is an ISO 3166-1 alpha-2 code, in any case.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/retired/{id}": {
+      "get": {
+        "operationId": "Query_Retired",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRetiredResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/amm/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/amm/v1/pool": {
+      "get": {
+        "operationId": "Query_ListPool",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllPoolResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/amm/v1/pool/{id}": {
+      "get": {
+        "operationId": "Query_GetPool",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetPoolResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/builderfee/v1/approved_builder": {
+      "get": {
+        "operationId": "Query_ListApprovedBuilder",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllApprovedBuilderResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/builderfee/v1/approved_builder_by_msg_type": {
+      "get": {
+        "operationId": "Query_GetApprovedBuilder",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetApprovedBuilderResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "msg_type_url",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/builderfee/v1/builder_application": {
+      "get": {
+        "operationId": "Query_ListBuilderApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllBuilderApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/builderfee/v1/builder_application_by_msg_type": {
+      "get": {
+        "operationId": "Query_GetBuilderApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetBuilderApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "msg_type_url",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/builderfee/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/custody/v1/assets": {
+      "get": {
+        "operationId": "Query_Assets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAssetsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/custody/v1/deposit": {
+      "get": {
+        "operationId": "Query_Deposit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDepositResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/custody/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/custody/v1/redemption/{id}": {
+      "get": {
+        "operationId": "Query_Redemption",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRedemptionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/custody/v1/solvency": {
+      "get": {
+        "operationId": "Query_Solvency",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QuerySolvencyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/emission/v1/emission_state": {
+      "get": {
+        "operationId": "Query_GetEmissionState",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetEmissionStateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/emission/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/case": {
+      "get": {
+        "operationId": "Query_ListCase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListCaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/case/open": {
+      "get": {
+        "operationId": "Query_OpenCases",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryOpenCasesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/case/{case_id}/votes": {
+      "get": {
+        "operationId": "Query_CaseVotes",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCaseVotesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/case/{id}": {
+      "get": {
+        "operationId": "Query_GetCase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetCaseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/freeze": {
+      "get": {
+        "operationId": "Query_ListFreeze",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListFreezeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/freeze/{address}": {
+      "get": {
+        "operationId": "Query_FreezeStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryFreezeStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/enforcement/v1/recovered": {
+      "get": {
+        "operationId": "Query_Recovered",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRecoveredResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/authorities": {
+      "get": {
+        "operationId": "Query_Authorities",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAuthoritiesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/fractionalisation_authority/{parcel_id}": {
+      "get": {
+        "operationId": "Query_FractionalisationAuthority",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryFractionalisationAuthorityResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/parcel/{id}": {
+      "get": {
+        "operationId": "Query_Parcel",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParcelResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/parcel_by_geometry": {
+      "get": {
+        "operationId": "Query_ParcelByGeometry",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParcelByGeometryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "geometry_hash",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/parcel_by_ref": {
+      "get": {
+        "operationId": "Query_ParcelByRef",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParcelByRefResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cadastral_ref",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/parcels_by_holder/{holder}": {
+      "get": {
+        "operationId": "Query_ParcelsByHolder",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParcelsByHolderResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "holder",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/pending_transfers": {
+      "get": {
+        "operationId": "Query_PendingTransfers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPendingTransfersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/transfer/{id}": {
+      "get": {
+        "operationId": "Query_Transfer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryTransferResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/land/v1/transfers_by_parcel/{parcel_id}": {
+      "get": {
+        "operationId": "Query_TransfersByParcel",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryTransfersByParcelResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/appraisal": {
+      "get": {
+        "operationId": "Query_Appraisal",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAppraisalResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "nft_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/appraisal_history": {
+      "get": {
+        "operationId": "Query_AppraisalHistory",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAppraisalHistoryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "nft_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/appraiser": {
+      "get": {
+        "operationId": "Query_ListAppraiser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListAppraiserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/appraiser/{address}": {
+      "get": {
+        "operationId": "Query_GetAppraiser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetAppraiserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/feeder/{validator}": {
+      "get": {
+        "operationId": "Query_FeederDelegation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryFeederDelegationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "validator",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/miss": {
+      "get": {
+        "operationId": "Query_MissCounters",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryMissCountersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/rate": {
+      "get": {
+        "operationId": "Query_ExchangeRates",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryExchangeRatesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/oracle/v1/rate_by_denom": {
+      "get": {
+        "operationId": "Query_ExchangeRate",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryExchangeRateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/approved_participant": {
+      "get": {
+        "operationId": "Query_ListApprovedParticipant",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllApprovedParticipantResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/approved_participant/{participant}": {
+      "get": {
+        "operationId": "Query_GetApprovedParticipant",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetApprovedParticipantResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "participant",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/participant_application": {
+      "get": {
+        "operationId": "Query_ListParticipantApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllParticipantApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/participant_application/{creator}": {
+      "get": {
+        "operationId": "Query_GetParticipantApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetParticipantApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "creator",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/payment_record": {
+      "get": {
+        "operationId": "Query_ListPaymentRecord",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllPaymentRecordResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/paymsg/v1/payment_record_by_id": {
+      "get": {
+        "operationId": "Query_GetPaymentRecord",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetPaymentRecordResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "end_to_end_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "instructing_participant",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/stablecoin/v1/approved_issuer": {
+      "get": {
+        "operationId": "Query_ListApprovedIssuer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllApprovedIssuerResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/stablecoin/v1/approved_issuer_by_denom": {
+      "get": {
+        "operationId": "Query_GetApprovedIssuer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetApprovedIssuerResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/stablecoin/v1/issuer_application": {
+      "get": {
+        "operationId": "Query_ListIssuerApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllIssuerApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/stablecoin/v1/issuer_application_by_denom": {
+      "get": {
+        "operationId": "Query_GetIssuerApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetIssuerApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/stablecoin/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/beneficiary/{beneficiary}/locks": {
+      "get": {
+        "operationId": "Query_LocksByBeneficiary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryLocksByBeneficiaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "beneficiary",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/lock": {
+      "get": {
+        "operationId": "Query_ListLock",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllLockResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/lock/{id}": {
+      "get": {
+        "operationId": "Query_GetLock",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetLockResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/lock/{lock_id}/claimable": {
+      "get": {
+        "operationId": "Query_ClaimableAmount",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryClaimableAmountResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "lock_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury": {
+      "get": {
+        "operationId": "Query_ListTreasury",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllTreasuryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{id}": {
+      "get": {
+        "operationId": "Query_GetTreasury",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetTreasuryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/balances": {
+      "get": {
+        "operationId": "Query_TreasuryBalances",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryTreasuryBalancesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "treasury_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/capacity": {
+      "get": {
+        "operationId": "Query_SpendCapacity",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QuerySpendCapacityResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "treasury_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "denom",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/locks": {
+      "get": {
+        "operationId": "Query_LocksByTreasury",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryLocksByTreasuryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "treasury_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/policy": {
+      "get": {
+        "operationId": "Query_GetSpendPolicy",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetSpendPolicyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "treasury_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "denom",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/roles": {
+      "get": {
+        "operationId": "Query_ListRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListRoleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "treasury_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/approved_validator": {
+      "get": {
+        "operationId": "Query_ListApprovedValidator",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllApprovedValidatorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/approved_validator/{candidate}": {
+      "get": {
+        "operationId": "Query_GetApprovedValidator",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetApprovedValidatorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidate",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/operator_rotation": {
+      "get": {
+        "operationId": "Query_ListOperatorRotation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllOperatorRotationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/operator_rotation/{id}": {
+      "get": {
+        "operationId": "Query_GetOperatorRotation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetOperatorRotationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/pending_operator_rotation/{current_operator}": {
+      "get": {
+        "operationId": "Query_PendingOperatorRotation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPendingOperatorRotationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "current_operator",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/validator_application": {
+      "get": {
+        "operationId": "Query_ListValidatorApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAllValidatorApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/validatorgov/v1/validator_application/{candidate}": {
+      "get": {
+        "operationId": "Query_GetValidatorApplication",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryGetValidatorApplicationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidate",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "Any": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "Appraiser": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "credentials": {
+          "type": "string"
+        },
+        "class_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/AppraiserStatus"
+        },
+        "approved_at_height": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "AppraiserStatus": {
+      "type": "string",
+      "enum": [
+        "APPRAISER_STATUS_UNSPECIFIED",
+        "APPRAISER_STATUS_PENDING",
+        "APPRAISER_STATUS_APPROVED",
+        "APPRAISER_STATUS_REJECTED"
+      ],
+      "default": "APPRAISER_STATUS_UNSPECIFIED"
+    },
+    "ApprovedBuilder": {
+      "type": "object",
+      "properties": {
+        "msg_type_url": {
+          "type": "string"
+        },
+        "payout_address": {
+          "type": "string"
+        }
+      }
+    },
+    "ApprovedIssuer": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        }
+      }
+    },
+    "ApprovedParticipant": {
+      "type": "object",
+      "properties": {
+        "participant": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "ApprovedValidator": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "approved": {
+          "type": "string"
+        }
+      }
+    },
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "source_chain": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "exponent": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Authority": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "BuilderApplication": {
+      "type": "object",
+      "properties": {
+        "msg_type_url": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "payout_address": {
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        }
+      }
+    },
+    "Case": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "target": {
+          "type": "string"
+        },
+        "opener": {
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/definitions/CaseAction"
+        },
+        "status": {
+          "$ref": "#/definitions/CaseStatus"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence_uri": {
+          "type": "string"
+        },
+        "evidence_hash": {
+          "type": "string"
+        },
+        "opened_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "voting_ends_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "resolved_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "total_power_at_open": {
+          "type": "string",
+          "format": "int64"
+        },
+        "yes_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "no_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "abstain_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "recovered": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "sweep_complete": {
+          "type": "boolean"
+        },
+        "emergency": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CaseAction": {
+      "type": "string",
+      "enum": [
+        "CASE_ACTION_UNSPECIFIED",
+        "CASE_ACTION_FREEZE",
+        "CASE_ACTION_SEIZE"
+      ],
+      "default": "CASE_ACTION_UNSPECIFIED"
+    },
+    "CaseStatus": {
+      "type": "string",
+      "enum": [
+        "CASE_STATUS_UNSPECIFIED",
+        "CASE_STATUS_VOTING",
+        "CASE_STATUS_PASSED",
+        "CASE_STATUS_REJECTED",
+        "CASE_STATUS_EXPIRED",
+        "CASE_STATUS_WITHDRAWN",
+        "CASE_STATUS_REVERSED"
+      ],
+      "default": "CASE_STATUS_UNSPECIFIED"
+    },
+    "Coin": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "Collection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/definitions/VerificationMode"
+        },
+        "attestation_threshold": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "challenge_window_seconds": {
+          "type": "string",
+          "format": "int64"
+        },
+        "dispute_bond_bps": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "Deed": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "document_hash": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "issued_on": {
+          "type": "string"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "DenomBalance": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "total": {
+          "type": "string"
+        },
+        "locked": {
+          "type": "string"
+        },
+        "available": {
+          "type": "string"
+        }
+      }
+    },
+    "DepositStatus": {
+      "type": "string",
+      "enum": [
+        "DEPOSIT_STATUS_UNSPECIFIED",
+        "DEPOSIT_STATUS_PENDING",
+        "DEPOSIT_STATUS_CREDITED",
+        "DEPOSIT_STATUS_REJECTED"
+      ],
+      "default": "DEPOSIT_STATUS_UNSPECIFIED"
+    },
+    "DisputeState": {
+      "type": "string",
+      "enum": [
+        "DISPUTE_STATE_NONE",
+        "DISPUTE_STATE_OPEN",
+        "DISPUTE_STATE_RESOLVED"
+      ],
+      "default": "DISPUTE_STATE_NONE"
+    },
+    "EmissionState": {
+      "type": "object",
+      "properties": {
+        "current_provisions_per_block": {
+          "type": "string"
+        },
+        "last_reduction_period": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "Encumbrance": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "holder": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "released": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Freeze": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "imposed_by": {
+          "type": "string"
+        },
+        "imposed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "lifted": {
+          "type": "boolean"
+        },
+        "lifted_by": {
+          "type": "string"
+        },
+        "lift_reason": {
+          "type": "string"
+        },
+        "lifted_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "IssuerApplication": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "display_denom": {
+          "type": "string"
+        },
+        "exponent": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "Lock": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "treasury_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "beneficiary": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "total_amount": {
+          "type": "string"
+        },
+        "released_amount": {
+          "type": "string"
+        },
+        "start_time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "cliff_time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "end_time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "release_intervals": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "lock_type": {
+          "$ref": "#/definitions/LockType"
+        },
+        "revocable": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "created_at_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "depositor": {
+          "type": "string"
+        },
+        "moderator": {
+          "type": "string"
+        },
+        "dispute": {
+          "$ref": "#/definitions/DisputeState"
+        },
+        "dispute_reason": {
+          "type": "string"
+        },
+        "dispute_opened_by": {
+          "type": "string"
+        }
+      }
+    },
+    "LockType": {
+      "type": "string",
+      "enum": [
+        "LOCK_TYPE_UNSPECIFIED",
+        "LOCK_TYPE_TIME",
+        "LOCK_TYPE_VESTING",
+        "LOCK_TYPE_CONDITIONAL"
+      ],
+      "default": "LOCK_TYPE_UNSPECIFIED"
+    },
+    "MissCounter": {
+      "type": "object",
+      "properties": {
+        "validator": {
+          "type": "string"
+        },
+        "misses": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "windows": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "OperatorRotation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "current_operator": {
+          "type": "string"
+        },
+        "new_operator": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/RotationKind"
+        },
+        "status": {
+          "$ref": "#/definitions/RotationStatus"
+        },
+        "proposer": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "approved": {
+          "type": "boolean"
+        },
+        "opened_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "completes_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "resolved_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "paused_validator": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PageRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "offset": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "count_total": {
+          "type": "boolean"
+        },
+        "reverse": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PageResponse": {
+      "type": "object",
+      "properties": {
+        "next_key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "total": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "ParticipantApplication": {
+      "type": "object",
+      "properties": {
+        "creator": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "PaymentRecord": {
+      "type": "object",
+      "properties": {
+        "end_to_end_id": {
+          "type": "string"
+        },
+        "instructing_participant": {
+          "type": "string"
+        },
+        "instructed_participant": {
+          "type": "string"
+        },
+        "debtor": {
+          "type": "string"
+        },
+        "creditor": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "purpose_code": {
+          "type": "string"
+        },
+        "remittance_information": {
+          "type": "string"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "amount_commitment": {
+          "type": "string",
+          "format": "byte"
+        },
+        "metadata_hash": {
+          "type": "string",
+          "format": "byte"
+        },
+        "settlement_jurisdiction": {
+          "type": "string"
+        }
+      }
+    },
+    "Pool": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom_a": {
+          "type": "string"
+        },
+        "denom_b": {
+          "type": "string"
+        },
+        "reserve_a": {
+          "type": "string"
+        },
+        "reserve_b": {
+          "type": "string"
+        },
+        "total_shares": {
+          "type": "string"
+        },
+        "swap_fee_bps": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "QueryAliasOfResponse": {
+      "type": "object",
+      "properties": {
+        "alias": {
+          "$ref": "#/definitions/v1.Alias"
+        }
+      }
+    },
+    "QueryAliasResponse": {
+      "type": "object",
+      "properties": {
+        "alias": {
+          "$ref": "#/definitions/v1.Alias"
+        }
+      }
+    },
+    "QueryAllApprovedBuilderResponse": {
+      "type": "object",
+      "properties": {
+        "approved_builder": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ApprovedBuilder"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllApprovedIssuerResponse": {
+      "type": "object",
+      "properties": {
+        "approved_issuer": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ApprovedIssuer"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllApprovedParticipantResponse": {
+      "type": "object",
+      "properties": {
+        "approved_participant": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ApprovedParticipant"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllApprovedValidatorResponse": {
+      "type": "object",
+      "properties": {
+        "approved_validator": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ApprovedValidator"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllBuilderApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "builder_application": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/BuilderApplication"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllIssuerApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "issuer_application": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/IssuerApplication"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllLockResponse": {
+      "type": "object",
+      "properties": {
+        "lock": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Lock"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllOperatorRotationResponse": {
+      "type": "object",
+      "properties": {
+        "operator_rotation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/OperatorRotation"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllParticipantApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "participant_application": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ParticipantApplication"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllPaymentRecordResponse": {
+      "type": "object",
+      "properties": {
+        "payment_record": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PaymentRecord"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllPoolResponse": {
+      "type": "object",
+      "properties": {
+        "pool": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Pool"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllTreasuryResponse": {
+      "type": "object",
+      "properties": {
+        "treasury": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Treasury"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAllValidatorApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "validator_application": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ValidatorApplication"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAppraisalHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "appraisals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Appraisal"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAppraisalResponse": {
+      "type": "object",
+      "properties": {
+        "appraisal": {
+          "$ref": "#/definitions/v1.Appraisal"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "age_seconds": {
+          "type": "string",
+          "format": "int64"
+        },
+        "appraiser_still_approved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "QueryAssetResponse": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "$ref": "#/definitions/v1.Asset"
+        },
+        "vault": {
+          "$ref": "#/definitions/Vault"
+        },
+        "sale": {
+          "$ref": "#/definitions/SaleReport"
+        }
+      }
+    },
+    "QueryAssetsResponse": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Asset"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryAuthoritiesResponse": {
+      "type": "object",
+      "properties": {
+        "authorities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Authority"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryCaseVotesResponse": {
+      "type": "object",
+      "properties": {
+        "votes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Vote"
+          }
+        },
+        "yes_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "no_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "abstain_power": {
+          "type": "string",
+          "format": "int64"
+        },
+        "total_power_at_open": {
+          "type": "string",
+          "format": "int64"
+        },
+        "required_power": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "QueryClaimableAmountResponse": {
+      "type": "object",
+      "properties": {
+        "claimable": {
+          "type": "string"
+        },
+        "vested": {
+          "type": "string"
+        },
+        "remaining": {
+          "type": "string"
+        }
+      }
+    },
+    "QueryCollectionsResponse": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Collection"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryDepositResponse": {
+      "type": "object",
+      "properties": {
+        "deposit": {
+          "$ref": "#/definitions/v1.Deposit"
+        }
+      }
+    },
+    "QueryEntitlementResponse": {
+      "type": "object",
+      "properties": {
+        "owed": {
+          "$ref": "#/definitions/Coin"
+        }
+      }
+    },
+    "QueryExchangeRateResponse": {
+      "type": "object",
+      "properties": {
+        "rate": {
+          "$ref": "#/definitions/v1.ExchangeRate"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "age_seconds": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "QueryExchangeRatesResponse": {
+      "type": "object",
+      "properties": {
+        "rates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.ExchangeRate"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryFeederDelegationResponse": {
+      "type": "object",
+      "properties": {
+        "feeder": {
+          "type": "string"
+        }
+      }
+    },
+    "QueryFractionalisationAuthorityResponse": {
+      "type": "object",
+      "properties": {
+        "authorisation": {
+          "$ref": "#/definitions/v1.FractionalisationAuthority"
+        },
+        "live": {
+          "type": "boolean"
+        }
+      }
+    },
+    "QueryFreezeStatusResponse": {
+      "type": "object",
+      "properties": {
+        "frozen": {
+          "type": "boolean"
+        },
+        "freeze": {
+          "$ref": "#/definitions/Freeze"
+        },
+        "case": {
+          "$ref": "#/definitions/Case"
+        }
+      }
+    },
+    "QueryGetAppraiserResponse": {
+      "type": "object",
+      "properties": {
+        "appraiser": {
+          "$ref": "#/definitions/Appraiser"
+        }
+      }
+    },
+    "QueryGetApprovedBuilderResponse": {
+      "type": "object",
+      "properties": {
+        "approved_builder": {
+          "$ref": "#/definitions/ApprovedBuilder"
+        }
+      }
+    },
+    "QueryGetApprovedIssuerResponse": {
+      "type": "object",
+      "properties": {
+        "approved_issuer": {
+          "$ref": "#/definitions/ApprovedIssuer"
+        }
+      }
+    },
+    "QueryGetApprovedParticipantResponse": {
+      "type": "object",
+      "properties": {
+        "approved_participant": {
+          "$ref": "#/definitions/ApprovedParticipant"
+        }
+      }
+    },
+    "QueryGetApprovedValidatorResponse": {
+      "type": "object",
+      "properties": {
+        "approved_validator": {
+          "$ref": "#/definitions/ApprovedValidator"
+        }
+      }
+    },
+    "QueryGetBuilderApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "builder_application": {
+          "$ref": "#/definitions/BuilderApplication"
+        }
+      }
+    },
+    "QueryGetCaseResponse": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "$ref": "#/definitions/Case"
+        },
+        "votes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Vote"
+          }
+        }
+      }
+    },
+    "QueryGetEmissionStateResponse": {
+      "type": "object",
+      "properties": {
+        "emission_state": {
+          "$ref": "#/definitions/EmissionState"
+        }
+      }
+    },
+    "QueryGetIssuerApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "issuer_application": {
+          "$ref": "#/definitions/IssuerApplication"
+        }
+      }
+    },
+    "QueryGetLockResponse": {
+      "type": "object",
+      "properties": {
+        "lock": {
+          "$ref": "#/definitions/Lock"
+        }
+      }
+    },
+    "QueryGetOperatorRotationResponse": {
+      "type": "object",
+      "properties": {
+        "operator_rotation": {
+          "$ref": "#/definitions/OperatorRotation"
+        }
+      }
+    },
+    "QueryGetParticipantApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "participant_application": {
+          "$ref": "#/definitions/ParticipantApplication"
+        }
+      }
+    },
+    "QueryGetPaymentRecordResponse": {
+      "type": "object",
+      "properties": {
+        "payment_record": {
+          "$ref": "#/definitions/PaymentRecord"
+        }
+      }
+    },
+    "QueryGetPoolResponse": {
+      "type": "object",
+      "properties": {
+        "pool": {
+          "$ref": "#/definitions/Pool"
+        }
+      }
+    },
+    "QueryGetSpendPolicyResponse": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "$ref": "#/definitions/SpendPolicy"
+        }
+      }
+    },
+    "QueryGetTreasuryResponse": {
+      "type": "object",
+      "properties": {
+        "treasury": {
+          "$ref": "#/definitions/Treasury"
+        }
+      }
+    },
+    "QueryGetValidatorApplicationResponse": {
+      "type": "object",
+      "properties": {
+        "validator_application": {
+          "$ref": "#/definitions/ValidatorApplication"
+        }
+      }
+    },
+    "QueryJurisdictionResponse": {
+      "type": "object",
+      "properties": {
+        "jurisdiction": {
+          "$ref": "#/definitions/v1.Jurisdiction"
+        }
+      }
+    },
+    "QueryListAppraiserResponse": {
+      "type": "object",
+      "properties": {
+        "appraisers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Appraiser"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryListCaseResponse": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Case"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryListFreezeResponse": {
+      "type": "object",
+      "properties": {
+        "freeze": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Freeze"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryListRoleResponse": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/RoleAssignment"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryLocksByBeneficiaryResponse": {
+      "type": "object",
+      "properties": {
+        "lock": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Lock"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryLocksByTreasuryResponse": {
+      "type": "object",
+      "properties": {
+        "lock": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Lock"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryMissCountersResponse": {
+      "type": "object",
+      "properties": {
+        "counters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/MissCounter"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryOpenCasesResponse": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Case"
+          }
+        }
+      }
+    },
+    "QueryParamsResponse": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "$ref": "#/definitions/v1.Params"
+        }
+      }
+    },
+    "QueryParcelByGeometryResponse": {
+      "type": "object",
+      "properties": {
+        "parcel": {
+          "$ref": "#/definitions/v1.Parcel"
+        }
+      }
+    },
+    "QueryParcelByRefResponse": {
+      "type": "object",
+      "properties": {
+        "parcel": {
+          "$ref": "#/definitions/v1.Parcel"
+        }
+      }
+    },
+    "QueryParcelResponse": {
+      "type": "object",
+      "properties": {
+        "parcel": {
+          "$ref": "#/definitions/v1.Parcel"
+        }
+      }
+    },
+    "QueryParcelsByHolderResponse": {
+      "type": "object",
+      "properties": {
+        "parcels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Parcel"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryPendingOperatorRotationResponse": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "operator_rotation": {
+          "$ref": "#/definitions/OperatorRotation"
+        }
+      }
+    },
+    "QueryPendingTransfersResponse": {
+      "type": "object",
+      "properties": {
+        "transfers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Transfer"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryPerimeterResponse": {
+      "type": "object",
+      "properties": {
+        "jurisdictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Jurisdiction"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryRecoveredResponse": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "cases_opened": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "cases_passed": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "QueryRedemptionResponse": {
+      "type": "object",
+      "properties": {
+        "redemption": {
+          "$ref": "#/definitions/v1.Redemption"
+        }
+      }
+    },
+    "QueryRetiredResponse": {
+      "type": "object",
+      "properties": {
+        "retired": {
+          "type": "boolean"
+        }
+      }
+    },
+    "QuerySolvencyResponse": {
+      "type": "object",
+      "properties": {
+        "solvency": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Solvency"
+          }
+        }
+      }
+    },
+    "QuerySpendCapacityResponse": {
+      "type": "object",
+      "properties": {
+        "remaining_this_period": {
+          "type": "string"
+        },
+        "available": {
+          "type": "string"
+        },
+        "per_transaction_limit": {
+          "type": "string"
+        },
+        "period_resets_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "QueryTransferResponse": {
+      "type": "object",
+      "properties": {
+        "transfer": {
+          "$ref": "#/definitions/v1.Transfer"
+        }
+      }
+    },
+    "QueryTransfersByParcelResponse": {
+      "type": "object",
+      "properties": {
+        "transfers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Transfer"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryTreasuryBalancesResponse": {
+      "type": "object",
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/DenomBalance"
+          }
+        }
+      }
+    },
+    "RedemptionStatus": {
+      "type": "string",
+      "enum": [
+        "REDEMPTION_STATUS_UNSPECIFIED",
+        "REDEMPTION_STATUS_PENDING",
+        "REDEMPTION_STATUS_SETTLED",
+        "REDEMPTION_STATUS_CANCELLED"
+      ],
+      "default": "REDEMPTION_STATUS_UNSPECIFIED"
+    },
+    "Restriction": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "imposed_by": {
+          "type": "string"
+        },
+        "imposed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "lifted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Role": {
+      "type": "string",
+      "enum": [
+        "ROLE_UNSPECIFIED",
+        "ROLE_ADMIN",
+        "ROLE_SPENDER",
+        "ROLE_PAUSER"
+      ],
+      "default": "ROLE_UNSPECIFIED"
+    },
+    "RoleAssignment": {
+      "type": "object",
+      "properties": {
+        "treasury_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "address": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/Role"
+        }
+      }
+    },
+    "RotationKind": {
+      "type": "string",
+      "enum": [
+        "ROTATION_KIND_UNSPECIFIED",
+        "ROTATION_KIND_PLANNED",
+        "ROTATION_KIND_RECOVERY"
+      ],
+      "default": "ROTATION_KIND_UNSPECIFIED"
+    },
+    "RotationStatus": {
+      "type": "string",
+      "enum": [
+        "ROTATION_STATUS_UNSPECIFIED",
+        "ROTATION_STATUS_PENDING",
+        "ROTATION_STATUS_COMPLETED",
+        "ROTATION_STATUS_CANCELLED",
+        "ROTATION_STATUS_VETOED",
+        "ROTATION_STATUS_REJECTED"
+      ],
+      "default": "ROTATION_STATUS_UNSPECIFIED"
+    },
+    "SaleReport": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "price": {
+          "$ref": "#/definitions/Coin"
+        },
+        "reporter": {
+          "type": "string"
+        },
+        "reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claimable_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attestors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disputed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SpendPolicy": {
+      "type": "object",
+      "properties": {
+        "treasury_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "per_transaction_limit": {
+          "type": "string"
+        },
+        "period_limit": {
+          "type": "string"
+        },
+        "period_seconds": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocklist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Any"
+          }
+        }
+      }
+    },
+    "Treasury": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "admin": {
+          "type": "string"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "created_at_height": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "ValidatorApplication": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "Vault": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "cumulative_per_token": {
+          "type": "string"
+        },
+        "funded": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "denom": {
+          "type": "string"
+        }
+      }
+    },
+    "VerificationMode": {
+      "type": "string",
+      "enum": [
+        "VERIFICATION_UNSPECIFIED",
+        "VERIFY_VALUER",
+        "VERIFY_ATTESTORS",
+        "VERIFY_GOVERNANCE",
+        "VERIFY_SCHEDULE"
+      ],
+      "default": "VERIFICATION_UNSPECIFIED"
+    },
+    "Vote": {
+      "type": "object",
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "validator": {
+          "type": "string"
+        },
+        "option": {
+          "$ref": "#/definitions/VoteOption"
+        },
+        "power": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "VoteOption": {
+      "type": "string",
+      "enum": [
+        "VOTE_OPTION_UNSPECIFIED",
+        "VOTE_OPTION_YES",
+        "VOTE_OPTION_NO",
+        "VOTE_OPTION_ABSTAIN"
+      ],
+      "default": "VOTE_OPTION_UNSPECIFIED"
+    },
+    "rpc.Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Any"
+          }
+        }
+      }
+    },
+    "v1.Alias": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "registered_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.Appraisal": {
+      "type": "object",
+      "properties": {
+        "class_id": {
+          "type": "string"
+        },
+        "nft_id": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "value_denom": {
+          "type": "string"
+        },
+        "appraiser": {
+          "type": "string"
+        },
+        "valued_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "submitted_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "method": {
+          "type": "string"
+        },
+        "report_uri": {
+          "type": "string"
+        },
+        "report_hash": {
+          "type": "string"
+        },
+        "superseded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1.Asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "collection_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "fraction_denom": {
+          "type": "string"
+        },
+        "holder_share_bps": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/definitions/v1.Status"
+        },
+        "parcel_id": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "v1.Deposit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "external_ref": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/DepositStatus"
+        },
+        "created_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.ExchangeRate": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "rate": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "updated_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "voting_power_bps": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "v1.FractionalisationAuthority": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "right": {
+          "type": "string"
+        },
+        "max_share_bps": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "granted_by": {
+          "type": "string"
+        },
+        "granted_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "withdrawn": {
+          "type": "boolean"
+        },
+        "withdrawn_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.Jurisdiction": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "recorded_by": {
+          "type": "string"
+        },
+        "recorded_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.Params": {
+      "type": "object",
+      "properties": {
+        "planned_rotation_delay_blocks": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "recovery_challenge_window_blocks": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "v1.Parcel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "geometry_hash": {
+          "type": "string"
+        },
+        "cadastral_ref": {
+          "type": "string"
+        },
+        "holder": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1.Status"
+        },
+        "encumbrances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Encumbrance"
+          }
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "deeds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Deed"
+          }
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Restriction"
+          }
+        },
+        "vehicle_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "freezes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Freeze"
+          }
+        }
+      }
+    },
+    "v1.Redemption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "redeemer": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/RedemptionStatus"
+        },
+        "requested_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "payable_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "settled_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "v1.Solvency": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "issued": {
+          "type": "string"
+        },
+        "held": {
+          "type": "string"
+        },
+        "reserve_age_blocks": {
+          "type": "string",
+          "format": "int64"
+        },
+        "solvent": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1.Status": {
+      "type": "string",
+      "enum": [
+        "STATUS_UNSPECIFIED",
+        "STATUS_HELD",
+        "STATUS_ACTIVE",
+        "STATUS_REPORTED",
+        "STATUS_REALISED",
+        "STATUS_CLOSED",
+        "STATUS_DISPUTED"
+      ],
+      "default": "STATUS_UNSPECIFIED"
+    },
+    "v1.Transfer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "parcel_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "validated": {
+          "type": "boolean"
+        },
+        "validated_by": {
+          "type": "string"
+        },
+        "attestors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "quorum_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "objected_by": {
+          "type": "string"
+        },
+        "objection_reason": {
+          "type": "string"
+        },
+        "proposed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}

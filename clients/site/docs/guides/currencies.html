@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Currencies Yamale carries — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Currencies Yamale carries</h1>
+<p>Generated from <code>scripts/currencies/african-currencies.json</code> — do not hand-edit;
+run <code>python scripts/currencies/generate.py</code> after changing the table.</p>
+<p>Yamale carries <strong>44 African currencies</strong> as stablecoins, plus the native
+token <strong>YML</strong>. Every currency is a <code>u</code>-prefixed micro-denomination (exponent 6),
+so 1 XOF = 1,000,000 <code>uxof</code>.</p>
+<h2>The hub model</h2>
+<p>Every currency has exactly one liquidity pool, paired against <strong>YML</strong>. A swap
+between two non-YML currencies routes through YML as the hub — a <em>double hop</em>
+(sell A for YML, buy B with YML). This keeps the market at <strong>44 pools</strong> instead
+of the 946 a full mesh would need, and the app performs the two hops as one action.</p>
+<p>The rate below is indicative — units of the currency per 1 YML (YML stands in
+for 1 USD on the devnet). It seeds both the pool ratio and the oracle price;
+live rates come from the oracle feeder in production.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Currency</th>
+<th>Denom</th>
+<th>Symbol</th>
+<th>Per YML</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>YML</td>
+<td>Yamale (native)</td>
+<td><code>uyml</code></td>
+<td>Y</td>
+<td>1</td>
+</tr>
+<tr>
+<td>XOF</td>
+<td>West African CFA franc</td>
+<td><code>uxof</code></td>
+<td>CFA</td>
+<td>600</td>
+</tr>
+<tr>
+<td>XAF</td>
+<td>Central African CFA franc</td>
+<td><code>uxaf</code></td>
+<td>FCFA</td>
+<td>600</td>
+</tr>
+<tr>
+<td>NGN</td>
+<td>Nigerian Naira</td>
+<td><code>ungn</code></td>
+<td>₦</td>
+<td>1550</td>
+</tr>
+<tr>
+<td>KES</td>
+<td>Kenyan Shilling</td>
+<td><code>ukes</code></td>
+<td>KSh</td>
+<td>129</td>
+</tr>
+<tr>
+<td>ZAR</td>
+<td>South African Rand</td>
+<td><code>uzar</code></td>
+<td>R</td>
+<td>18</td>
+</tr>
+<tr>
+<td>GHS</td>
+<td>Ghanaian Cedi</td>
+<td><code>ughs</code></td>
+<td>₵</td>
+<td>15</td>
+</tr>
+<tr>
+<td>EGP</td>
+<td>Egyptian Pound</td>
+<td><code>uegp</code></td>
+<td>E£</td>
+<td>50</td>
+</tr>
+<tr>
+<td>MAD</td>
+<td>Moroccan Dirham</td>
+<td><code>umad</code></td>
+<td>DH</td>
+<td>10</td>
+</tr>
+<tr>
+<td>DZD</td>
+<td>Algerian Dinar</td>
+<td><code>udzd</code></td>
+<td>DA</td>
+<td>135</td>
+</tr>
+<tr>
+<td>TND</td>
+<td>Tunisian Dinar</td>
+<td><code>utnd</code></td>
+<td>DT</td>
+<td>3</td>
+</tr>
+<tr>
+<td>ETB</td>
+<td>Ethiopian Birr</td>
+<td><code>uetb</code></td>
+<td>Br</td>
+<td>120</td>
+</tr>
+<tr>
+<td>UGX</td>
+<td>Ugandan Shilling</td>
+<td><code>uugx</code></td>
+<td>USh</td>
+<td>3700</td>
+</tr>
+<tr>
+<td>TZS</td>
+<td>Tanzanian Shilling</td>
+<td><code>utzs</code></td>
+<td>TSh</td>
+<td>2600</td>
+</tr>
+<tr>
+<td>RWF</td>
+<td>Rwandan Franc</td>
+<td><code>urwf</code></td>
+<td>FRw</td>
+<td>1350</td>
+</tr>
+<tr>
+<td>ZMW</td>
+<td>Zambian Kwacha</td>
+<td><code>uzmw</code></td>
+<td>ZK</td>
+<td>26</td>
+</tr>
+<tr>
+<td>MZN</td>
+<td>Mozambican Metical</td>
+<td><code>umzn</code></td>
+<td>MT</td>
+<td>64</td>
+</tr>
+<tr>
+<td>AOA</td>
+<td>Angolan Kwanza</td>
+<td><code>uaoa</code></td>
+<td>Kz</td>
+<td>910</td>
+</tr>
+<tr>
+<td>BWP</td>
+<td>Botswana Pula</td>
+<td><code>ubwp</code></td>
+<td>P</td>
+<td>13</td>
+</tr>
+<tr>
+<td>NAD</td>
+<td>Namibian Dollar</td>
+<td><code>unad</code></td>
+<td>N$</td>
+<td>18</td>
+</tr>
+<tr>
+<td>MUR</td>
+<td>Mauritian Rupee</td>
+<td><code>umur</code></td>
+<td>₨</td>
+<td>46</td>
+</tr>
+<tr>
+<td>GMD</td>
+<td>Gambian Dalasi</td>
+<td><code>ugmd</code></td>
+<td>D</td>
+<td>70</td>
+</tr>
+<tr>
+<td>GNF</td>
+<td>Guinean Franc</td>
+<td><code>ugnf</code></td>
+<td>FG</td>
+<td>8600</td>
+</tr>
+<tr>
+<td>LRD</td>
+<td>Liberian Dollar</td>
+<td><code>ulrd</code></td>
+<td>L$</td>
+<td>193</td>
+</tr>
+<tr>
+<td>SLE</td>
+<td>Sierra Leonean Leone</td>
+<td><code>usle</code></td>
+<td>Le</td>
+<td>22</td>
+</tr>
+<tr>
+<td>MWK</td>
+<td>Malawian Kwacha</td>
+<td><code>umwk</code></td>
+<td>MK</td>
+<td>1730</td>
+</tr>
+<tr>
+<td>MGA</td>
+<td>Malagasy Ariary</td>
+<td><code>umga</code></td>
+<td>Ar</td>
+<td>4500</td>
+</tr>
+<tr>
+<td>CDF</td>
+<td>Congolese Franc</td>
+<td><code>ucdf</code></td>
+<td>FC</td>
+<td>2800</td>
+</tr>
+<tr>
+<td>SDG</td>
+<td>Sudanese Pound</td>
+<td><code>usdg</code></td>
+<td>£SD</td>
+<td>600</td>
+</tr>
+<tr>
+<td>SSP</td>
+<td>South Sudanese Pound</td>
+<td><code>ussp</code></td>
+<td>SSP</td>
+<td>4500</td>
+</tr>
+<tr>
+<td>LYD</td>
+<td>Libyan Dinar</td>
+<td><code>ulyd</code></td>
+<td>LD</td>
+<td>5</td>
+</tr>
+<tr>
+<td>SOS</td>
+<td>Somali Shilling</td>
+<td><code>usos</code></td>
+<td>Sh</td>
+<td>571</td>
+</tr>
+<tr>
+<td>DJF</td>
+<td>Djiboutian Franc</td>
+<td><code>udjf</code></td>
+<td>Fdj</td>
+<td>178</td>
+</tr>
+<tr>
+<td>ERN</td>
+<td>Eritrean Nakfa</td>
+<td><code>uern</code></td>
+<td>Nfk</td>
+<td>15</td>
+</tr>
+<tr>
+<td>BIF</td>
+<td>Burundian Franc</td>
+<td><code>ubif</code></td>
+<td>FBu</td>
+<td>2900</td>
+</tr>
+<tr>
+<td>SCR</td>
+<td>Seychellois Rupee</td>
+<td><code>uscr</code></td>
+<td>SR</td>
+<td>13</td>
+</tr>
+<tr>
+<td>CVE</td>
+<td>Cape Verdean Escudo</td>
+<td><code>ucve</code></td>
+<td>$</td>
+<td>101</td>
+</tr>
+<tr>
+<td>STN</td>
+<td>São Tomé and Príncipe Dobra</td>
+<td><code>ustn</code></td>
+<td>Db</td>
+<td>22</td>
+</tr>
+<tr>
+<td>KMF</td>
+<td>Comorian Franc</td>
+<td><code>ukmf</code></td>
+<td>CF</td>
+<td>450</td>
+</tr>
+<tr>
+<td>LSL</td>
+<td>Lesotho Loti</td>
+<td><code>ulsl</code></td>
+<td>L</td>
+<td>18</td>
+</tr>
+<tr>
+<td>SZL</td>
+<td>Eswatini Lilangeni</td>
+<td><code>uszl</code></td>
+<td>E</td>
+<td>18</td>
+</tr>
+<tr>
+<td>MRU</td>
+<td>Mauritanian Ouguiya</td>
+<td><code>umru</code></td>
+<td>UM</td>
+<td>40</td>
+</tr>
+<tr>
+<td>ZWG</td>
+<td>Zimbabwe Gold</td>
+<td><code>uzwg</code></td>
+<td>ZiG</td>
+<td>13</td>
+</tr>
+<tr>
+<td>USDC</td>
+<td>USD Coin</td>
+<td><code>uusdc</code></td>
+<td>$</td>
+<td>1</td>
+</tr>
+<tr>
+<td>EURC</td>
+<td>Euro Coin</td>
+<td><code>ueurc</code></td>
+<td>€</td>
+<td>0.92</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

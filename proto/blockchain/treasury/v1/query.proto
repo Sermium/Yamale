@@ -1,0 +1,240 @@
+syntax = "proto3";
+
+package blockchain.treasury.v1;
+
+import "amino/amino.proto";
+import "blockchain/treasury/v1/lock.proto";
+import "blockchain/treasury/v1/params.proto";
+import "blockchain/treasury/v1/spend_policy.proto";
+import "blockchain/treasury/v1/treasury.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// Query defines the gRPC querier service.
+//
+// Everything about a treasury is publicly readable — balances, commitments,
+// who holds which role, what the spending limits are, and how much of the
+// current period is already used. A treasury whose rules can be inspected by
+// anyone is the point: beneficiaries can verify their schedule without asking
+// permission, and third parties can audit disbursements without access.
+service Query {
+  // Params queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/params";
+  }
+
+  // GetTreasury queries one treasury by id.
+  rpc GetTreasury(QueryGetTreasuryRequest) returns (QueryGetTreasuryResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{id}";
+  }
+
+  // ListTreasury queries all treasuries.
+  rpc ListTreasury(QueryAllTreasuryRequest) returns (QueryAllTreasuryResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury";
+  }
+
+  // TreasuryBalances reports total, locked and available amounts per denom.
+  rpc TreasuryBalances(QueryTreasuryBalancesRequest) returns (QueryTreasuryBalancesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/balances";
+  }
+
+  // GetLock queries one lock by id.
+  rpc GetLock(QueryGetLockRequest) returns (QueryGetLockResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/lock/{id}";
+  }
+
+  // ListLock queries all locks.
+  rpc ListLock(QueryAllLockRequest) returns (QueryAllLockResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/lock";
+  }
+
+  // LocksByTreasury queries the locks held by one treasury.
+  rpc LocksByTreasury(QueryLocksByTreasuryRequest) returns (QueryLocksByTreasuryResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/locks";
+  }
+
+  // LocksByBeneficiary queries the locks payable to one address, so a
+  // beneficiary can find what is owed to them without knowing any treasury id.
+  rpc LocksByBeneficiary(QueryLocksByBeneficiaryRequest) returns (QueryLocksByBeneficiaryResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/beneficiary/{beneficiary}/locks";
+  }
+
+  // ClaimableAmount reports what a lock would release if claimed right now.
+  rpc ClaimableAmount(QueryClaimableAmountRequest) returns (QueryClaimableAmountResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/lock/{lock_id}/claimable";
+  }
+
+  // ListRole queries the role assignments of one treasury.
+  rpc ListRole(QueryListRoleRequest) returns (QueryListRoleResponse) {
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/roles";
+  }
+
+  // GetSpendPolicy queries the spending policy for one treasury and denom.
+  rpc GetSpendPolicy(QueryGetSpendPolicyRequest) returns (QueryGetSpendPolicyResponse) {
+    // The treasury id stays in the path because it is numeric; the denom moves
+    // to the query string because sdk.ValidateDenom permits '/', which a path
+    // template cannot carry.
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/policy";
+  }
+
+  // SpendCapacity reports how much may still be spent in the current period.
+  rpc SpendCapacity(QuerySpendCapacityRequest) returns (QuerySpendCapacityResponse) {
+    // As with GetSpendPolicy: numeric id in the path, denom in the query
+    // string, because a denom may lawfully contain a slash.
+    option (google.api.http).get = "/yamale/blockchain/treasury/v1/treasury/{treasury_id}/capacity";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetTreasuryRequest is the request type for the Query/GetTreasury RPC.
+message QueryGetTreasuryRequest {
+  uint64 id = 1;
+}
+
+// QueryGetTreasuryResponse is the response type for the Query/GetTreasury RPC.
+message QueryGetTreasuryResponse {
+  Treasury treasury = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllTreasuryRequest is the request type for the Query/ListTreasury RPC.
+message QueryAllTreasuryRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllTreasuryResponse is the response type for the Query/ListTreasury RPC.
+message QueryAllTreasuryResponse {
+  repeated Treasury treasury = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// DenomBalance is one denom's position in a treasury.
+message DenomBalance {
+  string denom = 1;
+  string total = 2;
+  string locked = 3;
+  // available is total minus locked: what may actually be spent.
+  string available = 4;
+}
+
+// QueryTreasuryBalancesRequest is the request type for the Query/TreasuryBalances RPC.
+message QueryTreasuryBalancesRequest {
+  uint64 treasury_id = 1;
+}
+
+// QueryTreasuryBalancesResponse is the response type for the Query/TreasuryBalances RPC.
+message QueryTreasuryBalancesResponse {
+  repeated DenomBalance balances = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryGetLockRequest is the request type for the Query/GetLock RPC.
+message QueryGetLockRequest {
+  uint64 id = 1;
+}
+
+// QueryGetLockResponse is the response type for the Query/GetLock RPC.
+message QueryGetLockResponse {
+  Lock lock = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllLockRequest is the request type for the Query/ListLock RPC.
+message QueryAllLockRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllLockResponse is the response type for the Query/ListLock RPC.
+message QueryAllLockResponse {
+  repeated Lock lock = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryLocksByTreasuryRequest is the request type for the Query/LocksByTreasury RPC.
+message QueryLocksByTreasuryRequest {
+  uint64 treasury_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryLocksByTreasuryResponse is the response type for the Query/LocksByTreasury RPC.
+message QueryLocksByTreasuryResponse {
+  repeated Lock lock = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryLocksByBeneficiaryRequest is the request type for the Query/LocksByBeneficiary RPC.
+message QueryLocksByBeneficiaryRequest {
+  string beneficiary = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryLocksByBeneficiaryResponse is the response type for the Query/LocksByBeneficiary RPC.
+message QueryLocksByBeneficiaryResponse {
+  repeated Lock lock = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryClaimableAmountRequest is the request type for the Query/ClaimableAmount RPC.
+message QueryClaimableAmountRequest {
+  uint64 lock_id = 1;
+}
+
+// QueryClaimableAmountResponse is the response type for the Query/ClaimableAmount RPC.
+message QueryClaimableAmountResponse {
+  // claimable is releasable right now; vested is the cumulative amount the
+  // schedule has unlocked so far, including what was already claimed.
+  string claimable = 1;
+  string vested = 2;
+  string remaining = 3;
+}
+
+// QueryListRoleRequest is the request type for the Query/ListRole RPC.
+message QueryListRoleRequest {
+  uint64 treasury_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryListRoleResponse is the response type for the Query/ListRole RPC.
+message QueryListRoleResponse {
+  repeated RoleAssignment role = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetSpendPolicyRequest is the request type for the Query/GetSpendPolicy RPC.
+message QueryGetSpendPolicyRequest {
+  uint64 treasury_id = 1;
+  string denom = 2;
+}
+
+// QueryGetSpendPolicyResponse is the response type for the Query/GetSpendPolicy RPC.
+message QueryGetSpendPolicyResponse {
+  SpendPolicy policy = 1 [(gogoproto.nullable) = false];
+}
+
+// QuerySpendCapacityRequest is the request type for the Query/SpendCapacity RPC.
+message QuerySpendCapacityRequest {
+  uint64 treasury_id = 1;
+  string denom = 2;
+}
+
+// QuerySpendCapacityResponse is the response type for the Query/SpendCapacity RPC.
+message QuerySpendCapacityResponse {
+  // remaining_this_period is what the period limit still allows; available is
+  // what the treasury actually holds unlocked. A spend is bounded by whichever
+  // is smaller, which is why both are reported.
+  string remaining_this_period = 1;
+  string available = 2;
+  string per_transaction_limit = 3;
+  int64 period_resets_at = 4;
+}

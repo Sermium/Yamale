@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // The SDK is plain TypeScript except for name.tsx, which carries the one
+    // React component every app shares — the account-naming rule. Four copies
+    // of that rule drift into four different answers on the same screen.
+    "jsx": "react-jsx",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

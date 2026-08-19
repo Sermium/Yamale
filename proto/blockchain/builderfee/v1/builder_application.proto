@@ -1,0 +1,12 @@
+syntax = "proto3";
+package blockchain.builderfee.v1;
+
+option go_package = "yamale/blockchain/x/builderfee/types";
+
+// BuilderApplication defines the BuilderApplication message.
+message BuilderApplication {
+  string msg_type_url = 1;
+  string status = 2;
+  string payout_address = 3;
+  string creator = 4;
+}

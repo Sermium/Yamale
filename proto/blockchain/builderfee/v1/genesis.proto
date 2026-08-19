@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package blockchain.builderfee.v1;
+
+import "amino/amino.proto";
+import "blockchain/builderfee/v1/approved_builder.proto";
+import "blockchain/builderfee/v1/builder_application.proto";
+import "blockchain/builderfee/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/builderfee/types";
+
+// GenesisState defines the builderfee module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated BuilderApplication builder_application_map = 2 [(gogoproto.nullable) = false];
+  repeated ApprovedBuilder approved_builder_map = 3 [(gogoproto.nullable) = false];
+}

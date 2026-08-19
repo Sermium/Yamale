@@ -1,0 +1,91 @@
+syntax = "proto3";
+package blockchain.enforcement.v1;
+
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/enforcement/types";
+
+// Params defines the parameters for the module.
+//
+// Every one of these is a limit on a power the chain would rather not need. The
+// module can freeze an account and take what is in it, so the parameters are
+// written to make that hard to do quietly, hard to do to the wrong person, and
+// impossible to do to somebody's benefit other than the recovery destination's.
+message Params {
+  option (amino.name) = "blockchain/x/enforcement/Params";
+  option (gogoproto.equal) = true;
+
+  // voting_period_blocks is how long validators have to vote on a case.
+  //
+  // It trades two failures against each other. Too short and a case resolves
+  // before validators in other timezones have seen it, which is how a
+  // supermajority becomes whoever was awake. Too long and a scammer has that
+  // long to move funds — which is why opening a case freezes the account
+  // immediately rather than at the end of the vote.
+  uint64 voting_period_blocks = 1;
+
+  // provisional_freeze_blocks is how long the freeze that comes with opening a
+  // case lasts if the case is never resolved.
+  //
+  // This is the safety valve on the fastest, least deliberated power in the
+  // module: one validator can freeze an account, so that freeze has to expire
+  // by itself. It should comfortably exceed voting_period_blocks — a freeze
+  // that lapsed mid-vote would hand the account back before the chain had
+  // decided anything.
+  uint64 provisional_freeze_blocks = 2;
+
+  // threshold_bps is the share of bonded voting power, in basis points, that
+  // must vote yes for a case to pass. 6667 is two thirds.
+  //
+  // Measured against the power bonded when the case opened, not against the
+  // power that voted: a threshold of "most of those who turned up" is passed
+  // by two validators when nobody else votes.
+  uint64 threshold_bps = 3;
+
+  // recovery_destination is where seized assets are sent — the foundation
+  // account, which holds them so they can be restituted to the people they
+  // were taken from. Nothing else in the module can name a destination, so no
+  // case can ever move funds to whoever opened it, and changing it takes a
+  // governance proposal that everyone can see.
+  //
+  // It is required. It has no default, because no address compiled into the
+  // binary is the foundation on somebody else's network, and a genesis that
+  // leaves it empty is refused rather than started: a chain with no
+  // destination can still pass a seizure by two thirds of its validators and
+  // then have nowhere to send what it took.
+  string recovery_destination = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // max_reason_length bounds the stated grounds for a case, and
+  // max_evidence_uri_length the link to the evidence held off-chain. Both are
+  // stored forever and shown to whoever is being accused.
+  uint64 max_reason_length = 5;
+  uint64 max_evidence_uri_length = 6;
+
+  // seize_requires_evidence refuses to open a seizure case without an evidence
+  // URI and hash. Freezing on suspicion is defensible; taking somebody's assets
+  // with nothing on the record is not.
+  bool seize_requires_evidence = 7;
+
+  // emergency_authority is an address that can freeze and release immediately,
+  // without waiting for the validator vote — in practice a founders' M-of-N
+  // group policy.
+  //
+  // It exists because the validator process has two failure modes that a
+  // permissioned network cannot simply wait out: a set too large or too spread
+  // out to reach two thirds within the voting period, and a freeze that was
+  // plainly wrong sitting on somebody's account until that period expires. The
+  // emergency path answers both, and is deliberately bounded to the two actions
+  // that cannot end with somebody's assets in a third party's hands: it can
+  // stop money and it can let it go again. It can never take any.
+  //
+  // A freeze it imposes is provisional like any other — it lapses unless the
+  // validators confirm it, and it is lifted if they refuse. Fast, then
+  // answerable.
+  //
+  // Empty disables the path entirely, which is the default: a chain that has
+  // not named a founders' group has no emergency authority rather than an
+  // implicit one.
+  string emergency_authority = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}

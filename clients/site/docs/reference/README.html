@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen. Run `make docs` to regenerate.
+--><h1>Reference</h1>
+<p>Every message, query, state type, parameter and error code on the chain,
+generated from the protobuf definitions and the modules&#39; own source. If
+something here is wrong, the code is wrong — these pages cannot drift from it.</p>
+<p>For explanations and walkthroughs, start with the <a href="../guides/">guides</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Purpose</th>
+<th>Transactions</th>
+<th>Queries</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="alias.html">x/alias</a></td>
+<td></td>
+<td>4</td>
+<td>6</td>
+</tr>
+<tr>
+<td><a href="amm.html">x/amm</a></td>
+<td>A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool&#39;s own reserves.</td>
+<td>5</td>
+<td>3</td>
+</tr>
+<tr>
+<td><a href="builderfee.html">x/builderfee</a></td>
+<td>Shares a governance-set portion of transaction fees with the developer whose message type was used.</td>
+<td>3</td>
+<td>5</td>
+</tr>
+<tr>
+<td><a href="custody.html">x/custody</a></td>
+<td></td>
+<td>7</td>
+<td>5</td>
+</tr>
+<tr>
+<td><a href="emission.html">x/emission</a></td>
+<td>Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply.</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td><a href="enforcement.html">x/enforcement</a></td>
+<td></td>
+<td>8</td>
+<td>8</td>
+</tr>
+<tr>
+<td><a href="land.html">x/land</a></td>
+<td></td>
+<td>13</td>
+<td>10</td>
+</tr>
+<tr>
+<td><a href="oracle.html">x/oracle</a></td>
+<td></td>
+<td>7</td>
+<td>9</td>
+</tr>
+<tr>
+<td><a href="paymsg.html">x/paymsg</a></td>
+<td>ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry.</td>
+<td>5</td>
+<td>7</td>
+</tr>
+<tr>
+<td><a href="stablecoin.html">x/stablecoin</a></td>
+<td>Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom.</td>
+<td>5</td>
+<td>5</td>
+</tr>
+<tr>
+<td><a href="tokenisation.html">x/tokenisation</a></td>
+<td></td>
+<td>13</td>
+<td>5</td>
+</tr>
+<tr>
+<td><a href="treasury.html">x/treasury</a></td>
+<td>Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone.</td>
+<td>16</td>
+<td>12</td>
+</tr>
+<tr>
+<td><a href="validatorgov.html">x/validatorgov</a></td>
+<td>Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted.</td>
+<td>7</td>
+<td>8</td>
+</tr>
+</tbody></table>
+<h2>Chain-wide conventions</h2>
+<p><strong>Amounts</strong> are integers in the base unit, with no decimal point. <code>uyml</code> is the
+base unit of YML at six decimal places, so <code>12500000uyml</code> is 12.5 YML. Clients
+convert only when displaying.</p>
+<p><strong>Addresses</strong> are bech32 with the <code>yml</code> prefix; validator operator addresses use
+<code>ymlvaloper</code>.</p>
+<p><strong>Signers</strong> are declared per message and enforced by the SDK. A message whose
+signer is the governance module account cannot be sent directly — it has to be
+the payload of a governance proposal.</p>
+<p><strong>Errors</strong> carry a module codespace and the code listed on each page, so a
+failed transaction can be traced to exactly one registered error.</p>
+
+</main>
+</body>
+</html>

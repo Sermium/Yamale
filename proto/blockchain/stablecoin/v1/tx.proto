@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package blockchain.stablecoin.v1;
+
+import "amino/amino.proto";
+import "blockchain/stablecoin/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/stablecoin/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // RegisterCurrency defines the RegisterCurrency RPC.
+  rpc RegisterCurrency(MsgRegisterCurrency) returns (MsgRegisterCurrencyResponse);
+
+  // MintCoin defines the MintCoin RPC.
+  rpc MintCoin(MsgMintCoin) returns (MsgMintCoinResponse);
+
+  // BurnCoin defines the BurnCoin RPC.
+  rpc BurnCoin(MsgBurnCoin) returns (MsgBurnCoinResponse);
+
+  // ApproveIssuer defines the ApproveIssuer RPC. It is authority-gated (the
+  // x/gov module account) and approves or rejects a pending currency
+  // registration submitted via MsgRegisterCurrency.
+  rpc ApproveIssuer(MsgApproveIssuer) returns (MsgApproveIssuerResponse);
+}
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/stablecoin/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgRegisterCurrency defines the MsgRegisterCurrency message.
+message MsgRegisterCurrency {
+  option (cosmos.msg.v1.signer) = "creator";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string display_denom = 3;
+  uint64 exponent = 4;
+  string name = 5;
+  string symbol = 6;
+  string description = 7;
+}
+
+// MsgRegisterCurrencyResponse defines the MsgRegisterCurrencyResponse message.
+message MsgRegisterCurrencyResponse {}
+
+// MsgMintCoin defines the MsgMintCoin message.
+message MsgMintCoin {
+  option (cosmos.msg.v1.signer) = "issuer";
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string amount = 3;
+  string recipient = 4;
+}
+
+// MsgMintCoinResponse defines the MsgMintCoinResponse message.
+message MsgMintCoinResponse {}
+
+// MsgBurnCoin defines the MsgBurnCoin message.
+message MsgBurnCoin {
+  option (cosmos.msg.v1.signer) = "issuer";
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string amount = 3;
+}
+
+// MsgBurnCoinResponse defines the MsgBurnCoinResponse message.
+message MsgBurnCoinResponse {}
+
+// MsgApproveIssuer is the Msg/ApproveIssuer request type.
+message MsgApproveIssuer {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/stablecoin/MsgApproveIssuer";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  bool approve = 3;
+}
+
+// MsgApproveIssuerResponse defines the MsgApproveIssuerResponse message.
+message MsgApproveIssuerResponse {}

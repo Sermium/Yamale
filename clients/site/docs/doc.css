@@ -1,0 +1,98 @@
+/* Documentation pages. Deliberately plain: these are read, not browsed. */
+:root {
+  --ink: #0b1523;
+  --muted: #5c6e88;
+  --rule: #e3e7ee;
+  --bg: #ffffff;
+  --brass: #a87b3c;
+  --accent: #12253f;
+  --code-bg: #f1f4f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8eef7;
+    --muted: #8fa4c4;
+    --rule: #24405f;
+    --bg: #0b1523;
+    --accent: #8fa4c4;
+    --code-bg: #18304f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.docbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.9rem;
+}
+
+.docbar__brand { font-weight: 650; text-decoration: none; color: var(--ink); }
+.docbar__brand span { color: var(--muted); font-weight: 400; }
+.docbar a { color: var(--accent); text-decoration: none; }
+.docbar a:hover { text-decoration: underline; }
+
+/* 68 characters or so per line: past roughly 80 the eye loses the start of the
+   next line, and these pages are long. */
+.doc {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 6rem;
+}
+
+.doc h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 1.5rem; }
+.doc h2 { font-size: 1.3rem; margin: 2.5rem 0 0.75rem; }
+.doc h3 { font-size: 1.05rem; margin: 2rem 0 0.5rem; }
+.doc a { color: var(--accent); }
+.doc strong { font-weight: 650; }
+.doc blockquote {
+  margin: 1.5rem 0;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-inline-start: 3px solid var(--rule);
+  color: var(--muted);
+}
+
+.doc code {
+  background: var(--code-bg);
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.doc pre {
+  background: var(--code-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  /* Wide code scrolls inside its own box rather than making the page scroll. */
+  overflow-x: auto;
+}
+
+.doc pre code { background: none; padding: 0; }
+
+/* Tables are how most of these documents carry their comparisons, so they get
+   real treatment rather than browser defaults. */
+.doc table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.94rem; }
+.doc th, .doc td { text-align: start; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.doc th { font-weight: 650; }
+
+.doc ul, .doc ol { padding-inline-start: 1.4rem; }
+.doc li { margin: 0.35rem 0; }
+.doc hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+/* The mark is a filled badge, not a glyph -- it needs an explicit box and must
+   not inherit the link colour the way the old outline Y did. */
+.docbar__brand { display: inline-flex; align-items: center; gap: .5rem; }
+.docbar__brand .brand__mark { width: 22px; height: 22px; border-radius: 5px; }
+.doc h1 { border-inline-start: 3px solid var(--brass); padding-inline-start: .6rem; }

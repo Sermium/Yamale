@@ -1,0 +1,163 @@
+# Money testnet activity bot configuration.
+#
+# The bot shells out to the `blockchaind` CLI on an interval, picking a
+# weighted-random action from `actions` and a weighted-random `from` account
+# from `accounts` each tick. Placeholders available in an action's `args`:
+#   {from}             - the chosen sender account's key name
+#   {from_addr}        - the chosen sender account's bech32 address
+#   {to}               - a different, randomly chosen account's key name
+#   {to_addr}          - that account's bech32 address
+#   {chain_id}         - chain_id below
+#   {keyring_backend}  - keyring_backend below
+#   {ts}               - the current unix timestamp, for fields that must be unique
+#
+# Every action below works against a chain freshly launched from the genesis
+# ceremony, once ./prepare.sh has created and funded the two accounts. That
+# matters: a config referring to denoms, pools or approvals a new chain does not
+# have produces a log full of failures that look like bugs in the chain.
+#
+# Actions needing more setup — swaps, ISO 20022 payments — are at the bottom,
+# commented out, each with what has to exist first.
+
+binary: blockchaind
+chain_id: yamale-testnet-1
+keyring_backend: test
+# home: ""   # uncomment and set to override the default node home directory
+# node: ""   # uncomment and set to target a remote RPC, e.g. tcp://1.2.3.4:26657
+
+interval_seconds: 5
+
+accounts:
+  - bot-a
+  - bot-b
+
+actions:
+  # Plain transfers: the one action that needs nothing but funded accounts.
+  - name: bank-send
+    weight: 6
+    args:
+      - tx
+      - bank
+      - send
+      - "{from}"
+      - "{to_addr}"
+      - 1000000uyml
+      - --chain-id
+      - "{chain_id}"
+      - --keyring-backend
+      - "{keyring_backend}"
+      - --fees
+      - 500uyml
+      - --yes
+      - --output
+      - json
+
+  # Treasuries are permissionless to open, so this needs no approvals. It also
+  # exercises a module that a plain transfer does not touch.
+  - name: treasury-open
+    weight: 2
+    args:
+      - tx
+      - treasury
+      - create-treasury
+      - "bot treasury {ts}"
+      - --from
+      - "{from}"
+      - --chain-id
+      - "{chain_id}"
+      - --keyring-backend
+      - "{keyring_backend}"
+      - --fees
+      - 500uyml
+      - --yes
+      - --output
+      - json
+
+  # Applying to be a valuer is open to anyone; approval is a governance vote, so
+  # this produces pending applications rather than approved valuers. That is
+  # deliberate — it gives governance something real to act on.
+  - name: oracle-apply-appraiser
+    weight: 1
+    args:
+      - tx
+      - oracle
+      - apply-appraiser
+      - "Bot Valuations {ts}"
+      - "testnet automation"
+      - --from
+      - "{from}"
+      - --chain-id
+      - "{chain_id}"
+      - --keyring-backend
+      - "{keyring_backend}"
+      - --fees
+      - 500uyml
+      - --yes
+      - --output
+      - json
+
+# --- Actions that need setup first -----------------------------------------
+#
+# Uncomment once the prerequisite exists. Until then they would only fill the
+# log with failures.
+#
+#  Needs: a second denom (a governance-approved stablecoin issuer who has
+#  minted) and a pool holding it — see docs/guides/stablecoin.md and
+#  docs/guides/amm.md. Replace `uusd` and the pool id to match.
+#
+#  - name: amm-swap
+#    weight: 3
+#    args:
+#      - tx
+#      - amm
+#      - swap
+#      - "0"
+#      - uyml
+#      - "1000000"
+#      - uusd
+#      - "1"
+#      - --chain-id
+#      - "{chain_id}"
+#      - --from
+#      - "{from}"
+#      - --keyring-backend
+#      - "{keyring_backend}"
+#      - --fees
+#      - 500uyml
+#      - --yes
+#      - --output
+#      - json
+#
+#  Needs: both {from} and {to} approved as paymsg participants by a governance
+#  vote (MsgApplyParticipant then MsgApproveParticipant), AND the debtor
+#  registered as a customer of the instructing participant — a payment may only
+#  name an institution that actually acts for the account paying. The bot's
+#  accounts are not participants, so as written this action needs {from} to be
+#  registered by whichever participant it names. The end-to-end id must be
+#  unique per instructing participant, which is what {ts} is for.
+#
+#  - name: paymsg-send-payment
+#    weight: 3
+#    args:
+#      - tx
+#      - paymsg
+#      - send-payment
+#      - "E2E-{ts}"
+#      - "{from_addr}"
+#      - "{to_addr}"
+#      - "{to_addr}"
+#      - uyml
+#      - "500000"
+#      - GDSV
+#      - "automated testnet activity payment"
+#      - --chain-id
+#      - "{chain_id}"
+#      - --from
+#      - "{from}"
+#      - --keyring-backend
+#      - "{keyring_backend}"
+#      - --fees
+#      - 500uyml
+#      - --yes
+#      - --output
+#      - json

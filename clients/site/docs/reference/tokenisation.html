@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/tokenisation — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/tokenisation</h1>
+<h2>Transactions</h2>
+<h3>MsgAttestSale</h3>
+<p><code>/blockchain.tokenisation.v1.MsgAttestSale</code></p>
+<p>Signed by the <code>attestor</code> field.</p>
+<p>Permissionless.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>attestor</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgClaim</h3>
+<p><code>/blockchain.tokenisation.v1.MsgClaim</code></p>
+<p>Signed by the <code>holder</code> field.</p>
+<p>MsgClaim withdraws accrued income without giving up the shareholding.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgCreateCollection</h3>
+<p><code>/blockchain.tokenisation.v1.MsgCreateCollection</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>MsgCreateCollection brings a registry into existence. Governance only.</p>
+<p>There is deliberately no permissionless counterpart. Every other creation path on this chain is apply-then-approve, but here there is no application to approve: a registry of deeds is not something a chain grants on request.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>collection</code></td>
+<td>Collection</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgDisputeSale</h3>
+<p><code>/blockchain.tokenisation.v1.MsgDisputeSale</code></p>
+<p>Signed by the <code>challenger</code> field.</p>
+<p>MsgDisputeSale suspends redemption and refers the figure to governance.</p>
+<p>The bond is a basis-point fraction of the reported price -- scaled to the vehicle rather than flat, since a flat bond is trivial for a large fraud to post and prohibitive for a small holder to raise. Refunded if the dispute succeeds; otherwise forfeited to the vault, never to the issuer. Paying the issuer would reward provoking weak challenges.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>challenger</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgFractionalise</h3>
+<p><code>/blockchain.tokenisation.v1.MsgFractionalise</code></p>
+<p>Signed by the <code>owner</code> field.</p>
+<p>Title holder.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>supply</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder_share_bps</code></td>
+<td>uint32</td>
+<td>Share of the asset&#39;s economics the tokens carry. The sponsor keeps the rest. Never editable afterwards. For an asset over an x/land parcel this is the figure the registry&#39;s max_share_bps caps: it is what is being sold, not what is retained.</td>
+</tr>
+<tr>
+<td><code>income_denom</code></td>
+<td>string</td>
+<td>Denomination income and proceeds will be paid in.</td>
+</tr>
+</tbody></table>
+<h3>MsgFundVault</h3>
+<p><code>/blockchain.tokenisation.v1.MsgFundVault</code></p>
+<p>Signed by the <code>funder</code> field.</p>
+<p>MsgFundVault pays income in. holder_share_bps of it reaches the index; the remainder is the sponsor&#39;s and is never taken from them.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>funder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgMintAsset</h3>
+<p><code>/blockchain.tokenisation.v1.MsgMintAsset</code></p>
+<p>Signed by the <code>minter</code> field.</p>
+<p>The collection&#39;s appointed authority only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>minter</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>collection_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td>The x/land parcel this asset is title over, or 0 when it is not land. Checked here as well as at fractionalisation, because it is cheap: a mint naming a parcel that does not exist, or one held by somebody other than the named owner, is refused outright rather than left to fail later when shares are being sold and there is money on the other side of it.</td>
+</tr>
+</tbody></table>
+<h3>MsgRedeem</h3>
+<p><code>/blockchain.tokenisation.v1.MsgRedeem</code></p>
+<p>Signed by the <code>holder</code> field.</p>
+<p>MsgRedeem burns tokens and pays their share in the same step.</p>
+<p>The burn <em>is</em> the claim. A design that burns and then expects a later claim strands the money of everyone slow, asleep or dead, and leaves the chain holding funds it can no longer attribute. Supply falls to zero as holders claim, and title burns when it reaches zero.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgReportSale</h3>
+<p><code>/blockchain.tokenisation.v1.MsgReportSale</code></p>
+<p>Signed by the <code>reporter</code> field.</p>
+<p>MsgReportSale states what the asset sold for. It does not open redemption.</p>
+<p>The figure is recorded, is public, and sits for the collection&#39;s challenge window. Verification alone would not be enough: redemption is irreversible, so without a window verification only means the theft needed two signatures.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>reporter</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>evidence_uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgResolveDispute</h3>
+<p><code>/blockchain.tokenisation.v1.MsgResolveDispute</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>MsgResolveDispute is governance deciding the contested figure.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>corrected_price</code></td>
+<td>Coin</td>
+<td>Empty upholds the reported figure and forfeits the bond.</td>
+</tr>
+</tbody></table>
+<h3>MsgSetCollectionAuthority</h3>
+<p><code>/blockchain.tokenisation.v1.MsgSetCollectionAuthority</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>MsgSetCollectionAuthority appoints or revokes who may mint into a collection.</p>
+<p>Revocation stops future mints and touches nothing already issued. Deciding an existing asset was wrongly issued is a seizure, and seizures go through x/enforcement where two thirds decide -- not through a registry keeper.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>collection_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>new_authority</code></td>
+<td>string</td>
+<td>Empty revokes. A collection with no authority refuses mints; it does not fall back to governance.</td>
+</tr>
+</tbody></table>
+<h3>MsgTransferAsset</h3>
+<p><code>/blockchain.tokenisation.v1.MsgTransferAsset</code></p>
+<p>Signed by the <code>owner</code> field.</p>
+<p>MsgTransferAsset moves title. The shareholding is untouched.</p>
+<p>A buyer takes an encumbered asset subject to its shareholders, and the obligation to fund the vault moves with title.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipient</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.tokenisation.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>Governance only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>Asset</h3>
+<p><code>GET /blockchain/tokenisation/v1/assets/{asset_id}</code></p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset</code></td>
+<td>Asset</td>
+<td></td>
+</tr>
+<tr>
+<td><code>vault</code></td>
+<td>Vault</td>
+<td></td>
+</tr>
+<tr>
+<td><code>sale</code></td>
+<td>SaleReport</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Assets</h3>
+<p><code>GET /blockchain/tokenisation/v1/assets</code></p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>collection_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>assets</code></td>
+<td>repeated Asset</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Collections</h3>
+<p><code>GET /blockchain/tokenisation/v1/collections</code></p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>collections</code></td>
+<td>repeated Collection</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Entitlement</h3>
+<p><code>GET /blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}</code></p>
+<p>What an account is owed right now, including income that has accrued since its balance last moved.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owed</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /blockchain/tokenisation/v1/params</code></p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Asset</h3>
+<p>Asset is title to one real-world thing.</p>
+<p>Title and shareholding are separate registers. This record says who owns the asset; the tokens say who holds the economic interest. They move independently, so an asset changing operator is a non-event for shareholders.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>collection_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>Holder of title. Whoever holds it carries the obligation to pay income into the vault -- an obligation, never a balance they could walk away with.</td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>fraction_denom</code></td>
+<td>string</td>
+<td>The encumbrance. Non-empty means shareholders exist against this asset. It lives on the asset record rather than in an index built beside it, so there is no path where a stale view sells somebody a warehouse that already has shareholders. That is the failure which costs the chain its credibility as a registry rather than merely costing money.</td>
+</tr>
+<tr>
+<td><code>holder_share_bps</code></td>
+<td>uint32</td>
+<td>Share of the asset&#39;s economics carried by the tokens, in basis points. The sponsor keeps the rest. Fixed at fractionalisation and never editable: an issuer who could revise it would dilute every holder without minting a single token.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Status</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parcel_id</code></td>
+<td>uint64</td>
+<td>The x/land parcel this vehicle is over, or 0 when the asset is not land. Naming the parcel is what makes the registry&#39;s authorisation enforceable: fractionalising an asset with a parcel id is refused unless the registry has a live permission for that parcel, the issued share is inside the ceiling it set, and the sponsor is still the parcel&#39;s holder. Zero means none of that applies, so a warehouse receipt or a bond is untouched. The parcel is referenced, never moved. Title stays in x/land held by the same account, which is what keeps a fractionalised parcel governed by the registry rather than by whoever accumulated the tokens.</td>
+</tr>
+</tbody></table>
+<h3>Collection</h3>
+<p>Collection is a class of real-world asset the chain will record title for: a deeds registry, a warehouse operator&#39;s receipts, a vehicle register.</p>
+<p>Collections are chain-level constructs. There is no permissionless message that creates one, because a registry of deeds is not something a chain grants on request -- governance creates it and appoints who may mint into it.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>The only address permitted to mint assets into this collection. An unset or revoked authority does not fall back to governance: the collection refuses mints outright. The failure mode of a permissive default here is unlimited issuance of title to things nobody owns.</td>
+</tr>
+<tr>
+<td><code>verification</code></td>
+<td>VerificationMode</td>
+<td>How a sale price reported against assets in this collection is checked.</td>
+</tr>
+<tr>
+<td><code>attestation_threshold</code></td>
+<td>uint32</td>
+<td>Attestor threshold when verification is VERIFY_ATTESTORS. Refused below 2: one attestor is not a threshold, it is a single point of unlimited theft.</td>
+</tr>
+<tr>
+<td><code>challenge_window_seconds</code></td>
+<td>int64</td>
+<td>How long a reported sale price sits before redemption opens. Calibrated to the asset class rather than a chain-wide constant -- a bond&#39;s redemption was fixed at issuance and needs days, a unique building needs a month. See docs/guides/tokenisation.md.</td>
+</tr>
+<tr>
+<td><code>dispute_bond_bps</code></td>
+<td>uint32</td>
+<td>Fraction of the reported sale price a challenger must bond, in basis points. Scales with the vehicle rather than being flat: a flat bond is trivial for a large fraud to post and prohibitive for a small holder.</td>
+</tr>
+</tbody></table>
+<h3>Position</h3>
+<p>Position is one account&#39;s place in the index.</p>
+<p>Settled whenever the balance moves, so what is owed is always balance * (cumulative_per_token - last_index).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>last_index</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>accrued</code></td>
+<td>string</td>
+<td>Settled but not yet withdrawn.</td>
+</tr>
+</tbody></table>
+<h3>SaleReport</h3>
+<p>SaleReport is a reported price inside or past its challenge window.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>Coin</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reporter</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reported_at</code></td>
+<td>Timestamp</td>
+<td></td>
+</tr>
+<tr>
+<td><code>claimable_at</code></td>
+<td>Timestamp</td>
+<td>Opens redemption once passed, absent a dispute.</td>
+</tr>
+<tr>
+<td><code>attestors</code></td>
+<td>repeated string</td>
+<td>Attestors who have signed this figure, when the mode requires them.</td>
+</tr>
+<tr>
+<td><code>disputed</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Vault</h3>
+<p>Vault holds what is owed to shareholders and the running index that says how much each token has earned.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asset_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cumulative_per_token</code></td>
+<td>string</td>
+<td>Income per token, accumulated over the vehicle&#39;s life, scaled by 1e18. An index rather than a snapshot because a snapshot is snipeable: buy from the pool at H-1, be holder of record at H, sell at H+1, and collect a quarter&#39;s rent for two blocks of exposure with no capital at risk. An index is time-weighted, so two blocks earn two blocks. It also removes a halt: there is no holder set to iterate.</td>
+</tr>
+<tr>
+<td><code>funded</code></td>
+<td>repeated Coin</td>
+<td>Total ever paid in, for the solvency view.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>The denomination income arrives in.</td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>Status</h3>
+<p>Status is the vehicle&#39;s life. It ends; this is a closed-end instrument, not a perpetual registry.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>STATUS_UNSPECIFIED</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>STATUS_HELD</code></td>
+<td>Title exists, no shareholders yet.</td>
+</tr>
+<tr>
+<td><code>STATUS_ACTIVE</code></td>
+<td>Shareholders exist. Income distributes as it arrives.</td>
+</tr>
+<tr>
+<td><code>STATUS_REPORTED</code></td>
+<td>A sale price has been reported and is inside its challenge window. Redemption is not open yet.</td>
+</tr>
+<tr>
+<td><code>STATUS_REALISED</code></td>
+<td>The price is final. Proceeds distribute exactly like income -- the sale is not a special case in the accounting, it is the last distribution and it is larger. Transfers of the token stop here. Each token is now a claim on a known fixed pot, and a pool still quoting from its reserves is a free lunch that gets taken within a block.</td>
+</tr>
+<tr>
+<td><code>STATUS_CLOSED</code></td>
+<td>Supply reached zero and the title was burned.</td>
+</tr>
+<tr>
+<td><code>STATUS_DISPUTED</code></td>
+<td>A challenge succeeded or the sale fell through. Back to ACTIVE by governance, never automatically.</td>
+</tr>
+</tbody></table>
+<h3>VerificationMode</h3>
+<p>VerificationMode is how the chain learns what an asset sold for.</p>
+<p>The issuer alone can never set it. An issuer who under-reports steals from every shareholder in one transaction, at the moment of maximum value, with no further obligation to anybody afterwards.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>VERIFICATION_UNSPECIFIED</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>VERIFY_VALUER</code></td>
+<td>The appointed independent valuer signs the figure. x/oracle already holds this machinery for appraisals.</td>
+</tr>
+<tr>
+<td><code>VERIFY_ATTESTORS</code></td>
+<td>m-of-n attestors agree, m &gt;= 2. Same shape as x/custody&#39;s deposits.</td>
+</tr>
+<tr>
+<td><code>VERIFY_GOVERNANCE</code></td>
+<td>Voted, with the evidence attached to the proposal.</td>
+</tr>
+<tr>
+<td><code>VERIFY_SCHEDULE</code></td>
+<td>The redemption amount was fixed when the vehicle was created -- par plus coupon, on a date -- so there is nothing to appraise and nobody to trust. The chain checks whether the expected amount arrived. This is the sovereign case: a state issuing a bond asks its citizens to trust arithmetic rather than a person.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>10</td>
+<td><code>ErrInvalidShare</code></td>
+<td>holder share must be between 1 and 10000 basis points</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>ErrAmountTooSmall</code></td>
+<td>amount is too small to divide across the shareholding</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>ErrWrongStatus</code></td>
+<td>the asset is not in a state that allows this</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>ErrTradingHalted</code></td>
+<td>this asset has been realised; the only remaining path is redemption</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>ErrNotVerified</code></td>
+<td>the reported sale price has not met its verification requirement</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>ErrStillInWindow</code></td>
+<td>the reported sale price is still inside its challenge window</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>ErrAlreadyDisputed</code></td>
+<td>that sale is already under dispute</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>ErrNotAttestor</code></td>
+<td>this account is not an appointed attestor for that collection</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>ErrAlreadyAttested</code></td>
+<td>this attestor has already signed that figure</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>ErrInvalidThreshold</code></td>
+<td>attestation threshold must be at least two</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ErrCollectionNotFound</code></td>
+<td>no such collection</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>ErrInvalidParams</code></td>
+<td>invalid parameters</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected the governance account as the only signer</td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>ErrInvalidAmount</code></td>
+<td>amount must be positive</td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>ErrNothingOwed</code></td>
+<td>nothing is owed to this account</td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>ErrNoSaleReported</code></td>
+<td>no sale has been reported for that asset</td>
+</tr>
+<tr>
+<td>25</td>
+<td><code>ErrWrongDenom</code></td>
+<td>that is not the denomination this vault pays income in</td>
+</tr>
+<tr>
+<td>26</td>
+<td><code>ErrNoParcel</code></td>
+<td>the land registry has no parcel with that id</td>
+</tr>
+<tr>
+<td>27</td>
+<td><code>ErrNotParcelHolder</code></td>
+<td>the asset&#39;s owner is not the current holder of that parcel</td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>ErrNoLandAuthorisation</code></td>
+<td>the land registry has not authorised fractionalising that parcel</td>
+</tr>
+<tr>
+<td>29</td>
+<td><code>ErrAuthorisationWithdrawn</code></td>
+<td>the land registry has withdrawn its authorisation to fractionalise that parcel</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>ErrCollectionExists</code></td>
+<td>that collection already exists</td>
+</tr>
+<tr>
+<td>30</td>
+<td><code>ErrAuthorisationExpired</code></td>
+<td>the land registry&#39;s authorisation to fractionalise that parcel has expired</td>
+</tr>
+<tr>
+<td>31</td>
+<td><code>ErrShareCeilingExceeded</code></td>
+<td>the shares issued over that parcel would exceed the ceiling the land registry set</td>
+</tr>
+<tr>
+<td>32</td>
+<td><code>ErrLandFractionalisationForbidden</code></td>
+<td>a restriction on that parcel forbids fractionalisation</td>
+</tr>
+<tr>
+<td>33</td>
+<td><code>ErrNoLandRegistry</code></td>
+<td>this chain has no land registry, so an asset cannot name a parcel</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>ErrNoAuthority</code></td>
+<td>this collection has no minting authority</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>ErrNotAuthority</code></td>
+<td>this account is not the collection&#39;s minting authority</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>ErrAssetNotFound</code></td>
+<td>no such asset</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>ErrNotOwner</code></td>
+<td>this account does not hold title to that asset</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>ErrAlreadyFractionalised</code></td>
+<td>that asset already has shareholders</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>ErrNoShareholders</code></td>
+<td>that asset has no shareholders to credit</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

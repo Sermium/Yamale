@@ -1,0 +1,146 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "amino/amino.proto";
+import "blockchain/alias/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// Msg defines the alias Msg service.
+//
+// There is no MsgSetAlias, because identifiers are assigned rather than chosen:
+// a chosen handle brings squatting, a resale market, and — the one that costs
+// money — impersonation, where YAMALE-PAY and YAMALE-PAY1 look identical in a
+// confirmation dialog.
+//
+// There is no MsgReleaseAlias either. Releasing and re-registering as two
+// messages would leave an account unreachable between them, so rotation is one
+// atomic message.
+//
+// There is no MsgClearJurisdiction. Removing a country would put an account
+// back into the unclaimed state the perimeter exists to abolish, holding an
+// identifier whose prefix names a country the chain no longer records. A
+// jurisdiction is corrected, never emptied.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // RegisterAlias issues an identifier to the sending account.
+  rpc RegisterAlias(MsgRegisterAlias) returns (MsgRegisterAliasResponse);
+
+  // RotateAlias retires the sender's identifier and issues a new one.
+  rpc RotateAlias(MsgRotateAlias) returns (MsgRotateAliasResponse);
+
+  // SetJurisdiction records or corrects the country an account belongs to.
+  rpc SetJurisdiction(MsgSetJurisdiction) returns (MsgSetJurisdictionResponse);
+
+  // UpdateParams sets the module parameters. Governance only.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgRegisterAlias claims an identifier for the sending account.
+//
+// It carries no identifier field on purpose, and no country field either. The
+// chain derives the identifier from the address and takes the country prefix
+// from the jurisdiction already recorded against the account, so there is
+// nothing for the sender to choose, nothing for anyone else to squat, and no
+// way to be issued a prefix that says somewhere you are not. An account with no
+// recorded jurisdiction is refused rather than given a default.
+message MsgRegisterAlias {
+  option (cosmos.msg.v1.signer) = "account";
+  option (amino.name) = "blockchain/x/alias/MsgRegisterAlias";
+
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgRegisterAliasResponse returns the identifier the chain assigned.
+message MsgRegisterAliasResponse {
+  // id is the identifier that was assigned, normalised. The sender cannot know
+  // it in advance of the transaction landing, so it comes back here and in the
+  // event.
+  string id = 1;
+}
+
+// MsgRotateAlias retires the sender's current identifier and issues a new one.
+//
+// For an account whose key was compromised: the old identifier is tombstoned
+// and never issued again, so a payment sent to the handle somebody memorised
+// arrives nowhere rather than in a stranger's account. That is the whole reason
+// retiring is allowed and repointing is not.
+message MsgRotateAlias {
+  option (cosmos.msg.v1.signer) = "account";
+  option (amino.name) = "blockchain/x/alias/MsgRotateAlias";
+
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgRotateAliasResponse returns what was tombstoned and what replaced it.
+message MsgRotateAliasResponse {
+  // retired is the identifier that will never be issued again.
+  string retired = 1;
+  // id is the replacement.
+  string id = 2;
+}
+
+// MsgSetJurisdiction records or corrects the country an account belongs to.
+//
+// The first recording is made by the approved participant that onboarded the
+// account, because that is the party that performed the KYC and therefore the
+// only one that knows the answer. It is never self-declared: an account that
+// could name its own perimeter could name the one with no authority watching
+// it.
+//
+// A correction — somebody moves, a firm redomiciles — is a foundation
+// administrator's act, not the participant's. A participant that could rewrite
+// a country it had already recorded could move a customer out from under an
+// authority mid-investigation.
+message MsgSetJurisdiction {
+  option (cosmos.msg.v1.signer) = "recorder";
+  option (amino.name) = "blockchain/x/alias/MsgSetJurisdiction";
+
+  // recorder is the approved participant that onboarded the account, or a
+  // foundation administrator, or governance.
+  string recorder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // account is whose perimeter this is.
+  string account = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // country is an ISO 3166-1 alpha-2 code. It must be one ISO has actually
+  // assigned: the reserved codes, ZZ among them, are refused here so that the
+  // marker the foundation administrators carry cannot be handed to an ordinary
+  // account and read as chain-wide authority.
+  string country = 3;
+}
+
+// MsgSetJurisdictionResponse reports the identifier consequences of the change.
+//
+// Correcting the country of an account that already holds an identifier retires
+// that identifier and issues a replacement in the same message. It has to: the
+// prefix would otherwise name a country the chain no longer records, and a
+// prefix that can go stale is a prefix that can lie. Rotating it here keeps
+// every property intact — the old identifier is tombstoned rather than
+// repointed, and is never issued again.
+message MsgSetJurisdictionResponse {
+  // retired is the identifier the correction gave up, empty when the account
+  // held none.
+  string retired = 1;
+
+  // id is the replacement identifier, carrying the new country. Empty when the
+  // account held none, in which case it will get one when it registers.
+  string id = 2;
+}
+
+// MsgUpdateParams sets the module parameters. Governance only.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/alias/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+// MsgUpdateParamsResponse is empty.
+message MsgUpdateParamsResponse {}

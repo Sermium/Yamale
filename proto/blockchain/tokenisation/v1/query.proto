@@ -1,0 +1,70 @@
+syntax = "proto3";
+package blockchain.tokenisation.v1;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "blockchain/tokenisation/v1/params.proto";
+import "blockchain/tokenisation/v1/tokenisation.proto";
+
+option go_package = "yamale/blockchain/x/tokenisation/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/blockchain/tokenisation/v1/params";
+  }
+  rpc Collections(QueryCollectionsRequest) returns (QueryCollectionsResponse) {
+    option (google.api.http).get = "/blockchain/tokenisation/v1/collections";
+  }
+  rpc Assets(QueryAssetsRequest) returns (QueryAssetsResponse) {
+    option (google.api.http).get = "/blockchain/tokenisation/v1/assets";
+  }
+  rpc Asset(QueryAssetRequest) returns (QueryAssetResponse) {
+    option (google.api.http).get = "/blockchain/tokenisation/v1/assets/{asset_id}";
+  }
+  // What an account is owed right now, including income that has accrued since
+  // its balance last moved.
+  rpc Entitlement(QueryEntitlementRequest) returns (QueryEntitlementResponse) {
+    option (google.api.http).get = "/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryCollectionsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryCollectionsResponse {
+  repeated Collection collections = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryAssetsRequest {
+  string collection_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+message QueryAssetsResponse {
+  repeated Asset assets = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryAssetRequest {
+  uint64 asset_id = 1;
+}
+message QueryAssetResponse {
+  Asset asset = 1 [(gogoproto.nullable) = false];
+  Vault vault = 2 [(gogoproto.nullable) = false];
+  SaleReport sale = 3;
+}
+
+message QueryEntitlementRequest {
+  uint64 asset_id = 1;
+  string holder = 2;
+}
+message QueryEntitlementResponse {
+  cosmos.base.v1beta1.Coin owed = 1 [(gogoproto.nullable) = false];
+}

@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Land title register</title>
+<!--
+  The land title register: search a title, read its record, follow a transfer.
+
+  Two people open this page. A clerk in a lands commission, and somebody about
+  to hand over their savings for a field. The second one is the reason for
+  nearly every decision below.
+
+  Deliberately one file with no build step and no dependencies, like the
+  validator console and the governance page. The register is consulted in
+  places with one bar of signal, from a phone, often by somebody who is being
+  hurried by the person selling them the land. A page that needs npm install
+  before it can say "there is an objection against this title" is a page that
+  will not be open at the moment it matters.
+
+  Everything here is read from the public REST surface, unauthenticated, exactly
+  as x/land's Query service intends: "the secrecy that protects a corrupt
+  registry is the same secrecy that stops a buyer discovering the land was
+  already sold." No key, no account, no signing — see registrar.js for why the
+  actions are composed as commands rather than offered as buttons.
+
+  No wallet vocabulary. A registry office has a name; a person has a user ID;
+  the account reference exists but is filed under "evidence", where a hash
+  belongs, and never in the sentence that tells somebody whether their land is
+  safe.
+-->
+<style>
+  :root{
+    color-scheme:light dark;
+    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
+    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
+    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
+    --wash-ok:rgba(13,122,74,.10);--wash-warn:rgba(168,121,27,.12);
+    --wash-bad:rgba(176,42,37,.10);--wash-mute:rgba(92,110,136,.10);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
+    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;
+    --wash-ok:rgba(111,191,165,.12);--wash-warn:rgba(210,166,94,.14);
+    --wash-bad:rgba(239,138,133,.13);--wash-mute:rgba(143,164,196,.12);}}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
+         border-bottom:1px solid var(--border);flex-wrap:wrap}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  h1 a{color:inherit;text-decoration:none}
+  nav{display:flex;gap:.1rem;flex-wrap:wrap;margin-inline-start:auto}
+  nav a{font-size:.82rem;color:var(--muted);text-decoration:none;padding:.3rem .6rem;
+        border-radius:8px}
+  nav a:hover{color:var(--text);background:var(--wash-mute)}
+  nav a[aria-current]{color:var(--text);background:var(--wash-mute);font-weight:600}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.2rem}
+  /* On a phone the header must not eat the screen before the verdict appears.
+     The verdict is the whole reason somebody opened this. */
+  @media (max-width:560px){
+    header{padding:.65rem .8rem;gap:.45rem}
+    nav{margin-inline-start:0;width:100%;gap:0}
+    nav a{padding:.22rem .45rem;font-size:.78rem}
+    #clock{font-size:.72rem}
+    .wrap{padding:.9rem .8rem}
+    .verdict{padding:.85rem .9rem}
+    .verdict__head{font-size:1.05rem}
+  }
+  h2{font-size:.95rem;margin:1.7rem 0 .6rem}
+  h2:first-child{margin-top:.2rem}
+  h3{font-size:.88rem;margin:0 0 .35rem}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+        padding:1rem;margin-bottom:.8rem}
+  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:.84rem}
+  .small{font-size:.78rem}
+  .pill{font-size:.7rem;font-weight:650;padding:.14rem .55rem;border-radius:999px;
+        letter-spacing:.03em;white-space:nowrap;display:inline-block}
+  .p-ok{background:var(--wash-ok);color:var(--ok)}
+  .p-warn{background:var(--wash-warn);color:var(--warn)}
+  .p-bad{background:var(--wash-bad);color:var(--bad)}
+  .p-mute{background:var(--wash-mute);color:var(--muted)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
+  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.76rem;
+      background:var(--wash-mute);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
+      margin:.4rem 0;white-space:pre;line-height:1.45}
+  a{color:var(--brass)}
+  .err{background:var(--wash-bad);color:var(--bad);padding:.7rem .9rem;border-radius:10px;
+       font-size:.86rem;border:1px solid rgba(176,42,37,.25);margin-bottom:.8rem}
+  .err code{color:inherit}
+  .empty{color:var(--muted);font-size:.86rem;padding:.9rem 0}
+
+  /* The verdict. This is the whole page for a citizen: one sentence, one
+     colour, at the top, before any detail. A title with a live mortgage or an
+     open transfer must not be able to look like a clean one, so the banner
+     carries the colour and the reason together and detail never gets to
+     contradict it quietly further down. */
+  .verdict{border-radius:14px;padding:1rem 1.1rem;margin-bottom:.9rem;
+           border:1px solid var(--border);border-inline-start-width:5px}
+  .verdict--ok{background:var(--wash-ok);border-inline-start-color:var(--ok)}
+  .verdict--warn{background:var(--wash-warn);border-inline-start-color:var(--warn)}
+  .verdict--bad{background:var(--wash-bad);border-inline-start-color:var(--bad)}
+  .verdict__head{font-size:1.15rem;font-weight:680;line-height:1.3}
+  .verdict--ok .verdict__head{color:var(--ok)}
+  .verdict--warn .verdict__head{color:var(--warn)}
+  .verdict--bad .verdict__head{color:var(--bad)}
+  .verdict__why{margin:.45rem 0 0;font-size:.9rem}
+  .verdict__why li{margin:.15rem 0}
+
+  .hit{display:block;text-decoration:none;color:inherit}
+  .hit:hover{border-color:var(--brass)}
+  .hit .ref{font-weight:660;font-size:1rem}
+
+  input,select,textarea{font:inherit;padding:.5rem .65rem;border-radius:9px;
+        border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%}
+  textarea{min-height:5rem;resize:vertical}
+  label{display:block;font-size:.78rem;color:var(--muted);margin:.6rem 0 .2rem}
+  button{font:inherit;font-size:.84rem;font-weight:600;padding:.5rem .9rem;border-radius:9px;
+         cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
+  button:hover{border-color:var(--brass)}
+  button.primary{border-color:var(--brass);color:var(--brass)}
+  .copy{font-size:.74rem;font-weight:500;padding:.25rem .55rem}
+  .searchbar{display:flex;gap:.5rem;flex-wrap:wrap}
+  .searchbar input{flex:1 1 22rem}
+
+  /* The four steps. A stepper rather than a table because a transfer is a
+     sequence with a place it has got to, and a table of booleans makes the
+     reader compute that themselves. */
+  .steps{list-style:none;padding:0;margin:.4rem 0 0}
+  .step{display:flex;gap:.85rem;padding:.1rem 0 1rem;position:relative}
+  .step:last-child{padding-bottom:0}
+  .step__mark{flex:0 0 1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;
+              font-size:.78rem;font-weight:700;border:2px solid var(--border);
+              background:var(--panel);z-index:1}
+  .step--done .step__mark{border-color:var(--ok);color:var(--ok);background:var(--wash-ok)}
+  .step--now .step__mark{border-color:var(--warn);color:var(--warn);background:var(--wash-warn)}
+  .step--stop .step__mark{border-color:var(--bad);color:var(--bad);background:var(--wash-bad)}
+  .step:not(:last-child)::before{content:"";position:absolute;inset-inline-start:.8rem;
+       top:1.7rem;bottom:0;width:2px;background:var(--border)}
+  .step--done:not(:last-child)::before{background:var(--ok)}
+  .step__body{flex:1;min-width:0}
+  .step__title{font-weight:640;font-size:.92rem}
+  .step--now .step__title{color:var(--warn)}
+  .step--stop .step__title{color:var(--bad)}
+
+  /* Chain of title. Same shape as the stepper, different job: this one is
+     read backwards by somebody trying to find where a record was altered. */
+  .tl{list-style:none;padding:0;margin:0}
+  .tl li{position:relative;padding:0 0 1rem 1.4rem;border-inline-start:2px solid var(--border);
+         margin-inline-start:.35rem}
+  .tl li:last-child{border-inline-start-color:transparent;padding-bottom:0}
+  .tl li::before{content:"";position:absolute;inset-inline-start:-6px;top:.35rem;width:10px;
+       height:10px;border-radius:50%;background:var(--border)}
+  .tl li.is-ok::before{background:var(--ok)}
+  .tl li.is-warn::before{background:var(--warn)}
+  .tl li.is-bad::before{background:var(--bad)}
+  .tl__when{font-size:.74rem;color:var(--muted);letter-spacing:.02em}
+  .tl__what{font-weight:620;font-size:.9rem}
+
+  details{margin-top:.5rem}
+  summary{cursor:pointer;font-size:.78rem;color:var(--muted)}
+  summary:hover{color:var(--text)}
+  dl{margin:.4rem 0 0;display:grid;grid-template-columns:max-content 1fr;gap:.25rem .9rem;
+     font-size:.84rem;align-items:baseline}
+  dt{color:var(--muted);font-size:.78rem}
+  dd{margin:0;min-width:0;word-break:break-word}
+  .claim{border-inline-start:3px solid var(--warn);padding:.5rem .8rem;border-radius:0 10px 10px 0;
+         background:var(--wash-warn);margin-bottom:.5rem}
+  .claim--gone{border-inline-start-color:var(--muted);background:var(--wash-mute);opacity:.75}
+  .claim--stop{border-inline-start-color:var(--bad);background:var(--wash-bad)}
+  .spin{color:var(--muted);font-size:.86rem;padding:1rem 0}
+</style>
+</head>
+<body>
+<header>
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px"
+       onerror="this.style.display='none'">
+  <h1><a href="#/">Land title register</a></h1>
+  <nav id="nav"></nav>
+  <span class="muted small" id="clock"></span>
+</header>
+
+<div class="wrap">
+  <div id="banner"></div>
+  <main id="view"><p class="spin">Reading the register…</p></main>
+</div>
+
+<script type="module">
+import { CHAIN, MESSAGES, landTx, officeTx, groupPreamble } from './registrar.js';
+
+const REST = '/api/rest';
+const LAND = `${REST}/yamale/blockchain/land/v1`;
+
+// ---------------------------------------------------------------------------
+// Reading the chain.
+//
+// Every failure names the call that failed. "Something went wrong" tells a
+// clerk nothing, and tells a citizen standing in front of a seller even less:
+// they need to know whether the register said "no objection" or whether the
+// register did not answer, because those are opposite facts.
+// ---------------------------------------------------------------------------
+
+class CallFailed extends Error {
+  constructor(url, status, detail) {
+    super(detail ? `${url} → ${status}: ${detail}` : `${url} → ${status}`);
+    this.url = url; this.status = status;
+  }
+}
+
+async function get(url) {
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    throw new CallFailed(url, 'unreachable', e.message);
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).message || ''; } catch { /* not json */ }
+    throw new CallFailed(url, res.status, detail);
+  }
+  return res.json();
+}
+
+/** Returns null for a 404 rather than throwing. "No such title" is an answer. */
+async function getOrNull(url) {
+  try { return await get(url); }
+  catch (e) { if (e.status === 404 || e.status === 400) return null; throw e; }
+}
+
+const cache = new Map();
+const once = (key, fn) => {
+  if (!cache.has(key)) cache.set(key, fn().catch((e) => { cache.delete(key); throw e; }));
+  return cache.get(key);
+};
+
+/**
+ * Finding a parcel by the reference printed on somebody's paper.
+ *
+ * This is the module's primary lookup — "how people actually search", as the
+ * keeper puts it — and until recently it was the one query that could not be
+ * made over REST at all. Every real cadastral reference contains slashes
+ * (ACC/GA/2019/00412), the gateway route bound the reference to a single path
+ * segment, and no encoding makes a slash fit in one: the node answered 501.
+ * This page carried twenty lines of hand-written protobuf and an `abci_query`
+ * call to get around it.
+ *
+ * The query now takes the reference in the query string, where a slash is an
+ * ordinary character, so the workaround is gone and this is an ordinary read
+ * like every other screen. `encodeURIComponent` is still correct and still
+ * required — it is what keeps a reference containing `&` or `#` from being
+ * read as more parameters.
+ */
+const parcelByRef = (ref) =>
+  getOrNull(`${LAND}/parcel_by_ref?cadastral_ref=${encodeURIComponent(ref)}`);
+
+/** The uniqueness check, for the same reason in the query string: the keeper
+ *  imposes no encoding on a survey hash, and base64 digests contain slashes. */
+const parcelByGeometry = (hash) =>
+  getOrNull(`${LAND}/parcel_by_geometry?geometry_hash=${encodeURIComponent(hash)}`);
+
+/**
+ * The registry's standing permission to fractionalise one parcel, and whether
+ * the *chain* considers it live.
+ *
+ * `live` is read rather than computed. It depends on the block time, on
+ * whether the office withdrew the permission, and on whether the parcel has
+ * since acquired a restriction forbidding fractionalisation — and a page that
+ * worked any of that out for itself would eventually disagree with the keeper.
+ * The moment it does is the moment somebody pays for shares the chain will
+ * refuse to mint.
+ */
+const fractionalisationAuthority = (parcelId) =>
+  getOrNull(`${LAND}/fractionalisation_authority/${encodeURIComponent(parcelId)}`);
+
+const params = () => once('params', async () => (await get(`${LAND}/params`)).params);
+const authorities = () => once('offices', async () => (await get(`${LAND}/authorities`)).authorities || []);
+
+/**
+ * Transaction search, used for the two things the module's state cannot answer:
+ * which titles were registered recently, and what fractionalisation has been
+ * authorised. It is a *different kind* of source from a state query — it is the
+ * record of what was sent, not of what is held — so every panel fed by it says
+ * so, and degrades to an honest blank rather than an empty-looking success.
+ *
+ * On a hardened deployment this endpoint sits behind the operator's basic-auth
+ * gate and answers 401. That is a legitimate configuration, not a bug, and the
+ * caller renders it as such.
+ */
+async function txsOf(msgType, limit = 30) {
+  const url = `${REST}/cosmos/tx/v1beta1/txs`
+    + `?query=${encodeURIComponent(`message.action='${msgType}'`)}`
+    + `&limit=${limit}&order_by=ORDER_BY_DESC`;
+  const data = await get(url);
+  const out = [];
+  (data.tx_responses || []).forEach((r, i) => {
+    const body = (data.txs || [])[i]?.body;
+    (body?.messages || []).forEach((m) => {
+      if (m['@type'] === msgType) out.push({ msg: m, height: r.height, code: r.code, hash: r.txhash });
+    });
+  });
+  return out;
+}
+
+// Block heights are the chain's clock and nobody thinks in them. Each height
+// shown is resolved to its actual block time rather than estimated from an
+// average: an estimated date on a land record is a date somebody will one day
+// cite in court.
+//
+// Held to three at a time. A parcel with a long history asks for a dozen
+// blocks at once, and firing them all is fine on a desk and miserable on the
+// connection this page is actually opened on — where the browser's own
+// connection limit turns a burst into a queue with nothing rendering behind it.
+const blockTimes = new Map();
+let inFlight = 0;
+const waiting = [];
+function slot() {
+  if (inFlight < 3) { inFlight += 1; return Promise.resolve(); }
+  return new Promise((r) => waiting.push(r));
+}
+function release() {
+  const next = waiting.shift();
+  if (next) next(); else inFlight -= 1;
+}
+
+async function blockTime(height) {
+  const h = String(height);
+  if (blockTimes.has(h)) return blockTimes.get(h);
+  const p = (async () => {
+    await slot();
+    try {
+      const b = await get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/${h}`);
+      return b?.block?.header?.time || null;
+    } catch {
+      return null;  // pruned, or the node will not serve it
+    } finally {
+      release();
+    }
+  })();
+  blockTimes.set(h, p);
+  return p;
+}
+
+// ---------------------------------------------------------------------------
+// Naming things the way the people reading this name them.
+// ---------------------------------------------------------------------------
+
+const OFFICE = new Map();   // address -> Authority
+const PERSON = new Map();   // address -> user ID, or null
+
+async function loadOffices() {
+  (await authorities()).forEach((a) => OFFICE.set(a.address, a));
+}
+
+/**
+ * An office has a name and a jurisdiction, both on-chain. Showing the name is
+ * not decoration: "attested by the Highland Lands Office" is a fact a reader
+ * can check against the world, and a bech32 string is not.
+ */
+function officeLabel(addr) {
+  if (!addr) return '—';
+  const o = OFFICE.get(addr);
+  if (o) return o.name || o.jurisdiction || shortRef(addr);
+  return `an office no longer in the register (${shortRef(addr)})`;
+}
+const officeWhere = (addr) => OFFICE.get(addr)?.jurisdiction || '';
+
+/**
+ * A person is a user ID where they have one, and otherwise an account
+ * reference shown short. Names are deliberately absent from this chain — a
+ * public list of who owns what with names attached is a targeting list — so
+ * this is as far as the register goes, and the page says so rather than
+ * implying the holder is anonymous by accident.
+ */
+async function personLabel(addr) {
+  if (!addr) return '—';
+  if (OFFICE.has(addr)) return officeLabel(addr);
+  if (!PERSON.has(addr)) {
+    PERSON.set(addr, (async () => {
+      try {
+        const r = await get(`${REST}/yamale/blockchain/alias/v1/alias_of/${addr}`);
+        return r?.alias?.id || null;
+      } catch { return null; }
+    })());
+  }
+  const id = await PERSON.get(addr);
+  return id ? `User ${groupUserId(id)}` : `Holder ${shortRef(addr)}`;
+}
+
+/**
+ * NGK3M97QRT5 → NG-K3M9-7QRT-5.
+ *
+ * Display only. The country prefix is the first group because the reason it is
+ * in the identifier at all is that a registrar should see which national
+ * perimeter a holder belongs to at a glance, and run together with the payload
+ * it is two more characters nobody parses.
+ *
+ * The check character is deliberately *not* recomputed here: this page is a
+ * standalone file with no bundler, and a second implementation of the chain's
+ * validation would be one that can disagree with it. Anything typed into the
+ * search box is resolved by the chain, which normalises and checks it there.
+ */
+function groupUserId(id) {
+  const n = String(id).toUpperCase();
+  if (n.length < 4) return n;
+  const groups = [n.slice(0, 2)];
+  const payload = n.slice(2, -1);
+  for (let i = 0; i < payload.length; i += 4) groups.push(payload.slice(i, i + 4));
+  groups.push(n.slice(-1));
+  return groups.join('-');
+}
+
+const shortRef = (a) => (a && a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-5)}` : a || '—');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const dateOf = (iso) => iso
+  ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  : null;
+const dateTimeOf = (unix) => new Date(Number(unix) * 1000)
+  .toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric',
+                               hour: '2-digit', minute: '2-digit' });
+
+/** Durations in the words a clerk uses, not in seconds. */
+function span(seconds) {
+  const s = Math.abs(Math.round(seconds));
+  if (s >= 172800) return `${Math.round(s / 86400)} days`;
+  if (s >= 7200) return `${Math.round(s / 3600)} hours`;
+  if (s >= 120) return `${Math.round(s / 60)} minutes`;
+  return `${s} seconds`;
+}
+
+const live = (list) => (list || []).filter((x) => !x.released && !x.lifted);
+const KIND = {
+  mortgage: 'Mortgage', lien: 'Lien', 'right-of-way': 'Right of way', caveat: 'Caveat',
+  agricultural_use_only: 'Agricultural use only', no_fractionalisation: 'May not be fractionalised',
+  foreign_ownership_capped: 'Foreign ownership capped', heritage_protected: 'Heritage protected',
+  minimum_parcel_size: 'Minimum parcel size', customary_tenure: 'Customary tenure',
+  grant: 'Grant', sale: 'Deed of sale', inheritance: 'Succession', survey: 'Survey',
+  'court order': 'Court order',
+};
+const kindLabel = (k) => KIND[k] || String(k || '').replace(/[_-]/g, ' ')
+  .replace(/^./, (c) => c.toUpperCase()) || 'Entry';
+
+// ---------------------------------------------------------------------------
+// The verdict.
+//
+// One function, used by the search results and by the record, so a title cannot
+// read as clean in a list and encumbered on its own page. The order is by how
+// badly it should stop somebody: a freeze and a dispute stop everything, an
+// open transfer means the land may not be the seller's for much longer, and a
+// live claim means the buyer inherits it.
+// ---------------------------------------------------------------------------
+
+function verdict(parcel, transfers) {
+  const claims = live(parcel.encumbrances);
+  const limits = live(parcel.restrictions);
+  const open = (transfers || []).find((t) => t.completed_at === '0' && !t.objected_by);
+  const objected = (transfers || []).find((t) => t.objected_by);
+  const why = [];
+
+  let tone = 'ok';
+  let head = 'This title is clear';
+  let lead = 'One holder, no claims against it, and nothing in progress.';
+
+  if (parcel.status === 'STATUS_FROZEN') {
+    tone = 'bad'; head = 'This title is frozen';
+    lead = 'The registry office has stopped all dealings with this land. Nothing can be transferred until the freeze is lifted.';
+  } else if (parcel.status === 'STATUS_DISPUTED') {
+    tone = 'bad'; head = 'This title is disputed';
+    lead = 'Somebody objected to a transfer of this land. The register has stopped and a court decides — not the register.';
+    if (objected) why.push(`The objection reads: “${esc(objected.objection_reason)}”`);
+  } else if (open) {
+    tone = 'warn'; head = 'A transfer of this land is under way';
+    lead = 'Somebody is already in the process of acquiring this parcel. Do not pay for it before reading the transfer.';
+  } else if (claims.length) {
+    tone = 'warn'; head = 'This title carries claims against it';
+    lead = 'The holder owns the land, but somebody else has a right over it that a buyer would inherit.';
+  }
+
+  claims.forEach((c) => why.push(
+    `${kindLabel(c.kind)} — ${esc(c.detail || 'no detail recorded')}`));
+  // Restrictions are listed but do not change the verdict. They are not a
+  // defect in the title — heritage protection is a fact about the land, not a
+  // warning about the seller — and colouring them like a lien would teach a
+  // reader to ignore the colour.
+  if (limits.length) why.push(
+    `Limits on what may be done with the land: ${limits.map((r) => kindLabel(r.kind)).join(', ')}.`);
+
+  return { tone, head, lead, why, open, claims, limits };
+}
+
+const verdictHtml = (v) => `
+  <div class="verdict verdict--${v.tone}">
+    <div class="verdict__head">${esc(v.head)}</div>
+    <p class="verdict__why" style="margin-top:.35rem">${esc(v.lead)}</p>
+    ${v.why.length ? `<ul class="verdict__why">${v.why.map((w) => `<li>${w}</li>`).join('')}</ul>` : ''}
+  </div>`;
+
+const statusPill = (s) => {
+  const t = String(s).replace('STATUS_', '').toLowerCase().replace(/_/g, ' ');
+  const cls = { registered: 'p-ok', 'transfer pending': 'p-warn',
+                disputed: 'p-bad', frozen: 'p-bad' }[t] || 'p-mute';
+  return `<span class="pill ${cls}">${t}</span>`;
+};
+
+// ---------------------------------------------------------------------------
+// Where a transfer has got to.
+//
+// The four steps are the module's anti-bribery shape, and the page's job is to
+// make the *next* one obvious: an office opening this should see what it is
+// waiting for without reading five fields and doing the arithmetic itself.
+// ---------------------------------------------------------------------------
+
+function stage(transfer, parcel, p) {
+  const quorum = Number(p.attestation_quorum);
+  const got = (transfer.attestors || []).length;
+  const quorumAt = Number(transfer.quorum_at);
+  const window = Number(p.challenge_window);
+  const closesAt = quorumAt ? quorumAt + window : 0;
+  const now = Math.floor(Date.now() / 1000);
+
+  if (transfer.objected_by) {
+    return { key: 'objected', tone: 'bad', got, quorum, closesAt,
+             waiting: 'Stopped. Somebody objected, and the parcel is disputed until a court decides.' };
+  }
+  if (transfer.completed_at !== '0') {
+    return { key: 'done', tone: 'ok', got, quorum, closesAt,
+             waiting: 'Complete. The land has changed hands.' };
+  }
+  if (!transfer.validated) {
+    return { key: 'validate', tone: 'warn', got, quorum, closesAt,
+             waiting: `Waiting for ${officeLabel(parcel?.authority)} — the office holding this parcel's file — to validate it.` };
+  }
+  if (got < quorum) {
+    return { key: 'attest', tone: 'warn', got, quorum, closesAt,
+             waiting: `Waiting for ${quorum - got} more independent ${quorum - got === 1 ? 'office' : 'offices'} to attest. ${got} of ${quorum} so far.` };
+  }
+  if (now < closesAt) {
+    return { key: 'window', tone: 'warn', got, quorum, closesAt,
+             waiting: `Open to objection until ${dateTimeOf(closesAt)} — ${span(closesAt - now)} from now. Anybody may object; one objection stops it.` };
+  }
+  return { key: 'complete', tone: 'ok', got, quorum, closesAt,
+           waiting: 'Everything is satisfied and the window has closed. Anyone at all may now complete it — that step is mechanical, so no official can withhold it.' };
+}
+
+async function stepsHtml(transfer, parcel, p, st) {
+  const proposedOn = dateOf(await blockTime(transfer.proposed_at));
+  const attestors = await Promise.all((transfer.attestors || [])
+    .map(async (a) => `${officeLabel(a)}${officeWhere(a) ? ` (${esc(officeWhere(a))})` : ''}`));
+  const couldAttest = (await authorities())
+    .filter((a) => a.active && a.address !== parcel?.authority
+                && !(transfer.attestors || []).includes(a.address))
+    .map((a) => a.name);
+
+  const mark = (done, now, stop) =>
+    stop ? 'step--stop' : done ? 'step--done' : now ? 'step--now' : '';
+  const glyph = (done, now, stop) => (stop ? '×' : done ? '✓' : now ? '…' : '');
+
+  const order = ['validate', 'attest', 'window', 'complete', 'done', 'objected'];
+  const at = order.indexOf(st.key);
+  const reached = (k) => at > order.indexOf(k) || st.key === 'done' || st.key === 'complete';
+
+  const holderName = await personLabel(transfer.from);
+  const toName = await personLabel(transfer.to);
+
+  return `<ol class="steps">
+    <li class="step step--done">
+      <span class="step__mark">✓</span>
+      <div class="step__body">
+        <div class="step__title">The holder consented</div>
+        <p class="muted small" style="margin:.2rem 0">${esc(holderName)} proposed this transfer to ${esc(toName)}${
+          proposedOn ? ` on ${esc(proposedOn)}` : ` in block ${esc(transfer.proposed_at)}`}${
+          transfer.price ? `, at a declared price of ${esc(transfer.price)}` : ''}.
+          No office can start the sale of somebody's land; this step has to come first.</p>
+      </div>
+    </li>
+    <li class="step ${mark(transfer.validated, st.key === 'validate', false)}">
+      <span class="step__mark">${glyph(transfer.validated, st.key === 'validate', false)}</span>
+      <div class="step__body">
+        <div class="step__title">The office in charge validated it</div>
+        <p class="muted small" style="margin:.2rem 0">${
+          transfer.validated
+            ? `${esc(officeLabel(transfer.validated_by))} confirmed the seller against the paper file it holds.`
+            : `Only ${esc(officeLabel(parcel?.authority))} may do this — it is the office holding this parcel's file.`}</p>
+      </div>
+    </li>
+    <li class="step ${mark(st.got >= st.quorum, st.key === 'attest', false)}">
+      <span class="step__mark">${glyph(st.got >= st.quorum, st.key === 'attest', false)}</span>
+      <div class="step__body">
+        <div class="step__title">Independent offices attested — ${st.got} of ${st.quorum}</div>
+        ${attestors.length
+          ? `<ul class="muted small" style="margin:.2rem 0 .2rem 1rem;padding:0">${
+              attestors.map((a) => `<li>${a}</li>`).join('')}</ul>`
+          : '<p class="muted small" style="margin:.2rem 0">Nobody has attested yet.</p>'}
+        ${st.got < st.quorum && couldAttest.length && st.key !== 'objected' && st.key !== 'done'
+          ? `<p class="muted small" style="margin:.2rem 0">Still able to attest: ${esc(couldAttest.join(', '))}.
+             ${esc(officeLabel(parcel?.authority))} cannot — an attestor from the parcel's own office is not independent.</p>`
+          : st.key === 'objected' && st.got < st.quorum
+            ? `<p class="muted small" style="margin:.2rem 0">It never reached quorum, and now cannot:
+               the objection below stopped the transfer, so no further attestation is possible.</p>`
+            : ''}
+      </div>
+    </li>
+    <li class="step ${transfer.objected_by ? 'step--stop'
+                    : mark(reached('window'), st.key === 'window', false)}">
+      <span class="step__mark">${transfer.objected_by ? '×'
+                    : glyph(reached('window'), st.key === 'window', false)}</span>
+      <div class="step__body">
+        <div class="step__title">${transfer.objected_by ? 'Objected to' : 'The challenge window'}</div>
+        <p class="muted small" style="margin:.2rem 0">${
+          transfer.objected_by
+            ? `${esc(await personLabel(transfer.objected_by))} objected: “${esc(transfer.objection_reason)}”. One objection is enough — the register stops and a court decides.`
+            : st.closesAt
+              ? `Runs from the moment quorum was reached — ${esc(dateTimeOf(Number(transfer.quorum_at)))} — for ${esc(span(Number(p.challenge_window)))}, closing ${esc(dateTimeOf(st.closesAt))}. Anybody at all may object during it, with no credentials and no standing to prove.`
+              : `Has not started. The clock runs from quorum, not from the proposal, so the public clock only starts once the transfer is real.`}</p>
+      </div>
+    </li>
+    <li class="step ${transfer.completed_at !== '0' ? 'step--done'
+                    : st.key === 'complete' ? 'step--now' : ''}">
+      <span class="step__mark">${transfer.completed_at !== '0' ? '✓' : st.key === 'complete' ? '…' : ''}</span>
+      <div class="step__body">
+        <div class="step__title">Completion</div>
+        <p class="muted small" style="margin:.2rem 0">${
+          transfer.completed_at !== '0'
+            ? `Completed ${esc(dateTimeOf(Number(transfer.completed_at)))}. The land is now held by ${esc(toName)}.`
+            : 'Mechanical, and callable by anyone. If only an official could finalise a transfer, an official could refuse to — and refusal is leverage worth paying for.'}</p>
+      </div>
+    </li>
+  </ol>`;
+}
+
+// ---------------------------------------------------------------------------
+// Composing an action, rather than performing it. See registrar.js.
+// ---------------------------------------------------------------------------
+
+// Copy targets live in a registry and the click is handled once, on the
+// document. Wiring each button as it is built looked simpler and was wrong:
+// the markup is composed into a string and inserted by the caller, so anything
+// that reaches for the element while composing finds nothing there yet — and a
+// copy button that silently does nothing is worse than no copy button, because
+// the clerk believes they have the command on their clipboard.
+const COPY = new Map();
+let seq = 0;
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('[data-copy]');
+  if (!btn) return;
+  const text = COPY.get(btn.dataset.copy);
+  if (text === undefined) return;
+  const was = btn.dataset.label;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'copied'; }
+  catch { btn.textContent = 'select the text and copy it'; }
+  setTimeout(() => { btn.textContent = was; }, 2500);
+});
+
+/**
+ * One thing to run, composed for this parcel and this office.
+ *
+ * x/land has a CLI now, so this is the real `blockchaind tx land …` command
+ * rather than a transaction document assembled by hand in a browser. The
+ * difference is not cosmetic: a document this page builds is checked by
+ * nothing until it reaches a block, whereas a command is parsed by the binary
+ * that owns the message — a wrong field fails at the terminal, named, in front
+ * of the person who can correct it.
+ *
+ * `office` decides which of two shapes is printed. An office is a group
+ * account and cannot broadcast: its command is generated unsigned and
+ * submitted as a proposal its registrars vote on. Printing the broadcast form
+ * for an office would suggest one clerk can move land alone, which is the
+ * thing the module is built to prevent.
+ */
+function action(title, note, spec, office = false) {
+  const id = `act${seq++}`;
+  const cmd = office ? officeTx(spec) : landTx(spec);
+  COPY.set(`${id}-cmd`, cmd);
+  return `<div class="card">
+    <div class="row"><h3>${esc(title)}</h3></div>
+    <p class="muted small" style="margin:.1rem 0 .5rem">${note}</p>
+    <div class="row" style="margin-bottom:.2rem">
+      <span class="muted small">run this where the key is</span>
+      <button class="copy" data-copy="${id}-cmd" data-label="copy the command">copy the command</button>
+    </div>
+    <pre>${esc(cmd)}</pre>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Screens.
+// ---------------------------------------------------------------------------
+
+const view = document.getElementById('view');
+const banner = document.getElementById('banner');
+const setBanner = (e) => {
+  banner.innerHTML = e
+    ? `<p class="err">The register did not answer. <code>${esc(e.message)}</code></p>` : '';
+};
+
+const ROUTES = [
+  ['#/', 'Search a title'],
+  ['#/pending', 'Transfers under way'],
+  ['#/authorisations', 'Fractionalisation'],
+  ['#/register', 'Register a parcel'],
+  ['#/offices', 'Registry offices'],
+];
+
+function renderNav(hash) {
+  document.getElementById('nav').innerHTML = ROUTES.map(([h, label]) => {
+    const on = h === '#/' ? (hash === '#/' || hash === '' || hash.startsWith('#/parcel') || hash.startsWith('#/transfer')) : hash.startsWith(h);
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${label}</a>`;
+  }).join('');
+}
+
+// --- 1. Search ------------------------------------------------------------
+
+async function screenSearch(query) {
+  view.innerHTML = `
+    <h2>Who owns this land, and is the title clean?</h2>
+    <form class="searchbar" id="sf">
+      <input id="q" value="${esc(query || '')}" autofocus
+             placeholder="Cadastral reference, parcel number, user ID, or a survey hash">
+      <button class="primary" type="submit">Search the register</button>
+    </form>
+    <p class="muted small" style="margin:.5rem 0 0">
+      No account is needed and nobody is told that you looked. Reading the register is
+      public on purpose: the secrecy that protects a corrupt registry is the same
+      secrecy that stops a buyer discovering the land was already sold.</p>
+    <div id="results"></div>
+    <div id="recent"></div>`;
+
+  document.getElementById('sf').onsubmit = (e) => {
+    e.preventDefault();
+    const v = document.getElementById('q').value.trim();
+    location.hash = v ? `#/?q=${encodeURIComponent(v)}` : '#/';
+  };
+
+  if (query) await runSearch(query);
+  else await recentlyRegistered();
+}
+
+/**
+ * One box, because a citizen holding a piece of paper does not know which of
+ * the register's four identifiers is written on it. The query is shaped and
+ * every plausible lookup is tried; what was tried and what answered is shown,
+ * so "not found" is a statement about the register rather than about the query.
+ */
+async function runSearch(q) {
+  const out = document.getElementById('results');
+  out.innerHTML = '<p class="spin">Searching…</p>';
+  const tried = [];
+  const found = new Map();
+  const failures = [];
+
+  const attempt = async (what, url, pick) => {
+    tried.push(what);
+    try {
+      const r = await getOrNull(url);
+      if (r) pick(r);
+    } catch (e) { failures.push(`${what} — ${e.message}`); }
+  };
+
+  const add = (p) => { if (p) found.set(p.id, p); };
+
+  // Parcel numbers start at 1. The register never issues parcel 0: a zero id
+  // is indistinguishable from an unset protobuf field, and x/tokenisation says
+  // "this vehicle is over land" by carrying a parcel id — so a parcel 0 would
+  // make every warehouse receipt on the chain look like a vehicle over the
+  // first field this registry ever recorded. A "0" typed here is therefore a
+  // reference, not a number, and falls through to the reference lookup below.
+  if (/^[1-9][0-9]*$/.test(q)) {
+    await attempt('parcel number', `${LAND}/parcel/${encodeURIComponent(q)}`, (r) => add(r.parcel));
+  }
+  if (/^[0-9a-f]{32,}$/i.test(q)) {
+    await attempt('survey hash', `${LAND}/parcel_by_geometry?geometry_hash=${encodeURIComponent(q)}`, (r) => add(r.parcel));
+  }
+  if (/^yml1[0-9a-z]{20,}$/.test(q)) {
+    await attempt('account reference', `${LAND}/parcels_by_holder/${encodeURIComponent(q)}`,
+      (r) => (r.parcels || []).forEach(add));
+  } else if (/^[A-Za-z0-9-]{4,24}$/.test(q)) {
+    // A user ID resolves to an account, and the account is then asked what it
+    // holds. Shaped first: a cadastral reference has slashes in it, and asking
+    // the alias module about "NR/KAN/2019/00412" produces a 501 that reads on
+    // screen as the register failing when nothing failed at all.
+    tried.push('user ID');
+    try {
+      const a = await getOrNull(`${REST}/yamale/blockchain/alias/v1/alias/${encodeURIComponent(q)}`);
+      if (a?.alias?.address) {
+        const r = await getOrNull(`${LAND}/parcels_by_holder/${a.alias.address}`);
+        (r?.parcels || []).forEach(add);
+      }
+    } catch (e) { failures.push(`user ID — ${e.message}`); }
+  }
+  if (!/^[1-9][0-9]*$/.test(q)) {
+    tried.push('cadastral reference');
+    try { add((await parcelByRef(q))?.parcel); }
+    catch (e) { failures.push(`cadastral reference — ${e.message}`); }
+  }
+
+  const parcels = [...found.values()];
+  if (!parcels.length) {
+    out.innerHTML = `
+      <div class="card">
+        <h3>Nothing in the register matches “${esc(q)}”</h3>
+        <p class="muted small">Looked up as: ${esc(tried.join(', ') || 'nothing — the query matched no known form')}.
+           A cadastral reference must match exactly, including its slashes.</p>
+        ${failures.length ? `<p class="err small" style="margin-top:.6rem">Some lookups did not complete, so this
+           is not proof the land is unregistered:<br>${failures.map(esc).join('<br>')}</p>` : `
+        <p class="muted small">Every lookup answered, so the register really does hold no such title.
+           If somebody is selling you this land on a paper reference, that is worth knowing before you pay.</p>`}
+      </div>`;
+    return;
+  }
+
+  const cards = await Promise.all(parcels.map(async (p) => {
+    const ts = await getOrNull(`${LAND}/transfers_by_parcel/${p.id}`);
+    const v = verdict(p, ts?.transfers || []);
+    return `<a class="card hit verdict verdict--${v.tone}" href="#/parcel/${p.id}">
+      <div class="row">
+        <span class="ref">${esc(p.cadastral_ref)}</span>
+        ${statusPill(p.status)}
+      </div>
+      <div class="verdict__head" style="font-size:.98rem;margin:.35rem 0 .15rem">${esc(v.head)}</div>
+      <p class="muted small" style="margin:0">${esc(v.lead)}</p>
+      <p class="small" style="margin:.45rem 0 0">
+        Held by ${esc(await personLabel(p.holder))} ·
+        ${esc(officeLabel(p.authority))}${officeWhere(p.authority) ? `, ${esc(officeWhere(p.authority))}` : ''} ·
+        parcel ${esc(p.id)}</p>
+    </a>`;
+  }));
+
+  out.innerHTML = `<h2>${parcels.length} matching ${parcels.length === 1 ? 'title' : 'titles'}</h2>${cards.join('')}`
+    + (failures.length ? `<p class="err small">Some lookups did not complete: ${failures.map(esc).join('; ')}</p>` : '');
+}
+
+async function recentlyRegistered() {
+  const el = document.getElementById('recent');
+  el.innerHTML = '<h2>Recently registered</h2><p class="spin">Reading the transaction log…</p>';
+  let rows;
+  try {
+    rows = await txsOf(MESSAGES.register, 12);
+  } catch (e) {
+    el.innerHTML = `<h2>Recently registered</h2>
+      <div class="card"><p class="muted small">The register cannot be listed — there is no
+      "every parcel" query, deliberately, because a public list of who owns what is a
+      targeting list. This panel is instead reconstructed from the chain's transaction
+      log, and that log is not being served here.</p>
+      <p class="err small" style="margin-top:.5rem"><code>${esc(e.message)}</code>
+      ${e.status === 401 ? '<br>A 401 here is the operator\'s basic-auth gate on transaction search, which is a deliberate configuration rather than a fault. Search above still works without it.' : ''}</p>
+      </div>`;
+    return;
+  }
+  const ok = rows.filter((r) => r.code === 0);
+  if (!ok.length) {
+    el.innerHTML = `<h2>Recently registered</h2>
+      <div class="card"><p class="muted small">No parcel has been registered on this chain yet.
+        The register is empty — not unreachable. An office can open the first title from
+        <a href="#/register">Register a parcel</a>.</p></div>`;
+    return;
+  }
+  const items = await Promise.all(ok.slice(0, 10).map(async (r) => {
+    const when = dateOf(await blockTime(r.height));
+    return `<li class="is-ok">
+      <div class="tl__when">${esc(when || `block ${r.height}`)}</div>
+      <div class="tl__what">${esc(r.msg.cadastral_ref)}</div>
+      <div class="muted small">First registration by ${esc(officeLabel(r.msg.creator))},
+        to ${esc(await personLabel(r.msg.holder))}</div>
+    </li>`;
+  }));
+  el.innerHTML = `<h2>Recently registered</h2>
+    <div class="card">
+      <ul class="tl">${items.join('')}</ul>
+      <p class="muted small" style="margin-top:.6rem">Reconstructed from the chain's
+        transaction log, not from the register itself: there is no "list every parcel"
+        query, because a public list of who owns what is a targeting list.</p>
+      <p class="muted small" style="margin-top:.4rem"><strong>Refused registrations are not in
+        this list</strong>, and cannot be. A message the chain rejects — a second title over
+        ground already titled, a cadastral reference already in use — never emits the event the
+        transaction log is indexed by, so the refusal is in the block but not in the search index.
+        The count above is registrations that <em>succeeded</em>, not attempts.</p>
+    </div>`;
+}
+
+// --- 2. A parcel's full record --------------------------------------------
+
+async function screenParcel(id) {
+  view.innerHTML = '<p class="spin">Reading the title…</p>';
+  // Refused before the call rather than after it. The register has no parcel 0
+  // and never will — see the note in runSearch — so asking for one and
+  // reporting "the register answered" would be reporting something that did
+  // not happen.
+  if (!/^[1-9][0-9]*$/.test(id)) {
+    view.innerHTML = `<div class="card"><h3>No parcel ${esc(id)}</h3>
+      <p class="muted small">Parcel numbers start at 1.</p>
+      <p><a href="#/">Search by cadastral reference instead</a></p></div>`;
+    return;
+  }
+  const res = await getOrNull(`${LAND}/parcel/${encodeURIComponent(id)}`);
+  if (!res) {
+    view.innerHTML = `<div class="card"><h3>No parcel ${esc(id)}</h3>
+      <p class="muted small">The register answered, and holds no title with that number.</p>
+      <p><a href="#/">Search by cadastral reference instead</a></p></div>`;
+    return;
+  }
+  const p = res.parcel;
+  const [ts, prm] = await Promise.all([
+    getOrNull(`${LAND}/transfers_by_parcel/${p.id}`).catch(() => null),
+    params(),
+  ]);
+  const transfers = ts?.transfers || [];
+  const v = verdict(p, transfers);
+
+  const holder = await personLabel(p.holder);
+  const registeredOn = dateOf(await blockTime(p.registered_at));
+
+  view.innerHTML = `
+    ${verdictHtml(v)}
+    <div id="why-frozen"></div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="muted small">CADASTRAL REFERENCE</div>
+          <div style="font-size:1.3rem;font-weight:680">${esc(p.cadastral_ref)}</div>
+        </div>
+        ${statusPill(p.status)}
+      </div>
+      <dl>
+        <dt>Held by</dt><dd>${esc(holder)}</dd>
+        <dt>Registry office</dt><dd>${esc(officeLabel(p.authority))}${
+          officeWhere(p.authority) ? ` — ${esc(officeWhere(p.authority))}` : ''}</dd>
+        <dt>First registered</dt><dd>${esc(registeredOn || `block ${p.registered_at} (this node no longer serves that block, so the date cannot be shown)`)}</dd>
+        <dt>Parcel number</dt><dd>${esc(p.id)}</dd>
+      </dl>
+      <details>
+        <summary>The evidence behind this record</summary>
+        <dl style="margin-top:.5rem">
+          <dt>Survey hash</dt><dd><code>${esc(p.geometry_hash)}</code></dd>
+          <dt>Holder's account</dt><dd><code>${esc(p.holder)}</code></dd>
+          <dt>Office's account</dt><dd><code>${esc(p.authority)}</code></dd>
+        </dl>
+        <p class="muted small" style="margin-top:.5rem">The survey itself is not on the chain —
+          it is too large for a block and usually carries somebody's personal details. The hash
+          proves which survey this title refers to, and the registry serves the document.
+          This hash is also the uniqueness constraint: a second title over it is refused.</p>
+      </details>
+    </div>
+
+    <h2>Claims against this land</h2>
+    <div id="claims"></div>
+
+    <h2>Limits on what may be done with it</h2>
+    <div id="limits"></div>
+
+    <h2>Chain of title</h2>
+    <p class="muted small" style="margin:0 0 .5rem">Every deed, every claim, and every transfer
+      with the offices that signed it. This is the receipt a dispossessed owner does not
+      currently get, and it is why nothing here is ever deleted — a released mortgage stays
+      on the record, marked released.</p>
+    <div id="history"><p class="spin">Assembling the history…</p></div>`;
+
+  // Claims -----------------------------------------------------------------
+  const claimsEl = document.getElementById('claims');
+  const encs = p.encumbrances || [];
+  claimsEl.innerHTML = encs.length ? (await Promise.all(encs.map(async (c, i) => `
+      <div class="claim ${c.released ? 'claim--gone' : ''}">
+        <div class="row">
+          <strong>${esc(kindLabel(c.kind))}</strong>
+          <span class="pill ${c.released ? 'p-mute' : 'p-warn'}">${c.released ? 'released' : 'live'}</span>
+        </div>
+        <p class="small" style="margin:.25rem 0 0">${esc(c.detail || 'No detail recorded.')}</p>
+        <p class="muted small" style="margin:.2rem 0 0">In favour of ${esc(await personLabel(c.holder))}
+          · recorded ${esc(dateOf(await blockTime(c.recorded_at)) || `in block ${c.recorded_at}`)}
+          · entry ${i}</p>
+      </div>`))).join('')
+    : `<div class="card"><p class="muted small" style="margin:0">Nothing is charged against this land.
+        No mortgage, no lien, no right of way — the register was asked and answered.</p></div>`;
+
+  // Limits -----------------------------------------------------------------
+  const limitsEl = document.getElementById('limits');
+  const rs = p.restrictions || [];
+  limitsEl.innerHTML = rs.length ? (await Promise.all(rs.map(async (r, i) => `
+      <div class="claim ${r.lifted ? 'claim--gone' : 'claim--stop'}">
+        <div class="row">
+          <strong>${esc(kindLabel(r.kind))}${r.value ? ` — ${esc(r.value)}` : ''}</strong>
+          <span class="pill ${r.lifted ? 'p-mute' : 'p-bad'}">${r.lifted ? 'lifted' : 'in force'}</span>
+        </div>
+        <p class="small" style="margin:.25rem 0 0">${esc(r.detail || 'No detail recorded.')}</p>
+        <p class="muted small" style="margin:.2rem 0 0">Imposed by ${esc(officeLabel(r.imposed_by))}
+          · ${esc(dateOf(await blockTime(r.imposed_at)) || `block ${r.imposed_at}`)} · entry ${i}</p>
+      </div>`))).join('')
+    : `<div class="card"><p class="muted small" style="margin:0">No restriction is recorded.
+        The land may be used and dealt with under the ordinary law.</p></div>`;
+
+  document.getElementById('history').innerHTML = await historyHtml(p, transfers, prm);
+  if (p.status === 'STATUS_FROZEN') await whyFrozen(p);
+}
+
+/**
+ * Why the land was frozen.
+ *
+ * A freeze stops everything a holder can do with their land, and the keeper
+ * refuses one without a reason. That reason is now kept on the parcel, so this
+ * reads it from the register rather than reconstructing it from the
+ * transaction log — which mattered: the log is pruned, is often behind an
+ * operator's basic-auth gate, and answered "no freeze order found" for a
+ * parcel that was demonstrably frozen. Somebody told their land is stopped and
+ * given no grounds cannot tell a fraud inquiry from an extortion.
+ *
+ * The whole history is shown, not only the order in force. A parcel frozen,
+ * released and frozen again by a different office is exactly the record
+ * somebody contesting the second freeze needs.
+ */
+async function whyFrozen(p) {
+  const el = document.getElementById('why-frozen');
+  const freezes = p.freezes || [];
+  const live = [...freezes].reverse().find((f) => !f.lifted);
+
+  el.innerHTML = `<div class="card" style="border-inline-start:3px solid var(--bad)">
+    <h3>Why this land was frozen</h3>
+    ${live
+      ? `<p style="margin:.2rem 0 .3rem">“${esc(live.reason)}”</p>
+         <p class="muted small" style="margin:0">Imposed by ${esc(officeLabel(live.imposed_by))}
+           on ${esc(dateOf(await blockTime(live.imposed_at)) || `block ${live.imposed_at}`)}.</p>`
+      : `<p class="muted small" style="margin:.2rem 0">This parcel is frozen but carries no
+           recorded order. That means the freeze predates the register keeping its grounds — the
+           reason exists only in the transaction that imposed it. Nothing has been lost from the
+           record since; a freeze imposed today is recorded with its grounds.</p>`}
+    ${freezes.length > 1 || (freezes.length === 1 && !live)
+      ? `<h3 style="margin:.9rem 0 .3rem">Earlier orders on this land</h3>
+         ${(await Promise.all(freezes.filter((f) => f !== live).map(async (f) => `
+           <p class="muted small" style="margin:.3rem 0">“${esc(f.reason)}” — ${esc(officeLabel(f.imposed_by))},
+             ${esc(dateOf(await blockTime(f.imposed_at)) || `block ${f.imposed_at}`)}.
+             ${f.lifted
+               ? `Lifted by ${esc(officeLabel(f.lifted_by))}${f.lift_reason ? `: “${esc(f.lift_reason)}”` : '.'}`
+               : ''}</p>`))).join('')}`
+      : ''}
+    <p class="muted small" style="margin:.6rem 0 0">Read from the register itself. A freeze needs
+      the office and its own quorum, but the holder's remedy against a captured office is an
+      objection and a court, not the chain.</p>
+  </div>`;
+}
+
+/**
+ * The chain of title as a timeline, oldest first, because that is how a
+ * conveyancer reads one: you start at the grant and follow it forward looking
+ * for the step that does not fit.
+ */
+async function historyHtml(p, transfers, prm) {
+  const events = [];
+
+  events.push({ h: Number(p.registered_at), tone: 'ok',
+    what: 'First registration',
+    detail: `${officeLabel(p.authority)} opened this title over survey hash `
+          + `${shortRef(p.geometry_hash)}, to ${await personLabel(p.holder)}. `
+          + `Seeding a register is a political act, and it is recorded here so the `
+          + `initial allocation is as auditable as everything after it.` });
+
+  for (const d of p.deeds || []) {
+    events.push({ h: Number(d.recorded_at), tone: 'ok',
+      what: `${kindLabel(d.kind)} recorded`,
+      detail: `${d.reference ? `Registry reference ${esc(d.reference)}` : 'No registry reference'}`
+            + `${d.issued_on ? `, issued ${esc(d.issued_on)}` : ''}. `
+            + `${d.uri ? `The registry serves the document at <a href="${esc(d.uri)}" rel="noreferrer">${esc(d.uri)}</a>. ` : ''}`
+            + `<br><span class="muted">Document hash <code>${esc(d.document_hash)}</code></span>`,
+      raw: true });
+  }
+  for (const c of p.encumbrances || []) {
+    events.push({ h: Number(c.recorded_at), tone: 'warn',
+      what: `${kindLabel(c.kind)} recorded${c.released ? ' (since released)' : ''}`,
+      detail: `In favour of ${await personLabel(c.holder)}. ${c.detail || ''}` });
+  }
+  for (const r of p.restrictions || []) {
+    events.push({ h: Number(r.imposed_at), tone: 'bad',
+      what: `${kindLabel(r.kind)} imposed${r.lifted ? ' (since lifted)' : ''}`,
+      detail: `${officeLabel(r.imposed_by)} — ${r.detail || 'no detail recorded'}` });
+  }
+  // Freezes belong in the timeline and not only in the banner above it. The
+  // banner appears while a parcel is frozen; a freeze that was imposed and then
+  // released would otherwise leave no trace on the page at all, even though the
+  // register keeps it — and "this land was stopped for eleven months in 2026,
+  // by that office, on those grounds" is exactly the sort of fact somebody
+  // buying it is entitled to see.
+  for (const f of p.freezes || []) {
+    events.push({ h: Number(f.imposed_at), tone: 'bad',
+      what: `Frozen by ${officeLabel(f.imposed_by)}${f.lifted ? ' (since lifted)' : ''}`,
+      detail: `“${esc(f.reason)}”`, raw: true });
+    if (f.lifted) {
+      events.push({ h: Number(f.lifted_at), tone: 'ok',
+        what: `Freeze lifted by ${officeLabel(f.lifted_by)}`,
+        detail: f.lift_reason
+          ? `“${esc(f.lift_reason)}”`
+          : '<span class="muted">No grounds were given for the release.</span>',
+        raw: true });
+    }
+  }
+
+  for (const t of transfers) {
+    const st = stage(t, p, prm);
+    const attestors = (t.attestors || []).map((a) => officeLabel(a));
+    const bits = [
+      `Proposed by ${await personLabel(t.from)} to ${await personLabel(t.to)}`
+      + (t.price ? ` at a declared price of ${esc(t.price)}` : ''),
+      t.validated ? `Validated by ${officeLabel(t.validated_by)}`
+                  : 'Not validated by the office in charge',
+      attestors.length ? `Attested by ${attestors.join(', ')}`
+                       : 'No independent office has attested',
+      t.objected_by ? `Objected to by ${await personLabel(t.objected_by)}: “${esc(t.objection_reason)}”` : null,
+      t.completed_at !== '0' ? `Completed ${dateTimeOf(Number(t.completed_at))}` : null,
+    ].filter(Boolean);
+    events.push({ h: Number(t.proposed_at),
+      tone: t.objected_by ? 'bad' : t.completed_at !== '0' ? 'ok' : 'warn',
+      what: `Transfer ${t.id} — ${t.objected_by ? 'objected to'
+              : t.completed_at !== '0' ? 'completed' : st.key === 'window' ? 'open to objection'
+              : 'under way'}`,
+      detail: `${bits.join('.<br>')}.<br><a href="#/transfer/${t.id}">Follow this transfer →</a>`,
+      raw: true });
+  }
+
+  events.sort((a, b) => a.h - b.h);
+  const items = await Promise.all(events.map(async (e) => {
+    const when = dateOf(await blockTime(e.h));
+    return `<li class="is-${e.tone}">
+      <div class="tl__when">${esc(when || `block ${e.h}`)}</div>
+      <div class="tl__what">${esc(e.what)}</div>
+      <div class="muted small">${e.raw ? e.detail : esc(e.detail)}</div>
+    </li>`;
+  }));
+  return `<div class="card"><ul class="tl">${items.join('')}</ul>
+    <p class="muted small" style="margin-top:.7rem">Dates are the time of the block each entry
+      was written in, read back from the chain — not estimated from an average block time.
+      Where a node no longer serves an old block the block number is shown instead of a guess.</p>
+  </div>`;
+}
+
+// --- 3. The transfer workflow ---------------------------------------------
+
+async function screenTransfer(id) {
+  view.innerHTML = '<p class="spin">Reading the transfer…</p>';
+  const res = await getOrNull(`${LAND}/transfer/${encodeURIComponent(id)}`);
+  if (!res) {
+    view.innerHTML = `<div class="card"><h3>No transfer ${esc(id)}</h3>
+      <p class="muted small">The register answered, and holds no transfer with that number.</p></div>`;
+    return;
+  }
+  const t = res.transfer;
+  const [pr, prm] = await Promise.all([
+    getOrNull(`${LAND}/parcel/${t.parcel_id}`), params(),
+  ]);
+  const p = pr?.parcel;
+  const st = stage(t, p, prm);
+
+  view.innerHTML = `
+    <div class="verdict verdict--${st.tone}">
+      <div class="muted small">TRANSFER ${esc(t.id)} · ${p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</div>
+      <div class="verdict__head" style="margin-top:.2rem">What this is waiting for</div>
+      <p class="verdict__why">${esc(st.waiting)}</p>
+    </div>
+    ${p ? `<p class="muted small" style="margin:-.3rem 0 1rem">
+      <a href="#/parcel/${p.id}">Read the full record for ${esc(p.cadastral_ref)} →</a></p>` : ''}
+
+    <div class="card">
+      <h3>The four steps</h3>
+      <p class="muted small" style="margin:.1rem 0 .6rem">No party controls two of them. To move
+        this land against the holder's wishes somebody would have to buy the holder's consent,
+        the office holding the file, and ${esc(prm.attestation_quorum)} offices elsewhere with no
+        relationship to them — and then survive ${esc(span(Number(prm.challenge_window)))} of
+        public objection.</p>
+      <div id="steps"><p class="spin">…</p></div>
+    </div>
+
+    <h2>Acting on this transfer</h2>
+    <div id="acts"></div>
+
+    <h2>Object to this transfer</h2>
+    <div id="objection"></div>`;
+
+  document.getElementById('steps').innerHTML = await stepsHtml(t, p, prm, st);
+  document.getElementById('acts').innerHTML = await actionsFor(t, p, prm, st);
+  // Wired after insertion, not while composing — see the note above `action`.
+  const cmp = document.getElementById('cmp-go');
+  if (cmp) cmp.onclick = () => {
+    const who = document.getElementById('cmp-who').value.trim();
+    document.getElementById('cmp-out').innerHTML = action(
+      `Complete transfer ${t.id}`,
+      'The chain checks every condition and applies the result. Nothing here is discretionary.',
+      { sub: 'complete-transfer', args: [t.id], from: who || 'your-key' });
+  };
+  renderObjection(t, st);
+}
+
+async function actionsFor(t, p, prm, st) {
+  if (st.key === 'objected') {
+    return `<div class="card"><p class="muted small" style="margin:0">Nothing can be done to this
+      transfer on the chain. It is stopped, the parcel is disputed, and the register's job now is
+      to preserve the evidence rather than to decide who is right. That belongs to a court.</p></div>`;
+  }
+  if (st.key === 'done') {
+    return `<div class="card"><p class="muted small" style="margin:0">This transfer is complete
+      and closed. It is kept rather than deleted: the record of who signed what and when is worth
+      more than the bytes it costs.</p></div>`;
+  }
+
+  const out = [];
+  if (st.key === 'validate' && p) {
+    out.push(action(
+      `Validate — ${officeLabel(p.authority)} only`,
+      groupPreamble(officeLabel(p.authority)) + ' Validating means the office has checked the seller against the paper file it holds.',
+      { sub: 'validate-transfer', args: [t.id], from: 'your-office-key' }, true));
+  }
+  if (st.key === 'attest' && p) {
+    const eligible = (await authorities()).filter((a) => a.active
+      && a.address !== p.authority && !(t.attestors || []).includes(a.address));
+    if (!eligible.length) {
+      out.push(`<div class="card"><p class="err small" style="margin:0">This transfer cannot reach
+        quorum. It needs ${esc(prm.attestation_quorum)} independent attestations, and after
+        excluding ${esc(officeLabel(p.authority))} there are only
+        ${esc((await authorities()).filter((a) => a.active).length - 1)} other active offices in the
+        register. That is a configuration problem for governance, not something an office can fix
+        by signing.</p></div>`);
+    }
+    eligible.forEach((a) => out.push(action(
+      `Attest — ${a.name}`,
+      groupPreamble(a.name) + ` ${esc(officeLabel(p.authority))} cannot attest its own transfer; that is what "independent" means here, and the chain refuses it.`,
+      { sub: 'attest-transfer', args: [t.id], from: 'your-office-key' }, true)));
+  }
+  if (st.key === 'window') {
+    out.push(`<div class="card"><p class="muted small" style="margin:0">Nothing to sign. Every
+      office that had to act has acted, and the transfer is now simply waiting out its challenge
+      window. It can be completed after ${esc(dateTimeOf(st.closesAt))}.</p></div>`);
+  }
+  if (st.key === 'complete') {
+    // An input rather than a placeholder in the document: the one field that
+    // changes per sender is the sender, and a document that has to be
+    // hand-edited before it will sign is a document somebody edits wrongly.
+    out.push(`<div class="card">
+      <h3>Complete this transfer — anyone may</h3>
+      <p class="muted small" style="margin:.1rem 0 .3rem">Not an official act, and not restricted to
+        one. The chain checks the conditions and applies the result, so this can be sent by the
+        buyer, the seller, or a stranger. That is deliberate: if only an official could finalise a
+        transfer, an official could refuse to, and refusal is leverage.</p>
+      <label for="cmp-who">The account you will sign from</label>
+      <input id="cmp-who" placeholder="yml1…">
+      <p style="margin:.7rem 0 0"><button class="primary" id="cmp-go">Compose the completion</button></p>
+      <div id="cmp-out"></div>
+    </div>`);
+  }
+  return out.join('');
+}
+
+function renderObjection(t, st) {
+  const el = document.getElementById('objection');
+  if (st.key === 'objected' || st.key === 'done') {
+    el.innerHTML = `<div class="card"><p class="muted small" style="margin:0">${
+      st.key === 'objected'
+        ? 'This transfer has already been objected to. One objection is enough.'
+        : 'This transfer is complete. An objection can no longer stop it — a court can still undo it, and the record above is what that court would read.'}</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <p class="muted small" style="margin:0 0 .3rem">Anybody may object, and no standing has to be
+        proved. The person being robbed is usually the person with no official relationships, and
+        requiring standing would exclude exactly them. One objection stops the transfer dead and
+        marks the parcel disputed; the chain then preserves the evidence and a court decides.</p>
+      <label for="obj-why">Why you are objecting — this goes on the permanent record</label>
+      <textarea id="obj-why" placeholder="e.g. My late father's estate has not been distributed. The seller is one of four heirs and cannot convey the whole parcel alone. Succession case HC/PR/2024/118."></textarea>
+      <label for="obj-who">Your account reference</label>
+      <input id="obj-who" placeholder="yml1…">
+      <p style="margin:.7rem 0 0"><button class="primary" id="obj-go">Compose the objection</button></p>
+      <div id="obj-out"></div>
+    </div>`;
+  document.getElementById('obj-go').onclick = () => {
+    const why = document.getElementById('obj-why').value.trim();
+    const who = document.getElementById('obj-who').value.trim();
+    const out = document.getElementById('obj-out');
+    if (!why) {
+      out.innerHTML = `<p class="err small" style="margin-top:.7rem">An objection must give a
+        reason — the chain refuses one without it (<code>land error 23</code>). The reason is the
+        whole point: it is what a court reads afterwards.</p>`;
+      return;
+    }
+    out.innerHTML = action('Your objection',
+      'Run this wherever your key is. It halts the transfer in the block it lands in.',
+      { sub: 'object', args: [t.id, why], from: who || 'your-key' });
+  };
+}
+
+// --- 4a. Transfers under way ----------------------------------------------
+
+async function screenPending() {
+  view.innerHTML = `<h2>Transfers under way</h2>
+    <p class="muted small" style="margin:0 0 .8rem">Every transfer that has not completed and has
+      not been objected to. This list is what makes the challenge window mean anything: nobody can
+      object to a transfer they cannot see.</p>
+    <div id="list"><p class="spin">Reading…</p></div>`;
+  const el = document.getElementById('list');
+  let data, prm;
+  try {
+    [data, prm] = await Promise.all([get(`${LAND}/pending_transfers`), params()]);
+  } catch (e) {
+    el.innerHTML = `<p class="err">Could not read the pending transfers. <code>${esc(e.message)}</code><br>
+      This list being empty and this list being unavailable are different facts, so nothing is
+      shown rather than an empty list.</p>`;
+    return;
+  }
+  const ts = data.transfers || [];
+  if (!ts.length) {
+    el.innerHTML = `<div class="card"><p class="muted small" style="margin:0">No transfer is under
+      way. The register answered — this is an empty list, not a failed call.</p></div>`;
+    return;
+  }
+  const cards = await Promise.all(ts.map(async (t) => {
+    const pr = await getOrNull(`${LAND}/parcel/${t.parcel_id}`);
+    const p = pr?.parcel;
+    const st = stage(t, p, prm);
+    return `<a class="card hit verdict verdict--${st.tone}" href="#/transfer/${t.id}">
+      <div class="row">
+        <span class="ref">${p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</span>
+        <span class="pill p-${st.tone === 'ok' ? 'ok' : st.tone === 'bad' ? 'bad' : 'warn'}">${
+          st.key === 'window' ? 'open to objection'
+          : st.key === 'complete' ? 'ready to complete'
+          : st.key === 'attest' ? `${st.got} of ${st.quorum} attested`
+          : 'awaiting validation'}</span>
+      </div>
+      <p class="small" style="margin:.4rem 0 0">${esc(st.waiting)}</p>
+      <p class="muted small" style="margin:.3rem 0 0">
+        ${esc(await personLabel(t.from))} → ${esc(await personLabel(t.to))}${
+          t.price ? ` · declared price ${esc(t.price)}` : ''} · transfer ${esc(t.id)}</p>
+    </a>`;
+  }));
+  el.innerHTML = cards.join('');
+}
+
+// --- 4b. Register a parcel ------------------------------------------------
+
+async function screenRegister() {
+  const offices = await authorities();
+  view.innerHTML = `
+    <h2>Register a parcel</h2>
+    <p class="muted small" style="margin:0 0 .8rem">First registration: opening a title over ground
+      that has none. The chain refuses it if the survey is already titled, or if the cadastral
+      reference is already used — that refusal is what makes a parcel impossible to own twice.
+      Check both before you compose anything.</p>
+
+    <div class="card">
+      <h3>The survey</h3>
+      <p class="muted small" style="margin:.1rem 0 .3rem">The survey document never leaves this
+        machine. Its hash is computed here, in the browser, and only the hash goes on the chain —
+        the document is megabytes and usually carries somebody's personal details.</p>
+      <label for="file">Choose the survey file (GeoJSON, or the scanned cadastral document)</label>
+      <input type="file" id="file">
+      <label for="geom">…or paste the survey hash if you already have it</label>
+      <input id="geom" placeholder="64 hexadecimal characters">
+      <p id="geom-note" class="muted small" style="margin:.5rem 0 0"></p>
+    </div>
+
+    <div class="card">
+      <h3>The title</h3>
+      <label for="ref">Cadastral reference — the number on the paper file</label>
+      <input id="ref" placeholder="NR/KAN/2019/00412">
+      <p id="ref-note" class="muted small" style="margin:.4rem 0 0"></p>
+      <label for="holder">The holder's account reference</label>
+      <input id="holder" placeholder="yml1…">
+      <p class="muted small" style="margin:.3rem 0 0">Exactly one holder. Co-ownership is expressed
+        by that account being a group account — a legal arrangement between people — not by the
+        register holding several owners and having to rank them.</p>
+      <label for="office">Registering office</label>
+      <select id="office">${offices.map((o) => `<option value="${esc(o.address)}"${
+        o.active ? '' : ' disabled'}>${esc(o.name)} — ${esc(o.jurisdiction)}${
+        o.active ? '' : ' (not active)'}</option>`).join('')}</select>
+      <p style="margin:.9rem 0 0"><button class="primary" id="reg-go">Check the register, then compose</button></p>
+    </div>
+    <div id="reg-out"></div>`;
+
+  const geomEl = document.getElementById('geom');
+  const geomNote = document.getElementById('geom-note');
+
+  document.getElementById('file').onchange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    geomNote.textContent = `Hashing ${f.name}…`;
+    try {
+      const buf = await f.arrayBuffer();
+      const digest = await crypto.subtle.digest('SHA-256', buf);
+      const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      geomEl.value = hex;
+      geomNote.innerHTML = `SHA-256 of <strong>${esc(f.name)}</strong>, computed here.
+        The file was not uploaded anywhere.`;
+      await checkGeometry(hex);
+    } catch (err) {
+      geomNote.innerHTML = `<span class="err">Could not hash the file — ${esc(err.message)}.
+        Hashing needs a secure context (https, or localhost).</span>`;
+    }
+  };
+  geomEl.onchange = () => checkGeometry(geomEl.value.trim());
+  document.getElementById('ref').onchange = (e) => checkRef(e.target.value.trim());
+  document.getElementById('reg-go').onclick = composeRegistration;
+}
+
+async function checkGeometry(hash) {
+  const note = document.getElementById('geom-note');
+  if (!hash) return;
+  try {
+    const r = await parcelByGeometry(hash);
+    if (r?.parcel) {
+      note.innerHTML = `<span class="pill p-bad">already titled</span>
+        This ground is parcel ${esc(r.parcel.id)}, <a href="#/parcel/${r.parcel.id}">${esc(r.parcel.cadastral_ref)}</a>,
+        held by ${esc(await personLabel(r.parcel.holder))}. The chain will refuse a second title over it.`;
+    } else {
+      note.innerHTML = `<span class="pill p-ok">not titled</span> No title exists over this survey.
+        Note the limit of that answer: the chain compares hashes, so a <em>different</em> survey
+        describing overlapping ground looks like different land to it. Only a surveyor can see an
+        overlap, and the way to raise one is an objection, not a query.`;
+    }
+  } catch (e) {
+    note.innerHTML = `<span class="err">Could not check the survey hash — ${esc(e.message)}.
+      Do not treat that as "not titled".</span>`;
+  }
+}
+
+async function checkRef(ref) {
+  const note = document.getElementById('ref-note');
+  if (!ref) { note.textContent = ''; return; }
+  try {
+    const r = await parcelByRef(ref);
+    note.innerHTML = r?.parcel
+      ? `<span class="pill p-bad">reference in use</span> Already parcel ${esc(r.parcel.id)} —
+         <a href="#/parcel/${r.parcel.id}">open it</a>. Two records claiming to be the same paper
+         file makes reconciliation guesswork, so the chain refuses it.`
+      : `<span class="pill p-ok">free</span> No title uses this reference.`;
+  } catch (e) {
+    note.innerHTML = `<span class="err">Could not check the reference — ${esc(e.message)}.</span>`;
+  }
+}
+
+function composeRegistration() {
+  const geom = document.getElementById('geom').value.trim();
+  const ref = document.getElementById('ref').value.trim();
+  const holder = document.getElementById('holder').value.trim();
+  const office = document.getElementById('office').value;
+  const out = document.getElementById('reg-out');
+
+  const missing = [];
+  if (!geom) missing.push('a survey hash — choose the survey file, or paste the hash');
+  if (!ref) missing.push('the cadastral reference');
+  if (!holder) missing.push("the holder's account reference");
+  if (missing.length) {
+    out.innerHTML = `<p class="err">The chain would refuse this. Still needed:
+      ${missing.map(esc).join('; ')}.</p>`;
+    return;
+  }
+  out.innerHTML = action(
+    `Register ${ref}`,
+    groupPreamble(officeLabel(office)) + ' Nothing is sent from this page — the command below is what the office runs.',
+    // The three positionals in the order autocli declares them: survey hash,
+    // cadastral reference, holder. Getting that order wrong would register the
+    // reference as the survey and the survey as the reference, and the chain
+    // would accept it — both are free-form strings to the keeper.
+    { sub: 'register-parcel', args: [geom, ref, holder], from: 'your-office-key' },
+    true);
+}
+
+// --- 5. Fractionalisation --------------------------------------------------
+
+async function screenAuthorisations() {
+  view.innerHTML = `
+    <h2>Fractionalisation authorisations</h2>
+    <p class="muted small" style="margin:0 0 .8rem">Selling a share of what land earns — a lease, a
+      revenue share, an exploitation right — is legitimate financing, and often the only credit
+      available to somebody whose one asset is land they cannot borrow against. What must not
+      happen is fractionalisation the registry cannot see. So an office authorises it, naming what
+      may be sold, a ceiling, and an expiry; the title itself never leaves the register.</p>
+
+    <div class="card">
+      <h3>Check one parcel</h3>
+      <p class="muted small" style="margin:.1rem 0 .3rem">This is the check to run before paying
+        for a share in somebody's land. It asks the register directly and needs nothing else to be
+        working.</p>
+      <label for="auth-id">Parcel number</label>
+      <input id="auth-id" inputmode="numeric" placeholder="7">
+      <p style="margin:.7rem 0 0"><button class="primary" id="auth-go">Ask the register</button></p>
+      <div id="auth-one"></div>
+    </div>
+
+    <h2>Authorisations on this chain</h2>
+    <div id="auths"><p class="spin">Reading…</p></div>`;
+
+  document.getElementById('auth-go').onclick = async () => {
+    const el = document.getElementById('auth-one');
+    const raw = document.getElementById('auth-id').value.trim();
+    // Parcel 0 is never issued — a zero id is what an unset protobuf field
+    // looks like, and x/tokenisation says "this vehicle is over land" by
+    // carrying one. Treating 0 as a parcel would make every warehouse receipt
+    // on the chain look like a vehicle over the first field ever registered.
+    if (!/^[1-9][0-9]*$/.test(raw)) {
+      el.innerHTML = `<p class="err small" style="margin-top:.7rem">Parcel numbers start at 1.</p>`;
+      return;
+    }
+    el.innerHTML = '<p class="spin">Asking…</p>';
+    try {
+      el.innerHTML = await authorisationCard(raw, await fractionalisationAuthority(raw));
+    } catch (e) {
+      el.innerHTML = `<p class="err small" style="margin-top:.7rem">The register did not answer.
+        <code>${esc(e.message)}</code></p>`;
+    }
+  };
+
+  const el = document.getElementById('auths');
+  let rows;
+  try {
+    rows = (await txsOf(MESSAGES.fractionalise, 50)).filter((r) => r.code === 0);
+  } catch (e) {
+    el.innerHTML = `<div class="card">
+      <h3>The list cannot be assembled here</h3>
+      <p class="err small"><code>${esc(e.message)}</code></p>
+      <p class="muted small">${e.status === 401
+        ? "A 401 is the operator's basic-auth gate on transaction search — a deliberate configuration, not a fault."
+        : 'The transaction log did not answer.'}</p>
+      ${discoveryNote()}</div>`;
+    return;
+  }
+  if (!rows.length) {
+    el.innerHTML = `<div class="card">
+      <p class="muted small" style="margin:0">No office has authorised fractionalisation over any
+        parcel. The transaction log answered — this is genuinely none, not a failed call.</p>
+      ${discoveryNote()}</div>`;
+    return;
+  }
+
+  // The log is used to learn *which* parcels to ask about and for nothing else.
+  // One entry per parcel, because the register holds one authorisation per
+  // parcel: granting again replaces the terms rather than accumulating them.
+  const ids = [...new Set(rows.map((r) => String(r.msg.parcel_id)))].filter((id) => id !== '0');
+
+  const cards = await Promise.all(ids.map(async (id) => {
+    try {
+      return await authorisationCard(id, await fractionalisationAuthority(id));
+    } catch (e) {
+      return `<div class="card"><strong>parcel ${esc(id)}</strong>
+        <p class="err small" style="margin:.3rem 0 0">The register did not answer for this parcel.
+          <code>${esc(e.message)}</code></p></div>`;
+    }
+  }));
+  el.innerHTML = cards.join('') + discoveryNote();
+}
+
+/**
+ * One authorisation, as the register holds it.
+ *
+ * `live` comes from the keeper and is not recomputed here. It folds in three
+ * things a page cannot reliably know: the chain's block time rather than the
+ * reader's clock, whether the office has withdrawn the permission, and whether
+ * the parcel has since acquired a restriction forbidding fractionalisation.
+ * This page used to work the first of those out from `Date.now()`, which meant
+ * a device with a wrong clock — or a chain whose blocks had stopped — would
+ * show as live a permission x/tokenisation would refuse to issue against. The
+ * chain and the console must not disagree about what live means.
+ */
+async function authorisationCard(parcelId, res) {
+  const pr = await getOrNull(`${LAND}/parcel/${encodeURIComponent(parcelId)}`);
+  const p = pr?.parcel;
+  const title = p
+    ? `<a href="#/parcel/${p.id}">${esc(p.cadastral_ref)}</a>`
+    : `parcel ${esc(parcelId)}`;
+
+  if (!res) {
+    return `<div class="card">
+      <div class="row"><strong>${title}</strong><span class="pill p-mute">none</span></div>
+      <p class="muted small" style="margin:.4rem 0 0">The register holds no fractionalisation
+        authorisation for this parcel. x/tokenisation refuses to open a vehicle without one, so
+        anything being sold as a share of this land is not something the chain will mint.</p>
+    </div>`;
+  }
+
+  const a = res.authorisation;
+  const live = Boolean(res.live);
+  const expires = Number(a.expires_at);
+  const why = live
+    ? `Stands until ${esc(dateTimeOf(expires))}.`
+    : a.withdrawn
+      ? 'Withdrawn by the office. New issuance stops; existing holders are not expropriated by the registry — that would be a taking, and it belongs to a court.'
+      : `Not live. It has run out — it was granted until ${esc(dateTimeOf(expires))} — or the
+         parcel now carries a restriction forbidding fractionalisation. The register folds both
+         into the one answer, because both have the same effect: nothing more can be issued.`;
+
+  return `<div class="card">
+    <div class="row">
+      <strong>${title}</strong>
+      <span class="pill ${live ? 'p-ok' : 'p-mute'}">${live ? 'live' : 'not live'}</span>
+    </div>
+    <dl>
+      <dt>What may be sold</dt><dd>${esc(a.right || 'not stated')} — never the title itself</dd>
+      <dt>Ceiling</dt><dd>${(Number(a.max_share_bps) / 100).toFixed(2)}% of that right</dd>
+      <dt>Authorised by</dt><dd>${esc(officeLabel(a.granted_by))}</dd>
+      <dt>Vehicle opened</dt><dd>${p && p.vehicle_id !== '0'
+        ? `yes — vehicle ${esc(p.vehicle_id)}`
+        : 'none yet'}</dd>
+    </dl>
+    <p class="muted small" style="margin:.5rem 0 0">${why}</p>
+  </div>`;
+}
+
+/**
+ * Named rather than hidden, and much smaller than it used to be.
+ *
+ * Everything shown above is state the register holds and serves. What the
+ * register does not offer is a list — there is no "every authorisation" query,
+ * for the same reason there is no "every parcel" one — so the transaction log
+ * supplies the parcel numbers to ask about and nothing more. A permission
+ * granted before the log's retention window is missing from this list and still
+ * answers correctly when asked for by parcel number, which is what the box at
+ * the top is for.
+ */
+const discoveryNote = () => `<div class="card" style="border-inline-start:3px solid var(--warn)">
+  <h3>What this list can and cannot show</h3>
+  <p class="muted small" style="margin:.1rem 0">Every fact above — the right, the ceiling, the
+    expiry, and whether the permission is live — is read from the register. Only the question of
+    <em>which parcels to ask about</em> comes from the chain's transaction log, because x/land
+    publishes no list of authorisations any more than it publishes a list of owners.</p>
+  <p class="muted small" style="margin:.4rem 0 0">So this list can be short where the log has been
+    pruned or is gated, and it is never wrong about a parcel it does show. To check one parcel,
+    ask for it by number above — that path does not touch the log at all.</p>
+</div>`;
+
+// --- 6. Offices ------------------------------------------------------------
+
+async function screenOffices() {
+  view.innerHTML = `<h2>Registry offices</h2>
+    <p class="muted small" style="margin:0 0 .8rem">Admitted by the chain's governance, never by
+      each other — an office that could admit offices could manufacture the independent attestors
+      a transfer's quorum depends on. Every one of them is a group account, so its decisions
+      already need several registrars to agree before the office signs anything.</p>
+    <div id="offs"><p class="spin">Reading…</p></div>`;
+  const el = document.getElementById('offs');
+  let list, prm;
+  try { [list, prm] = await Promise.all([authorities(), params()]); }
+  catch (e) {
+    el.innerHTML = `<p class="err">Could not read the offices. <code>${esc(e.message)}</code></p>`;
+    return;
+  }
+  const active = list.filter((o) => o.active).length;
+  const quorum = Number(prm.attestation_quorum);
+  el.innerHTML = `
+    ${active <= quorum ? `<p class="err">The register has ${active} active
+      ${active === 1 ? 'office' : 'offices'} and a transfer needs ${quorum} independent
+      attestations. Since the parcel's own office may not attest, no transfer can ever reach
+      quorum. This is a governance problem — admit more offices, or lower the quorum knowing what
+      that costs.</p>` : ''}
+    <div class="grid">${list.map((o) => `
+      <div class="card">
+        <strong style="display:block">${esc(o.name || 'unnamed office')}</strong>
+        <p class="muted small" style="margin:.3rem 0 .45rem">${esc(o.jurisdiction || 'no jurisdiction recorded')}</p>
+        <span class="pill ${o.active ? 'p-ok' : 'p-mute'}">${o.active ? 'active' : 'not active'}</span>
+        <details><summary>Account reference</summary><code>${esc(o.address)}</code></details>
+      </div>`).join('') || '<p class="empty">No office has been admitted. Nothing can be registered until governance admits one.</p>'}
+    </div>
+    <div class="card" style="margin-top:.8rem">
+      <h3>The rules currently in force</h3>
+      <dl>
+        <dt>Independent attestations</dt><dd>${esc(prm.attestation_quorum)} offices must attest a
+          transfer before it can complete</dd>
+        <dt>Challenge window</dt><dd>${esc(span(Number(prm.challenge_window)))} from the moment
+          quorum is reached, during which anybody may object</dd>
+        <dt>Own office may attest</dt><dd>${prm.same_authority_attestation
+          ? '<span class="pill p-bad">yes — the independence rule is switched off</span>'
+          : 'no — an attestor from the parcel\'s own office is not independent'}</dd>
+      </dl>
+      <p class="muted small" style="margin:.6rem 0 0">These belong to governance. A chain where an
+        official can lower the quorum is a chain with no quorum.</p>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Routing.
+// ---------------------------------------------------------------------------
+
+async function route() {
+  const hash = location.hash || '#/';
+  renderNav(hash.split('?')[0]);
+  setBanner(null);
+  window.scrollTo(0, 0);
+  try {
+    await loadOffices();
+  } catch (e) {
+    // Offices failing is survivable — every screen degrades to account
+    // references — so it is a banner and not a dead page.
+    setBanner(new CallFailed(`${LAND}/authorities`, e.status ?? '?',
+      'office names cannot be shown, so accounts appear in their place'));
+  }
+  const [path, qs] = hash.split('?');
+  const q = new URLSearchParams(qs || '').get('q');
+  try {
+    if (path.startsWith('#/parcel/')) return await screenParcel(path.slice(9));
+    if (path.startsWith('#/transfer/')) return await screenTransfer(path.slice(11));
+    if (path === '#/pending') return await screenPending();
+    if (path === '#/authorisations') return await screenAuthorisations();
+    if (path === '#/register') return await screenRegister();
+    if (path === '#/offices') return await screenOffices();
+    return await screenSearch(q);
+  } catch (e) {
+    view.innerHTML = `<p class="err">This screen could not be built.
+      <code>${esc(e.message)}</code><br>
+      That is the exact call that failed — nothing below it was attempted, so treat the rest of
+      this page as unknown rather than as empty.</p>`;
+  }
+}
+
+window.addEventListener('hashchange', route);
+
+// The clock is the honest signal that the page is live rather than a cached
+// screenshot of a register — which matters when the answer is "no objection".
+async function tick() {
+  try {
+    const b = await get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/latest`);
+    const h = b?.block?.header?.height;
+    document.getElementById('clock').textContent =
+      `register read at block ${Number(h).toLocaleString()} · ${new Date().toLocaleTimeString()}`;
+  } catch {
+    document.getElementById('clock').innerHTML =
+      '<span class="pill p-bad">not reading the chain</span>';
+  }
+}
+
+route();
+tick();
+setInterval(tick, 15000);
+</script>
+</body>
+</html>

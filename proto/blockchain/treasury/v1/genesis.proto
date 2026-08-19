@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package blockchain.treasury.v1;
+
+import "amino/amino.proto";
+import "blockchain/treasury/v1/lock.proto";
+import "blockchain/treasury/v1/params.proto";
+import "blockchain/treasury/v1/spend_policy.proto";
+import "blockchain/treasury/v1/treasury.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/treasury/types";
+
+// GenesisState defines the treasury module's genesis state.
+//
+// Every field here is also produced by ExportGenesis, so a chain's treasury
+// state survives an export/import round trip intact — including the balance
+// ledger, without which the locked/available accounting would silently reset.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+
+  repeated Treasury treasury_list = 2 [(gogoproto.nullable) = false];
+  uint64 treasury_count = 3;
+
+  repeated Lock lock_list = 4 [(gogoproto.nullable) = false];
+  uint64 lock_count = 5;
+
+  repeated TreasuryBalance balance_list = 6 [(gogoproto.nullable) = false];
+  repeated RoleAssignment role_list = 7 [(gogoproto.nullable) = false];
+  repeated SpendPolicy spend_policy_list = 8 [(gogoproto.nullable) = false];
+  repeated SpendWindow spend_window_list = 9 [(gogoproto.nullable) = false];
+}

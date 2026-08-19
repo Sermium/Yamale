@@ -1,0 +1,71 @@
+syntax = "proto3";
+package blockchain.enforcement.v1;
+
+import "blockchain/enforcement/v1/enforcement.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/enforcement/types";
+
+// Events are how anybody watching finds out that this power was used, in the
+// block it was used in. A freeze that only showed up in a query nobody thought
+// to run would be a quiet one, and nothing about this module should be quiet.
+
+// EventCaseOpened is emitted when a case is opened and its target frozen.
+message EventCaseOpened {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string opener = 3 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  CaseAction action = 4;
+  string reason = 5;
+  int64 voting_ends_at_height = 6;
+
+  // emergency is set when the founders' group opened it directly rather than a
+  // validator. Anyone watching for this module's events should be able to tell
+  // the two apart without fetching the case.
+  bool emergency = 7;
+}
+
+// EventCaseVoted is emitted for each validator's vote.
+message EventCaseVoted {
+  uint64 case_id = 1;
+  string validator = 2 [(cosmos_proto.scalar) = "cosmos.ValidatorAddressString"];
+  VoteOption option = 3;
+  int64 power = 4;
+}
+
+// EventCaseResolved is emitted once, when a case reaches its final status —
+// including when it expires with nobody having voted.
+message EventCaseResolved {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  CaseStatus status = 3;
+  int64 yes_power = 4;
+  int64 no_power = 5;
+  int64 required_power = 6;
+}
+
+// EventSeized is emitted every time a sweep collects something, which for a
+// target with staked funds is more than once.
+message EventSeized {
+  uint64 case_id = 1;
+  string target = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string destination = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated cosmos.base.v1beta1.Coin collected = 4 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+
+  // complete is set on the sweep that finishes the job: nothing liquid left,
+  // nothing staked, nothing unbonding.
+  bool complete = 5;
+}
+
+// EventFreezeLifted is emitted whenever an address becomes able to send again,
+// whatever the reason — expiry, rejection, withdrawal or reversal.
+message EventFreezeLifted {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 case_id = 2;
+  CaseStatus status = 3;
+}

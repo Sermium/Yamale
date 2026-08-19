@@ -1,0 +1,111 @@
+name: Build profiles
+
+# The chain ships as profiles, and a profile is a set of build tags rather than
+# a configuration flag. Nothing in the default build exercises the tagged files,
+# so a profile breaks silently: someone adds a reference to x/emission in a
+# shared file, every test passes, and the settlement build stops compiling on a
+# commit nobody associates with it. This workflow is what makes that a red
+# check on the pull request instead of a discovery weeks later.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: "Profile [${{ matrix.tags || 'default' }}]"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Kept in step with PROFILES in the Makefile.
+        tags:
+          - ""
+          - "ibc"
+          - "settlement"
+          - "settlement,ibc"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Build
+        run: go build -tags "${{ matrix.tags }}" ./...
+      - name: Vet
+        run: go vet -tags "${{ matrix.tags }}" ./...
+      - name: Test the app wiring
+        # The app package is where the profile wiring lives, so it is the
+        # package a broken profile actually fails in. x/treasury and
+        # x/stablecoin are here too: the settlement profile's fee routing lives
+        # in one and its fee gate in the other, and both are reachable from
+        # every profile even though only one calls them.
+        run: go test -tags "${{ matrix.tags }}" ./app/... ./x/treasury/... ./x/stablecoin/...
+
+  exclusion:
+    name: Excluded modules are absent from the binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Check
+        # Compiling is not the property being defended. A module that is merely
+        # unregistered still builds, still passes its tests, and is still inside
+        # the scope an audit is priced against. `go list -deps` reports what is
+        # actually linked, which is the only thing that settles the question.
+        run: make check-profiles
+
+  genesis-refusal:
+    name: A profile refuses a genesis it has no modules for
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Build both profiles
+        run: |
+          go build -o ./blockchaind-default ./cmd/blockchaind
+          go build -tags settlement -o ./blockchaind-settlement ./cmd/blockchaind
+      - name: A settlement binary must refuse a full-profile genesis
+        # This is the failure the check exists for, and it is the reason it is
+        # tested end to end rather than only in a unit test. Before it existed,
+        # a settlement binary handed this exact file started, validated clean
+        # and produced blocks while ignoring the sections it had no module for
+        # — so a mixed validator set diverged on the app hash at height 1 with
+        # nothing in any log naming a genesis section as the cause.
+        run: |
+          ./blockchaind-default init ci --chain-id refusal-test --default-denom uyml --home ./full
+          if ./blockchaind-settlement genesis validate ./full/config/genesis.json --home ./full; then
+            echo "FAIL: the settlement binary accepted a genesis carrying modules it does not link"
+            exit 1
+          fi
+          ./blockchaind-settlement genesis validate ./full/config/genesis.json --home ./full 2>&1 \
+            | grep -q "emission" \
+            || { echo "FAIL: the refusal did not name the offending section"; exit 1; }
+          ./blockchaind-settlement genesis validate ./full/config/genesis.json --home ./full 2>&1 \
+            | grep -q "settlement" \
+            || { echo "FAIL: the refusal did not name the profile"; exit 1; }
+      - name: A binary must accept the genesis its own profile produces
+        run: |
+          ./blockchaind-settlement init ci --chain-id refusal-test --default-denom uyml --home ./settlement
+          ./blockchaind-settlement genesis validate ./settlement/config/genesis.json --home ./settlement 2>&1 \
+            | grep -q "no module for" \
+            && { echo "FAIL: a binary refused its own profile's genesis"; exit 1; }
+          exit 0

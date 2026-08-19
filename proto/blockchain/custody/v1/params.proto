@@ -1,0 +1,37 @@
+syntax = "proto3";
+package blockchain.custody.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/custody/types";
+
+// Params defines the parameters for the custody module.
+message Params {
+  option (amino.name) = "blockchain/x/custody/Params";
+  option (gogoproto.equal) = true;
+
+  // attestation_threshold is how many appointed attestors must agree that an
+  // external deposit happened before anything is minted.
+  //
+  // One attestor is one compromised key away from unlimited issuance, which is
+  // the failure that has emptied every bridge that ever mattered. This is the
+  // number that decides whether custody is a security model or a promise.
+  uint32 attestation_threshold = 1;
+
+  // redemption_delay_blocks is how long a redemption waits before it can be
+  // paid out.
+  //
+  // Not friction for its own sake: it is the window in which an attestor
+  // compromise or a mistaken mint can be caught before the asset leaves. Set to
+  // zero it is an instant withdrawal, which is what an attacker wants.
+  uint64 redemption_delay_blocks = 2;
+
+  // fee_bps is charged on issuance and redemption, in basis points.
+  //
+  // Fees are the revenue model on purpose. Every custodian failure in this
+  // industry ran the same way: a reserve pushed into riskier assets to fund
+  // operations. A custodian that earns from flow does not need to earn from the
+  // float.
+  uint32 fee_bps = 3;
+}

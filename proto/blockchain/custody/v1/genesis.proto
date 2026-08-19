@@ -1,0 +1,23 @@
+syntax = "proto3";
+package blockchain.custody.v1;
+
+import "blockchain/custody/v1/custody.proto";
+import "blockchain/custody/v1/params.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/custody/types";
+
+// GenesisState defines the custody module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  repeated Asset assets = 2 [(gogoproto.nullable) = false];
+  repeated string attestors = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated Deposit deposits = 4 [(gogoproto.nullable) = false];
+  repeated Redemption redemptions = 5 [(gogoproto.nullable) = false];
+  repeated Reserve reserves = 6 [(gogoproto.nullable) = false];
+  // next_deposit and next_redemption carry the sequences, so an exported chain
+  // resumes numbering rather than reissuing ids that already exist.
+  uint64 next_deposit = 7;
+  uint64 next_redemption = 8;
+}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// Jurisdiction is the national perimeter an account belongs to.
+//
+// It lives here rather than in x/paymsg because every module that has to refuse
+// an out-of-perimeter action — the land registry, enforcement, stablecoin
+// issuance — would otherwise have to ask the payments module where an account
+// is. A perimeter that only exists for accounts that happen to be somebody's
+// payment customer is not a perimeter: validators, registry offices and
+// treasury signers are none of those, and each one would sit in the unclaimed
+// state the whole design exists to remove.
+//
+// It is recorded by the participant that onboarded the account, never
+// self-declared, and changed only by a foundation administrator. That is what
+// makes it evidence rather than a preference.
+message Jurisdiction {
+  // address is the account this perimeter belongs to.
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // country is an ISO 3166-1 alpha-2 code, uppercase, checked against the
+  // assigned list. A code that is merely two letters would let a typo — NX for
+  // NG — become a perimeter no authority holds and no authority can act on.
+  string country = 2;
+
+  // recorded_by is the participant or administrator that put it there. Kept
+  // because "who says this account is Nigerian" is the question an authority
+  // asks when the answer turns out to be wrong, and an unattributed record
+  // cannot answer it.
+  string recorded_by = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // recorded_at_height is when it was last written, so a change is visible as a
+  // change rather than as a fact that was always there.
+  int64 recorded_at_height = 4;
+}

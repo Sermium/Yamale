@@ -1,0 +1,52 @@
+syntax = "proto3";
+package blockchain.oracle.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/oracle/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/oracle/Params";
+  option (gogoproto.equal) = true;
+
+  // vote_period is how many blocks a voting round lasts. Rates are agreed at
+  // the end of each round, so this is also how quickly the chain can react to
+  // a price move.
+  uint64 vote_period = 1;
+
+  // vote_threshold_bps is the share of stake, in basis points, that must report
+  // a denom before the chain will agree a rate for it. Below this the previous
+  // rate stands and ages, rather than the chain accepting a price set by a
+  // minority — a rate agreed by two validators out of a large set is a rate
+  // those two chose.
+  uint64 vote_threshold_bps = 2;
+
+  // quote_symbol is what rates are expressed in, e.g. "USD". Every rate answers
+  // "one display unit of this denom is worth how many of these".
+  string quote_symbol = 3;
+
+  // accepted_denoms are the denoms validators are expected to report. A denom
+  // outside this list is ignored rather than counted, so one validator cannot
+  // introduce a market by reporting into it.
+  repeated string accepted_denoms = 4;
+
+  // max_rate_age_seconds is how old an exchange rate may be and still be used.
+  // Past it, consumers must treat the price as unknown.
+  //
+  // This is the parameter that decides what happens in a crisis. A feed that
+  // goes quiet and a market that has crashed look identical to code that only
+  // reads the last value, and acting on a stale price during the exact minutes
+  // it matters most is how lending protocols hurt the people using them.
+  uint64 max_rate_age_seconds = 5;
+
+  // max_appraisal_age_seconds is the equivalent for real-world valuations,
+  // necessarily much longer: a building is appraised quarterly, not every
+  // block.
+  uint64 max_appraisal_age_seconds = 6;
+
+  // max_class_ids_per_appraiser bounds an appraiser's scope list, which is
+  // scanned on every appraisal they submit.
+  uint64 max_class_ids_per_appraiser = 7;
+}

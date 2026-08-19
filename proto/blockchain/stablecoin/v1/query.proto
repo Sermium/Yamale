@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package blockchain.stablecoin.v1;
+
+import "amino/amino.proto";
+import "blockchain/stablecoin/v1/approved_issuer.proto";
+import "blockchain/stablecoin/v1/issuer_application.proto";
+import "blockchain/stablecoin/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/stablecoin/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/stablecoin/v1/params";
+  }
+
+  // ListIssuerApplication Queries a list of IssuerApplication items.
+  rpc GetIssuerApplication(QueryGetIssuerApplicationRequest) returns (QueryGetIssuerApplicationResponse) {
+    // The denom travels in the query string. Denominations are validated with
+    // sdk.ValidateDenom, whose alphabet includes '/' — that is what makes
+    // ibc/<hash> a denom — and registration is permissionless, so any issuer
+    // could make their own currency unreadable over REST by naming it.
+    option (google.api.http).get = "/yamale/blockchain/stablecoin/v1/issuer_application_by_denom";
+  }
+
+  // ListIssuerApplication defines the ListIssuerApplication RPC.
+  rpc ListIssuerApplication(QueryAllIssuerApplicationRequest) returns (QueryAllIssuerApplicationResponse) {
+    option (google.api.http).get = "/yamale/blockchain/stablecoin/v1/issuer_application";
+  }
+
+  // ListApprovedIssuer Queries a list of ApprovedIssuer items.
+  rpc GetApprovedIssuer(QueryGetApprovedIssuerRequest) returns (QueryGetApprovedIssuerResponse) {
+    // In the query string for the same reason as GetIssuerApplication: a denom
+    // may lawfully contain a slash.
+    option (google.api.http).get = "/yamale/blockchain/stablecoin/v1/approved_issuer_by_denom";
+  }
+
+  // ListApprovedIssuer defines the ListApprovedIssuer RPC.
+  rpc ListApprovedIssuer(QueryAllApprovedIssuerRequest) returns (QueryAllApprovedIssuerResponse) {
+    option (google.api.http).get = "/yamale/blockchain/stablecoin/v1/approved_issuer";
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryGetIssuerApplicationRequest defines the QueryGetIssuerApplicationRequest message.
+message QueryGetIssuerApplicationRequest {
+  string denom = 1;
+}
+
+// QueryGetIssuerApplicationResponse defines the QueryGetIssuerApplicationResponse message.
+message QueryGetIssuerApplicationResponse {
+  IssuerApplication issuer_application = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllIssuerApplicationRequest defines the QueryAllIssuerApplicationRequest message.
+message QueryAllIssuerApplicationRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllIssuerApplicationResponse defines the QueryAllIssuerApplicationResponse message.
+message QueryAllIssuerApplicationResponse {
+  repeated IssuerApplication issuer_application = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryGetApprovedIssuerRequest defines the QueryGetApprovedIssuerRequest message.
+message QueryGetApprovedIssuerRequest {
+  string denom = 1;
+}
+
+// QueryGetApprovedIssuerResponse defines the QueryGetApprovedIssuerResponse message.
+message QueryGetApprovedIssuerResponse {
+  ApprovedIssuer approved_issuer = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAllApprovedIssuerRequest defines the QueryAllApprovedIssuerRequest message.
+message QueryAllApprovedIssuerRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+// QueryAllApprovedIssuerResponse defines the QueryAllApprovedIssuerResponse message.
+message QueryAllApprovedIssuerResponse {
+  repeated ApprovedIssuer approved_issuer = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

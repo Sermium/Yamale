@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package blockchain.land.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/land/types";
+
+// Params are the dials that decide how expensive it is to steal land here.
+// They belong to governance, because a chain where an official can lower the
+// quorum is a chain with no quorum.
+message Params {
+  option (amino.name) = "blockchain/x/land/Params";
+  option (gogoproto.equal) = true;
+
+  // Independent registrars who must attest before a transfer can complete.
+  // Below three, two colluding officials suffice — the whole mechanism rests on
+  // this being larger than the number of people a buyer can quietly reach.
+  uint32 attestation_quorum = 1;
+
+  // Seconds between reaching quorum and being allowed to complete. Long enough
+  // for word to reach a family member in another city; short enough that
+  // legitimate sales are not strangled. Fourteen days by default.
+  int64 challenge_window = 2;
+
+  // Whether a registrar from the proposing office may count toward quorum.
+  // False, and it should stay false: an attestor from the same office is not
+  // independent, and allowing it collapses the mechanism back to one bribe.
+  bool same_authority_attestation = 3;
+}

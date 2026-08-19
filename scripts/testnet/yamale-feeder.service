@@ -1,0 +1,37 @@
+[Unit]
+Description=Yamale oracle price feeder
+After=yamaled.service
+Wants=yamaled.service
+
+[Service]
+User=yamale
+Group=yamale
+Type=simple
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# --source is deliberately different on each validator. The oracle takes a
+# stake-weighted median of what the set reports, and a median of four reports
+# drawn from one endpoint is one source counted four times: the threshold would
+# look like agreement and measure nothing.
+#
+#   validator-1  --source yahoo    (market quotes, intraday)
+#   validator-2  --source erapi    (published table, daily)
+#   validator-3  --source yahoo
+#   validator-4  --source erapi
+ExecStart=/usr/local/bin/feeder \
+  --binary /usr/local/bin/blockchaind \
+  --home /home/yamale/.blockchain \
+  --chain-id yamale-testnet-1 \
+  --from feeder \
+  --validator YMLVALOPER_ADDRESS_HERE \
+  --source yahoo \
+  --interval 60s
+
+# on-failure, not always: the feeder reporting nothing is a visible condition —
+# the validator's miss counter climbs and the rate ages out — whereas a feeder
+# restarting in a loop against a broken endpoint is invisible noise.
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

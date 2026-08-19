@@ -1,0 +1,50 @@
+name: Documentation
+
+# The reference documentation is generated from the protobuf definitions, each
+# module's registered errors, and its DefaultParams(). This job fails when the
+# committed output has fallen behind the code, so a reader never finds out
+# before CI does.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  reference:
+    name: Reference is current
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Regenerate and diff
+        run: make docs-check
+      - name: Check the OpenAPI specification is up to date
+        run: make openapi-check
+
+  protos:
+    name: Protobuf is current and lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          check-latest: true
+      - name: Lint
+        run: make proto-lint
+      - name: Regenerate and diff
+        run: make proto-check
+      # The TypeScript types the client signs with come from the same .proto
+      # files. If they drift, an interface encodes a message the chain no
+      # longer decodes the same way — which fails at the worst moment, on
+      # somebody's transaction, rather than here.
+      - name: Regenerate the TypeScript types and diff
+        run: make proto-ts-check

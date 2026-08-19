@@ -1,0 +1,40 @@
+# Scrape configuration for a Yamale validator set.
+#
+# CometBFT's metrics endpoint is unauthenticated and describes the node's health
+# to anyone who can reach it, so it is bound to the private network and this
+# file is the only thing that talks to it. It is off by default; enable it per
+# validator in config.toml:
+#
+#   prometheus = true
+#   prometheus_listen_addr = ":26660"
+#
+# Every metric name in alerts.yml was scraped from a running node rather than
+# taken from documentation — the names differ between CometBFT and the older
+# Tendermint releases, and a rule referencing a metric that does not exist never
+# fires and never says so.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: yamale-validators
+    static_configs:
+      - targets:
+          - validator-1.internal:26660
+          - validator-2.internal:26660
+          - validator-3.internal:26660
+          - validator-4.internal:26660
+        labels:
+          network: yamale-testnet-1
+
+  # The public node on the main server. Scraped separately because its failures
+  # mean something different: the chain is fine and the explorer is down.
+  - job_name: yamale-public
+    static_configs:
+      - targets: [main.internal:26660]
+        labels:
+          network: yamale-testnet-1
+          role: public

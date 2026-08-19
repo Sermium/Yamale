@@ -1,0 +1,251 @@
+syntax = "proto3";
+package blockchain.tokenisation.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "blockchain/tokenisation/v1/tokenisation.proto";
+import "blockchain/tokenisation/v1/params.proto";
+
+option go_package = "yamale/blockchain/x/tokenisation/types";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // Governance only.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  rpc CreateCollection(MsgCreateCollection) returns (MsgCreateCollectionResponse);
+  rpc SetCollectionAuthority(MsgSetCollectionAuthority) returns (MsgSetCollectionAuthorityResponse);
+  rpc ResolveDispute(MsgResolveDispute) returns (MsgResolveDisputeResponse);
+
+  // The collection's appointed authority only.
+  rpc MintAsset(MsgMintAsset) returns (MsgMintAssetResponse);
+
+  // Title holder.
+  rpc Fractionalise(MsgFractionalise) returns (MsgFractionaliseResponse);
+  rpc TransferAsset(MsgTransferAsset) returns (MsgTransferAssetResponse);
+  rpc FundVault(MsgFundVault) returns (MsgFundVaultResponse);
+  rpc ReportSale(MsgReportSale) returns (MsgReportSaleResponse);
+
+  // Permissionless.
+  rpc AttestSale(MsgAttestSale) returns (MsgAttestSaleResponse);
+  rpc DisputeSale(MsgDisputeSale) returns (MsgDisputeSaleResponse);
+  rpc Claim(MsgClaim) returns (MsgClaimResponse);
+  rpc Redeem(MsgRedeem) returns (MsgRedeemResponse);
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+message MsgUpdateParamsResponse {}
+
+// MsgCreateCollection brings a registry into existence. Governance only.
+//
+// There is deliberately no permissionless counterpart. Every other creation
+// path on this chain is apply-then-approve, but here there is no application to
+// approve: a registry of deeds is not something a chain grants on request.
+message MsgCreateCollection {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgCreateCollection";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Collection collection = 2 [(gogoproto.nullable) = false];
+}
+message MsgCreateCollectionResponse {}
+
+// MsgSetCollectionAuthority appoints or revokes who may mint into a collection.
+//
+// Revocation stops future mints and touches nothing already issued. Deciding an
+// existing asset was wrongly issued is a seizure, and seizures go through
+// x/enforcement where two thirds decide -- not through a registry keeper.
+message MsgSetCollectionAuthority {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgSetCollectionAuthority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string collection_id = 2;
+  // Empty revokes. A collection with no authority refuses mints; it does not
+  // fall back to governance.
+  string new_authority = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+message MsgSetCollectionAuthorityResponse {}
+
+// MsgMintAsset records title. Only the collection's appointed authority.
+//
+// A mint names its recipient, so title is attributed at creation and never
+// exists unattributed. There is no self-mint-then-transfer path, because that
+// path is where an authority laundering assets to itself stops being
+// distinguishable from an authority doing its job.
+message MsgMintAsset {
+  option (cosmos.msg.v1.signer) = "minter";
+  option (amino.name) = "blockchain/x/tokenisation/MsgMintAsset";
+
+  string minter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string collection_id = 2;
+  string owner = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string uri = 4;
+
+  // The x/land parcel this asset is title over, or 0 when it is not land.
+  //
+  // Checked here as well as at fractionalisation, because it is cheap: a mint
+  // naming a parcel that does not exist, or one held by somebody other than
+  // the named owner, is refused outright rather than left to fail later when
+  // shares are being sold and there is money on the other side of it.
+  uint64 parcel_id = 5;
+}
+message MsgMintAssetResponse {
+  uint64 asset_id = 1;
+}
+
+// MsgFractionalise mints the shareholding against title.
+//
+// Supply is fixed here and can never grow. Holding title confers no right to
+// mint more: an owner who could dilute shareholders by issuing fractions
+// against an asset they had already sold interests in is the whole fraud in one
+// message handler.
+message MsgFractionalise {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/tokenisation/MsgFractionalise";
+
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  string symbol = 3;
+  string supply = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // Share of the asset's economics the tokens carry. The sponsor keeps the
+  // rest. Never editable afterwards.
+  //
+  // For an asset over an x/land parcel this is the figure the registry's
+  // max_share_bps caps: it is what is being sold, not what is retained.
+  uint32 holder_share_bps = 5;
+  // Denomination income and proceeds will be paid in.
+  string income_denom = 6;
+}
+message MsgFractionaliseResponse {
+  string fraction_denom = 1;
+}
+
+// MsgTransferAsset moves title. The shareholding is untouched.
+//
+// A buyer takes an encumbered asset subject to its shareholders, and the
+// obligation to fund the vault moves with title.
+message MsgTransferAsset {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/tokenisation/MsgTransferAsset";
+
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+message MsgTransferAssetResponse {}
+
+// MsgFundVault pays income in. holder_share_bps of it reaches the index; the
+// remainder is the sponsor's and is never taken from them.
+message MsgFundVault {
+  option (cosmos.msg.v1.signer) = "funder";
+  option (amino.name) = "blockchain/x/tokenisation/MsgFundVault";
+
+  string funder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+}
+message MsgFundVaultResponse {}
+
+// MsgReportSale states what the asset sold for. It does not open redemption.
+//
+// The figure is recorded, is public, and sits for the collection's challenge
+// window. Verification alone would not be enough: redemption is irreversible,
+// so without a window verification only means the theft needed two signatures.
+message MsgReportSale {
+  option (cosmos.msg.v1.signer) = "reporter";
+  option (amino.name) = "blockchain/x/tokenisation/MsgReportSale";
+
+  string reporter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
+  string evidence_uri = 4;
+}
+message MsgReportSaleResponse {}
+
+// MsgAttestSale signs a reported figure when the collection requires attestors.
+message MsgAttestSale {
+  option (cosmos.msg.v1.signer) = "attestor";
+  option (amino.name) = "blockchain/x/tokenisation/MsgAttestSale";
+
+  string attestor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
+}
+message MsgAttestSaleResponse {}
+
+// MsgDisputeSale suspends redemption and refers the figure to governance.
+//
+// The bond is a basis-point fraction of the reported price -- scaled to the
+// vehicle rather than flat, since a flat bond is trivial for a large fraud to
+// post and prohibitive for a small holder to raise. Refunded if the dispute
+// succeeds; otherwise forfeited to the vault, never to the issuer. Paying the
+// issuer would reward provoking weak challenges.
+message MsgDisputeSale {
+  option (cosmos.msg.v1.signer) = "challenger";
+  option (amino.name) = "blockchain/x/tokenisation/MsgDisputeSale";
+
+  string challenger = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  string reason = 3;
+}
+message MsgDisputeSaleResponse {}
+
+// MsgResolveDispute is governance deciding the contested figure.
+message MsgResolveDispute {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgResolveDispute";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  // Empty upholds the reported figure and forfeits the bond.
+  cosmos.base.v1beta1.Coin corrected_price = 3;
+}
+message MsgResolveDisputeResponse {}
+
+// MsgClaim withdraws accrued income without giving up the shareholding.
+message MsgClaim {
+  option (cosmos.msg.v1.signer) = "holder";
+  option (amino.name) = "blockchain/x/tokenisation/MsgClaim";
+
+  string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+}
+message MsgClaimResponse {
+  repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+}
+
+// MsgRedeem burns tokens and pays their share in the same step.
+//
+// The burn *is* the claim. A design that burns and then expects a later claim
+// strands the money of everyone slow, asleep or dead, and leaves the chain
+// holding funds it can no longer attribute. Supply falls to zero as holders
+// claim, and title burns when it reaches zero.
+message MsgRedeem {
+  option (cosmos.msg.v1.signer) = "holder";
+  option (amino.name) = "blockchain/x/tokenisation/MsgRedeem";
+
+  string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+message MsgRedeemResponse {
+  repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+}

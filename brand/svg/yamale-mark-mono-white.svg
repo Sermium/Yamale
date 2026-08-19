@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Yamale">
+  <mask id="yk3">
+    <rect x="4" y="4" width="56" height="56" rx="7" fill="#fff"/>
+    <path d="M17 17 L32 32 L47 17" fill="none" stroke="#000" stroke-width="7.2" stroke-linecap="butt" stroke-linejoin="miter"/>
+    <path d="M32 32 L32 49.5" fill="none" stroke="#000" stroke-width="7.2" stroke-linecap="butt" stroke-linejoin="miter"/>
+  </mask>
+  <rect x="4" y="4" width="56" height="56" rx="7" fill="#FFFFFF" mask="url(#yk3)"/>
+</svg>

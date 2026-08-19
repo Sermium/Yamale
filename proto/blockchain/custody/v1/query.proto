@@ -1,0 +1,86 @@
+syntax = "proto3";
+package blockchain.custody.v1;
+
+import "blockchain/custody/v1/custody.proto";
+import "blockchain/custody/v1/params.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/custody/types";
+
+// Query defines the custody query service.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/custody/v1/params";
+  }
+  // Assets lists everything this chain issues claims on.
+  rpc Assets(QueryAssetsRequest) returns (QueryAssetsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/custody/v1/assets";
+  }
+  // Solvency answers "are we holding what we owe", per asset.
+  //
+  // Deliberately public and deliberately computed rather than reported: if the
+  // number cannot be checked by anyone, the whole arrangement rests on trusting
+  // the operator, and this is a chain whose purpose is not having to.
+  rpc Solvency(QuerySolvencyRequest) returns (QuerySolvencyResponse) {
+    option (google.api.http).get = "/yamale/blockchain/custody/v1/solvency";
+  }
+  // Deposit returns one deposit by id.
+  rpc Deposit(QueryDepositRequest) returns (QueryDepositResponse) {
+    // The id travels in the query string. A deposit id is composed as
+    // denom + ":" + the source-chain reference, and grpc-gateway reads a colon
+    // in the final path segment as a gRPC verb — so this route failed to match
+    // for every deposit that can exist, not merely for unusual ones. The
+    // reference itself is unvalidated and may carry slashes too.
+    option (google.api.http).get = "/yamale/blockchain/custody/v1/deposit";
+  }
+  // Redemption returns one redemption by id.
+  rpc Redemption(QueryRedemptionRequest) returns (QueryRedemptionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/custody/v1/redemption/{id}";
+  }
+}
+
+// QueryParamsRequest is the request for the module parameters.
+message QueryParamsRequest {}
+
+// QueryParamsResponse carries the module parameters.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAssetsRequest asks for the registered assets.
+message QueryAssetsRequest {}
+
+// QueryAssetsResponse carries them.
+message QueryAssetsResponse {
+  repeated Asset assets = 1 [(gogoproto.nullable) = false];
+}
+
+// QuerySolvencyRequest asks whether the custodian holds what it owes.
+message QuerySolvencyRequest {}
+
+// QuerySolvencyResponse carries one line per asset.
+message QuerySolvencyResponse {
+  repeated Solvency solvency = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDepositRequest asks for one deposit.
+message QueryDepositRequest {
+  string id = 1;
+}
+
+// QueryDepositResponse carries it.
+message QueryDepositResponse {
+  Deposit deposit = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryRedemptionRequest asks for one redemption.
+message QueryRedemptionRequest {
+  string id = 1;
+}
+
+// QueryRedemptionResponse carries it.
+message QueryRedemptionResponse {
+  Redemption redemption = 1 [(gogoproto.nullable) = false];
+}

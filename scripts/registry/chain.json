@@ -1,0 +1,51 @@
+{
+  "$schema": "../../chain.schema.json",
+  "chain_name": "yamaletestnet",
+  "chain_type": "cosmos",
+  "chain_id": "yamale-testnet-1",
+  "pretty_name": "Yamale Testnet",
+  "status": "live",
+  "network_type": "testnet",
+  "bech32_prefix": "yml",
+  "daemon_name": "blockchaind",
+  "node_home": "$HOME/.blockchain",
+  "key_algos": ["secp256k1"],
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "uyml",
+        "fixed_min_gas_price": 0,
+        "low_gas_price": 0,
+        "average_gas_price": 0.025,
+        "high_gas_price": 0.04
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [{ "denom": "uyml" }]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/REPLACE-ME/yamale",
+    "recommended_version": "v0.1.0",
+    "compatible_versions": ["v0.1.0"],
+    "consensus": { "type": "cometbft", "version": "0.38.21" },
+    "genesis": {
+      "genesis_url": "https://REPLACE-ME/genesis.json"
+    },
+    "sdk": { "type": "cosmos", "version": "0.53.6" }
+  },
+  "apis": {
+    "rpc": [{ "address": "https://rpc.REPLACE-ME", "provider": "Yamale" }],
+    "rest": [{ "address": "https://api.REPLACE-ME", "provider": "Yamale" }],
+    "grpc": [{ "address": "grpc.REPLACE-ME:443", "provider": "Yamale" }]
+  },
+  "explorers": [
+    {
+      "kind": "Yamale Explorer",
+      "url": "https://REPLACE-ME",
+      "tx_page": "https://REPLACE-ME/tx/${txHash}",
+      "account_page": "https://REPLACE-ME/account/${accountAddress}"
+    }
+  ]
+}

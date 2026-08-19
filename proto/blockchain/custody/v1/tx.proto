@@ -1,0 +1,153 @@
+syntax = "proto3";
+package blockchain.custody.v1;
+
+import "amino/amino.proto";
+import "blockchain/custody/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/custody/types";
+
+// Msg defines the custody Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // RegisterAsset lists an asset this chain will issue claims on. Governance.
+  rpc RegisterAsset(MsgRegisterAsset) returns (MsgRegisterAssetResponse);
+  // SetAttestor appoints or removes an attestor. Governance.
+  rpc SetAttestor(MsgSetAttestor) returns (MsgSetAttestorResponse);
+  // AttestDeposit records that a deposit was seen on the source chain.
+  rpc AttestDeposit(MsgAttestDeposit) returns (MsgAttestDepositResponse);
+  // ReportReserve states what the custodian holds against an asset.
+  rpc ReportReserve(MsgReportReserve) returns (MsgReportReserveResponse);
+  // RequestRedemption burns a claim and queues the payout.
+  rpc RequestRedemption(MsgRequestRedemption) returns (MsgRequestRedemptionResponse);
+  // SettleRedemption records that the payout was made.
+  rpc SettleRedemption(MsgSettleRedemption) returns (MsgSettleRedemptionResponse);
+  // UpdateParams sets the module parameters. Governance.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgRegisterAsset lists an asset. Governance only: an asset registered by
+// anyone is an asset anyone can print a claim on.
+message MsgRegisterAsset {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/custody/MsgRegisterAsset";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string source_chain = 3;
+  string symbol = 4;
+  uint32 exponent = 5;
+}
+
+// MsgRegisterAssetResponse is empty.
+message MsgRegisterAssetResponse {}
+
+// MsgSetAttestor appoints or removes an attestor.
+//
+// Governance only, and it is the most consequential permission in the module:
+// enough attestors can credit a deposit that never happened.
+message MsgSetAttestor {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/custody/MsgSetAttestor";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string attestor = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  bool active = 3;
+}
+
+// MsgSetAttestorResponse is empty.
+message MsgSetAttestorResponse {}
+
+// MsgAttestDeposit says "this deposit happened on the source chain".
+//
+// The threshold is reached by distinct attestors agreeing on the *same* denom,
+// recipient, amount and external reference. Disagreement on any field is a
+// different deposit, not a vote against — which is what stops a single attestor
+// nudging an amount upward and calling it consensus.
+message MsgAttestDeposit {
+  option (cosmos.msg.v1.signer) = "attestor";
+  option (amino.name) = "blockchain/x/custody/MsgAttestDeposit";
+
+  string attestor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string external_ref = 5;
+}
+
+// MsgAttestDepositResponse reports where the deposit now stands.
+message MsgAttestDepositResponse {
+  string deposit_id = 1;
+  uint32 attestations = 2;
+  bool credited = 3;
+}
+
+// MsgReportReserve states what is held off-chain against an asset.
+message MsgReportReserve {
+  option (cosmos.msg.v1.signer) = "attestor";
+  option (amino.name) = "blockchain/x/custody/MsgReportReserve";
+
+  string attestor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string held = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgReportReserveResponse is empty.
+message MsgReportReserveResponse {}
+
+// MsgRequestRedemption burns the claim and queues the payout.
+message MsgRequestRedemption {
+  option (cosmos.msg.v1.signer) = "redeemer";
+  option (amino.name) = "blockchain/x/custody/MsgRequestRedemption";
+
+  string redeemer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string destination = 4;
+}
+
+// MsgRequestRedemptionResponse says when it can be paid.
+message MsgRequestRedemptionResponse {
+  string redemption_id = 1;
+  int64 payable_at_height = 2;
+}
+
+// MsgSettleRedemption records that the asset was sent on the source chain.
+message MsgSettleRedemption {
+  option (cosmos.msg.v1.signer) = "attestor";
+  option (amino.name) = "blockchain/x/custody/MsgSettleRedemption";
+
+  string attestor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string redemption_id = 2;
+  string settled_ref = 3;
+}
+
+// MsgSettleRedemptionResponse is empty.
+message MsgSettleRedemptionResponse {}
+
+// MsgUpdateParams sets the module parameters. Governance only.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/custody/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+// MsgUpdateParamsResponse is empty.
+message MsgUpdateParamsResponse {}

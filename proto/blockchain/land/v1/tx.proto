@@ -1,0 +1,284 @@
+syntax = "proto3";
+
+package blockchain.land.v1;
+
+import "amino/amino.proto";
+import "blockchain/land/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/land/types";
+
+// Msg is the land registry's transaction surface.
+//
+// The shape to notice: no single signer can move a parcel. Proposing,
+// validating and attesting are three different signers by construction, and
+// completion is mechanical. That is the anti-bribery property, expressed as a
+// message set rather than as policy.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams sets the quorum and challenge window. Governance only.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // Admitting a registry office is a governance act. If an authority could
+  // admit another authority, buying one office would buy the power to
+  // manufacture the independent attestors the quorum depends on.
+  rpc RegisterAuthority(MsgRegisterAuthority) returns (MsgRegisterAuthorityResponse);
+
+  // RegisterParcel records a parcel for the first time.
+  rpc RegisterParcel(MsgRegisterParcel) returns (MsgRegisterParcelResponse);
+
+  // ProposeTransfer opens a transfer. Signed by the holder.
+  rpc ProposeTransfer(MsgProposeTransfer) returns (MsgProposeTransferResponse);
+  // ValidateTransfer records the jurisdiction's own validation.
+  rpc ValidateTransfer(MsgValidateTransfer) returns (MsgValidateTransferResponse);
+  // AttestTransfer adds one independent attestation toward quorum.
+  rpc AttestTransfer(MsgAttestTransfer) returns (MsgAttestTransferResponse);
+  // Object halts a transfer and marks the parcel disputed.
+  rpc Object(MsgObject) returns (MsgObjectResponse);
+  // CompleteTransfer applies a transfer that has met every condition.
+  rpc CompleteTransfer(MsgCompleteTransfer) returns (MsgCompleteTransferResponse);
+
+  // RecordEncumbrance adds or releases a lien or right of way.
+  rpc RecordEncumbrance(MsgRecordEncumbrance) returns (MsgRecordEncumbranceResponse);
+  // FreezeParcel stops all movement, or lifts a freeze.
+  rpc FreezeParcel(MsgFreezeParcel) returns (MsgFreezeParcelResponse);
+
+  // AttachDeed adds a document to the chain of title.
+  rpc AttachDeed(MsgAttachDeed) returns (MsgAttachDeedResponse);
+
+  // SetRestriction imposes or lifts a limit on what may be done with a parcel.
+  rpc SetRestriction(MsgSetRestriction) returns (MsgSetRestrictionResponse);
+
+  // AuthoriseFractionalisation is the registry's permission for a tokenisation
+  // vehicle to be opened over a parcel. Without it, x/tokenisation refuses.
+  rpc AuthoriseFractionalisation(MsgAuthoriseFractionalisation) returns (MsgAuthoriseFractionalisationResponse);
+}
+
+// MsgUpdateParams changes the module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/land/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+// MsgUpdateParamsResponse is returned by UpdateParams.
+message MsgUpdateParamsResponse {}
+
+// MsgRegisterAuthority admits a registry office.
+message MsgRegisterAuthority {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // x/gov. Registry offices are admitted by the chain's governance, never by
+  // each other.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string office = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 3;
+  string jurisdiction = 4;
+  bool active = 5;
+}
+// MsgRegisterAuthorityResponse is returned by RegisterAuthority.
+message MsgRegisterAuthorityResponse {}
+
+// First registration. Fails if geometry_hash already exists — the refusal that
+// makes double-selling impossible on this chain.
+message MsgRegisterParcel {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string geometry_hash = 2;
+  string cadastral_ref = 3;
+  string holder = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// MsgRegisterParcelResponse carries the new parcel id.
+message MsgRegisterParcelResponse {
+  uint64 id = 1;
+}
+
+// Signed by the holder. An authority cannot start a transfer of somebody's land.
+message MsgProposeTransfer {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string price = 4;
+}
+// MsgProposeTransferResponse carries the new transfer id.
+message MsgProposeTransferResponse {
+  uint64 transfer_id = 1;
+}
+
+// The jurisdiction's own office, which holds the paper file and can check the
+// seller is who they say.
+message MsgValidateTransfer {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+}
+// MsgValidateTransferResponse is returned by ValidateTransfer.
+message MsgValidateTransferResponse {}
+
+// One attestation toward quorum, from an office that is not the proposing one.
+message MsgAttestTransfer {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+}
+// MsgAttestTransferResponse reports progress toward quorum.
+message MsgAttestTransferResponse {
+  uint32 attestations = 1;
+  uint32 quorum = 2;
+}
+
+// Open to anyone, on purpose. The person being robbed is often the person with
+// no official relationships, and requiring standing to object would exclude
+// exactly the people the mechanism exists to protect.
+message MsgObject {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+  string reason = 3;
+}
+// MsgObjectResponse is returned by Object.
+message MsgObjectResponse {}
+
+// Mechanical. Checks every condition and applies the result, so no official
+// holds a discretionary final step they can be paid to withhold — refusal is
+// leverage, and this removes it.
+message MsgCompleteTransfer {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+}
+// MsgCompleteTransferResponse is returned by CompleteTransfer.
+message MsgCompleteTransferResponse {}
+
+// MsgRecordEncumbrance adds or releases a claim against a parcel.
+message MsgRecordEncumbrance {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+  string kind = 3;
+  string holder = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string detail = 5;
+  // Releasing marks the existing entry rather than deleting it: an encumbrance
+  // that disappears takes with it the evidence that it ever existed.
+  bool release = 6;
+  uint32 index = 7;
+}
+// MsgRecordEncumbranceResponse is returned by RecordEncumbrance.
+message MsgRecordEncumbranceResponse {}
+
+// A freeze needs the authority and a quorum, for the same reason a transfer
+// does: a single official who can freeze land can extort its owner.
+message MsgFreezeParcel {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+
+  // The grounds. Required when freezing and recorded on the parcel as a
+  // Freeze entry, not merely checked and dropped: the reason a court order
+  // gives is the only part of it the holder can act on, and a stop with no
+  // readable grounds cannot be told apart from an arbitrary one.
+  //
+  // Optional when lifting, and recorded there too. An unattributed release is
+  // as hard to question as an unexplained freeze.
+  string reason = 3;
+  bool unfreeze = 4;
+}
+// MsgFreezeParcelResponse is returned by FreezeParcel.
+message MsgFreezeParcelResponse {}
+
+// MsgAttachDeed adds a document to a parcel's chain of title.
+message MsgAttachDeed {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+  string kind = 3;
+  string document_hash = 4;
+  string uri = 5;
+  string reference = 6;
+  string issued_on = 7;
+}
+// MsgAttachDeedResponse is returned by AttachDeed.
+message MsgAttachDeedResponse {}
+
+// MsgSetRestriction imposes or lifts a limit on a parcel.
+//
+// Signed by the authority in charge. Restrictions are how a state keeps land
+// law meaningful once a title can be traded quickly: agricultural land that may
+// not be built on, a heritage site, a cap on foreign holding. They are the
+// standing instruction that tokenisation has to obey.
+message MsgSetRestriction {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+  string kind = 3;
+  string value = 4;
+  string detail = 5;
+  // Lifting marks the restriction rather than removing it, so the record still
+  // shows the land was once constrained and who released it.
+  bool lift = 6;
+  uint32 index = 7;
+}
+// MsgSetRestrictionResponse is returned by SetRestriction.
+message MsgSetRestrictionResponse {}
+
+// MsgAuthoriseFractionalisation lets a vehicle be opened over a parcel.
+//
+// This is the supervised bridge to x/tokenisation. The owner may want to sell
+// an exploitation right in shares and collect rent from it — a legitimate and
+// useful thing. What must not happen is that fractionalising becomes a way to
+// sell around the restrictions on the land, or to move ownership without the
+// registry ever seeing it.
+//
+// So the shape is: the registry authorises, naming the maximum share that may
+// be sold and the purpose; x/tokenisation refuses to create a vehicle over a
+// parcel without a live authorisation; and the parcel itself never leaves this
+// module. The title stays here, held by the same account, and the vehicle sells
+// rights that reference it. A land service can therefore always answer "who
+// owns this, and is what is being sold over it lawful" — which is the whole
+// reason the registry exists.
+message MsgAuthoriseFractionalisation {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  // The authority in charge of the parcel.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 parcel_id = 2;
+
+  // What may be sold: an exploitation right, a lease, a revenue share. Not the
+  // title — the title is not for sale in pieces.
+  string right = 3;
+
+  // Ceiling on the fraction that may be issued, in basis points. A holder
+  // permitted to sell 40% of the rent has 4000 here and keeps the other 6000.
+  //
+  // It is compared against the share the issued tokens carry, not against what
+  // the sponsor retains. Reading it the other way round inverts the rule and
+  // authorises exactly the issuance the office meant to forbid.
+  uint32 max_share_bps = 4;
+
+  // Unix seconds at which the authorisation stops being live, so a permission
+  // granted for one purpose does not sit open for years. Required, and refused
+  // if it is already in the past: an authorisation with no expiry is
+  // indistinguishable from an unset field, and defaults to forever.
+  int64 expires_at = 5;
+
+  // Withdrawing it stops new issuance. Existing holders are not expropriated by
+  // the registry — that would be a taking, and it belongs to a court.
+  bool withdraw = 6;
+}
+// MsgAuthoriseFractionalisationResponse is returned by AuthoriseFractionalisation.
+message MsgAuthoriseFractionalisationResponse {}

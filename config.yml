@@ -1,0 +1,41 @@
+version: 1
+validation: sovereign
+default_denom: uyml
+build:
+  main: cmd/blockchaind
+genesis:
+  chain_id: yamale-testnet-1
+  app_state:
+    gov:
+      # Shortened voting periods are for fast local-devnet iteration only.
+      # The real 3-VM testnet genesis (Phase 7) must use realistic periods.
+      params:
+        voting_period: "10s"
+        expedited_voting_period: "5s"
+        min_deposit:
+        - denom: uyml
+          amount: "10000000"
+accounts:
+- name: alice
+  coins:
+  - 20000token
+  - 200000000uyml
+- name: bob
+  coins:
+  - 10000token
+  - 100000000uyml
+client:
+  openapi:
+    path: docs/static/openapi.json
+faucet:
+  name: bob
+  coins:
+  - 5token
+  - 100000uyml
+validators:
+- name: alice
+  bonded: 100000000uyml
+- name: validator1
+  bonded: 200000000uyml
+- name: validator2
+  bonded: 100000000uyml

@@ -1,0 +1,215 @@
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+-->
+
+# x/alias
+
+## Transactions
+
+### MsgRegisterAlias
+
+`/blockchain.alias.v1.MsgRegisterAlias`
+
+Signed by the `account` field.
+
+RegisterAlias issues an identifier to the sending account.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `account` | string |  |
+
+### MsgRotateAlias
+
+`/blockchain.alias.v1.MsgRotateAlias`
+
+Signed by the `account` field.
+
+RotateAlias retires the sender's identifier and issues a new one.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `account` | string |  |
+
+### MsgSetJurisdiction
+
+`/blockchain.alias.v1.MsgSetJurisdiction`
+
+Signed by the `recorder` field.
+
+SetJurisdiction records or corrects the country an account belongs to.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `recorder` | string | recorder is the approved participant that onboarded the account, or a foundation administrator, or governance. |
+| `account` | string | account is whose perimeter this is. |
+| `country` | string | country is an ISO 3166-1 alpha-2 code. It must be one ISO has actually assigned: the reserved codes, ZZ among them, are refused here so that the marker the foundation administrators carry cannot be handed to an ordinary account and read as chain-wide authority. |
+
+### MsgUpdateParams
+
+`/blockchain.alias.v1.MsgUpdateParams`
+
+Signed by the `authority` field.
+
+UpdateParams sets the module parameters. Governance only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `params` | Params |  |
+
+## Queries
+
+### Alias
+
+`GET /yamale/blockchain/alias/v1/alias/{id}`
+
+Alias resolves an identifier to an address. The hot path.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string | id in any form the client has it: hyphenated, lower case, with the confusable characters unfolded. The module normalises before looking up. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `alias` | Alias |  |
+
+### AliasOf
+
+`GET /yamale/blockchain/alias/v1/alias_of/{address}`
+
+AliasOf returns the identifier held by an address, for interfaces that need to show a person their own handle.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `alias` | Alias |  |
+
+### Jurisdiction
+
+`GET /yamale/blockchain/alias/v1/jurisdiction/{address}`
+
+Jurisdiction reports the country recorded against one account.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jurisdiction` | Jurisdiction |  |
+
+### Params
+
+`GET /yamale/blockchain/alias/v1/params`
+
+Params returns the module parameters.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `params` | Params |  |
+
+### Perimeter
+
+`GET /yamale/blockchain/alias/v1/perimeter/{country}`
+
+Perimeter lists the accounts recorded in one country, so an authority can see the accounts it may act on and no others.
+
+This is a list endpoint in a module that deliberately has none, so note what it returns and what it does not: jurisdiction records, never identifiers. Walking it tells you which addresses are recorded in a country — a supervisory fact, and the reason the endpoint exists — and gives no shortcut to the alias directory that is withheld above.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `country` | string | country is an ISO 3166-1 alpha-2 code, in any case. |
+| `pagination` | PageRequest |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jurisdictions` | repeated Jurisdiction |  |
+| `pagination` | PageResponse |  |
+
+### Retired
+
+`GET /yamale/blockchain/alias/v1/retired/{id}`
+
+Retired reports whether an identifier has been tombstoned. A client that resolves nothing should be able to tell "never existed" from "existed and was retired", because those mean very different things to somebody about to send money.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `retired` | bool |  |
+
+## State
+
+### Alias
+
+Alias binds one identifier to one address, permanently.
+
+One name, one address. One identifier per address. Neither is ever repointed — an alias can be retired, and a retired identifier is never issued again, but it cannot be made to resolve somewhere else. That is the property a payment handle needs: an identifier somebody memorised last year either still means what it meant, or it means nothing.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string | id is the normalised identifier: uppercase, no separators, ISO 3166-1 alpha-2 country prefix first, check character last. The display form (NG-K3M9-7QRT-B) is a client concern; the chain stores and compares only this. The country is not stored as its own field, because two copies of one fact can disagree and the one in the identifier is the one people read. It is the first two characters, and it is true by construction: the chain refuses to issue an identifier whose prefix differs from the jurisdiction recorded against the address, and a correction to that jurisdiction retires the identifier rather than leaving it to age into a lie. The prefix is not Crockford Base32 and is not folded like the payload. A fold that turned I into 1 and O into 0 would map CI and CL onto the same prefix, and SI and SL onto another — Côte d'Ivoire indistinguishable from Chile, Slovenia from Sierra Leone. The prefix uses all 26 letters; only the payload after it is Crockford. |
+| `address` | string | address is the account it resolves to, and never changes. |
+| `registered_at_height` | int64 | registered_at_height records when it was issued, so a client can show how long an identifier has been in use — a handle registered minutes ago deserves more caution than one that has been answering for a year. |
+
+### Jurisdiction
+
+Jurisdiction is the national perimeter an account belongs to.
+
+It lives here rather than in x/paymsg because every module that has to refuse an out-of-perimeter action — the land registry, enforcement, stablecoin issuance — would otherwise have to ask the payments module where an account is. A perimeter that only exists for accounts that happen to be somebody's payment customer is not a perimeter: validators, registry offices and treasury signers are none of those, and each one would sit in the unclaimed state the whole design exists to remove.
+
+It is recorded by the participant that onboarded the account, never self-declared, and changed only by a foundation administrator. That is what makes it evidence rather than a preference.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string | address is the account this perimeter belongs to. |
+| `country` | string | country is an ISO 3166-1 alpha-2 code, uppercase, checked against the assigned list. A code that is merely two letters would let a typo — NX for NG — become a perimeter no authority holds and no authority can act on. |
+| `recorded_by` | string | recorded_by is the participant or administrator that put it there. Kept because "who says this account is Nigerian" is the question an authority asks when the answer turns out to be wrong, and an unattributed record cannot answer it. |
+| `recorded_at_height` | int64 | recorded_at_height is when it was last written, so a change is visible as a change rather than as a fact that was always there. |
+
+## Errors
+
+Every way a transaction to this module can be rejected.
+
+| Code | Name | Message |
+| --- | --- | --- |
+| 10 | `ErrInvalidCountry` | that is not an assigned ISO 3166-1 alpha-2 country code |
+| 11 | `ErrNotTheRecorder` | only the account's approved participant or a foundation administrator may record its jurisdiction |
+| 12 | `ErrJurisdictionSet` | this account's jurisdiction is already recorded; only a foundation administrator may correct it |
+| 2 | `ErrAlreadyRegistered` | this account already holds an identifier |
+| 3 | `ErrNotRegistered` | this account holds no identifier |
+| 4 | `ErrNotFound` | no account holds that identifier |
+| 5 | `ErrMalformedID` | that is not a well-formed identifier |
+| 6 | `ErrInvalidParams` | invalid parameters |
+| 7 | `ErrExhausted` | could not derive an unused identifier |
+| 8 | `ErrInvalidSigner` | invalid authority for this message |
+| 9 | `ErrNoJurisdiction` | this account has no recorded jurisdiction |
