@@ -21,4 +21,9 @@ var (
 	ErrInvalidSettlementJurisdiction = errors.Register(ModuleName, 1109, "settlement jurisdiction is missing or is not an ISO 3166-1 alpha-2 code")
 	ErrInvalidMetadata               = errors.Register(ModuleName, 1110, "payment metadata payload or its hash is malformed")
 	ErrConfidentialAmountUnavailable = errors.Register(ModuleName, 1111, "confidential amounts are reserved but not yet verified by this chain")
+	// A store address that is not a URL is not a store, and the failure lands
+	// on the payee rather than on whoever registered it: they see detail they
+	// are entitled to read reported as unavailable, with nothing to tell them
+	// the reason is a typo in somebody else's registration.
+	ErrInvalidPayloadStore = errors.Register(ModuleName, 1112, "payload store url must be an absolute http or https base url, or empty")
 )

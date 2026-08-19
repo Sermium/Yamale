@@ -1,0 +1,120 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// ViewingKey is the X25519 public key a payment payload is encrypted to.
+//
+// It lives in this module for the same reason the jurisdiction does. The
+// payload is encrypted at the moment the payment is sent, so the sender has to
+// be able to look up every recipient's key *then* — the payer's, the payee's,
+// the key of the regulator of the declared settlement jurisdiction, and every
+// live auditor's. A registry that only covered accounts which happen to be
+// somebody's payment customer would leave the regulator and the auditor
+// unresolvable, which are two of the three parties the design exists to serve.
+//
+// Only the public half is ever recorded. That is not a convention that could be
+// relaxed later: a private key on an append-only ledger is a private key
+// published to everyone forever, and there is no erasure path that takes it
+// back.
+message ViewingKey {
+  // address is the account that holds the matching private key.
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // version climbs by one per registration and is never reused.
+  //
+  // Every envelope names the version it wrapped a content key to, so a payload
+  // encrypted years ago still says which key opens it. Reusing a number would
+  // make that reference ambiguous, and the party holding the wrong half would
+  // see an authentication failure rather than a resolvable "you need the older
+  // key" — indistinguishable from a corrupted payload.
+  uint64 version = 2;
+
+  // public_key is 32 bytes of X25519. Checked for length rather than assumed:
+  // a shorter value is not a key, and a sender that wrapped a content key to it
+  // would produce an envelope nobody can ever open, discovered only by the
+  // party who needed to read it.
+  bytes public_key = 3;
+
+  // registered_at_height is when this version was published.
+  //
+  // Senders must not encrypt to a key that was not yet published at the height
+  // they are sending, and a reader auditing an old envelope needs to know which
+  // keys were available when it was written.
+  int64 registered_at_height = 4;
+
+  // revoked marks a key whose private half is believed compromised.
+  //
+  // Revocation is not rotation, and conflating them loses the record. A revoked
+  // key must not be wrapped to again — but the envelopes already wrapped to it
+  // stay wrapped to it, because ciphertext that exists cannot be recalled. The
+  // flag is therefore a warning to senders and an exposure marker for readers,
+  // never a claim that old payloads became unreadable.
+  //
+  // A boolean beside the height rather than "height != 0", which is what this
+  // field was first. Proto3 cannot tell a height of zero from an unset field,
+  // so a key revoked at height zero — a genesis-seeded revocation, or any
+  // revocation on a chain that has not produced a block — read back as live.
+  // That failure is silent and points the wrong way: senders go on sealing
+  // payment detail to a key its holder has already declared compromised.
+  bool revoked = 5;
+
+  // revoked_at_height is when it happened, and is meaningful only when revoked
+  // is set. Kept because "when did this key stop being trustworthy" decides
+  // which stored payloads are exposed, and a bare boolean cannot answer it.
+  int64 revoked_at_height = 6;
+}
+
+// RegulatorAppointment names the authority that holds the third viewing key
+// over every payment declaring one country as its settlement jurisdiction.
+//
+// One per country, deliberately. The settlement jurisdiction is the field that
+// settles which authority may act on a cross-border payment, and a country with
+// two appointed regulators would reintroduce exactly the contest over standing
+// that the single declaration exists to end.
+message RegulatorAppointment {
+  // country is an ISO 3166-1 alpha-2 code from the assigned list.
+  string country = 1;
+
+  // address is the appointed authority. Its viewing key is looked up
+  // separately, so a regulator can rotate keys without being reappointed.
+  string address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // appointed_by is the authority that made the appointment. Kept because "who
+  // says this account regulates Nigeria" is the question asked when the answer
+  // turns out to be wrong, and an unattributed appointment cannot answer it.
+  string appointed_by = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // appointed_at_height is when it was last written, so a change to who
+  // regulates a country is visible as a change rather than as a fact that was
+  // always there.
+  int64 appointed_at_height = 4;
+}
+
+// AuditorGrant is the time-boxed role that may read payment payloads across
+// accounts, for aggregate checks no single party's own keys can perform.
+//
+// It expires by itself. A grant that has to be revoked to end is a grant that
+// stays live when the person who would have revoked it moves on, and this one
+// reads the detail of payments belonging to people who never dealt with the
+// holder — so the failure mode of forgetting is the whole population's
+// remittance text, indefinitely.
+message AuditorGrant {
+  // address is the granted account.
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // granted_by is the authority that granted it.
+  string granted_by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // granted_at_height is when the grant was made.
+  int64 granted_at_height = 3;
+
+  // expires_at_height is the first height at which the grant no longer holds.
+  //
+  // Required and strictly in the future, never zero. Zero would read as "no
+  // expiry" to anyone who did not check, which is the one thing a time-boxed
+  // role must not be able to become by omission.
+  int64 expires_at_height = 4;
+}

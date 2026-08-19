@@ -9,6 +9,7 @@ import _m0 from "protobufjs/minimal.js";
 import { Alias } from "./alias.ts";
 import { Jurisdiction } from "./jurisdiction.ts";
 import { Params } from "./params.ts";
+import { AuditorGrant, RegulatorAppointment, ViewingKey } from "./viewing_key.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
 
@@ -49,10 +50,40 @@ export interface GenesisState {
    * on the chain at height zero, which no later check would ever catch.
    */
   jurisdictions: Jurisdiction[];
+  /**
+   * viewing_keys is every version ever registered, live and revoked alike.
+   *
+   * Every version, because an export that dropped the superseded ones would
+   * silently destroy the ability to read every payload encrypted before the
+   * last rotation — and it would do it at an upgrade, where nobody is looking
+   * at payment detail. Revoked keys are kept for the same reason: revocation
+   * says the private half may be in other hands, not that the envelopes wrapped
+   * to it stopped existing.
+   */
+  viewingKeys: ViewingKey[];
+  /** regulators is the appointment per country. */
+  regulators: RegulatorAppointment[];
+  /**
+   * auditor_grants is every grant, expired ones included.
+   *
+   * Expired grants are state rather than rubbish. "Who could read this payment
+   * in 2026" is asked years afterwards, and a genesis that pruned them would
+   * answer "nobody" — which is worse than not answering, because it looks like
+   * an answer.
+   */
+  auditorGrants: AuditorGrant[];
 }
 
 function createBaseGenesisState(): GenesisState {
-  return { params: undefined, aliases: [], retired: [], jurisdictions: [] };
+  return {
+    params: undefined,
+    aliases: [],
+    retired: [],
+    jurisdictions: [],
+    viewingKeys: [],
+    regulators: [],
+    auditorGrants: [],
+  };
 }
 
 export const GenesisState = {
@@ -68,6 +99,15 @@ export const GenesisState = {
     }
     for (const v of message.jurisdictions) {
       Jurisdiction.encode(v!, writer.uint32(34).fork()).ldelim();
+    }
+    for (const v of message.viewingKeys) {
+      ViewingKey.encode(v!, writer.uint32(42).fork()).ldelim();
+    }
+    for (const v of message.regulators) {
+      RegulatorAppointment.encode(v!, writer.uint32(50).fork()).ldelim();
+    }
+    for (const v of message.auditorGrants) {
+      AuditorGrant.encode(v!, writer.uint32(58).fork()).ldelim();
     }
     return writer;
   },
@@ -107,6 +147,27 @@ export const GenesisState = {
 
           message.jurisdictions.push(Jurisdiction.decode(reader, reader.uint32()));
           continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.viewingKeys.push(ViewingKey.decode(reader, reader.uint32()));
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.regulators.push(RegulatorAppointment.decode(reader, reader.uint32()));
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.auditorGrants.push(AuditorGrant.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -123,6 +184,15 @@ export const GenesisState = {
       retired: globalThis.Array.isArray(object?.retired) ? object.retired.map((e: any) => globalThis.String(e)) : [],
       jurisdictions: globalThis.Array.isArray(object?.jurisdictions)
         ? object.jurisdictions.map((e: any) => Jurisdiction.fromJSON(e))
+        : [],
+      viewingKeys: globalThis.Array.isArray(object?.viewingKeys)
+        ? object.viewingKeys.map((e: any) => ViewingKey.fromJSON(e))
+        : [],
+      regulators: globalThis.Array.isArray(object?.regulators)
+        ? object.regulators.map((e: any) => RegulatorAppointment.fromJSON(e))
+        : [],
+      auditorGrants: globalThis.Array.isArray(object?.auditorGrants)
+        ? object.auditorGrants.map((e: any) => AuditorGrant.fromJSON(e))
         : [],
     };
   },
@@ -141,6 +211,15 @@ export const GenesisState = {
     if (message.jurisdictions?.length) {
       obj.jurisdictions = message.jurisdictions.map((e) => Jurisdiction.toJSON(e));
     }
+    if (message.viewingKeys?.length) {
+      obj.viewingKeys = message.viewingKeys.map((e) => ViewingKey.toJSON(e));
+    }
+    if (message.regulators?.length) {
+      obj.regulators = message.regulators.map((e) => RegulatorAppointment.toJSON(e));
+    }
+    if (message.auditorGrants?.length) {
+      obj.auditorGrants = message.auditorGrants.map((e) => AuditorGrant.toJSON(e));
+    }
     return obj;
   },
 
@@ -155,6 +234,9 @@ export const GenesisState = {
     message.aliases = object.aliases?.map((e) => Alias.fromPartial(e)) || [];
     message.retired = object.retired?.map((e) => e) || [];
     message.jurisdictions = object.jurisdictions?.map((e) => Jurisdiction.fromPartial(e)) || [];
+    message.viewingKeys = object.viewingKeys?.map((e) => ViewingKey.fromPartial(e)) || [];
+    message.regulators = object.regulators?.map((e) => RegulatorAppointment.fromPartial(e)) || [];
+    message.auditorGrants = object.auditorGrants?.map((e) => AuditorGrant.fromPartial(e)) || [];
     return message;
   },
 };

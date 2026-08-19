@@ -5,6 +5,7 @@
 // source: blockchain/alias/v1/tx.proto
 
 /* eslint-disable */
+import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { Params } from "./params.ts";
 
@@ -106,6 +107,116 @@ export interface MsgSetJurisdictionResponse {
    * account held none, in which case it will get one when it registers.
    */
   id: string;
+}
+
+/**
+ * MsgRegisterViewingKey publishes the sending account's X25519 public key.
+ *
+ * Self-signed, unlike the jurisdiction beside it, and the difference is not an
+ * oversight. A jurisdiction is a claim about somebody that they must not be
+ * able to make for themselves; a viewing key is a claim only about which key
+ * can decrypt payloads addressed to the sender, and an account that publishes a
+ * key it does not hold has locked itself out of its own payment detail and
+ * nobody else out of anything.
+ *
+ * Sending it again rotates: the previous version stays queryable so historical
+ * envelopes remain openable, and new envelopes wrap to the new version. See
+ * ViewingKey.version.
+ */
+export interface MsgRegisterViewingKey {
+  account: string;
+  /**
+   * public_key is 32 bytes of X25519. The private half never leaves the holder,
+   * and nothing on this chain has any use for it.
+   */
+  publicKey: Uint8Array;
+}
+
+/** MsgRegisterViewingKeyResponse returns the version that was assigned. */
+export interface MsgRegisterViewingKeyResponse {
+  /**
+   * version is what an envelope will name when it wraps to this key. The sender
+   * cannot know it before the transaction lands, so it comes back here.
+   */
+  version: string;
+}
+
+/**
+ * MsgRevokeViewingKey marks one of the sender's key versions compromised.
+ *
+ * It does not delete the key and does not pretend the payloads wrapped to it
+ * became unreadable — ciphertext that has been distributed cannot be recalled,
+ * and a message that implied otherwise would be worse than none. What it does
+ * is stop senders wrapping to it and let a reader see that a payload they are
+ * holding was addressed to a key somebody else may also hold. Erasing the
+ * payload itself is the store's job, not the chain's.
+ */
+export interface MsgRevokeViewingKey {
+  account: string;
+  /**
+   * version is which registration to mark. Named explicitly rather than
+   * defaulting to the newest, because the key an operator wants to revoke is
+   * usually the old one they have just rotated away from.
+   */
+  version: string;
+}
+
+/** MsgRevokeViewingKeyResponse is empty. */
+export interface MsgRevokeViewingKeyResponse {
+}
+
+/**
+ * MsgAppointRegulator names the authority that holds the third viewing key over
+ * payments settling in one country.
+ *
+ * Authority-gated, because this is the single most powerful grant the
+ * confidentiality design makes: the appointee can read the ISO 20022 detail of
+ * every payment that names their country from the moment they are appointed.
+ * An account that could appoint itself regulator of Ghana would have granted
+ * itself that by sending one message.
+ */
+export interface MsgAppointRegulator {
+  authority: string;
+  /**
+   * country is an ISO 3166-1 alpha-2 code. Checked against the assigned list
+   * for the same reason a jurisdiction is: a mistyped NX would appoint a
+   * regulator of nowhere, and every payment declaring NG would go on being
+   * encrypted to nobody while the appointment sat in state looking done.
+   */
+  country: string;
+  /**
+   * address is the appointed authority, expected to be an x/group account
+   * wherever the decision to open a payload should be M-of-N rather than one
+   * official. The chain does not require that; it records who was named.
+   */
+  address: string;
+}
+
+/** MsgAppointRegulatorResponse is empty. */
+export interface MsgAppointRegulatorResponse {
+}
+
+/**
+ * MsgGrantAuditor grants the time-boxed cross-account reading role.
+ *
+ * Authority-gated and bounded in three ways at once — it expires by height, the
+ * number of live grants is capped, and every grant is recorded with who made
+ * it. All three exist because this role is the one that reads payment detail
+ * belonging to people who have no relationship with the holder.
+ */
+export interface MsgGrantAuditor {
+  authority: string;
+  address: string;
+  /**
+   * expires_at_height must be in the future. There is no unbounded form of this
+   * grant, and no zero-means-forever: a role that can become permanent by
+   * leaving a field unset is not time-boxed, it is time-boxed by convention.
+   */
+  expiresAtHeight: string;
+}
+
+/** MsgGrantAuditorResponse is empty. */
+export interface MsgGrantAuditorResponse {
 }
 
 /** MsgUpdateParams sets the module parameters. Governance only. */
@@ -526,6 +637,518 @@ export const MsgSetJurisdictionResponse = {
   },
 };
 
+function createBaseMsgRegisterViewingKey(): MsgRegisterViewingKey {
+  return { account: "", publicKey: new Uint8Array(0) };
+}
+
+export const MsgRegisterViewingKey = {
+  encode(message: MsgRegisterViewingKey, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.account !== "") {
+      writer.uint32(10).string(message.account);
+    }
+    if (message.publicKey.length !== 0) {
+      writer.uint32(18).bytes(message.publicKey);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRegisterViewingKey {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRegisterViewingKey();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.account = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.publicKey = reader.bytes();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRegisterViewingKey {
+    return {
+      account: isSet(object.account) ? globalThis.String(object.account) : "",
+      publicKey: isSet(object.publicKey) ? bytesFromBase64(object.publicKey) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: MsgRegisterViewingKey): unknown {
+    const obj: any = {};
+    if (message.account !== "") {
+      obj.account = message.account;
+    }
+    if (message.publicKey.length !== 0) {
+      obj.publicKey = base64FromBytes(message.publicKey);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRegisterViewingKey>): MsgRegisterViewingKey {
+    return MsgRegisterViewingKey.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRegisterViewingKey>): MsgRegisterViewingKey {
+    const message = createBaseMsgRegisterViewingKey();
+    message.account = object.account ?? "";
+    message.publicKey = object.publicKey ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseMsgRegisterViewingKeyResponse(): MsgRegisterViewingKeyResponse {
+  return { version: "0" };
+}
+
+export const MsgRegisterViewingKeyResponse = {
+  encode(message: MsgRegisterViewingKeyResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.version !== "0") {
+      writer.uint32(8).uint64(message.version);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRegisterViewingKeyResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRegisterViewingKeyResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.version = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRegisterViewingKeyResponse {
+    return { version: isSet(object.version) ? globalThis.String(object.version) : "0" };
+  },
+
+  toJSON(message: MsgRegisterViewingKeyResponse): unknown {
+    const obj: any = {};
+    if (message.version !== "0") {
+      obj.version = message.version;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRegisterViewingKeyResponse>): MsgRegisterViewingKeyResponse {
+    return MsgRegisterViewingKeyResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRegisterViewingKeyResponse>): MsgRegisterViewingKeyResponse {
+    const message = createBaseMsgRegisterViewingKeyResponse();
+    message.version = object.version ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgRevokeViewingKey(): MsgRevokeViewingKey {
+  return { account: "", version: "0" };
+}
+
+export const MsgRevokeViewingKey = {
+  encode(message: MsgRevokeViewingKey, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.account !== "") {
+      writer.uint32(10).string(message.account);
+    }
+    if (message.version !== "0") {
+      writer.uint32(16).uint64(message.version);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeViewingKey {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeViewingKey();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.account = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.version = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRevokeViewingKey {
+    return {
+      account: isSet(object.account) ? globalThis.String(object.account) : "",
+      version: isSet(object.version) ? globalThis.String(object.version) : "0",
+    };
+  },
+
+  toJSON(message: MsgRevokeViewingKey): unknown {
+    const obj: any = {};
+    if (message.account !== "") {
+      obj.account = message.account;
+    }
+    if (message.version !== "0") {
+      obj.version = message.version;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeViewingKey>): MsgRevokeViewingKey {
+    return MsgRevokeViewingKey.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRevokeViewingKey>): MsgRevokeViewingKey {
+    const message = createBaseMsgRevokeViewingKey();
+    message.account = object.account ?? "";
+    message.version = object.version ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgRevokeViewingKeyResponse(): MsgRevokeViewingKeyResponse {
+  return {};
+}
+
+export const MsgRevokeViewingKeyResponse = {
+  encode(_: MsgRevokeViewingKeyResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeViewingKeyResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeViewingKeyResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgRevokeViewingKeyResponse {
+    return {};
+  },
+
+  toJSON(_: MsgRevokeViewingKeyResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeViewingKeyResponse>): MsgRevokeViewingKeyResponse {
+    return MsgRevokeViewingKeyResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgRevokeViewingKeyResponse>): MsgRevokeViewingKeyResponse {
+    const message = createBaseMsgRevokeViewingKeyResponse();
+    return message;
+  },
+};
+
+function createBaseMsgAppointRegulator(): MsgAppointRegulator {
+  return { authority: "", country: "", address: "" };
+}
+
+export const MsgAppointRegulator = {
+  encode(message: MsgAppointRegulator, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.country !== "") {
+      writer.uint32(18).string(message.country);
+    }
+    if (message.address !== "") {
+      writer.uint32(26).string(message.address);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAppointRegulator {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAppointRegulator();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.country = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.address = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAppointRegulator {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      country: isSet(object.country) ? globalThis.String(object.country) : "",
+      address: isSet(object.address) ? globalThis.String(object.address) : "",
+    };
+  },
+
+  toJSON(message: MsgAppointRegulator): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.country !== "") {
+      obj.country = message.country;
+    }
+    if (message.address !== "") {
+      obj.address = message.address;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAppointRegulator>): MsgAppointRegulator {
+    return MsgAppointRegulator.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAppointRegulator>): MsgAppointRegulator {
+    const message = createBaseMsgAppointRegulator();
+    message.authority = object.authority ?? "";
+    message.country = object.country ?? "";
+    message.address = object.address ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgAppointRegulatorResponse(): MsgAppointRegulatorResponse {
+  return {};
+}
+
+export const MsgAppointRegulatorResponse = {
+  encode(_: MsgAppointRegulatorResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAppointRegulatorResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAppointRegulatorResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgAppointRegulatorResponse {
+    return {};
+  },
+
+  toJSON(_: MsgAppointRegulatorResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAppointRegulatorResponse>): MsgAppointRegulatorResponse {
+    return MsgAppointRegulatorResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgAppointRegulatorResponse>): MsgAppointRegulatorResponse {
+    const message = createBaseMsgAppointRegulatorResponse();
+    return message;
+  },
+};
+
+function createBaseMsgGrantAuditor(): MsgGrantAuditor {
+  return { authority: "", address: "", expiresAtHeight: "0" };
+}
+
+export const MsgGrantAuditor = {
+  encode(message: MsgGrantAuditor, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.address !== "") {
+      writer.uint32(18).string(message.address);
+    }
+    if (message.expiresAtHeight !== "0") {
+      writer.uint32(24).int64(message.expiresAtHeight);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgGrantAuditor {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgGrantAuditor();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.address = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.expiresAtHeight = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgGrantAuditor {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      address: isSet(object.address) ? globalThis.String(object.address) : "",
+      expiresAtHeight: isSet(object.expiresAtHeight) ? globalThis.String(object.expiresAtHeight) : "0",
+    };
+  },
+
+  toJSON(message: MsgGrantAuditor): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.address !== "") {
+      obj.address = message.address;
+    }
+    if (message.expiresAtHeight !== "0") {
+      obj.expiresAtHeight = message.expiresAtHeight;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgGrantAuditor>): MsgGrantAuditor {
+    return MsgGrantAuditor.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgGrantAuditor>): MsgGrantAuditor {
+    const message = createBaseMsgGrantAuditor();
+    message.authority = object.authority ?? "";
+    message.address = object.address ?? "";
+    message.expiresAtHeight = object.expiresAtHeight ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgGrantAuditorResponse(): MsgGrantAuditorResponse {
+  return {};
+}
+
+export const MsgGrantAuditorResponse = {
+  encode(_: MsgGrantAuditorResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgGrantAuditorResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgGrantAuditorResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgGrantAuditorResponse {
+    return {};
+  },
+
+  toJSON(_: MsgGrantAuditorResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgGrantAuditorResponse>): MsgGrantAuditorResponse {
+    return MsgGrantAuditorResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgGrantAuditorResponse>): MsgGrantAuditorResponse {
+    const message = createBaseMsgGrantAuditorResponse();
+    return message;
+  },
+};
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -669,6 +1292,14 @@ export interface Msg {
   RotateAlias(request: MsgRotateAlias): Promise<MsgRotateAliasResponse>;
   /** SetJurisdiction records or corrects the country an account belongs to. */
   SetJurisdiction(request: MsgSetJurisdiction): Promise<MsgSetJurisdictionResponse>;
+  /** RegisterViewingKey publishes the sender's X25519 public key, or rotates it. */
+  RegisterViewingKey(request: MsgRegisterViewingKey): Promise<MsgRegisterViewingKeyResponse>;
+  /** RevokeViewingKey marks one of the sender's key versions compromised. */
+  RevokeViewingKey(request: MsgRevokeViewingKey): Promise<MsgRevokeViewingKeyResponse>;
+  /** AppointRegulator names the authority holding the viewing key for a country. */
+  AppointRegulator(request: MsgAppointRegulator): Promise<MsgAppointRegulatorResponse>;
+  /** GrantAuditor grants the time-boxed cross-account reading role. */
+  GrantAuditor(request: MsgGrantAuditor): Promise<MsgGrantAuditorResponse>;
   /** UpdateParams sets the module parameters. Governance only. */
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse>;
 }
@@ -683,6 +1314,10 @@ export class MsgClientImpl implements Msg {
     this.RegisterAlias = this.RegisterAlias.bind(this);
     this.RotateAlias = this.RotateAlias.bind(this);
     this.SetJurisdiction = this.SetJurisdiction.bind(this);
+    this.RegisterViewingKey = this.RegisterViewingKey.bind(this);
+    this.RevokeViewingKey = this.RevokeViewingKey.bind(this);
+    this.AppointRegulator = this.AppointRegulator.bind(this);
+    this.GrantAuditor = this.GrantAuditor.bind(this);
     this.UpdateParams = this.UpdateParams.bind(this);
   }
   RegisterAlias(request: MsgRegisterAlias): Promise<MsgRegisterAliasResponse> {
@@ -703,6 +1338,30 @@ export class MsgClientImpl implements Msg {
     return promise.then((data) => MsgSetJurisdictionResponse.decode(_m0.Reader.create(data)));
   }
 
+  RegisterViewingKey(request: MsgRegisterViewingKey): Promise<MsgRegisterViewingKeyResponse> {
+    const data = MsgRegisterViewingKey.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RegisterViewingKey", data);
+    return promise.then((data) => MsgRegisterViewingKeyResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RevokeViewingKey(request: MsgRevokeViewingKey): Promise<MsgRevokeViewingKeyResponse> {
+    const data = MsgRevokeViewingKey.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RevokeViewingKey", data);
+    return promise.then((data) => MsgRevokeViewingKeyResponse.decode(_m0.Reader.create(data)));
+  }
+
+  AppointRegulator(request: MsgAppointRegulator): Promise<MsgAppointRegulatorResponse> {
+    const data = MsgAppointRegulator.encode(request).finish();
+    const promise = this.rpc.request(this.service, "AppointRegulator", data);
+    return promise.then((data) => MsgAppointRegulatorResponse.decode(_m0.Reader.create(data)));
+  }
+
+  GrantAuditor(request: MsgGrantAuditor): Promise<MsgGrantAuditorResponse> {
+    const data = MsgGrantAuditor.encode(request).finish();
+    const promise = this.rpc.request(this.service, "GrantAuditor", data);
+    return promise.then((data) => MsgGrantAuditorResponse.decode(_m0.Reader.create(data)));
+  }
+
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
     const promise = this.rpc.request(this.service, "UpdateParams", data);
@@ -714,6 +1373,31 @@ interface Rpc {
   request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
 }
 
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
+}
+
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin ? T
@@ -721,6 +1405,15 @@ export type DeepPartial<T> = T extends Builtin ? T
   : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
+
+function longToString(long: Long) {
+  return long.toString();
+}
+
+if (_m0.util.Long !== Long) {
+  _m0.util.Long = Long as any;
+  _m0.configure();
+}
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

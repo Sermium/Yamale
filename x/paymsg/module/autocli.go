@@ -97,6 +97,20 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "customer"}, {ProtoField: "registered"}},
 				},
 				{
+					RpcMethod: "SetPayloadStore",
+					Use:       "set-payload-store [url]",
+					Short:     "Record where you serve the encrypted payloads of the payments you instruct",
+					Long: "Record where you serve the encrypted payloads of the payments you instruct.\n\n" +
+						"A directory entry, not key material: it names a host, and everything behind\n" +
+						"it is already sealed to keys you do not hold. It is on the chain because the\n" +
+						"payee is the party that has to find it, and the only thing the payee is\n" +
+						"guaranteed to have is the payment record.\n\n" +
+						"Pass an empty string to withdraw the store. A client then reports the detail\n" +
+						"as unavailable, which is the truth, rather than reporting a network fault\n" +
+						"against a host that is never coming back.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "url"}},
+				},
+				{
 					RpcMethod: "ApproveParticipant",
 					Skip:      true, // authority gated; only callable via a governance proposal
 				},

@@ -24,6 +24,16 @@ import (
 //   - Retired        id                                  tombstones, kept forever
 //   - Jurisdictions  address            -> Jurisdiction  the perimeter, recorded
 //   - Perimeter      (country, address)                  the reverse, derived, never exported
+//   - ViewingKeys    (address, version) -> ViewingKey    every version ever published
+//   - Regulators     country            -> Appointment   who holds the third key
+//   - AuditorGrants  address            -> Grant         the time-boxed cross-account role
+//
+// The last three are here rather than in x/paymsg because the sender of a
+// payment has to resolve all of them at the moment it seals the payload — its
+// own key, the payee's, the regulator of the declared settlement jurisdiction,
+// and every live auditor. A registry that only covered accounts which happen to
+// be somebody's payment customer would leave the regulator and the auditor
+// unresolvable, which are two of the three parties the design exists to serve.
 //
 // Owners and Perimeter are rebuilt from their sources by InitGenesis rather
 // than carried in genesis. A derived index emitted alongside its source is a
@@ -51,6 +61,9 @@ type Keeper struct {
 	Retired       collections.KeySet[string]
 	Jurisdictions collections.Map[string, types.Jurisdiction]
 	Perimeter     collections.KeySet[collections.Pair[string, string]]
+	ViewingKeys   collections.Map[collections.Pair[string, uint64], types.ViewingKey]
+	Regulators    collections.Map[string, types.RegulatorAppointment]
+	AuditorGrants collections.Map[string, types.AuditorGrant]
 }
 
 func NewKeeper(
@@ -85,6 +98,13 @@ func NewKeeper(
 			collections.StringKey, codec.CollValue[types.Jurisdiction](cdc)),
 		Perimeter: collections.NewKeySet(sb, types.PerimeterKey, "perimeter",
 			collections.PairKeyCodec(collections.StringKey, collections.StringKey)),
+		ViewingKeys: collections.NewMap(sb, types.ViewingKeysKey, "viewingKeys",
+			collections.PairKeyCodec(collections.StringKey, collections.Uint64Key),
+			codec.CollValue[types.ViewingKey](cdc)),
+		Regulators: collections.NewMap(sb, types.RegulatorsKey, "regulators",
+			collections.StringKey, codec.CollValue[types.RegulatorAppointment](cdc)),
+		AuditorGrants: collections.NewMap(sb, types.AuditorGrantsKey, "auditorGrants",
+			collections.StringKey, codec.CollValue[types.AuditorGrant](cdc)),
 	}
 
 	schema, err := sb.Build()

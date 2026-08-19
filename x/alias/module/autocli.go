@@ -48,6 +48,25 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Long:           "The accounts a national authority may act on, and no others. Returns jurisdiction records, not user IDs.",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "country"}},
 				},
+				{
+					RpcMethod:      "ViewingKeys",
+					Use:            "viewing-keys [address]",
+					Short:          "List every viewing key version an account has published",
+					Long:           "Newest first, revoked ones included. A payload sealed last year names the version that was live last year, so the old keys are the answer rather than clutter.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "address"}},
+				},
+				{
+					RpcMethod:      "Regulator",
+					Use:            "regulator [country]",
+					Short:          "Show the authority that can open payloads settling in one country",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "country"}},
+				},
+				{
+					RpcMethod: "Auditors",
+					Use:       "auditors",
+					Short:     "List the live cross-account reading grants",
+					Long:      "Who may read payment detail belonging to people who never dealt with them. Listed because the people being read about are entitled to see it.",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -73,6 +92,40 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
 						{ProtoField: "account"},
 						{ProtoField: "country"},
+					},
+				},
+				{
+					RpcMethod:      "RegisterViewingKey",
+					Use:            "register-viewing-key [public-key]",
+					Short:          "Publish the X25519 public key your payment payloads are sealed to",
+					Long:           "Only the public half. Sending it again rotates: the old version stays queryable so payloads already sealed to it remain readable, and new payloads are sealed to the new one.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "public_key"}},
+				},
+				{
+					RpcMethod:      "RevokeViewingKey",
+					Use:            "revoke-viewing-key [version]",
+					Short:          "Mark one of your key versions compromised",
+					Long:           "Stops senders sealing to it. It does not make the payloads already sealed to it unreadable — ciphertext that has been distributed cannot be recalled. Destroying those is the payload store's job.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "version"}},
+				},
+				{
+					RpcMethod: "AppointRegulator",
+					Use:       "appoint-regulator [country] [address]",
+					Short:     "Name the authority that may open payloads settling in one country",
+					Long:      "Governance or a foundation administrator. The appointee can read the ISO 20022 detail of every payment declaring that country from the moment they are appointed.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "country"},
+						{ProtoField: "address"},
+					},
+				},
+				{
+					RpcMethod: "GrantAuditor",
+					Use:       "grant-auditor [address] [expires-at-height]",
+					Short:     "Grant the time-boxed cross-account reading role",
+					Long:      "Expires by itself at the height given; there is no unbounded form. This role reads payment detail belonging to people who never dealt with the holder.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "address"},
+						{ProtoField: "expires_at_height"},
 					},
 				},
 				// UpdateParams is governance-only and is submitted as a proposal

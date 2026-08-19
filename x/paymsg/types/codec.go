@@ -22,6 +22,7 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 	registrar.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgApproveParticipant{},
 		&MsgRegisterCustomer{},
+		&MsgSetPayloadStore{},
 	)
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)
 }

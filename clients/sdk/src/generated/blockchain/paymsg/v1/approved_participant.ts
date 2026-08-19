@@ -14,10 +14,29 @@ export interface ApprovedParticipant {
   participant: string;
   code: string;
   name: string;
+  /**
+   * payload_store_url is where this participant serves the encrypted payloads
+   * of the payments it instructed.
+   *
+   * A directory fact, not key material: it names a host, and everything behind
+   * it is already encrypted to keys this participant does not hold. It is on
+   * the chain rather than in each client's configuration because the payee is
+   * the party that has to find it, and the only thing the payee is guaranteed
+   * to have is the payment record — which names the instructing participant and
+   * nothing else. A configuration file would make "which store holds this
+   * payment's detail" a question every client answers separately and some
+   * answer stale, and a stale answer here renders as detail that has been
+   * lost.
+   *
+   * Empty is the honest default and means this participant runs no store. A
+   * client must show that as detail being unavailable, never as a payment with
+   * no detail.
+   */
+  payloadStoreUrl: string;
 }
 
 function createBaseApprovedParticipant(): ApprovedParticipant {
-  return { participant: "", code: "", name: "" };
+  return { participant: "", code: "", name: "", payloadStoreUrl: "" };
 }
 
 export const ApprovedParticipant = {
@@ -30,6 +49,9 @@ export const ApprovedParticipant = {
     }
     if (message.name !== "") {
       writer.uint32(26).string(message.name);
+    }
+    if (message.payloadStoreUrl !== "") {
+      writer.uint32(34).string(message.payloadStoreUrl);
     }
     return writer;
   },
@@ -62,6 +84,13 @@ export const ApprovedParticipant = {
 
           message.name = reader.string();
           continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.payloadStoreUrl = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -76,6 +105,7 @@ export const ApprovedParticipant = {
       participant: isSet(object.participant) ? globalThis.String(object.participant) : "",
       code: isSet(object.code) ? globalThis.String(object.code) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
+      payloadStoreUrl: isSet(object.payloadStoreUrl) ? globalThis.String(object.payloadStoreUrl) : "",
     };
   },
 
@@ -90,6 +120,9 @@ export const ApprovedParticipant = {
     if (message.name !== "") {
       obj.name = message.name;
     }
+    if (message.payloadStoreUrl !== "") {
+      obj.payloadStoreUrl = message.payloadStoreUrl;
+    }
     return obj;
   },
 
@@ -101,6 +134,7 @@ export const ApprovedParticipant = {
     message.participant = object.participant ?? "";
     message.code = object.code ?? "";
     message.name = object.name ?? "";
+    message.payloadStoreUrl = object.payloadStoreUrl ?? "";
     return message;
   },
 };
