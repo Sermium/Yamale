@@ -70,6 +70,24 @@ Stakeholders hold roles that are bounded by country: a national authority may ac
 on its own jurisdiction&#39;s accounts and records and on no others. The perimeter
 must therefore be a first-class, enforced property of an account rather than a
 convention in a user interface. See <a href="roles-and-perimeter.html">roles-and-perimeter.md</a>.</p>
+<p><strong>Validator power (§3, §4).</strong> Power is <strong>equal seats</strong>: every admitted validator
+carries the same weight, because admission is already a governance vote and
+stake-weighting would add a second, money-based channel nobody intended. In a
+monetary union it would also hand the whole set to the central bank, which is the
+one institution able to bond unlimited domestic currency — destroying the plural
+validator set that is the sovereign pitch.</p>
+<p>Governance may vote an individual validator&#39;s power where there is reason to, but
+<strong>a governance-set power is still bound by the concentration caps</strong>. A proposal
+that raises a validator above a ceiling is trimmed by the same epoch check that
+catches growth and mergers; otherwise the constitutional layer is decorative.</p>
+<p>This makes the caps countable — &quot;no jurisdiction holds more than N of M seats&quot; —
+rather than arithmetic over balances that drifts every block, which is what a
+supervisor can actually audit.</p>
+<p>Two thresholds are computed from voting power today and become seat counts:
+<code>x/oracle</code>&#39;s rate agreement and <code>x/enforcement</code>&#39;s two-thirds. Nothing changes on
+the running devnet: validator 1 keeps its current dominant power and
+<code>threshold_bps</code> stays at 6667. Equal seats is how a new deployment&#39;s genesis is
+built, not a retro-change to a live chain.</p>
 
 </main>
 </body>
