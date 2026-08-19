@@ -21,6 +21,8 @@
  * is a change of source, not a rewrite of the screen.
  */
 
+import { validUserId } from '@yamale/chain';
+
 export type EntryKind = 'system' | 'service';
 
 export interface DirectoryEntry {
@@ -32,6 +34,15 @@ export interface DirectoryEntry {
   /** What this account is, in one short line. */
   note: string;
   kind: EntryKind;
+  /**
+   * Why this entry cannot be reached yet, for a listing that is real but whose
+   * identifier is not known to this build.
+   *
+   * Present instead of `id`, never alongside it. Shown to the reader, because
+   * "we know who this is and cannot route you to them" is information, and an
+   * entry that quietly renders without an identifier is not.
+   */
+  unavailable?: string;
 }
 
 export const DIRECTORY: DirectoryEntry[] = [
@@ -40,13 +51,17 @@ export const DIRECTORY: DirectoryEntry[] = [
     // moderator nobody can look up is a moderator nobody can appeal to, and
     // the escrow screen asks people to name one before they part with money.
     //
-    // This identifier is from before user IDs carried a country, and the
-    // jurisdiction upgrade tombstoned every one of that shape — it resolves to
-    // nothing until the moderator's account is placed in a jurisdiction and
-    // registers again. Replace it with the reissued identifier, which will read
-    // as NG-…; leaving a dead one here sends somebody to an empty answer at the
-    // moment they are trying to find an arbiter.
-    id: 'ZW1AKM9AT',
+    // This entry used to carry ZW1AKM9AT, issued before user IDs carried a
+    // country. The x/alias v1→v2 migration tombstones every identifier of that
+    // shape, so it resolved to nothing — and resolved to nothing *quietly*,
+    // which is the worst version: the card rendered, the ID looked plausible,
+    // and the lookup came back empty at the moment somebody was trying to find
+    // an arbiter.
+    //
+    // The reissued identifier reads as NG-… and cannot be known without asking
+    // a chain that has run the migration, so it is not guessed here. Until
+    // somebody reads it off the chain and puts it in, the entry says so.
+    unavailable: 'Identifier being reissued after the jurisdiction upgrade.',
     label: 'Chris — Moderator',
     note: 'Decides disputed secured payments.',
     kind: 'service',
@@ -58,6 +73,41 @@ export const DIRECTORY: DirectoryEntry[] = [
     kind: 'system',
   },
 ];
+
+/**
+ * Reject a directory that cannot do its job, at import, before a screen renders.
+ *
+ * A directory entry is a promise that somebody can be reached. The failure this
+ * guards is the one that already happened: an identifier issued under the old
+ * scheme sat here after the jurisdiction upgrade tombstoned it, and nothing
+ * anywhere said so — not the type checker, not a test, not the screen. It cost
+ * nothing to leave and it broke the one path that has to work when a payment
+ * has gone wrong.
+ *
+ * `validUserId` is the client's port of the chain's own check, so a pre-migration
+ * identifier — no country prefix, and therefore a failing check character — is
+ * rejected here rather than by an empty answer from the node. Throwing is
+ * deliberate: this runs at module load, so a bad entry fails the build and the
+ * dev server on the commit that introduces it, instead of shipping.
+ */
+for (const entry of DIRECTORY) {
+  if (entry.id !== undefined && entry.unavailable !== undefined) {
+    throw new Error(
+      `directory: "${entry.label}" has both an id and an unavailable reason — it is one or the other`,
+    );
+  }
+  if (entry.id !== undefined && !validUserId(entry.id)) {
+    throw new Error(
+      `directory: "${entry.label}" carries the user ID ${entry.id}, which this chain cannot issue. ` +
+        'Identifiers issued before the jurisdiction upgrade have no country prefix and were tombstoned ' +
+        'by the x/alias v1→v2 migration. Read the reissued identifier off the chain, or give the entry ' +
+        'an `unavailable` reason instead.',
+    );
+  }
+  if (entry.id === undefined && entry.address === undefined && entry.unavailable === undefined) {
+    throw new Error(`directory: "${entry.label}" has no id, no address and no reason for having neither`);
+  }
+}
 
 /** Case- and punctuation-insensitive match across an entry's visible text. */
 export function matches(entry: DirectoryEntry, query: string): boolean {

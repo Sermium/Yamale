@@ -956,6 +956,7 @@ function Contacts() {
                 <span className="tag">{t(e.kind === 'system' ? 'app.systemAccount' : 'app.service')}</span>
                 <div className="muted small-note">{e.note}</div>
                 {e.id && <div className="muted">{e.id}</div>}
+                {e.unavailable && <div className="notice notice--bad small-note">{e.unavailable}</div>}
               </li>
             ))}
           </ul>
