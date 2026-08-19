@@ -53,7 +53,7 @@ type ModuleOutputs struct {
 	depinject.Out
 
 	TokenisationKeeper keeper.Keeper
-	Module        appmodule.AppModule
+	Module             appmodule.AppModule
 }
 
 // ProvideModule builds the keeper.

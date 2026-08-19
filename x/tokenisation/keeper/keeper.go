@@ -89,7 +89,7 @@ func NewKeeper(
 		Positions: collections.NewMap(sb, types.PositionsKey, "positions",
 			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
 			codec.CollValue[types.Position](cdc)),
-		Sales:       collections.NewMap(sb, types.SalesKey, "sales", collections.Uint64Key, codec.CollValue[types.SaleReport](cdc)),
+		Sales:   collections.NewMap(sb, types.SalesKey, "sales", collections.Uint64Key, codec.CollValue[types.SaleReport](cdc)),
 		ByDenom: collections.NewMap(sb, types.ByDenomKey, "by_denom", collections.StringKey, collections.Uint64Value),
 		ParcelIssuedBps: collections.NewMap(sb, types.ParcelIssuedBpsKey, "parcel_issued_bps",
 			collections.Uint64Key, collections.Uint32Value),
