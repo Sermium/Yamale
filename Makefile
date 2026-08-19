@@ -212,12 +212,25 @@ proto-lint:
 proto-ts:
 	@echo "Generating TypeScript types..."
 	@rm -rf clients/sdk/src/generated
-	@go tool github.com/bufbuild/buf/cmd/buf generate --template proto/buf.gen.ts.yaml
 	@# x/feegrant is how an institution pays the network fee for its customers,
 	@# so its messages have to be buildable from a browser. They come from the
 	@# SDK rather than from this repository's protos, and nothing here imports
 	@# them, so buf would not otherwise generate them.
-	@go tool github.com/bufbuild/buf/cmd/buf generate buf.build/cosmos/cosmos-sdk --template proto/buf.gen.ts.yaml --path cosmos/feegrant/v1beta1
+	@#
+	@# This runs FIRST, and the repository's own generation runs after it, because
+	@# the two overlap: both emit google/protobuf/*.ts and cosmos/base/*.ts. A
+	@# module named on the command line resolves its own dependencies rather than
+	@# this repository's buf.lock, and the cosmos-sdk module pins an older
+	@# well-known-types than we do — so generating it second silently downgraded
+	@# descriptor.ts and timestamp.ts, and undid the sed below by writing
+	@# descriptor.ts after it had already been corrected. Ordered this way, the
+	@# pinned buf.lock wins every shared file and the SDK module contributes only
+	@# what we do not generate ourselves: cosmos/feegrant, any.ts and duration.ts.
+	@#
+	@# Pinned to the same commit buf.lock records, so the output does not change
+	@# under us when the module is updated upstream.
+	@go tool github.com/bufbuild/buf/cmd/buf generate buf.build/cosmos/cosmos-sdk:65fa41963e6a41dd95a35934239029df --template proto/buf.gen.ts.yaml --path cosmos/feegrant/v1beta1
+	@go tool github.com/bufbuild/buf/cmd/buf generate --template proto/buf.gen.ts.yaml
 	@# importSuffix makes relative imports explicit, which Node's type stripping
 	@# requires — but ts-proto applies it to the protobufjs import too, and that
 	@# is a package, whose entry point is .js and stays .js. Corrected here
