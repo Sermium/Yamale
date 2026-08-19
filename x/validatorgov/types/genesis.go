@@ -36,13 +36,58 @@ func (gs GenesisState) Validate() error {
 			return fmt.Errorf("duplicated index for approvedValidator")
 		}
 		approvedValidatorIndexMap[index] = struct{}{}
+
+		// Every approved validator has to be declared, including the founding
+		// set. A validator with no declaration belongs to no entity, no owner
+		// and no jurisdiction, so it sits outside all three concentration
+		// ceilings — and a genesis is the one place a whole validator set can
+		// be admitted that way at once, which is exactly the founding bias the
+		// ceilings exist to bound.
+		if err := elem.Declaration.Validate(); err != nil {
+			return fmt.Errorf("approved validator %s: %w", elem.Candidate, err)
+		}
 	}
 
 	if err := gs.validateRotations(); err != nil {
 		return err
 	}
+	if err := gs.validateDemotions(approvedValidatorIndexMap); err != nil {
+		return err
+	}
 
 	return gs.Params.Validate()
+}
+
+// validateDemotions checks the demotions carried in genesis.
+//
+// A demotion names a validator the chain is holding down and says why. Two of
+// them against one operator would mean the map they are imported into silently
+// keeps one, and the one it dropped would be a restoration that never happens —
+// a validator jailed by a rule nobody can point at.
+func (gs GenesisState) validateDemotions(approved map[string]struct{}) error {
+	seen := make(map[string]struct{}, len(gs.Demotions))
+
+	for _, demotion := range gs.Demotions {
+		if demotion.Operator == "" {
+			return fmt.Errorf("demotion with no operator")
+		}
+		if _, dup := seen[demotion.Operator]; dup {
+			return fmt.Errorf("duplicate demotion for %s", demotion.Operator)
+		}
+		seen[demotion.Operator] = struct{}{}
+
+		if _, ok := approved[demotion.Operator]; !ok {
+			return fmt.Errorf("%s is demoted but is not an approved validator, so nothing would ever restore it", demotion.Operator)
+		}
+		if demotion.Cap == CONCENTRATION_CAP_UNSPECIFIED {
+			return fmt.Errorf("demotion of %s does not say which ceiling it was for", demotion.Operator)
+		}
+		if demotion.Group == "" {
+			return fmt.Errorf("demotion of %s does not say which group breached", demotion.Operator)
+		}
+	}
+
+	return nil
 }
 
 // validateRotations checks the rotations carried in genesis.

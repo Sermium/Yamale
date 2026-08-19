@@ -31,10 +31,20 @@ func SimulateMsgApplyValidator(
 		simAccount, _ := simtypes.RandomAcc(r, accs)
 		candidate := simAccount.Address.String()
 
+		// Owners and jurisdictions are drawn from short pools rather than
+		// randomised freely, so that simulated applicants actually collide into
+		// the groups the concentration ceilings are computed over. Every
+		// applicant declaring a unique owner would exercise the registry and
+		// never once exercise a cap.
+		owner := simOwners[r.Intn(len(simOwners))]
+
 		msg := &types.MsgApplyValidator{
-			Creator:     candidate,
-			Moniker:     simtypes.RandStringOfLength(r, 10),
-			Description: simtypes.RandStringOfLength(r, 20),
+			Creator:           candidate,
+			Moniker:           simtypes.RandStringOfLength(r, 10),
+			Description:       simtypes.RandStringOfLength(r, 20),
+			LegalEntityId:     simtypes.RandStringOfLength(r, 12),
+			BeneficialOwnerId: owner,
+			Jurisdiction:      simJurisdictions[r.Intn(len(simJurisdictions))],
 		}
 
 		application, err := k.ValidatorApplication.Get(ctx, candidate)
@@ -61,3 +71,13 @@ func SimulateMsgApplyValidator(
 		return simulation.GenAndDeliverTxWithRandFees(txCtx)
 	}
 }
+
+// simOwners and simJurisdictions are the pools simulated applicants declare
+// from. Kept small on purpose: with four owners and three countries a run of
+// any length puts several validators behind one owner, which is the state a
+// concentration ceiling exists for and the state a uniformly random declaration
+// would almost never produce.
+var (
+	simOwners        = []string{"OWNER-A", "OWNER-B", "OWNER-C", "OWNER-D"}
+	simJurisdictions = []string{"CH", "ZA", "SG"}
+)

@@ -1,10 +1,19 @@
 syntax = "proto3";
 package blockchain.validatorgov.v1;
 
+import "blockchain/validatorgov/v1/declaration.proto";
+import "gogoproto/gogo.proto";
+
 option go_package = "yamale/blockchain/x/validatorgov/types";
 
 // ApprovedValidator defines the ApprovedValidator message.
 message ApprovedValidator {
   string candidate = 1;
   string approved = 2;
+
+  // declaration is copied from the application at approval and kept current by
+  // re-attestation. The epoch check reads it from here rather than from the
+  // application, because the application is what was asked for once and this is
+  // what is claimed now — and a ceiling has to be computed against the second.
+  Declaration declaration = 3 [(gogoproto.nullable) = false];
 }

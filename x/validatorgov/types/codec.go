@@ -25,5 +25,10 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgApproveOperatorRecovery{},
 		&MsgCancelOperatorRotation{},
 	)
+
+	registrar.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgAttestOwnership{},
+		&MsgSetValidatorPower{},
+	)
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)
 }

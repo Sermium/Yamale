@@ -8,6 +8,7 @@ import (
 	"yamale/blockchain/x/validatorgov/types"
 
 	errorsmod "cosmossdk.io/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // ApproveValidator is executed exclusively by the governance module account
@@ -39,9 +40,18 @@ func (k msgServer) ApproveValidator(ctx context.Context, msg *types.MsgApproveVa
 
 	if msg.Approve {
 		application.Status = types.StatusApproved
+		// The declaration is copied from the application at approval, and from
+		// here on the approval's copy is the one the ceilings read. The two
+		// then diverge as the operator re-attests, which is deliberate: the
+		// application is what the set voted for and the approval is what is
+		// claimed now, and a register with only one of those cannot show that
+		// anything changed.
+		declaration := application.Declaration
+		declaration.AttestedAtHeight = sdk.UnwrapSDKContext(ctx).BlockHeight()
 		if err := k.ApprovedValidator.Set(ctx, msg.Candidate, types.ApprovedValidator{
-			Candidate: msg.Candidate,
-			Approved:  strconv.FormatBool(true),
+			Candidate:   msg.Candidate,
+			Approved:    strconv.FormatBool(true),
+			Declaration: declaration,
 		}); err != nil {
 			return nil, err
 		}

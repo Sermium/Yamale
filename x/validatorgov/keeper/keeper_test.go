@@ -7,6 +7,9 @@ import (
 	"cosmossdk.io/core/address"
 
 	"yamale/blockchain/testutil/integration"
+	constitutionkeeper "yamale/blockchain/x/constitution/keeper"
+	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 	"yamale/blockchain/x/validatorgov/keeper"
 	module "yamale/blockchain/x/validatorgov/module"
 	vgtestutil "yamale/blockchain/x/validatorgov/testutil"
@@ -20,6 +23,12 @@ type fixture struct {
 	env          *integration.Env
 	staking      *vgtestutil.StakingKeeper
 	authz        *vgtestutil.AuthzKeeper
+
+	// constitution is real, not a stub. The ceilings the epoch check enforces
+	// are this module reading another module's settlement, and a test against a
+	// hand-written struct would only prove it can read one it wrote itself.
+	constitution constitutionkeeper.Keeper
+	invariants   constitutiontypes.Invariants
 }
 
 func initFixture(t *testing.T) *fixture {
@@ -34,10 +43,15 @@ func initFixture(t *testing.T) *fixture {
 func newFixture(t *testing.T, initGenesis bool) *fixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
+	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
 
 	staking := vgtestutil.NewStakingKeeper()
 	authzKeeper := vgtestutil.NewAuthzKeeper()
+
+	_, destination := env.Addr(t)
+	invariants := constitutiontestutil.Invariants(destination)
+	constitution := constitutiontestutil.Init(t, env, staking, invariants)
+
 	k := keeper.NewKeeper(
 		env.StoreService,
 		env.Codec,
@@ -45,6 +59,9 @@ func newFixture(t *testing.T, initGenesis bool) *fixture {
 		env.Authority,
 		staking,
 		authzKeeper,
+		env.AuthKeeper,
+		env.BankKeeper,
+		constitution,
 	)
 
 	// Initialised the way a chain does, rather than by setting params alone:
@@ -65,5 +82,7 @@ func newFixture(t *testing.T, initGenesis bool) *fixture {
 		env:          env,
 		staking:      staking,
 		authz:        authzKeeper,
+		constitution: constitution,
+		invariants:   invariants,
 	}
 }

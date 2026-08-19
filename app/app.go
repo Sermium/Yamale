@@ -47,6 +47,7 @@ import (
 
 	"yamale/blockchain/docs"
 	aliasmodulekeeper "yamale/blockchain/x/alias/keeper"
+	constitutionmodulekeeper "yamale/blockchain/x/constitution/keeper"
 	enforcementmodulekeeper "yamale/blockchain/x/enforcement/keeper"
 	oraclemodulekeeper "yamale/blockchain/x/oracle/keeper"
 	paymsgmodulekeeper "yamale/blockchain/x/paymsg/keeper"
@@ -118,6 +119,7 @@ type App struct {
 	TreasuryKeeper     treasurymodulekeeper.Keeper
 	OracleKeeper       oraclemodulekeeper.Keeper
 	EnforcementKeeper  enforcementmodulekeeper.Keeper
+	ConstitutionKeeper constitutionmodulekeeper.Keeper
 	AliasKeeper        aliasmodulekeeper.Keeper
 }
 
@@ -208,6 +210,7 @@ func New(
 		&app.TreasuryKeeper,
 		&app.OracleKeeper,
 		&app.EnforcementKeeper,
+		&app.ConstitutionKeeper,
 		&app.AliasKeeper,
 	}, slices.Concat(
 		app.emissionDepinjectOutputs(),

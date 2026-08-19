@@ -6,6 +6,7 @@
 
 /* eslint-disable */
 import _m0 from "protobufjs/minimal.js";
+import { Declaration } from "./declaration.ts";
 
 export const protobufPackage = "blockchain.validatorgov.v1";
 
@@ -13,10 +14,17 @@ export const protobufPackage = "blockchain.validatorgov.v1";
 export interface ApprovedValidator {
   candidate: string;
   approved: string;
+  /**
+   * declaration is copied from the application at approval and kept current by
+   * re-attestation. The epoch check reads it from here rather than from the
+   * application, because the application is what was asked for once and this is
+   * what is claimed now — and a ceiling has to be computed against the second.
+   */
+  declaration: Declaration | undefined;
 }
 
 function createBaseApprovedValidator(): ApprovedValidator {
-  return { candidate: "", approved: "" };
+  return { candidate: "", approved: "", declaration: undefined };
 }
 
 export const ApprovedValidator = {
@@ -26,6 +34,9 @@ export const ApprovedValidator = {
     }
     if (message.approved !== "") {
       writer.uint32(18).string(message.approved);
+    }
+    if (message.declaration !== undefined) {
+      Declaration.encode(message.declaration, writer.uint32(26).fork()).ldelim();
     }
     return writer;
   },
@@ -51,6 +62,13 @@ export const ApprovedValidator = {
 
           message.approved = reader.string();
           continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.declaration = Declaration.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -64,6 +82,7 @@ export const ApprovedValidator = {
     return {
       candidate: isSet(object.candidate) ? globalThis.String(object.candidate) : "",
       approved: isSet(object.approved) ? globalThis.String(object.approved) : "",
+      declaration: isSet(object.declaration) ? Declaration.fromJSON(object.declaration) : undefined,
     };
   },
 
@@ -75,6 +94,9 @@ export const ApprovedValidator = {
     if (message.approved !== "") {
       obj.approved = message.approved;
     }
+    if (message.declaration !== undefined) {
+      obj.declaration = Declaration.toJSON(message.declaration);
+    }
     return obj;
   },
 
@@ -85,6 +107,9 @@ export const ApprovedValidator = {
     const message = createBaseApprovedValidator();
     message.candidate = object.candidate ?? "";
     message.approved = object.approved ?? "";
+    message.declaration = (object.declaration !== undefined && object.declaration !== null)
+      ? Declaration.fromPartial(object.declaration)
+      : undefined;
     return message;
   },
 };

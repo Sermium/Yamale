@@ -1,0 +1,40 @@
+syntax = "proto3";
+package blockchain.constitution.v1;
+
+import "blockchain/constitution/v1/constitution.proto";
+
+option go_package = "yamale/blockchain/x/constitution/types";
+
+// A change to the invariants has to be visible in the block it is proposed in,
+// not only to whoever thought to run a query. The public delay is the whole
+// protection an amendment carries, and a delay that starts running before
+// anybody hears about it is not public.
+
+// EventAmendmentProposed is emitted when an amendment opens.
+message EventAmendmentProposed {
+  uint64 amendment_id = 1;
+  string reason = 2;
+  int64 effective_at_height = 3;
+  int64 snapshot_power = 4;
+  int64 required_power = 5;
+}
+
+// EventAmendmentRatified is emitted for each validator that ratifies, carrying
+// the running total so that anyone watching can see the threshold approaching
+// rather than only learn it was reached.
+message EventAmendmentRatified {
+  uint64 amendment_id = 1;
+  string validator = 2;
+  int64 power = 3;
+  int64 ratified_power = 4;
+  int64 required_power = 5;
+}
+
+// EventAmendmentResolved is emitted once, when an amendment reaches its final
+// status — enacted, lapsed or withdrawn.
+message EventAmendmentResolved {
+  uint64 amendment_id = 1;
+  AmendmentStatus status = 2;
+  int64 ratified_power = 3;
+  int64 required_power = 4;
+}

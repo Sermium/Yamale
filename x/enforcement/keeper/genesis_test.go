@@ -16,6 +16,10 @@ import (
 // test below would otherwise fail on that before reaching what it is about.
 var testRecoveryDestination = sdk.AccAddress([]byte("foundation-test-addr")).String()
 
+// otherDestination is a second valid address, for the tests that check a
+// proposal cannot repoint where seized assets go.
+var otherDestination = sdk.AccAddress([]byte("somebody-elses-addr")).String()
+
 // startableGenesis is DefaultGenesis with the one field that has no default
 // filled in — the same thing every setup script in scripts/ does with the
 // `foundation` key.

@@ -20,7 +20,7 @@ func (f *fixture) approveOperator(t *testing.T) (sdk.AccAddress, string) {
 	ms := keeper.NewMsgServerImpl(f.keeper)
 	addr, addrStr := f.env.Addr(t)
 
-	_, err := ms.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: addrStr})
+	_, err := ms.ApplyValidator(f.env.Ctx, &types.MsgApplyValidator{Creator: addrStr, LegalEntityId: "LEI-TEST", BeneficialOwnerId: "OWNER-TEST", Jurisdiction: "CH"})
 	require.NoError(t, err)
 	_, err = ms.ApproveValidator(f.env.Ctx, &types.MsgApproveValidator{
 		Authority: f.env.AuthorityString(t), Candidate: addrStr, Approve: true,

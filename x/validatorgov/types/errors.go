@@ -22,4 +22,9 @@ var (
 	ErrOperatorInUse          = errors.Register(ModuleName, 1110, "the new operator address is already an approved validator operator")
 	ErrNotCurrentOperator     = errors.Register(ModuleName, 1111, "signer is not the current operator")
 	ErrMissingReason          = errors.Register(ModuleName, 1112, "a recovery must state its grounds")
+
+	ErrInvalidDeclaration = errors.Register(ModuleName, 1113, "beneficial ownership declaration is not valid")
+	ErrNoValidator        = errors.Register(ModuleName, 1114, "no validator has been created for this operator")
+	ErrSeatReserveEmpty   = errors.Register(ModuleName, 1115, "the module's seat reserve cannot cover this power")
+	ErrInvalidSeats       = errors.Register(ModuleName, 1116, "a validator must hold at least one seat")
 )

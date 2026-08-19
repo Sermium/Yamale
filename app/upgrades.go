@@ -8,6 +8,8 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
 
 // Coordinated upgrades.
@@ -56,6 +58,45 @@ var upgrades = []Upgrade{
 		// seeded jurisdictions here would be inventing perimeters no
 		// participant attested to.
 		Name: "jurisdiction",
+	},
+	{
+		// x/constitution is a new module with a new store, and a chain that
+		// already holds value cannot simply grow one: the store has to be added
+		// before any module migration runs, and the settlement has to be
+		// written before x/enforcement is next asked to check itself against it.
+		//
+		// The handler adopts the four enforcement parameters in force rather
+		// than choosing them, because they are what this chain already decided
+		// and rewriting them here would be an amendment with no delay and no
+		// ratification behind it. The concentration ceilings have no equivalent
+		// to adopt — nothing on a running chain implies them — so they arrive at
+		// the shipped defaults, and the first thing governance should do after
+		// this upgrade is amend them deliberately. The upgrade fails loudly if
+		// the result is not a settlement the chain can enforce, which is the
+		// correct outcome: better a halted upgrade than a constitution nobody
+		// read.
+		Name:          "constitution",
+		StoreUpgrades: storetypes.StoreUpgrades{Added: []string{constitutiontypes.StoreKey}},
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			params, err := app.EnforcementKeeper.Params.Get(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the enforcement parameters to adopt: %w", err)
+			}
+
+			invariants := constitutiontypes.DefaultInvariants()
+			invariants.EnforcementThresholdBps = params.ThresholdBps
+			invariants.EnforcementRecoveryDestination = params.RecoveryDestination
+			invariants.EnforcementVotingPeriodBlocks = params.VotingPeriodBlocks
+			invariants.EnforcementProvisionalFreezeBlocks = params.ProvisionalFreezeBlocks
+
+			genesis := constitutiontypes.DefaultGenesis()
+			genesis.Invariants = invariants
+			if err := app.ConstitutionKeeper.InitGenesis(ctx, *genesis); err != nil {
+				return nil, fmt.Errorf("adopting a constitution from the parameters in force: %w", err)
+			}
+
+			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+		},
 	},
 }
 

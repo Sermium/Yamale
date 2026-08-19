@@ -2,6 +2,7 @@ syntax = "proto3";
 package blockchain.validatorgov.v1;
 
 import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/validatorgov/types";
@@ -24,4 +25,35 @@ message Params {
   // because the thing it is defending against is somebody who does not hold
   // the key claiming that nobody does.
   uint64 recovery_challenge_window_blocks = 2;
+
+  // attestation_interval_blocks is how long a declaration stays fresh before
+  // the chain starts reporting it as stale.
+  //
+  // Reported, not enforced. Turning an expired attestation into a demotion
+  // would make an operator's inattention a consensus event, and the failure it
+  // would cause — a set that all forgot at once — is worse than the one it
+  // would prevent. What the chain does instead is publish the date and say so
+  // loudly, which is enough for admission governance to act on and is the most
+  // an unfalsifiable declaration can honestly support.
+  uint64 attestation_interval_blocks = 3;
+
+  // seat_bond_amount is how many base units of the bond denomination one seat
+  // carries.
+  //
+  // Equal seats are implemented in the unit the SDK already counts. Cosmos
+  // derives consensus power from bonded tokens and there is no supported way
+  // for a second module to report a different number — only one module may
+  // return validator updates, and x/staking is that module. So a seat is a
+  // fixed quantity of stake rather than a parallel notion of power, and every
+  // threshold on this chain that reads bonded power keeps working unchanged:
+  // x/enforcement's two thirds, x/oracle's rate agreement and x/gov's tally all
+  // become seat counts by arithmetic rather than by amendment.
+  //
+  // Set to the SDK's power reduction, one seat is exactly one unit of consensus
+  // power, which is what makes a ceiling countable off a list.
+  string seat_bond_amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
 }

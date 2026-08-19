@@ -8,6 +8,7 @@
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { ApprovedValidator } from "./approved_validator.ts";
+import { Demotion } from "./concentration.ts";
 import { Params } from "./params.ts";
 import { OperatorRotation } from "./rotation.ts";
 import { ValidatorApplication } from "./validator_application.ts";
@@ -33,6 +34,17 @@ export interface GenesisState {
    * says what it means and importing it cannot collide.
    */
   rotationCount: string;
+  /**
+   * demotions carries every validator the epoch check currently holds down.
+   *
+   * Exported because a demotion is not derivable from anything else in this
+   * genesis: the validator it names is jailed, so it contributes no power, so
+   * recomputing the ceilings from the exported state would find no breach and
+   * conclude there was nothing to restore. A chain that dropped these would
+   * hand every demoted validator its seats back at the next upgrade, silently,
+   * at the one moment nobody is watching the validator set.
+   */
+  demotions: Demotion[];
 }
 
 function createBaseGenesisState(): GenesisState {
@@ -42,6 +54,7 @@ function createBaseGenesisState(): GenesisState {
     approvedValidatorMap: [],
     operatorRotations: [],
     rotationCount: "0",
+    demotions: [],
   };
 }
 
@@ -61,6 +74,9 @@ export const GenesisState = {
     }
     if (message.rotationCount !== "0") {
       writer.uint32(40).uint64(message.rotationCount);
+    }
+    for (const v of message.demotions) {
+      Demotion.encode(v!, writer.uint32(50).fork()).ldelim();
     }
     return writer;
   },
@@ -107,6 +123,13 @@ export const GenesisState = {
 
           message.rotationCount = longToString(reader.uint64() as Long);
           continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.demotions.push(Demotion.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -129,6 +152,9 @@ export const GenesisState = {
         ? object.operatorRotations.map((e: any) => OperatorRotation.fromJSON(e))
         : [],
       rotationCount: isSet(object.rotationCount) ? globalThis.String(object.rotationCount) : "0",
+      demotions: globalThis.Array.isArray(object?.demotions)
+        ? object.demotions.map((e: any) => Demotion.fromJSON(e))
+        : [],
     };
   },
 
@@ -149,6 +175,9 @@ export const GenesisState = {
     if (message.rotationCount !== "0") {
       obj.rotationCount = message.rotationCount;
     }
+    if (message.demotions?.length) {
+      obj.demotions = message.demotions.map((e) => Demotion.toJSON(e));
+    }
     return obj;
   },
 
@@ -165,6 +194,7 @@ export const GenesisState = {
     message.approvedValidatorMap = object.approvedValidatorMap?.map((e) => ApprovedValidator.fromPartial(e)) || [];
     message.operatorRotations = object.operatorRotations?.map((e) => OperatorRotation.fromPartial(e)) || [];
     message.rotationCount = object.rotationCount ?? "0";
+    message.demotions = object.demotions?.map((e) => Demotion.fromPartial(e)) || [];
     return message;
   },
 };

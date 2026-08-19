@@ -46,3 +46,7 @@ docgen.exe
 # Local editor tooling. Machine-specific, never part of a build.
 .claude/
 .vscode/
+.testbin/
+blockchaind.exe
+.gotmp/
+.devnet/

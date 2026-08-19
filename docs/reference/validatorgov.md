@@ -23,6 +23,9 @@ ApplyValidator defines the ApplyValidator RPC.
 | `creator` | string |  |
 | `moniker` | string |  |
 | `description` | string |  |
+| `legal_entity_id` | string | legal_entity_id identifies the applying entity. |
+| `beneficial_owner_id` | string | beneficial_owner_id identifies whoever ultimately owns it. Where an entity has no owner above it, this is the entity's own identifier — stated rather than left blank, so that "nobody owns us" is a claim somebody signed. |
+| `jurisdiction` | string | jurisdiction is an ISO 3166-1 alpha-2 code from the assigned list. |
 
 ### MsgApproveOperatorRecovery
 
@@ -51,6 +54,21 @@ ApproveValidator defines the ApproveValidator RPC. It is authority-gated (the x/
 | `authority` | string | authority is the address that controls the module (defaults to x/gov unless overwritten). |
 | `candidate` | string |  |
 | `approve` | bool |  |
+
+### MsgAttestOwnership
+
+`/blockchain.validatorgov.v1.MsgAttestOwnership`
+
+Signed by the `creator` field.
+
+AttestOwnership defines the AttestOwnership RPC: the operator re-signing for who is behind it, which is what keeps a declaration from going stale.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `creator` | string | creator is the approved operator address, in its account form. |
+| `legal_entity_id` | string |  |
+| `beneficial_owner_id` | string |  |
+| `jurisdiction` | string |  |
 
 ### MsgCancelOperatorRotation
 
@@ -93,6 +111,20 @@ RotateOperator defines the RotateOperator RPC: the planned path, signed by the o
 | `creator` | string | creator is the current operator address. |
 | `new_operator` | string | new_operator is the address that takes over after the delay. |
 
+### MsgSetValidatorPower
+
+`/blockchain.validatorgov.v1.MsgSetValidatorPower`
+
+Signed by the `authority` field.
+
+SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated and moves how many seats one admitted validator holds.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string | authority is the address that controls the module (defaults to x/gov unless overwritten). |
+| `validator` | string | validator is the operator address, in its account form. |
+| `seats` | uint64 | seats is the power the validator is to carry. Zero is refused: a validator with no seats is one that has been removed, and removing one should say so rather than arrive as a power update that happens to be empty. |
+
 ### MsgUpdateParams
 
 `/blockchain.validatorgov.v1.MsgUpdateParams`
@@ -107,6 +139,23 @@ UpdateParams defines a (governance) operation for updating the module parameters
 | `params` | Params | NOTE: All parameters must be supplied. |
 
 ## Queries
+
+### Concentration
+
+`GET /yamale/blockchain/validatorgov/v1/concentration`
+
+Concentration reports what every declared entity, owner and jurisdiction currently holds, against its ceiling.
+
+This is the supervisor's query. Under equal seats a ceiling is a count out of a count, so the answer is meant to be checked against a list of admitted validators by somebody who is not recomputing anything — which is the whole argument for declaring ownership on-chain rather than filing it somewhere.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `groups` | repeated ConcentrationGroup |  |
+| `total_power` | int64 | total_power is the denominator every share above was measured against: the power of the validators active right now. Returned alongside so that a reader can check the arithmetic rather than trust it. |
+| `active_validators` | uint32 | active_validators and min_active_validators say whether the check is in a position to act at all. A breach reported while these are equal is one the chain has decided not to correct, and that distinction is invisible from the shares alone. |
+| `min_active_validators` | uint32 |  |
 
 ### GetApprovedValidator
 
@@ -179,6 +228,25 @@ Response:
 | Field | Type | Description |
 | --- | --- | --- |
 | `approved_validator` | repeated ApprovedValidator |  |
+| `pagination` | PageResponse |  |
+
+### ListDemotion
+
+`GET /yamale/blockchain/validatorgov/v1/demotion`
+
+ListDemotion queries every demotion currently in force.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `pagination` | PageRequest |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `demotion` | repeated Demotion |  |
 | `pagination` | PageResponse |  |
 
 ### ListOperatorRotation
@@ -260,6 +328,76 @@ ApprovedValidator defines the ApprovedValidator message.
 | --- | --- | --- |
 | `candidate` | string |  |
 | `approved` | string |  |
+| `declaration` | Declaration | declaration is copied from the application at approval and kept current by re-attestation. The epoch check reads it from here rather than from the application, because the application is what was asked for once and this is what is claimed now — and a ceiling has to be computed against the second. |
+
+### ConcentrationGroup
+
+ConcentrationGroup is one entity, owner or jurisdiction and what it currently holds. It exists for the supervisor's query rather than for the chain: under equal seats a ceiling is a count out of a count, and the point of publishing it this way is that it can be checked against a list by somebody who is not recomputing anything.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cap` | ConcentrationCap |  |
+| `group` | string |  |
+| `power` | int64 |  |
+| `power_bps` | uint64 |  |
+| `cap_bps` | uint64 |  |
+| `over` | bool | over is whether the group is above its ceiling right now, which is not the same as whether anything has been demoted: a breach the set is too small to correct stays reported and uncorrected, because a cap must never be the reason a chain stops producing blocks. |
+
+### Declaration
+
+Declaration is who is actually behind a validator.
+
+A concentration cap cannot be computed from addresses. Two operator keys tell you nothing about whether they answer to one bank, and the events that concentrate a validator set — an acquisition, a merger, a nationalisation — change none of the addresses involved. So the attributes are declared, and the chain enforces ceilings over what was declared.
+
+The chain cannot detect a false declaration and does not pretend to. What it can do is make the declaration a signed statement, on the record, with a date on it, so that a lie is documented and actionable rather than deniable. That is how the rest of the financial system handles beneficial ownership, and it is the only honest thing a chain can offer here.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `legal_entity_id` | string | legal_entity_id identifies the admitted entity — an LEI where the applicant has one, a national register number otherwise. Free text because there is no single global register this chain could validate against, and a format check that accepted only LEIs would exclude every entity in a jurisdiction that does not issue them. |
+| `beneficial_owner_id` | string | beneficial_owner_id identifies the ultimate beneficial owner, and it is the field the caps actually turn on. Two subsidiaries of one state bank are two legal entities and one owner; a ceiling applied only to entities would let that owner take the set two seats at a time. |
+| `jurisdiction` | string | jurisdiction is the ISO 3166-1 alpha-2 code of the authority the operator answers to, validated against the assigned-country list x/alias owns. A shape check is not enough: NX and QK are two letters and neither is a country, and a mistyped code would create a perimeter no authority holds and therefore a ceiling nothing is ever measured against. |
+| `attested_at_height` | int64 | attested_at_height is when this declaration was last signed for. A declaration with no date cannot be stale, and a declaration that cannot be stale is one nobody has to keep true. Re-attestation is what turns silence into a visible fact: after the interval the record is reported as stale in queries and in an event at every epoch, so an ownership change that was never declared shows up as an operator who has stopped signing for its own declaration. |
+
+### Demotion
+
+Demotion is a validator whose power the epoch check took away, and why.
+
+It is a record and not a punishment. Nothing is slashed, no delegation is unbonded, and it is undone automatically at the first epoch the breach has cleared — so the entity's remedy is in its own hands and does not require anybody to vote on letting it back. That is the difference between a concentration ceiling and an expulsion.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `operator` | string | operator is the address in its account form, matching how the approval allowlist and the rotation records key a validator. |
+| `cap` | ConcentrationCap |  |
+| `group` | string | group is the declared value that breached — the entity id, the owner id or the country code — so the record says which set the validator was counted in rather than only that some ceiling was hit. |
+| `group_power_bps` | uint64 | group_power_bps and cap_bps are what the group held and what it was allowed to hold, at the epoch the demotion happened. Frozen into the record because both figures are recomputed every epoch, and a demotion that could only be explained by numbers that have since moved cannot be audited at all. |
+| `cap_bps` | uint64 |  |
+| `demoted_at_height` | int64 |  |
+| `jailed_validator` | bool | jailed_validator records that this demotion is what jailed the validator, so that restoring it un-jails only what it jailed. A validator already jailed for downtime when the epoch check ran must stay jailed when the breach clears: releasing it would turn a concentration ceiling into a way of clearing somebody else's downtime. |
+
+### EventConcentrationUncorrected
+
+EventConcentrationUncorrected is emitted when a group is over its ceiling and the epoch check will not act, because acting would take the active set below the floor.
+
+This is the honest half of the design. A cap can be arithmetically unsatisfiable at a given set size, and a check that kept demoting until the ceiling held would demote the chain into a halt. So the breach is published every epoch instead, which is a problem for governance rather than a problem for block production.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cap` | ConcentrationCap |  |
+| `group` | string |  |
+| `group_power_bps` | uint64 |  |
+| `cap_bps` | uint64 |  |
+| `active_validators` | uint32 |  |
+| `min_active_validators` | uint32 |  |
+
+### EventDeclarationStale
+
+EventDeclarationStale is emitted at each epoch for an approved validator that has not re-attested within the interval. Nothing is done about it here; the event is the doing. An ownership change that was never declared looks exactly like an operator who stopped signing for its own declaration, which is the only signal a chain can produce about a statement it cannot verify.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `operator` | string |  |
+| `attested_at_height` | int64 |  |
+| `stale_since_height` | int64 |  |
 
 ### EventRecoveryApproved
 
@@ -299,6 +437,30 @@ EventRotationResolved is emitted once, when a rotation reaches its final status,
 | `kind` | RotationKind |  |
 | `status` | RotationStatus |  |
 
+### EventValidatorDemoted
+
+EventValidatorDemoted is emitted when the epoch check takes a validator's seats away.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `operator` | string |  |
+| `cap` | ConcentrationCap |  |
+| `group` | string |  |
+| `group_power_bps` | uint64 |  |
+| `cap_bps` | uint64 |  |
+| `jailed_validator` | bool | jailed_validator is false when the validator was already jailed for something else, in which case the demotion is recorded but nothing was done to it. |
+
+### EventValidatorRestored
+
+EventValidatorRestored is emitted when a breach clears and the seats go back. Restoration is automatic and nobody votes on it, so it needs announcing for the same reason the demotion did.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `operator` | string |  |
+| `cap` | ConcentrationCap |  |
+| `group` | string |  |
+| `unjailed_validator` | bool |  |
+
 ### OperatorRotation
 
 OperatorRotation is one attempt to move a validator's operator key, and everything the chain did about it. Rotations are never deleted: a recovery that was vetoed is the record of somebody having claimed a key was lost when it was not, and that is precisely the history worth keeping.
@@ -326,8 +488,20 @@ ValidatorApplication defines the ValidatorApplication message.
 | --- | --- | --- |
 | `candidate` | string |  |
 | `status` | string |  |
+| `declaration` | Declaration | declaration is who is behind the applicant. Carried on the application and not only on the approval, because it is what the admission vote is meant to be judging: a set asked to approve a candidate whose owner and jurisdiction it cannot see is being asked to approve an address. |
 
 ## Value types
+
+### ConcentrationCap
+
+ConcentrationCap is which ceiling a demotion was for. Recorded rather than inferred, because "over the entity cap" and "over the jurisdiction cap" are different facts about the same validator and the remedy is different for each: one entity can be restructured, a jurisdiction cannot.
+
+| Value | Meaning |
+| --- | --- |
+| `CONCENTRATION_CAP_UNSPECIFIED` | CONCENTRATION_CAP_UNSPECIFIED is the unset default and is never valid. |
+| `CONCENTRATION_CAP_ENTITY` | CONCENTRATION_CAP_ENTITY is the ceiling on one declared legal entity. |
+| `CONCENTRATION_CAP_BENEFICIAL_OWNER` | CONCENTRATION_CAP_BENEFICIAL_OWNER is the ceiling on one declared ultimate beneficial owner, across every entity it owns. |
+| `CONCENTRATION_CAP_JURISDICTION` | CONCENTRATION_CAP_JURISDICTION is the ceiling on the power answering to one national authority. |
 
 ### RotationKind
 
@@ -360,6 +534,8 @@ Changed by governance through `MsgUpdateParams`. Defaults are the values a chain
 | --- | --- | --- |
 | `planned_rotation_delay_blocks` | `34560` | planned_rotation_delay_blocks is how long a rotation signed by the current operator waits before it takes effect. Short on purpose: whoever submitted it already holds the key, so the delay is not there to prove anything, only to give delegators and the other validators a block window in which to see it happen. |
 | `recovery_challenge_window_blocks` | `120960` | recovery_challenge_window_blocks is how long an approved recovery waits before it takes effect, during which the validator is paused and the current operator can end it by signing anything at all. Measured in days, because the thing it is defending against is somebody who does not hold the key claiming that nobody does. |
+| `attestation_interval_blocks` | `6307200` | attestation_interval_blocks is how long a declaration stays fresh before the chain starts reporting it as stale. Reported, not enforced. Turning an expired attestation into a demotion would make an operator's inattention a consensus event, and the failure it would cause — a set that all forgot at once — is worse than the one it would prevent. What the chain does instead is publish the date and say so loudly, which is enough for admission governance to act on and is the most an unfalsifiable declaration can honestly support. |
+| `seat_bond_amount` | `1000000` | seat_bond_amount is how many base units of the bond denomination one seat carries. Equal seats are implemented in the unit the SDK already counts. Cosmos derives consensus power from bonded tokens and there is no supported way for a second module to report a different number — only one module may return validator updates, and x/staking is that module. So a seat is a fixed quantity of stake rather than a parallel notion of power, and every threshold on this chain that reads bonded power keeps working unchanged: x/enforcement's two thirds, x/oracle's rate agreement and x/gov's tally all become seat counts by arithmetic rather than by amendment. Set to the SDK's power reduction, one seat is exactly one unit of consensus power, which is what makes a ceiling countable off a list. |
 
 ## Errors
 
@@ -380,3 +556,7 @@ Every way a transaction to this module can be rejected.
 | 1110 | `ErrOperatorInUse` | the new operator address is already an approved validator operator |
 | 1111 | `ErrNotCurrentOperator` | signer is not the current operator |
 | 1112 | `ErrMissingReason` | a recovery must state its grounds |
+| 1113 | `ErrInvalidDeclaration` | beneficial ownership declaration is not valid |
+| 1114 | `ErrNoValidator` | no validator has been created for this operator |
+| 1115 | `ErrSeatReserveEmpty` | the module's seat reserve cannot cover this power |
+| 1116 | `ErrInvalidSeats` | a validator must hold at least one seat |

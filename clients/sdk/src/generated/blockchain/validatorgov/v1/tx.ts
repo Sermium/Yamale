@@ -26,11 +26,29 @@ export interface MsgUpdateParams {
 export interface MsgUpdateParamsResponse {
 }
 
-/** MsgApplyValidator defines the MsgApplyValidator message. */
+/**
+ * MsgApplyValidator defines the MsgApplyValidator message.
+ *
+ * The three declaration fields are required, and requiring them here rather
+ * than collecting them later is the point: an admission vote that cannot see
+ * the owner and the jurisdiction behind a candidate is a vote on a moniker, and
+ * a set admitted without them can never have a concentration ceiling computed
+ * over it at all.
+ */
 export interface MsgApplyValidator {
   creator: string;
   moniker: string;
   description: string;
+  /** legal_entity_id identifies the applying entity. */
+  legalEntityId: string;
+  /**
+   * beneficial_owner_id identifies whoever ultimately owns it. Where an entity
+   * has no owner above it, this is the entity's own identifier — stated rather
+   * than left blank, so that "nobody owns us" is a claim somebody signed.
+   */
+  beneficialOwnerId: string;
+  /** jurisdiction is an ISO 3166-1 alpha-2 code from the assigned list. */
+  jurisdiction: string;
 }
 
 /** MsgApplyValidatorResponse defines the MsgApplyValidatorResponse message. */
@@ -143,6 +161,73 @@ export interface MsgCancelOperatorRotation {
  * executing a MsgCancelOperatorRotation message.
  */
 export interface MsgCancelOperatorRotationResponse {
+}
+
+/**
+ * MsgAttestOwnership is the operator re-signing for its own declaration.
+ *
+ * It carries the whole declaration rather than only a timestamp, because the
+ * event it exists to catch is an ownership change: an operator whose owner
+ * changed and who re-attested the old values has made a false statement on the
+ * record with its own key, which is a fact a supervisor can act on. A bare
+ * heartbeat would have let the same operator keep a stale declaration fresh
+ * without ever restating it.
+ */
+export interface MsgAttestOwnership {
+  /** creator is the approved operator address, in its account form. */
+  creator: string;
+  legalEntityId: string;
+  beneficialOwnerId: string;
+  jurisdiction: string;
+}
+
+/**
+ * MsgAttestOwnershipResponse defines the response structure for executing a
+ * MsgAttestOwnership message.
+ */
+export interface MsgAttestOwnershipResponse {
+}
+
+/**
+ * MsgSetValidatorPower sets how many seats an admitted validator holds.
+ *
+ * Equal seats is the default a genesis is built with, not a constant the chain
+ * enforces: admission is already a governance decision, so governance decides
+ * weight directly rather than leaving it to whoever bonded the most. This
+ * message is how it does that.
+ *
+ * It deliberately does not check the concentration ceilings. A power set above
+ * a cap is accepted here and trimmed by the epoch check like any other breach,
+ * for the same reason the caps are enforced at every epoch rather than at
+ * admission: a ceiling that is only tested when power is granted is not a
+ * ceiling, and a proposal is one of the ways power arrives. Refusing here as
+ * well would have made the ceiling look enforced while leaving the path that
+ * matters — growth, merger, nationalisation — unguarded.
+ *
+ * Seats are moved by delegating from the module's own seat reserve and
+ * undelegating back into it, which is the only path that changes consensus
+ * power without minting anything and without writing to x/staking behind its
+ * back. A reserve with too few seats fails the message rather than the block.
+ */
+export interface MsgSetValidatorPower {
+  /** authority is the address that controls the module (defaults to x/gov unless overwritten). */
+  authority: string;
+  /** validator is the operator address, in its account form. */
+  validator: string;
+  /**
+   * seats is the power the validator is to carry. Zero is refused: a validator
+   * with no seats is one that has been removed, and removing one should say so
+   * rather than arrive as a power update that happens to be empty.
+   */
+  seats: string;
+}
+
+/**
+ * MsgSetValidatorPowerResponse returns the seats the validator holds after the
+ * message, which is what it asked for unless the reserve could not cover it.
+ */
+export interface MsgSetValidatorPowerResponse {
+  seats: string;
 }
 
 function createBaseMsgUpdateParams(): MsgUpdateParams {
@@ -265,7 +350,7 @@ export const MsgUpdateParamsResponse = {
 };
 
 function createBaseMsgApplyValidator(): MsgApplyValidator {
-  return { creator: "", moniker: "", description: "" };
+  return { creator: "", moniker: "", description: "", legalEntityId: "", beneficialOwnerId: "", jurisdiction: "" };
 }
 
 export const MsgApplyValidator = {
@@ -278,6 +363,15 @@ export const MsgApplyValidator = {
     }
     if (message.description !== "") {
       writer.uint32(26).string(message.description);
+    }
+    if (message.legalEntityId !== "") {
+      writer.uint32(34).string(message.legalEntityId);
+    }
+    if (message.beneficialOwnerId !== "") {
+      writer.uint32(42).string(message.beneficialOwnerId);
+    }
+    if (message.jurisdiction !== "") {
+      writer.uint32(50).string(message.jurisdiction);
     }
     return writer;
   },
@@ -310,6 +404,27 @@ export const MsgApplyValidator = {
 
           message.description = reader.string();
           continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.legalEntityId = reader.string();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.beneficialOwnerId = reader.string();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.jurisdiction = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -324,6 +439,9 @@ export const MsgApplyValidator = {
       creator: isSet(object.creator) ? globalThis.String(object.creator) : "",
       moniker: isSet(object.moniker) ? globalThis.String(object.moniker) : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
+      legalEntityId: isSet(object.legalEntityId) ? globalThis.String(object.legalEntityId) : "",
+      beneficialOwnerId: isSet(object.beneficialOwnerId) ? globalThis.String(object.beneficialOwnerId) : "",
+      jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
     };
   },
 
@@ -338,6 +456,15 @@ export const MsgApplyValidator = {
     if (message.description !== "") {
       obj.description = message.description;
     }
+    if (message.legalEntityId !== "") {
+      obj.legalEntityId = message.legalEntityId;
+    }
+    if (message.beneficialOwnerId !== "") {
+      obj.beneficialOwnerId = message.beneficialOwnerId;
+    }
+    if (message.jurisdiction !== "") {
+      obj.jurisdiction = message.jurisdiction;
+    }
     return obj;
   },
 
@@ -349,6 +476,9 @@ export const MsgApplyValidator = {
     message.creator = object.creator ?? "";
     message.moniker = object.moniker ?? "";
     message.description = object.description ?? "";
+    message.legalEntityId = object.legalEntityId ?? "";
+    message.beneficialOwnerId = object.beneficialOwnerId ?? "";
+    message.jurisdiction = object.jurisdiction ?? "";
     return message;
   },
 };
@@ -1069,6 +1199,299 @@ export const MsgCancelOperatorRotationResponse = {
   },
 };
 
+function createBaseMsgAttestOwnership(): MsgAttestOwnership {
+  return { creator: "", legalEntityId: "", beneficialOwnerId: "", jurisdiction: "" };
+}
+
+export const MsgAttestOwnership = {
+  encode(message: MsgAttestOwnership, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.creator !== "") {
+      writer.uint32(10).string(message.creator);
+    }
+    if (message.legalEntityId !== "") {
+      writer.uint32(18).string(message.legalEntityId);
+    }
+    if (message.beneficialOwnerId !== "") {
+      writer.uint32(26).string(message.beneficialOwnerId);
+    }
+    if (message.jurisdiction !== "") {
+      writer.uint32(34).string(message.jurisdiction);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAttestOwnership {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAttestOwnership();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.creator = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.legalEntityId = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.beneficialOwnerId = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.jurisdiction = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAttestOwnership {
+    return {
+      creator: isSet(object.creator) ? globalThis.String(object.creator) : "",
+      legalEntityId: isSet(object.legalEntityId) ? globalThis.String(object.legalEntityId) : "",
+      beneficialOwnerId: isSet(object.beneficialOwnerId) ? globalThis.String(object.beneficialOwnerId) : "",
+      jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
+    };
+  },
+
+  toJSON(message: MsgAttestOwnership): unknown {
+    const obj: any = {};
+    if (message.creator !== "") {
+      obj.creator = message.creator;
+    }
+    if (message.legalEntityId !== "") {
+      obj.legalEntityId = message.legalEntityId;
+    }
+    if (message.beneficialOwnerId !== "") {
+      obj.beneficialOwnerId = message.beneficialOwnerId;
+    }
+    if (message.jurisdiction !== "") {
+      obj.jurisdiction = message.jurisdiction;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAttestOwnership>): MsgAttestOwnership {
+    return MsgAttestOwnership.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAttestOwnership>): MsgAttestOwnership {
+    const message = createBaseMsgAttestOwnership();
+    message.creator = object.creator ?? "";
+    message.legalEntityId = object.legalEntityId ?? "";
+    message.beneficialOwnerId = object.beneficialOwnerId ?? "";
+    message.jurisdiction = object.jurisdiction ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgAttestOwnershipResponse(): MsgAttestOwnershipResponse {
+  return {};
+}
+
+export const MsgAttestOwnershipResponse = {
+  encode(_: MsgAttestOwnershipResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAttestOwnershipResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAttestOwnershipResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgAttestOwnershipResponse {
+    return {};
+  },
+
+  toJSON(_: MsgAttestOwnershipResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAttestOwnershipResponse>): MsgAttestOwnershipResponse {
+    return MsgAttestOwnershipResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgAttestOwnershipResponse>): MsgAttestOwnershipResponse {
+    const message = createBaseMsgAttestOwnershipResponse();
+    return message;
+  },
+};
+
+function createBaseMsgSetValidatorPower(): MsgSetValidatorPower {
+  return { authority: "", validator: "", seats: "0" };
+}
+
+export const MsgSetValidatorPower = {
+  encode(message: MsgSetValidatorPower, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.validator !== "") {
+      writer.uint32(18).string(message.validator);
+    }
+    if (message.seats !== "0") {
+      writer.uint32(24).uint64(message.seats);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetValidatorPower {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetValidatorPower();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.validator = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.seats = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgSetValidatorPower {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      validator: isSet(object.validator) ? globalThis.String(object.validator) : "",
+      seats: isSet(object.seats) ? globalThis.String(object.seats) : "0",
+    };
+  },
+
+  toJSON(message: MsgSetValidatorPower): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.validator !== "") {
+      obj.validator = message.validator;
+    }
+    if (message.seats !== "0") {
+      obj.seats = message.seats;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetValidatorPower>): MsgSetValidatorPower {
+    return MsgSetValidatorPower.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgSetValidatorPower>): MsgSetValidatorPower {
+    const message = createBaseMsgSetValidatorPower();
+    message.authority = object.authority ?? "";
+    message.validator = object.validator ?? "";
+    message.seats = object.seats ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgSetValidatorPowerResponse(): MsgSetValidatorPowerResponse {
+  return { seats: "0" };
+}
+
+export const MsgSetValidatorPowerResponse = {
+  encode(message: MsgSetValidatorPowerResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.seats !== "0") {
+      writer.uint32(8).uint64(message.seats);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetValidatorPowerResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetValidatorPowerResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.seats = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgSetValidatorPowerResponse {
+    return { seats: isSet(object.seats) ? globalThis.String(object.seats) : "0" };
+  },
+
+  toJSON(message: MsgSetValidatorPowerResponse): unknown {
+    const obj: any = {};
+    if (message.seats !== "0") {
+      obj.seats = message.seats;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetValidatorPowerResponse>): MsgSetValidatorPowerResponse {
+    return MsgSetValidatorPowerResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgSetValidatorPowerResponse>): MsgSetValidatorPowerResponse {
+    const message = createBaseMsgSetValidatorPowerResponse();
+    message.seats = object.seats ?? "0";
+    return message;
+  },
+};
+
 /** Msg defines the Msg service. */
 export interface Msg {
   /**
@@ -1105,6 +1528,16 @@ export interface Msg {
    * the current operator withdraw a rotation before it takes effect.
    */
   CancelOperatorRotation(request: MsgCancelOperatorRotation): Promise<MsgCancelOperatorRotationResponse>;
+  /**
+   * AttestOwnership defines the AttestOwnership RPC: the operator re-signing
+   * for who is behind it, which is what keeps a declaration from going stale.
+   */
+  AttestOwnership(request: MsgAttestOwnership): Promise<MsgAttestOwnershipResponse>;
+  /**
+   * SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated
+   * and moves how many seats one admitted validator holds.
+   */
+  SetValidatorPower(request: MsgSetValidatorPower): Promise<MsgSetValidatorPowerResponse>;
 }
 
 export const MsgServiceName = "blockchain.validatorgov.v1.Msg";
@@ -1121,6 +1554,8 @@ export class MsgClientImpl implements Msg {
     this.ProposeOperatorRecovery = this.ProposeOperatorRecovery.bind(this);
     this.ApproveOperatorRecovery = this.ApproveOperatorRecovery.bind(this);
     this.CancelOperatorRotation = this.CancelOperatorRotation.bind(this);
+    this.AttestOwnership = this.AttestOwnership.bind(this);
+    this.SetValidatorPower = this.SetValidatorPower.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -1162,6 +1597,18 @@ export class MsgClientImpl implements Msg {
     const data = MsgCancelOperatorRotation.encode(request).finish();
     const promise = this.rpc.request(this.service, "CancelOperatorRotation", data);
     return promise.then((data) => MsgCancelOperatorRotationResponse.decode(_m0.Reader.create(data)));
+  }
+
+  AttestOwnership(request: MsgAttestOwnership): Promise<MsgAttestOwnershipResponse> {
+    const data = MsgAttestOwnership.encode(request).finish();
+    const promise = this.rpc.request(this.service, "AttestOwnership", data);
+    return promise.then((data) => MsgAttestOwnershipResponse.decode(_m0.Reader.create(data)));
+  }
+
+  SetValidatorPower(request: MsgSetValidatorPower): Promise<MsgSetValidatorPowerResponse> {
+    const data = MsgSetValidatorPower.encode(request).finish();
+    const promise = this.rpc.request(this.service, "SetValidatorPower", data);
+    return promise.then((data) => MsgSetValidatorPowerResponse.decode(_m0.Reader.create(data)));
   }
 }
 

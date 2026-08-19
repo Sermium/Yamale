@@ -47,11 +47,34 @@ blockchaind status
 
 ```bash
 blockchaind tx validatorgov apply-validator "Carol Node" "carol@example.org" \
+  "5493001KJTIIGC8Y1R12" "5493001KJTIIGC8Y1R12" "CH" \
   --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
 ```
 
 A moniker and a way to reach you. Put something real in the second field — it is
 how governance asks you questions before voting.
+
+The last three are the declaration, and all three are required:
+
+- **legal entity identifier** — your LEI if you have one, your national register
+  number otherwise.
+- **ultimate beneficial owner identifier** — whoever ultimately owns you. If
+  nobody does, repeat your own identifier. "Nobody owns us" is a claim you sign,
+  not a field you leave blank.
+- **jurisdiction** — an ISO 3166-1 alpha-2 country code. It is checked against
+  the assigned list; `QK` and `ZZ` are two letters and neither is a country.
+
+They are required because the concentration ceilings are computed over declared
+entities, owners and jurisdictions. A validator that declared none would belong
+to no group and therefore sit under no ceiling, which is the one outcome a
+beneficial-ownership register exists to prevent. They are also what the vote is
+meant to be judging: a set asked to approve a candidate whose owner and
+jurisdiction it cannot see is being asked to approve an address.
+
+The chain cannot check any of this. What it can do is make it a signed statement
+with a date on it, so that a false one is documented and actionable — which is
+how the rest of the financial system handles beneficial ownership, and the most
+an honest chain can offer.
 
 ```bash
 blockchaind query validatorgov list-validator-application
@@ -201,6 +224,71 @@ connection, it will.
 
 **Full reference:** [x/validatorgov](../reference/validatorgov.md) — every
 message, query, parameter and error code, generated from the source.
+
+## Concentration ceilings
+
+Your power is not only yours to keep. Three ceilings bound how much of the
+validator set any one entity, owner or country may carry, and they are checked
+at **every epoch** — not at admission.
+
+```bash
+blockchaind query validatorgov concentration
+```
+
+That is deliberate, and it is the part most easily got wrong. Admission is an
+event; concentration is a state. Nothing applies to vote on when a state-owned
+bank acquires a participant, when two members merge, when an operator is
+nationalised, or when a proposal grants somebody more seats. Power concentrates
+and there is no message for the chain to refuse. A ceiling that were only tested
+when somebody joined would be a ceiling on joining.
+
+**If your group goes over one**, the epoch check jails validators from that
+group, largest first, until it is back inside. Nothing is slashed, no delegation
+unbonds, and no vote is taken:
+
+```bash
+blockchaind query validatorgov list-demotion
+```
+
+**It is undone automatically.** At the first epoch where the breach has cleared,
+the demotion record goes and the validator is unjailed. You do not have to ask
+the validators who gained from your demotion for permission to come back — which
+is the difference between a ceiling and an expulsion. You cannot `unjail`
+yourself out of one, though: that path is closed while a demotion is in force,
+because it would otherwise be a one-transaction way to ignore the ceiling
+entirely.
+
+**A ceiling that cannot be satisfied is reported, not enforced.** Three
+validators under three owners cannot all sit below a fifth of the power, and a
+check that kept demoting until the arithmetic worked would demote the chain into
+a halt. Below `min_active_validators` the breach is published as an event every
+epoch and nothing is done about it. Enforcement must never be the thing that
+stops block production.
+
+The ceilings themselves are invariants — see
+[what governance can and cannot change](constitution.md).
+
+## Re-attesting your declaration
+
+The declaration you applied with goes stale. Re-sign for it:
+
+```bash
+blockchaind tx validatorgov attest-ownership \
+  "5493001KJTIIGC8Y1R12" "5493001KJTIIGC8Y1R12" "CH" \
+  --from carol --chain-id yamale-testnet-1 --keyring-backend file --fees 500uyml --yes
+```
+
+You restate the whole declaration, not just the date. That is the point: if your
+owner has changed and you re-attest the old values, you have put a false
+statement on the record under your own key, which is a fact a supervisor can act
+on. A bare heartbeat would have let you keep a stale declaration fresh without
+ever repeating it.
+
+Nothing happens to you if you let it lapse. The chain emits a
+`EventDeclarationStale` for you at every epoch and leaves your seats alone —
+turning inattention into a consensus event would be worse than the problem, and
+a chain cannot verify a declaration anyway. What it can do is publish the date
+and say so loudly, which is enough for admission governance to act on.
 
 ## Rotating a validator's operator key
 

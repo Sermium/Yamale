@@ -1,6 +1,11 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	"cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
 
 // Defaults sized for this chain's five-second blocks.
 //
@@ -21,13 +26,35 @@ const (
 	// key is gone, and somebody whose phone drowned on a Friday should not lose
 	// their validator by Monday.
 	DefaultRecoveryChallengeWindowBlocks = 120_960
+
+	// DefaultAttestationIntervalBlocks is one year. It matches the cycle the
+	// rest of the financial system refreshes beneficial ownership on, which is
+	// the point: the declaration is only useful if somebody can compare it
+	// against a filing made to the same schedule elsewhere.
+	DefaultAttestationIntervalBlocks = 6_307_200
 )
 
+// DefaultSeatBondAmount is one unit of consensus power.
+//
+// A seat is implemented as a fixed quantity of the bond denomination because
+// Cosmos derives consensus power from bonded tokens and permits exactly one
+// module to report validator updates. Setting a seat equal to the SDK's power
+// reduction makes one seat exactly one unit of power, which is what turns every
+// ceiling on this chain into a count a supervisor can check off a list — and
+// what lets x/enforcement's two thirds, x/oracle's rate agreement and x/gov's
+// tally become seat counts without a line of code changing in any of them.
+func DefaultSeatBondAmount() math.Int { return sdk.DefaultPowerReduction }
+
 // NewParams creates a new Params instance.
-func NewParams(plannedRotationDelayBlocks, recoveryChallengeWindowBlocks uint64) Params {
+func NewParams(
+	plannedRotationDelayBlocks, recoveryChallengeWindowBlocks, attestationIntervalBlocks uint64,
+	seatBondAmount math.Int,
+) Params {
 	return Params{
 		PlannedRotationDelayBlocks:    plannedRotationDelayBlocks,
 		RecoveryChallengeWindowBlocks: recoveryChallengeWindowBlocks,
+		AttestationIntervalBlocks:     attestationIntervalBlocks,
+		SeatBondAmount:                seatBondAmount,
 	}
 }
 
@@ -36,6 +63,8 @@ func DefaultParams() Params {
 	return NewParams(
 		DefaultPlannedRotationDelayBlocks,
 		DefaultRecoveryChallengeWindowBlocks,
+		DefaultAttestationIntervalBlocks,
+		DefaultSeatBondAmount(),
 	)
 }
 
@@ -57,7 +86,41 @@ func (p Params) Validate() error {
 		)
 	}
 
+	if p.AttestationIntervalBlocks == 0 {
+		return fmt.Errorf("attestation_interval_blocks must be positive, or every declaration on the chain would be stale from the block it was made in")
+	}
+	// Checked for nil as well as for sign: the field is a non-nullable
+	// customtype, so a Params decoded from a store written before it existed
+	// carries an Int with no big.Int behind it, and every arithmetic method on
+	// that panics rather than returning false.
+	if p.SeatBondAmount.IsNil() || !p.SeatBondAmount.IsPositive() {
+		return fmt.Errorf("seat_bond_amount must be positive, or setting a validator's power would bond nothing and every seat would be worth zero")
+	}
+
 	return nil
+}
+
+// SeatBond is the tokens one seat carries.
+//
+// It substitutes the default for a nil or non-positive value for the same
+// reason PlannedDelay does, and the consequence here is arithmetic rather than
+// scheduling: this value multiplies a seat count, so a zero would set every
+// validator's power to nothing and a nil would panic inside an end blocker.
+func (p Params) SeatBond() math.Int {
+	if p.SeatBondAmount.IsNil() || !p.SeatBondAmount.IsPositive() {
+		return DefaultSeatBondAmount()
+	}
+	return p.SeatBondAmount
+}
+
+// AttestationInterval is how long a declaration stays fresh. Zero is
+// substituted for the same reason: it is read at every epoch, and a zero there
+// would report every validator on the chain as stale in the same block.
+func (p Params) AttestationInterval() uint64 {
+	if p.AttestationIntervalBlocks == 0 {
+		return DefaultAttestationIntervalBlocks
+	}
+	return p.AttestationIntervalBlocks
 }
 
 // PlannedDelay is the delay to apply to a planned rotation.

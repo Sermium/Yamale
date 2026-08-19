@@ -1,0 +1,49 @@
+syntax = "proto3";
+package blockchain.validatorgov.v1;
+
+option go_package = "yamale/blockchain/x/validatorgov/types";
+
+// Declaration is who is actually behind a validator.
+//
+// A concentration cap cannot be computed from addresses. Two operator keys tell
+// you nothing about whether they answer to one bank, and the events that
+// concentrate a validator set — an acquisition, a merger, a nationalisation —
+// change none of the addresses involved. So the attributes are declared, and
+// the chain enforces ceilings over what was declared.
+//
+// The chain cannot detect a false declaration and does not pretend to. What it
+// can do is make the declaration a signed statement, on the record, with a date
+// on it, so that a lie is documented and actionable rather than deniable. That
+// is how the rest of the financial system handles beneficial ownership, and it
+// is the only honest thing a chain can offer here.
+message Declaration {
+  // legal_entity_id identifies the admitted entity — an LEI where the applicant
+  // has one, a national register number otherwise. Free text because there is
+  // no single global register this chain could validate against, and a format
+  // check that accepted only LEIs would exclude every entity in a jurisdiction
+  // that does not issue them.
+  string legal_entity_id = 1;
+
+  // beneficial_owner_id identifies the ultimate beneficial owner, and it is the
+  // field the caps actually turn on. Two subsidiaries of one state bank are two
+  // legal entities and one owner; a ceiling applied only to entities would let
+  // that owner take the set two seats at a time.
+  string beneficial_owner_id = 2;
+
+  // jurisdiction is the ISO 3166-1 alpha-2 code of the authority the operator
+  // answers to, validated against the assigned-country list x/alias owns. A
+  // shape check is not enough: NX and QK are two letters and neither is a
+  // country, and a mistyped code would create a perimeter no authority holds
+  // and therefore a ceiling nothing is ever measured against.
+  string jurisdiction = 3;
+
+  // attested_at_height is when this declaration was last signed for.
+  //
+  // A declaration with no date cannot be stale, and a declaration that cannot
+  // be stale is one nobody has to keep true. Re-attestation is what turns
+  // silence into a visible fact: after the interval the record is reported as
+  // stale in queries and in an event at every epoch, so an ownership change
+  // that was never declared shows up as an operator who has stopped signing
+  // for its own declaration.
+  int64 attested_at_height = 4;
+}

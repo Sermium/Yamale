@@ -42,6 +42,14 @@ service Msg {
   // CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets
   // the current operator withdraw a rotation before it takes effect.
   rpc CancelOperatorRotation(MsgCancelOperatorRotation) returns (MsgCancelOperatorRotationResponse);
+
+  // AttestOwnership defines the AttestOwnership RPC: the operator re-signing
+  // for who is behind it, which is what keeps a declaration from going stale.
+  rpc AttestOwnership(MsgAttestOwnership) returns (MsgAttestOwnershipResponse);
+
+  // SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated
+  // and moves how many seats one admitted validator holds.
+  rpc SetValidatorPower(MsgSetValidatorPower) returns (MsgSetValidatorPowerResponse);
 }
 // MsgUpdateParams is the Msg/UpdateParams request type.
 message MsgUpdateParams {
@@ -65,11 +73,28 @@ message MsgUpdateParams {
 message MsgUpdateParamsResponse {}
 
 // MsgApplyValidator defines the MsgApplyValidator message.
+//
+// The three declaration fields are required, and requiring them here rather
+// than collecting them later is the point: an admission vote that cannot see
+// the owner and the jurisdiction behind a candidate is a vote on a moniker, and
+// a set admitted without them can never have a concentration ceiling computed
+// over it at all.
 message MsgApplyValidator {
   option (cosmos.msg.v1.signer) = "creator";
   string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   string moniker = 2;
   string description = 3;
+
+  // legal_entity_id identifies the applying entity.
+  string legal_entity_id = 4;
+
+  // beneficial_owner_id identifies whoever ultimately owns it. Where an entity
+  // has no owner above it, this is the entity's own identifier — stated rather
+  // than left blank, so that "nobody owns us" is a claim somebody signed.
+  string beneficial_owner_id = 5;
+
+  // jurisdiction is an ISO 3166-1 alpha-2 code from the assigned list.
+  string jurisdiction = 6;
 }
 
 // MsgApplyValidatorResponse defines the MsgApplyValidatorResponse message.
@@ -185,3 +210,68 @@ message MsgCancelOperatorRotation {
 // MsgCancelOperatorRotationResponse defines the response structure for
 // executing a MsgCancelOperatorRotation message.
 message MsgCancelOperatorRotationResponse {}
+
+// MsgAttestOwnership is the operator re-signing for its own declaration.
+//
+// It carries the whole declaration rather than only a timestamp, because the
+// event it exists to catch is an ownership change: an operator whose owner
+// changed and who re-attested the old values has made a false statement on the
+// record with its own key, which is a fact a supervisor can act on. A bare
+// heartbeat would have let the same operator keep a stale declaration fresh
+// without ever restating it.
+message MsgAttestOwnership {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "blockchain/x/validatorgov/MsgAttestOwnership";
+
+  // creator is the approved operator address, in its account form.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string legal_entity_id = 2;
+  string beneficial_owner_id = 3;
+  string jurisdiction = 4;
+}
+
+// MsgAttestOwnershipResponse defines the response structure for executing a
+// MsgAttestOwnership message.
+message MsgAttestOwnershipResponse {}
+
+// MsgSetValidatorPower sets how many seats an admitted validator holds.
+//
+// Equal seats is the default a genesis is built with, not a constant the chain
+// enforces: admission is already a governance decision, so governance decides
+// weight directly rather than leaving it to whoever bonded the most. This
+// message is how it does that.
+//
+// It deliberately does not check the concentration ceilings. A power set above
+// a cap is accepted here and trimmed by the epoch check like any other breach,
+// for the same reason the caps are enforced at every epoch rather than at
+// admission: a ceiling that is only tested when power is granted is not a
+// ceiling, and a proposal is one of the ways power arrives. Refusing here as
+// well would have made the ceiling look enforced while leaving the path that
+// matters — growth, merger, nationalisation — unguarded.
+//
+// Seats are moved by delegating from the module's own seat reserve and
+// undelegating back into it, which is the only path that changes consensus
+// power without minting anything and without writing to x/staking behind its
+// back. A reserve with too few seats fails the message rather than the block.
+message MsgSetValidatorPower {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/validatorgov/MsgSetValidatorPower";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // validator is the operator address, in its account form.
+  string validator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // seats is the power the validator is to carry. Zero is refused: a validator
+  // with no seats is one that has been removed, and removing one should say so
+  // rather than arrive as a power update that happens to be empty.
+  uint64 seats = 3;
+}
+
+// MsgSetValidatorPowerResponse returns the seats the validator holds after the
+// message, which is what it asked for unless the reserve could not cover it.
+message MsgSetValidatorPowerResponse {
+  uint64 seats = 1;
+}

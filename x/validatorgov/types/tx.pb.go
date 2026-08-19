@@ -125,10 +125,24 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 // MsgApplyValidator defines the MsgApplyValidator message.
+//
+// The three declaration fields are required, and requiring them here rather
+// than collecting them later is the point: an admission vote that cannot see
+// the owner and the jurisdiction behind a candidate is a vote on a moniker, and
+// a set admitted without them can never have a concentration ceiling computed
+// over it at all.
 type MsgApplyValidator struct {
 	Creator     string `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"`
 	Moniker     string `protobuf:"bytes,2,opt,name=moniker,proto3" json:"moniker,omitempty"`
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// legal_entity_id identifies the applying entity.
+	LegalEntityId string `protobuf:"bytes,4,opt,name=legal_entity_id,json=legalEntityId,proto3" json:"legal_entity_id,omitempty"`
+	// beneficial_owner_id identifies whoever ultimately owns it. Where an entity
+	// has no owner above it, this is the entity's own identifier — stated rather
+	// than left blank, so that "nobody owns us" is a claim somebody signed.
+	BeneficialOwnerId string `protobuf:"bytes,5,opt,name=beneficial_owner_id,json=beneficialOwnerId,proto3" json:"beneficial_owner_id,omitempty"`
+	// jurisdiction is an ISO 3166-1 alpha-2 code from the assigned list.
+	Jurisdiction string `protobuf:"bytes,6,opt,name=jurisdiction,proto3" json:"jurisdiction,omitempty"`
 }
 
 func (m *MsgApplyValidator) Reset()         { *m = MsgApplyValidator{} }
@@ -181,6 +195,27 @@ func (m *MsgApplyValidator) GetMoniker() string {
 func (m *MsgApplyValidator) GetDescription() string {
 	if m != nil {
 		return m.Description
+	}
+	return ""
+}
+
+func (m *MsgApplyValidator) GetLegalEntityId() string {
+	if m != nil {
+		return m.LegalEntityId
+	}
+	return ""
+}
+
+func (m *MsgApplyValidator) GetBeneficialOwnerId() string {
+	if m != nil {
+		return m.BeneficialOwnerId
+	}
+	return ""
+}
+
+func (m *MsgApplyValidator) GetJurisdiction() string {
+	if m != nil {
+		return m.Jurisdiction
 	}
 	return ""
 }
@@ -756,6 +791,251 @@ func (m *MsgCancelOperatorRotationResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgCancelOperatorRotationResponse proto.InternalMessageInfo
 
+// MsgAttestOwnership is the operator re-signing for its own declaration.
+//
+// It carries the whole declaration rather than only a timestamp, because the
+// event it exists to catch is an ownership change: an operator whose owner
+// changed and who re-attested the old values has made a false statement on the
+// record with its own key, which is a fact a supervisor can act on. A bare
+// heartbeat would have let the same operator keep a stale declaration fresh
+// without ever restating it.
+type MsgAttestOwnership struct {
+	// creator is the approved operator address, in its account form.
+	Creator           string `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"`
+	LegalEntityId     string `protobuf:"bytes,2,opt,name=legal_entity_id,json=legalEntityId,proto3" json:"legal_entity_id,omitempty"`
+	BeneficialOwnerId string `protobuf:"bytes,3,opt,name=beneficial_owner_id,json=beneficialOwnerId,proto3" json:"beneficial_owner_id,omitempty"`
+	Jurisdiction      string `protobuf:"bytes,4,opt,name=jurisdiction,proto3" json:"jurisdiction,omitempty"`
+}
+
+func (m *MsgAttestOwnership) Reset()         { *m = MsgAttestOwnership{} }
+func (m *MsgAttestOwnership) String() string { return proto.CompactTextString(m) }
+func (*MsgAttestOwnership) ProtoMessage()    {}
+func (*MsgAttestOwnership) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a1967699d5e9208e, []int{14}
+}
+func (m *MsgAttestOwnership) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAttestOwnership) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAttestOwnership.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAttestOwnership) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAttestOwnership.Merge(m, src)
+}
+func (m *MsgAttestOwnership) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAttestOwnership) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAttestOwnership.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAttestOwnership proto.InternalMessageInfo
+
+func (m *MsgAttestOwnership) GetCreator() string {
+	if m != nil {
+		return m.Creator
+	}
+	return ""
+}
+
+func (m *MsgAttestOwnership) GetLegalEntityId() string {
+	if m != nil {
+		return m.LegalEntityId
+	}
+	return ""
+}
+
+func (m *MsgAttestOwnership) GetBeneficialOwnerId() string {
+	if m != nil {
+		return m.BeneficialOwnerId
+	}
+	return ""
+}
+
+func (m *MsgAttestOwnership) GetJurisdiction() string {
+	if m != nil {
+		return m.Jurisdiction
+	}
+	return ""
+}
+
+// MsgAttestOwnershipResponse defines the response structure for executing a
+// MsgAttestOwnership message.
+type MsgAttestOwnershipResponse struct {
+}
+
+func (m *MsgAttestOwnershipResponse) Reset()         { *m = MsgAttestOwnershipResponse{} }
+func (m *MsgAttestOwnershipResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgAttestOwnershipResponse) ProtoMessage()    {}
+func (*MsgAttestOwnershipResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a1967699d5e9208e, []int{15}
+}
+func (m *MsgAttestOwnershipResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAttestOwnershipResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAttestOwnershipResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAttestOwnershipResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAttestOwnershipResponse.Merge(m, src)
+}
+func (m *MsgAttestOwnershipResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAttestOwnershipResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAttestOwnershipResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAttestOwnershipResponse proto.InternalMessageInfo
+
+// MsgSetValidatorPower sets how many seats an admitted validator holds.
+//
+// Equal seats is the default a genesis is built with, not a constant the chain
+// enforces: admission is already a governance decision, so governance decides
+// weight directly rather than leaving it to whoever bonded the most. This
+// message is how it does that.
+//
+// It deliberately does not check the concentration ceilings. A power set above
+// a cap is accepted here and trimmed by the epoch check like any other breach,
+// for the same reason the caps are enforced at every epoch rather than at
+// admission: a ceiling that is only tested when power is granted is not a
+// ceiling, and a proposal is one of the ways power arrives. Refusing here as
+// well would have made the ceiling look enforced while leaving the path that
+// matters — growth, merger, nationalisation — unguarded.
+//
+// Seats are moved by delegating from the module's own seat reserve and
+// undelegating back into it, which is the only path that changes consensus
+// power without minting anything and without writing to x/staking behind its
+// back. A reserve with too few seats fails the message rather than the block.
+type MsgSetValidatorPower struct {
+	// authority is the address that controls the module (defaults to x/gov unless overwritten).
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	// validator is the operator address, in its account form.
+	Validator string `protobuf:"bytes,2,opt,name=validator,proto3" json:"validator,omitempty"`
+	// seats is the power the validator is to carry. Zero is refused: a validator
+	// with no seats is one that has been removed, and removing one should say so
+	// rather than arrive as a power update that happens to be empty.
+	Seats uint64 `protobuf:"varint,3,opt,name=seats,proto3" json:"seats,omitempty"`
+}
+
+func (m *MsgSetValidatorPower) Reset()         { *m = MsgSetValidatorPower{} }
+func (m *MsgSetValidatorPower) String() string { return proto.CompactTextString(m) }
+func (*MsgSetValidatorPower) ProtoMessage()    {}
+func (*MsgSetValidatorPower) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a1967699d5e9208e, []int{16}
+}
+func (m *MsgSetValidatorPower) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSetValidatorPower) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSetValidatorPower.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSetValidatorPower) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSetValidatorPower.Merge(m, src)
+}
+func (m *MsgSetValidatorPower) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSetValidatorPower) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSetValidatorPower.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSetValidatorPower proto.InternalMessageInfo
+
+func (m *MsgSetValidatorPower) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgSetValidatorPower) GetValidator() string {
+	if m != nil {
+		return m.Validator
+	}
+	return ""
+}
+
+func (m *MsgSetValidatorPower) GetSeats() uint64 {
+	if m != nil {
+		return m.Seats
+	}
+	return 0
+}
+
+// MsgSetValidatorPowerResponse returns the seats the validator holds after the
+// message, which is what it asked for unless the reserve could not cover it.
+type MsgSetValidatorPowerResponse struct {
+	Seats uint64 `protobuf:"varint,1,opt,name=seats,proto3" json:"seats,omitempty"`
+}
+
+func (m *MsgSetValidatorPowerResponse) Reset()         { *m = MsgSetValidatorPowerResponse{} }
+func (m *MsgSetValidatorPowerResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgSetValidatorPowerResponse) ProtoMessage()    {}
+func (*MsgSetValidatorPowerResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a1967699d5e9208e, []int{17}
+}
+func (m *MsgSetValidatorPowerResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSetValidatorPowerResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSetValidatorPowerResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSetValidatorPowerResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSetValidatorPowerResponse.Merge(m, src)
+}
+func (m *MsgSetValidatorPowerResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSetValidatorPowerResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSetValidatorPowerResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSetValidatorPowerResponse proto.InternalMessageInfo
+
+func (m *MsgSetValidatorPowerResponse) GetSeats() uint64 {
+	if m != nil {
+		return m.Seats
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "blockchain.validatorgov.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "blockchain.validatorgov.v1.MsgUpdateParamsResponse")
@@ -771,6 +1051,10 @@ func init() {
 	proto.RegisterType((*MsgApproveOperatorRecoveryResponse)(nil), "blockchain.validatorgov.v1.MsgApproveOperatorRecoveryResponse")
 	proto.RegisterType((*MsgCancelOperatorRotation)(nil), "blockchain.validatorgov.v1.MsgCancelOperatorRotation")
 	proto.RegisterType((*MsgCancelOperatorRotationResponse)(nil), "blockchain.validatorgov.v1.MsgCancelOperatorRotationResponse")
+	proto.RegisterType((*MsgAttestOwnership)(nil), "blockchain.validatorgov.v1.MsgAttestOwnership")
+	proto.RegisterType((*MsgAttestOwnershipResponse)(nil), "blockchain.validatorgov.v1.MsgAttestOwnershipResponse")
+	proto.RegisterType((*MsgSetValidatorPower)(nil), "blockchain.validatorgov.v1.MsgSetValidatorPower")
+	proto.RegisterType((*MsgSetValidatorPowerResponse)(nil), "blockchain.validatorgov.v1.MsgSetValidatorPowerResponse")
 }
 
 func init() {
@@ -778,58 +1062,71 @@ func init() {
 }
 
 var fileDescriptor_a1967699d5e9208e = []byte{
-	// 803 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0x4d, 0x4f, 0xd4, 0x40,
-	0x18, 0xde, 0x01, 0x04, 0x77, 0x96, 0x08, 0x54, 0x02, 0x4b, 0xd1, 0x05, 0x8b, 0x51, 0x84, 0xb0,
-	0x0d, 0x1f, 0x62, 0xb2, 0xa2, 0xe1, 0x43, 0x62, 0x3c, 0x6c, 0x24, 0x6b, 0xf4, 0xe0, 0x85, 0x0c,
-	0xed, 0xa4, 0x34, 0xec, 0x76, 0x9a, 0x99, 0x52, 0xd8, 0xc4, 0x83, 0xf1, 0xe8, 0xc1, 0xc8, 0x8f,
-	0x30, 0xf1, 0x88, 0x89, 0xf1, 0x07, 0x78, 0x91, 0x93, 0x21, 0x9e, 0x38, 0x19, 0x03, 0x07, 0xfe,
-	0x86, 0xe9, 0xe7, 0x6e, 0xbb, 0xb4, 0xdd, 0xed, 0x65, 0xb3, 0xf3, 0x7e, 0xcd, 0xf3, 0x3c, 0xf3,
-	0xbe, 0x33, 0x85, 0x53, 0x3b, 0x55, 0x22, 0xed, 0x49, 0xbb, 0x48, 0xd5, 0x44, 0x13, 0x55, 0x55,
-	0x19, 0x19, 0x84, 0x2a, 0xc4, 0x14, 0xcd, 0x79, 0xd1, 0x38, 0x2c, 0xea, 0x94, 0x18, 0x84, 0xe3,
-	0x1b, 0x41, 0xc5, 0xe6, 0xa0, 0xa2, 0x39, 0xcf, 0x0f, 0xa1, 0x9a, 0xaa, 0x11, 0xd1, 0xfe, 0x75,
-	0xc2, 0xf9, 0xfb, 0x31, 0x35, 0x75, 0x44, 0x51, 0x8d, 0xb9, 0x81, 0xa3, 0x12, 0x61, 0x35, 0xc2,
-	0xc4, 0x1a, 0x53, 0x2c, 0x5f, 0x8d, 0x29, 0xae, 0x63, 0xcc, 0x71, 0x6c, 0xdb, 0x2b, 0xd1, 0x59,
-	0xb8, 0xae, 0x61, 0x85, 0x28, 0xc4, 0xb1, 0x5b, 0xff, 0x1c, 0xab, 0xf0, 0x1b, 0xc0, 0x81, 0x32,
-	0x53, 0x5e, 0xeb, 0x32, 0x32, 0xf0, 0x96, 0xbd, 0x07, 0xb7, 0x0c, 0xb3, 0x68, 0xdf, 0xd8, 0x25,
-	0x54, 0x35, 0xea, 0x79, 0x30, 0x09, 0xa6, 0xb3, 0xeb, 0xf9, 0x3f, 0xdf, 0xe7, 0x86, 0xdd, 0x72,
-	0x6b, 0xb2, 0x4c, 0x31, 0x63, 0xaf, 0x0c, 0xaa, 0x6a, 0x4a, 0xa5, 0x11, 0xca, 0x6d, 0xc2, 0x5e,
-	0x07, 0x65, 0xbe, 0x6b, 0x12, 0x4c, 0xe7, 0x16, 0x84, 0x62, 0x34, 0xfd, 0xa2, 0xb3, 0xd7, 0x7a,
-	0xf6, 0xe4, 0xef, 0x44, 0xe6, 0xeb, 0xe5, 0xf1, 0x0c, 0xa8, 0xb8, 0xc9, 0xa5, 0x95, 0x0f, 0x97,
-	0xc7, 0x33, 0x8d, 0xb2, 0x1f, 0x2f, 0x8f, 0x67, 0x1e, 0x34, 0x09, 0x73, 0x18, 0x94, 0x26, 0x04,
-	0x5e, 0x18, 0x83, 0xa3, 0x21, 0x53, 0x05, 0x33, 0x9d, 0x68, 0x0c, 0x0b, 0x47, 0x00, 0x0e, 0x95,
-	0x99, 0xb2, 0xa6, 0xeb, 0xd5, 0xfa, 0x1b, 0xaf, 0x06, 0xb7, 0x00, 0xfb, 0x24, 0x8a, 0xad, 0xbf,
-	0x89, 0x5c, 0xbd, 0x40, 0x2e, 0x0f, 0xfb, 0x6a, 0x44, 0x53, 0xf7, 0x30, 0xb5, 0xa9, 0x66, 0x2b,
-	0xde, 0x92, 0x9b, 0x84, 0x39, 0x19, 0x33, 0x89, 0xaa, 0xba, 0xa1, 0x12, 0x2d, 0xdf, 0x6d, 0x7b,
-	0x9b, 0x4d, 0xa5, 0x7e, 0x8b, 0x9e, 0x57, 0x49, 0x18, 0x87, 0x63, 0x2d, 0x90, 0x7c, 0xc0, 0xbf,
-	0x00, 0xbc, 0xe9, 0x78, 0x29, 0x31, 0x71, 0x03, 0x72, 0xda, 0x03, 0xba, 0x05, 0xb3, 0x12, 0xd2,
-	0x64, 0xab, 0x0a, 0x76, 0x81, 0x37, 0x0c, 0x16, 0x29, 0xe4, 0xec, 0x64, 0xc3, 0xbe, 0x5e, 0xf1,
-	0x96, 0xa5, 0xd5, 0xd6, 0x13, 0x99, 0x8b, 0x3d, 0x91, 0x30, 0x62, 0xe1, 0x36, 0x1c, 0xbf, 0xc2,
-	0xec, 0x13, 0xfd, 0xe9, 0x9c, 0x4c, 0x85, 0x18, 0xc8, 0xc0, 0x2f, 0x75, 0x4c, 0x53, 0x9f, 0xcc,
-	0x63, 0xd8, 0xaf, 0xe1, 0x83, 0x6d, 0xe2, 0xd6, 0x70, 0x58, 0xc6, 0x24, 0xe6, 0x34, 0x7c, 0xe0,
-	0x6d, 0xe8, 0x74, 0x9e, 0x57, 0xca, 0x62, 0x39, 0x1b, 0xcb, 0x32, 0x08, 0x57, 0x58, 0xb1, 0x8f,
-	0x32, 0x68, 0xf4, 0x18, 0x72, 0x13, 0x30, 0x47, 0x2d, 0x8f, 0x4a, 0xb4, 0x6d, 0x55, 0xb6, 0xf9,
-	0xf4, 0x54, 0xa0, 0x67, 0x7a, 0x21, 0x0b, 0xdf, 0xba, 0x20, 0x5f, 0x66, 0xca, 0x16, 0x25, 0x3a,
-	0x61, 0x4d, 0xf9, 0x12, 0x31, 0x31, 0xad, 0xa7, 0xd2, 0x62, 0x03, 0x0e, 0x4a, 0xfb, 0x94, 0x62,
-	0xcd, 0x68, 0x5f, 0x8f, 0x01, 0x37, 0xc3, 0x3f, 0x84, 0xb0, 0xa0, 0xdd, 0x1d, 0x08, 0xca, 0x8d,
-	0xc0, 0x5e, 0x8a, 0x11, 0x23, 0x5a, 0xbe, 0xc7, 0xee, 0x36, 0x77, 0x55, 0xda, 0x0c, 0x0b, 0xbd,
-	0x14, 0x2b, 0x74, 0x84, 0x28, 0xc2, 0x26, 0x14, 0xa2, 0xbd, 0xed, 0x4b, 0x7f, 0x06, 0x6c, 0xe9,
-	0xdd, 0xee, 0x6c, 0x91, 0x3e, 0xed, 0xb4, 0x85, 0xf6, 0xed, 0x0a, 0xef, 0x1b, 0x33, 0x70, 0xcf,
-	0x5b, 0x07, 0x6e, 0xa9, 0x9d, 0x81, 0x6b, 0x51, 0xe8, 0xae, 0xad, 0x50, 0x84, 0xd7, 0x1f, 0xbf,
-	0x1f, 0xc0, 0x6e, 0xdd, 0x0d, 0xa4, 0x49, 0xb8, 0xea, 0x47, 0xb9, 0x40, 0x53, 0xb5, 0x5e, 0x12,
-	0xf7, 0xd2, 0xb3, 0x70, 0x07, 0x2c, 0xc6, 0xf2, 0xbb, 0x1a, 0x9a, 0x30, 0x05, 0xef, 0x44, 0x3a,
-	0x3d, 0x76, 0x0b, 0x5f, 0xfa, 0x60, 0x77, 0x99, 0x29, 0x9c, 0x0e, 0xfb, 0x03, 0xcf, 0xdc, 0x6c,
-	0xdc, 0xf3, 0x14, 0x7a, 0x43, 0xf8, 0xc5, 0x0e, 0x82, 0xfd, 0xce, 0x33, 0xe1, 0x8d, 0xd0, 0x63,
-	0x33, 0x97, 0x50, 0x26, 0x18, 0xce, 0x3f, 0xec, 0x28, 0xdc, 0xdf, 0xf7, 0x1d, 0x1c, 0x6c, 0x79,
-	0x33, 0xc4, 0xe4, 0x52, 0x81, 0x04, 0xfe, 0x51, 0x87, 0x09, 0xcd, 0xac, 0x43, 0x17, 0x79, 0x12,
-	0xeb, 0x60, 0x78, 0x22, 0xeb, 0x88, 0x2b, 0xf6, 0x08, 0xc0, 0xd1, 0xa8, 0xeb, 0x73, 0x39, 0xa1,
-	0x64, 0x44, 0x1e, 0xff, 0x34, 0x5d, 0x5e, 0x00, 0x53, 0xe4, 0xbd, 0xd2, 0x9e, 0xc0, 0x1d, 0x63,
-	0x4a, 0x98, 0x76, 0xee, 0x13, 0x80, 0x23, 0x11, 0xa3, 0x9e, 0xa4, 0xfc, 0xd5, 0x69, 0xfc, 0x93,
-	0x54, 0x69, 0x1e, 0x20, 0xfe, 0xda, 0x7b, 0xeb, 0xfb, 0x6f, 0x7d, 0xf5, 0xe4, 0xbc, 0x00, 0x4e,
-	0xcf, 0x0b, 0xe0, 0xdf, 0x79, 0x01, 0x7c, 0xbe, 0x28, 0x64, 0x4e, 0x2f, 0x0a, 0x99, 0xb3, 0x8b,
-	0x42, 0xe6, 0xed, 0xbd, 0x3a, 0xaa, 0xa1, 0x2a, 0x16, 0xa3, 0xaf, 0x08, 0xa3, 0xae, 0x63, 0xb6,
-	0xd3, 0x6b, 0x7f, 0xd3, 0x2e, 0xfe, 0x0f, 0x00, 0x00, 0xff, 0xff, 0x12, 0x2a, 0xe2, 0x01, 0x9c,
-	0x0b, 0x00, 0x00,
+	// 1023 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x57, 0x4d, 0x6f, 0x1b, 0x45,
+	0x18, 0xce, 0x3a, 0x1f, 0xc5, 0x6f, 0x02, 0x69, 0xb6, 0x51, 0xe3, 0x6c, 0x83, 0x1b, 0xb6, 0xa8,
+	0x94, 0x94, 0xd8, 0x34, 0x09, 0x01, 0x99, 0x16, 0x35, 0x29, 0x11, 0xca, 0xc1, 0x6a, 0xe4, 0x0a,
+	0x0e, 0x5c, 0xac, 0xc9, 0xee, 0xb0, 0x59, 0x6a, 0xef, 0xac, 0x66, 0x26, 0x4e, 0x2d, 0x21, 0x81,
+	0xe0, 0x86, 0x04, 0x82, 0x9f, 0xc0, 0x8d, 0x63, 0x90, 0x10, 0x3f, 0x80, 0x0b, 0x3d, 0xa1, 0x8a,
+	0x53, 0x4e, 0x80, 0x92, 0x43, 0xfe, 0x46, 0xb5, 0xb3, 0x1f, 0xf6, 0xee, 0x7a, 0x77, 0xbd, 0x7b,
+	0xb1, 0x3c, 0xef, 0xfb, 0xbc, 0x1f, 0xcf, 0xe3, 0x77, 0x3e, 0x0c, 0xb7, 0x0e, 0x3b, 0x44, 0x7b,
+	0xaa, 0x1d, 0x21, 0xd3, 0xaa, 0xf7, 0x50, 0xc7, 0xd4, 0x11, 0x27, 0xd4, 0x20, 0xbd, 0x7a, 0xef,
+	0x5e, 0x9d, 0x3f, 0xab, 0xd9, 0x94, 0x70, 0x22, 0x2b, 0x03, 0x50, 0x6d, 0x18, 0x54, 0xeb, 0xdd,
+	0x53, 0x16, 0x50, 0xd7, 0xb4, 0x48, 0x5d, 0x7c, 0xba, 0x70, 0xe5, 0xad, 0x94, 0x9c, 0x36, 0xa2,
+	0xa8, 0xcb, 0x3c, 0xe0, 0x92, 0x46, 0x58, 0x97, 0xb0, 0x7a, 0x97, 0x19, 0x8e, 0xaf, 0xcb, 0x0c,
+	0xcf, 0xb1, 0xec, 0x3a, 0xda, 0x62, 0x55, 0x77, 0x17, 0x9e, 0x6b, 0xd1, 0x20, 0x06, 0x71, 0xed,
+	0xce, 0x37, 0xd7, 0xaa, 0xfe, 0x2d, 0xc1, 0x7c, 0x93, 0x19, 0x9f, 0xda, 0x3a, 0xe2, 0xf8, 0x40,
+	0xd4, 0x90, 0xb7, 0xa1, 0x8c, 0x8e, 0xf9, 0x11, 0xa1, 0x26, 0xef, 0x57, 0xa4, 0x55, 0xe9, 0x4e,
+	0x79, 0xb7, 0xf2, 0xcf, 0xef, 0xeb, 0x8b, 0x5e, 0xba, 0x1d, 0x5d, 0xa7, 0x98, 0xb1, 0x27, 0x9c,
+	0x9a, 0x96, 0xd1, 0x1a, 0x40, 0xe5, 0x3d, 0x98, 0x71, 0xbb, 0xac, 0x94, 0x56, 0xa5, 0x3b, 0xb3,
+	0x1b, 0x6a, 0x2d, 0x99, 0x7e, 0xcd, 0xad, 0xb5, 0x5b, 0x7e, 0xfe, 0xef, 0xcd, 0x89, 0x5f, 0x2f,
+	0x4f, 0xd7, 0xa4, 0x96, 0x17, 0xdc, 0xb8, 0xff, 0xed, 0xe5, 0xe9, 0xda, 0x20, 0xed, 0xf7, 0x97,
+	0xa7, 0x6b, 0x6f, 0x0f, 0x09, 0xf3, 0x2c, 0x2c, 0x4d, 0xa4, 0x79, 0x75, 0x19, 0x96, 0x22, 0xa6,
+	0x16, 0x66, 0x36, 0xb1, 0x18, 0x56, 0x7f, 0x28, 0xc1, 0x42, 0x93, 0x19, 0x3b, 0xb6, 0xdd, 0xe9,
+	0x7f, 0xe6, 0xe7, 0x90, 0x37, 0xe0, 0x8a, 0x46, 0xb1, 0xf3, 0x35, 0x93, 0xab, 0x0f, 0x94, 0x2b,
+	0x70, 0xa5, 0x4b, 0x2c, 0xf3, 0x29, 0xa6, 0x82, 0x6a, 0xb9, 0xe5, 0x2f, 0xe5, 0x55, 0x98, 0xd5,
+	0x31, 0xd3, 0xa8, 0x69, 0x73, 0x93, 0x58, 0x95, 0x49, 0xe1, 0x1d, 0x36, 0xc9, 0xb7, 0x61, 0xbe,
+	0x83, 0x0d, 0xd4, 0x69, 0x63, 0x8b, 0x9b, 0xbc, 0xdf, 0x36, 0xf5, 0xca, 0x94, 0x40, 0xbd, 0x2a,
+	0xcc, 0x7b, 0xc2, 0xba, 0xaf, 0xcb, 0x35, 0xb8, 0x76, 0x88, 0x2d, 0xfc, 0x85, 0xa9, 0x99, 0xa8,
+	0xd3, 0x26, 0x27, 0x16, 0xa6, 0x0e, 0x76, 0x5a, 0x60, 0x17, 0x06, 0xae, 0xc7, 0x8e, 0x67, 0x5f,
+	0x97, 0x55, 0x98, 0xfb, 0xf2, 0x98, 0x9a, 0x4c, 0x37, 0x35, 0x51, 0x7a, 0x46, 0x00, 0x43, 0xb6,
+	0xc6, 0x9c, 0x23, 0xad, 0xcf, 0x42, 0xbd, 0x01, 0xcb, 0x31, 0x39, 0x02, 0xb1, 0xfe, 0x92, 0xe0,
+	0x9a, 0xeb, 0xa5, 0xa4, 0x87, 0x07, 0x72, 0x15, 0x1d, 0x8e, 0x15, 0x28, 0x6b, 0xc8, 0xd2, 0x9d,
+	0x2c, 0xd8, 0x13, 0x6d, 0x60, 0x70, 0x04, 0x45, 0x6e, 0x25, 0x21, 0xd9, 0x2b, 0x2d, 0x7f, 0xd9,
+	0x78, 0x18, 0x9f, 0x86, 0xf5, 0xd4, 0x69, 0x88, 0x76, 0xac, 0xbe, 0x0e, 0x37, 0x46, 0x98, 0x03,
+	0xa2, 0x7f, 0x4a, 0x62, 0x2a, 0x5a, 0x84, 0x23, 0x8e, 0x1f, 0xdb, 0x98, 0x16, 0x9e, 0x8a, 0x0f,
+	0x61, 0xce, 0xc2, 0x27, 0x6d, 0xe2, 0xe5, 0x70, 0x59, 0xa6, 0x04, 0xce, 0x5a, 0xf8, 0xc4, 0x2f,
+	0xe8, 0x4e, 0xbd, 0x9f, 0xca, 0x61, 0x79, 0x37, 0x95, 0x65, 0xb8, 0x5d, 0xf5, 0xbe, 0xf8, 0x29,
+	0xc3, 0x46, 0x9f, 0xa1, 0x7c, 0x13, 0x66, 0xa9, 0xe3, 0x31, 0x89, 0xe5, 0x4c, 0x90, 0xc3, 0x67,
+	0xaa, 0x05, 0xbe, 0x69, 0x5f, 0x57, 0x7f, 0x2b, 0x81, 0xd2, 0x64, 0xc6, 0x01, 0x25, 0x36, 0x61,
+	0x43, 0xf1, 0x1a, 0xe9, 0x61, 0xda, 0x2f, 0xa4, 0xc5, 0x23, 0xb8, 0xaa, 0x1d, 0x53, 0x8a, 0x2d,
+	0x3e, 0xbe, 0x1e, 0xf3, 0x5e, 0x44, 0xf0, 0x23, 0x44, 0x05, 0x9d, 0xcc, 0x21, 0xa8, 0x7c, 0x1d,
+	0x66, 0x28, 0x46, 0x8c, 0x58, 0xde, 0xf6, 0xf2, 0x56, 0x8d, 0xbd, 0xa8, 0xd0, 0x5b, 0xa9, 0x42,
+	0x27, 0x88, 0xa2, 0xee, 0x81, 0x9a, 0xec, 0x1d, 0x5f, 0xfa, 0x33, 0x49, 0x48, 0xef, 0x4d, 0x67,
+	0x4c, 0xfa, 0xa2, 0xbb, 0x2d, 0x52, 0xb7, 0x14, 0xad, 0x9b, 0xb2, 0xe1, 0x3e, 0x89, 0x6f, 0xb8,
+	0xad, 0x71, 0x36, 0x5c, 0x4c, 0xa1, 0x37, 0x85, 0x42, 0x09, 0xde, 0x60, 0xfb, 0xfd, 0x21, 0x89,
+	0xd1, 0x7d, 0x84, 0x2c, 0x0d, 0x77, 0x02, 0x94, 0xd7, 0x68, 0xa1, 0xd1, 0xcb, 0xe2, 0xde, 0xf8,
+	0x38, 0x3a, 0x01, 0x9b, 0xa9, 0xfc, 0x46, 0xb7, 0xa6, 0xde, 0x82, 0x37, 0x12, 0x9d, 0x01, 0xbb,
+	0xef, 0x4a, 0x20, 0x3b, 0x22, 0x70, 0x8e, 0x19, 0x17, 0x27, 0x35, 0x3b, 0x32, 0xed, 0x42, 0xb4,
+	0x46, 0xdc, 0x1b, 0xa5, 0x1c, 0xf7, 0xc6, 0xe4, 0xb8, 0xf7, 0xc6, 0xd4, 0x88, 0x7b, 0xe3, 0x41,
+	0x54, 0xb1, 0x77, 0xd2, 0x27, 0x22, 0x4c, 0x57, 0x5d, 0x71, 0x67, 0x3c, 0x6c, 0x0d, 0x34, 0xfa,
+	0x4f, 0x82, 0xc5, 0x26, 0x33, 0x9e, 0x60, 0x1e, 0x1c, 0xce, 0x07, 0xe4, 0x04, 0x17, 0xbf, 0x6a,
+	0xb6, 0xa1, 0x1c, 0x74, 0x94, 0x79, 0xe8, 0x0c, 0xa0, 0xf2, 0x22, 0x4c, 0x33, 0x8c, 0x38, 0x13,
+	0x5a, 0x4d, 0xb5, 0xdc, 0x45, 0x63, 0x27, 0xbe, 0x1f, 0x6a, 0xa9, 0xec, 0x63, 0x44, 0xd4, 0x2d,
+	0x58, 0x19, 0x65, 0x0f, 0x4e, 0x89, 0xa0, 0xb0, 0x34, 0x54, 0x78, 0xe3, 0x97, 0x32, 0x4c, 0x36,
+	0x99, 0x21, 0xdb, 0x30, 0x17, 0x7a, 0x9e, 0xdd, 0x4d, 0x7b, 0x56, 0x45, 0xde, 0x3e, 0xca, 0x66,
+	0x0e, 0x70, 0xd0, 0x4f, 0x0f, 0x5e, 0x8b, 0x3c, 0x92, 0xd6, 0x33, 0xd2, 0x84, 0xe1, 0xca, 0x7b,
+	0xb9, 0xe0, 0x41, 0xdd, 0xaf, 0xe0, 0x6a, 0xec, 0xbd, 0x51, 0xcf, 0x4e, 0x15, 0x0a, 0x50, 0xde,
+	0xcf, 0x19, 0x30, 0xcc, 0x3a, 0xf2, 0x08, 0xc8, 0x62, 0x1d, 0x86, 0x67, 0xb2, 0x4e, 0xb8, 0x9e,
+	0x7f, 0x96, 0x60, 0x29, 0xe9, 0xea, 0xdd, 0xce, 0x48, 0x99, 0x10, 0xa7, 0x7c, 0x54, 0x2c, 0x2e,
+	0xd4, 0x53, 0xe2, 0x9d, 0x34, 0x9e, 0xc0, 0xb9, 0x7b, 0xca, 0xb8, 0x29, 0xe4, 0x1f, 0x25, 0xb8,
+	0x9e, 0x70, 0x4d, 0x64, 0x29, 0x3f, 0x3a, 0x4c, 0x79, 0x50, 0x28, 0x2c, 0x68, 0xa8, 0x0f, 0xf3,
+	0xd1, 0x83, 0xbd, 0x96, 0xc5, 0x31, 0x8c, 0x57, 0xb6, 0xf3, 0xe1, 0x83, 0xd2, 0x5f, 0xc3, 0x42,
+	0xfc, 0xbc, 0x7c, 0x37, 0x23, 0x59, 0x2c, 0x42, 0xf9, 0x20, 0x6f, 0x84, 0xdf, 0x80, 0x32, 0xfd,
+	0x8d, 0xf3, 0x9f, 0x6d, 0xf7, 0xe1, 0xf3, 0xf3, 0xaa, 0xf4, 0xe2, 0xbc, 0x2a, 0xfd, 0x7f, 0x5e,
+	0x95, 0x7e, 0xba, 0xa8, 0x4e, 0xbc, 0xb8, 0xa8, 0x4e, 0x9c, 0x5d, 0x54, 0x27, 0x3e, 0xbf, 0xdd,
+	0x47, 0x5d, 0xd4, 0xc1, 0xf5, 0xe4, 0xa3, 0x92, 0xf7, 0x6d, 0xcc, 0x0e, 0x67, 0xc4, 0xff, 0xd0,
+	0xcd, 0x97, 0x01, 0x00, 0x00, 0xff, 0xff, 0x44, 0x00, 0x70, 0xf6, 0x50, 0x0f, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -866,6 +1163,12 @@ type MsgClient interface {
 	// CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets
 	// the current operator withdraw a rotation before it takes effect.
 	CancelOperatorRotation(ctx context.Context, in *MsgCancelOperatorRotation, opts ...grpc.CallOption) (*MsgCancelOperatorRotationResponse, error)
+	// AttestOwnership defines the AttestOwnership RPC: the operator re-signing
+	// for who is behind it, which is what keeps a declaration from going stale.
+	AttestOwnership(ctx context.Context, in *MsgAttestOwnership, opts ...grpc.CallOption) (*MsgAttestOwnershipResponse, error)
+	// SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated
+	// and moves how many seats one admitted validator holds.
+	SetValidatorPower(ctx context.Context, in *MsgSetValidatorPower, opts ...grpc.CallOption) (*MsgSetValidatorPowerResponse, error)
 }
 
 type msgClient struct {
@@ -939,6 +1242,24 @@ func (c *msgClient) CancelOperatorRotation(ctx context.Context, in *MsgCancelOpe
 	return out, nil
 }
 
+func (c *msgClient) AttestOwnership(ctx context.Context, in *MsgAttestOwnership, opts ...grpc.CallOption) (*MsgAttestOwnershipResponse, error) {
+	out := new(MsgAttestOwnershipResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.validatorgov.v1.Msg/AttestOwnership", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) SetValidatorPower(ctx context.Context, in *MsgSetValidatorPower, opts ...grpc.CallOption) (*MsgSetValidatorPowerResponse, error) {
+	out := new(MsgSetValidatorPowerResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.validatorgov.v1.Msg/SetValidatorPower", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	// UpdateParams defines a (governance) operation for updating the module
@@ -963,6 +1284,12 @@ type MsgServer interface {
 	// CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets
 	// the current operator withdraw a rotation before it takes effect.
 	CancelOperatorRotation(context.Context, *MsgCancelOperatorRotation) (*MsgCancelOperatorRotationResponse, error)
+	// AttestOwnership defines the AttestOwnership RPC: the operator re-signing
+	// for who is behind it, which is what keeps a declaration from going stale.
+	AttestOwnership(context.Context, *MsgAttestOwnership) (*MsgAttestOwnershipResponse, error)
+	// SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated
+	// and moves how many seats one admitted validator holds.
+	SetValidatorPower(context.Context, *MsgSetValidatorPower) (*MsgSetValidatorPowerResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -989,6 +1316,12 @@ func (*UnimplementedMsgServer) ApproveOperatorRecovery(ctx context.Context, req 
 }
 func (*UnimplementedMsgServer) CancelOperatorRotation(ctx context.Context, req *MsgCancelOperatorRotation) (*MsgCancelOperatorRotationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOperatorRotation not implemented")
+}
+func (*UnimplementedMsgServer) AttestOwnership(ctx context.Context, req *MsgAttestOwnership) (*MsgAttestOwnershipResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AttestOwnership not implemented")
+}
+func (*UnimplementedMsgServer) SetValidatorPower(ctx context.Context, req *MsgSetValidatorPower) (*MsgSetValidatorPowerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetValidatorPower not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -1121,6 +1454,42 @@ func _Msg_CancelOperatorRotation_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AttestOwnership_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAttestOwnership)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AttestOwnership(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.validatorgov.v1.Msg/AttestOwnership",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AttestOwnership(ctx, req.(*MsgAttestOwnership))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_SetValidatorPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgSetValidatorPower)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).SetValidatorPower(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.validatorgov.v1.Msg/SetValidatorPower",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).SetValidatorPower(ctx, req.(*MsgSetValidatorPower))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Msg_serviceDesc = _Msg_serviceDesc
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "blockchain.validatorgov.v1.Msg",
@@ -1153,6 +1522,14 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelOperatorRotation",
 			Handler:    _Msg_CancelOperatorRotation_Handler,
+		},
+		{
+			MethodName: "AttestOwnership",
+			Handler:    _Msg_AttestOwnership_Handler,
+		},
+		{
+			MethodName: "SetValidatorPower",
+			Handler:    _Msg_SetValidatorPower_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1242,6 +1619,27 @@ func (m *MsgApplyValidator) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Jurisdiction) > 0 {
+		i -= len(m.Jurisdiction)
+		copy(dAtA[i:], m.Jurisdiction)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Jurisdiction)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.BeneficialOwnerId) > 0 {
+		i -= len(m.BeneficialOwnerId)
+		copy(dAtA[i:], m.BeneficialOwnerId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.BeneficialOwnerId)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.LegalEntityId) > 0 {
+		i -= len(m.LegalEntityId)
+		copy(dAtA[i:], m.LegalEntityId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.LegalEntityId)))
+		i--
+		dAtA[i] = 0x22
+	}
 	if len(m.Description) > 0 {
 		i -= len(m.Description)
 		copy(dAtA[i:], m.Description)
@@ -1629,6 +2027,150 @@ func (m *MsgCancelOperatorRotationResponse) MarshalToSizedBuffer(dAtA []byte) (i
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgAttestOwnership) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAttestOwnership) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAttestOwnership) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Jurisdiction) > 0 {
+		i -= len(m.Jurisdiction)
+		copy(dAtA[i:], m.Jurisdiction)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Jurisdiction)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.BeneficialOwnerId) > 0 {
+		i -= len(m.BeneficialOwnerId)
+		copy(dAtA[i:], m.BeneficialOwnerId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.BeneficialOwnerId)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.LegalEntityId) > 0 {
+		i -= len(m.LegalEntityId)
+		copy(dAtA[i:], m.LegalEntityId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.LegalEntityId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Creator) > 0 {
+		i -= len(m.Creator)
+		copy(dAtA[i:], m.Creator)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Creator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgAttestOwnershipResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAttestOwnershipResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAttestOwnershipResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSetValidatorPower) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSetValidatorPower) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSetValidatorPower) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Seats != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.Seats))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Validator) > 0 {
+		i -= len(m.Validator)
+		copy(dAtA[i:], m.Validator)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Validator)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSetValidatorPowerResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSetValidatorPowerResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSetValidatorPowerResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Seats != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.Seats))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -1679,6 +2221,18 @@ func (m *MsgApplyValidator) Size() (n int) {
 		n += 1 + l + sovTx(uint64(l))
 	}
 	l = len(m.Description)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.LegalEntityId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.BeneficialOwnerId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Jurisdiction)
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
@@ -1839,6 +2393,72 @@ func (m *MsgCancelOperatorRotationResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	return n
+}
+
+func (m *MsgAttestOwnership) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Creator)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.LegalEntityId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.BeneficialOwnerId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Jurisdiction)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgAttestOwnershipResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgSetValidatorPower) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Validator)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.Seats != 0 {
+		n += 1 + sovTx(uint64(m.Seats))
+	}
+	return n
+}
+
+func (m *MsgSetValidatorPowerResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Seats != 0 {
+		n += 1 + sovTx(uint64(m.Seats))
+	}
 	return n
 }
 
@@ -2137,6 +2757,102 @@ func (m *MsgApplyValidator) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Description = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LegalEntityId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LegalEntityId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BeneficialOwnerId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BeneficialOwnerId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Jurisdiction", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Jurisdiction = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3124,6 +3840,436 @@ func (m *MsgCancelOperatorRotationResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: MsgCancelOperatorRotationResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAttestOwnership) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAttestOwnership: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAttestOwnership: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Creator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Creator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LegalEntityId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LegalEntityId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BeneficialOwnerId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BeneficialOwnerId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Jurisdiction", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Jurisdiction = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAttestOwnershipResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAttestOwnershipResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAttestOwnershipResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSetValidatorPower) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSetValidatorPower: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSetValidatorPower: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Validator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Validator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Seats", wireType)
+			}
+			m.Seats = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Seats |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSetValidatorPowerResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSetValidatorPowerResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSetValidatorPowerResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Seats", wireType)
+			}
+			m.Seats = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Seats |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

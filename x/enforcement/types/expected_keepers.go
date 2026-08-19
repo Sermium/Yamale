@@ -8,7 +8,21 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
+
+// ConstitutionKeeper is where this module's non-negotiable parameters really
+// live.
+//
+// One method, and it only reads. The point is that the module able to freeze
+// and seize cannot move the numbers that bound it: the threshold, the
+// destination and the two delays are held somewhere it can consult and nowhere
+// it can write. x/constitution depends on x/staking and on nothing in this
+// repository, so consulting it costs no dependency cycle.
+type ConstitutionKeeper interface {
+	GetInvariants(ctx context.Context) (constitutiontypes.Invariants, error)
+}
 
 // AuthKeeper is how the module recognises a module account.
 //

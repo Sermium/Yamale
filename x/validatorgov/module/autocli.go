@@ -59,6 +59,22 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:          "Shows the rotation open against an operator, if there is one",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "current_operator"}},
 				},
+				{
+					RpcMethod: "Concentration",
+					Use:       "concentration",
+					Short:     "Shows what every entity, beneficial owner and jurisdiction holds against its ceiling",
+					Long: "Shows what every entity, beneficial owner and jurisdiction holds against its ceiling.\n\n" +
+						"Under equal seats these are counts, so the answer can be checked against the\n" +
+						"list of admitted validators without recomputing anything. A group marked over\n" +
+						"with active_validators equal to min_active_validators is a breach the chain\n" +
+						"has decided not to correct, because correcting it would take the active set\n" +
+						"below the floor.",
+				},
+				{
+					RpcMethod: "ListDemotion",
+					Use:       "list-demotion",
+					Short:     "Lists the validators the concentration ceilings are currently holding down",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -70,10 +86,24 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Skip:      true, // skipped because authority gated
 				},
 				{
-					RpcMethod:      "ApplyValidator",
-					Use:            "apply-validator [moniker] [description]",
-					Short:          "Send a apply-validator tx",
-					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "moniker"}, {ProtoField: "description"}},
+					RpcMethod: "ApplyValidator",
+					Use:       "apply-validator [moniker] [description] [legal-entity-id] [beneficial-owner-id] [jurisdiction]",
+					Short:     "Apply to join the validator set, declaring who is behind you",
+					Long: "Apply to join the validator set, declaring who is behind you.\n\n" +
+						"All three declaration fields are required. The concentration ceilings are\n" +
+						"computed over declared entities, owners and jurisdictions, so an applicant\n" +
+						"who declared none would belong to no group and be bounded by no ceiling.\n\n" +
+						"beneficial-owner-id is whoever ultimately owns the entity. Where nobody does,\n" +
+						"repeat the entity's own identifier — \"nobody owns us\" is a claim you sign,\n" +
+						"not a field you leave blank.\n\n" +
+						"jurisdiction is an ISO 3166-1 alpha-2 country code.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "moniker"},
+						{ProtoField: "description"},
+						{ProtoField: "legal_entity_id"},
+						{ProtoField: "beneficial_owner_id"},
+						{ProtoField: "jurisdiction"},
+					},
 				},
 				{
 					RpcMethod: "ApproveValidator",
@@ -102,6 +132,27 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:            "cancel-operator-rotation [rotation-id]",
 					Short:          "Withdraw a rotation against your own operator address before it takes effect",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "rotation_id"}},
+				},
+				{
+					RpcMethod: "AttestOwnership",
+					Use:       "attest-ownership [legal-entity-id] [beneficial-owner-id] [jurisdiction]",
+					Short:     "Re-sign for who is behind your validator, so the declaration is not stale",
+					Long: "Re-sign for who is behind your validator, so the declaration is not stale.\n\n" +
+						"The whole declaration is restated, not just the date. That is deliberate: an\n" +
+						"operator whose owner has changed and who re-attests the old values has put a\n" +
+						"false statement on the record under its own key.\n\n" +
+						"A declaration older than the attestation interval is reported as stale in an\n" +
+						"event at every epoch. Nothing is done to the validator for it — the chain\n" +
+						"cannot verify a declaration, so what it publishes is the date.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "legal_entity_id"},
+						{ProtoField: "beneficial_owner_id"},
+						{ProtoField: "jurisdiction"},
+					},
+				},
+				{
+					RpcMethod: "SetValidatorPower",
+					Skip:      true, // authority gated; only callable via a governance proposal
 				},
 			},
 		},

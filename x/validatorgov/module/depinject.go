@@ -43,6 +43,12 @@ type ModuleInputs struct {
 	// that re-keys a validator record, so a grant is the only way to move who
 	// signs without moving the delegations behind it.
 	AuthzKeeper authzkeeper.Keeper
+
+	// ConstitutionKeeper supplies the concentration ceilings. It is read-only
+	// and one-directional: x/constitution depends on x/staking and on nothing
+	// in this repository, so this module and x/enforcement can both consult it
+	// without depinject having a cycle to resolve.
+	ConstitutionKeeper types.ConstitutionKeeper
 }
 
 type ModuleOutputs struct {
@@ -65,6 +71,9 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		authority,
 		in.StakingKeeper,
 		in.AuthzKeeper,
+		in.AuthKeeper,
+		in.BankKeeper,
+		in.ConstitutionKeeper,
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 

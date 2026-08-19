@@ -286,13 +286,33 @@ what it actually bought was a chain where two thirds of the validator set could
 pass a seizure that had nowhere to send what it took. Nobody noticed until a
 console printed the parameter.
 
-Changing it afterwards is a governance proposal, visible to everyone, like any
-other parameter.
+Changing it afterwards is **not** an ordinary governance proposal, and that is a
+correction to what this guide used to say. `recovery_destination`,
+`threshold_bps`, `voting_period_blocks` and `provisional_freeze_blocks` are
+invariants: they are fixed at genesis in `x/constitution`, and a
+`MsgUpdateParams` that tries to move any of them is refused — as is a genesis
+whose values disagree with the settlement, which stops the chain from starting
+at all rather than leaving it with two answers.
 
-`threshold_bps` cannot be set at or below 5,000. There is no configuration of
-this module worth having in which a minority of the validator set can take
-somebody's assets, so that is refused at the parameter level rather than left to
-a proposal that happens to read reasonably.
+Moving one takes an amendment: a governance proposal, a multi-week public delay,
+and a supermajority of the validator set ratifying it separately. See
+[what governance can and cannot change](constitution.md).
+
+The reasoning is short. A chain that can vote to lower its own seizure threshold
+does not have one — the threshold is a safeguard the validator set applies to
+itself, and a safeguard the same body can remove by the same vote is a statement
+of intent rather than a rule. The destination is the same argument one step
+further: the threshold decides whether funds move, the destination decides who
+ends up with them.
+
+The rest of the table above is still ordinary. `max_reason_length`,
+`seize_requires_evidence` and `emergency_authority` move by proposal as before.
+
+`threshold_bps` cannot be set at or below 5,000 by any route, amendment
+included. There is no configuration of this module worth having in which a
+minority of the validator set can take somebody's assets, so that is refused at
+the settlement level rather than left to a vote that happens to read
+reasonably.
 
 ## What this costs
 

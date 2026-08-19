@@ -41,4 +41,15 @@ var (
 	// height, rotation id), so the end blocker's cost depends on what falls due
 	// now rather than on how many rotations have ever happened.
 	RotationQueueKey = collections.NewPrefix("rotation/queue/")
+
+	// DemotionKey holds the validators the epoch check currently holds down,
+	// keyed by operator address.
+	//
+	// Only the ones in force. A demotion that has been restored is deleted
+	// rather than kept with a status, because this map is read twice every
+	// epoch — once to decide what to restore and once to decide what to demote
+	// — and a growing history behind a scan would make the check cost more
+	// every year. The record that a demotion happened lives in the events,
+	// which is where an auditor looks for a history anyway.
+	DemotionKey = collections.NewPrefix("demotion/value/")
 )
