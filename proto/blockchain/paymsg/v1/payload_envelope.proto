@@ -1,0 +1,106 @@
+syntax = "proto3";
+package blockchain.paymsg.v1;
+
+option go_package = "yamale/blockchain/x/paymsg/types";
+
+// PayloadEnvelope is the encrypted form of a PaymentMetadata payload.
+//
+// It is never sent to the chain and never stored by it — the chain holds only
+// the SHA-256 of the *plaintext* payload, in MsgSendPayment.metadata_hash. The
+// envelope lives in a participant's payload store. It is declared here, in the
+// same schema as the payload it wraps, for exactly the reason PaymentMetadata
+// is: the payer's wallet, the payee's wallet, a regulator's Go tooling and the
+// store itself all have to agree on the bytes, and three hand-written framings
+// in three languages agree until the first field somebody adds.
+//
+// The construction is the standard multi-recipient KEM/DEM composition — the
+// one age uses, and the one RFC 9180 formalises as DHKEM(X25519, HKDF-SHA256)
+// with ChaCha20-Poly1305:
+//
+//   1. a fresh 32-byte content key encrypts the padded payload once, under
+//      ChaCha20-Poly1305;
+//   2. for each recipient, a fresh ephemeral X25519 key agrees a shared secret
+//      with that recipient's registered viewing key, HKDF-SHA256 turns it into
+//      a wrapping key, and the content key is sealed under it.
+//
+// Nothing here is novel, and that is the point. The payload is the ISO 20022
+// detail of somebody's payment; it is not the place to find out whether a new
+// scheme holds.
+//
+// What is deliberately *not* in this message: any hint of who the recipients
+// are beyond an eight-byte key fingerprint, and any length signal. See
+// RecipientBlock.key_id and ciphertext below.
+message PayloadEnvelope {
+  // version is the envelope format, not the key version.
+  //
+  // Present from the first byte because the alternative is discovering, on the
+  // day the format has to change, that every stored envelope is a bare blob
+  // whose framing can only be guessed at from its length. A reader refuses a
+  // version it does not implement rather than parsing it optimistically.
+  uint32 version = 1;
+
+  // recipients is one wrapped copy of the content key per party entitled to
+  // read: the payer, the payee, the regulator of the declared settlement
+  // jurisdiction, and every auditor whose grant was live when the payment was
+  // sent.
+  //
+  // Order is not significant and must not be relied on. A reader tries the
+  // blocks whose key_id matches a key it holds, and falls back to trying all of
+  // them — key_id is a lookup hint, never an access control.
+  repeated RecipientBlock recipients = 2;
+
+  // nonce is 12 bytes, fresh per envelope, for the content cipher.
+  //
+  // Fresh per envelope rather than derived from the payment, because a nonce
+  // reused under one key with ChaCha20-Poly1305 does not degrade gracefully: it
+  // leaks the XOR of two plaintexts and the authentication key with it. The
+  // content key is also fresh per envelope, so this is belt and braces — which
+  // is the correct amount for a value whose reuse is unrecoverable.
+  bytes nonce = 3;
+
+  // ciphertext is ChaCha20-Poly1305 over the padded payload.
+  //
+  // Padded to a multiple of 256 bytes before encryption, so the length of the
+  // ciphertext says nothing about the length of the remittance line. Without
+  // padding the store — and anyone who can see a response size — could tell a
+  // one-word reference from a full name and address, which is a meaningful part
+  // of what the payload was moved off-chain to protect.
+  //
+  // The associated data is the payment's identity: the domain string, the
+  // instructing participant and the end-to-end id. That binds the ciphertext to
+  // one payment, so a store cannot serve the payload of one payment under the
+  // key of another — a substitution that would otherwise decrypt cleanly and
+  // then fail only against the on-chain hash, if the reader remembered to check
+  // it.
+  bytes ciphertext = 4;
+}
+
+// RecipientBlock is one entitled party's wrapped copy of the content key.
+message RecipientBlock {
+  // key_id is the first 8 bytes of SHA-256 over the recipient's X25519 public
+  // key.
+  //
+  // A hint, so a reader holding one key does not have to attempt every block,
+  // and truncated so that the block does not simply publish the recipient's
+  // public key to whoever fetches the envelope. Eight bytes is not a
+  // commitment and must never be treated as one: two keys can collide, so a
+  // reader that fails to open a matching block must try the rest.
+  bytes key_id = 1;
+
+  // ephemeral_public_key is 32 bytes of X25519, fresh for this block.
+  //
+  // Per recipient rather than one shared across the envelope. It costs 32 bytes
+  // each and buys two things: the blocks are unlinkable to each other, and a
+  // party who later holds the content key can add a recipient — an auditor
+  // appointed after the fact, a rotated regulator key — without needing the
+  // original ephemeral secret, which nobody kept.
+  bytes ephemeral_public_key = 2;
+
+  // wrapped_key is the 32-byte content key sealed under the agreed wrapping
+  // key, so 48 bytes with the Poly1305 tag.
+  //
+  // Its associated data names the recipient's key_id, so a block cannot be
+  // moved between envelopes or reassigned to a different recipient's slot
+  // without the tag failing.
+  bytes wrapped_key = 3;
+}

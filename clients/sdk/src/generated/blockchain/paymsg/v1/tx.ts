@@ -182,6 +182,41 @@ export interface MsgRegisterCustomer {
 export interface MsgRegisterCustomerResponse {
 }
 
+/**
+ * MsgSetPayloadStore records where a participant serves encrypted payment
+ * payloads.
+ *
+ * Signed by the participant itself, and by nobody else. Whoever can rewrite
+ * this field decides which host the payee's client asks for the detail of a
+ * payment — so a third party able to set it could point every retrieval at a
+ * server it controls and collect the requests, learning which payments are
+ * being read and by whom even though it can decrypt none of them. Governance
+ * approves participants; participants operate their own infrastructure.
+ *
+ * Setting it to the empty string withdraws the store. That is a supported act
+ * rather than an error: a participant winding down its service should be able
+ * to say so, and a client that then reports the detail as unavailable is
+ * telling the truth, where one that kept calling a dead host would report a
+ * network fault.
+ */
+export interface MsgSetPayloadStore {
+  participant: string;
+  /**
+   * url is an absolute http or https base URL, or empty to withdraw.
+   *
+   * Validated for scheme and length here rather than left to the clients. A
+   * value that is not a URL is not a store, and the failure it produces
+   * otherwise lands on the payee — who sees detail they are entitled to read
+   * reported as missing, with nothing to tell them the reason is a typo in
+   * somebody else's registration.
+   */
+  url: string;
+}
+
+/** MsgSetPayloadStoreResponse is empty. */
+export interface MsgSetPayloadStoreResponse {
+}
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -997,6 +1032,123 @@ export const MsgRegisterCustomerResponse = {
   },
 };
 
+function createBaseMsgSetPayloadStore(): MsgSetPayloadStore {
+  return { participant: "", url: "" };
+}
+
+export const MsgSetPayloadStore = {
+  encode(message: MsgSetPayloadStore, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.participant !== "") {
+      writer.uint32(10).string(message.participant);
+    }
+    if (message.url !== "") {
+      writer.uint32(18).string(message.url);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetPayloadStore {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetPayloadStore();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.participant = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.url = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgSetPayloadStore {
+    return {
+      participant: isSet(object.participant) ? globalThis.String(object.participant) : "",
+      url: isSet(object.url) ? globalThis.String(object.url) : "",
+    };
+  },
+
+  toJSON(message: MsgSetPayloadStore): unknown {
+    const obj: any = {};
+    if (message.participant !== "") {
+      obj.participant = message.participant;
+    }
+    if (message.url !== "") {
+      obj.url = message.url;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetPayloadStore>): MsgSetPayloadStore {
+    return MsgSetPayloadStore.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgSetPayloadStore>): MsgSetPayloadStore {
+    const message = createBaseMsgSetPayloadStore();
+    message.participant = object.participant ?? "";
+    message.url = object.url ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgSetPayloadStoreResponse(): MsgSetPayloadStoreResponse {
+  return {};
+}
+
+export const MsgSetPayloadStoreResponse = {
+  encode(_: MsgSetPayloadStoreResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetPayloadStoreResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetPayloadStoreResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgSetPayloadStoreResponse {
+    return {};
+  },
+
+  toJSON(_: MsgSetPayloadStoreResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetPayloadStoreResponse>): MsgSetPayloadStoreResponse {
+    return MsgSetPayloadStoreResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgSetPayloadStoreResponse>): MsgSetPayloadStoreResponse {
+    const message = createBaseMsgSetPayloadStoreResponse();
+    return message;
+  },
+};
+
 /** Msg defines the Msg service. */
 export interface Msg {
   /**
@@ -1020,6 +1172,11 @@ export interface Msg {
    * the participant as its instructing agent.
    */
   RegisterCustomer(request: MsgRegisterCustomer): Promise<MsgRegisterCustomerResponse>;
+  /**
+   * SetPayloadStore records where an approved participant serves the encrypted
+   * payloads of the payments it instructed.
+   */
+  SetPayloadStore(request: MsgSetPayloadStore): Promise<MsgSetPayloadStoreResponse>;
 }
 
 export const MsgServiceName = "blockchain.paymsg.v1.Msg";
@@ -1034,6 +1191,7 @@ export class MsgClientImpl implements Msg {
     this.SendPayment = this.SendPayment.bind(this);
     this.ApproveParticipant = this.ApproveParticipant.bind(this);
     this.RegisterCustomer = this.RegisterCustomer.bind(this);
+    this.SetPayloadStore = this.SetPayloadStore.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -1063,6 +1221,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgRegisterCustomer.encode(request).finish();
     const promise = this.rpc.request(this.service, "RegisterCustomer", data);
     return promise.then((data) => MsgRegisterCustomerResponse.decode(_m0.Reader.create(data)));
+  }
+
+  SetPayloadStore(request: MsgSetPayloadStore): Promise<MsgSetPayloadStoreResponse> {
+    const data = MsgSetPayloadStore.encode(request).finish();
+    const promise = this.rpc.request(this.service, "SetPayloadStore", data);
+    return promise.then((data) => MsgSetPayloadStoreResponse.decode(_m0.Reader.create(data)));
   }
 }
 

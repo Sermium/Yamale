@@ -1,0 +1,62 @@
+{
+  "note": "Generated once by .gotmp/genvectors. Read by x/paymsg/types and clients/sdk; edit deliberately or both suites go red.",
+  "payment_metadata": [
+    {
+      "name": "salt of 0x07, SALA, March salary",
+      "salt_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+      "purpose_code": "SALA",
+      "remittance_information": "March salary",
+      "wire_hex": "0a200707070707070707070707070707070707070707070707070707070707070707120453414c411a0c4d617263682073616c617279",
+      "hash_hex": "fde1ea15acecb334db6b0752b9dfb33ae7ebece48f4619355cb6c7b74b03014d"
+    },
+    {
+      "name": "random salt, UTF-8 remittance ending in a NUL byte",
+      "salt_hex": "041469d6d1abcfe6ada29cb5f786680baf4386ef9b98c20a42d1be1cd17917b5",
+      "purpose_code": "SUPP",
+      "remittance_information": "Facture Nº 88213 — Abidjan\u0000",
+      "wire_hex": "0a20041469d6d1abcfe6ada29cb5f786680baf4386ef9b98c20a42d1be1cd17917b51204535550501a1e46616374757265204ec2ba20383832313320e2809420416269646a616e00",
+      "hash_hex": "702e412bee2e45eed43aac6c4e6e9830a29d82239c3557f509e902dcd1b8bc02"
+    }
+  ],
+  "payload_envelope": [
+    {
+      "name": "three recipients, one stranger",
+      "instructing_participant": "yml1bankone",
+      "end_to_end_id": "E2E-VECTOR-1",
+      "aad_hex": "79616d616c652f7061796d73672f7061796c6f61642d656e76656c6f70652f763100796d6c3162616e6b6f6e65004532452d564543544f522d31",
+      "envelope_hex": "0801125e0a088fc294d21a6110de1220da6d181f956f7e192ac9392dff0cc049f7b36771a1f0976dd8280715d638d1271a30b99dc436d38dda304c26a556a04d6429c2dc181a24cf0ae663225e86d1c73d52cfb0b6f4a80f5a817da97aea7e052b4f125e0a08c619d0a2087778ef1220467bfdd00d765af030c7515fccd8c1b8e17a7286742f12c5f249c7798fa5f4741a302ee29fb2eab34607cc5e52be45417706d8a13f9e6d87c160a77575141c5b77e34ae58716b1ea21b4a68dd360f7f1c097125e0a08e180d290a000a5b7122043678cda00c46787fd2d9b3592dcf10b34c699514e56f7fa357a4456c3674b611a3059e2962f049ef725cbc6f8072ac07cffd9a87b17fea842053243de262cbc95a745847b303e058641f14848e06b7d0a4a1a0c21c45785d6fd4bb245c824dc229002daabea6bd4e1bd92ddfc617543ad373dcedb485cb83215c0b8a4277bfeb3410cf495617671368eec68b707d2ebe4e75461efc1142cb0d02366c7d0fcfec8190252d3987ec3245d625c4fd1b8f562848bc7ff544b1595ebf283162d78b48d72e319992e8aa95cb1d3bea6af669f15c9af1d3b6d984b03c4ce779b83c57ca289e7a9d6e836ee089196ada98d58cae847ef0584d3c667b4707fd3229d009cb101e40864c54f5790027d37551de65001dc49204daa56a84fb06fa3cc0bc6f99b4351225c374a690d63bbc2457ba71b0cb1ab8f3aa42d348b8f9fdfe682ceadf9214bd563eca84ff1d249ad725dfa5884c89e54f532c433b2f342219721e44a4d29ec631ac6651382ff04fce920be6efb699d",
+      "salt_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+      "purpose_code": "SALA",
+      "remittance_information": "March salary",
+      "hash_hex": "fde1ea15acecb334db6b0752b9dfb33ae7ebece48f4619355cb6c7b74b03014d",
+      "readers": [
+        {
+          "role": "payer",
+          "private_key_hex": "94804cff9909af3ee582bd1de4ef73a50d32e04cb84caae38de649f4fb11064d",
+          "public_key_hex": "b587cf3a6fc601521ea700b243a474413133a8ce1da3eaa441e536624b0c9c59",
+          "key_id_hex": "8fc294d21a6110de"
+        },
+        {
+          "role": "payee",
+          "private_key_hex": "315fa19baecdcb0f3edb8d64f63d6151649e312afb863c3f3a44cb6759784339",
+          "public_key_hex": "c4d33594a0515c4c01803aa53a07a60c440bf1650a57f47cd5c26a31c7f4a209",
+          "key_id_hex": "c619d0a2087778ef"
+        },
+        {
+          "role": "regulator",
+          "private_key_hex": "2385c0f7533fa61aee91d89f58fb62a3d9c8f77e6f3049813239dc89280ac961",
+          "public_key_hex": "d64a1e84fd94d3d1d08867cf81eb0571a18e5484c9811a49e351383702a7d22c",
+          "key_id_hex": "e180d290a000a5b7"
+        }
+      ],
+      "non_readers": [
+        {
+          "role": "stranger",
+          "private_key_hex": "a457a0cdbf33079f55320af983becda43f122405d031a24cf259b3edd86c1fd6",
+          "public_key_hex": "6f0e528e11f989b5ea2a19f2827a7ca196033b45e71133cd12f2fb3688622b2f",
+          "key_id_hex": "cf7b5d4d7158d1e9"
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,34 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 ## Transactions
 
+### MsgAppointRegulator
+
+`/blockchain.alias.v1.MsgAppointRegulator`
+
+Signed by the `authority` field.
+
+AppointRegulator names the authority holding the viewing key for a country.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `country` | string | country is an ISO 3166-1 alpha-2 code. Checked against the assigned list for the same reason a jurisdiction is: a mistyped NX would appoint a regulator of nowhere, and every payment declaring NG would go on being encrypted to nobody while the appointment sat in state looking done. |
+| `address` | string | address is the appointed authority, expected to be an x/group account wherever the decision to open a payload should be M-of-N rather than one official. The chain does not require that; it records who was named. |
+
+### MsgGrantAuditor
+
+`/blockchain.alias.v1.MsgGrantAuditor`
+
+Signed by the `authority` field.
+
+GrantAuditor grants the time-boxed cross-account reading role.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `address` | string |  |
+| `expires_at_height` | int64 | expires_at_height must be in the future. There is no unbounded form of this grant, and no zero-means-forever: a role that can become permanent by leaving a field unset is not time-boxed, it is time-boxed by convention. |
+
 ### MsgRegisterAlias
 
 `/blockchain.alias.v1.MsgRegisterAlias`
@@ -19,6 +47,32 @@ RegisterAlias issues an identifier to the sending account.
 | Field | Type | Description |
 | --- | --- | --- |
 | `account` | string |  |
+
+### MsgRegisterViewingKey
+
+`/blockchain.alias.v1.MsgRegisterViewingKey`
+
+Signed by the `account` field.
+
+RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `account` | string |  |
+| `public_key` | bytes | public_key is 32 bytes of X25519. The private half never leaves the holder, and nothing on this chain has any use for it. |
+
+### MsgRevokeViewingKey
+
+`/blockchain.alias.v1.MsgRevokeViewingKey`
+
+Signed by the `account` field.
+
+RevokeViewingKey marks one of the sender's key versions compromised.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `account` | string |  |
+| `version` | uint64 | version is which registration to mark. Named explicitly rather than defaulting to the newest, because the key an operator wants to revoke is usually the old one they have just rotated away from. |
 
 ### MsgRotateAlias
 
@@ -97,6 +151,20 @@ Response:
 | --- | --- | --- |
 | `alias` | Alias |  |
 
+### Auditors
+
+`GET /yamale/blockchain/alias/v1/auditors`
+
+Auditors lists the grants that have not expired, with their current keys.
+
+A list endpoint in a module that avoids them, and it is the right call here: who may read across accounts is a fact the people being read about are entitled to see, and a sender cannot build a correct envelope without the whole set.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `auditors` | repeated AuditorEntitlement |  |
+
 ### Jurisdiction
 
 `GET /yamale/blockchain/alias/v1/jurisdiction/{address}`
@@ -149,6 +217,27 @@ Response:
 | `jurisdictions` | repeated Jurisdiction |  |
 | `pagination` | PageResponse |  |
 
+### Regulator
+
+`GET /yamale/blockchain/alias/v1/regulator/{country}`
+
+Regulator returns the authority appointed over one country, with its current viewing key.
+
+Both in one response because the sender needs both and asking separately invites the half-answer: an appointment resolved, a key not fetched, and an envelope built without the regulator on it that looks complete.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `country` | string | country is an ISO 3166-1 alpha-2 code, in any case. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `appointment` | RegulatorAppointment |  |
+| `key` | ViewingKey | key is the appointee's current viewing key. Its public_key is empty when the regulator has been appointed but has not published one — a state a sender has to be able to see, because wrapping to a key of thirty-two zero bytes would produce an envelope that looks addressed to the regulator and opens for nobody. |
+
 ### Retired
 
 `GET /yamale/blockchain/alias/v1/retired/{id}`
@@ -167,6 +256,26 @@ Response:
 | --- | --- | --- |
 | `retired` | bool |  |
 
+### ViewingKeys
+
+`GET /yamale/blockchain/alias/v1/viewing_keys/{address}`
+
+ViewingKeys returns every version of one account's viewing key, newest first.
+
+Every version, not just the live one, because a payload encrypted last year is wrapped to the key that was live last year. A client that could only fetch the current key would report an old but perfectly readable payment as undecryptable, which is the failure the version field exists to prevent.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `keys` | repeated ViewingKey |  |
+
 ## State
 
 ### Alias
@@ -180,6 +289,28 @@ One name, one address. One identifier per address. Neither is ever repointed —
 | `id` | string | id is the normalised identifier: uppercase, no separators, ISO 3166-1 alpha-2 country prefix first, check character last. The display form (NG-K3M9-7QRT-B) is a client concern; the chain stores and compares only this. The country is not stored as its own field, because two copies of one fact can disagree and the one in the identifier is the one people read. It is the first two characters, and it is true by construction: the chain refuses to issue an identifier whose prefix differs from the jurisdiction recorded against the address, and a correction to that jurisdiction retires the identifier rather than leaving it to age into a lie. The prefix is not Crockford Base32 and is not folded like the payload. A fold that turned I into 1 and O into 0 would map CI and CL onto the same prefix, and SI and SL onto another — Côte d'Ivoire indistinguishable from Chile, Slovenia from Sierra Leone. The prefix uses all 26 letters; only the payload after it is Crockford. |
 | `address` | string | address is the account it resolves to, and never changes. |
 | `registered_at_height` | int64 | registered_at_height records when it was issued, so a client can show how long an identifier has been in use — a handle registered minutes ago deserves more caution than one that has been answering for a year. |
+
+### AuditorEntitlement
+
+AuditorEntitlement pairs a grant with the key it reads through.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `grant` | AuditorGrant |  |
+| `key` | ViewingKey | key carries an empty public_key when the auditor has been granted the role but has published no key, for the same reason as on the regulator above. |
+
+### AuditorGrant
+
+AuditorGrant is the time-boxed role that may read payment payloads across accounts, for aggregate checks no single party's own keys can perform.
+
+It expires by itself. A grant that has to be revoked to end is a grant that stays live when the person who would have revoked it moves on, and this one reads the detail of payments belonging to people who never dealt with the holder — so the failure mode of forgetting is the whole population's remittance text, indefinitely.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string | address is the granted account. |
+| `granted_by` | string | granted_by is the authority that granted it. |
+| `granted_at_height` | int64 | granted_at_height is when the grant was made. |
+| `expires_at_height` | int64 | expires_at_height is the first height at which the grant no longer holds. Required and strictly in the future, never zero. Zero would read as "no expiry" to anyone who did not check, which is the one thing a time-boxed role must not be able to become by omission. |
 
 ### Jurisdiction
 
@@ -196,6 +327,36 @@ It is recorded by the participant that onboarded the account, never self-declare
 | `recorded_by` | string | recorded_by is the participant or administrator that put it there. Kept because "who says this account is Nigerian" is the question an authority asks when the answer turns out to be wrong, and an unattributed record cannot answer it. |
 | `recorded_at_height` | int64 | recorded_at_height is when it was last written, so a change is visible as a change rather than as a fact that was always there. |
 
+### RegulatorAppointment
+
+RegulatorAppointment names the authority that holds the third viewing key over every payment declaring one country as its settlement jurisdiction.
+
+One per country, deliberately. The settlement jurisdiction is the field that settles which authority may act on a cross-border payment, and a country with two appointed regulators would reintroduce exactly the contest over standing that the single declaration exists to end.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `country` | string | country is an ISO 3166-1 alpha-2 code from the assigned list. |
+| `address` | string | address is the appointed authority. Its viewing key is looked up separately, so a regulator can rotate keys without being reappointed. |
+| `appointed_by` | string | appointed_by is the authority that made the appointment. Kept because "who says this account regulates Nigeria" is the question asked when the answer turns out to be wrong, and an unattributed appointment cannot answer it. |
+| `appointed_at_height` | int64 | appointed_at_height is when it was last written, so a change to who regulates a country is visible as a change rather than as a fact that was always there. |
+
+### ViewingKey
+
+ViewingKey is the X25519 public key a payment payload is encrypted to.
+
+It lives in this module for the same reason the jurisdiction does. The payload is encrypted at the moment the payment is sent, so the sender has to be able to look up every recipient's key *then* — the payer's, the payee's, the key of the regulator of the declared settlement jurisdiction, and every live auditor's. A registry that only covered accounts which happen to be somebody's payment customer would leave the regulator and the auditor unresolvable, which are two of the three parties the design exists to serve.
+
+Only the public half is ever recorded. That is not a convention that could be relaxed later: a private key on an append-only ledger is a private key published to everyone forever, and there is no erasure path that takes it back.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string | address is the account that holds the matching private key. |
+| `version` | uint64 | version climbs by one per registration and is never reused. Every envelope names the version it wrapped a content key to, so a payload encrypted years ago still says which key opens it. Reusing a number would make that reference ambiguous, and the party holding the wrong half would see an authentication failure rather than a resolvable "you need the older key" — indistinguishable from a corrupted payload. |
+| `public_key` | bytes | public_key is 32 bytes of X25519. Checked for length rather than assumed: a shorter value is not a key, and a sender that wrapped a content key to it would produce an envelope nobody can ever open, discovered only by the party who needed to read it. |
+| `registered_at_height` | int64 | registered_at_height is when this version was published. Senders must not encrypt to a key that was not yet published at the height they are sending, and a reader auditing an old envelope needs to know which keys were available when it was written. |
+| `revoked` | bool | revoked marks a key whose private half is believed compromised. Revocation is not rotation, and conflating them loses the record. A revoked key must not be wrapped to again — but the envelopes already wrapped to it stay wrapped to it, because ciphertext that exists cannot be recalled. The flag is therefore a warning to senders and an exposure marker for readers, never a claim that old payloads became unreadable. A boolean beside the height rather than "height != 0", which is what this field was first. Proto3 cannot tell a height of zero from an unset field, so a key revoked at height zero — a genesis-seeded revocation, or any revocation on a chain that has not produced a block — read back as live. That failure is silent and points the wrong way: senders go on sealing payment detail to a key its holder has already declared compromised. |
+| `revoked_at_height` | int64 | revoked_at_height is when it happened, and is meaningful only when revoked is set. Kept because "when did this key stop being trustworthy" decides which stored payloads are exposed, and a bare boolean cannot answer it. |
+
 ## Errors
 
 Every way a transaction to this module can be rejected.
@@ -205,6 +366,10 @@ Every way a transaction to this module can be rejected.
 | 10 | `ErrInvalidCountry` | that is not an assigned ISO 3166-1 alpha-2 country code |
 | 11 | `ErrNotTheRecorder` | only the account's approved participant or a foundation administrator may record its jurisdiction |
 | 12 | `ErrJurisdictionSet` | this account's jurisdiction is already recorded; only a foundation administrator may correct it |
+| 13 | `ErrInvalidViewingKey` | that is not a 32-byte X25519 public key |
+| 14 | `ErrViewingKeyNotFound` | this account has published no viewing key at that version |
+| 15 | `ErrNoRegulator` | no regulator is appointed for that country |
+| 16 | `ErrInvalidAuditorGrant` | an auditor grant must expire at a future height, and only so many may be live at once |
 | 2 | `ErrAlreadyRegistered` | this account already holds an identifier |
 | 3 | `ErrNotRegistered` | this account holds no identifier |
 | 4 | `ErrNotFound` | no account holds that identifier |

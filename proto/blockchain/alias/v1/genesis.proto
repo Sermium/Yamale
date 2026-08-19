@@ -4,6 +4,7 @@ package blockchain.alias.v1;
 import "blockchain/alias/v1/alias.proto";
 import "blockchain/alias/v1/jurisdiction.proto";
 import "blockchain/alias/v1/params.proto";
+import "blockchain/alias/v1/viewing_key.proto";
 import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/alias/types";
@@ -40,4 +41,25 @@ message GenesisState {
   // prefixed NG against an account recorded in GH would put a lying identifier
   // on the chain at height zero, which no later check would ever catch.
   repeated Jurisdiction jurisdictions = 4 [(gogoproto.nullable) = false];
+
+  // viewing_keys is every version ever registered, live and revoked alike.
+  //
+  // Every version, because an export that dropped the superseded ones would
+  // silently destroy the ability to read every payload encrypted before the
+  // last rotation — and it would do it at an upgrade, where nobody is looking
+  // at payment detail. Revoked keys are kept for the same reason: revocation
+  // says the private half may be in other hands, not that the envelopes wrapped
+  // to it stopped existing.
+  repeated ViewingKey viewing_keys = 5 [(gogoproto.nullable) = false];
+
+  // regulators is the appointment per country.
+  repeated RegulatorAppointment regulators = 6 [(gogoproto.nullable) = false];
+
+  // auditor_grants is every grant, expired ones included.
+  //
+  // Expired grants are state rather than rubbish. "Who could read this payment
+  // in 2026" is asked years afterwards, and a genesis that pruned them would
+  // answer "nobody" — which is worse than not answering, because it looks like
+  // an answer.
+  repeated AuditorGrant auditor_grants = 7 [(gogoproto.nullable) = false];
 }

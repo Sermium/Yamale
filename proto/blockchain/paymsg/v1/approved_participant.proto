@@ -8,4 +8,22 @@ message ApprovedParticipant {
   string participant = 1;
   string code = 2;
   string name = 3;
+
+  // payload_store_url is where this participant serves the encrypted payloads
+  // of the payments it instructed.
+  //
+  // A directory fact, not key material: it names a host, and everything behind
+  // it is already encrypted to keys this participant does not hold. It is on
+  // the chain rather than in each client's configuration because the payee is
+  // the party that has to find it, and the only thing the payee is guaranteed
+  // to have is the payment record — which names the instructing participant and
+  // nothing else. A configuration file would make "which store holds this
+  // payment's detail" a question every client answers separately and some
+  // answer stale, and a stale answer here renders as detail that has been
+  // lost.
+  //
+  // Empty is the honest default and means this participant runs no store. A
+  // client must show that as detail being unavailable, never as a payment with
+  // no detail.
+  string payload_store_url = 4;
 }

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+import { PaymentMetadata } from './generated/blockchain/paymsg/v1/payment_metadata.ts';
 import {
   METADATA_HASH_BYTES,
   METADATA_SALT_BYTES,
@@ -10,6 +13,30 @@ import {
   verifyMetadata,
 } from './metadata.ts';
 import { payment } from './signing.ts';
+
+/** The file x/paymsg/types reads too. See the vector test below. */
+const vectors = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../../testdata/vectors/confidentiality.json', import.meta.url)), 'utf8'),
+) as {
+  payment_metadata: Array<{
+    name: string;
+    salt_hex: string;
+    purpose_code: string;
+    remittance_information: string;
+    wire_hex: string;
+    hash_hex: string;
+  }>;
+};
+
+function fromHex(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i += 1) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 test('a payload round-trips and its hash verifies', async () => {
   const payload = newPaymentMetadata('SALA', 'March salary, employee 4417');
@@ -60,31 +87,39 @@ test('a recorded hash of the wrong length never verifies', async () => {
   assert.equal(await verifyMetadata(payload, hash.slice(0, 16)), false);
 });
 
-// The hash the browser computes has to be the hash the chain recorded. This
-// pins the encoding rather than trusting that two protobuf implementations
-// happen to agree: the digest is recomputed here from the wire bytes the
-// generated encoder produced, so a change in field order or a dropped default
-// shows up as a failure instead of as an unverifiable payment months later.
-test('the hash is SHA-256 over the protobuf encoding of the payload', async () => {
-  const payload = {
-    salt: new Uint8Array(METADATA_SALT_BYTES).fill(7),
-    purposeCode: 'SALA',
-    remittanceInformation: 'March salary',
-  };
+// The hash the browser computes has to be the hash the chain recorded, and the
+// protobuf encoding underneath it has to be the same encoding.
+//
+// Both are read from testdata/vectors/confidentiality.json, which the Go suite
+// reads too. This test used to rebuild the expected wire bytes by hand while
+// the Go side pinned a hex constant: the two agreed, but neither could make the
+// other fail, so the drift they were meant to catch would have gone through
+// both of them. One file makes the contract real.
+//
+// The wire bytes are asserted as well as the digest. A digest alone says the
+// two disagree; the encoding says where — a reordered field, a default that
+// stopped being omitted.
+test('payment metadata hashing matches the shared cross-language vectors', async () => {
+  assert.ok(vectors.payment_metadata.length > 0, 'the vectors are empty, so this test would pass vacuously');
 
-  // Field 1 (salt): tag 0x0a, length 32. Field 2 (purpose_code): tag 0x12,
-  // length 4. Field 3 (remittance_information): tag 0x1a, length 12.
-  const expectedWire = Buffer.concat([
-    Buffer.from([0x0a, 0x20]),
-    Buffer.alloc(32, 7),
-    Buffer.from([0x12, 0x04]),
-    Buffer.from('SALA', 'utf8'),
-    Buffer.from([0x1a, 0x0c]),
-    Buffer.from('March salary', 'utf8'),
-  ]);
-  const expected = new Uint8Array(createHash('sha256').update(expectedWire).digest());
+  for (const v of vectors.payment_metadata) {
+    const payload = {
+      salt: fromHex(v.salt_hex),
+      purposeCode: v.purpose_code,
+      remittanceInformation: v.remittance_information,
+    };
 
-  assert.deepEqual(await metadataHash(payload), expected);
+    const wire = Uint8Array.from(PaymentMetadata.encode(payload).finish());
+    assert.equal(toHex(wire), v.wire_hex, `${v.name}: the protobuf encoding of the payload has changed`);
+    assert.equal(
+      toHex(new Uint8Array(createHash('sha256').update(wire).digest())),
+      v.hash_hex,
+      `${v.name}: the digest does not match the encoding beside it`,
+    );
+
+    assert.equal(toHex(await metadataHash(payload)), v.hash_hex, v.name);
+    assert.equal(await verifyMetadata(payload, fromHex(v.hash_hex)), true, v.name);
+  }
 });
 
 test('a payment refuses to carry the hash and the plaintext together', async () => {
