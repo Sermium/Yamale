@@ -32,6 +32,29 @@ export interface RampQuote {
   kind: RampKind;
   route: RampRoute;
   denom: string;
+  /**
+   * Whose account the money lands in, on the way **in**.
+   *
+   * Empty means your own. Anything else is the whole point of a remittance: the
+   * person paying cash at a counter in Paris is not the person who needs it in
+   * Dakar, and a ramp that could only credit the payer would make the app a
+   * currency exchange rather than a way to send money home. The beneficiary is
+   * named as an alias or an address and the credit goes straight to their
+   * account — the sender never holds it, so there is nothing for them to forget
+   * to forward.
+   *
+   * Unused on the way out: money out always leaves the account of whoever is
+   * signing, because taking value out of somebody else's account is not a ramp,
+   * it is a withdrawal.
+   */
+  beneficiary?: string;
+  /**
+   * How the fiat arrives, on the way **out** — and in which currency.
+   *
+   * Chosen per settlement rather than per shop, because one counter often does
+   * notes, mobile money and a bank push at three different prices.
+   */
+  payout?: { fiat: string; method: string; feeBps: number };
   /** What the person hands over (in) or receives (out), in base units. */
   amount: bigint;
   /** The counterparty's cut, in base units. */
@@ -79,15 +102,22 @@ export function quoteRamp(
   amount: bigint,
   feeBps: number,
   counterparty: string,
+  extra: { beneficiary?: string; payout?: RampQuote['payout'] } = {},
 ): RampQuote {
   // Fee is taken off the top in both directions: putting money in costs the
   // same as taking it out, and hiding one of them would make the cheaper
   // direction look free when it is not.
-  const fee = (amount * BigInt(feeBps)) / 10_000n;
+  // The payout method's own charge is added to the counterparty's, because the
+  // beneficiary pays both and only cares about the total. Showing the shop's fee
+  // alone would make a bank push look like it costs what cash costs.
+  const total = feeBps + (extra.payout?.feeBps ?? 0);
+  const fee = (amount * BigInt(total)) / 10_000n;
   return {
     kind, route, denom, amount, fee,
     net: amount - fee,
-    feeBps, counterparty,
+    feeBps: total, counterparty,
+    beneficiary: extra.beneficiary,
+    payout: extra.payout,
   };
 }
 

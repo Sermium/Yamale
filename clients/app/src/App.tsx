@@ -1503,6 +1503,23 @@ function Exchange({ signer }: { signer: Signer }) {
  * going, how much, and then — the part that actually matters to somebody with
  * no bank — who near me will hand it over.
  */
+/**
+ * Payout methods in the user's own words.
+ *
+ * "momo" is what the data says and nobody outside the industry would recognise
+ * it, so the translation happens here rather than in the shop records — the
+ * records stay machine-readable and the screen stays readable.
+ */
+function methodName(method: string): string {
+  switch (method) {
+    case 'cash': return t('app.methodCash');
+    case 'card': return t('app.methodCard');
+    case 'bank': return t('app.methodBank');
+    case 'momo': return t('app.methodMomo');
+    default: return method;
+  }
+}
+
 function Remittance({ signer }: { signer: Signer }) {
   const [kind, setKind] = useState<ramp.RampKind>('in');
   const [route, setRoute] = useState<ramp.RampRoute>('agent');
@@ -1513,6 +1530,11 @@ function Remittance({ signer }: { signer: Signer }) {
   const [city, setCity] = useState(agents.CITIES[0].name);
   const [locating, setLocating] = useState(false);
   const [chosen, setChosen] = useState<agents.NearbyAgent | null>(null);
+  // Money in can credit somebody else — that is what makes this a remittance
+  // rather than an exchange. Money out always leaves the signer's own account.
+  const [toSelf, setToSelf] = useState(true);
+  const [beneficiary, setBeneficiary] = useState('');
+  const [method, setMethod] = useState<string>('cash');
   const [made, setMade] = useState<ramp.RampRequest | null>(null);
   const [requests, setRequests] = useState<ramp.RampRequest[]>(ramp.saved());
 
@@ -1530,20 +1552,34 @@ function Remittance({ signer }: { signer: Signer }) {
   }, []);
 
   const origin = here ?? agents.CITIES.find((c) => c.name === city) ?? agents.CITIES[0];
-  // Cash currency the agent must hand over: for an off-ramp it is what you
-  // want in your hand; for an on-ramp it is what you are paying in with.
-  const found = agents.nearby(origin.lat, origin.lon, undefined, 8);
+  // Only shops that can actually do this job: they must take the currency being
+  // moved, in either direction. Listing one that cannot wastes a journey.
+  const found = agents.nearby(origin.lat, origin.lon, denom, 8);
+
+  // The payout the beneficiary picked, from the chosen shop's own list. Falls
+  // back to the shop's first so a fee is always shown rather than appearing to
+  // be zero.
+  const payout = kind === 'out' && chosen
+    ? (chosen.payouts.find((x) => x.method === method) ?? chosen.payouts[0])
+    : undefined;
 
   const base = amount ? BigInt(toBaseUnits(amount, denom)) : 0n;
   const feeBps = route === 'agent'
     ? (chosen?.feeBps ?? 100)
     : (ramp.PARTNERS.find((x) => x.id === partner)?.feeBps ?? 100);
   const quote = ramp.quoteRamp(kind, route, denom, base, feeBps,
-    route === 'agent' ? (chosen?.name ?? '—') : (ramp.PARTNERS.find((x) => x.id === partner)?.name ?? '—'));
+    route === 'agent' ? (chosen?.name ?? '—') : (ramp.PARTNERS.find((x) => x.id === partner)?.name ?? '—'),
+    {
+      beneficiary: kind === 'in' && !toSelf ? beneficiary.trim() : undefined,
+      payout: payout ? { fiat: payout.fiat, method: payout.method, feeBps: payout.feeBps } : undefined,
+    });
 
   function create() {
     if (base <= 0n) return;
     if (route === 'agent' && !chosen) return;
+    // A named beneficiary with nothing in the box would credit nobody, and the
+    // failure would show up as money that never arrived.
+    if (kind === 'in' && !toSelf && !beneficiary.trim()) return;
     const req = ramp.newRequest(quote);
     ramp.save(req);
     setMade(req);
@@ -1602,6 +1638,32 @@ function Remittance({ signer }: { signer: Signer }) {
         </label>
       </div>
 
+      {kind === 'in' ? (
+        <>
+          <h3 className="screen__subtitle">{t('app.landsIn')}</h3>
+          <div className="row-actions">
+            <button type="button" className={toSelf ? 'primary' : 'ghost'}
+                    onClick={() => setToSelf(true)}>{t('app.myAccount')}</button>
+            <button type="button" className={!toSelf ? 'primary' : 'ghost'}
+                    onClick={() => setToSelf(false)}>{t('app.someoneElse')}</button>
+          </div>
+          {!toSelf && (
+            <>
+              <div className="form">
+                <label>
+                  <span>{t('app.beneficiaryId')}</span>
+                  <input value={beneficiary} autoCapitalize="characters" spellCheck={false}
+                         onChange={(e) => setBeneficiary(e.target.value)} />
+                </label>
+              </div>
+              <p className="muted small-note">{t('app.beneficiaryHint')}</p>
+            </>
+          )}
+        </>
+      ) : (
+        <p className="muted small-note">{t('app.fromYourAccount')}</p>
+      )}
+
       <h3 className="screen__subtitle">{t('app.howToSettle')}</h3>
       <div className="row-actions">
         <button type="button" className={route === 'agent' ? 'primary' : 'ghost'}
@@ -1652,8 +1714,15 @@ function Remittance({ signer }: { signer: Signer }) {
                 <span className="tag">{a.km < 1 ? `${Math.round(a.km * 1000)} m` : `${a.km.toFixed(1)} km`}</span>
                 <div className="muted small-note">{a.address}, {a.city}</div>
                 <div className="muted small-note">
-                  {t('app.agentPays')}: {a.cash.map((d) => currencyOf(d)?.code).filter(Boolean).join(', ')}
-                  {' · '}{(a.feeBps / 100).toFixed(2)}%
+                  {t('app.agentAccepts')}: {a.accepts.map((d) => currencyOf(d)?.code ?? d).join(', ')}
+                </div>
+                <div className="muted small-note">
+                  {t('app.agentPaysOut')}: {a.payouts.map((x) =>
+                    `${x.fiat} ${methodName(x.method)}${x.feeBps ? ` +${(x.feeBps / 100).toFixed(2)}%` : ''}`
+                  ).join(' · ')}
+                </div>
+                <div className="muted small-note">
+                  {t('app.shopFee')} {(a.feeBps / 100).toFixed(2)}%
                   {' · '}{a.settlements.toLocaleString()} {t('app.settlements')}
                 </div>
                 <div className="muted small-note">{a.hours} · {a.phone}</div>
@@ -1661,6 +1730,26 @@ function Remittance({ signer }: { signer: Signer }) {
             ))}
           </ul>
         </>
+      )}
+
+      {kind === 'out' && route === 'agent' && chosen && chosen.payouts.length > 1 && (
+        <div className="form">
+          <label>
+            <span>{t('app.howTheyTakeIt')}</span>
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              {chosen.payouts.map((x) => (
+                <option key={x.method + x.fiat} value={x.method}>
+                  {x.fiat} — {methodName(x.method)}
+                  {x.feeBps ? ` +${(x.feeBps / 100).toFixed(2)}%` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {route === 'agent' && found.length === 0 && (
+        <p className="muted small-note">{t('app.noShopForThat')}</p>
       )}
 
       {base > 0n && (route === 'partner' || chosen) && (
@@ -1672,6 +1761,14 @@ function Remittance({ signer }: { signer: Signer }) {
                  <span>−{display(quote.fee.toString(), denom)}</span></div>
             <div className="ledger__total"><span>{t('app.netAmount')}</span>
                  <span>{display(quote.net.toString(), denom)}</span></div>
+            {kind === 'in' && (
+              <div><span>{t('app.landsIn')}</span>
+                   <span>{quote.beneficiary || t('app.myAccount')}</span></div>
+            )}
+            {quote.payout && (
+              <div><span>{t('app.howTheyTakeIt')}</span>
+                   <span>{quote.payout.fiat} · {methodName(quote.payout.method)}</span></div>
+            )}
           </div>
           <button type="button" className="primary" onClick={create}>{t('app.requestRamp')}</button>
         </>
