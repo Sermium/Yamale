@@ -1510,6 +1510,17 @@ function Exchange({ signer }: { signer: Signer }) {
  * it, so the translation happens here rather than in the shop records — the
  * records stay machine-readable and the screen stays readable.
  */
+/**
+ * An address, short enough to read but long enough to compare.
+ *
+ * Both ends, never a prefix alone: addresses on this chain share their first
+ * four characters, so "yml1abcd…" tells a reader nothing about which account
+ * they are looking at. The tail is where the difference is.
+ */
+function shortId(address: string): string {
+  return address.length > 16 ? `${address.slice(0, 10)}…${address.slice(-6)}` : address;
+}
+
 function methodName(method: string): string {
   switch (method) {
     case 'cash': return t('app.methodCash');
@@ -1574,15 +1585,60 @@ function Remittance({ signer }: { signer: Signer }) {
       payout: payout ? { fiat: payout.fiat, method: payout.method, feeBps: payout.feeBps } : undefined,
     });
 
-  function create() {
-    if (base <= 0n) return;
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState('');
+
+  // A shop with no account cannot be paid through an escrow. Said here rather
+  // than discovered at the signing step, where it would surface as something
+  // about an invalid address.
+  const unregistered = route === 'agent' && !!chosen && !chosen.account;
+
+  async function create() {
+    if (base <= 0n || busy) return;
     if (route === 'agent' && !chosen) return;
     // A named beneficiary with nothing in the box would credit nobody, and the
     // failure would show up as money that never arrived.
     if (kind === 'in' && !toSelf && !beneficiary.trim()) return;
+
+    setFailed('');
     const req = ramp.newRequest(quote);
+
+    // Money out is the direction this app can commit: the customer holds the
+    // tokens, so the customer locks them. Money in is the shop's to lock, and
+    // the app's job there is to verify rather than to sign — see depositorSide.
+    if (kind === 'out' && route === 'agent' && chosen?.account) {
+      setBusy(true);
+      const res = await chain.openEscrow(
+        signer, chosen.account, chosen.moderator || chosen.account,
+        base.toString(), denom, `ramp ${req.reference}`,
+      );
+      setBusy(false);
+      if (!res.ok) { setFailed(t('app.escrowFailed')); return; }
+      req.status = 'locked';
+    }
+
     ramp.save(req);
     setMade(req);
+    setRequests(ramp.saved());
+  }
+
+  async function release(r: ramp.RampRequest) {
+    if (!r.lockId || busy) return;
+    setBusy(true);
+    const res = await chain.releaseEscrow(signer, r.lockId);
+    setBusy(false);
+    if (!res.ok) { setFailed(t('app.escrowFailed')); return; }
+    ramp.updateStatus(r.id, 'settled');
+    setRequests(ramp.saved());
+  }
+
+  async function raiseCase(r: ramp.RampRequest) {
+    if (!r.lockId || busy) return;
+    setBusy(true);
+    const res = await chain.disputeEscrow(signer, r.lockId, `ramp ${r.reference}`);
+    setBusy(false);
+    if (!res.ok) { setFailed(t('app.escrowFailed')); return; }
+    ramp.updateStatus(r.id, 'disputed');
     setRequests(ramp.saved());
   }
 
@@ -1752,6 +1808,19 @@ function Remittance({ signer }: { signer: Signer }) {
         <p className="muted small-note">{t('app.noShopForThat')}</p>
       )}
 
+      {route === 'agent' && chosen && (
+        <p className="muted small-note">
+          {ramp.depositorSide(kind) === 'customer'
+            ? t('app.youLockFirst')
+            : t('app.shopLocksFirst')}
+          {chosen.moderator ? ` ${t('app.moderatedBy')} ${shortId(chosen.moderator)}.` : ''}
+        </p>
+      )}
+
+      {unregistered && <p className="muted small-note">{t('app.shopNotRegistered')}</p>}
+
+      {failed && <p className="error-note">{failed}</p>}
+
       {base > 0n && (route === 'partner' || chosen) && (
         <>
           <div className="ledger">
@@ -1770,7 +1839,12 @@ function Remittance({ signer }: { signer: Signer }) {
                    <span>{quote.payout.fiat} · {methodName(quote.payout.method)}</span></div>
             )}
           </div>
-          <button type="button" className="primary" onClick={create}>{t('app.requestRamp')}</button>
+          <button type="button" className="primary" disabled={busy || unregistered}
+                  onClick={create}>
+            {busy ? t('app.working')
+              : ramp.depositorSide(kind) === 'customer' ? t('app.lockAndRequest')
+              : t('app.requestRamp')}
+          </button>
         </>
       )}
 
@@ -1782,6 +1856,16 @@ function Remittance({ signer }: { signer: Signer }) {
               <li key={r.id} className="card">
                 <strong>{r.reference}</strong>
                 <span className="tag">{r.kind === 'in' ? t('app.moneyIn') : t('app.moneyOut')}</span>
+                {r.status === 'locked' && <span className="tag">{t('app.heldInEscrow')}</span>}
+                {r.status === 'disputed' && <span className="tag">{t('app.underReview')}</span>}
+                {r.status === 'locked' && r.lockId && r.kind === 'out' && (
+                  <div className="row-actions">
+                    <button type="button" className="primary" disabled={busy}
+                            onClick={() => release(r)}>{t('app.cashReceived')}</button>
+                    <button type="button" className="ghost" disabled={busy}
+                            onClick={() => raiseCase(r)}>{t('app.raiseCase')}</button>
+                  </div>
+                )}
                 <div className="muted small-note">
                   {display(r.net.toString(), r.denom)} · {r.counterparty}
                 </div>

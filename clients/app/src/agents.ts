@@ -58,6 +58,20 @@ export interface Agent {
   payouts: Payout[];
   /** What the agent charges, in basis points of the amount. */
   feeBps: number;
+  /**
+   * The shop's own account on the chain, and who decides if the settlement goes
+   * wrong.
+   *
+   * Both empty for a shop that has not registered. That is not a placeholder to
+   * be filled in silently later — an unregistered shop cannot be paid through an
+   * escrow, so the app must say so rather than failing at the signing step with
+   * something about an invalid address.
+   *
+   * The moderator is shown **before** anything is committed, deliberately. You
+   * should know who would judge a dispute before you sign, not after.
+   */
+  account: string;
+  moderator: string;
   /** Ceiling per settlement, in whole units of the payout fiat. */
   maxPayout: number;
   /** Completed settlements — the only reputation that costs something to fake. */
@@ -72,6 +86,7 @@ export const AGENTS: Agent[] = [
     city: 'Dakar', country: 'Senegal', lat: 14.6737, lon: -17.4381,
     accepts: ['uusdc', 'ueurc'], feeBps: 100, maxPayout: 500000, settlements: 1284,
     payouts: [{ fiat: 'XOF', method: 'cash', feeBps: 0 }, { fiat: 'XOF', method: 'momo', feeBps: 40 }],
+    account: 'yml1nls726x7n7ucd8a6ku0ykdp20c0dl6de5zd782', moderator: 'yml1zqn5c7gwlqr6wk34w5af2hc53vzjkjf9ag3knh',
     hours: '08:00–20:00', phone: '+221 77 000 0001',
   },
   {
@@ -79,6 +94,7 @@ export const AGENTS: Agent[] = [
     city: 'Dakar', country: 'Senegal', lat: 14.6690, lon: -17.4370,
     accepts: ['uusdc', 'ueurc', 'uyml'], feeBps: 120, maxPayout: 300000, settlements: 412,
     payouts: [{ fiat: 'XOF', method: 'cash', feeBps: 0 }, { fiat: 'XOF', method: 'bank', feeBps: 60 }],
+    account: '', moderator: '',
     hours: '09:00–19:00', phone: '+221 77 000 0002',
   },
   {
@@ -86,6 +102,7 @@ export const AGENTS: Agent[] = [
     city: 'Abidjan', country: "Côte d'Ivoire", lat: 5.3600, lon: -3.9900,
     accepts: ['uusdc', 'ueurc'], feeBps: 90, maxPayout: 750000, settlements: 2301,
     payouts: [{ fiat: 'XOF', method: 'cash', feeBps: 0 }, { fiat: 'XOF', method: 'momo', feeBps: 35 }],
+    account: '', moderator: '',
     hours: '07:30–21:00', phone: '+225 07 000 0003',
   },
   {
@@ -93,6 +110,7 @@ export const AGENTS: Agent[] = [
     city: 'Lagos', country: 'Nigeria', lat: 6.4281, lon: 3.4219,
     accepts: ['uusdc', 'ueurc', 'uyml'], feeBps: 110, maxPayout: 2000000, settlements: 3980,
     payouts: [{ fiat: 'NGN', method: 'cash', feeBps: 0 }, { fiat: 'NGN', method: 'bank', feeBps: 50 }, { fiat: 'NGN', method: 'card', feeBps: 150 }],
+    account: 'yml1qramsgg8hdk9gyq0kuutq9n6yxlmgme06cyyh2', moderator: 'yml1zqn5c7gwlqr6wk34w5af2hc53vzjkjf9ag3knh',
     hours: '08:00–22:00', phone: '+234 802 000 0004',
   },
   {
@@ -100,6 +118,7 @@ export const AGENTS: Agent[] = [
     city: 'Lagos', country: 'Nigeria', lat: 6.6018, lon: 3.3515,
     accepts: ['uusdc'], feeBps: 130, maxPayout: 1000000, settlements: 1567,
     payouts: [{ fiat: 'NGN', method: 'cash', feeBps: 0 }, { fiat: 'NGN', method: 'momo', feeBps: 45 }],
+    account: '', moderator: '',
     hours: '09:00–18:00', phone: '+234 802 000 0005',
   },
   {
@@ -107,6 +126,7 @@ export const AGENTS: Agent[] = [
     city: 'Nairobi', country: 'Kenya', lat: -1.2670, lon: 36.8060,
     accepts: ['uusdc', 'ueurc'], feeBps: 100, maxPayout: 200000, settlements: 2745,
     payouts: [{ fiat: 'KES', method: 'cash', feeBps: 0 }, { fiat: 'KES', method: 'momo', feeBps: 30 }],
+    account: '', moderator: '',
     hours: '07:00–21:00', phone: '+254 700 000 006',
   },
   {
@@ -114,6 +134,7 @@ export const AGENTS: Agent[] = [
     city: 'Nairobi', country: 'Kenya', lat: -1.3130, lon: 36.7830,
     accepts: ['uusdc'], feeBps: 80, maxPayout: 100000, settlements: 5120,
     payouts: [{ fiat: 'KES', method: 'momo', feeBps: 25 }],
+    account: '', moderator: '',
     hours: '06:00–20:00', phone: '+254 700 000 007',
   },
   {
@@ -121,6 +142,7 @@ export const AGENTS: Agent[] = [
     city: 'Accra', country: 'Ghana', lat: 5.5560, lon: -0.1820,
     accepts: ['uusdc', 'ueurc'], feeBps: 95, maxPayout: 50000, settlements: 1893,
     payouts: [{ fiat: 'GHS', method: 'cash', feeBps: 0 }, { fiat: 'GHS', method: 'momo', feeBps: 40 }],
+    account: '', moderator: '',
     hours: '08:00–20:00', phone: '+233 24 000 0008',
   },
   {
@@ -128,6 +150,7 @@ export const AGENTS: Agent[] = [
     city: 'Johannesburg', country: 'South Africa', lat: -26.2050, lon: 28.0600,
     accepts: ['uusdc', 'ueurc', 'uyml'], feeBps: 85, maxPayout: 40000, settlements: 3211,
     payouts: [{ fiat: 'ZAR', method: 'cash', feeBps: 0 }, { fiat: 'ZAR', method: 'bank', feeBps: 45 }, { fiat: 'ZAR', method: 'card', feeBps: 130 }],
+    account: '', moderator: '',
     hours: '08:30–18:00', phone: '+27 82 000 0009',
   },
   {
@@ -135,6 +158,7 @@ export const AGENTS: Agent[] = [
     city: 'Cairo', country: 'Egypt', lat: 30.0600, lon: 31.2200,
     accepts: ['ueurc', 'uusdc'], feeBps: 105, maxPayout: 100000, settlements: 2088,
     payouts: [{ fiat: 'EGP', method: 'cash', feeBps: 0 }, { fiat: 'EGP', method: 'card', feeBps: 140 }],
+    account: '', moderator: '',
     hours: '09:00–22:00', phone: '+20 100 000 0010',
   },
   {
@@ -142,6 +166,7 @@ export const AGENTS: Agent[] = [
     city: 'Casablanca', country: 'Morocco', lat: 33.5890, lon: -7.6320,
     accepts: ['ueurc', 'uusdc'], feeBps: 90, maxPayout: 30000, settlements: 1420,
     payouts: [{ fiat: 'MAD', method: 'cash', feeBps: 0 }, { fiat: 'MAD', method: 'bank', feeBps: 55 }],
+    account: '', moderator: '',
     hours: '08:00–21:00', phone: '+212 6 00 000 011',
   },
   {
@@ -149,6 +174,7 @@ export const AGENTS: Agent[] = [
     city: 'Kampala', country: 'Uganda', lat: 0.3170, lon: 32.5800,
     accepts: ['uusdc'], feeBps: 115, maxPayout: 5000000, settlements: 967,
     payouts: [{ fiat: 'UGX', method: 'cash', feeBps: 0 }, { fiat: 'UGX', method: 'momo', feeBps: 35 }],
+    account: '', moderator: '',
     hours: '07:00–19:00', phone: '+256 77 000 0012',
   },
 ];

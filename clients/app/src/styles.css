@@ -587,3 +587,17 @@ body { display: block; padding: 0; }
   }
   .phone__notch { display: none; }
 }
+
+/* An inline failure, next to the thing that failed.
+
+   Not a toast: a toast disappears while the person is still reading it, and the
+   failures here are ones somebody has to act on — a shop that could not be paid,
+   an escrow that did not open. It stays until the state changes. */
+.error-note {
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}

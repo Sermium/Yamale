@@ -9,6 +9,15 @@
 import { register } from './i18n';
 
 export const en = {
+  'app.youLockFirst': "You lock the money first. The shop can see it is committed, then hands over the cash, then you release it.",
+  'app.shopLocksFirst': "The shop locks the money first. Do not hand over any cash until you can see it is committed.",
+  'app.moderatedBy': "A dispute is decided by",
+  'app.shopNotRegistered': "This shop has no account on the chain yet, so it cannot be paid through an escrow.",
+  'app.heldInEscrow': "Held in escrow",
+  'app.underReview': "Under review",
+  'app.cashReceived': "I have the cash — release",
+  'app.raiseCase': "Raise a case",
+  'app.lockAndRequest': "Lock the money and request",
   'app.agentAccepts': "Accepts",
   'app.agentPaysOut': "Pays out",
   'app.landsIn': "Lands in",
@@ -459,6 +468,15 @@ export const en = {
 };
 
 export const fr = {
+  'app.youLockFirst': "Vous bloquez l'argent d'abord. La boutique voit qu'il est engagé, remet les espèces, puis vous le libérez.",
+  'app.shopLocksFirst': "La boutique bloque l'argent d'abord. Ne remettez aucune espèce avant de voir qu'il est engagé.",
+  'app.moderatedBy': "Un litige est tranché par",
+  'app.shopNotRegistered': "Cette boutique n'a pas encore de compte sur la chaîne : elle ne peut pas être payée par séquestre.",
+  'app.heldInEscrow': "Sous séquestre",
+  'app.underReview': "En examen",
+  'app.cashReceived': "J'ai les espèces — libérer",
+  'app.raiseCase': "Ouvrir un litige",
+  'app.lockAndRequest': "Bloquer l'argent et demander",
   'app.agentAccepts': "Accepte",
   'app.agentPaysOut': "Verse",
   'app.landsIn': "Arrive sur",
@@ -905,6 +923,15 @@ export const fr = {
 };
 
 export const pt = {
+  'app.youLockFirst': "Você bloqueia o dinheiro primeiro. A loja vê que está comprometido, entrega o dinheiro, e então você libera.",
+  'app.shopLocksFirst': "A loja bloqueia o dinheiro primeiro. Não entregue dinheiro antes de ver que está comprometido.",
+  'app.moderatedBy': "Uma disputa é decidida por",
+  'app.shopNotRegistered': "Esta loja ainda não tem conta na cadeia, por isso não pode ser paga por caução.",
+  'app.heldInEscrow': "Em caução",
+  'app.underReview': "Em análise",
+  'app.cashReceived': "Tenho o dinheiro — libertar",
+  'app.raiseCase': "Abrir um caso",
+  'app.lockAndRequest': "Bloquear o dinheiro e pedir",
   'app.agentAccepts': "Aceita",
   'app.agentPaysOut': "Paga",
   'app.landsIn': "Entra em",
@@ -1351,6 +1378,15 @@ export const pt = {
 };
 
 export const sw = {
+  'app.youLockFirst': "Wewe unafunga fedha kwanza. Duka linaona zimewekwa, linakupa fedha taslimu, kisha unaziachia.",
+  'app.shopLocksFirst': "Duka linafunga fedha kwanza. Usitoe fedha taslimu kabla ya kuona zimewekwa.",
+  'app.moderatedBy': "Mzozo huamuliwa na",
+  'app.shopNotRegistered': "Duka hili bado hakuna akaunti kwenye mnyororo, kwa hiyo haliwezi kulipwa kwa dhamana.",
+  'app.heldInEscrow': "Imewekwa dhamana",
+  'app.underReview': "Inachunguzwa",
+  'app.cashReceived': "Nimepata fedha — achia",
+  'app.raiseCase': "Fungua kesi",
+  'app.lockAndRequest': "Funga fedha na omba",
   'app.agentAccepts': "Inakubali",
   'app.agentPaysOut': "Hulipa",
   'app.landsIn': "Inaingia kwenye",
@@ -1799,6 +1835,15 @@ export const sw = {
 // Arabic drives the right-to-left path. Every logical property in the
 // stylesheets exists for this locale.
 export const ar = {
+  'app.youLockFirst': "أنت تجمّد المال أولاً. يرى المتجر أنه محجوز، ثم يسلّم النقد، ثم تفرج عنه.",
+  'app.shopLocksFirst': "المتجر يجمّد المال أولاً. لا تسلّم أي نقد قبل أن ترى أنه محجوز.",
+  'app.moderatedBy': "يفصل في النزاع",
+  'app.shopNotRegistered': "هذا المتجر ليس له حساب على السلسلة بعد، فلا يمكن الدفع له عبر الضمان.",
+  'app.heldInEscrow': "محتجز في الضمان",
+  'app.underReview': "قيد المراجعة",
+  'app.cashReceived': "استلمت النقد — أفرج",
+  'app.raiseCase': "افتح نزاعًا",
+  'app.lockAndRequest': "جمّد المال واطلب",
   'app.agentAccepts': "يقبل",
   'app.agentPaysOut': "يصرف",
   'app.landsIn': "يصل إلى",
