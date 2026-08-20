@@ -101,14 +101,31 @@ func askBack(c *console, s *secret, positions []int) ([]int, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Case-folded and trimmed, because BIP-39 words are lowercase and a
-		// custodian who typed "Abandon" has transcribed the word correctly.
-		// Nothing else is normalised: a phrase is right or it is not.
-		if !bytes.Equal([]byte(strings.ToLower(strings.TrimSpace(answer))), s.word(position)) {
+		if !wordMatches(s, position, answer) {
 			wrong = append(wrong, position)
 		}
 	}
 	return wrong, nil
+}
+
+// wordMatches is the one comparison behind both the terminal check and the web
+// one.
+//
+// Shared rather than reimplemented per front end. A second copy that normalised
+// slightly differently — stripped punctuation, accepted a prefix, folded
+// Unicode — would be a check that passes on a sheet the chain will not accept,
+// and the front end that had the looser copy would be the one nobody tested
+// against a real sheet.
+//
+// Case-folded and trimmed, because BIP-39 words are lowercase and a custodian
+// who typed "Abandon" has transcribed the word correctly. Nothing else is
+// normalised: a phrase is right or it is not.
+func wordMatches(s *secret, position int, answer string) bool {
+	expected := s.word(position)
+	if expected == nil {
+		return false
+	}
+	return bytes.Equal([]byte(strings.ToLower(strings.TrimSpace(answer))), expected)
 }
 
 // verifyTranscription is the whole check: show, clear, ask, repeat until right.

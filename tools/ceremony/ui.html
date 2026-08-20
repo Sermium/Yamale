@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Key ceremony</title>
+<!--
+  The ceremony, as a page.
+
+  One embedded file with no build step and no dependencies, matching the other
+  consoles in this project. Here it is not a convention, it is a requirement: the
+  machine this runs on was imaged this morning, has no network, and is wiped this
+  afternoon. Anything that needed installing could not run.
+
+  Two properties are the page's own responsibility, and both are the opposite of
+  what a web app normally does:
+
+  It stores nothing. No localStorage, no sessionStorage, no IndexedDB, no
+  cookies, not even a remembered language or theme. Progress lives in the server
+  process, which is why /api/state exists and why a reload resumes rather than
+  restarts. A page that kept anything would be the one thing a ceremony must not
+  leave behind.
+
+  It forgets the phrase. Once the custodian says it is written down, the words
+  are removed from the document — not hidden with CSS, not moved off-screen,
+  removed — and the server will not serve them again. The check that follows is
+  read from paper or it is not a check.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --navy:#12253f; --ink:#0b1523; --brass:#a87b3c; --paper:#f6f7f9;
+    --bg:var(--paper); --panel:#fff; --text:var(--ink); --muted:#5c6e88;
+    --border:#e3e7ee; --ok:#0d7a4a; --warn:#a8791b; --bad:#b02a25;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:var(--ink); --panel:var(--navy); --text:#e8eef7; --muted:#8fa4c4;
+      --border:#24405f; --ok:#6fbfa5; --warn:#d2a65e; --bad:#ef8a85;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;
+         padding:1rem 1.4rem;border-bottom:1px solid var(--border)}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  .wrap{max-width:60rem;margin:0 auto;padding:1.4rem}
+  .muted{color:var(--muted)}
+  .small{font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+         padding:1.2rem 1.3rem;margin-bottom:1.1rem}
+  h2{font-size:1.05rem;margin:0 0 .3rem;border-inline-start:3px solid var(--brass);
+     padding-inline-start:.55rem}
+  button{font:inherit;font-weight:600;padding:.6rem 1.1rem;border-radius:10px;
+         border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer}
+  button.secondary{background:transparent;color:var(--text);border-color:var(--border)}
+  button.danger{background:var(--bad);border-color:var(--bad)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.9rem}
+  label{display:block;font-size:.82rem;color:var(--muted);margin:.7rem 0 .2rem}
+  input,textarea{font:inherit;width:100%;padding:.55rem .7rem;border-radius:9px;
+                 border:1px solid var(--border);background:var(--bg);color:var(--text)}
+  textarea{min-height:5rem;resize:vertical}
+  .grid2{display:grid;gap:.6rem 1rem;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .err{background:#fbe9e8;color:#8f211d;border-radius:10px;padding:.75rem .9rem;margin:.8rem 0;
+       white-space:pre-wrap}
+  .good{color:var(--ok);font-weight:600}
+  .bad{color:var(--bad);font-weight:600}
+  @media (prefers-color-scheme: dark){.err{background:#3a1c1b;color:#f2b3af}}
+
+  /* The twenty-four words.
+
+     This is the most important typography in the product. A custodian is
+     reading it once, possibly across a table, possibly without the glasses they
+     would rather not admit to needing, and a word misread here is a backup that
+     fails silently years later. So: large, numbered, generously spaced, and a
+     font stack that keeps l/1/I and 0/O apart. */
+  .phrase{display:grid;gap:.45rem .9rem;margin:1.1rem 0;
+          grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))}
+  .word{display:flex;align-items:baseline;gap:.6rem;padding:.45rem .6rem;
+        border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+  .word__n{font-size:1rem;color:var(--muted);min-width:1.6rem;text-align:right;
+           font-variant-numeric:tabular-nums}
+  .word__w{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+           font-size:1.6rem;font-weight:600;letter-spacing:.01em}
+
+  /* The fingerprint is read aloud over a call, so it is grouped and spaced
+     rather than run together. Five custodians comparing "is that a 1 or an l"
+     is the failure this styling exists to prevent. */
+  .fingerprint{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+               font-size:1.5rem;font-weight:650;letter-spacing:.12em;
+               word-spacing:.4em;padding:.6rem .8rem;border:1px dashed var(--brass);
+               border-radius:10px;display:inline-block;margin:.6rem 0}
+  ol.steps{margin:.4rem 0 0;padding-inline-start:1.3rem}
+  ol.steps li{margin:.3rem 0}
+  ul.plain{list-style:none;margin:.5rem 0 0;padding:0}
+  ul.plain li{padding:.4rem 0;border-top:1px solid var(--border)}
+  .pill{font-size:.75rem;padding:.15rem .5rem;border-radius:999px;
+        border:1px solid var(--border);color:var(--muted)}
+  .banner{border:1px solid var(--warn);border-radius:12px;padding:.9rem 1.1rem;
+          margin-bottom:1.1rem}
+  .banner strong{color:var(--warn)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Key ceremony</h1>
+  <span class="pill mono" id="mode">…</span>
+  <span class="pill" id="progress"></span>
+  <span class="muted small" id="out" style="margin-inline-start:auto"></span>
+</header>
+
+<div class="wrap">
+  <div id="banners"></div>
+  <div id="error"></div>
+  <div id="screen"></div>
+</div>
+
+<script>
+'use strict';
+
+// The token is in the URL this program printed. Held in a variable, never
+// stored: the page is reloaded by the operator, not resumed from disk.
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+let state = null;
+// The words live in this variable and nowhere else. Dropped the moment the
+// custodian says they are written down, before the check is asked.
+let phrase = null;
+let asking = null;
+
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function call(path, body) {
+  const res = await fetch(path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'X-Ceremony-Token': TOKEN, ...(body === undefined ? {} : {'Content-Type':'application/json'}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: 'no-store',
+    credentials: 'omit',
+  });
+  const text = await res.text();
+  let parsed = null;
+  try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { error: text }; }
+  if (!res.ok) {
+    // Verbatim. These sentences are the ceremony's voice at the moment
+    // something is wrong, and rewriting them into "an error occurred" would
+    // hide the one line somebody needs to act on.
+    throw new Error(parsed?.error || `${path} → ${res.status}`);
+  }
+  return parsed;
+}
+
+function showError(err) {
+  el('error').innerHTML = `<div class="err">${esc(err.message || err)}</div>`;
+  el('error').scrollIntoView({ block: 'nearest' });
+}
+const clearError = () => { el('error').innerHTML = ''; };
+
+async function refresh() {
+  state = await call('/api/state');
+  el('mode').textContent = state.mode;
+  el('out').textContent = 'writing public records to ' + state.out;
+  const done = state.committed.length;
+  const want = state.params?.custodians?.length || 0;
+  el('progress').textContent = want ? `custodian ${Math.min(done + (state.current ? 1 : 0), want)} of ${want}` : '';
+  renderBanners();
+  render();
+}
+
+function renderBanners() {
+  const out = [];
+  if (state.rehearsal) {
+    out.push(`<div class="banner"><strong>Rehearsal.</strong> This machine looks like a
+      virtual guest, so a hypervisor operator could snapshot its memory. Keys generated here
+      must never hold value — practise the process, then run the real ceremony on bare metal.
+      Every attestation from this session records the fact.</div>`);
+  }
+  el('banners').innerHTML = out.join('');
+}
+
+// ------------------------------------------------------------------ screens
+
+function render() {
+  if (state.complete) return screenDone();
+  if (!state.preflight_done) return screenPreflight();
+  if (!state.params_set) return screenParams();
+  if (state.current) return screenCustodian();
+  if (state.assembled) return screenAttest();
+  if (state.ready) return screenAssemble();
+  return screenRoster();
+}
+
+async function screenPreflight() {
+  const info = await call('/api/preflight');
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>Before anything is generated</h2>
+      <p class="muted small">Every item is something this program cannot check for itself.
+        An item that is not true is a reason to stop, not a box to leave empty.</p>
+      <p class="small">Binary SHA-256, for the observer to verify with their own tool:</p>
+      <div class="fingerprint">${esc(info.binary_hash || 'unavailable')}</div>
+      <ul class="plain" id="checklist">
+        ${info.checklist.map((c, i) => `<li><label style="display:flex;gap:.6rem;align-items:flex-start;color:var(--text);margin:0">
+          <input type="checkbox" data-id="${esc(c.id)}" data-q="${esc(c.question)}" style="width:auto;margin-top:.35rem">
+          <span>${esc(c.question)}</span></label></li>`).join('')}
+      </ul>
+      ${info.network.length ? `<label>A network was detected: ${info.network.map(f => esc(f.what)).join(', ')}.
+        Say why you are proceeding. This is recorded verbatim.</label>
+        <input id="ack" autocomplete="off">` : ''}
+      ${info.virtual ? `<label style="color:var(--warn)"><input type="checkbox" id="rehearsal" style="width:auto">
+        I accept this is a rehearsal: ${esc(info.virtualisation.map(f => f.what).join(', '))}</label>` : ''}
+      <details class="small" style="margin-top:.9rem">
+        <summary class="muted">What this program could not check (${info.unverifiable.length})</summary>
+        <ul>${info.unverifiable.map(u => `<li>${esc(u)}</li>`).join('')}</ul>
+      </details>
+      <div class="row"><button id="go">Confirmed — continue</button></div>
+    </div>`;
+
+  el('go').onclick = async () => {
+    clearError();
+    const answers = [...document.querySelectorAll('#checklist input')].map(i => ({
+      id: i.dataset.id, question: i.dataset.q, confirmed: i.checked,
+    }));
+    try {
+      await call('/api/preflight', {
+        answers,
+        acknowledgement: el('ack')?.value || '',
+        rehearsal: !!el('rehearsal')?.checked,
+      });
+      await refresh();
+    } catch (e) { showError(e); }
+  };
+}
+
+function screenParams() {
+  const p = state.params || {};
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>What this ceremony is</h2>
+      <p class="muted small">In custodian mode, copy these exactly as the ceremony gave them to
+        you. The fingerprint below must match what every other custodian sees — read it aloud
+        before anyone generates a key.</p>
+      <div class="grid2">
+        <div><label>Ceremony id (blank generates one)</label><input id="p_id" autocomplete="off" value="${esc(p.ceremony_id || '')}"></div>
+        <div><label>Name</label><input id="p_name" autocomplete="off" value="${esc(p.ceremony || '')}" placeholder="yamale-testnet-1 foundation"></div>
+        <div><label>Chain id</label><input id="p_chain" autocomplete="off" value="${esc(p.chain_id || '')}" placeholder="yamale-testnet-1"></div>
+        <div><label>Threshold</label><input id="p_threshold" autocomplete="off" inputmode="numeric" value="${esc(p.threshold || 3)}"></div>
+        <div><label>Policy sequence</label><input id="p_seq" autocomplete="off" inputmode="numeric" value="${esc(p.policy_seq || 1)}"></div>
+        <div><label>Voting period</label><input id="p_voting" autocomplete="off" value="${esc(p.voting_period || '72h')}"></div>
+      </div>
+      <label>Custodians, one per line — the roster, in agreed order</label>
+      <textarea id="p_roster" spellcheck="false" autocomplete="off">${esc((p.custodians || []).join('\n'))}</textarea>
+      <div class="row"><button id="save">Agree these parameters</button></div>
+    </div>`;
+
+  el('save').onclick = async () => {
+    clearError();
+    try {
+      const saved = await call('/api/params', {
+        ceremony_id: el('p_id').value.trim(),
+        ceremony: el('p_name').value.trim(),
+        chain_id: el('p_chain').value.trim(),
+        threshold: Number(el('p_threshold').value),
+        policy_seq: Number(el('p_seq').value),
+        voting_period: el('p_voting').value.trim(),
+        custodians: el('p_roster').value.split('\n').map(s => s.trim()).filter(Boolean),
+      });
+      await refresh();
+      el('screen').insertAdjacentHTML('afterbegin', `<div class="panel">
+        <h2>Read this aloud now</h2>
+        <p class="small">Every custodian must see the same value before generating anything.
+          A custodian whose fingerprint differs is in a different ceremony.</p>
+        <div class="fingerprint">${esc(saved.fingerprint)}</div></div>`);
+    } catch (e) { showError(e); }
+  };
+}
+
+function screenRoster() {
+  const done = new Set(state.committed.map(c => c.name.toLowerCase()));
+  const roster = state.params.custodians || [];
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>Parameters agreed</h2>
+      <p class="small muted">Fingerprint every custodian must have read aloud:</p>
+      <div class="fingerprint">${esc(state.params_fingerprint)}</div>
+    </div>
+    <div class="panel">
+      <h2>Custodians</h2>
+      <ul class="plain">${roster.map(n => `<li>${done.has(n.toLowerCase())
+        ? `<span class="good">✓</span> ${esc(n)}` : `<span class="muted">◦ ${esc(n)}</span>`}</li>`).join('')}</ul>
+      ${state.missing ? `<p class="small muted">Still waiting for ${esc(state.missing)}.</p>` : ''}
+      <label>Generate a key for</label>
+      <input id="who" autocomplete="off" list="roster" placeholder="name exactly as on the roster">
+      <datalist id="roster">${roster.filter(n => !done.has(n.toLowerCase())).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="row">
+        <button id="begin">Begin</button>
+        <button id="import" class="secondary">Import another custodian's submission</button>
+        <button id="drill" class="secondary">Restore drill</button>
+      </div>
+    </div>
+    <div class="panel" id="extra" hidden></div>`;
+
+  el('begin').onclick = async () => {
+    clearError();
+    try { await call('/api/custodian/begin', { name: el('who').value.trim(), index: 0 }); await refresh(); }
+    catch (e) { showError(e); }
+  };
+  el('import').onclick = () => paste('Paste a submission file', async (text) => {
+    await call('/api/submission', JSON.parse(text)); await refresh();
+  });
+  el('drill').onclick = () => drillScreen();
+}
+
+function paste(title, handler) {
+  const extra = el('extra');
+  extra.hidden = false;
+  extra.innerHTML = `<h2>${esc(title)}</h2>
+    <textarea id="pasted" spellcheck="false" autocomplete="off"></textarea>
+    <div class="row"><button id="accept">Accept</button></div>`;
+  el('accept').onclick = async () => {
+    clearError();
+    try { await handler(el('pasted').value); } catch (e) { showError(e); }
+  };
+}
+
+function screenCustodian() {
+  const c = state.current;
+  if (!c.phrase_served) return screenShowPhrase(c);
+  if (phrase) return screenPhraseOnScreen(c);
+  if (!c.verified) return screenVerify(c);
+  return screenCommit(c);
+}
+
+function screenShowPhrase(c) {
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>${esc(c.name)}</h2>
+      <p>The next screen shows twenty-four words, once. They cannot be shown again.</p>
+      <ol class="steps small">
+        <li>Everyone except ${esc(c.name)} looks away from the screen.</li>
+        <li>${esc(c.name)} writes all twenty-four words on their own sheet, in order.</li>
+        <li>The words are removed from this page before the check is asked, so the check is
+          read from the sheet.</li>
+      </ol>
+      <div class="row">
+        <button id="show">Show the phrase</button>
+        <button id="abandon" class="danger secondary">Abandon this key</button>
+      </div>
+    </div>`;
+  el('show').onclick = async () => {
+    clearError();
+    try { const got = await call('/api/custodian/phrase', {}); phrase = got.words; await refresh(); }
+    catch (e) { showError(e); }
+  };
+  el('abandon').onclick = abandon;
+}
+
+function screenPhraseOnScreen(c) {
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>${esc(c.name)} — write these down</h2>
+      <div class="phrase">${phrase.map((w, i) =>
+        `<div class="word"><span class="word__n">${i + 1}</span><span class="word__w">${esc(w)}</span></div>`).join('')}</div>
+      <p class="small muted">Check the order. Check word 24. When the sheet is complete, press
+        below — the words disappear and will not come back.</p>
+      <div class="row">
+        <button id="written">Written down — hide the phrase</button>
+        <button id="abandon" class="danger secondary">Abandon this key</button>
+      </div>
+    </div>`;
+  el('written').onclick = async () => {
+    clearError();
+    try {
+      const got = await call('/api/custodian/written', {});
+      asking = got.positions;
+      // Dropped here, before the check is rendered. The DOM node is replaced by
+      // render(), and this was the only other reference.
+      phrase = null;
+      await refresh();
+    } catch (e) { showError(e); }
+  };
+  el('abandon').onclick = abandon;
+}
+
+function screenVerify(c) {
+  const positions = asking || c.positions || [];
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>${esc(c.name)} — read these back from the sheet</h2>
+      <p class="small muted">Chosen at random, so nobody can learn which words to write
+        carefully. Read them off the paper, not from memory.</p>
+      <div class="grid2">${positions.map(p => `<div><label>word ${p}</label>
+        <input class="answer mono" data-p="${p}" autocomplete="off" spellcheck="false" autocapitalize="off"></div>`).join('')}</div>
+      <div class="row">
+        <button id="check">Check the sheet</button>
+        <button id="abandon" class="danger secondary">Abandon this key</button>
+      </div>
+      <div id="verdict"></div>
+    </div>`;
+  el('check').onclick = async () => {
+    clearError();
+    const answers = {};
+    document.querySelectorAll('.answer').forEach(i => { answers[i.dataset.p] = i.value; });
+    try {
+      const got = await call('/api/custodian/verify', { answers });
+      if (got.verified) { await refresh(); return; }
+      el('verdict').innerHTML = `<div class="err">The sheet disagrees at word${got.wrong.length > 1 ? 's' : ''} ${got.wrong.join(', ')}.
+Correct the sheet against nothing — you cannot see the phrase again. If the sheet cannot be
+made right, abandon this key and generate another.</div>`;
+    } catch (e) { showError(e); }
+  };
+  el('abandon').onclick = abandon;
+}
+
+function screenCommit(c) {
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>${esc(c.name)} — the sheet is verified</h2>
+      <p class="small">Recording the public half. The phrase is destroyed as this happens, and
+        no private key is kept by this program.</p>
+      <div class="row"><button id="commit">Record the public half</button></div>
+    </div>`;
+  el('commit').onclick = async () => {
+    clearError();
+    try {
+      const got = await call('/api/custodian/commit', {});
+      asking = null;
+      await refresh();
+      el('screen').insertAdjacentHTML('afterbegin', `<div class="panel">
+        <h2>${esc(got.identity.name)} — public record</h2>
+        <p class="small">Write the fingerprint on the sheet, next to the phrase. It is what
+          proves years from now that this envelope holds this key. Read it aloud for the scribe,
+          then seal the sheet and sign across the seal.</p>
+        <div class="fingerprint">${esc(got.identity.fingerprint)}</div>
+        <ul class="plain small">
+          <li>address <span class="mono">${esc(got.identity.address)}</span></li>
+          <li>public record <span class="mono">${esc(got.record_path)}</span></li>
+          <li>submission <span class="mono">${esc(got.submission_path)}</span></li>
+        </ul></div>`);
+    } catch (e) { showError(e); }
+  };
+}
+
+async function abandon() {
+  clearError();
+  const reason = prompt('Why is this key being destroyed? It goes on the ceremony record.') ?? '';
+  try { phrase = null; asking = null; await call('/api/custodian/abandon', { reason }); await refresh(); }
+  catch (e) { showError(e); }
+}
+
+function drillScreen() {
+  const extra = el('extra');
+  extra.hidden = false;
+  extra.innerHTML = `<h2>Restore drill</h2>
+    <p class="small muted">Type the phrase from the sheet. Nothing is written to this machine.
+      A backup nobody has tested is not a backup.</p>
+    <label>Phrase</label><textarea id="d_phrase" spellcheck="false" autocomplete="off"></textarea>
+    <label>Address it should produce</label><input id="d_expect" class="mono" autocomplete="off">
+    <div class="row"><button id="d_go">Check the paper</button></div><div id="d_out"></div>`;
+  el('d_go').onclick = async () => {
+    clearError();
+    try {
+      const got = await call('/api/restore', { phrase: el('d_phrase').value, expect: el('d_expect').value.trim(), index: 0 });
+      el('d_phrase').value = '';
+      el('d_out').innerHTML = got.matches
+        ? `<p class="good">The paper works. Address ${esc(got.address)}, fingerprint ${esc(got.fingerprint)}.</p>
+           <p class="small muted">${esc(got.advice)}</p>`
+        : `<div class="err">THE SHEET IS WRONG. It produces ${esc(got.address)}.
+${esc(got.advice)}</div>`;
+      await refresh();
+    } catch (e) { showError(e); }
+  };
+}
+
+function screenAssemble() {
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>Every submission is present</h2>
+      <p class="small muted">This machine now computes the group itself. Nobody assembles it on
+        anyone's behalf — every instance runs the same calculation over the same submissions and
+        gets the same bytes, which is why the fingerprint can be compared rather than trusted.</p>
+      <div class="row"><button id="assemble">Compute the group</button></div>
+    </div>`;
+  el('assemble').onclick = async () => {
+    clearError();
+    try {
+      const got = await call('/api/assemble', {});
+      await refresh();
+      el('screen').insertAdjacentHTML('afterbegin', `<div class="panel">
+        <h2>Read this to every custodian, by voice</h2>
+        <p class="small">If any custodian sees a different value, stop. Someone has been shown a
+          different set of keys, and that is exactly what this step exists to catch.</p>
+        <div class="fingerprint">${esc(got.read_aloud)}</div>
+        <ul class="plain small">
+          <li>policy address <span class="mono">${esc(got.assembled.policy_address)}</span></li>
+          <li>group document <span class="mono">${esc(got.path)}</span></li>
+          <li>genesis fragment <span class="mono">${esc(got.genesis_path)}</span></li>
+        </ul>
+        ${got.own_presence ? `<div class="err">${esc(got.own_presence)}</div>` : ''}</div>`);
+    } catch (e) { showError(e); }
+  };
+}
+
+function screenAttest() {
+  const a = state.assembled;
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>The group</h2>
+      <div class="fingerprint">${esc(a.fingerprint)}</div>
+      <ul class="plain small">
+        <li>policy address <span class="mono">${esc(a.policy_address)}</span></li>
+        <li>threshold ${esc(a.params.threshold)} of ${esc(a.custodians.length)}</li>
+        ${a.custodians.map(c => `<li>${esc(c.name)} <span class="mono">${esc(c.fingerprint)}</span></li>`).join('')}
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Attest</h2>
+      <p class="small muted">Type your phrase from the sealed sheet. It is re-derived here rather
+        than kept from earlier, which makes this a second check on the paper as it now stands —
+        after it has been written, folded and handled. Nothing is stored.</p>
+      <label>Your name</label><input id="a_name" autocomplete="off" list="attesters">
+      <datalist id="attesters">${state.committed.map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
+      <label>Phrase</label><textarea id="a_phrase" spellcheck="false" autocomplete="off"></textarea>
+      <label style="color:var(--text)"><input type="checkbox" id="a_drill" style="width:auto"> My restore drill passed</label>
+      <label style="color:var(--text)"><input type="checkbox" id="a_seal" style="width:auto"> My sheet is sealed and signed across the seal</label>
+      <div class="row">
+        <button id="attest">Sign my attestation</button>
+        <button id="verify_genesis" class="secondary">Check a genesis file</button>
+        <button id="import_att" class="secondary">Import another attestation</button>
+        <button id="finish" class="secondary">Finish the ceremony</button>
+      </div>
+      <div id="a_out"></div>
+    </div>
+    <div class="panel" id="extra" hidden></div>`;
+
+  el('attest').onclick = async () => {
+    clearError();
+    try {
+      const got = await call('/api/attest', {
+        name: el('a_name').value.trim(),
+        phrase: el('a_phrase').value,
+        index: 0,
+        restore_drill_passed: el('a_drill').checked,
+        envelope_sealed: el('a_seal').checked,
+      });
+      el('a_phrase').value = '';
+      el('a_out').innerHTML = `<p class="good">Signed. Written to <span class="mono">${esc(got.path)}</span>.</p>`;
+      await refresh();
+    } catch (e) { showError(e); }
+  };
+  el('verify_genesis').onclick = () => paste('Paste the genesis file that will launch the chain', async (text) => {
+    const got = await call('/api/genesis', { genesis: JSON.parse(text) });
+    el('extra').insertAdjacentHTML('beforeend',
+      `<p class="good">This genesis carries the group you computed — ${esc(got.fingerprint)}.</p>`);
+  });
+  el('import_att').onclick = () => paste('Paste another custodian\'s attestation', async (text) => {
+    await call('/api/attestation', JSON.parse(text)); await refresh();
+  });
+  el('finish').onclick = async () => {
+    clearError();
+    try { await call('/api/complete', {}); await refresh(); } catch (e) { showError(e); }
+  };
+}
+
+function screenDone() {
+  el('screen').innerHTML = `
+    <div class="panel">
+      <h2>The ceremony is closed</h2>
+      <ol class="steps">
+        <li>Close this window. The temporary browser profile is deleted when the program exits.</li>
+        <li>Power the machine off and wipe it before it leaves the room.</li>
+        <li>Each custodian leaves with their own sealed envelope and nothing else.</li>
+      </ol>
+      <p class="small muted">Every phrase this program held has been overwritten.</p>
+    </div>`;
+}
+
+// A reload resumes from the server rather than from anything this page kept.
+// The one thing it cannot recover is a phrase mid-display, which is correct:
+// that key is abandoned and regenerated.
+refresh().catch(showError);
+</script>
+</body>
+</html>

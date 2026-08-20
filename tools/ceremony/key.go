@@ -202,7 +202,25 @@ type identity struct {
 
 // identityOf assembles the public record for a derived key.
 func identityOf(name string, r role, priv *secp256k1.PrivKey, path string, now time.Time) (identity, error) {
-	pub := priv.PubKey()
+	pub, ok := priv.PubKey().(*secp256k1.PubKey)
+	if !ok {
+		return identity{}, errors.New("the chain's key generator returned an unexpected public key type")
+	}
+	return identityFromPubKey(name, r, pub, path, now)
+}
+
+// identityFromPubKey assembles the same public record from the public half
+// alone.
+//
+// This is what a distributed ceremony's coordinator uses, and the split is the
+// point rather than a convenience: a custodian in another city transmits a
+// public key, and the coordinator DERIVES the address and the fingerprint from
+// it here instead of reading the ones the file claims. A submission whose
+// address field disagreed with its own public key would otherwise put an
+// attacker's address into the group under an honest custodian's name, and every
+// later check — the fingerprint read aloud, the presence check, the record —
+// would agree with the forgery because they all read the same field.
+func identityFromPubKey(name string, r role, pub *secp256k1.PubKey, path string, now time.Time) (identity, error) {
 	addressBytes := pub.Address().Bytes()
 
 	address, err := bech32.ConvertAndEncode(accountPrefix, addressBytes)
@@ -240,23 +258,55 @@ func identityOf(name string, r role, priv *secp256k1.PrivKey, path string, now t
 // as — an address hash or a transaction hash somewhere else.
 const fingerprintDomain = "yamale-ceremony-fingerprint-v1"
 
+// crockford is the alphabet every value this tool expects a person to read
+// aloud or retype is encoded in.
+//
+// Crockford's base32, so the four characters people confuse on paper — I, L, O
+// and U — never appear, and 1/l, 0/O cannot be misread into a different valid
+// value. One encoder rather than one per call site, because a fingerprint and a
+// ceremony id compared across a video call have to be drawn from the same
+// alphabet or "no I, L, O or U" stops being a property anybody can rely on.
+var crockford = base32.NewEncoding("0123456789ABCDEFGHJKMNPQRSTVWXYZ").WithPadding(base32.NoPadding)
+
+// shortDigest is forty bits of a domain-separated digest, in two groups of
+// four: short enough to be read aloud across a room or a call and compared by
+// eye, long enough that two of the five custodians colliding is not a thing
+// that happens.
+func shortDigest(domain string, data []byte) string {
+	sum := sha256.Sum256(append([]byte(domain), data...))
+	encoded := crockford.EncodeToString(sum[:5])
+	return encoded[:4] + "-" + encoded[4:8]
+}
+
+// longDigest is eighty bits in four groups of four, for the two values a
+// hostile relay would try to collide.
+//
+// Forty bits is right for a fingerprint on an envelope, where the threat is a
+// mis-filed sheet rather than an adversary. It is not right for the value five
+// custodians compare over a telephone to detect a substituted group: an attacker
+// who controls the channel can grind candidate submission sets until one
+// produces the fingerprint the honest custodians expect, and 2^40 is hours of
+// GPU time. Eighty bits is not.
+//
+// Grouped in fours with dashes because this value is read aloud over a call that
+// may be bad. Four-character groups are the length people reliably hold in
+// working memory long enough to say them, and the group boundaries mean a
+// listener who loses one group asks for that group again rather than the whole
+// string.
+func longDigest(domain string, data []byte) string {
+	sum := sha256.Sum256(append([]byte(domain), data...))
+	encoded := crockford.EncodeToString(sum[:10])
+	return encoded[0:4] + "-" + encoded[4:8] + "-" + encoded[8:12] + "-" + encoded[12:16]
+}
+
 // fingerprint is the short string a custodian writes on their own sheet.
 //
 // It is what makes a swapped or mis-filed envelope detectable. Five years from
 // now, an envelope labelled "custodian 3" either recovers to a key whose
 // fingerprint matches the one on the ceremony record or it does not, and that
 // check needs no network, no node and nothing anybody has to be trusted about.
-//
-// Crockford's base32 alphabet, so the four characters people confuse on paper —
-// I, L, O, U — never appear, and 1/l, 0/O cannot be misread into a different
-// valid value. Forty bits in two groups of four: short enough to be read aloud
-// across a room and compared by eye, long enough that two of the five
-// custodians colliding is not a thing that happens.
 func fingerprint(pubkey []byte) string {
-	sum := sha256.Sum256(append([]byte(fingerprintDomain), pubkey...))
-	encoder := base32.NewEncoding("0123456789ABCDEFGHJKMNPQRSTVWXYZ").WithPadding(base32.NoPadding)
-	encoded := encoder.EncodeToString(sum[:5])
-	return encoded[:4] + "-" + encoded[4:8]
+	return shortDigest(fingerprintDomain, pubkey)
 }
 
 // describe is the human-readable line the record and the console both use.

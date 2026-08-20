@@ -72,6 +72,8 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
+	case "serve":
+		err = runServe(os.Args[2:])
 	case "preflight":
 		err = runPreflight(os.Args[2:])
 	case "custodian":
@@ -126,6 +128,8 @@ func configureAddresses() {
 func usage() {
 	fmt.Fprint(os.Stderr, `ceremony — generate the keys that control this chain, in a room, on paper
 
+  serve       run the ceremony as a local page, for a room that cannot read a
+              terminal; --mode custodian gives one custodian their own instance
   preflight   check the machine and stop; run this before anything else
   custodian   generate one custodian's key for the foundation group
   validator   generate a validator's OPERATOR key (not its consensus key)
