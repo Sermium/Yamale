@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package blockchain.netting.v1;
+
+import "amino/amino.proto";
+import "blockchain/netting/v1/netting.proto";
+import "blockchain/netting/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// GenesisState defines the netting module's genesis state.
+//
+// Two pieces of the module's state are deliberately absent from it: the locked
+// figure that limits what a participant may owe, and the index from a
+// participant to its obligations. Both are derived in InitGenesis from the
+// records below.
+//
+// The locked figure is the one that matters. It is the collateral check, so a
+// figure imported independently of the positions that justify it would be a
+// number the chain believes over its own records — and the failure that
+// follows is a participant withdrawing reserve it has already committed. Made
+// underivable, that is unrepresentable.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+
+  // cycles is every netting window, open, settled or held.
+  repeated Cycle cycles = 2 [(gogoproto.nullable) = false];
+
+  // obligations is every obligation ever submitted.
+  repeated Obligation obligations = 3 [(gogoproto.nullable) = false];
+
+  // positions is every non-zero net position. A settled cycle keeps its
+  // positions: they are the record of what each participant actually paid or
+  // received, which is what a participant reconciles its own books against.
+  repeated Position positions = 4 [(gogoproto.nullable) = false];
+
+  // reserves is what each participant has prefunded, per currency. The sum of
+  // these must equal what the module account holds, or the chain is claiming
+  // custody of money that is not there.
+  repeated Reserve reserves = 5 [(gogoproto.nullable) = false];
+
+  // current_cycle is the open window. There is always exactly one, written by
+  // InitGenesis in every case including a fresh chain, so that the end blocker
+  // can never read a cycle that was never created.
+  uint64 current_cycle = 6;
+
+  // cycle_count and obligation_count are the next ids to be issued, never the
+  // number issued so far. Neither may be zero: an id of zero is
+  // indistinguishable from an unset field in proto3, and this repository has
+  // been bitten by that three times. A fresh chain starts obligation_count at
+  // 1 and cycle_count at 2, because cycle 1 is the window it opens with.
+  uint64 cycle_count = 7;
+  uint64 obligation_count = 8;
+}

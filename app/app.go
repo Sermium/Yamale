@@ -50,6 +50,7 @@ import (
 	aliasmodulekeeper "yamale/blockchain/x/alias/keeper"
 	constitutionmodulekeeper "yamale/blockchain/x/constitution/keeper"
 	enforcementmodulekeeper "yamale/blockchain/x/enforcement/keeper"
+	nettingmodulekeeper "yamale/blockchain/x/netting/keeper"
 	oraclemodulekeeper "yamale/blockchain/x/oracle/keeper"
 	paymsgmodulekeeper "yamale/blockchain/x/paymsg/keeper"
 	stablecoinmodulekeeper "yamale/blockchain/x/stablecoin/keeper"
@@ -122,6 +123,7 @@ type App struct {
 	EnforcementKeeper  enforcementmodulekeeper.Keeper
 	ConstitutionKeeper constitutionmodulekeeper.Keeper
 	AliasKeeper        aliasmodulekeeper.Keeper
+	NettingKeeper      nettingmodulekeeper.Keeper
 	// GroupKeeper is here only so the ante chain can read the foundation
 	// group's membership. Nothing in this repository writes to it: the group
 	// is created by the genesis file and changed only by its own custodians.
@@ -217,6 +219,7 @@ func New(
 		&app.EnforcementKeeper,
 		&app.ConstitutionKeeper,
 		&app.AliasKeeper,
+		&app.NettingKeeper,
 		&app.GroupKeeper,
 	}, slices.Concat(
 		app.emissionDepinjectOutputs(),

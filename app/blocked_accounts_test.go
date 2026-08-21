@@ -7,6 +7,7 @@ import (
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	nettingtypes "yamale/blockchain/x/netting/types"
 	paymsgtypes "yamale/blockchain/x/paymsg/types"
 	stablecointypes "yamale/blockchain/x/stablecoin/types"
 	treasurytypes "yamale/blockchain/x/treasury/types"
@@ -29,6 +30,11 @@ func TestCustodyModuleAccountsRejectDirectTransfers(t *testing.T) {
 		treasurytypes.ModuleName,
 		stablecointypes.ModuleName,
 		paymsgtypes.ModuleName,
+		// x/netting custodies every participant's settlement reserve, and
+		// discharges a window by moving claims on it. A transfer that arrived
+		// without a reserve record behind it would be money the module can
+		// never allocate to anybody.
+		nettingtypes.ModuleName,
 		authtypes.FeeCollectorName,
 	}
 

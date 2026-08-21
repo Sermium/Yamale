@@ -9,6 +9,8 @@ import (
 	constitutionmoduletypes "yamale/blockchain/x/constitution/types"
 	_ "yamale/blockchain/x/enforcement/module"
 	enforcementmoduletypes "yamale/blockchain/x/enforcement/types"
+	_ "yamale/blockchain/x/netting/module"
+	nettingmoduletypes "yamale/blockchain/x/netting/types"
 	_ "yamale/blockchain/x/oracle/module"
 	oraclemoduletypes "yamale/blockchain/x/oracle/types"
 	_ "yamale/blockchain/x/paymsg/module"
@@ -112,6 +114,12 @@ var (
 		// The treasury holds user deposits in custody and must never be able to
 		// create or destroy value, so it is granted no permissions at all.
 		{Account: treasurymoduletypes.ModuleName},
+		// x/netting custodies the settlement reserves participants prefund and
+		// settles a window by moving claims on that custody between them. It never
+		// mints or burns, so the reserves it records always add up to exactly what
+		// its account holds — an invariant a supervisor can check from outside
+		// without trusting the module's own books at all.
+		{Account: nettingmoduletypes.ModuleName},
 	}, custodyModuleAccPerms, tokenisationModuleAccPerms)
 
 	// blocked account addresses
@@ -138,6 +146,7 @@ var (
 		nft.ModuleName,
 		// Chain modules that hold custody against their own accounting.
 		treasurymoduletypes.ModuleName,
+		nettingmoduletypes.ModuleName,
 	}, custodyBlockedAccounts, tokenisationBlockedAccounts, ammBlockedAccounts, []string{
 		stablecoinmoduletypes.ModuleName,
 		paymsgmoduletypes.ModuleName,
@@ -215,6 +224,14 @@ var (
 			// should not still be carrying weight in a decision to freeze or
 			// seize somebody's assets.
 			[]string{enforcementmoduletypes.ModuleName},
+			// netting closes and settles the payment window last. It reads no
+			// other module's state during settlement and moves no coins — a
+			// window is discharged against reserves this module already
+			// custodies — so nothing before it can change its result and it can
+			// change nothing before it. Placed last so that stays true if a
+			// dependency is ever introduced: the module that depends on
+			// everything is the one whose position is never wrong.
+			[]string{nettingmoduletypes.ModuleName},
 		),
 		// The following is mostly only needed when ModuleName != StoreKey name.
 		OverrideStoreKeys: []*runtimev1alpha1.StoreKeyConfig{
@@ -260,7 +277,7 @@ var (
 			builderfeeInitGenesis,
 			[]string{paymsgmoduletypes.ModuleName},
 			emissionInitGenesis,
-			[]string{treasurymoduletypes.ModuleName, oraclemoduletypes.ModuleName, enforcementmoduletypes.ModuleName, aliasmoduletypes.ModuleName},
+			[]string{treasurymoduletypes.ModuleName, oraclemoduletypes.ModuleName, enforcementmoduletypes.ModuleName, aliasmoduletypes.ModuleName, nettingmoduletypes.ModuleName},
 			custodyInitGenesis,
 			tokenisationInitGenesis,
 			landInitGenesis,
@@ -394,6 +411,9 @@ var (
 		}, {
 			Name:   aliasmoduletypes.ModuleName,
 			Config: appconfig.WrapAny(&aliasmoduletypes.Module{}),
+		}, {
+			Name:   nettingmoduletypes.ModuleName,
+			Config: appconfig.WrapAny(&nettingmoduletypes.Module{}),
 		}}, custodyModuleConfigs, tokenisationModuleConfigs),
 	})
 )

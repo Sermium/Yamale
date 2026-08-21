@@ -40,6 +40,7 @@ import (
 	ammtypes "yamale/blockchain/x/amm/types"
 	builderfeetypes "yamale/blockchain/x/builderfee/types"
 	emissiontypes "yamale/blockchain/x/emission/types"
+	nettingtypes "yamale/blockchain/x/netting/types"
 	paymsgtypes "yamale/blockchain/x/paymsg/types"
 	stablecointypes "yamale/blockchain/x/stablecoin/types"
 	treasurytypes "yamale/blockchain/x/treasury/types"
@@ -53,6 +54,7 @@ var moduleBlurb = map[string]string{
 	"amm":          "A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool's own reserves.",
 	"builderfee":   "Shares a governance-set portion of transaction fees with the developer whose message type was used.",
 	"emission":     "Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply.",
+	"netting":      "The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross.",
 	"paymsg":       "ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry.",
 	"stablecoin":   "Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom.",
 	"treasury":     "Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone.",
@@ -65,6 +67,7 @@ var defaultParams = map[string]any{
 	"amm":          ammtypes.DefaultParams(),
 	"builderfee":   builderfeetypes.DefaultParams(),
 	"emission":     emissiontypes.DefaultParams(),
+	"netting":      nettingtypes.DefaultParams(),
 	"paymsg":       paymsgtypes.DefaultParams(),
 	"stablecoin":   stablecointypes.DefaultParams(),
 	"treasury":     treasurytypes.DefaultParams(),

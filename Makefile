@@ -148,7 +148,7 @@ check-profiles:
 			{ echo "FAIL: x/$$m is missing from the default build"; exit 1; }; \
 	done
 	@echo "--> the modules the settlement profile does carry must still be linked"
-	@for m in paymsg stablecoin treasury oracle enforcement alias validatorgov constitution; do \
+	@for m in paymsg stablecoin treasury oracle enforcement alias netting validatorgov constitution; do \
 		go list -tags settlement -deps ./cmd/$(APPNAME)d | grep -q "yamale/blockchain/x/$$m" || \
 			{ echo "FAIL: x/$$m is missing from the settlement build"; exit 1; }; \
 	done

@@ -50,3 +50,7 @@ docgen.exe
 blockchaind.exe
 .gotmp/
 .devnet/
+# scripts/devnet/netting-demo.sh keeps its chain in its own root rather than
+# .devnet, because both scripts clear their root on startup and one would wipe
+# the other's chain out from under it.
+.devnet-netting/

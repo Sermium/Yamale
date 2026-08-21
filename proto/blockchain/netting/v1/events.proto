@@ -1,0 +1,86 @@
+syntax = "proto3";
+package blockchain.netting.v1;
+
+import "blockchain/netting/v1/netting.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// Events are how a participant's back office learns that a window closed
+// without polling for it. Settlement happens in an end blocker, which belongs
+// to no transaction and therefore returns no receipt to anybody — so the event
+// is the only notification there is.
+
+// EventObligationSubmitted is emitted for every obligation, netted or gross.
+message EventObligationSubmitted {
+  // id, cycle_id and mode identify the obligation and say what became of it.
+  uint64 id = 1;
+  uint64 cycle_id = 2;
+  SettlementMode mode = 3;
+
+  // from_participant, to_participant, denom and amount are the obligation.
+  string from_participant = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to_participant = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 6;
+  string amount = 7 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// EventCycleSettled is emitted once per currency slice that cleared.
+message EventCycleSettled {
+  // cycle_id and denom identify the slice.
+  uint64 cycle_id = 1;
+  string denom = 2;
+
+  // gross_amount is what was submitted and net_amount what had to be funded.
+  // The pair is the compression, published at the moment it was achieved.
+  string gross_amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string net_amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // obligation_count is how many items made up the gross figure, and
+  // participant_count how many institutions held a position in the slice.
+  uint64 obligation_count = 5;
+  uint64 participant_count = 6;
+
+  // retried is set when this slice had been held and cleared on a later
+  // attempt, so a watcher can tell a normal close from a recovery.
+  bool retried = 7;
+}
+
+// EventCycleHeld is emitted when a currency slice is refused and nothing in it
+// moves. It is the loudest thing this module can say: every obligation in the
+// slice is still owed, at its original amount, to its original counterparty,
+// and every participant in it is carrying an exposure past the moment it
+// expected to be discharged.
+message EventCycleHeld {
+  // cycle_id and denom identify the slice, reason says why it was refused.
+  uint64 cycle_id = 1;
+  string denom = 2;
+  string reason = 3;
+}
+
+// EventReserveChanged is emitted when a participant prefunds or withdraws.
+message EventReserveChanged {
+  // participant and denom identify the reserve, amount is the balance after
+  // the change, and deposited says which direction it moved in.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  bool deposited = 4;
+}

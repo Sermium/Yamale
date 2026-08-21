@@ -1655,6 +1655,207 @@
         ]
       }
     },
+    "/yamale/blockchain/netting/v1/cycle/current": {
+      "get": {
+        "operationId": "Query_CurrentCycle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCurrentCycleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/netting/v1/cycle/{id}": {
+      "get": {
+        "operationId": "Query_Cycle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCycleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "id is the cycle number.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/netting/v1/held": {
+      "get": {
+        "operationId": "Query_HeldSlices",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryHeldSlicesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/netting/v1/obligations/{participant}/{cycle_id}": {
+      "get": {
+        "operationId": "Query_ParticipantObligations",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParticipantObligationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "participant",
+            "description": "participant is the institution, on either side of the obligation.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "cycle_id",
+            "description": "cycle_id is the window to look in.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/netting/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/netting/v1/position/{participant}": {
+      "get": {
+        "operationId": "Query_Position",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPositionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "participant",
+            "description": "participant is the institution. It is required: this module has no\nendpoint that walks every participant.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/oracle/v1/appraisal": {
       "get": {
         "operationId": "Query_Appraisal",
@@ -4035,6 +4236,16 @@
         }
       }
     },
+    "CycleStatus": {
+      "type": "string",
+      "enum": [
+        "CYCLE_STATUS_UNSPECIFIED",
+        "CYCLE_STATUS_OPEN",
+        "CYCLE_STATUS_SETTLED",
+        "CYCLE_STATUS_HELD"
+      ],
+      "default": "CYCLE_STATUS_UNSPECIFIED"
+    },
     "Deed": {
       "type": "object",
       "properties": {
@@ -4104,6 +4315,63 @@
           "type": "string"
         }
       }
+    },
+    "DenomCompression": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "compression_bps": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "DenomOutcome": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/DenomStatus"
+        },
+        "gross_amount": {
+          "type": "string"
+        },
+        "net_amount": {
+          "type": "string"
+        },
+        "obligation_count": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "hold_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "DenomPolicy": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "gross_threshold": {
+          "type": "string"
+        }
+      }
+    },
+    "DenomStatus": {
+      "type": "string",
+      "enum": [
+        "DENOM_STATUS_UNSPECIFIED",
+        "DENOM_STATUS_OPEN",
+        "DENOM_STATUS_SETTLED",
+        "DENOM_STATUS_HELD"
+      ],
+      "default": "DENOM_STATUS_UNSPECIFIED"
     },
     "DepositStatus": {
       "type": "string",
@@ -4180,6 +4448,25 @@
           "type": "string"
         },
         "lifted_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "HeldSlice": {
+      "type": "object",
+      "properties": {
+        "cycle_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "held_since_height": {
           "type": "string",
           "format": "int64"
         }
@@ -4338,6 +4625,42 @@
         "windows": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "Obligation": {
+      "type": "object",
+      "properties": {
+        "cycle_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "from_participant": {
+          "type": "string"
+        },
+        "to_participant": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "batch_hash": {
+          "type": "string",
+          "format": "byte"
+        },
+        "mode": {
+          "$ref": "#/definitions/SettlementMode"
+        },
+        "submitted_at_height": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -4511,6 +4834,26 @@
         "swap_fee_bps": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "PositionEntry": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "reserve": {
+          "type": "string"
+        },
+        "locked": {
+          "type": "string"
+        },
+        "available": {
+          "type": "string"
+        },
+        "net_position": {
+          "type": "string"
         }
       }
     },
@@ -4937,6 +5280,33 @@
         }
       }
     },
+    "QueryCurrentCycleResponse": {
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "$ref": "#/definitions/v1.Cycle"
+        },
+        "closes_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "QueryCycleResponse": {
+      "type": "object",
+      "properties": {
+        "cycle": {
+          "$ref": "#/definitions/v1.Cycle"
+        },
+        "compression": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/DenomCompression"
+          }
+        }
+      }
+    },
     "QueryDepositResponse": {
       "type": "object",
       "properties": {
@@ -5171,6 +5541,18 @@
         }
       }
     },
+    "QueryHeldSlicesResponse": {
+      "type": "object",
+      "properties": {
+        "held": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/HeldSlice"
+          }
+        }
+      }
+    },
     "QueryInvariantsResponse": {
       "type": "object",
       "properties": {
@@ -5351,6 +5733,21 @@
         }
       }
     },
+    "QueryParticipantObligationsResponse": {
+      "type": "object",
+      "properties": {
+        "obligations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Obligation"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryPendingOperatorRotationResponse": {
       "type": "object",
       "properties": {
@@ -5389,6 +5786,18 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryPositionResponse": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PositionEntry"
+          }
         }
       }
     },
@@ -5736,6 +6145,15 @@
         }
       }
     },
+    "SettlementMode": {
+      "type": "string",
+      "enum": [
+        "SETTLEMENT_MODE_UNSPECIFIED",
+        "SETTLEMENT_MODE_GROSS",
+        "SETTLEMENT_MODE_NET"
+      ],
+      "default": "SETTLEMENT_MODE_UNSPECIFIED"
+    },
     "SpendPolicy": {
       "type": "object",
       "properties": {
@@ -6059,6 +6477,33 @@
         "parcel_id": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "v1.Cycle": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "opened_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "closed_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/definitions/CycleStatus"
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/DenomOutcome"
+          }
         }
       }
     },

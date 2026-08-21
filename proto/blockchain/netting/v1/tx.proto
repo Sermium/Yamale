@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package blockchain.netting.v1;
+
+import "amino/amino.proto";
+import "blockchain/netting/v1/netting.proto";
+import "blockchain/netting/v1/params.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// Msg defines the Msg service.
+//
+// Four messages, and there is deliberately no fifth. Nothing here can reduce,
+// reassign, cancel or recompute an obligation — not a participant, not the
+// supervisor, not governance. That absence is the module's central safety
+// property, and it is enforced by there being no code that could do it. A
+// settlement system whose administrator can rewrite what was already owed has
+// unwinding risk whatever its documentation says.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // PostReserve prefunds a participant's settlement reserve.
+  rpc PostReserve(MsgPostReserve) returns (MsgPostReserveResponse);
+
+  // WithdrawReserve takes back the part of a reserve that is not committed.
+  rpc WithdrawReserve(MsgWithdrawReserve) returns (MsgWithdrawReserveResponse);
+
+  // SubmitObligation records what one participant owes another.
+  rpc SubmitObligation(MsgSubmitObligation) returns (MsgSubmitObligationResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/netting/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+// MsgPostReserve moves coins from a participant's own balance into the
+// module account, where they become that participant's settlement reserve.
+//
+// The reserve is what makes deferred settlement safe here. A participant may
+// only run a net debit up to what it has already prefunded, so by the time a
+// cycle closes every debit in it is covered by money the chain is already
+// holding. Settlement is then a rearrangement of balances the module already
+// custodies rather than a request to institutions to pay — and a request is
+// the thing that can be refused.
+message MsgPostReserve {
+  option (cosmos.msg.v1.signer) = "participant";
+  option (amino.name) = "blockchain/x/netting/MsgPostReserve";
+
+  // participant is the approved institution posting the reserve, and the only
+  // valid signer.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // amount may name several currencies at once; each is reserved separately,
+  // because netting never crosses currencies.
+  repeated cosmos.base.v1beta1.Coin amount = 2 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins",
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgPostReserveResponse defines the MsgPostReserve response.
+message MsgPostReserveResponse {}
+
+// MsgWithdrawReserve returns reserve to the participant's own balance.
+//
+// Only the uncommitted part can leave. Anything backing a position in a cycle
+// that has not settled stays where it is — otherwise a participant could
+// submit its obligations, withdraw the collateral behind them, and leave its
+// counterparties holding a claim on an empty account, which is the exact
+// failure the reserve exists to make impossible.
+message MsgWithdrawReserve {
+  option (cosmos.msg.v1.signer) = "participant";
+  option (amino.name) = "blockchain/x/netting/MsgWithdrawReserve";
+
+  // participant is the institution withdrawing, and the only valid signer.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // amount is what to withdraw, per currency.
+  repeated cosmos.base.v1beta1.Coin amount = 2 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins",
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgWithdrawReserveResponse defines the MsgWithdrawReserve response.
+message MsgWithdrawReserveResponse {}
+
+// MsgSubmitObligation records what one participant owes another, as the net
+// result of the retail activity it settled on its own books.
+//
+// Whether it nets or settles gross is decided by the chain from the amount and
+// the currency's policy, never by the sender. A participant that could choose
+// would put its largest items into the deferred window, which is precisely
+// backwards: the threshold exists so that the exposures nobody would want
+// deferred are the ones that cannot be.
+message MsgSubmitObligation {
+  option (cosmos.msg.v1.signer) = "from_participant";
+  option (amino.name) = "blockchain/x/netting/MsgSubmitObligation";
+
+  // from_participant owes and signs; to_participant is owed.
+  string from_participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to_participant = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // denom and amount are the currency and the figure owed.
+  string denom = 3;
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // batch_hash is SHA-256 over the salted retail batch this figure summarises.
+  // Required, 32 bytes; see Obligation.batch_hash.
+  bytes batch_hash = 5;
+}
+
+// MsgSubmitObligationResponse tells the sender what became of the obligation.
+//
+// It carries the mode because the sender does not decide it and cannot compute
+// it without reading the parameters: an institution needs to know from the
+// response whether the money has already moved or whether it is now carrying
+// an exposure until the cycle closes.
+message MsgSubmitObligationResponse {
+  // id is the obligation's chain-wide number, cycle_id the window it landed
+  // in, and mode whether it settled gross on the spot or joined the netting.
+  uint64 id = 1;
+  uint64 cycle_id = 2;
+  SettlementMode mode = 3;
+}

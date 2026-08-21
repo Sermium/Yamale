@@ -1,0 +1,215 @@
+syntax = "proto3";
+package blockchain.netting.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// SettlementMode is how one obligation was disposed of.
+enum SettlementMode {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // SETTLEMENT_MODE_UNSPECIFIED is the unset default and is never valid.
+  SETTLEMENT_MODE_UNSPECIFIED = 0;
+
+  // SETTLEMENT_MODE_GROSS means the amount moved between the two participants
+  // in the block the obligation was submitted in, as an ordinary transfer.
+  // Nothing about it is deferred and it takes no part in any cycle's netting.
+  SETTLEMENT_MODE_GROSS = 1;
+
+  // SETTLEMENT_MODE_NET means the obligation joined the open cycle and altered
+  // both participants' running positions. It settles when the cycle closes.
+  SETTLEMENT_MODE_NET = 2;
+}
+
+// CycleStatus is where a netting window has got to.
+enum CycleStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // CYCLE_STATUS_UNSPECIFIED is the unset default and is never valid.
+  CYCLE_STATUS_UNSPECIFIED = 0;
+
+  // CYCLE_STATUS_OPEN is the window obligations are currently joining. Exactly
+  // one cycle is open at a time.
+  CYCLE_STATUS_OPEN = 1;
+
+  // CYCLE_STATUS_SETTLED means every currency in the window cleared.
+  CYCLE_STATUS_SETTLED = 2;
+
+  // CYCLE_STATUS_HELD means at least one currency in the window did not clear
+  // and is waiting to be retried. The obligations in it are untouched and
+  // still owed at their original amounts — see DenomOutcome.hold_reason.
+  CYCLE_STATUS_HELD = 3;
+}
+
+// DenomStatus is the outcome for one currency inside one cycle.
+enum DenomStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // DENOM_STATUS_UNSPECIFIED is the unset default and is never valid.
+  DENOM_STATUS_UNSPECIFIED = 0;
+
+  // DENOM_STATUS_OPEN means the cycle has not closed yet.
+  DENOM_STATUS_OPEN = 1;
+
+  // DENOM_STATUS_SETTLED means every position in this currency was discharged
+  // against the participants' reserves, in one indivisible step.
+  DENOM_STATUS_SETTLED = 2;
+
+  // DENOM_STATUS_HELD means the settlement was refused and nothing moved.
+  DENOM_STATUS_HELD = 3;
+}
+
+// Cycle is one netting window: the period obligations join, and the record of
+// what happened when it closed.
+message Cycle {
+  // id is the cycle number, from 1. Zero is never a cycle, because in proto3
+  // an id of zero is indistinguishable from an unset field and "settled in
+  // cycle 0" would be unreadable to every client that received it.
+  uint64 id = 1;
+
+  // opened_at_height is the first block whose obligations join this cycle, and
+  // closed_at_height the block its end blocker settled it in. closed_at_height
+  // is zero while the cycle is open.
+  int64 opened_at_height = 2;
+  int64 closed_at_height = 3;
+
+  // status is the cycle's outcome, taken from the per-currency outcomes below:
+  // settled only when every one of them settled.
+  CycleStatus status = 4;
+
+  // outcomes carries one entry per currency that saw activity, created when
+  // the first obligation in that currency arrives and completed at close.
+  //
+  // Kept on the cycle rather than in its own store because it is a record
+  // rather than a control: a wrong figure here misreports how much compression
+  // a cycle achieved, and can never let anybody withdraw money they owe.
+  repeated DenomOutcome outcomes = 5 [(gogoproto.nullable) = false];
+}
+
+// DenomOutcome is the per-currency slice of a cycle. Currencies settle
+// independently: there is no cross-currency netting on this chain, because
+// offsetting a euro debit against a naira credit is an FX trade, and an FX
+// trade priced by a settlement system is a position that system is taking.
+message DenomOutcome {
+  // denom is the currency this slice covers.
+  string denom = 1;
+
+  // status is what became of it.
+  DenomStatus status = 2;
+
+  // gross_amount is the sum of every netted obligation submitted in this
+  // currency, and net_amount the sum actually discharged when the cycle
+  // settled. The ratio between them is the compression the cycle achieved, and
+  // it is the number that says whether tiering was worth doing.
+  //
+  // net_amount stays zero while the cycle is open and while it is held.
+  string gross_amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string net_amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // obligation_count is how many netted obligations made up gross_amount.
+  uint64 obligation_count = 5;
+
+  // hold_reason records why a held slice was refused, in words an operator can
+  // act on. Empty unless status is held.
+  string hold_reason = 6;
+}
+
+// Obligation is one participant's admitted debt to another, as submitted.
+//
+// It is an interbank figure, never a customer payment. A participant runs its
+// own retail ledger, matches its customers' instructions there, and submits to
+// this chain only what it owes another institution as a result. That is the
+// whole privacy argument of the tiered design: a customer payment that never
+// reaches the chain cannot be read off it by a competitor bank, and no amount
+// of cryptography is needed to keep a record that was never written.
+message Obligation {
+  // cycle_id is the window this obligation joined. A gross obligation records
+  // the cycle that was open when it settled, so it can be found alongside the
+  // netted ones, but it took no part in that cycle's positions.
+  uint64 cycle_id = 1;
+
+  // id is the obligation number, from 1, unique across the chain.
+  uint64 id = 2;
+
+  // from_participant owes, to_participant is owed. Both must be approved
+  // participants at the moment of submission, and from_participant is the only
+  // valid signer: an institution's debt is not something a third party may
+  // declare on its behalf.
+  string from_participant = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to_participant = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // denom and amount are the currency and the figure owed. Amount is strictly
+  // positive; a negative obligation would be the opposite obligation wearing a
+  // disguise, and would let one participant move another's position.
+  string denom = 5;
+  string amount = 6 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // batch_hash is SHA-256 over the retail batch this figure summarises, held
+  // off-chain by the submitting participant.
+  //
+  // Required, and required at 32 bytes. An obligation with no link to what it
+  // summarises is a number an institution can neither be held to nor reconcile
+  // against, which is exactly the auditability that gets given up when items
+  // stop being recorded individually. This is a new module with no history to
+  // replay, so the rule can be absolute rather than parameterised.
+  //
+  // The batch must carry a random salt before it is hashed, for the same
+  // reason x/paymsg's metadata hash does: a small, guessable payload hashed
+  // without one is not a fingerprint, it is a lookup table.
+  bytes batch_hash = 7;
+
+  // mode is whether this settled gross on submission or joined the netting.
+  SettlementMode mode = 8;
+
+  // submitted_at_height is the block it arrived in.
+  int64 submitted_at_height = 9;
+}
+
+// Position is one participant's running multilateral net position in one
+// currency for one cycle. Negative means the participant owes the system,
+// positive that the system owes it, and the two always sum to zero across
+// every participant in a currency.
+message Position {
+  // cycle_id, denom and participant are the position's identity.
+  uint64 cycle_id = 1;
+  string denom = 2;
+  string participant = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // amount is signed. A position of exactly zero is never stored — it is
+  // removed instead — so that state derived by replaying obligations and state
+  // restored from a genesis file are the same bytes. A zero written where an
+  // import writes nothing is how import and export stop agreeing.
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// Reserve is what a participant has prefunded into the module account, per
+// currency. It is the collateral behind everything it is allowed to owe.
+message Reserve {
+  // participant is the institution that posted it, denom the currency, amount
+  // the balance held on its behalf.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

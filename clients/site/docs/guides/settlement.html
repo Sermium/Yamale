@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netting and settlement — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Netting and settlement</h1>
+<p><strong>You need:</strong> a running chain, an account that is an approved participant in
+<code>x/paymsg</code>, and a currency governance has given a netting policy.</p>
+<p><strong>You get:</strong> an understanding of what the chain settles on your behalf, what it
+never settles, and what to do on the day a window does not clear.</p>
+<p>Every command below was run against
+<a href="../../scripts/devnet/netting-demo.sh"><code>scripts/devnet/netting-demo.sh</code></a>, which
+stands up a four-participant chain and clears a real multilateral cycle. The
+figures quoted are that run&#39;s.</p>
+<hr>
+<h2>What this layer is for</h2>
+<p>The chain does not carry your customers&#39; payments. You match those on your own
+books, and you tell the chain only what the day left you owing another
+institution. That is the whole of the privacy design: a payment that was never
+written to a ledger cannot be read off it by a competitor bank, by a node
+operator, or by whoever compromises either of them in ten years. It is the
+reason confidential amounts were assessed and deferred rather than built — see
+<a href="../scope/confidentiality.html">the confidentiality note</a>.</p>
+<p>What that buys in privacy it owes in risk management, and the rest of this guide
+is that debt being paid.</p>
+<h2>Prefund first, or nothing else works</h2>
+<pre><code class="language-bash">blockchaind tx netting post-reserve $BANK_A 20000000ungn --from bank-a
+</code></pre>
+<p>The coins leave your account and enter the module&#39;s. They are yours — nobody
+else can direct them, and <code>withdraw-reserve</code> brings back whatever is not
+committed — but they are no longer spendable from your own balance, and that is
+the point rather than a side effect. A balance you have merely promised not to
+spend can be spent with an ordinary bank send, and the settlement system would
+find out at the worst possible moment.</p>
+<p><strong>Everything you are allowed to owe is bounded by what you have posted here.</strong>
+That single rule is what makes deferred settlement safe on this chain, and the
+next section is what it prevents.</p>
+<h2>Submitting what you owe</h2>
+<pre><code class="language-bash">blockchaind tx netting submit-obligation $BANK_A $BANK_B ungn 4000000 \
+  --batch-hash $(sha256 of your salted batch) --from bank-a
+</code></pre>
+<p>Three things are worth knowing about the response.</p>
+<p><strong>You do not choose whether it nets.</strong> The chain decides from the amount and the
+currency&#39;s threshold. At or above the threshold it settles gross, in this block,
+out of your own balance — the money is with the counterparty before the
+transaction returns. Below it, the obligation joins the open window. An
+institution that could choose would put its largest items into the deferred
+window, which is exactly backwards.</p>
+<p><strong>The cap is measured on your net position, not on the obligation.</strong> If you are
+owed 900 and you now owe 1000, your exposure is 100 and 100 is what has to be
+collateralised. This is why netting saves liquidity rather than costing it, and
+it is released the moment an offsetting obligation arrives, not at the close:</p>
+<pre><code>bank-a: reserve 20000000  locked 0        available 20000000  net  3400000
+bank-b: reserve 20000000  locked  400000  available 19600000  net  -400000
+bank-d: reserve 20000000  locked 3000000  available 17000000  net -3000000
+</code></pre>
+<p>Four institutions, 39,300,000 of obligations submitted, and the largest amount
+of collateral any of them has tied up is 3,000,000.</p>
+<p><strong>The batch hash is required, and it is required at 32 bytes.</strong> It is the only
+link from an interbank figure back to the items it summarises. Without it,
+tiering trades away auditability as well as throughput, and neither party can
+reconcile the figure months later. Salt the batch before hashing it: a small,
+guessable payload hashed without a salt is not a fingerprint, it is a lookup
+table.</p>
+<h2>What the close looks like</h2>
+<p>The window closes in an end blocker, at the first height divisible by
+<code>cycle_blocks</code>. There is no transaction, so there is no receipt — watch for
+<code>EventCycleSettled</code>, or ask:</p>
+<pre><code class="language-bash">blockchaind query netting cycle 1
+</code></pre>
+<pre><code>status: CYCLE_STATUS_SETTLED   closed at height 60
+ungn: 16 obligations, gross 39300000, net funded 3400000
+compression: 91.34%
+</code></pre>
+<p><strong>Nothing moved between accounts.</strong> Settlement rearranges claims on reserve the
+module already holds. That is what makes it unrefusable: there is no transfer
+for a freeze, a blocked address or a participant whose approval lapsed this
+morning to stop, because nobody is being asked for anything. Your credit lands
+in your reserve, where it funds your own debits in the next window without a
+round trip through your balance. Taking it out is an ordinary withdrawal.</p>
+<p><strong>Currencies settle separately.</strong> There is no cross-currency netting, because
+offsetting a euro debit against a naira credit is an FX trade, and an FX trade
+priced by a settlement system is a position that system is taking.</p>
+<p><strong>Read the compression figure for what it is.</strong> It is the share of submitted
+value that never had to be funded, computed by the chain from its own records —
+and it is a self-reported operational statistic, not an audited one. Two
+participants exchanging offsetting obligations all day raise it while committing
+almost no collateral, which is not an attack so much as a description of what
+netting is. Use it to size liquidity, not to compare institutions.</p>
+<h2>The day a window does not clear</h2>
+<pre><code class="language-bash">blockchaind query netting held
+</code></pre>
+<p>Empty on a healthy chain. Anything in it is money participants expected to have
+settled and do not have.</p>
+<p>A held slice is <strong>not</strong> recomputed, reassigned or cancelled. There is no message
+in this module that can do any of those, deliberately, and the absence is
+enforced by there being no code for it. Every obligation in a held slice is
+still owed, at its original amount, to its original counterparty, and it is
+retried unchanged at every window boundary until it clears. That is what
+avoiding unwinding risk costs: while a slice is stuck, the collateral behind it
+stays committed and the institutions in it are carrying an exposure past the
+moment they expected to be discharged.</p>
+<p>What you do about one depends on why it happened, and the reason is on the
+record:</p>
+<ul>
+<li><strong><code>insufficient reserve</code></strong> — a participant&#39;s reserve does not cover a debit
+the cap should have prevented, which means the state was imported or migrated
+rather than built by the handlers. The remedy is money: whoever is short posts
+reserve, and the slice clears at the next boundary with no further action.</li>
+<li><strong><code>net positions in a currency do not sum to zero</code></strong> — the module&#39;s books
+disagree with themselves. Nothing will fix that from outside; it needs a
+migration, and until then refusing to settle is the correct behaviour, because
+settling the part that looks consistent would hand one institution money
+another never owed.</li>
+</ul>
+<p>New business is unaffected either way. A stuck slice belongs to a closed window;
+the window that opened after it keeps taking traffic, which is the second reason
+not to unwind.</p>
+<h2>Two things governance can get wrong</h2>
+<p><strong>Enabling netting for a currency is a decision, and so is the threshold.</strong> A
+currency with no policy nets nothing and settles every obligation gross, in the
+block it arrived in. That is the safe direction: a misconfiguration costs
+liquidity rather than creating credit risk nobody agreed to. Netting arrives
+currency by currency, never as a default that comes with a new denom.</p>
+<p><strong>Do not switch netting off in the middle of a window.</strong> Setting <code>cycle_blocks</code>
+to zero stops the end blocker before it closes anything, so a window that is
+already open never settles: the obligations stay owed, the collateral behind
+them stays committed, and the participants holding it cannot withdraw. Held
+slices stop being retried for the same reason. Nothing is lost — a later
+proposal setting a positive value closes the window at the next boundary — but
+in between, every participant in that window is carrying an exposure with no
+settlement date, which is the state deferred net settlement exists to avoid.
+Check <code>query netting current-cycle</code> shows no positions before proposing it.</p>
+<h2>What the chain does not do about who can read this</h2>
+<p>Queries carry no signature. The chain does not know who is asking, so there is
+nobody for it to authorise, and anybody running a node reads the state store
+without reaching a query handler at all — which on a permissioned network is
+every participant.</p>
+<p>So the shaping in the query service is not a confidentiality control and is not
+described as one. Every endpoint that returns obligations demands a participant,
+and none enumerates the bilateral matrix; that keeps the graph out of the
+indexers and explorers that consume whatever the REST gateway offers, which is
+the difference between a graph that is technically public and one that is
+published. Per-caller scoping is done by the authenticated proxy in front of the
+REST gateway, because that is the only layer that knows who the caller is. It is
+a deployment convention, not a chain-enforced guarantee.</p>
+<p>The confidentiality that is real is upstream of all of it: the customer payments
+this layer exists to keep off the chain are never written down.</p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>x/netting — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<!--
+GENERATED FILE — DO NOT EDIT.
+Produced by tools/docgen from the protobuf descriptors, the module's registered
+errors, and its DefaultParams(). Run `make docs` to regenerate.
+--><h1>x/netting</h1>
+<p>The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross.</p>
+<h2>Transactions</h2>
+<h3>MsgPostReserve</h3>
+<p><code>/blockchain.netting.v1.MsgPostReserve</code></p>
+<p>Signed by the <code>participant</code> field.</p>
+<p>PostReserve prefunds a participant&#39;s settlement reserve.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant is the approved institution posting the reserve, and the only valid signer.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>repeated Coin</td>
+<td>amount may name several currencies at once; each is reserved separately, because netting never crosses currencies.</td>
+</tr>
+</tbody></table>
+<h3>MsgSubmitObligation</h3>
+<p><code>/blockchain.netting.v1.MsgSubmitObligation</code></p>
+<p>Signed by the <code>from_participant</code> field.</p>
+<p>SubmitObligation records what one participant owes another.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>from_participant</code></td>
+<td>string</td>
+<td>from_participant owes and signs; to_participant is owed.</td>
+</tr>
+<tr>
+<td><code>to_participant</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom and amount are the currency and the figure owed.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>batch_hash</code></td>
+<td>bytes</td>
+<td>batch_hash is SHA-256 over the salted retail batch this figure summarises. Required, 32 bytes; see Obligation.batch_hash.</td>
+</tr>
+</tbody></table>
+<h3>MsgUpdateParams</h3>
+<p><code>/blockchain.netting.v1.MsgUpdateParams</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>UpdateParams defines a (governance) operation for updating the module parameters. The authority defaults to the x/gov module account.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td>authority is the address that controls the module (defaults to x/gov unless overwritten).</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>NOTE: All parameters must be supplied.</td>
+</tr>
+</tbody></table>
+<h3>MsgWithdrawReserve</h3>
+<p><code>/blockchain.netting.v1.MsgWithdrawReserve</code></p>
+<p>Signed by the <code>participant</code> field.</p>
+<p>WithdrawReserve takes back the part of a reserve that is not committed.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant is the institution withdrawing, and the only valid signer.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>repeated Coin</td>
+<td>amount is what to withdraw, per currency.</td>
+</tr>
+</tbody></table>
+<h2>Queries</h2>
+<h3>CurrentCycle</h3>
+<p><code>GET /yamale/blockchain/netting/v1/cycle/current</code></p>
+<p>CurrentCycle queries the open netting window and when it closes.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle</code></td>
+<td>Cycle</td>
+<td>cycle is the open window, with the per-currency totals accumulated so far.</td>
+</tr>
+<tr>
+<td><code>closes_at_height</code></td>
+<td>int64</td>
+<td>closes_at_height is the block whose end blocker will settle it. Zero when netting is switched off, because then no block ever will.</td>
+</tr>
+</tbody></table>
+<h3>Cycle</h3>
+<p><code>GET /yamale/blockchain/netting/v1/cycle/{id}</code></p>
+<p>Cycle queries one window and what it settled, currency by currency.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id is the cycle number.</td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle</code></td>
+<td>Cycle</td>
+<td>cycle is the window and its per-currency outcomes.</td>
+</tr>
+<tr>
+<td><code>compression</code></td>
+<td>repeated DenomCompression</td>
+<td>compression_bps is, per currency and in basis points, the share of the gross figure that netting removed: 9000 means nine tenths of the value submitted never had to be funded. It is reported by the chain rather than computed by the caller so that everyone quotes the same number, and it is zero for a currency that submitted nothing — a ratio whose denominator is zero is not a small number, it is not a number, and dividing by it here would take the query process down.</td>
+</tr>
+</tbody></table>
+<h3>HeldSlices</h3>
+<p><code>GET /yamale/blockchain/netting/v1/held</code></p>
+<p>HeldSlices queries every currency slice that failed to settle and is waiting to be retried. It is the operational alarm: on a healthy chain it is always empty, and anything in it is money that participants believe is settled and is not.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>held</code></td>
+<td>repeated HeldSlice</td>
+<td>held is the list of stuck currency slices.</td>
+</tr>
+</tbody></table>
+<h3>Params</h3>
+<p><code>GET /yamale/blockchain/netting/v1/params</code></p>
+<p>Params queries the parameters of the module.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>params</code></td>
+<td>Params</td>
+<td>params holds all the parameters of this module.</td>
+</tr>
+</tbody></table>
+<h3>ParticipantObligations</h3>
+<p><code>GET /yamale/blockchain/netting/v1/obligations/{participant}/{cycle_id}</code></p>
+<p>ParticipantObligations queries the obligations one participant is a party to in one cycle, in either direction.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant is the institution, on either side of the obligation.</td>
+</tr>
+<tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id is the window to look in.</td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td>pagination is the usual page request.</td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>obligations</code></td>
+<td>repeated Obligation</td>
+<td>obligations is the page, oldest id first.</td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
+<td>pagination is the usual page response.</td>
+</tr>
+</tbody></table>
+<h3>Position</h3>
+<p><code>GET /yamale/blockchain/netting/v1/position/{participant}</code></p>
+<p>Position queries one participant&#39;s reserve, its committed part and its running position in the open window.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant is the institution. It is required: this module has no endpoint that walks every participant.</td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>entries</code></td>
+<td>repeated PositionEntry</td>
+<td>entries is the per-currency standing.</td>
+</tr>
+</tbody></table>
+<h2>State</h2>
+<h3>Cycle</h3>
+<p>Cycle is one netting window: the period obligations join, and the record of what happened when it closed.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id is the cycle number, from 1. Zero is never a cycle, because in proto3 an id of zero is indistinguishable from an unset field and &quot;settled in cycle 0&quot; would be unreadable to every client that received it.</td>
+</tr>
+<tr>
+<td><code>opened_at_height</code></td>
+<td>int64</td>
+<td>opened_at_height is the first block whose obligations join this cycle, and closed_at_height the block its end blocker settled it in. closed_at_height is zero while the cycle is open.</td>
+</tr>
+<tr>
+<td><code>closed_at_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>CycleStatus</td>
+<td>status is the cycle&#39;s outcome, taken from the per-currency outcomes below: settled only when every one of them settled.</td>
+</tr>
+<tr>
+<td><code>outcomes</code></td>
+<td>repeated DenomOutcome</td>
+<td>outcomes carries one entry per currency that saw activity, created when the first obligation in that currency arrives and completed at close. Kept on the cycle rather than in its own store because it is a record rather than a control: a wrong figure here misreports how much compression a cycle achieved, and can never let anybody withdraw money they owe.</td>
+</tr>
+</tbody></table>
+<h3>DenomCompression</h3>
+<p>DenomCompression is how much netting removed in one currency.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom is the currency, compression_bps the share removed in basis points.</td>
+</tr>
+<tr>
+<td><code>compression_bps</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>DenomOutcome</h3>
+<p>DenomOutcome is the per-currency slice of a cycle. Currencies settle independently: there is no cross-currency netting on this chain, because offsetting a euro debit against a naira credit is an FX trade, and an FX trade priced by a settlement system is a position that system is taking.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom is the currency this slice covers.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>DenomStatus</td>
+<td>status is what became of it.</td>
+</tr>
+<tr>
+<td><code>gross_amount</code></td>
+<td>string</td>
+<td>gross_amount is the sum of every netted obligation submitted in this currency, and net_amount the sum actually discharged when the cycle settled. The ratio between them is the compression the cycle achieved, and it is the number that says whether tiering was worth doing. net_amount stays zero while the cycle is open and while it is held.</td>
+</tr>
+<tr>
+<td><code>net_amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>obligation_count</code></td>
+<td>uint64</td>
+<td>obligation_count is how many netted obligations made up gross_amount.</td>
+</tr>
+<tr>
+<td><code>hold_reason</code></td>
+<td>string</td>
+<td>hold_reason records why a held slice was refused, in words an operator can act on. Empty unless status is held.</td>
+</tr>
+</tbody></table>
+<h3>DenomPolicy</h3>
+<p>DenomPolicy is the netting rule for one currency.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom is the currency this policy governs.</td>
+</tr>
+<tr>
+<td><code>gross_threshold</code></td>
+<td>string</td>
+<td>gross_threshold is the amount at or above which a single obligation bypasses netting and settles gross in the block it was submitted in. High-value items settling individually is the point rather than a concession. It is how every RTGS system in the world is built, it is what a supervisor expects to be able to see item by item, and it keeps the largest exposures out of the deferred window entirely — the netting cycle then carries only amounts whose failure nobody would call systemic. Zero means every amount is at or above it, so the currency settles entirely gross. Same reasoning as an absent policy, and the same safe direction.</td>
+</tr>
+</tbody></table>
+<h3>EventCycleHeld</h3>
+<p>EventCycleHeld is emitted when a currency slice is refused and nothing in it moves. It is the loudest thing this module can say: every obligation in the slice is still owed, at its original amount, to its original counterparty, and every participant in it is carrying an exposure past the moment it expected to be discharged.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id and denom identify the slice, reason says why it was refused.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventCycleSettled</h3>
+<p>EventCycleSettled is emitted once per currency slice that cleared.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id and denom identify the slice.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>gross_amount</code></td>
+<td>string</td>
+<td>gross_amount is what was submitted and net_amount what had to be funded. The pair is the compression, published at the moment it was achieved.</td>
+</tr>
+<tr>
+<td><code>net_amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>obligation_count</code></td>
+<td>uint64</td>
+<td>obligation_count is how many items made up the gross figure, and participant_count how many institutions held a position in the slice.</td>
+</tr>
+<tr>
+<td><code>participant_count</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>retried</code></td>
+<td>bool</td>
+<td>retried is set when this slice had been held and cleared on a later attempt, so a watcher can tell a normal close from a recovery.</td>
+</tr>
+</tbody></table>
+<h3>EventObligationSubmitted</h3>
+<p>EventObligationSubmitted is emitted for every obligation, netted or gross.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id, cycle_id and mode identify the obligation and say what became of it.</td>
+</tr>
+<tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>SettlementMode</td>
+<td></td>
+</tr>
+<tr>
+<td><code>from_participant</code></td>
+<td>string</td>
+<td>from_participant, to_participant, denom and amount are the obligation.</td>
+</tr>
+<tr>
+<td><code>to_participant</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>EventReserveChanged</h3>
+<p>EventReserveChanged is emitted when a participant prefunds or withdraws.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant and denom identify the reserve, amount is the balance after the change, and deposited says which direction it moved in.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>deposited</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>HeldSlice</h3>
+<p>HeldSlice is one currency in one cycle that did not settle.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id and denom identify the slice, reason says why it was refused, and held_since_height when it first was — which is the number that says how long participants have been carrying an exposure they did not agree to carry for this long.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>held_since_height</code></td>
+<td>int64</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>Obligation</h3>
+<p>Obligation is one participant&#39;s admitted debt to another, as submitted.</p>
+<p>It is an interbank figure, never a customer payment. A participant runs its own retail ledger, matches its customers&#39; instructions there, and submits to this chain only what it owes another institution as a result. That is the whole privacy argument of the tiered design: a customer payment that never reaches the chain cannot be read off it by a competitor bank, and no amount of cryptography is needed to keep a record that was never written.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id is the window this obligation joined. A gross obligation records the cycle that was open when it settled, so it can be found alongside the netted ones, but it took no part in that cycle&#39;s positions.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>uint64</td>
+<td>id is the obligation number, from 1, unique across the chain.</td>
+</tr>
+<tr>
+<td><code>from_participant</code></td>
+<td>string</td>
+<td>from_participant owes, to_participant is owed. Both must be approved participants at the moment of submission, and from_participant is the only valid signer: an institution&#39;s debt is not something a third party may declare on its behalf.</td>
+</tr>
+<tr>
+<td><code>to_participant</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom and amount are the currency and the figure owed. Amount is strictly positive; a negative obligation would be the opposite obligation wearing a disguise, and would let one participant move another&#39;s position.</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>batch_hash</code></td>
+<td>bytes</td>
+<td>batch_hash is SHA-256 over the retail batch this figure summarises, held off-chain by the submitting participant. Required, and required at 32 bytes. An obligation with no link to what it summarises is a number an institution can neither be held to nor reconcile against, which is exactly the auditability that gets given up when items stop being recorded individually. This is a new module with no history to replay, so the rule can be absolute rather than parameterised. The batch must carry a random salt before it is hashed, for the same reason x/paymsg&#39;s metadata hash does: a small, guessable payload hashed without one is not a fingerprint, it is a lookup table.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>SettlementMode</td>
+<td>mode is whether this settled gross on submission or joined the netting.</td>
+</tr>
+<tr>
+<td><code>submitted_at_height</code></td>
+<td>int64</td>
+<td>submitted_at_height is the block it arrived in.</td>
+</tr>
+</tbody></table>
+<h3>Position</h3>
+<p>Position is one participant&#39;s running multilateral net position in one currency for one cycle. Negative means the participant owes the system, positive that the system owes it, and the two always sum to zero across every participant in a currency.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_id</code></td>
+<td>uint64</td>
+<td>cycle_id, denom and participant are the position&#39;s identity.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>amount is signed. A position of exactly zero is never stored — it is removed instead — so that state derived by replaying obligations and state restored from a genesis file are the same bytes. A zero written where an import writes nothing is how import and export stop agreeing.</td>
+</tr>
+</tbody></table>
+<h3>PositionEntry</h3>
+<p>PositionEntry is a participant&#39;s standing in one currency.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td>denom is the currency.</td>
+</tr>
+<tr>
+<td><code>reserve</code></td>
+<td>string</td>
+<td>reserve is everything prefunded, locked the part committed to positions in windows that have not settled, and available what may be withdrawn now. available is always reserve minus locked and is never negative.</td>
+</tr>
+<tr>
+<td><code>locked</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>available</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>net_position</code></td>
+<td>string</td>
+<td>net_position is the signed running position in the open window: negative when the participant owes the system, positive when it is owed.</td>
+</tr>
+</tbody></table>
+<h3>Reserve</h3>
+<p>Reserve is what a participant has prefunded into the module account, per currency. It is the collateral behind everything it is allowed to owe.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td>participant is the institution that posted it, denom the currency, amount the balance held on its behalf.</td>
+</tr>
+<tr>
+<td><code>denom</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>CycleStatus</h3>
+<p>CycleStatus is where a netting window has got to.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CYCLE_STATUS_UNSPECIFIED</code></td>
+<td>CYCLE_STATUS_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>CYCLE_STATUS_OPEN</code></td>
+<td>CYCLE_STATUS_OPEN is the window obligations are currently joining. Exactly one cycle is open at a time.</td>
+</tr>
+<tr>
+<td><code>CYCLE_STATUS_SETTLED</code></td>
+<td>CYCLE_STATUS_SETTLED means every currency in the window cleared.</td>
+</tr>
+<tr>
+<td><code>CYCLE_STATUS_HELD</code></td>
+<td>CYCLE_STATUS_HELD means at least one currency in the window did not clear and is waiting to be retried. The obligations in it are untouched and still owed at their original amounts — see DenomOutcome.hold_reason.</td>
+</tr>
+</tbody></table>
+<h3>DenomStatus</h3>
+<p>DenomStatus is the outcome for one currency inside one cycle.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>DENOM_STATUS_UNSPECIFIED</code></td>
+<td>DENOM_STATUS_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>DENOM_STATUS_OPEN</code></td>
+<td>DENOM_STATUS_OPEN means the cycle has not closed yet.</td>
+</tr>
+<tr>
+<td><code>DENOM_STATUS_SETTLED</code></td>
+<td>DENOM_STATUS_SETTLED means every position in this currency was discharged against the participants&#39; reserves, in one indivisible step.</td>
+</tr>
+<tr>
+<td><code>DENOM_STATUS_HELD</code></td>
+<td>DENOM_STATUS_HELD means the settlement was refused and nothing moved.</td>
+</tr>
+</tbody></table>
+<h3>SettlementMode</h3>
+<p>SettlementMode is how one obligation was disposed of.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>SETTLEMENT_MODE_UNSPECIFIED</code></td>
+<td>SETTLEMENT_MODE_UNSPECIFIED is the unset default and is never valid.</td>
+</tr>
+<tr>
+<td><code>SETTLEMENT_MODE_GROSS</code></td>
+<td>SETTLEMENT_MODE_GROSS means the amount moved between the two participants in the block the obligation was submitted in, as an ordinary transfer. Nothing about it is deferred and it takes no part in any cycle&#39;s netting.</td>
+</tr>
+<tr>
+<td><code>SETTLEMENT_MODE_NET</code></td>
+<td>SETTLEMENT_MODE_NET means the obligation joined the open cycle and altered both participants&#39; running positions. It settles when the cycle closes.</td>
+</tr>
+</tbody></table>
+<h2>Parameters</h2>
+<p>Changed by governance through <code>MsgUpdateParams</code>. Defaults are the values a chain starts with at genesis.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cycle_blocks</code></td>
+<td><code>0</code></td>
+<td>cycle_blocks is how many blocks a netting window stays open before the end blocker closes it and settles the positions in it. Zero means netting is switched off, and it means that everywhere: no obligation is ever admitted to a window, every submission settles gross, and the end blocker returns before it computes anything. That reading is chosen rather than treating zero as &quot;every block&quot;, because this value is a divisor — the cycle boundary is <code>height % cycle_blocks</code> — and a divisor that arrives as zero from a hand-written genesis panics inside an end blocker, which is not a failed transaction but a chain that will not produce another block. Params.Validate() is not the guard that matters here: it is one gate an operator can skip, and it has been skipped on this chain before. The end blocker checks the value at the point it would divide by it. One consequence of that reading is not obvious and is the reason it is written down. Setting this to zero stops the end blocker before it closes anything, so a window that is already open with positions in it never settles: the obligations stay owed, the collateral behind them stays committed, and the participants holding it cannot withdraw. Held slices stop being retried for the same reason. Nothing is lost — setting a positive value again closes the window at the next boundary — but between the two proposals every participant in that window is carrying an exposure with no settlement date, which is the state deferred net settlement exists to avoid. Switch netting off between windows, not during one, and check the current cycle&#39;s positions are empty before proposing it.</td>
+</tr>
+<tr>
+<td><code>denom_policies</code></td>
+<td><code>[]</code></td>
+<td>denom_policies decides, per currency, what nets and what settles gross. A currency with no policy nets nothing: every obligation in it settles gross, immediately. That is the safe direction to fail in — gross settlement is what the chain does today, moves the money in the block it was instructed in, and creates no interbank exposure for anyone to be left holding. Netting is a deliberate governance act, taken currency by currency, never a default that arrives with a new denom.</td>
+</tr>
+</tbody></table>
+<h2>Errors</h2>
+<p>Every way a transaction to this module can be rejected.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1100</td>
+<td><code>ErrInvalidSigner</code></td>
+<td>expected gov account as only signer for proposal message</td>
+</tr>
+<tr>
+<td>1101</td>
+<td><code>ErrNotApprovedParticipant</code></td>
+<td>not an approved participant</td>
+</tr>
+<tr>
+<td>1102</td>
+<td><code>ErrInvalidAmount</code></td>
+<td>invalid amount</td>
+</tr>
+<tr>
+<td>1103</td>
+<td><code>ErrInvalidBatchHash</code></td>
+<td>batch_hash must be 32 bytes of SHA-256 over the salted batch</td>
+</tr>
+<tr>
+<td>1104</td>
+<td><code>ErrSelfObligation</code></td>
+<td>a participant cannot owe itself</td>
+</tr>
+<tr>
+<td>1105</td>
+<td><code>ErrNetDebitCapExceeded</code></td>
+<td>obligation would take the participant&#39;s net debit beyond its posted reserve</td>
+</tr>
+<tr>
+<td>1106</td>
+<td><code>ErrReserveCommitted</code></td>
+<td>reserve is committed to positions that have not settled</td>
+</tr>
+<tr>
+<td>1107</td>
+<td><code>ErrInsufficientReserve</code></td>
+<td>insufficient reserve</td>
+</tr>
+<tr>
+<td>1108</td>
+<td><code>ErrCycleNotFound</code></td>
+<td>no such cycle</td>
+</tr>
+<tr>
+<td>1109</td>
+<td><code>ErrPositionsUnbalanced</code></td>
+<td>net positions in a currency do not sum to zero</td>
+</tr>
+<tr>
+<td>1110</td>
+<td><code>ErrNettingDisabled</code></td>
+<td>netting is disabled</td>
+</tr>
+</tbody></table>
+
+</main>
+</body>
+</html>

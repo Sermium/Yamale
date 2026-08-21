@@ -22,6 +22,7 @@ import * as constitution from './generated/blockchain/constitution/v1/tx.ts';
 import * as enforcement from './generated/blockchain/enforcement/v1/tx.ts';
 import * as alias from './generated/blockchain/alias/v1/tx.ts';
 import * as feegrant from './generated/cosmos/feegrant/v1beta1/tx.ts';
+import * as netting from './generated/blockchain/netting/v1/tx.ts';
 import * as oracle from './generated/blockchain/oracle/v1/tx.ts';
 import * as paymsg from './generated/blockchain/paymsg/v1/tx.ts';
 import * as stablecoin from './generated/blockchain/stablecoin/v1/tx.ts';
@@ -138,6 +139,14 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   // Builder fee share
   ['/blockchain.builderfee.v1.MsgRegisterBuilder', builderfee.MsgRegisterBuilder],
   ['/blockchain.builderfee.v1.MsgApproveBuilder', builderfee.MsgApproveBuilder],
+
+  // Netting and settlement. A participant's back office builds these, not a
+  // person at a terminal — an obligation is the output of a day's matching on
+  // an institution's own ledger, so the path that has to work is a service
+  // signing on a schedule rather than a CLI invocation.
+  ['/blockchain.netting.v1.MsgPostReserve', netting.MsgPostReserve],
+  ['/blockchain.netting.v1.MsgWithdrawReserve', netting.MsgWithdrawReserve],
+  ['/blockchain.netting.v1.MsgSubmitObligation', netting.MsgSubmitObligation],
 ];
 
 /**

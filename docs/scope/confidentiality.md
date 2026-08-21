@@ -291,3 +291,31 @@ risk*, it is the reason modern systems moved away from pure deferred net
 settlement, and it must be designed rather than discovered. Multilateral netting
 must also settle atomically — a cycle where A owes B, B owes C and C owes A
 either clears entirely or not at all.
+
+### Both obligations, discharged
+
+`x/netting` answers them, and the answers are worth stating here because this
+document's recommendation depends on them rather than the other way round. See
+[the settlement guide](../guides/settlement.md) for the operational version.
+
+**A participant cannot reach a net position it cannot cover.** Everything it may
+owe across unsettled windows is bounded by reserve it has already moved into the
+module account, and the bound is checked when the obligation is submitted — in a
+transaction, where the answer "no" is a rejected message rather than a cycle
+nobody can settle. Settlement then rearranges claims on money the module already
+holds, so there is no transfer for anybody to refuse. Nothing in the module can
+reduce, reassign or recompute an obligation; a slice that cannot settle is held
+whole and retried unchanged.
+
+**A cycle clears entirely or not at all.** The whole currency slice runs against
+a cached branch of the store that is committed only if every leg succeeded,
+because an end blocker has no transaction to roll back and a write made before an
+error stays made.
+
+**And the compression is real.** Measured on a four-participant devnet, 16
+obligations totalling 39,300,000 base units settled against 3,400,000 actually
+funded — 91.3% of the value never had to move. In tests, a day of 349 obligations
+between eight institutions compresses 86.2%, against 54.2% for bilateral netting
+on the same traffic. Net settlement is low-volume by construction, which is the
+premise this document defers confidential amounts on; these are the figures
+behind it.

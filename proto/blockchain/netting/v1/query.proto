@@ -1,0 +1,212 @@
+syntax = "proto3";
+
+package blockchain.netting.v1;
+
+import "amino/amino.proto";
+import "blockchain/netting/v1/netting.proto";
+import "blockchain/netting/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// Query defines the gRPC querier service.
+//
+// There is deliberately no endpoint that enumerates who owes whom. Every query
+// that returns obligations requires a participant, and the aggregate views
+// return totals rather than the bilateral matrix.
+//
+// That is friction, and it is described as friction rather than as
+// confidentiality, because a query handler is not a confidentiality mechanism:
+// a gRPC query carries no signature, so the chain does not know who is asking
+// and has nobody to authorise. Anyone who can run a node reads the state store
+// directly, and on a permissioned network every participant runs one. The
+// scoping that is real happens in two other places — the records that were
+// never written, since customer payments never reach this chain at all, and
+// the authenticated proxy in front of the REST gateway, which is the only
+// layer that knows who the caller is. See docs/guides/settlement.md.
+//
+// The shaping here still earns its place: an endpoint that exists gets indexed
+// by every explorer that meets it, and a graph that is technically public and
+// a graph that is published are not the same exposure.
+service Query {
+  // Params queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/params";
+  }
+
+  // CurrentCycle queries the open netting window and when it closes.
+  rpc CurrentCycle(QueryCurrentCycleRequest) returns (QueryCurrentCycleResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/cycle/current";
+  }
+
+  // Cycle queries one window and what it settled, currency by currency.
+  rpc Cycle(QueryCycleRequest) returns (QueryCycleResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/cycle/{id}";
+  }
+
+  // Position queries one participant's reserve, its committed part and its
+  // running position in the open window.
+  rpc Position(QueryPositionRequest) returns (QueryPositionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/position/{participant}";
+  }
+
+  // ParticipantObligations queries the obligations one participant is a party
+  // to in one cycle, in either direction.
+  rpc ParticipantObligations(QueryParticipantObligationsRequest) returns (QueryParticipantObligationsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/obligations/{participant}/{cycle_id}";
+  }
+
+  // HeldSlices queries every currency slice that failed to settle and is
+  // waiting to be retried. It is the operational alarm: on a healthy chain it
+  // is always empty, and anything in it is money that participants believe is
+  // settled and is not.
+  rpc HeldSlices(QueryHeldSlicesRequest) returns (QueryHeldSlicesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/netting/v1/held";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// QueryCurrentCycleRequest asks which window is open.
+message QueryCurrentCycleRequest {}
+
+// QueryCurrentCycleResponse carries the open window.
+message QueryCurrentCycleResponse {
+  // cycle is the open window, with the per-currency totals accumulated so far.
+  Cycle cycle = 1 [(gogoproto.nullable) = false];
+
+  // closes_at_height is the block whose end blocker will settle it. Zero when
+  // netting is switched off, because then no block ever will.
+  int64 closes_at_height = 2;
+}
+
+// QueryCycleRequest asks for one window by id.
+message QueryCycleRequest {
+  // id is the cycle number.
+  uint64 id = 1;
+}
+
+// QueryCycleResponse carries the window and the compression it achieved.
+message QueryCycleResponse {
+  // cycle is the window and its per-currency outcomes.
+  Cycle cycle = 1 [(gogoproto.nullable) = false];
+
+  // compression_bps is, per currency and in basis points, the share of the
+  // gross figure that netting removed: 9000 means nine tenths of the value
+  // submitted never had to be funded. It is reported by the chain rather than
+  // computed by the caller so that everyone quotes the same number, and it is
+  // zero for a currency that submitted nothing — a ratio whose denominator is
+  // zero is not a small number, it is not a number, and dividing by it here
+  // would take the query process down.
+  repeated DenomCompression compression = 2 [(gogoproto.nullable) = false];
+}
+
+// DenomCompression is how much netting removed in one currency.
+message DenomCompression {
+  // denom is the currency, compression_bps the share removed in basis points.
+  string denom = 1;
+  uint64 compression_bps = 2;
+}
+
+// QueryPositionRequest asks for one participant's standing.
+message QueryPositionRequest {
+  // participant is the institution. It is required: this module has no
+  // endpoint that walks every participant.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// QueryPositionResponse carries one entry per currency the participant has
+// either reserved or traded in.
+message QueryPositionResponse {
+  // entries is the per-currency standing.
+  repeated PositionEntry entries = 1 [(gogoproto.nullable) = false];
+}
+
+// PositionEntry is a participant's standing in one currency.
+message PositionEntry {
+  // denom is the currency.
+  string denom = 1;
+
+  // reserve is everything prefunded, locked the part committed to positions in
+  // windows that have not settled, and available what may be withdrawn now.
+  // available is always reserve minus locked and is never negative.
+  string reserve = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string locked = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string available = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // net_position is the signed running position in the open window: negative
+  // when the participant owes the system, positive when it is owed.
+  string net_position = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// QueryParticipantObligationsRequest asks for one participant's obligations in
+// one cycle.
+message QueryParticipantObligationsRequest {
+  // participant is the institution, on either side of the obligation.
+  string participant = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // cycle_id is the window to look in.
+  uint64 cycle_id = 2;
+
+  // pagination is the usual page request.
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+
+// QueryParticipantObligationsResponse carries a page of obligations.
+message QueryParticipantObligationsResponse {
+  // obligations is the page, oldest id first.
+  repeated Obligation obligations = 1 [(gogoproto.nullable) = false];
+
+  // pagination is the usual page response.
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryHeldSlicesRequest asks what has failed to settle.
+message QueryHeldSlicesRequest {}
+
+// QueryHeldSlicesResponse carries every held slice, oldest cycle first.
+message QueryHeldSlicesResponse {
+  // held is the list of stuck currency slices.
+  repeated HeldSlice held = 1 [(gogoproto.nullable) = false];
+}
+
+// HeldSlice is one currency in one cycle that did not settle.
+message HeldSlice {
+  // cycle_id and denom identify the slice, reason says why it was refused, and
+  // held_since_height when it first was — which is the number that says how
+  // long participants have been carrying an exposure they did not agree to
+  // carry for this long.
+  uint64 cycle_id = 1;
+  string denom = 2;
+  string reason = 3;
+  int64 held_since_height = 4;
+}

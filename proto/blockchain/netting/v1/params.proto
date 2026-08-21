@@ -1,0 +1,81 @@
+syntax = "proto3";
+package blockchain.netting.v1;
+
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/netting/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "blockchain/x/netting/Params";
+  option (gogoproto.equal) = true;
+
+  // cycle_blocks is how many blocks a netting window stays open before the end
+  // blocker closes it and settles the positions in it.
+  //
+  // Zero means netting is switched off, and it means that everywhere: no
+  // obligation is ever admitted to a window, every submission settles gross,
+  // and the end blocker returns before it computes anything. That reading is
+  // chosen rather than treating zero as "every block", because this value is a
+  // divisor — the cycle boundary is `height % cycle_blocks` — and a divisor
+  // that arrives as zero from a hand-written genesis panics inside an end
+  // blocker, which is not a failed transaction but a chain that will not
+  // produce another block. Params.Validate() is not the guard that matters
+  // here: it is one gate an operator can skip, and it has been skipped on this
+  // chain before. The end blocker checks the value at the point it would
+  // divide by it.
+  //
+  // One consequence of that reading is not obvious and is the reason it is
+  // written down. Setting this to zero stops the end blocker before it closes
+  // anything, so a window that is already open with positions in it never
+  // settles: the obligations stay owed, the collateral behind them stays
+  // committed, and the participants holding it cannot withdraw. Held slices
+  // stop being retried for the same reason. Nothing is lost — setting a
+  // positive value again closes the window at the next boundary — but between
+  // the two proposals every participant in that window is carrying an exposure
+  // with no settlement date, which is the state deferred net settlement exists
+  // to avoid. Switch netting off between windows, not during one, and check
+  // the current cycle's positions are empty before proposing it.
+  uint64 cycle_blocks = 1;
+
+  // denom_policies decides, per currency, what nets and what settles gross.
+  //
+  // A currency with no policy nets nothing: every obligation in it settles
+  // gross, immediately. That is the safe direction to fail in — gross
+  // settlement is what the chain does today, moves the money in the block it
+  // was instructed in, and creates no interbank exposure for anyone to be left
+  // holding. Netting is a deliberate governance act, taken currency by
+  // currency, never a default that arrives with a new denom.
+  repeated DenomPolicy denom_policies = 2 [(gogoproto.nullable) = false];
+}
+
+// DenomPolicy is the netting rule for one currency.
+message DenomPolicy {
+  // Equality is generated because Params carries a repeated DenomPolicy and
+  // Params compares itself — a gov proposal that changes nothing should be
+  // recognisable as changing nothing.
+  option (gogoproto.equal) = true;
+
+  // denom is the currency this policy governs.
+  string denom = 1;
+
+  // gross_threshold is the amount at or above which a single obligation
+  // bypasses netting and settles gross in the block it was submitted in.
+  //
+  // High-value items settling individually is the point rather than a
+  // concession. It is how every RTGS system in the world is built, it is what
+  // a supervisor expects to be able to see item by item, and it keeps the
+  // largest exposures out of the deferred window entirely — the netting cycle
+  // then carries only amounts whose failure nobody would call systemic.
+  //
+  // Zero means every amount is at or above it, so the currency settles
+  // entirely gross. Same reasoning as an absent policy, and the same safe
+  // direction.
+  string gross_threshold = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
