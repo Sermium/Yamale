@@ -263,6 +263,32 @@ is a no-op because the unit is already active, and the new genesis is never read
 the new chain id and the old state, both internally consistent. If you find
 yourself there, <code>blockchaind comet unsafe-reset-all</code> clears the data and keeps
 the config and keys. The script now refuses to run while the unit is up.</p>
+<p><strong>A validator that loses its network keeps producing blocks, silently.</strong> On
+2026-08-21 a cloud instance had every route on its primary interface deleted —
+default route included — with nothing in the guest&#39;s own logs doing it: the
+compute stayed up and the networking went away. The node carried on committing
+for two and a half hours, because it held more than two thirds of voting power
+and needed no peer to reach quorum. Nothing raised an alarm, because everything
+that would have raised one was on the far side of the missing route.</p>
+<p>That failure mode is silent by construction, so the recovery has to be local.
+DHCP supplies those routes, so re-running it is the whole fix:</p>
+<pre><code class="language-bash"># /usr/local/sbin/yamale-netwatch, on a one-minute systemd timer
+gw=$(ip -4 route show default | sed -n &#39;s/.* via \([0-9.]*\) .*//p&#39; | head -1)
+[ -n &quot;$gw&quot; ] &amp;&amp; ping -c1 -W2 &quot;$gw&quot; &gt;/dev/null || { netplan apply; systemctl restart tailscaled; }
+</code></pre>
+<p>Two things make it safe to run unattended: it requires <strong>both</strong> signals to fail —
+the route to be missing <em>and</em> the gateway to be unreachable — and it requires
+<strong>two consecutive</strong> failures, because one lost packet a minute is normal and one
+lost packet must never restart the network. Restarting the tunnel daemon matters
+as much as the route: it is what restores the remote access that lets a human
+find out any of this happened.</p>
+<p><strong>A one-gigabyte host needs its defaults cut.</strong> Two settings dominate, and both
+ship far too large for a small chain: <code>iavl-cache-size</code> defaults to 781,250 tree
+nodes, and the mempool&#39;s <code>max_txs_bytes</code> defaults to a full gigabyte. Setting
+them to 20,000 and 32 MiB took the node&#39;s resident size from 264 MB to 213 MB.
+Prefer <code>MemoryHigh</code> over <code>MemoryMax</code> in the unit: High makes the kernel reclaim
+and throttle, Max kills, and a validator running slowly still signs blocks while
+a restarted one replays its WAL and misses the ones in between.</p>
 <p><strong>A halted node refuses every query, rather than serving stale state.</strong> Every
 Cosmos query is answered against the state left by the last block the node
 finalised, so a node that is up but has finalised nothing — the chain stopped and

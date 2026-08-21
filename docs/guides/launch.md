@@ -290,6 +290,38 @@ the new chain id and the old state, both internally consistent. If you find
 yourself there, `blockchaind comet unsafe-reset-all` clears the data and keeps
 the config and keys. The script now refuses to run while the unit is up.
 
+**A validator that loses its network keeps producing blocks, silently.** On
+2026-08-21 a cloud instance had every route on its primary interface deleted —
+default route included — with nothing in the guest's own logs doing it: the
+compute stayed up and the networking went away. The node carried on committing
+for two and a half hours, because it held more than two thirds of voting power
+and needed no peer to reach quorum. Nothing raised an alarm, because everything
+that would have raised one was on the far side of the missing route.
+
+That failure mode is silent by construction, so the recovery has to be local.
+DHCP supplies those routes, so re-running it is the whole fix:
+
+```bash
+# /usr/local/sbin/yamale-netwatch, on a one-minute systemd timer
+gw=$(ip -4 route show default | sed -n 's/.* via \([0-9.]*\) .*//p' | head -1)
+[ -n "$gw" ] && ping -c1 -W2 "$gw" >/dev/null || { netplan apply; systemctl restart tailscaled; }
+```
+
+Two things make it safe to run unattended: it requires **both** signals to fail —
+the route to be missing *and* the gateway to be unreachable — and it requires
+**two consecutive** failures, because one lost packet a minute is normal and one
+lost packet must never restart the network. Restarting the tunnel daemon matters
+as much as the route: it is what restores the remote access that lets a human
+find out any of this happened.
+
+**A one-gigabyte host needs its defaults cut.** Two settings dominate, and both
+ship far too large for a small chain: `iavl-cache-size` defaults to 781,250 tree
+nodes, and the mempool's `max_txs_bytes` defaults to a full gigabyte. Setting
+them to 20,000 and 32 MiB took the node's resident size from 264 MB to 213 MB.
+Prefer `MemoryHigh` over `MemoryMax` in the unit: High makes the kernel reclaim
+and throttle, Max kills, and a validator running slowly still signs blocks while
+a restarted one replays its WAL and misses the ones in between.
+
 **A halted node refuses every query, rather than serving stale state.** Every
 Cosmos query is answered against the state left by the last block the node
 finalised, so a node that is up but has finalised nothing — the chain stopped and
