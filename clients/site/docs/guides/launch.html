@@ -273,7 +273,7 @@ that would have raised one was on the far side of the missing route.</p>
 <p>That failure mode is silent by construction, so the recovery has to be local.
 DHCP supplies those routes, so re-running it is the whole fix:</p>
 <pre><code class="language-bash"># /usr/local/sbin/yamale-netwatch, on a one-minute systemd timer
-gw=$(ip -4 route show default | sed -n &#39;s/.* via \([0-9.]*\) .*//p&#39; | head -1)
+gw=$(ip -4 route show default | awk &#39;{print $3; exit}&#39;)
 [ -n &quot;$gw&quot; ] &amp;&amp; ping -c1 -W2 &quot;$gw&quot; &gt;/dev/null || { netplan apply; systemctl restart tailscaled; }
 </code></pre>
 <p>Two things make it safe to run unattended: it requires <strong>both</strong> signals to fail —

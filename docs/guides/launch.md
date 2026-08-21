@@ -303,7 +303,7 @@ DHCP supplies those routes, so re-running it is the whole fix:
 
 ```bash
 # /usr/local/sbin/yamale-netwatch, on a one-minute systemd timer
-gw=$(ip -4 route show default | sed -n 's/.* via \([0-9.]*\) .*//p' | head -1)
+gw=$(ip -4 route show default | awk '{print $3; exit}')
 [ -n "$gw" ] && ping -c1 -W2 "$gw" >/dev/null || { netplan apply; systemctl restart tailscaled; }
 ```
 
