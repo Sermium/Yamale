@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gaps against the revised scope — Yamale</title>
+<title>What is left — Yamale</title>
 <link rel="icon" type="image/svg+xml" href="../../mark.svg">
 <link rel="stylesheet" href="../doc.css">
 </head>
@@ -13,170 +13,172 @@
   <a href="../../index.html">← back to the site</a>
 </header>
 <main class="doc">
-<h1>Gaps against the revised scope</h1>
-<p>What is unfinished, and what the revised scope newly requires. Every claim here
-was checked against the tree rather than against the task list — task #48 was
-marked complete while its artifact did not exist, so the task list is not
-evidence of what is built.</p>
+<h1>What is left</h1>
+<p>Checked against the tree and the running chain rather than against a task list —
+a task here was once marked complete while its artefact did not exist, so the
+list is not evidence.</p>
+<p>Last verified 2026-08-21, against <code>yamale-devnet-2</code>.</p>
 <hr>
-<h2>A. Carried over — started, not finished</h2>
-<p><strong>x/land has no user surface.</strong> <code>x/land/module/</code> contains <code>depinject.go</code> and
-<code>module.go</code> only: no <code>autocli.go</code>, so there are no CLI commands, and there is no
-<code>clients/land</code>. The keeper, the genesis round-trip and 14 tests are done.</p>
-<p><strong>x/tokenisation cannot enforce anything x/land decides.</strong> <code>Fractionalise</code>
-(<code>x/tokenisation/keeper/msg_server.go:127</code>) contains no reference to x/land. A
-parcel carrying <code>RestrictionNoFractionalisation</code> can be fractionalised today,
-and nothing checks a <code>MsgAuthoriseFractionalisation</code> or a <code>max_share_bps</code>. This
-is a correctness hole, not a missing feature: the land module&#39;s restrictions are
-currently decorative.</p>
-<p><strong>The governance console&#39;s write paths are untested.</strong> <code>/vote</code> has been
-exercised end to end. <code>/freeze</code> and <code>/case</code> have not.</p>
-<p><strong>Operator key rotation is documented but not implemented.</strong>
-<code>docs/guides/validator.md</code> describes <code>MsgRotateOperator</code>, the pause, the
-challenge window and the veto-by-signing rule. None of it exists in code. Docs
-ahead of code is worse than no docs.</p>
-<p><strong>The signing service is a devnet crutch.</strong> <code>opsd.py</code> signs with the node&#39;s own
-keyring on behalf of a browser. It must be replaced by client-side signing
-through <code>@yamale/connect</code>, after which <code>/api/ops/</code>, both htpasswd files and both
-copies of <code>opsd.py</code> are deleted and the consoles move onto the tailnet.</p>
-<p><del><strong>Devnet <code>voting_period</code> is 180s</strong>, so proposals expire while they are being
-debugged.</del> Fixed: the devnet setup and upgrade scripts now write 1800s (30
-minutes), with a 900s expedited period. A chain already running still carries
-the old value in its state — that takes a governance proposal, or the next
-<code>upgrade.sh</code>.</p>
-<p>Also open and untouched: #51 bridge strategy, #65 browser extension wallet.</p>
-<hr>
-<h2>B. New — required by the revised scope, nothing exists yet</h2>
-<h3>1. The constitutional layer</h3>
-<p><del>There is no such thing today.</del> Built. <code>x/constitution</code> holds eleven
-genesis-fixed invariants: the three concentration ceilings, the epoch the
-ceilings are enforced at, the floor below which enforcement reports instead of
-acting, <code>x/enforcement</code>&#39;s <code>threshold_bps</code>, <code>recovery_destination</code>,
-<code>voting_period_blocks</code> and <code>provisional_freeze_blocks</code>, and the delay and
-threshold an amendment to any of them must clear.</p>
-<ul>
-<li><strong><code>MsgUpdateParams</code> refuses them.</strong> <code>Params.AssertConstitutional</code> is checked on
-x/enforcement&#39;s update path and again at its <code>InitGenesis</code>, so the two copies
-of those four values cannot diverge rather than merely being unlikely to. The
-values stay in x/enforcement&#39;s own store because that is where they are read
-at speed; the constitution is the authority on what they may be.</li>
-<li><strong><code>InitGenesis</code> refuses an unset invariant.</strong> Every field, including the three
-ceilings and the epoch length. <code>DefaultGenesis</code> is deliberately <em>not</em>
-startable: it leaves <code>enforcement_recovery_destination</code> empty, on the same
-reasoning x/enforcement already used — no address compiled into a binary is
-the foundation on somebody else&#39;s network, and a default that was merely valid
-would satisfy the check while pointing every seizure at whoever generated it.</li>
-<li><strong>Amendment is possible, and slow.</strong> Not &quot;not at all&quot;, because that would be a
-lie: a chain can be hard-forked and an upgrade handler can rewrite any store,
-so a constitution with no amendment path relocates its amendments into a
-binary release — a change with <em>less</em> public notice than a proposal. The path
-is a governance proposal, then a three-week public delay, then a separate
-ratification by four fifths of the voting power recorded when the amendment
-opened. The effective height is computed from the delay in force when it
-opened, so an amendment cannot shorten its own; no amendment may set the delay
-below seven days, a floor compiled into the binary because a floor that can
-itself be amended is not one; and the ratification threshold must exceed the
-seizure threshold, because changing the rule must never be easier than using
-it.</li>
-</ul>
-<p><strong>Where they live, and why a module.</strong> A new module rather than a shared store,
-because the dependency has to run one way and only one way: x/validatorgov and
-x/enforcement consult x/constitution, and x/constitution depends on x/staking
-and on nothing else in this repository. Anything it consulted back would be a
-cycle depinject cannot wire — and, more to the point, a constitution that read a
-value out of the module it constrains would not be constraining it. A shared
-store would have given every module write access to the values by construction.</p>
-<p>Open: a chain that already holds value adopts this through the <code>constitution</code>
-upgrade, whose handler takes the four enforcement values in force and leaves the
-ceilings at their shipped defaults, because nothing on a running chain implies
-them. The first act of governance after that upgrade should be to amend them
-deliberately.</p>
-<h3>2. Concentration caps</h3>
-<p><del><code>blockchain.validatorgov.v1.Params</code> is an empty message.</del> Built, and the
-shape changed with the owner&#39;s decision that validator power is equal seats set
-by governance rather than stake.</p>
-<ul>
-<li><strong>The register.</strong> <code>MsgApplyValidator</code> now carries a legal entity identifier, an
-ultimate beneficial owner identifier and an ISO 3166-1 alpha-2 jurisdiction,
-all three required and the country checked against the assigned list
-<code>x/alias/types/iso3166.go</code> owns. The declaration is copied onto the approval at
-approval and kept current by <code>MsgAttestOwnership</code>, which restates the whole
-declaration rather than bumping a date — an operator whose owner changed and
-who re-attests the old values has signed a false statement, which is a fact a
-supervisor can act on. A declaration older than the interval is published as
-<code>EventDeclarationStale</code> at every epoch and nothing else is done about it: the
-chain cannot verify a declaration, and turning an operator&#39;s inattention into
-a consensus event would be a worse failure than the one it prevents.</li>
-<li><strong>Enforcement demotes, every epoch.</strong> <code>ConcentrationEndBlocker</code> runs on epoch
-boundaries, restores first and then demotes. A breach is corrected by jailing
-from the largest member of the group downward until the group is inside its
-ceiling; nothing is slashed and no delegation unbonds. A demotion is undone
-automatically at the first epoch the breach has cleared, and an ante decorator
-refuses <code>MsgUnjail</code> from a demoted validator — without it the ceiling would be
-one transaction per block away from being advisory.</li>
-<li><strong>Governance-set power is bound too.</strong> <code>MsgSetValidatorPower</code> deliberately does
-<em>not</em> check the ceilings. A power granted above one is accepted and trimmed at
-the next epoch like any other breach, because a ceiling only tested where power
-is granted leaves growth, merger and nationalisation unguarded — and because
-refusing at the message would have made the test that proves the real
-mechanism impossible to write.</li>
-<li><strong>Divisors are guarded at the point of use.</strong> The epoch modulus, the
-basis-point shares and the ceiling arithmetic all guard a zero where they are
-read, not only where they are validated.</li>
-<li><strong>A ceiling that cannot be satisfied is reported, not enforced.</strong> Below
-<code>min_active_validators</code> the breach is emitted as an event and nothing is
-demoted. Three validators under three owners cannot all sit below a fifth of
-the power, and a check that kept demoting until the arithmetic worked would
-demote the chain into a halt.</li>
-</ul>
-<p>Still open: a bonded validator with no approval record — a genesis validator
-from the gentx ceremony — is counted in the denominator and belongs to no group,
-so it can never be demoted. Genesis now refuses an <code>ApprovedValidator</code> without a
-declaration, which is how a founding set is brought inside the ceilings; a chain
-whose gentx validators were never added to the allowlist has validators no
-ceiling reaches.</p>
-<h3>3. Payment confidentiality</h3>
-<p>Highest irreversibility, so first. <code>MsgPayment</code>
-(<code>proto/blockchain/paymsg/v1/tx.proto:72-80</code>) carries <code>debtor</code>, <code>creditor</code>,
-<code>denom</code>, <code>amount</code>, <code>purpose_code</code> and <code>remittance_information</code> — all plaintext,
-all in the transaction, all in state forever. Under the revised positioning
-(institutions, capital-control compliance, supervisors) this is the blocker.</p>
-<p>The decision to take now is the shape, not the implementation: commitment
-on-chain with detail off-chain, or an encrypted payload with viewing keys for
-the supervisor. Either way the field numbers must be reserved before a pilot
-writes a single payment.</p>
-<h3>4. Profiles</h3>
-<p><strong>The build has no concept of a profile.</strong> One binary wires all thirteen modules
-unconditionally in <code>app/app_config.go</code>. The settlement profile needs no native
-token, so <code>x/emission</code> must compile out — it is referenced at six points in
-<code>app_config.go</code>, including the BeginBlocker ordering. The registry profile needs
-land without payments. And IBC is wired unconditionally in <code>app/ibc.go</code> with no
-build tag anywhere in <code>app/</code>, so &quot;excluded by build tag&quot; is not currently
-possible.</p>
-<p>These two — emission compile-out and the IBC tag — are small and should land
-<strong>before audit scope is fixed</strong>. A module absent from the binary is absent from
-the review; a module merely disabled is not.</p>
-<h3>5. The obligations of being a distribution</h3>
-<p>None of this exists: LTS branches, a backport policy, upgrade tooling beyond the
-single handler from #38, a deployment certification procedure, or a legal entity
-able to sign a warranty. Whether any of it is needed depends on open decision
-four (vendor versus reference implementation), which is why that decision gates
-the rest.</p>
-<h3>6. The document itself</h3>
-<p><code>docs/scope/README.md</code> names <code>revised-scope.md</code> as authoritative. That file does
-not exist in the tree. Everything in <code>docs/guides/</code> still assumes a single chain
-carrying every module.</p>
-<hr>
-<h2>Order</h2>
+<h2>Built, merged, and live on the chain</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Constitutional layer</td>
+<td>13 invariants fixed at genesis; <code>MsgUpdateParams</code> refuses them</td>
+</tr>
+<tr>
+<td>Concentration caps</td>
+<td>beneficial-ownership registry, epoch enforcement, demotion by jailing</td>
+</tr>
+<tr>
+<td>Enforcement oversight</td>
+<td>legal instrument, delays scaling with amount, ombudsman veto, rolling window cap</td>
+</tr>
+<tr>
+<td>Foundation</td>
+<td>3-of-5 <code>x/group</code>, in genesis, as <code>recovery_destination</code></td>
+</tr>
+<tr>
+<td>Key ceremony</td>
+<td>air-gapped CLI, loopback page, and hosted multi-device with in-browser keygen</td>
+</tr>
+<tr>
+<td>Payment confidentiality — metadata</td>
+<td>salted hash on-chain, payload off-chain</td>
+</tr>
+<tr>
+<td>Payment confidentiality — schema</td>
+<td>fields 10–13 reserved; commitment refused until verification ships</td>
+</tr>
+<tr>
+<td>Encrypted payload store</td>
+<td>X25519 + ChaCha20-Poly1305, three recipients, erasure demonstrated</td>
+</tr>
+<tr>
+<td>Jurisdictional registry</td>
+<td>country on the account, country prefix in the <code>x/alias</code> identifier</td>
+</tr>
+<tr>
+<td>Build profiles</td>
+<td><code>settlement</code> compiles out the token and five modules; IBC opt-in</td>
+</tr>
+<tr>
+<td>Fees in issued currency</td>
+<td>ante gate on denom, swept to a treasury operating account</td>
+</tr>
+<tr>
+<td>Validator key rotation</td>
+<td>planned rotation, recovery quorum, veto-by-signing</td>
+</tr>
+<tr>
+<td>Land registry</td>
+<td>module, CLI, client; tokenisation refuses unauthorised fractionalisation</td>
+</tr>
+</tbody></table>
+<h2>Written and passing, not yet merged</h2>
+<p><strong>The tiered netting layer.</strong> <code>x/netting</code> in the worktree at
+<code>.claude/worktrees/agent-a1b7c8556d3a8c96b</code> — keeper, msg server, ABCI,
+autocli, generated reference docs, and ten test files including property,
+security, settlement and compression tests. The whole tree builds and those
+tests pass.</p>
+<p>It is uncommitted because the agent writing it was killed by a spend limit
+before it could commit, not because anything is wrong with it. What it has not
+had is the verification the rest of this went through: four tag combinations,
+the five drift guards, and a mutation pass. Until then it is <em>promising</em>, not
+<em>trusted</em> — and it matters more than most, because the decision to get payment
+confidentiality from architecture rather than cryptography rests on it.</p>
+<p>The one thing to read first when reviewing it is the <strong>settlement-failure
+design</strong>. A netting layer without an answer for a participant who cannot cover
+its position is the most dangerous thing in this repository, and the brief asked
+for queuing, collateral, partial settlement or bilateral limits rather than a
+naive recompute.</p>
+<h2>Designed, documented, not built</h2>
+<p><strong>Roles and <code>AssertScope</code>.</strong> The jurisdiction registry exists and is queryable;
+nothing consumes it. Until every authority action routes through one check, the
+perimeter is a fact the chain knows and does not enforce. See
+<a href="roles-and-perimeter.html">roles-and-perimeter.md</a>.</p>
+<p><strong>Confidential amounts.</strong> Deliberately deferred, with the measurements recorded
+in <a href="confidentiality.html">confidentiality.md</a>: no audited Go library, ~6
+transactions per second with the only credible Bulletproofs implementation
+(which is itself broken on three of five curves), ~130 with gnark. The reserved
+field numbers are the part that mattered and they are done.</p>
+<p><strong>The seat token for a no-native-token profile.</strong> <code>-tags settlement</code> removes the
+token&#39;s <em>issuance</em>, not its <em>denomination</em>: <code>sdk.DefaultBondDenom</code> is still
+<code>uyml</code>, and staking, gov deposits, slashing and the oracle&#39;s accepted denoms all
+follow it. Equal seats needs a non-inflating, non-transferable seat token with
+equal genesis balances, delegation blocked and slash fractions at zero.</p>
+<h2>Untouched</h2>
+<p><strong>Scope §6, workstream three.</strong> Batch payment messages with per-item failure
+isolation, mempool lanes prioritising settlement, a published state-growth model
+with pruning and a tested restore, an institution registry carrying LEI or BIC,
+oracle hardening with deviation circuit breakers.</p>
+<p><strong>Scope §6, workstream four — assurance, which gates everything commercial.</strong>
+Two independent audits with non-overlapping scopes, property-based and fuzz
+testing on every value-moving path, written invariant specifications produced
+<em>before</em> audit so reviewers have something to check against, a key ceremony with
+HSM custody, a documented upgrade rollback.</p>
+<p><strong>The account service</strong>, which the scope calls the actual commercial critical
+path: authentication, threshold key custody, recovery with two approvers and a
+delay, second factor. Plus USSD and feature-phone access, without which most
+African transaction volume is unreachable, and agent-network and mobile-money
+integration.</p>
+<p><strong>A legal entity able to sign an indemnity.</strong></p>
+<h2>Open decisions, §8</h2>
+<p>None of these can be answered from inside the code, and each changes scope:</p>
 <ol>
-<li><del>Payment confidentiality (schema) and the constitutional layer</del> — the
-constitutional layer is built; payment confidentiality is still open and is
-now the only remaining item that is impossible to retrofit.</li>
-<li><del>Concentration caps with epoch enforcement</del>; the two profile build tags.</li>
-<li>Finish x/land: autocli, client, and the x/tokenisation enforcement half.</li>
-<li>Replace the signing service; implement rotation; test the enforcement paths.</li>
-<li>Everything in §5, if and only if open decision four says vendor.</li>
+<li><strong>Which beachhead</strong> — UEMOA or an Afreximbank partnership.</li>
+<li><strong>Whether cross-chain collateral is a commercial requirement</strong>, which alone
+decides whether IBC goes on the critical path.</li>
+<li><strong>Threshold key custody: build or buy.</strong></li>
+<li><strong>Vendor with support obligations, or reference implementation</strong> a systems
+integrator productises. This one gates the LTS branches, the backport policy,
+the certification and the warranties — most of the cost in §6.</li>
 </ol>
+<h2>Known defects</h2>
+<ul>
+<li><strong><code>clients/app</code>&#39;s Pay screen renders a success receipt without broadcasting</strong>,
+and neither the app nor the wallet ever constructs <code>MsgSendPayment</code>. So
+<code>x/paymsg</code> — and with it every confidentiality field — is unreachable from any
+user interface.</li>
+<li><strong><code>x/tokenisation</code> served under <code>/blockchain/</code> for a while</strong> and is now on
+<code>/yamale/</code>; the nginx visibility allowlist names it under neither, so it falls
+through to deny-by-default. Correct today, a trap when somebody opens it up.</li>
+<li><strong>The OpenAPI merge collapses every module&#39;s <code>Params</code> into one definition</strong>,
+currently holding only <code>x/validatorgov</code>&#39;s fields.</li>
+<li><strong><code>TestGenesisRoundTrips</code> in <code>x/alias</code> still has a vacuous <code>Owners</code> check</strong> —
+the same shape as three others that were fixed.</li>
+</ul>
+<h2>Operational loose ends</h2>
+<ul>
+<li><strong>The ops signing service is still running</strong> with two htpasswd files. It was
+always a devnet crutch; the plan is client-side signing through
+<code>@yamale/connect</code>, then delete <code>/api/ops/</code>, both credential files and both
+copies of <code>opsd.py</code>, and move the consoles onto the tailnet.</li>
+<li><strong>The hosted ceremony process is still up</strong> on the VM. Its work is finished
+and it holds a coordinator token that can issue invites. Stop it.</li>
+<li><strong>The Pi&#39;s operator key lives on the Pi.</strong> Correct while rehearsing; the
+validator guide says to take it off the node once genesis is done, because a
+node needs only its consensus key to produce blocks.</li>
+<li><strong>The staging chain&#39;s custodians are one person.</strong> Its 3-of-5 is a 1-of-1 with
+four extra steps, which is fine for exercising the process and must never be
+carried into a deployment holding value.</li>
+</ul>
+<h2>The one test nothing has run</h2>
+<p><strong>Three of the five custodian keys moving something, and two failing to.</strong></p>
+<p>Every step so far proves the group <em>exists</em>: it is in genesis, in state, with
+five members and a threshold of three, and it is the recovery destination. None
+of it proves the group <em>works</em>. &quot;The foundation cannot actually spend&quot; is the
+worst thing to discover after a deployment, and it is the only claim in this
+document that no other step exercises.</p>
+<p>The foundation&#39;s voting period is seven days, so a proposal raised today decides
+next week. That is right for five custodians in different timezones and
+inconvenient for a rehearsal; the alternative is a throwaway second group with a
+short window, which proves the mechanism without weakening the real one.</p>
 
 </main>
 </body>
