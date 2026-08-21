@@ -123,3 +123,37 @@ Two thresholds are computed from voting power today and become seat counts:
 the running devnet: validator 1 keeps its current dominant power and
 `threshold_bps` stays at 6667. Equal seats is how a new deployment's genesis is
 built, not a retro-change to a live chain.
+
+**The four open decisions of §8, answered 2026-08-21.**
+
+**Key custody: built in house.** Not procured from Turnkey, Privy or similar.
+This makes the account service — authentication, threshold custody, recovery with
+two approvers and a delay, second factor — an owned workstream rather than an
+integration, and it is the item §6 already calls the larger half of the remaining
+product.
+
+**Vendor, in house, owning everything.** So the obligations §2 names are accepted
+rather than deferred: long-term support branches, a versioning and backport
+policy, upgrade tooling, certification of deployments, and a legal entity able to
+sign warranties. Nothing here is subcontracted to a systems integrator.
+
+**Cross-chain collateral is not a requirement.** IBC therefore stays compiled out
+and outside audit scope. Land pledged against credit is served by an encumbrance
+recorded on the registry — which `x/land` already does — and a bank that checks
+the registry before lending, exactly as a mortgage works anywhere. The two
+sovereign profiles never share consensus by design, so a bridge between them
+would be one state's infrastructure trusting another's: a political problem in a
+technical costume. If a customer ever asks for it, it moves onto the critical
+path with a relayer, a failure-case programme, and an ante-equivalent
+authorisation check inside the interchain-accounts host path — ICA reaches the
+message router without passing the ante chain, which is a measured property of
+this codebase and not a hypothetical.
+
+**Beachhead: not yet settled.** The recommendation on record is to open the
+Afreximbank conversation first, because the vendor model above sells to a buyer
+and one counterparty answers faster than eight governments whether anyone buys
+this at all — and because Afreximbank has bought blockchain infrastructure from a
+vendor before. UEMOA stays the longer play: one currency, one regulator, and a
+plural validator set for free because no member state answers to another. They
+are not exclusive, but they imply different first roadmaps, so this is the
+decision with the shortest fuse.
