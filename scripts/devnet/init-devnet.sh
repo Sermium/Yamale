@@ -26,6 +26,16 @@ fi
 POLICY=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["policy_address"])' "$CEREMONY_DIR/group.json")
 echo "foundation group: $POLICY"
 
+# Set before the phase guard: PHASE=finalise skips the block below but still
+# edits this file.
+G=$HOME_DIR/config/genesis.json
+
+# Everything from here to the collection builds the genesis. PHASE=finalise
+# skips it, because that run is resuming a launch already in progress and the
+# first thing this block does is delete the node home — including a consensus
+# key and any gentx a joining validator has already sent back.
+if [ "${PHASE:-all}" != "finalise" ]; then
+
 rm -rf "$HOME_DIR"
 
 echo "=== init ==="
@@ -136,7 +146,6 @@ echo "=== enforcement oversight ==="
 # applied would produce a genesis the chain refuses to start from — after the
 # script had reported success. Failing loudly on a missing python3 is the
 # smaller problem.
-G=$HOME_DIR/config/genesis.json
 python3 - "$G" "$POLICY" "$CEREMONY_DIR/group.json" <<'PY'
 import json, sys
 path, destination, group_path = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -245,46 +254,49 @@ echo "=== validator ==="
 # person who is standing there.
 echo "$KEYRING_PASSPHRASE" |
   $BIN genesis gentx "$VALIDATOR_KEY" 100000000000uyml     --chain-id "$CHAIN_ID" --moniker pi     --keyring-backend file --home "$HOME_DIR" 2>&1 | tail -1
-# A second validator, seated at genesis rather than admitted afterwards.
-#
-# Its gentx is built here rather than on the other host, because a gentx needs
-# only that host's *consensus* public key — which is public — plus an operator
-# key and the genesis. Shuttling a genesis out, a gentx back and a final genesis
-# out again is the correct dance for validators run by different organisations
-# who must not share an operator key. For two hosts run by one operator it adds
-# three file transfers and a window in which the two ends hold different
-# genesis files, which is how an app-hash mismatch at height 1 gets introduced.
-#
-# The stake is deliberately a MINORITY. Two equal validators means two thirds of
-# the set requires both of them, so the chain halts whenever either drops — and
-# this second one is a Raspberry Pi on a home connection, which will. At 10000
-# against 100000 the first validator alone holds over ninety percent and keeps
-# producing blocks through the Pi's outages, which is the difference between a
-# demo that is up and one that is up when nobody is watching it.
-if [ -n "${PI2_PUBKEY:-}" ]; then
-  echo "=== second validator ==="
-  PI2_KEY=${PI2_KEY:-pi2-operator}
-  PI2_ARMOR="$CEREMONY_DIR/validator-operator-pi2.asc"
-  PI2_STAKE=${PI2_STAKE:-10000000000uyml}
-  if [ ! -f "$PI2_ARMOR" ]; then
-    echo "  no $PI2_ARMOR" >&2
-    echo "    ceremony validator --name \"pi-2\" --armor $PI2_ARMOR --network-acknowledged \"...\"" >&2
-    exit 1
-  fi
-  { echo "$OPERATOR_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; } |
-    $BIN keys import "$PI2_KEY" "$PI2_ARMOR" --keyring-backend file --home "$HOME_DIR" >/dev/null
-  PI2=$(echo "$KEYRING_PASSPHRASE" |
-    $BIN keys show "$PI2_KEY" -a --keyring-backend file --home "$HOME_DIR")
-  echo "  operator $PI2"
 
-  # Funded before the gentx, or the self-bond has nothing behind it and the
-  # failure names the delegation rather than the account.
-  $BIN genesis add-genesis-account "$PI2" 50000000000uyml --home "$HOME_DIR" >/dev/null
-  echo "$PI2_PUBKEY" > "$HOME_DIR/pi2-pubkey.json"
-  echo "$KEYRING_PASSPHRASE" |
-    $BIN genesis gentx "$PI2_KEY" "$PI2_STAKE"       --pubkey "$PI2_PUBKEY" --moniker pi-2       --chain-id "$CHAIN_ID" --keyring-backend file --home "$HOME_DIR" 2>&1 | tail -1
-  echo "  seated with $PI2_STAKE against the first validator's 100000000000uyml"
+fi  # end of the genesis-building phase
+
+# Stop here when another validator is joining at genesis.
+#
+# Its gentx has to be signed by ITS operator key, on ITS host — that is what
+# makes it a second validator rather than a second process this machine happens
+# to control. So the genesis so far goes out, each host produces a gentx against
+# it, and they all come back before anything is collected.
+#
+# It is three file transfers and it is not a formality. Building both gentxs here
+# would mean this machine held both operator keys, which is the arrangement a
+# multi-operator launch exists to avoid — and rehearsing a flow nobody will run
+# teaches nothing.
+#
+# The genesis is hashed on the way out. Every host must gentx against a
+# byte-identical file: two nodes on different genesis files fork at the first
+# block, and the symptom is an app-hash mismatch that names neither cause.
+if [ "${PHASE:-all}" = "accounts" ]; then
+  echo
+  echo "=== stopping before collection, as asked (PHASE=accounts) ==="
+  echo
+  echo "  genesis so far: $G"
+  echo "  sha256:         $(sha256sum "$G" | cut -d' ' -f1)"
+  echo
+  echo "On each joining validator, against a byte-identical copy of that file:"
+  echo
+  echo "  1. put it at <their-home>/config/genesis.json"
+  echo "  2. compare the sha256 — if it differs, stop"
+  echo "  3. ceremony validator --name <moniker> --armor operator.asc --network-acknowledged \"...\""
+  echo "  4. blockchaind keys import validator operator.asc --keyring-backend file"
+  echo "  5. blockchaind genesis gentx validator <minority-stake> --chain-id $CHAIN_ID \\"
+  echo "       --moniker <moniker> --keyring-backend file"
+  echo
+  echo "Then copy each gentx-*.json back into $HOME_DIR/config/gentx/ and run:"
+  echo
+  echo "  PHASE=finalise CEREMONY_DIR=$CEREMONY_DIR ... $0"
+  echo
+  echo "Keep the joining stakes a MINORITY. Two thirds of two equal validators is"
+  echo "both of them, so an equal set halts whenever either drops."
+  exit 0
 fi
+
 
 $BIN genesis collect-gentxs --home "$HOME_DIR" 2>&1 | tail -1
 $BIN genesis validate-genesis --home "$HOME_DIR"
@@ -338,6 +350,21 @@ echo "  prometheus         : $(grep '^prometheus =' "$HOME_DIR/config/config.tom
 
 echo
 echo "DEVNET READY"
-echo "alice=$ALICE"
-echo "bob=$BOB"
-echo "foundation=$FOUNDATION"
+# Read back from the keyring rather than from variables set during the build.
+# PHASE=finalise skips that block entirely, and referring to its variables here
+# made the last line of a successful launch an unbound-variable error — which
+# reads as a failure after everything actually worked.
+for k in alice bob foundation; do
+  echo "$k=$($BIN keys show "$k" -a $KR 2>/dev/null || echo '(not in this keyring)')"
+done
+echo "foundation-group=$POLICY"
+echo
+echo "validators seated at genesis:"
+python3 - "$G" <<'PYVAL'
+import json, sys
+g = json.load(open(sys.argv[1]))
+for tx in g["app_state"]["genutil"]["gen_txs"]:
+    for m in tx["body"]["messages"]:
+        if m["@type"].endswith("MsgCreateValidator"):
+            print(f"  {m['description']['moniker']:10s} {m['value']['amount']}{m['value']['denom']}")
+PYVAL
