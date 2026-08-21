@@ -1,0 +1,42 @@
+# Line endings for the generated trees.
+#
+# Four of this repository's checks are `git diff --exit-code` over regenerated
+# output. On a Windows checkout git converts those files to CRLF, the generator
+# then writes LF, and the guard reports drift in files whose content is
+# identical — which has now cost two separate diagnoses: openapi-check failed on
+# a description string that differed by nothing but an escaped carriage return,
+# and ceremony-ui-check failed on a trailing newline.
+#
+# `eol=lf` pins them. The generators all emit LF, so the working copy now
+# matches what they produce and a guard failing means something really changed.
+# Scoped to generated and guarded paths rather than applied repository-wide,
+# because renormalising everything would produce one enormous diff that hides
+# whatever is in it.
+
+# Protobuf output, guarded by proto-check.
+x/**/*.pb.go         text eol=lf
+x/**/*.pb.gw.go      text eol=lf
+
+# Reference documentation, guarded by docs-check.
+docs/reference/**    text eol=lf
+
+# The OpenAPI specification, guarded by openapi-check.
+docs/static/openapi.json  text eol=lf
+
+# TypeScript bindings, guarded by proto-ts-check.
+clients/sdk/src/generated/**  text eol=lf
+
+# The hosted ceremony bundle, guarded by ceremony-ui-check. This one matters
+# beyond tidiness: the host hashes these bytes and the page compares its own
+# script against that digest, so a line-ending conversion would make an honest
+# page look like a substituted one.
+tools/ceremony/hosted/**  text eol=lf
+
+# Rendered documentation for the website. Not guarded, but generated, so it
+# drifts for the same reason.
+clients/site/docs/**  text eol=lf
+
+# Shell scripts run on Linux hosts. A CRLF here is not a cosmetic problem —
+# `#!/bin/bash\r` is not an interpreter anything can find, and the error names
+# the script rather than the line ending.
+*.sh                 text eol=lf
