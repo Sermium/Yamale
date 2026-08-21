@@ -128,8 +128,14 @@ func runHost(args []string) error {
 	fmt.Printf("  location %s { proxy_pass http://%s%s; proxy_set_header Host $host; }\n",
 		mount, listener.Addr(), mount)
 	fmt.Println()
-	fmt.Println("Bundle SHA-256, which is what a custodian sees in the page and can compare")
-	fmt.Println("against the value published in docs/guides/key-ceremony.md:")
+	// Printed rather than compared against a value committed next to it, because
+	// a digest checked against a number in this repository proves only that this
+	// binary agrees with itself. It has to be published where the coordinator
+	// cannot reach it — with the ceremony announcement, to the custodians,
+	// before the day — and that is a thing a person does, not a build step.
+	fmt.Println("Bundle SHA-256. Publish this with the ceremony announcement: it is what a")
+	fmt.Println("custodian compares the page against, and it means nothing unless they got it")
+	fmt.Println("from somewhere other than the page.")
 	fmt.Println()
 	fmt.Printf("  %s\n", bundle.Hash)
 	fmt.Println()

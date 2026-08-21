@@ -570,8 +570,9 @@ but loopback: the browser generates the key from the code that URL serves, so
 anything able to rewrite the response owns every key in the ceremony.
 
 On startup it prints two things. The **bundle SHA-256**, which is the digest a
-custodian sees in the page and can compare against the value published below.
-And the **coordinator link**, which is the ceremony: anyone holding it can issue
+custodian sees in the page — publish it with the ceremony announcement, because
+a digest a custodian got from the page proves nothing about the page. And the
+**coordinator link**, which is the ceremony: anyone holding it can issue
 invitations, so it is not a link to paste into a group chat.
 
 ### What the coordinator does
