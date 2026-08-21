@@ -309,7 +309,25 @@ currencies-ts:
 site-docs:
 	@node clients/site/build-docs.mjs
 
-.PHONY: docs docs-check openapi openapi-check currencies-ts site-docs
+# The hosted ceremony's client bundle. tools/ceremony/hosted is generated output
+# and it is COMMITTED rather than gitignored, which is unusual here and
+# deliberate: the ceremony binary embeds it, so `go build ./...` has to work on a
+# clone with no JavaScript toolchain, and a coordinator has to be able to serve
+# the ceremony from one file. Rebuild it whenever clients/ceremony changes, and
+# note that the digest `ceremony host` prints — the one a custodian compares
+# against a published value — moves with it.
+ceremony-ui:
+	@echo "Building the hosted ceremony bundle..."
+	@cd clients && npm run build --workspace @yamale/ceremony
+
+# Fails when the committed bundle has fallen behind clients/ceremony. Not one of
+# the drift guards CI runs, because it needs npm as well as Go; run it by hand
+# after touching the ceremony client.
+ceremony-ui-check: ceremony-ui
+	@echo "Checking the hosted ceremony bundle is up to date..."
+	@git diff --exit-code -- tools/ceremony/hosted
+
+.PHONY: docs docs-check openapi openapi-check currencies-ts site-docs ceremony-ui ceremony-ui-check
 
 #################
 ###  Linting  ###

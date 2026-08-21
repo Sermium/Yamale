@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Key ceremony</title>
+<style>
+  /*
+    The hosted ceremony, styled for two screens that could not be less alike: a
+    coordinator on a desktop watching a board for an hour, and a custodian on a
+    phone reading twenty-four words they will hold for years.
+
+    The phone is the constraint that decides the layout. Every measurement below
+    that matters was chosen for 375px, and checked there.
+  */
+  :root {
+    color-scheme: light dark;
+    --navy:#12253f; --ink:#0b1523; --brass:#a87b3c; --paper:#f6f7f9;
+    --bg:var(--paper); --panel:#fff; --text:var(--ink); --muted:#5c6e88;
+    --border:#e3e7ee; --ok:#0d7a4a; --warn:#a8791b; --bad:#b02a25;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:var(--ink); --panel:var(--navy); --text:#e8eef7; --muted:#8fa4c4;
+      --border:#24405f; --ok:#6fbfa5; --warn:#d2a65e; --bad:#ef8a85;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;
+         padding:.9rem 1rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  h3{font-size:.95rem;margin:1.2rem 0 .3rem}
+  #app{max-width:64rem;margin:0 auto;padding:0 1rem 3rem}
+  /* The coordinator sits on this screen for an hour with five invite cards, a
+     status board and a genesis fragment on it, so it gets the width a desktop
+     actually has. The prose inside stays at a readable measure: a paragraph
+     1100px wide is a paragraph nobody's eye tracks back across. */
+  .wide #app{max-width:78rem}
+  .panel p,.panel ol,.panel ul.plain{max-width:46rem}
+  .panel ul.board{max-width:none}
+  .muted{color:var(--muted)}
+  .small{font-size:.85rem}
+  .tiny{font-size:.72rem}
+  .break{overflow-wrap:anywhere}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+         padding:1.1rem 1.1rem;margin-bottom:1rem}
+  h2{font-size:1.05rem;margin:0 0 .5rem;border-inline-start:3px solid var(--brass);
+     padding-inline-start:.55rem}
+  p{margin:.5rem 0}
+  button{font:inherit;font-weight:600;padding:.65rem 1.05rem;border-radius:10px;
+         border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;
+         /* 44px of touch target: this is the button a custodian presses on a phone
+            to move between steps, and a near-miss on the words screen is a
+            custodian tapping something they did not mean to. */
+         min-height:44px}
+  button.secondary{background:transparent;color:var(--text);border-color:var(--border)}
+  button.danger{background:var(--bad);border-color:var(--bad)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.8rem}
+  label{display:block;font-size:.82rem;color:var(--muted);margin:.7rem 0 .2rem}
+  input,textarea{font:inherit;width:100%;padding:.6rem .7rem;border-radius:9px;
+                 border:1px solid var(--border);background:var(--bg);color:var(--text)}
+  textarea{min-height:5.5rem;resize:vertical}
+  .grid2{display:grid;gap:.2rem .9rem;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))}
+  code,.mono,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border:1px solid var(--border);
+      border-radius:10px;padding:.7rem;font-size:.78rem;max-height:22rem;overflow:auto;margin:.4rem 0}
+  .err{background:#fbe9e8;color:#8f211d;border:1px solid #e6b3b0;border-radius:10px;
+       padding:.75rem .9rem;margin:.8rem 0;white-space:pre-wrap}
+  @media (prefers-color-scheme: dark){.err{background:#3a1c1b;color:#f2b3af;border-color:#6b2a27}}
+
+  /* The twenty-four words.
+
+     The most important typography in the product, and the measurement that
+     decides it is 375px: two columns, because one column of twenty-four rows is
+     a scroll a custodian loses their place in, and three columns at that width
+     puts the words below the size somebody reads without their glasses.
+
+     clamp, so the word grows on a desktop and never falls below 1.15rem on a
+     phone. A word misread here is a backup that fails silently in five years. */
+  .phrase{display:grid;gap:.4rem .5rem;margin:1rem 0;
+          grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))}
+  .word{display:flex;align-items:baseline;gap:.45rem;padding:.4rem .5rem;
+        border:1px solid var(--border);border-radius:9px;background:var(--bg)}
+  .word__n{font-size:.85rem;color:var(--muted);min-width:1.4rem;text-align:right;
+           font-variant-numeric:tabular-nums}
+  .word__w{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+           font-size:clamp(1.15rem,4.2vw,1.5rem);font-weight:600;letter-spacing:.01em;
+           overflow-wrap:anywhere}
+
+  /* The fingerprint is read aloud over a call that may be bad. Grouped, spaced,
+     and each group its own element so a narrow screen breaks between groups
+     rather than mid-group — a listener who loses a group asks for that group
+     again rather than the whole string. */
+  .fingerprint{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem;
+               font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+               font-size:clamp(1.3rem,6vw,1.9rem);font-weight:700;
+               padding:.55rem .7rem;border:1px dashed var(--brass);border-radius:10px;
+               margin:.6rem 0;width:fit-content;max-width:100%}
+  .fingerprint__g{letter-spacing:.1em}
+  .fingerprint__d{color:var(--muted);padding:0 .05rem}
+
+  ol.steps{margin:.4rem 0 0;padding-inline-start:1.3rem}
+  ol.steps li{margin:.35rem 0}
+  ul.plain,ul.board{list-style:none;margin:.6rem 0 0;padding:0}
+  ul.plain li,ul.board li{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;
+                          padding:.55rem 0;border-top:1px solid var(--border)}
+  ul.plain li.own{font-weight:650}
+  .board__name{min-width:11rem;font-weight:600}
+  .waiting{font-weight:650}
+  .pill{font-size:.75rem;padding:.15rem .55rem;border-radius:999px;
+        border:1px solid var(--border);color:var(--muted)}
+  .pill--ok{color:var(--ok);border-color:var(--ok)}
+  .pill--wait{color:var(--muted)}
+  .pill--warn{color:var(--warn);border-color:var(--warn)}
+  .confirm{display:flex;gap:.6rem;align-items:flex-start;margin:.7rem 0}
+  .confirm input{width:1.25rem;height:1.25rem;flex:0 0 auto;margin-top:.15rem}
+  .confirm label{margin:0;font-size:.95rem;color:var(--text)}
+
+  /* The trust note: one line with a disclosure. It is not a screen anybody has
+     to acknowledge, and it must not read like one. */
+  details.note{border:1px solid var(--border);border-radius:10px;padding:.55rem .8rem;margin:.9rem 0;
+               background:var(--bg)}
+  details.note summary{cursor:pointer;font-size:.88rem;color:var(--muted)}
+  details.note[open] summary{margin-bottom:.4rem}
+
+  .cards{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin-top:.8rem}
+  .card{border:1px solid var(--border);border-radius:12px;padding:.8rem;background:var(--bg)}
+  .card__name{font-weight:650;display:flex;gap:.5rem;align-items:baseline;margin-bottom:.5rem}
+  .qr{display:block;margin:0 auto .5rem;border-radius:6px}
+  .reissue{margin-top:.6rem;border-top:1px solid var(--border);padding-top:.5rem}
+  .roster__row{margin-bottom:.4rem}
+  dl.facts{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:.5rem 0}
+  dl.facts dt{color:var(--muted);font-size:.85rem}
+  dl.facts dd{margin:0}
+  .record{max-height:32rem}
+
+  @media print {
+    /* The record, printed. Backgrounds off, the board and the links dropped:
+       a printed page with five live invite links on it is a credential on a
+       desk. */
+    body{background:#fff;color:#000}
+    .panel{border:none;padding:0;margin-bottom:1.2rem}
+    button,.cards,.reissue,details.note{display:none}
+    pre{max-height:none;overflow:visible;border:none}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

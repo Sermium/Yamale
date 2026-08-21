@@ -47,6 +47,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 )
 
@@ -199,8 +200,33 @@ func (p ceremonyParams) validate() error {
 			"a threshold of %d over %d custodians leaves no redundancy: losing one key would freeze the foundation account forever, with the chain still sending seizures to it",
 			p.Threshold, len(p.Custodians))
 	}
-	if _, err := p.votingPeriod(); err != nil {
+	period, err := p.votingPeriod()
+	if err != nil {
 		return fmt.Errorf("voting_period %q is not a duration: %w", p.VotingPeriod, err)
+	}
+	// Guarded here rather than left to the SDK, because the SDK's check is
+	// narrower than it looks: ThresholdDecisionPolicy.ValidateBasic refuses a
+	// voting period of exactly zero and says nothing about a negative one, and
+	// x/group's GenesisState.Validate never goes deeper than ValidateBasic. So a
+	// voting period of "-1h" produces a genesis file that imports cleanly and a
+	// group whose proposals expire before they are made — three custodians
+	// agreeing on something the chain will never execute.
+	if period <= 0 {
+		return fmt.Errorf(
+			"a voting period of %s gives the other custodians no window to vote in, so this group could never "+
+				"execute anything three of them agreed on", p.VotingPeriod)
+	}
+	// Bounded because a browser holds this as a JavaScript number, which is
+	// exact only to 2^53. Beyond that the page would derive a DIFFERENT POLICY
+	// ADDRESS from this binary — silently, for the one value that decides where
+	// every seized asset on the chain is sent, while every other check agreed
+	// because they all read the same field. 2^40 is far past any sequence a real
+	// chain could reach and far inside what both sides represent exactly.
+	const maxPolicySeq = 1 << 40
+	if p.PolicySeq > maxPolicySeq {
+		return fmt.Errorf(
+			"policy_seq %d is past anything a chain could have reached, and past the range a browser holds exactly",
+			p.PolicySeq)
 	}
 	return nil
 }
@@ -306,6 +332,13 @@ func verifySubmission(params ceremonyParams, s submission) (identity, error) {
 			s.Identity.Name)
 	}
 
+	if err := checkCanonicalTimestamp(s.Identity.Name, s.Identity.GeneratedAt); err != nil {
+		return identity{}, err
+	}
+	if err := checkHDPath(s.Identity.Name, s.Identity.HDPath); err != nil {
+		return identity{}, err
+	}
+
 	derived, err := identityFromPubKey(s.Identity.Name, roleCustodian, pub, s.Identity.HDPath, time.Now())
 	if err != nil {
 		return identity{}, err
@@ -333,6 +366,62 @@ func verifySubmission(params ceremonyParams, s submission) (identity, error) {
 // constant so a submission announcing some other curve is a refusal rather than
 // a key this chain cannot verify a signature from.
 const secp256k1PubKeyType = "/cosmos.crypto.secp256k1.PubKey"
+
+// checkCanonicalTimestamp refuses any generated_at that is not the exact form
+// this ceremony writes: UTC, whole seconds, trailing Z.
+//
+// This looks like pedantry and it is the one place two honest implementations of
+// assembleGroup can disagree. The latest generated_at among the submissions
+// becomes the timestamp inside the genesis fragment, and the group fingerprint
+// covers those bytes. This binary parses the value and re-emits it normalised;
+// the browser compares the strings and uses the winner verbatim, which is
+// correct for this one format and for no other — lexical order is chronological
+// order only when every value is UTC with the same width.
+//
+// So a submission carrying "2026-03-02T11:15:00+02:00" — valid RFC 3339, signed
+// by its own custodian, the same instant as an earlier Z value that sorts before
+// it — would have five browsers computing one fingerprint and this binary
+// computing another. That is the failure the read-aloud step cannot tell apart
+// from an attack. It is refused at the door rather than normalised quietly,
+// because a value silently rewritten is a value the custodian did not sign.
+func checkCanonicalTimestamp(name, value string) error {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return fmt.Errorf("%s's submission has an unreadable generated_at %q: %w", name, value, err)
+	}
+	canonical := parsed.UTC().Truncate(time.Second).Format(time.RFC3339)
+	if canonical != value {
+		return fmt.Errorf(
+			"%s's submission is timestamped %q and this ceremony writes %q — UTC, whole seconds, trailing Z. "+
+				"Two spellings of one instant would give a browser and this binary different group fingerprints "+
+				"from the same five submissions",
+			name, value, canonical)
+	}
+	return nil
+}
+
+// checkHDPath refuses a submission announcing a derivation path that is not this
+// chain's.
+//
+// The path is inside the possession signature, so it cannot be altered in
+// transit — but it is chosen by whoever generated the key, and it is what the
+// ceremony record tells somebody to derive at years from now. A record naming
+// m/44'/60'/... would send a custodian recovering the account to an address that
+// is not in the group, with the envelope in their hand and nothing to say which
+// of the two is wrong.
+func checkHDPath(name, path string) error {
+	// Built from the chain's own parameters rather than written out, so a change
+	// to coinType moves this with it. Only the account index varies, and it is
+	// the last element.
+	base := strings.TrimSuffix(hd.NewFundraiserParams(0, coinType, 0).String(), "/0")
+	if !strings.HasPrefix(path, base+"/") {
+		return fmt.Errorf(
+			"%s's submission was derived at %q, and this chain's accounts live under %s. A key derived somewhere "+
+				"else is a key the recovery instructions on the record would not find",
+			name, path, base)
+	}
+	return nil
+}
 
 func onRoster(roster []string, name string) bool {
 	for _, candidate := range roster {

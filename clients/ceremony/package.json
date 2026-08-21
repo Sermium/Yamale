@@ -1,0 +1,25 @@
+{
+  "name": "@yamale/ceremony",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The hosted key ceremony: five custodians on five devices, each generating their own key in their own browser.",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
+    "@scure/base": "^1.2.4",
+    "@scure/bip32": "^1.6.2",
+    "@scure/bip39": "^1.5.4",
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}
