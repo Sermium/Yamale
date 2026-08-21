@@ -183,7 +183,7 @@ import {
   // building one
   swapPlan, toBaseUnits, tooLong,
   // formatting
-  formatCoin, groupDigits, relativeTime, short, timestampSeconds,
+  formatCoin, groupDigits, relativeTime, short, stalledAtHeight, timestampSeconds,
   // commands
   currentChainId, execCommand, proposalDocument, setChainId, spendMessage, submitCommand,
   swapMessage, voteCommand,
@@ -216,15 +216,62 @@ class CallFailed extends Error {
   }
 }
 
+/**
+ * The height every read is pinned to, once the chain is found to have stopped.
+ *
+ * Null normally, and reset on every route so it heals itself the moment blocks
+ * resume — a console still showing Tuesday's state on Thursday because it never
+ * un-pinned would be worse than one that admitted it could not read anything.
+ */
+let pinnedHeight = null;
+
+/** The last block the node has, from the RPC, which answers while halted. */
+let lastBlock = { height: null, time: null };
+
 async function get(url) {
+  const send = (height) => fetch(url, height
+    ? { headers: { 'x-cosmos-block-height': String(height) } }
+    : undefined);
+
   let res;
   try {
-    res = await fetch(url);
+    res = await send(pinnedHeight);
   } catch (e) {
     throw new CallFailed(url, 'unreachable');
   }
-  if (!res.ok) throw new CallFailed(url, res.status);
-  return res.json();
+  if (res.ok) return res.json();
+
+  // A node with no finalised block refuses every query rather than serving
+  // stale state, and names the height it is stuck at in the refusal. Ask for
+  // that height explicitly and the same query answers perfectly. This is what
+  // keeps the page readable during exactly the outage that makes somebody open
+  // it.
+  const stalled = stalledAtHeight(await res.text().catch(() => ''));
+  if (stalled && stalled !== pinnedHeight) {
+    pinnedHeight = stalled;
+    try {
+      res = await send(pinnedHeight);
+    } catch {
+      throw new CallFailed(url, 'unreachable');
+    }
+    if (res.ok) return res.json();
+  }
+  throw new CallFailed(url, res.status);
+}
+
+/**
+ * Said on every screen while the chain is stopped, because every figure below it
+ * is historical and none of them look it.
+ */
+function stallBanner() {
+  if (!pinnedHeight) return '';
+  const wall = Math.floor(Date.now() / 1000);
+  const since = lastBlock.time ? ` — the last one was ${esc(relativeTime(lastBlock.time - wall))}` : '';
+  return `<p class="warnbox"><strong>This chain has stopped producing blocks${since}.</strong><br>
+    Everything below is the state at height ${esc(String(pinnedHeight))}, read by asking the node
+    for that height explicitly, which is the only thing a halted node will answer. It is accurate
+    and it is not current. A proposal can still be signed, and it will not commit until the chain
+    moves again — so a vote cast now is a vote nobody has cast yet.</p>`;
 }
 
 /** Optional reads: a missing extra should not blank a page that has the essentials. */
@@ -418,6 +465,7 @@ async function syncClock() {
     const s = await get(`${RPC}/status`);
     const t = timestampSeconds(s?.result?.sync_info?.latest_block_time);
     if (t) chainNow = t;
+    lastBlock = { height: s?.result?.sync_info?.latest_block_height ?? null, time: t ?? null };
     // Every composed command carries this. Taken from the node the page is
     // reading, so a console pointed at a devnet composes devnet commands.
     setChainId(s?.result?.node_info?.network ?? '');
@@ -1291,6 +1339,10 @@ async function route() {
   const path = (location.hash || '#/').split('?')[0];
   renderNav(path);
   setBanner('');
+  // Cleared per route rather than held, so a chain that comes back is noticed
+  // without a reload. The cost is one refused request per screen while it is
+  // down, which is the cheapest possible way to keep this honest.
+  pinnedHeight = null;
   window.scrollTo(0, 0);
   view.innerHTML = '<p class="empty">Reading the chain…</p>';
 
@@ -1306,8 +1358,9 @@ async function route() {
     // page's deadlines were computed against.
     document.getElementById('clock').textContent =
       `chain time ${new Date(chainNow * 1000).toUTCString().slice(17, 22)} UTC`;
+    setBanner(stallBanner());
   } catch (e) {
-    setBanner(failureBanner(e));
+    setBanner(stallBanner() + failureBanner(e));
     document.getElementById('clock').textContent = '';
     view.innerHTML = `<p class="empty">This screen could not be built, so nothing below it was
       attempted. Treat the foundation's state as unknown rather than as empty — an account that

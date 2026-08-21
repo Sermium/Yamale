@@ -16,6 +16,7 @@ import {
   parseExecutions,
   parseSubmissions,
   setChainId,
+  stalledAtHeight,
   staleAgainstGroup,
   toBaseUnits,
   auditGroup,
@@ -889,4 +890,37 @@ test('an unknown denom is shown in base units rather than divided by a guess', (
   // Guessing six decimals on a denom nobody registered is a factor of a million
   // on a restitution payment.
   assert.equal(formatCoin({ denom: 'uzzz', amount: '1000' }, { registry: REGISTRY }), '1,000 uzzz');
+});
+
+// --- a halted chain -----------------------------------------------------------
+
+const STALLED = JSON.stringify({
+  code: 2,
+  message: 'codespace sdk code 26: invalid height: context did not contain latest ' +
+    'block height in either check state or finalize block state (2733)',
+  details: [],
+});
+
+test('stalledAtHeight reads the last committed height out of the node error', () => {
+  assert.equal(stalledAtHeight(STALLED), 2733);
+  assert.equal(stalledAtHeight(JSON.parse(STALLED)), 2733, 'parsed body too');
+});
+
+test('stalledAtHeight ignores unrelated failures', () => {
+  assert.equal(stalledAtHeight('{"code":5,"message":"not found"}'), null);
+  assert.equal(stalledAtHeight(''), null);
+  assert.equal(stalledAtHeight(null), null);
+  assert.equal(stalledAtHeight(undefined), null);
+  // A 401 body from the proxy must not be mistaken for a stall: retrying it with
+  // a height header would turn "you are not allowed to read this" into a second
+  // identical refusal, and the banner that explains the allowlist would never
+  // be shown.
+  assert.equal(stalledAtHeight('<html><title>401 Authorization Required</title>'), null);
+});
+
+test('stalledAtHeight refuses height zero', () => {
+  // A node that has never committed a block reports (0), and height 0 means
+  // "latest" — which is the request that just failed. Retrying it is a loop.
+  const fresh = STALLED.replace('(2733)', '(0)');
+  assert.equal(stalledAtHeight(fresh), null);
 });

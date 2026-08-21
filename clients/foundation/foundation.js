@@ -1054,3 +1054,36 @@ export function groupDigits(value) {
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `${negative ? '-' : ''}${grouped}${frac ? `.${frac}` : ''}`;
 }
+
+/**
+ * The height a stalled node is stuck at, read out of its own refusal.
+ *
+ * A Cosmos node builds every query against the state left by the last block it
+ * finalised. A node that is running but has not finalised one — because the
+ * chain has halted and it was restarted, or because it is a fresh replica —
+ * therefore answers *every* REST query with an error, not with stale data:
+ *
+ *   invalid height: context did not contain latest block height in either
+ *   check state or finalize block state (2733)
+ *
+ * The height in the parentheses is the last committed block, and asking for it
+ * explicitly through `x-cosmos-block-height` works perfectly. So the difference
+ * between a console that is blank during an outage and one that still shows the
+ * custodians, the balance and every open proposal is this regex.
+ *
+ * That difference matters most exactly when it appears. A chain halts because a
+ * validator is gone, and a validator being gone is when somebody opens this page
+ * to find out who can be called — which is the moment a page that reads "could
+ * not read the chain" is worth nothing.
+ *
+ * Returns null for anything else, and null for height 0: a node that has never
+ * committed a block has no state to show, and querying at height 0 means
+ * "latest", which is the request that just failed.
+ */
+export function stalledAtHeight(body) {
+  const text = typeof body === 'string' ? body : JSON.stringify(body ?? '');
+  const m = /context did not contain latest block height[^)]*\((\d+)\)/.exec(text);
+  if (!m) return null;
+  const height = Number(m[1]);
+  return Number.isSafeInteger(height) && height > 0 ? height : null;
+}
