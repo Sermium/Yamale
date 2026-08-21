@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launching a chain — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Launching a chain</h1>
+<p>The whole sequence, in order, from an empty server to a chain producing blocks
+with a foundation nobody can spend from alone.</p>
+<p><strong>You need:</strong> a host you can reach, and five people who will each hold one key.</p>
+<p><strong>You will end with:</strong> a running chain whose constitution is fixed at genesis,
+whose foundation is a 3-of-5 that no single person controls, and a signed record
+of who witnessed it.</p>
+<hr>
+<h2>The order matters, and here is why</h2>
+<p>The ceremony comes <strong>before</strong> genesis, not after. That is not a preference.</p>
+<p>An <code>x/group</code> policy address derives from the group&#39;s sequence number and nothing
+else — not the members, not the threshold, not the admin, not even the chain id.
+So the address is knowable before the chain exists, and it commits to nothing
+about who controls it. A genesis that named the address and left the group to be
+created afterwards would hand every future seizure to whoever created the first
+group policy on the chain.</p>
+<p>So: hold the ceremony, put the group <strong>and</strong> the address into genesis together,
+and there is no interval to race.</p>
+<hr>
+<h2>1. Install</h2>
+<p>One binary each. Both embed everything they need — the ceremony carries its own
+web interface, so there is nothing to serve separately and nothing to install on
+the machine a custodian uses.</p>
+<pre><code class="language-bash">CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o blockchaind ./cmd/blockchaind
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ceremony    ./tools/ceremony
+</code></pre>
+<p>For a Raspberry Pi or an ARM host, <code>GOARCH=arm64</code>. A mismatched binary forks at
+the first block, so every validator runs the same build.</p>
+<pre><code class="language-bash">sudo install -m755 blockchaind ceremony /opt/yamale/bin/
+</code></pre>
+<h2>2. Choose which ceremony you are running</h2>
+<p>Two paths, and the difference is not convenience.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Air-gapped</th>
+<th>Hosted</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Custodians</td>
+<td>one room, one machine</td>
+<td>their own devices, anywhere</td>
+</tr>
+<tr>
+<td>Command</td>
+<td><code>ceremony serve</code> or the CLI</td>
+<td><code>ceremony host</code></td>
+</tr>
+<tr>
+<td>Where keys are made</td>
+<td>in the tool, on a machine with no network</td>
+<td>in each custodian&#39;s browser</td>
+</tr>
+<tr>
+<td>Who could see a phrase</td>
+<td>nobody outside the room</td>
+<td>nobody — it never leaves the browser</td>
+</tr>
+<tr>
+<td>What you trust</td>
+<td>the binary, whose hash you checked</td>
+<td>the binary <strong>and</strong> the page it served</td>
+</tr>
+</tbody></table>
+<p><strong>The air-gapped path is stronger</strong> and should be used for a chain that will
+hold value. It is stronger for one reason: a hosted page is code a browser
+downloaded, and a browser is a large thing to trust with twenty-four words. The
+hosted path exists because five institutions in five countries cannot always be
+in one room, and a ceremony that cannot happen is worth less than one with a
+smaller attack surface on paper.</p>
+<p>Both generate the key. Nobody arrives with a phrase; custodians arrive with a
+blank pre-printed sheet.</p>
+<h2>3. Run the ceremony</h2>
+<h3>Hosted</h3>
+<pre><code class="language-bash">ceremony host --public-url https://pay.example.com/ceremony/ --out .
+</code></pre>
+<p>It binds <strong>loopback only</strong> and expects a proxy in front. The snippet it prints is
+the one to install:</p>
+<pre><code class="language-nginx">location /ceremony/ {
+    proxy_pass http://127.0.0.1:8787/ceremony/;
+    proxy_set_header Host $host;
+    # A custodian reads twenty-four words off this page and writes them down. A
+    # read timeout in seconds would drop them mid-transcription.
+    proxy_read_timeout 3600s;
+}
+</code></pre>
+<p>It prints two things you need:</p>
+<ul>
+<li><strong>The bundle SHA-256.</strong> Publish it with the invitation, from somewhere other
+than the page — an email, a phone call. A digest a custodian reads off the
+page it is meant to be checking proves nothing.</li>
+<li><strong>The coordinator link.</strong> That link <em>is</em> the ceremony: anyone holding it can
+issue invites. It is not a link to paste into a group chat.</li>
+</ul>
+<p>Then everything is in the browser. Open the coordinator link, enter the roster
+and the threshold, and it issues one invite per custodian — each as a link and a
+QR code, because nobody types a URL with a token in it correctly. Send each
+person theirs. The board then shows, per custodian: invited, opened, generated,
+submitted, attested, and names whoever you are still waiting on.</p>
+<p><strong>Do not put this behind a systemd unit with <code>Restart=always</code>.</strong> A ceremony holds
+its state in memory and a restart loses it. That is the correct trade — nothing
+is written that could reconstruct a phrase — but it means an automatic restart
+would quietly destroy a ceremony in progress. Run it in a terminal you are
+watching, or under <code>screen</code>, and stop it when the ceremony ends.</p>
+<h3>Air-gapped</h3>
+<pre><code class="language-bash">ceremony serve --out .            # a page, on this machine only
+ceremony custodian --name &quot;...&quot;   # or the terminal, one custodian at a time
+</code></pre>
+<p><code>serve</code> launches the browser itself on a temporary profile it deletes — no
+extensions, no autofill, no history, no session to restore. That is the one place
+private browsing can be enforced rather than requested.</p>
+<h3>What each custodian does</h3>
+<p>Open the link, generate, write down twenty-four words, confirm, read four back
+from the sheet — including the last — then write the fingerprint next to the
+phrase and seal the envelope. Then they wait, see the group fingerprint, confirm
+by voice that everyone sees the same one, verify their own address is in it, and
+sign.</p>
+<p><strong>Run the restore drill during the ceremony</strong>, on a second machine, for at least
+one custodian: reconstruct from their paper, confirm the address matches, destroy
+that instance. A backup nobody has tested is not a backup, and the day you find
+out is the day it is the only copy.</p>
+<p><strong>If a phrase is exposed</strong> — a photograph, a stranger walking in — destroy that
+key and generate another. Always. It is written here so nobody has to make that
+call under pressure with five senior people waiting.</p>
+<h2>4. The validator&#39;s operator key</h2>
+<p>From the ceremony, not from <code>keys add</code>.</p>
+<pre><code class="language-bash">ceremony validator --name &quot;&lt;moniker&gt;&quot; --armor operator.asc
+blockchaind keys import validator operator.asc --keyring-backend file
+</code></pre>
+<p>Never the <code>test</code> backend. It writes the key unencrypted, which is what it is for.</p>
+<p><strong>This is a different key from the consensus key.</strong> <code>blockchaind init</code> already
+generated that one into <code>priv_validator_key.json</code> and it must never leave the
+host — a consensus key that has been anywhere else is one that might sign two
+blocks at one height, which is the offence that gets a validator slashed for
+certain. <code>ceremony consensus</code> exists only to explain why the tool refuses to
+generate one.</p>
+<p>The paper is the backup. The encrypted keystore is the working copy, because
+unlike a custodian key an operator key gets used again — to edit a commission,
+to unjail.</p>
+<h2>5. Build genesis</h2>
+<pre><code class="language-bash">CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=... ./scripts/devnet/init-devnet.sh
+</code></pre>
+<p>It refuses without the ceremony&#39;s output, and refuses without an operator key.
+Both refusals are the point: a key created to get past them is a key with no
+paper behind it, and the chain would launch anyway.</p>
+<p>What it writes into genesis:</p>
+<ul>
+<li>the <strong>group</strong> itself, so address and membership are fixed by one file;</li>
+<li>the <strong>constitutional invariants</strong> — the concentration ceilings, the seizure
+threshold, the recovery destination, the delays — which the chain then refuses
+to let governance edit;</li>
+<li><code>enforcement.recovery_destination</code>, pointing at the group&#39;s policy address.</li>
+</ul>
+<p>Three ways it will stop you, all of them earned:</p>
+<ul>
+<li><strong>A missing invariant.</strong> The ceremony supplies three of the thirteen — the ones
+it can derive from the group it built. The other ten are policy no key
+determines, and genesis has to state them.</li>
+<li><strong>A ceiling nothing could satisfy.</strong> With a floor of two validators, one holds
+5000 basis points by arithmetic, so a 3400 ceiling is refused outright rather
+than accepted and left permanently in breach.</li>
+<li><strong>Parameters disagreeing with the constitution.</strong> Three enforcement parameters
+duplicate invariants, and a genesis where the two differ is refused — better
+than a chain whose constitution and whose module hold different numbers.</li>
+</ul>
+<h2>6. Start, and check what you actually built</h2>
+<pre><code class="language-bash">blockchaind start --minimum-gas-prices 0.0001uyml
+blockchaind query constitution invariants
+blockchaind query group group-members 1
+</code></pre>
+<p>Then the check nothing else covers: <strong>have three custodians move something, and
+two fail to.</strong> A foundation that cannot spend is discovered at the worst possible
+moment, and every other step in this runbook can pass without exercising it.</p>
+<hr>
+<h2>Things worth knowing</h2>
+<p><strong>The chain id is part of every signature.</strong> Change it and every client that
+still names the old one keeps signing for a chain that does not exist, failing as
+a signature error rather than a configuration one. It appears in the clients, the
+scripts, the service units and the guides — change all of them.</p>
+<p><strong>Demo keys and control keys are not the same thing.</strong> The devnet&#39;s alice, bob and
+foundation keys live unencrypted in a <code>test</code> keyring and are regenerated on every
+reset, which is what they are for. What controls the chain — the foundation group,
+the validator&#39;s operator key — gets a ceremony. Do not let the two meet.</p>
+<p><strong>A one-validator chain cannot bound concentration.</strong> It holds every basis point,
+so the ceilings have to be 10000, which is no ceiling. That is honest rather than
+decorative; <code>scripts/devnet/concentration-demo.sh</code> stands up four validators and
+watches one get demoted, which is where the mechanism is actually demonstrated.</p>
+<p><strong>Full reference:</strong> <a href="key-ceremony.html">The key ceremony</a> for the ceremony itself,
+<a href="validator.html">Run a validator</a> for joining an existing chain.</p>
+
+</main>
+</body>
+</html>
