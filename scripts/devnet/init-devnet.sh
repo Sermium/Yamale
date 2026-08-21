@@ -8,8 +8,23 @@ set -euo pipefail
 BIN=/opt/yamale/bin/blockchaind
 CURRENCIES=/opt/yamale/bin/currencies
 HOME_DIR=/opt/yamale/node
-CHAIN_ID=yamale-devnet-1
+CHAIN_ID=${CHAIN_ID:-yamale-devnet-2}
 KR="--keyring-backend test --home $HOME_DIR"
+
+# The foundation is a 3-of-5 x/group account produced by `ceremony`, not a key
+# on this machine. CEREMONY_DIR is where that ceremony wrote its public output.
+#
+# Required, with no fallback to a local key. A single key that receives every
+# seized asset on the chain is the arrangement this whole thing exists to end,
+# and a script that quietly substituted one would restore it on the next reset
+# without anybody deciding to.
+CEREMONY_DIR=${CEREMONY_DIR:?set CEREMONY_DIR to the directory holding group.json from \`ceremony group\` or \`ceremony serve\`}
+if [ ! -f "$CEREMONY_DIR/group.json" ]; then
+  echo "no group.json in $CEREMONY_DIR — run the ceremony first" >&2
+  exit 1
+fi
+POLICY=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["policy_address"])' "$CEREMONY_DIR/group.json")
+echo "foundation group: $POLICY"
 
 rm -rf "$HOME_DIR"
 
@@ -30,7 +45,14 @@ echo "=== genesis accounts ==="
 $BIN genesis add-genesis-account "$ALICE"      200000000000uyml --home "$HOME_DIR"
 $BIN genesis add-genesis-account "$BOB"        100000000000uyml --home "$HOME_DIR"
 $BIN genesis add-genesis-account "$FOUNDATION" 500000000000uyml --home "$HOME_DIR"
-echo "  three accounts funded"
+# The group policy address needs an auth account. Importing a group from genesis
+# does not create one the way the runtime path does, and without it the first
+# transfer into the account fails on an account that does not exist. It is
+# unspendable except through the group's own policy — the address is a hash of a
+# module name, not of any public key — so funding it is safe and giving it
+# nothing would only mean the foundation cannot pay a fee.
+$BIN genesis add-genesis-account "$POLICY" 100000000000uyml --home "$HOME_DIR"
+echo "  three accounts and the foundation group funded"
 
 echo "=== seeding currencies ==="
 $CURRENCIES --genesis "$HOME_DIR/config/genesis.json" --issuer "$FOUNDATION"
@@ -63,12 +85,66 @@ echo "=== enforcement oversight ==="
 # script had reported success. Failing loudly on a missing python3 is the
 # smaller problem.
 G=$HOME_DIR/config/genesis.json
-python3 - "$G" "$FOUNDATION" <<'PY'
+python3 - "$G" "$POLICY" "$CEREMONY_DIR/group.json" <<'PY'
 import json, sys
-path, destination = sys.argv[1], sys.argv[2]
+path, destination, group_path = sys.argv[1], sys.argv[2], sys.argv[3]
 g = json.load(open(path))
+asm = json.load(open(group_path))
+
+# The group itself, at height zero.
+#
+# Not created afterwards by a transaction, and this is the whole reason the
+# ceremony has to run before genesis rather than after. An x/group policy
+# address derives from the group sequence number alone — not from the members,
+# the threshold, the admin, or the chain id — so the address is knowable offline
+# but commits to nothing about who controls it. A genesis that named the address
+# and left the group to be created later would hand every future seizure to
+# whoever created the first group policy on the chain. Address and membership
+# are fixed by the same file, so there is no interval to race.
+g["app_state"]["group"] = asm["group_genesis"]
+
+# The invariants the chain will refuse to start without, and refuse to let
+# governance edit afterwards.
+#
+# The ceremony supplies only the three it can derive from the group it just
+# built — the recovery destination, the custodian count and the threshold.
+# The other ten are policy that nobody's key determines, so genesis states
+# them. Validate refuses a missing one, which is how their absence was found
+# here rather than on a chain.
+inv = dict(asm["constitution_invariants"])
+inv.update({
+    # 6000, not something tighter. With min_active_validators at 2, one of them
+    # holds 5000 basis points by arithmetic, and the chain refuses a ceiling no
+    # set that small could ever satisfy — rather than running permanently in
+    # breach. 6000 still means one entity may hold one of two seats, not both.
+    "max_entity_power_bps": "6000",
+    "max_beneficial_owner_power_bps": "6000",
+    "max_jurisdiction_power_bps": "6000",
+    "concentration_epoch_blocks": "120",
+    "min_active_validators": 2,
+    "enforcement_threshold_bps": "6667",
+    "enforcement_voting_period_blocks": "360",
+    # At least the voting period, so the vote always ends before the freeze
+    # lapses. The expiry queue underneath is the backstop, not the mechanism.
+    "enforcement_provisional_freeze_blocks": "720",
+    # Seven days is the floor compiled into the binary and cannot be shortened
+    # by a genesis, which is the point: a delay a deployment could set to an
+    # hour is not a delay.
+    "amendment_delay_blocks": "120960",
+    # Must exceed the seizure threshold. A chain where amending the constitution
+    # is easier than acting under it has the wrong thing hard.
+    "amendment_threshold_bps": "8000",
+})
+g["app_state"].setdefault("constitution", {})["invariants"] = inv
+
 p = g["app_state"]["enforcement"]["params"]
 p["recovery_destination"] = destination
+# These three duplicate constitutional invariants, and AssertConstitutional
+# refuses a genesis where the two disagree — so they are written from the same
+# values rather than left to drift.
+p["threshold_bps"] = inv["enforcement_threshold_bps"]
+p["voting_period_blocks"] = inv["enforcement_voting_period_blocks"]
+p["provisional_freeze_blocks"] = inv["enforcement_provisional_freeze_blocks"]
 
 # ~20 minutes at 5s blocks. Every seizure waits at least this long after the
 # vote, which is the window the ombudsman's veto lands in.
