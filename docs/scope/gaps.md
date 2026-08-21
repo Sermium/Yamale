@@ -25,27 +25,8 @@ Last verified 2026-08-21, against `yamale-devnet-2`.
 | Fees in issued currency | ante gate on denom, swept to a treasury operating account |
 | Validator key rotation | planned rotation, recovery quorum, veto-by-signing |
 | Land registry | module, CLI, client; tokenisation refuses unauthorised fractionalisation |
-
-## Written and passing, not yet merged
-
-**The tiered netting layer.** `x/netting` in the worktree at
-`.claude/worktrees/agent-a1b7c8556d3a8c96b` — keeper, msg server, ABCI,
-autocli, generated reference docs, and ten test files including property,
-security, settlement and compression tests. The whole tree builds and those
-tests pass.
-
-It is uncommitted because the agent writing it was killed by a spend limit
-before it could commit, not because anything is wrong with it. What it has not
-had is the verification the rest of this went through: four tag combinations,
-the five drift guards, and a mutation pass. Until then it is *promising*, not
-*trusted* — and it matters more than most, because the decision to get payment
-confidentiality from architecture rather than cryptography rests on it.
-
-The one thing to read first when reviewing it is the **settlement-failure
-design**. A netting layer without an answer for a participant who cannot cover
-its position is the most dangerous thing in this repository, and the brief asked
-for queuing, collateral, partial settlement or bilateral limits rather than a
-naive recompute.
+| Tiered netting | `x/netting`: collateral posted first, hold-and-retry, no recompute path |
+| Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
 
 ## Designed, documented, not built
 
@@ -53,6 +34,16 @@ naive recompute.
 nothing consumes it. Until every authority action routes through one check, the
 perimeter is a fact the chain knows and does not enforce. See
 [roles-and-perimeter.md](roles-and-perimeter.md).
+
+**Browser signing for the foundation.** The console at `/foundation/` reads the
+chain and composes the commands, and a custodian runs them. It cannot sign,
+because `clients/wallet` decodes a signing request only as far as each message's
+type URL — so an in-browser vote would mean hand-rolled protobuf that nothing
+checks, on the account that receives every seizure. The page would say "pay
+5,000 to Amara" and the wallet would say `MsgSubmitProposal` whether the encoding
+was right, wrong or hostile. Decoding message contents in the wallet is the
+prerequisite; after that, the three actions a custodian signs personally —
+`MsgVote`, `MsgExec`, `MsgSubmitProposal` — are worth revisiting.
 
 **Confidential amounts.** Deliberately deferred, with the measurements recorded
 in [confidentiality.md](confidentiality.md): no audited Go library, ~6
@@ -87,17 +78,36 @@ integration.
 
 **A legal entity able to sign an indemnity.**
 
-## Open decisions, §8
+## Open decisions
 
-None of these can be answered from inside the code, and each changes scope:
+**Answered 2026-08-20.** Threshold key custody is **built in house**. The product
+is a **vendor with support obligations**, not a reference implementation — which
+makes the §6 assurance workstream, the LTS branches, the backport policy and a
+legal entity able to sign a warranty into owned scope rather than somebody
+else's problem. **Cross-chain collateral is not a requirement**, so IBC stays
+compiled out and outside audit scope.
 
-1. **Which beachhead** — UEMOA or an Afreximbank partnership.
-2. **Whether cross-chain collateral is a commercial requirement**, which alone
-   decides whether IBC goes on the critical path.
-3. **Threshold key custody: build or buy.**
-4. **Vendor with support obligations, or reference implementation** a systems
-   integrator productises. This one gates the LTS branches, the backport policy,
-   the certification and the warranties — most of the cost in §6.
+**Still open, and the one with the shortest fuse:**
+
+1. **Which beachhead** — UEMOA, or an Afreximbank partnership. The two imply
+   different first roadmaps. The recommendation on file is Afreximbank first: a
+   vendor sells to a buyer, and one counterparty answers faster than eight
+   governments whether anybody buys this at all.
+
+2. **What happens to an open netting window when netting is switched off.**
+   Setting `cycle_blocks = 0` returns before closing anything, so the open
+   window never settles, held slices stop being retried, and every participant
+   in it has an exposure with no settlement date until a second proposal passes.
+   The choice is between refusing the proposal and closing the open window
+   immediately; both are defensible and it is a settlement-policy call, not a
+   coding one. Documented in `params.proto` and
+   [settlement.md](../guides/settlement.md), deliberately not decided.
+
+3. **Whether a netting reserve is seizable.** `x/enforcement` seizes
+   `SpendableCoins` from a bank account; the uncommitted part of a posted
+   reserve is plainly the participant's own money and sits in the netting module
+   account, out of reach. A freeze blocks posting and withdrawing, so value
+   cannot escape — but a seizure cannot reach it either.
 
 ## Known defects
 
@@ -115,6 +125,12 @@ None of these can be answered from inside the code, and each changes scope:
 
 ## Operational loose ends
 
+- **The staging chain is halted, and the reason is structural.** `yamale-devnet-2`
+  stopped at height 2733 on 2026-08-21 at 19:45 UTC when the cloud VM went
+  offline. That validator holds 100,000 of 110,000 bonded, so the Pi's 10,000
+  cannot reach two thirds and the chain stops until the VM returns. Nothing is
+  lost — state is intact and blocks resume on restart — but see the fault
+  tolerance note below, because the arithmetic here is not a devnet quirk.
 - **The ops signing service is still running** with two htpasswd files. It was
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both
@@ -128,17 +144,42 @@ None of these can be answered from inside the code, and each changes scope:
   four extra steps, which is fine for exercising the process and must never be
   carried into a deployment holding value.
 
-## The one test nothing has run
+## No fault tolerance, and the arithmetic that fixes it
+
+A chain survives losing a validator only if the ones left hold more than two
+thirds — so **every validator must hold less than a third**, and no set of two
+can manage it. With 100,000 against 10,000 the majority node is a single point
+of failure; with 55,000 each, either node's outage halts the chain. Two
+validators can be arranged to tolerate the *joining* node's outages, which is
+what [launch.md](../guides/launch.md) recommends and is right for a rehearsal,
+but they cannot be arranged to tolerate both.
+
+**Four equal validators is the minimum that tolerates one loss**: each holds
+25%, any three hold 75%. That is also exactly what the equal-seats decision
+produces, so this is an argument for seating four rather than for weighting
+three.
+
+## The one test nothing had run
 
 **Three of the five custodian keys moving something, and two failing to.**
 
-Every step so far proves the group *exists*: it is in genesis, in state, with
-five members and a threshold of three, and it is the recovery destination. None
-of it proves the group *works*. "The foundation cannot actually spend" is the
-worst thing to discover after a deployment, and it is the only claim in this
-document that no other step exercises.
+Now exercised, though not yet on the staging chain. Against a 3-of-5 built by the
+real `ceremony group` tool on a local chain:
 
-The foundation's voting period is seven days, so a proposal raised today decides
-next week. That is right for five custodians in different timezones and
-inconvenient for a rehearsal; the alternative is a throwaway second group with a
-short window, which proves the mechanism without weakening the real one.
+- **Three signatures executed, twice.** A restitution paid out, with the
+  `MsgExec` sent by a custodian who had never voted — which is the property
+  worth having, since the third signature and the person who presses the button
+  need not be the same. And a custodian swap, run from the console's own
+  composed command with `--exec 1`: one member out, one in, count still five,
+  atomically.
+- **Two signatures did not execute, twice.** `EventExec NOT_RUN`, status still
+  SUBMITTED, balance unchanged. A third proposal took three refusals and was
+  rejected.
+- **The constitution refused what it should.** A bare removal is rejected at
+  submission — "would leave the foundation group with 4 custodians; the
+  constitution fixes it at 5" — and so is `MsgLeaveGroup`.
+
+What remains is doing it on `yamale-devnet-2`, with its seven-day voting period,
+through the console at `/foundation/`. That is a test of the *process* rather
+than of the mechanism: five people in five countries, a deadline a week out, and
+an interface instead of a command line.

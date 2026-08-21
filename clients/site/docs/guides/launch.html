@@ -177,10 +177,18 @@ blockchaind genesis gentx &lt;key&gt; &lt;minority-stake&gt; --chain-id &lt;id&g
 # 3. On the coordinating host, with every gentx in config/gentx/
 PHASE=finalise CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=...   ./scripts/devnet/init-devnet.sh
 </code></pre>
-<p><strong>Keep joining stakes a minority.</strong> Two thirds of two equal validators is both of
-them, so an equal set halts whenever either drops. At 10000 against 100000 the
-first validator alone stays above the threshold and keeps producing blocks
-through the other&#39;s outages.</p>
+<p><strong>Keep joining stakes a minority — and know what that buys.</strong> Two thirds of two
+equal validators is both of them, so an equal pair halts whenever either drops.
+At 10000 against 100000 the first validator alone stays above the threshold and
+keeps producing blocks through the other&#39;s outages.</p>
+<p>What it does not buy is tolerance for the <em>first</em> validator&#39;s outage. A chain
+survives losing a node only if the ones left hold more than two thirds, so every
+validator has to hold less than a third — and no pair can. With this split the
+majority node is a single point of failure, which is correct for a rehearsal and
+must not be mistaken for redundancy. It has already halted <code>yamale-devnet-2</code>
+once, for two hours, when the cloud host went away.</p>
+<p><strong>Four equal validators is the minimum that tolerates one loss</strong>: each holds 25%,
+any three hold 75%. Seat four before anything depends on uptime.</p>
 <p><strong><code>sudo -E</code> may not carry the variables.</strong> sudo resets the environment and <code>-E</code>
 only works if the sudoers policy allows it — the symptom is a phase flag being
 ignored and the script running straight through to the end. Put them on sudo&#39;s
@@ -241,6 +249,18 @@ is a no-op because the unit is already active, and the new genesis is never read
 the new chain id and the old state, both internally consistent. If you find
 yourself there, <code>blockchaind comet unsafe-reset-all</code> clears the data and keeps
 the config and keys. The script now refuses to run while the unit is up.</p>
+<p><strong>A halted node refuses every query, rather than serving stale state.</strong> Every
+Cosmos query is answered against the state left by the last block the node
+finalised, so a node that is up but has finalised nothing — the chain stopped and
+the node restarted — answers <em>every</em> REST and gRPC call with
+<code>invalid height: context did not contain latest block height ... (2733)</code>. The
+height in the parentheses is the last committed block, and asking for it
+explicitly works perfectly:</p>
+<pre><code class="language-bash">curl -H &quot;x-cosmos-block-height: 2733&quot; localhost:1317/cosmos/group/v1/group_members/1
+</code></pre>
+<p>Worth knowing before diagnosing anything during an outage, because a node
+refusing all queries reads like a broken node rather than a stopped chain. The
+foundation console does this automatically and says which height it is showing.</p>
 <p><strong>The node home is owned by whoever ran the script.</strong> Running the init under
 <code>sudo</code> leaves it root-owned while the service runs as an unprivileged user, and
 the node then dies on <code>client.toml: permission denied</code> — which names a file
