@@ -27,7 +27,7 @@ done
 
 echo "  funding them in one transaction..."
 h=$($B tx bank multi-send foundation "${addrs[@]}" 3000000uyml --from foundation \
-      --chain-id yamale-devnet-1 $K --fees 20000uyml --gas 20000000 --yes -o json 2>&1 \
+      --chain-id yamale-devnet-2 $K --fees 20000uyml --gas 20000000 --yes -o json 2>&1 \
       | grep -oE '[A-F0-9]{64}' | head -1)
 sleep 12
 code=$($B query tx "$h" --home $H -o json 2>/dev/null | grep -oE '"code":[0-9]+' | head -1)
@@ -41,10 +41,10 @@ for i in $(seq 1 $N); do
   info=$(curl -s "http://127.0.0.1:1317/cosmos/auth/v1beta1/accounts/$a")
   num=$(echo "$info" | grep -oE '"account_number":"[0-9]+"' | grep -oE '[0-9]+' | head -1)
   [ -z "$num" ] && continue
-  $B tx bank send "$a" "$F" 1uyml --from "ld$i" --chain-id yamale-devnet-1 $K \
+  $B tx bank send "$a" "$F" 1uyml --from "ld$i" --chain-id yamale-devnet-2 $K \
      --fees 500uyml --gas 100000 --account-number "$num" --sequence 0 \
      --generate-only -o json > /tmp/ld/r$i.json 2>/dev/null
-  $B tx sign /tmp/ld/r$i.json --from "ld$i" --chain-id yamale-devnet-1 $K \
+  $B tx sign /tmp/ld/r$i.json --from "ld$i" --chain-id yamale-devnet-2 $K \
      --account-number "$num" --sequence 0 \
      --output-document /tmp/ld/s$i.json >/dev/null 2>&1
   $B tx encode /tmp/ld/s$i.json > /tmp/ld/e$i.txt 2>/dev/null

@@ -35,7 +35,7 @@ sh.append("# GENERATED from african-currencies.json by generate.py -- do not han
 sh.append("set -uo pipefail")
 sh.append("B=/opt/yamale/bin/blockchaind; H=/opt/yamale/node")
 sh.append('K="--keyring-backend test --home $H"')
-sh.append('TX="--chain-id yamale-devnet-1 $K --fees 2000uyml --yes -o json"')
+sh.append('TX="--chain-id yamale-devnet-2 $K --fees 2000uyml --yes -o json"')
 sh.append('F=$($B keys show foundation -a $K)')
 sh.append("code() { $B query tx \"$1\" --home $H -o json 2>/dev/null | grep -oE '\"code\":[0-9]+' | head -1; }")
 sh.append('POOLS=$($B query amm pool --home $H -o json 2>/dev/null)')

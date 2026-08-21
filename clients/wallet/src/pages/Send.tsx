@@ -16,7 +16,7 @@ import { client } from '../chain.ts';
 import { Named } from '../Named.tsx';
 import { getUnlocked, openVault, setUnlocked, touch, vaultSummary } from '../vault.ts';
 
-const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-1';
+const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-2';
 /**
  * The trailing slash is load-bearing.
  *

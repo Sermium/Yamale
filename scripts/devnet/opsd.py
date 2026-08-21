@@ -79,7 +79,7 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BIN = os.environ.get("OPSD_BIN", "/opt/yamale/bin/blockchaind")
-CHAIN = os.environ.get("OPSD_CHAIN", "yamale-devnet-1")
+CHAIN = os.environ.get("OPSD_CHAIN", "yamale-devnet-2")
 NODE = os.environ.get("OPSD_NODE", "tcp://localhost:26657")
 
 # Which validator signs from which key and node home. Requests name a

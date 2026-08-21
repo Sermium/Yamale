@@ -34,7 +34,7 @@
 
 /** The chain these commands are for. One place, so a devnet reset is one edit. */
 export const CHAIN = {
-  id: 'yamale-devnet-1',
+  id: 'yamale-devnet-2',
   bin: 'blockchaind',
   home: '~/.blockchain',
   fees: '2000uyml',

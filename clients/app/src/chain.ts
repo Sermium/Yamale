@@ -10,7 +10,7 @@ import { ChainSigner } from '@yamale/chain';
 import type { Signer } from './account.ts';
 
 const RPC = `${window.location.origin}/api/rpc/`;
-const CHAIN_ID = 'yamale-devnet-1';
+const CHAIN_ID = 'yamale-devnet-2';
 
 /**
  * Moderators anybody may choose when opening a secured payment.

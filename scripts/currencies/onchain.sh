@@ -3,7 +3,7 @@
 set -uo pipefail
 B=/opt/yamale/bin/blockchaind; H=/opt/yamale/node
 K="--keyring-backend test --home $H"
-TX="--chain-id yamale-devnet-1 $K --fees 2000uyml --yes -o json"
+TX="--chain-id yamale-devnet-2 $K --fees 2000uyml --yes -o json"
 F=$($B keys show foundation -a $K)
 code() { $B query tx "$1" --home $H -o json 2>/dev/null | grep -oE '"code":[0-9]+' | head -1; }
 POOLS=$($B query amm pool --home $H -o json 2>/dev/null)

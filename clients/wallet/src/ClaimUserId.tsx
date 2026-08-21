@@ -4,7 +4,7 @@ import { ChainSigner, formatUserId, registerAlias } from '@yamale/chain';
 import { client } from './chain.ts';
 import { getUnlocked, openVault, setUnlocked, touch } from './vault.ts';
 
-const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-1';
+const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-2';
 // The trailing slash is load-bearing: nginx matches `location /api/rpc/`, and
 // without it the POST falls through to the app's own index.html, which CosmJS
 // then reports as a JSON parse error.

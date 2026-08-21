@@ -16,7 +16,7 @@ beneficiary and cannot be spent by anyone, including you.
 
 ```bash
 ./blockchaind tx treasury create-treasury "Ops Treasury" \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 The admin defaults to the sender. Treasury ids start at `0`.
@@ -32,7 +32,7 @@ may pay an invoice. It confers no control.
 
 ```bash
 ./blockchaind tx treasury deposit 0 5000000uyml \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 ```bash
@@ -61,7 +61,7 @@ NOW=$(date +%s)
   vesting \
   $NOW $((NOW + 60)) $((NOW + 300)) \
   0 true \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 The positional arguments are treasury, beneficiary, denom, amount, type, start,
@@ -88,7 +88,7 @@ Try to spend more than is available, as the admin:
 
 ```bash
 ./blockchaind tx treasury spend 0 <recipient> 2000000uyml "over the limit" \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 Look at the result with `query tx <txhash>`:
@@ -112,7 +112,7 @@ Spending the 1 YML that *is* available works normally:
 
 ```bash
 ./blockchaind tx treasury spend 0 <recipient> 1000000uyml "salary" \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 ## Claiming
@@ -144,7 +144,7 @@ earned up to that point at once rather than restarting the clock:
 
 ```bash
 ./blockchaind tx treasury claim 0 \
-  --from bob --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from bob --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 Only bob can do this. Claiming before anything has vested fails with
@@ -177,7 +177,7 @@ Members go in one file and the threshold in another:
 ```bash
 ./blockchaind tx group create-group-with-policy <alice> "3 signers, 2 must agree" "ops policy" \
   members.json policy.json --group-policy-as-admin \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 
 ./blockchaind query group group-policies-by-group 1   # prints the policy address
 ```
@@ -186,7 +186,7 @@ Hand the treasury over:
 
 ```bash
 ./blockchaind tx treasury set-admin 0 <group-policy-address> \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 Nothing moves and no schedule changes. But alice acting alone is now refused:

@@ -113,15 +113,24 @@ g["app_state"]["group"] = asm["group_genesis"]
 # here rather than on a chain.
 inv = dict(asm["constitution_invariants"])
 inv.update({
-    # 6000, not something tighter. With min_active_validators at 2, one of them
-    # holds 5000 basis points by arithmetic, and the chain refuses a ceiling no
-    # set that small could ever satisfy — rather than running permanently in
-    # breach. 6000 still means one entity may hold one of two seats, not both.
-    "max_entity_power_bps": "6000",
-    "max_beneficial_owner_power_bps": "6000",
-    "max_jurisdiction_power_bps": "6000",
+    # 10000, which is no ceiling at all, and that is the honest value here.
+    #
+    # This devnet has one validator. It therefore holds every basis point, and
+    # the chain refuses a ceiling no set that small could ever satisfy rather
+    # than starting and reporting a permanent breach — a good failure, and the
+    # reason a tighter number cannot simply be written here and forgotten.
+    #
+    # So a one-validator chain cannot bound concentration, and pretending
+    # otherwise would be the decorative kind of constitution this layer exists
+    # to replace. The caps are demonstrated instead by
+    # scripts/devnet/concentration-demo.sh, which stands up four validators and
+    # watches one get demoted. Raise these the moment this devnet has more than
+    # one: with N equal validators the floor is 10000/N.
+    "max_entity_power_bps": "10000",
+    "max_beneficial_owner_power_bps": "10000",
+    "max_jurisdiction_power_bps": "10000",
     "concentration_epoch_blocks": "120",
-    "min_active_validators": 2,
+    "min_active_validators": 1,
     "enforcement_threshold_bps": "6667",
     "enforcement_voting_period_blocks": "360",
     # At least the voting period, so the vote always ends before the freeze

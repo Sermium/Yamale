@@ -13,7 +13,7 @@ B=/opt/yamale/bin/blockchaind
 H=/opt/yamale/node
 K="--keyring-backend test --home $H"
 NODE=http://127.0.0.1:26657
-TX="--chain-id yamale-devnet-1 $K --fees 500uyml --yes --broadcast-mode sync -o json"
+TX="--chain-id yamale-devnet-2 $K --fees 500uyml --yes --broadcast-mode sync -o json"
 
 echo "=== machine ==="
 echo "  cores : $(nproc)"

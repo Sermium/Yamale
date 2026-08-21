@@ -67,7 +67,7 @@ does not depend on the node having CORS opened up. Point it elsewhere with
 
 ```bash
 go build -o blockchaind ./cmd/blockchaind
-blockchaind init dev --chain-id yamale-devnet-1 --default-denom uyml
+blockchaind init dev --chain-id yamale-devnet-2 --default-denom uyml
 # fund accounts, gentx, collect-gentxs, then enable the API in app.toml:
 #   [api] enable = true, minimum-gas-prices = "0uyml"
 blockchaind start

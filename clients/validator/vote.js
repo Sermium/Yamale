@@ -25,7 +25,7 @@ export function voteCommand(v, proposalId, option) {
     proposalId,
     option,
     `--from ${v.key}`,
-    '--chain-id yamale-devnet-1',
+    '--chain-id yamale-devnet-2',
     '--keyring-backend test',
     `--home ${v.home}`,
     '--fees 2000uyml',

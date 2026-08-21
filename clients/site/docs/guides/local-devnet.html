@@ -25,7 +25,7 @@ at <code>localhost:1317</code>, and two funded accounts.</p>
 <pre><code class="language-bash">go build -o blockchaind ./cmd/blockchaind
 </code></pre>
 <h2>2. Initialise</h2>
-<pre><code class="language-bash">./blockchaind init dev --chain-id yamale-devnet-1 --default-denom uyml
+<pre><code class="language-bash">./blockchaind init dev --chain-id yamale-devnet-2 --default-denom uyml
 </code></pre>
 <p>This writes <code>~/.blockchain</code>. Every command below takes <code>--home</code> if you would
 rather keep it somewhere else.</p>
@@ -41,7 +41,7 @@ rather keep it somewhere else.</p>
 local chain and wrong for anything else — a real validator uses
 <code>--keyring-backend file</code>.</p>
 <h2>4. Make alice a validator</h2>
-<pre><code class="language-bash">./blockchaind genesis gentx alice 100000000000uyml --chain-id yamale-devnet-1 --keyring-backend test
+<pre><code class="language-bash">./blockchaind genesis gentx alice 100000000000uyml --chain-id yamale-devnet-2 --keyring-backend test
 ./blockchaind genesis collect-gentxs
 ./blockchaind genesis validate-genesis
 </code></pre>
@@ -75,7 +75,7 @@ curl -s localhost:1317/cosmos/bank/v1beta1/supply
   $(./blockchaind keys show alice -a --keyring-backend test) \
   $(./blockchaind keys show bob -a --keyring-backend test) \
   12500000uyml \
-  --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>That is 12.5 YML. The command prints a <code>txhash</code>; the <code>code</code> in that output only
 means the node accepted it for inclusion. To see whether it actually succeeded:</p>

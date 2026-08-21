@@ -20,7 +20,7 @@ go build -o blockchaind ./cmd/blockchaind
 ## 2. Initialise
 
 ```bash
-./blockchaind init dev --chain-id yamale-devnet-1 --default-denom uyml
+./blockchaind init dev --chain-id yamale-devnet-2 --default-denom uyml
 ```
 
 This writes `~/.blockchain`. Every command below takes `--home` if you would
@@ -47,7 +47,7 @@ local chain and wrong for anything else — a real validator uses
 ## 4. Make alice a validator
 
 ```bash
-./blockchaind genesis gentx alice 100000000000uyml --chain-id yamale-devnet-1 --keyring-backend test
+./blockchaind genesis gentx alice 100000000000uyml --chain-id yamale-devnet-2 --keyring-backend test
 ./blockchaind genesis collect-gentxs
 ./blockchaind genesis validate-genesis
 ```
@@ -96,7 +96,7 @@ curl -s localhost:1317/cosmos/bank/v1beta1/supply
   $(./blockchaind keys show alice -a --keyring-backend test) \
   $(./blockchaind keys show bob -a --keyring-backend test) \
   12500000uyml \
-  --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 ```
 
 That is 12.5 YML. The command prints a `txhash`; the `code` in that output only

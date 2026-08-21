@@ -24,7 +24,7 @@ beneficiary and cannot be spent by anyone, including you.</p>
 <hr>
 <h2>Open a treasury</h2>
 <pre><code class="language-bash">./blockchaind tx treasury create-treasury &quot;Ops Treasury&quot; \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>The admin defaults to the sender. Treasury ids start at <code>0</code>.</p>
 <pre><code class="language-bash">./blockchaind query treasury get-treasury 0
@@ -33,7 +33,7 @@ beneficiary and cannot be spent by anyone, including you.</p>
 <p>Depositing is permissionless — anyone may pay into any treasury, the way anyone
 may pay an invoice. It confers no control.</p>
 <pre><code class="language-bash">./blockchaind tx treasury deposit 0 5000000uyml \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <pre><code class="language-bash">./blockchaind query treasury balances 0
 </code></pre>
@@ -53,7 +53,7 @@ beneficiary claims what has vested, when it has vested.</p>
   vesting \
   $NOW $((NOW + 60)) $((NOW + 300)) \
   0 true \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>The positional arguments are treasury, beneficiary, denom, amount, type, start,
 cliff, end, intervals, revocable. So this commits 4 YML to bob, vesting over
@@ -71,7 +71,7 @@ nothing releases until each quarter completes.</p>
 <h2>What the commitment protects</h2>
 <p>Try to spend more than is available, as the admin:</p>
 <pre><code class="language-bash">./blockchaind tx treasury spend 0 &lt;recipient&gt; 2000000uyml &quot;over the limit&quot; \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>Look at the result with <code>query tx &lt;txhash&gt;</code>:</p>
 <pre><code>code: 1104
@@ -87,7 +87,7 @@ commitment made here is a commitment, not a policy that an administrator can
 change their mind about.</p>
 <p>Spending the 1 YML that <em>is</em> available works normally:</p>
 <pre><code class="language-bash">./blockchaind tx treasury spend 0 &lt;recipient&gt; 1000000uyml &quot;salary&quot; \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <h2>Claiming</h2>
 <p>The beneficiary can find what is owed to them without knowing any treasury id:</p>
@@ -104,7 +104,7 @@ earned up to that point at once rather than restarting the clock:</p>
 <pre><code class="language-json">{&quot;claimable&quot;:&quot;1106666&quot;,&quot;vested&quot;:&quot;1106666&quot;,&quot;remaining&quot;:&quot;4000000&quot;}
 </code></pre>
 <pre><code class="language-bash">./blockchaind tx treasury claim 0 \
-  --from bob --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from bob --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>Only bob can do this. Claiming before anything has vested fails with
 <code>nothing has vested yet</code> rather than transferring zero.</p>
@@ -127,13 +127,13 @@ policy with the members and threshold you want, then hand the treasury to it.</p
 </code></pre>
 <pre><code class="language-bash">./blockchaind tx group create-group-with-policy &lt;alice&gt; &quot;3 signers, 2 must agree&quot; &quot;ops policy&quot; \
   members.json policy.json --group-policy-as-admin \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 
 ./blockchaind query group group-policies-by-group 1   # prints the policy address
 </code></pre>
 <p>Hand the treasury over:</p>
 <pre><code class="language-bash">./blockchaind tx treasury set-admin 0 &lt;group-policy-address&gt; \
-  --from alice --chain-id yamale-devnet-1 --keyring-backend test --fees 500uyml --yes
+  --from alice --chain-id yamale-devnet-2 --keyring-backend test --fees 500uyml --yes
 </code></pre>
 <p>Nothing moves and no schedule changes. But alice acting alone is now refused:</p>
 <pre><code>yml1lykpc… may not spend from treasury 0: signer is not authorized

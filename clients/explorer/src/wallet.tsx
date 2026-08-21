@@ -31,7 +31,7 @@ import {
  * was built for; the defaults are the local devnet.
  */
 export const CHAIN: ChainInfo = {
-  chainId: import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-1',
+  chainId: import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-2',
   chainName: import.meta.env.VITE_CHAIN_NAME ?? 'Yamale',
   rpcUrl: import.meta.env.VITE_PUBLIC_RPC_URL ?? 'http://localhost:26657',
   restUrl: import.meta.env.VITE_PUBLIC_REST_URL ?? 'http://localhost:1317',
