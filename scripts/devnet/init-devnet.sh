@@ -245,6 +245,47 @@ echo "=== validator ==="
 # person who is standing there.
 echo "$KEYRING_PASSPHRASE" |
   $BIN genesis gentx "$VALIDATOR_KEY" 100000000000uyml     --chain-id "$CHAIN_ID" --moniker pi     --keyring-backend file --home "$HOME_DIR" 2>&1 | tail -1
+# A second validator, seated at genesis rather than admitted afterwards.
+#
+# Its gentx is built here rather than on the other host, because a gentx needs
+# only that host's *consensus* public key — which is public — plus an operator
+# key and the genesis. Shuttling a genesis out, a gentx back and a final genesis
+# out again is the correct dance for validators run by different organisations
+# who must not share an operator key. For two hosts run by one operator it adds
+# three file transfers and a window in which the two ends hold different
+# genesis files, which is how an app-hash mismatch at height 1 gets introduced.
+#
+# The stake is deliberately a MINORITY. Two equal validators means two thirds of
+# the set requires both of them, so the chain halts whenever either drops — and
+# this second one is a Raspberry Pi on a home connection, which will. At 10000
+# against 100000 the first validator alone holds over ninety percent and keeps
+# producing blocks through the Pi's outages, which is the difference between a
+# demo that is up and one that is up when nobody is watching it.
+if [ -n "${PI2_PUBKEY:-}" ]; then
+  echo "=== second validator ==="
+  PI2_KEY=${PI2_KEY:-pi2-operator}
+  PI2_ARMOR="$CEREMONY_DIR/validator-operator-pi2.asc"
+  PI2_STAKE=${PI2_STAKE:-10000000000uyml}
+  if [ ! -f "$PI2_ARMOR" ]; then
+    echo "  no $PI2_ARMOR" >&2
+    echo "    ceremony validator --name \"pi-2\" --armor $PI2_ARMOR --network-acknowledged \"...\"" >&2
+    exit 1
+  fi
+  { echo "$OPERATOR_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; } |
+    $BIN keys import "$PI2_KEY" "$PI2_ARMOR" --keyring-backend file --home "$HOME_DIR" >/dev/null
+  PI2=$(echo "$KEYRING_PASSPHRASE" |
+    $BIN keys show "$PI2_KEY" -a --keyring-backend file --home "$HOME_DIR")
+  echo "  operator $PI2"
+
+  # Funded before the gentx, or the self-bond has nothing behind it and the
+  # failure names the delegation rather than the account.
+  $BIN genesis add-genesis-account "$PI2" 50000000000uyml --home "$HOME_DIR" >/dev/null
+  echo "$PI2_PUBKEY" > "$HOME_DIR/pi2-pubkey.json"
+  echo "$KEYRING_PASSPHRASE" |
+    $BIN genesis gentx "$PI2_KEY" "$PI2_STAKE"       --pubkey "$PI2_PUBKEY" --moniker pi-2       --chain-id "$CHAIN_ID" --keyring-backend file --home "$HOME_DIR" 2>&1 | tail -1
+  echo "  seated with $PI2_STAKE against the first validator's 100000000000uyml"
+fi
+
 $BIN genesis collect-gentxs --home "$HOME_DIR" 2>&1 | tail -1
 $BIN genesis validate-genesis --home "$HOME_DIR"
 
