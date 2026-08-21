@@ -146,6 +146,18 @@ func (h *hostHarness) setup(t *testing.T, roster []string) hostStateView {
 	return view
 }
 
+// currentParams reads back the parameters the coordinator settled on, including
+// the ceremony id it minted.
+func (h *hostHarness) currentParams(t *testing.T) ceremonyParams {
+	t.Helper()
+	status, raw := h.get(t, "/ceremony/api/coordinator/state", testCoordinatorToken)
+	require.Equal(t, http.StatusOK, status)
+	var state hostStateView
+	require.NoError(t, json.Unmarshal(raw, &state))
+	require.NotEmpty(t, state.Params.ID)
+	return state.Params
+}
+
 func (h *hostHarness) tokenFor(t *testing.T, view hostStateView, name string) string {
 	t.Helper()
 	for _, custodian := range view.Custodians {
@@ -610,6 +622,180 @@ func TestTheEmbeddedBundleUsesNoBrowserStorage(t *testing.T) {
 		}
 	}
 	require.True(t, found, "no script was checked, so this test would pass vacuously")
+}
+
+// TestHostRefusesATimestampThatWouldSplitTheFingerprint is the guard on the one
+// value a hostile submission can choose that the two implementations read
+// differently.
+//
+// The latest generated_at becomes the timestamp inside the genesis fragment, and
+// the group fingerprint covers those bytes. This binary parses and normalises;
+// the browser compares the strings. Both are right for one format and only one
+// format, so anything else is refused rather than accepted and quietly rewritten.
+func TestHostRefusesATimestampThatWouldSplitTheFingerprint(t *testing.T) {
+	h := newHostHarness(t)
+	view := h.setup(t, testRoster)
+	params := h.currentParams(t)
+	token := h.tokenFor(t, view, testRoster[0])
+
+	for _, spelling := range []string{
+		"2026-03-02T11:15:00+02:00", // the same instant as an earlier Z value, sorting after it
+		"2026-03-02T09:15:00.500Z",  // fractional seconds
+		"2026-03-02T09:15:00-00:00", // a zero offset spelled as an offset
+	} {
+		key := newCustodianKey(t, testRoster[0], 0, time.Now())
+		key.ID.GeneratedAt = spelling
+		// Signed over the altered timestamp, so this is not a forgery: it is what
+		// a custodian on a device with an unusual clock format would genuinely
+		// send, and it has to be refused anyway.
+		status, raw := h.post(t, "/ceremony/api/invite/submission", token, mustSign(t, params.ID, key))
+		require.Equal(t, http.StatusBadRequest, status, spelling)
+		require.Contains(t, string(raw), "UTC, whole seconds, trailing Z", spelling)
+	}
+
+	// And the canonical form still goes through, so the check is not simply
+	// refusing everything.
+	key := newCustodianKey(t, testRoster[0], 0, time.Now())
+	status, raw := h.post(t, "/ceremony/api/invite/submission", token, mustSign(t, params.ID, key))
+	require.Equal(t, http.StatusOK, status, string(raw))
+}
+
+// TestARevokedInviteCannotSubmitFromUnderTheGuard covers the window between the
+// guard resolving a token and the handler acting on it.
+//
+// hostGuard checks Revoked while it resolves the token and then releases the
+// lock, so a reissue landing in that instant would let one already-authorised
+// request through — and the request it would let through is a submission of the
+// exact key the coordinator just abandoned. The handler therefore re-checks under
+// the lock it mutates under.
+//
+// Driven by handing the handler a revoked invite directly, because the race
+// cannot be scheduled reliably over HTTP: the guard would refuse first. This is a
+// test of the second check, and the second check is the only thing that closes
+// the window.
+func TestARevokedInviteCannotSubmitFromUnderTheGuard(t *testing.T) {
+	h := newHostHarness(t)
+	h.setup(t, testRoster)
+	params := h.currentParams(t)
+
+	h.session.mu.Lock()
+	stale := h.session.live[testRoster[0]]
+	h.session.mu.Unlock()
+	require.NotNil(t, stale)
+
+	// Whatever the guard admitted a moment ago, held in a request context.
+	key := newCustodianKey(t, testRoster[0], 0, time.Now())
+	body, err := json.Marshal(mustSign(t, params.ID, key))
+	require.NoError(t, err)
+	request := httptest.NewRequest(http.MethodPost, "/ceremony/api/invite/submission", bytes.NewReader(body))
+	request = request.WithContext(withInvite(request.Context(), stale))
+
+	// The coordinator reissues in the meantime.
+	status, _ := h.post(t, "/ceremony/api/coordinator/reissue", testCoordinatorToken,
+		reissueRequest{Name: testRoster[0], Reason: "closed the tab"})
+	require.Equal(t, http.StatusOK, status)
+
+	recorder := httptest.NewRecorder()
+	h.session.handleHostSubmission(recorder, request)
+	require.Equal(t, http.StatusForbidden, recorder.Code, recorder.Body.String())
+	require.Contains(t, recorder.Body.String(), "withdrawn while this request was on its way")
+
+	h.session.mu.Lock()
+	_, recorded := h.session.submissions[testRoster[0]]
+	h.session.mu.Unlock()
+	require.False(t, recorded, "the abandoned key was recorded anyway")
+}
+
+func TestHostRefusesAKeyDerivedOnAnotherChainsPath(t *testing.T) {
+	h := newHostHarness(t)
+	view := h.setup(t, testRoster)
+	params := h.currentParams(t)
+
+	key := newCustodianKey(t, testRoster[0], 0, time.Now())
+	key.ID.HDPath = "m/44'/60'/0'/0/0"
+	status, raw := h.post(t, "/ceremony/api/invite/submission",
+		h.tokenFor(t, view, testRoster[0]), mustSign(t, params.ID, key))
+	require.Equal(t, http.StatusBadRequest, status)
+	require.Contains(t, string(raw), "this chain's accounts live under")
+}
+
+// TestParametersAreBoundedWhereTheBrowserCannotFollow covers the two parameter
+// values that could make the page and the binary disagree rather than refuse.
+func TestParametersAreBoundedWhereTheBrowserCannotFollow(t *testing.T) {
+	base := ceremonyParams{
+		ID:           "K4T9RM-2QWXVZ-8H0PBN-5CJDGF",
+		Name:         "bounds",
+		ChainID:      "yamale-1",
+		Threshold:    3,
+		Custodians:   testRoster,
+		PolicySeq:    1,
+		VotingPeriod: "168h0m0s",
+	}
+	require.NoError(t, base.validate())
+
+	// Above 2^53 a JavaScript number is no longer exact, so the browser would
+	// derive a different policy address — the recovery destination — while every
+	// other check agreed.
+	huge := base
+	huge.PolicySeq = 1 << 60
+	require.ErrorContains(t, huge.validate(), "past the range a browser holds exactly")
+
+	// ThresholdDecisionPolicy.ValidateBasic refuses zero and permits negative,
+	// and x/group's genesis validation never looks deeper.
+	negative := base
+	negative.VotingPeriod = "-1h"
+	require.ErrorContains(t, negative.validate(), "no window to vote in")
+	zero := base
+	zero.VotingPeriod = "0s"
+	require.ErrorContains(t, zero.validate(), "no window to vote in")
+}
+
+// TestSetupIsRefusedOnceSomebodyHasWordsOnPaper guards the interval between a
+// custodian being shown their phrase and submitting it.
+//
+// Re-running setup mints a new ceremony id, so that custodian would be holding a
+// key on paper for a ceremony that no longer exists — and the first anybody would
+// know of it is a submission refused for the wrong id.
+func TestSetupIsRefusedOnceSomebodyHasWordsOnPaper(t *testing.T) {
+	h := newHostHarness(t)
+	view := h.setup(t, testRoster)
+	status, _ := h.post(t, "/ceremony/api/invite/generated", h.tokenFor(t, view, testRoster[0]), nil)
+	require.Equal(t, http.StatusOK, status)
+
+	status, raw := h.post(t, "/ceremony/api/coordinator/setup", testCoordinatorToken, setupRequest{
+		Ceremony: "second thoughts", ChainID: "yamale-1", Threshold: 3,
+		Custodians: testRoster, PolicySeq: 1, VotingPeriod: "168h0m0s",
+	})
+	require.Equal(t, http.StatusConflict, status)
+	require.Contains(t, string(raw), "already been shown twenty-four words")
+}
+
+func TestExportDoesNotClaimTheCeremonyFinishedEarly(t *testing.T) {
+	h := newHostHarness(t)
+	view := h.setup(t, testRoster)
+	params := h.currentParams(t)
+
+	// Every key submitted and nobody attested, which is the shape where this
+	// mattered. A record short of the full roster is refused by renderRecord for
+	// its own reasons — no policy address to put on it — so the only case that
+	// reaches the completion flag is this one: the group exists, and not one
+	// custodian has yet said they hold their share of it.
+	for i, name := range testRoster {
+		status, raw := h.post(t, "/ceremony/api/invite/submission",
+			h.tokenFor(t, view, name), mustSign(t, params.ID, newCustodianKey(t, name, i, time.Now())))
+		require.Equal(t, http.StatusOK, status, string(raw))
+	}
+
+	status, raw := h.post(t, "/ceremony/api/coordinator/export", testCoordinatorToken,
+		exportRequest{Location: "a desk"})
+	require.Equal(t, http.StatusOK, status, string(raw))
+
+	var result struct {
+		Complete bool `json:"complete"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &result))
+	require.False(t, result.Complete,
+		"a record exported before anybody attested must not mark the ceremony complete")
 }
 
 func TestHostRefusesAWildcardBind(t *testing.T) {

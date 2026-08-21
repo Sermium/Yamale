@@ -57,6 +57,34 @@ test('nothing in the built bundle touches browser storage', () => {
   }
 });
 
+// The sources as well as the bundle, because the bundle is tree-shaken.
+//
+// A mutation run made this necessary rather than tidy: a localStorage call added
+// to a source file and never called was dropped by the bundler, so the check
+// above stayed green while the source said otherwise. That particular code was
+// harmless — dead code stores nothing — but a reviewer reading these files has to
+// be able to trust that what they see is what runs, and the next such addition
+// would be one line from being live.
+test('no source file touches browser storage, comments aside', () => {
+  const directory = fileURLToPath(new URL('.', import.meta.url));
+  const sources = readdirSync(directory).filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'));
+  assert.ok(sources.length >= 8, `only ${sources.length} source files found, so this would pass vacuously`);
+  for (const name of sources) {
+    // Comments are stripped first, because several of these files name these
+    // APIs in order to explain that the page does not use them. A check that
+    // could not tell a promise from its breach would force the promise to go
+    // undocumented, which is the wrong way round.
+    const code = withoutComments(readFileSync(join(directory, name), 'utf8'));
+    for (const api of FORBIDDEN) {
+      assert.ok(!code.includes(api), `${name} uses ${api}`);
+    }
+  }
+});
+
+function withoutComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '');
+}
+
 // The bundle is meant to be readable by the custodian who takes the trust note up
 // on its offer. A minified build would make comparing the hash a ritual rather
 // than a check, since nobody can read what they are comparing.

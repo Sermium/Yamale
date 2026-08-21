@@ -7549,7 +7549,17 @@ function validateParams(p) {
       `a threshold of ${p.threshold} over ${p.custodians.length} custodians leaves no redundancy: losing one key would freeze the foundation account forever, with the chain still sending seizures to it`
     );
   }
-  parseGoDuration(p.voting_period);
+  const period = parseGoDuration(p.voting_period);
+  if (period <= 0n) {
+    throw new Error(
+      `a voting period of ${p.voting_period} gives the other custodians no window to vote in, so this group could never execute anything three of them agreed on`
+    );
+  }
+  if (!Number.isSafeInteger(p.policy_seq) || p.policy_seq < 0 || p.policy_seq > 2 ** 40) {
+    throw new Error(
+      `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page holds exactly`
+    );
+  }
 }
 function onRoster(roster, name) {
   return roster.some((candidate) => candidate.trim() === name.trim());
@@ -7577,6 +7587,8 @@ function verifySubmission(params, s) {
   if (raw.length !== 33) {
     throw new Error(`${s.identity.name}'s public key is ${raw.length} bytes; a compressed secp256k1 key is 33`);
   }
+  checkCanonicalTimestamp(s.identity.name, s.identity.generated_at);
+  checkHDPath(s.identity.name, s.identity.hd_path);
   if (!verify(fromBase64(s.possession), possessionMessage(params.ceremony_id, s.identity), raw)) {
     throw new Error(
       `${s.identity.name}'s proof of possession does not verify. Whoever produced this does not hold the key it announces — do not put this address in the group, and say so on the call`
@@ -7595,6 +7607,26 @@ function verifySubmission(params, s) {
     );
   }
   return derived;
+}
+function checkCanonicalTimestamp(name, value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`${name}'s submission has an unreadable generated_at "${value}"`);
+  }
+  const canonical = `${parsed.toISOString().slice(0, 19)}Z`;
+  if (canonical !== value) {
+    throw new Error(
+      `${name}'s submission is timestamped "${value}" and this ceremony writes "${canonical}" — UTC, whole seconds, trailing Z. Two spellings of one instant would give this page and the coordinator different group fingerprints from the same five submissions`
+    );
+  }
+}
+function checkHDPath(name, path) {
+  const base = hdPath(0).replace(/\/0$/, "");
+  if (!path.startsWith(`${base}/`)) {
+    throw new Error(
+      `${name}'s submission was derived at "${path}", and this chain's accounts live under ${base}. A key derived somewhere else is a key the recovery instructions on the record would not find`
+    );
+  }
 }
 function identityFromPubKey(name, pub, path, generatedAt) {
   return {

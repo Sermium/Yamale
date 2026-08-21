@@ -224,6 +224,24 @@ func (h *hostSession) inviteFor(token string) (*invite, error) {
 	return i, nil
 }
 
+// stillLive re-checks the invite under the lock the mutation is about to happen
+// under.
+//
+// hostGuard checks Revoked while resolving the token and then releases the lock,
+// so a reissue landing in that window would let one already-authorised request
+// through — and the request it would let through is a submission of the very key
+// the coordinator just abandoned. Narrow, and the wrong way round to leave open:
+// the whole point of reissuing is that the old key is not going into the group.
+func (h *hostSession) stillLive(w http.ResponseWriter, i *invite) bool {
+	if !i.Revoked {
+		return true
+	}
+	fail(w, http.StatusForbidden, errors.New(
+		"this invitation was withdrawn while this request was on its way. Whatever was generated against it is "+
+			"not going into the group — destroy that sheet and use the new link"))
+	return false
+}
+
 func reasonSuffix(reason string) string {
 	if strings.TrimSpace(reason) == "" {
 		return ""
@@ -406,6 +424,21 @@ func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
 			"the ceremony cannot be set up again once a custodian has submitted: the parameters are covered by "+
 				"every fingerprint already read aloud. Start a new ceremony instead"))
 		return
+	}
+	// Refused once anybody has been shown their words, which is earlier than the
+	// first submission and is the point at which the cost becomes real. Setting
+	// the ceremony up again mints a new ceremony id, so that custodian would be
+	// holding a key — on paper, in ink — belonging to a ceremony that no longer
+	// exists, and the first they would know of it is their submission being
+	// refused for the wrong id.
+	for _, live := range h.live {
+		if !live.GeneratedAt.IsZero() {
+			fail(w, http.StatusConflict, fmt.Errorf(
+				"%s has already been shown twenty-four words for this ceremony, so it cannot be set up again: "+
+					"that key would belong to a ceremony that no longer exists, with the words already on paper. "+
+					"Reissue that one invitation instead, or start a new ceremony", live.Name))
+			return
+		}
 	}
 
 	roster := make([]string, 0, len(body.Custodians))
@@ -621,8 +654,12 @@ func (h *hostSession) handleExport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.complete = true
-	reply(w, http.StatusOK, map[string]any{"record": rendered, "files": files})
+	// Complete means every custodian attested, not that somebody pressed export.
+	// A record rendered from a partial roster is a legitimate thing to want
+	// mid-ceremony; a board claiming the ceremony finished because of it would be
+	// the interface lying about the only fact it exists to report.
+	h.complete = len(h.params.Custodians) > 0 && len(h.attestations) == len(h.params.Custodians)
+	reply(w, http.StatusOK, map[string]any{"record": rendered, "files": files, "complete": h.complete})
 }
 
 // ---------------------------------------------------------------- custodian
@@ -747,6 +784,9 @@ func (h *hostSession) handleGenerated(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if !h.stillLive(w, i) {
+		return
+	}
 	if !h.paramsSet {
 		fail(w, http.StatusConflict, errors.New("the coordinator has not set this ceremony up yet"))
 		return
@@ -786,6 +826,9 @@ func (h *hostSession) handleHostSubmission(w http.ResponseWriter, r *http.Reques
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if !h.stillLive(w, i) {
+		return
+	}
 	if !h.paramsSet {
 		fail(w, http.StatusConflict, errors.New("the coordinator has not set this ceremony up yet"))
 		return
@@ -840,6 +883,9 @@ func (h *hostSession) handleHostAttestation(w http.ResponseWriter, r *http.Reque
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if !h.stillLive(w, i) {
+		return
+	}
 	if signed.Attestation.Name != i.Name {
 		fail(w, http.StatusForbidden, fmt.Errorf(
 			"this invitation is %s's and the attestation is signed for %q", i.Name, signed.Attestation.Name))

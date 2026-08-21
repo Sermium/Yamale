@@ -21,7 +21,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { goJSONArray, goJSONObject, goJSONString, indentGoJSON, parseGoDuration, protoDuration } from './gojson.ts';
-import { ACCOUNT_PREFIX, addressBytes, bech32Address, decodeBech32, fingerprintOf, verify } from './key.ts';
+import { ACCOUNT_PREFIX, addressBytes, bech32Address, decodeBech32, fingerprintOf, hdPath, verify } from './key.ts';
 import {
   GROUP_DOMAIN,
   SECP256K1_PUBKEY_TYPE,
@@ -124,7 +124,28 @@ export function validateParams(p: CeremonyParams): void {
         'would freeze the foundation account forever, with the chain still sending seizures to it',
     );
   }
-  parseGoDuration(p.voting_period);
+  const period = parseGoDuration(p.voting_period);
+  // Guarded here because the SDK's own check is narrower than it looks: it
+  // refuses a voting period of exactly zero and says nothing about a negative
+  // one, and x/group's genesis validation never goes deeper. A period of "-1h"
+  // produces a genesis that imports cleanly and a group whose proposals expire
+  // before they are made.
+  if (period <= 0n) {
+    throw new Error(
+      `a voting period of ${p.voting_period} gives the other custodians no window to vote in, so this group ` +
+        'could never execute anything three of them agreed on',
+    );
+  }
+  // Bounded because this side holds the sequence as a JavaScript number, which
+  // is exact only to 2^53. Beyond that this page would derive a DIFFERENT
+  // POLICY ADDRESS from the binary — silently, for the one value that decides
+  // where every seized asset on the chain is sent.
+  if (!Number.isSafeInteger(p.policy_seq) || p.policy_seq < 0 || p.policy_seq > 2 ** 40) {
+    throw new Error(
+      `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page ` +
+        'holds exactly',
+    );
+  }
 }
 
 function onRoster(roster: string[], name: string): boolean {
@@ -168,6 +189,8 @@ export function verifySubmission(params: CeremonyParams, s: Submission): Identit
   if (raw.length !== 33) {
     throw new Error(`${s.identity.name}'s public key is ${raw.length} bytes; a compressed secp256k1 key is 33`);
   }
+  checkCanonicalTimestamp(s.identity.name, s.identity.generated_at);
+  checkHDPath(s.identity.name, s.identity.hd_path);
   if (!verify(fromBase64(s.possession), possessionMessage(params.ceremony_id, s.identity), raw)) {
     throw new Error(
       `${s.identity.name}'s proof of possession does not verify. Whoever produced this does not hold the key it ` +
@@ -199,6 +222,52 @@ export function verifySubmission(params: CeremonyParams, s: Submission): Identit
 // device transmits a public key, and every other page DERIVES the address and
 // the fingerprint from it here instead of reading the ones the submission
 // claims.
+// checkCanonicalTimestamp refuses any generated_at that is not UTC, whole
+// seconds, trailing Z.
+//
+// It is the one place this page and tools/ceremony can disagree while both being
+// honest. assembleGroup below picks the LATEST generated_at by comparing the
+// strings, which is chronological only because every value has the same width
+// and the same zone; Go parses them and re-emits the winner normalised. A
+// submission carrying "2026-03-02T11:15:00+02:00" — valid RFC 3339, correctly
+// signed, the same instant as an earlier Z value that sorts before it — would
+// have this page compute one group fingerprint and the binary compute another,
+// which is the failure the read-aloud step cannot tell apart from an attack.
+//
+// Refused rather than normalised: a value quietly rewritten is a value the
+// custodian did not sign.
+export function checkCanonicalTimestamp(name: string, value: string): void {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`${name}'s submission has an unreadable generated_at "${value}"`);
+  }
+  const canonical = `${parsed.toISOString().slice(0, 19)}Z`;
+  if (canonical !== value) {
+    throw new Error(
+      `${name}'s submission is timestamped "${value}" and this ceremony writes "${canonical}" — UTC, whole ` +
+        'seconds, trailing Z. Two spellings of one instant would give this page and the coordinator different ' +
+        'group fingerprints from the same five submissions',
+    );
+  }
+}
+
+// checkHDPath refuses a key derived somewhere other than this chain's path.
+//
+// The path is inside the possession signature, so it cannot be altered in
+// transit — but it is chosen by whoever generated the key, and it is what the
+// record tells somebody to derive at years from now. A record naming a different
+// coin type would send a custodian recovering the account to an address that is
+// not in the group.
+export function checkHDPath(name: string, path: string): void {
+  const base = hdPath(0).replace(/\/0$/, '');
+  if (!path.startsWith(`${base}/`)) {
+    throw new Error(
+      `${name}'s submission was derived at "${path}", and this chain's accounts live under ${base}. A key ` +
+        'derived somewhere else is a key the recovery instructions on the record would not find',
+    );
+  }
+}
+
 function identityFromPubKey(name: string, pub: Uint8Array, path: string, generatedAt: string): Identity {
   return {
     name,
@@ -244,9 +313,11 @@ export function assembleGroup(params: CeremonyParams, submissions: Submission[])
   for (const s of submissions) {
     const id = verifySubmission(params, s);
     custodians.push(id);
-    // Compared as strings, which is safe because every generated_at is
-    // RFC3339 in UTC with a Z and second precision: lexical order is
-    // chronological order, and no locale or timezone can move it.
+    // Compared as strings, which is safe ONLY because checkCanonicalTimestamp
+    // has already refused anything that is not RFC 3339 in UTC with a Z and
+    // second precision. For that one format lexical order is chronological
+    // order; for any other spelling of the same instant it is not, and the
+    // winner would differ from the one Go picks.
     if (id.generated_at > latest) latest = id.generated_at;
   }
 

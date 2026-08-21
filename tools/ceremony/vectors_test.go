@@ -383,6 +383,21 @@ func TestVectorSignaturesVerifyWithTheProductionPath(t *testing.T) {
 		require.NoError(t, err, "%s's possession signature from the fixture must verify", c.Name)
 		require.Equal(t, c.Address, derived.Address)
 		require.Equal(t, c.Fingerprint, derived.Fingerprint)
+
+		// The negative half, and it is not decoration. A test that only asserted
+		// the fixture's signatures verify would pass just as happily against a
+		// verifySubmission that had stopped checking signatures at all — which is
+		// exactly what a mutation run found. Flipping one bit of the signature
+		// has to be a refusal, or "verified" means nothing.
+		corrupted := sub
+		signatureBytes, err := base64.StdEncoding.DecodeString(sub.Possession)
+		require.NoError(t, err)
+		signatureBytes[0] ^= 0x01
+		corrupted.Possession = base64.StdEncoding.EncodeToString(signatureBytes)
+		_, err = verifySubmission(v.Params, corrupted)
+		require.ErrorContains(t, err, "proof of possession does not verify",
+			"%s's submission verified with a corrupted signature", c.Name)
+
 		subs = append(subs, sub)
 	}
 

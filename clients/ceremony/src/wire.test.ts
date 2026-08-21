@@ -26,6 +26,7 @@ import {
   buildGroup,
   policyAddress,
   presence,
+  validateParams,
   verifySubmission,
 } from './group.ts';
 import {
@@ -275,6 +276,36 @@ test('a group policy address cannot be a custodian', () => {
     () => buildGroup(identities, 3, vectors.params.voting_period, 1, vectors.group.computed_at),
     /derived account rather than a key/,
   );
+});
+
+// The timestamp format is the one value a correctly-signed submission can choose
+// that this page and the Go binary would read differently: assembleGroup picks
+// the latest generated_at by comparing strings, which is chronological only for
+// the canonical form. So anything else has to be a refusal on both sides.
+test('a generated_at that is not UTC to the second is refused', () => {
+  const submissions = fixtureSubmissions();
+  for (const spelling of ['2026-03-02T11:15:00+02:00', '2026-03-02T09:15:00.500Z', '2026-03-02T09:15:00-00:00']) {
+    const tampered = structuredClone(submissions[0] as Submission);
+    tampered.identity.generated_at = spelling;
+    assert.throws(() => verifySubmission(vectors.params, tampered), /UTC, whole seconds, trailing Z/, spelling);
+  }
+});
+
+test("a key derived on another chain's path is refused", () => {
+  const tampered = structuredClone(fixtureSubmissions()[0] as Submission);
+  tampered.identity.hd_path = "m/44'/60'/0'/0/0";
+  assert.throws(() => verifySubmission(vectors.params, tampered), /this chain's accounts live under/);
+});
+
+// Both bounds exist because beyond them this page and the binary would DISAGREE
+// rather than refuse, and one of the two values decides where every seized asset
+// on the chain is sent.
+test('parameters the browser cannot represent exactly are refused', () => {
+  validateParams(vectors.params);
+
+  assert.throws(() => validateParams({ ...vectors.params, policy_seq: 2 ** 60 }), /past the range this page/);
+  assert.throws(() => validateParams({ ...vectors.params, voting_period: '-1h' }), /no window to vote in/);
+  assert.throws(() => validateParams({ ...vectors.params, voting_period: '0s' }), /no window to vote in/);
 });
 
 // Go escapes the three HTML-significant characters and JSON.stringify does not.
