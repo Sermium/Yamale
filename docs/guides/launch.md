@@ -197,11 +197,27 @@ What it does not buy is tolerance for the *first* validator's outage. A chain
 survives losing a node only if the ones left hold more than two thirds, so every
 validator has to hold less than a third — and no pair can. With this split the
 majority node is a single point of failure, which is correct for a rehearsal and
-must not be mistaken for redundancy. It has already halted `yamale-devnet-2`
-once, for two hours, when the cloud host went away.
+must not be mistaken for redundancy.
 
-**Four equal validators is the minimum that tolerates one loss**: each holds 25%,
-any three hold 75%. Seat four before anything depends on uptime.
+**And it costs the minority validator its signing rate.** A validator holding
+more than two thirds alone reaches the commit threshold with its own precommit,
+so it finishes consensus locally, in microseconds, before gossip can reach
+anybody. The minority node then receives the commit before it has assembled the
+proposed block and logs `commit is for a block we do not know about` — it cannot
+vote for a block it has not seen. Measured on `yamale-devnet-2` at a 21ms direct
+link, with clocks four seconds apart and a load average of 0.5: the minority
+validator signed **5 of 40 blocks**, against a slashing window that jails below
+50 of 100. It was jailed for downtime, slashed 1%, unjailed, and began earning
+the same jail again immediately. Nothing was wrong with it.
+
+So a lopsided pair does not give you one strong validator and one weak one. It
+gives you one validator and one node that is punished for being unable to
+participate.
+
+**Four equal validators is the minimum that works**: each holds 25%, so no one
+of them can commit alone and every proposal must wait for gossip; any three hold
+75%, so one can be lost. Seat four before anything depends on either uptime or
+on the other validators being able to sign.
 
 **`sudo -E` may not carry the variables.** sudo resets the environment and `-E`
 only works if the sudoers policy allows it — the symptom is a phase flag being

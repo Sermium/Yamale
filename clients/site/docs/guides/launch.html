@@ -185,10 +185,24 @@ keeps producing blocks through the other&#39;s outages.</p>
 survives losing a node only if the ones left hold more than two thirds, so every
 validator has to hold less than a third — and no pair can. With this split the
 majority node is a single point of failure, which is correct for a rehearsal and
-must not be mistaken for redundancy. It has already halted <code>yamale-devnet-2</code>
-once, for two hours, when the cloud host went away.</p>
-<p><strong>Four equal validators is the minimum that tolerates one loss</strong>: each holds 25%,
-any three hold 75%. Seat four before anything depends on uptime.</p>
+must not be mistaken for redundancy.</p>
+<p><strong>And it costs the minority validator its signing rate.</strong> A validator holding
+more than two thirds alone reaches the commit threshold with its own precommit,
+so it finishes consensus locally, in microseconds, before gossip can reach
+anybody. The minority node then receives the commit before it has assembled the
+proposed block and logs <code>commit is for a block we do not know about</code> — it cannot
+vote for a block it has not seen. Measured on <code>yamale-devnet-2</code> at a 21ms direct
+link, with clocks four seconds apart and a load average of 0.5: the minority
+validator signed <strong>5 of 40 blocks</strong>, against a slashing window that jails below
+50 of 100. It was jailed for downtime, slashed 1%, unjailed, and began earning
+the same jail again immediately. Nothing was wrong with it.</p>
+<p>So a lopsided pair does not give you one strong validator and one weak one. It
+gives you one validator and one node that is punished for being unable to
+participate.</p>
+<p><strong>Four equal validators is the minimum that works</strong>: each holds 25%, so no one
+of them can commit alone and every proposal must wait for gossip; any three hold
+75%, so one can be lost. Seat four before anything depends on either uptime or
+on the other validators being able to sign.</p>
 <p><strong><code>sudo -E</code> may not carry the variables.</strong> sudo resets the environment and <code>-E</code>
 only works if the sudoers policy allows it — the symptom is a phase flag being
 ignored and the script running straight through to the end. Put them on sudo&#39;s

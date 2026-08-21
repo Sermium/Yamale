@@ -125,12 +125,14 @@ compiled out and outside audit scope.
 
 ## Operational loose ends
 
-- **The staging chain is halted, and the reason is structural.** `yamale-devnet-2`
-  stopped at height 2733 on 2026-08-21 at 19:45 UTC when the cloud VM went
-  offline. That validator holds 100,000 of 110,000 bonded, so the Pi's 10,000
-  cannot reach two thirds and the chain stops until the VM returns. Nothing is
-  lost — state is intact and blocks resume on restart — but see the fault
-  tolerance note below, because the arithmetic here is not a devnet quirk.
+- **The minority validator cannot keep its signing rate up, and this is
+  structural.** Measured 2026-08-21: `pi-2` signed 5 of 40 blocks and was jailed
+  for downtime and slashed 1%, with a 21ms direct link, clocks four seconds
+  apart and a load average of 0.5. Nothing was wrong with it. A validator
+  holding more than two thirds alone finishes consensus with its own precommit,
+  before gossip reaches anyone, so the other node receives the commit before it
+  has the block and cannot vote. See the fault-tolerance note below; the fix is
+  four validators, not a bigger Pi.
 - **The ops signing service is still running** with two htpasswd files. It was
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both
@@ -153,6 +155,12 @@ of failure; with 55,000 each, either node's outage halts the chain. Two
 validators can be arranged to tolerate the *joining* node's outages, which is
 what [launch.md](../guides/launch.md) recommends and is right for a rehearsal,
 but they cannot be arranged to tolerate both.
+
+There is a second cost, and it is the one that bites first. A validator above
+two thirds commits without waiting for anybody, so the minority node is
+structurally unable to get its votes counted and is jailed for downtime while
+being entirely healthy. A lopsided pair does not buy one strong validator and
+one weak one; it buys one validator and one node being punished.
 
 **Four equal validators is the minimum that tolerates one loss**: each holds
 25%, any three hold 75%. That is also exactly what the equal-seats decision

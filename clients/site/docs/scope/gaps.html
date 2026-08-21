@@ -174,12 +174,14 @@ the same shape as three others that were fixed.</li>
 </ul>
 <h2>Operational loose ends</h2>
 <ul>
-<li><strong>The staging chain is halted, and the reason is structural.</strong> <code>yamale-devnet-2</code>
-stopped at height 2733 on 2026-08-21 at 19:45 UTC when the cloud VM went
-offline. That validator holds 100,000 of 110,000 bonded, so the Pi&#39;s 10,000
-cannot reach two thirds and the chain stops until the VM returns. Nothing is
-lost — state is intact and blocks resume on restart — but see the fault
-tolerance note below, because the arithmetic here is not a devnet quirk.</li>
+<li><strong>The minority validator cannot keep its signing rate up, and this is
+structural.</strong> Measured 2026-08-21: <code>pi-2</code> signed 5 of 40 blocks and was jailed
+for downtime and slashed 1%, with a 21ms direct link, clocks four seconds
+apart and a load average of 0.5. Nothing was wrong with it. A validator
+holding more than two thirds alone finishes consensus with its own precommit,
+before gossip reaches anyone, so the other node receives the commit before it
+has the block and cannot vote. See the fault-tolerance note below; the fix is
+four validators, not a bigger Pi.</li>
 <li><strong>The ops signing service is still running</strong> with two htpasswd files. It was
 always a devnet crutch; the plan is client-side signing through
 <code>@yamale/connect</code>, then delete <code>/api/ops/</code>, both credential files and both
@@ -201,6 +203,11 @@ of failure; with 55,000 each, either node&#39;s outage halts the chain. Two
 validators can be arranged to tolerate the <em>joining</em> node&#39;s outages, which is
 what <a href="../guides/launch.html">launch.md</a> recommends and is right for a rehearsal,
 but they cannot be arranged to tolerate both.</p>
+<p>There is a second cost, and it is the one that bites first. A validator above
+two thirds commits without waiting for anybody, so the minority node is
+structurally unable to get its votes counted and is jailed for downtime while
+being entirely healthy. A lopsided pair does not buy one strong validator and
+one weak one; it buys one validator and one node being punished.</p>
 <p><strong>Four equal validators is the minimum that tolerates one loss</strong>: each holds
 25%, any three hold 75%. That is also exactly what the equal-seats decision
 produces, so this is an argument for seating four rather than for weighting
