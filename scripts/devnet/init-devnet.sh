@@ -32,16 +32,68 @@ echo "=== init ==="
 $BIN init pi --chain-id "$CHAIN_ID" --default-denom uyml --home "$HOME_DIR" 2>&1 | tail -1
 
 echo "=== keys ==="
+# alice, bob and foundation are DEMO keys. They hold faucet float and act as two
+# sides of a transfer so the screens have data, and they live in the `test`
+# keyring — unencrypted, disposable, regenerated on every reset. That is what
+# they are for.
+#
+# The two keys that actually control this chain do not come from here. The
+# foundation is the 3-of-5 group from CEREMONY_DIR, and the validator's operator
+# key is generated in a ceremony below. This split is the whole point: what
+# controls the chain gets a ceremony, what pays for a demo does not.
 for k in alice bob foundation; do
   $BIN keys add "$k" $KR >/dev/null 2>&1
   echo "  $k  $($BIN keys show "$k" -a $KR)"
 done
+
+echo "=== validator operator key ==="
+# From the ceremony, not from `keys add`.
+#
+# `keys add` is how the foundation account ended up unencrypted in a `test`
+# keyring with its mnemonic printed to a terminal nobody was reading — while
+# being the address every seized asset was meant to reach. That is the account
+# the ceremony was built for. Leaving the operator key to `keys add` would
+# repeat it for the key that signs every block.
+#
+# On a deployment the operator key stays off the node entirely and the gentx is
+# signed on the ceremony machine. Here it is imported, because this is one
+# devnet host doing both jobs — but into the `file` backend under a passphrase,
+# never `test`.
+VALIDATOR_KEY=pi-operator
+VALIDATOR_ARMOR="$CEREMONY_DIR/validator-operator.asc"
+if [ ! -f "$VALIDATOR_ARMOR" ]; then
+  echo "  no $VALIDATOR_ARMOR" >&2
+  echo >&2
+  echo "  Generate the operator key in a ceremony, then re-run:" >&2
+  echo >&2
+  echo "    ceremony validator --name \"pi\" --armor $VALIDATOR_ARMOR" >&2
+  echo >&2
+  echo "  Refused rather than created. A key made here to get past this line is" >&2
+  echo "  a key with no paper behind it, and the chain would launch anyway." >&2
+  exit 1
+fi
+: "${OPERATOR_PASSPHRASE:?set OPERATOR_PASSPHRASE to the passphrase used when the ceremony wrote validator-operator.asc}"
+# The keyring passphrase is separate from the armor's, and defaults to it.
+# Separate because they guard different things: one protects a file that leaves
+# the ceremony, the other protects this host's keyring. Defaulted because making
+# a devnet reset invent two secrets is how both end up on one sticky note.
+KEYRING_PASSPHRASE="${KEYRING_PASSPHRASE:-$OPERATOR_PASSPHRASE}"
+
+# Three prompts, in this order: the armor passphrase to decrypt it, then the
+# keyring passphrase twice to set it. Piping two — the obvious guess — leaves
+# import waiting on stdin that never arrives.
+{ echo "$OPERATOR_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; echo "$KEYRING_PASSPHRASE"; } |
+  $BIN keys import "$VALIDATOR_KEY" "$VALIDATOR_ARMOR"     --keyring-backend file --home "$HOME_DIR" >/dev/null
+VALIDATOR=$(echo "$KEYRING_PASSPHRASE" |
+  $BIN keys show "$VALIDATOR_KEY" -a --keyring-backend file --home "$HOME_DIR")
+echo "  $VALIDATOR_KEY  $VALIDATOR  (file keyring, from the ceremony)"
 
 ALICE=$($BIN keys show alice -a $KR)
 BOB=$($BIN keys show bob -a $KR)
 FOUNDATION=$($BIN keys show foundation -a $KR)
 
 echo "=== genesis accounts ==="
+$BIN genesis add-genesis-account "$VALIDATOR"   150000000000uyml --home "$HOME_DIR"
 $BIN genesis add-genesis-account "$ALICE"      200000000000uyml --home "$HOME_DIR"
 $BIN genesis add-genesis-account "$BOB"        100000000000uyml --home "$HOME_DIR"
 $BIN genesis add-genesis-account "$FOUNDATION" 500000000000uyml --home "$HOME_DIR"
@@ -187,7 +239,12 @@ echo "  rolling cap:          500 YML or 5 seizures per 17280 blocks (~24h)"
 echo "  ombudsman:            ${OMBUDSMAN:-unset — no veto}"
 
 echo "=== validator ==="
-$BIN genesis gentx alice 100000000000uyml --chain-id "$CHAIN_ID" $KR 2>&1 | tail -1
+# Signed by the ceremony's operator key, not by a demo account. The passphrase
+# is piped rather than prompted so a reset stays scriptable; on a deployment
+# this step happens on the ceremony machine and the passphrase is typed by a
+# person who is standing there.
+echo "$KEYRING_PASSPHRASE" |
+  $BIN genesis gentx "$VALIDATOR_KEY" 100000000000uyml     --chain-id "$CHAIN_ID" --moniker pi     --keyring-backend file --home "$HOME_DIR" 2>&1 | tail -1
 $BIN genesis collect-gentxs --home "$HOME_DIR" 2>&1 | tail -1
 $BIN genesis validate-genesis --home "$HOME_DIR"
 
