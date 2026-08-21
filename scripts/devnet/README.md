@@ -22,6 +22,36 @@ why registering a custody asset, approving a stablecoin issuer and admitting a
 validator have only ever been exercised in unit tests. On a devnet the point is
 to watch the permission gate work, not to model the economics.
 
+It also sets the **constitution invariants** a one-machine devnet can satisfy,
+and it has to, before `gentx`. Two of them are relaxations — `min_active_validators`
+down to 1, and the concentration caps up to 10000 basis points, because one
+validator holds all the voting power by definition and any lower cap makes a
+single-node set arithmetically impossible. The third is not a relaxation but a
+duplicate: x/constitution keeps its own copy of the enforcement recovery
+destination and checks that it is populated, so setting only the x/enforcement
+parameter leaves `gentx` refusing genesis with a message naming the parameter
+that *is* set. That is a confusing half-hour, once per person.
+
+It also seeds **payments**: the foundation as an approved participant, alice and
+bob as its registered customers, and a country recorded against each of the
+three accounts.
+
+That last part is what made x/paymsg reachable at all. Approval is gov-gated, so
+before this the devnet had no approved participant — and every `MsgSendPayment`
+names an instructing participant the module refuses unless it has been admitted.
+The visible symptom was not a failure: it was that no interface ever sent a
+payment. The Pay app and the wallet both sent plain bank transfers, so the
+participant gating, the end-to-end id, the metadata hash and the settlement
+jurisdiction went untested outside unit tests.
+
+**What this still does not cover.** Accounts created *in the Pay app* have their
+keys generated in the browser, so their addresses do not exist when genesis is
+written and they are nobody's customer. The Pay screen refuses their payments,
+correctly and in those words — "this account is not registered with a bank".
+Making them payable needs something holding the participant's key at sign-up,
+which is the same moment the faucet already funds them; there is no such step
+today, and a demonstration of the payment path has to use alice or bob.
+
 **populate.sh** — bot accounts, minted currencies, a treasury, **the two AMM
 pools**, and **the faucet's own float**.
 

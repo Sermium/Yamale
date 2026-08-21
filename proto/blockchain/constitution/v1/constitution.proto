@@ -91,6 +91,11 @@ message Invariants {
   // sent to. Fixed here because a mutable destination is the difference between
   // a recovery mechanism and a theft mechanism: the threshold decides whether
   // funds move, this decides who ends up with them.
+  //
+  // It is an x/group policy account, so the two fields below say what that
+  // policy has to look like. Together the three describe the whole custody
+  // arrangement: this address, held by exactly foundation_custodian_count
+  // people, any foundation_signature_threshold of whom can act.
   string enforcement_recovery_destination = 7 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 
   // enforcement_voting_period_blocks and
@@ -119,6 +124,37 @@ message Invariants {
   // snapshot taken when the amendment opened, so it cannot be passed by
   // shrinking the electorate either.
   uint64 amendment_threshold_bps = 11;
+
+  // foundation_custodian_count is how many people hold the account seized
+  // assets are sent to, and it is an exact number rather than a floor.
+  //
+  // Exact, because the failure it prevents is a ratchet rather than an event.
+  // A custodian leaves and the group drops to four: that is not "one short",
+  // it moves the rule from three of five to three of four, so the people who
+  // remain each hold more of the authority than the set agreed they should.
+  // Lose another and it is three of three, where every custodian holds a veto
+  // and one unreachable person freezes the account permanently. Nobody votes
+  // for that; it is arrived at by taking two individually reasonable decisions
+  // in sequence, months apart, each one obviously fine on its own.
+  //
+  // So a departure and a replacement are one decision. x/group's
+  // MsgUpdateGroupMembers carries adds and removes in the same message, which
+  // makes the swap the native operation rather than a convention, and an ante
+  // decorator refuses any update that would leave the foundation group at a
+  // different size — including MsgLeaveGroup, which is a custodian shrinking
+  // the set with nobody's agreement but their own.
+  uint32 foundation_custodian_count = 12;
+
+  // foundation_signature_threshold is how many of them must sign.
+  //
+  // Constitutional rather than an ordinary group decision because the group is
+  // its own admin: without this, three custodians could vote to make it two,
+  // and the arrangement that took a ceremony to establish would be changed by
+  // the people it constrains, in one proposal, with a week's notice. Moving it
+  // now costs a proposal, three weeks in public and a four-fifths ratification
+  // — which is the right weight for "how many people it takes to move seized
+  // property".
+  uint32 foundation_signature_threshold = 13;
 }
 
 // AmendmentStatus is where an amendment has got to.

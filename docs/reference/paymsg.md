@@ -76,6 +76,19 @@ SendPayment defines the SendPayment RPC.
 | `metadata_hash` | bytes | metadata_hash is SHA-256 over the canonical metadata payload held off-chain — the "encrypted payload hash" of docs/scope/confidentiality.md. It hashes the payload itself, not the ciphertext, because the check that matters is a party who holds the payload proving it is the one recorded. Encryption is randomised, so a hash over ciphertext could be verified by nobody: the payer, the payee and the regulator all decrypt to the same payload and all get different bytes back if they re-encrypt. The payload carries a random salt for a reason that is easy to miss: a purpose code is four characters from a published list, so an unsalted hash of one is not a fingerprint, it is a lookup table. Hashing without the salt would publish the field it was meant to hide. |
 | `settlement_jurisdiction` | string | settlement_jurisdiction is the ISO 3166-1 alpha-2 country whose authority settles this payment. Unlike the three above it means something today. A cross-border payment touches two perimeters, and both endpoint authorities may see it, but only this one may act on it — so without the declaration there is a contest over standing that the chain cannot resolve, and the record cannot show which authority had the right to act. See docs/scope/roles-and-perimeter.md. The same declaration names the regulator who holds the third viewing key over the payload metadata_hash commits to. That is why it has to be stated when the payment is sent rather than decided afterwards: the payload is encrypted to that regulator's key at that moment, and a payment sent without a jurisdiction is one no regulator can ever open. Accepted empty for now, and required once Params.require_settlement_jurisdiction is turned on. Refusing it outright today would refuse payments that were valid when they were included, and a node syncing from block 0 re-runs every one of them. |
 
+### MsgSetPayloadStore
+
+`/blockchain.paymsg.v1.MsgSetPayloadStore`
+
+Signed by the `participant` field.
+
+SetPayloadStore records where an approved participant serves the encrypted payloads of the payments it instructed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `participant` | string |  |
+| `url` | string | url is an absolute http or https base URL, or empty to withdraw. Validated for scheme and length here rather than left to the clients. A value that is not a URL is not a store, and the failure it produces otherwise lands on the payee — who sees detail they are entitled to read reported as missing, with nothing to tell them the reason is a typo in somebody else's registration. |
+
 ### MsgUpdateParams
 
 `/blockchain.paymsg.v1.MsgUpdateParams`
@@ -226,6 +239,7 @@ ApprovedParticipant defines the ApprovedParticipant message.
 | `participant` | string |  |
 | `code` | string |  |
 | `name` | string |  |
+| `payload_store_url` | string | payload_store_url is where this participant serves the encrypted payloads of the payments it instructed. A directory fact, not key material: it names a host, and everything behind it is already encrypted to keys this participant does not hold. It is on the chain rather than in each client's configuration because the payee is the party that has to find it, and the only thing the payee is guaranteed to have is the payment record — which names the instructing participant and nothing else. A configuration file would make "which store holds this payment's detail" a question every client answers separately and some answer stale, and a stale answer here renders as detail that has been lost. Empty is the honest default and means this participant runs no store. A client must show that as detail being unavailable, never as a payment with no detail. |
 
 ### Customer
 
@@ -248,6 +262,27 @@ ParticipantApplication defines the ParticipantApplication message.
 | `status` | string |  |
 | `code` | string |  |
 | `name` | string |  |
+
+### PayloadEnvelope
+
+PayloadEnvelope is the encrypted form of a PaymentMetadata payload.
+
+It is never sent to the chain and never stored by it — the chain holds only the SHA-256 of the *plaintext* payload, in MsgSendPayment.metadata_hash. The envelope lives in a participant's payload store. It is declared here, in the same schema as the payload it wraps, for exactly the reason PaymentMetadata is: the payer's wallet, the payee's wallet, a regulator's Go tooling and the store itself all have to agree on the bytes, and three hand-written framings in three languages agree until the first field somebody adds.
+
+The construction is the standard multi-recipient KEM/DEM composition — the one age uses, and the one RFC 9180 formalises as DHKEM(X25519, HKDF-SHA256) with ChaCha20-Poly1305:
+
+1. a fresh 32-byte content key encrypts the padded payload once, under ChaCha20-Poly1305; 2. for each recipient, a fresh ephemeral X25519 key agrees a shared secret with that recipient's registered viewing key, HKDF-SHA256 turns it into a wrapping key, and the content key is sealed under it.
+
+Nothing here is novel, and that is the point. The payload is the ISO 20022 detail of somebody's payment; it is not the place to find out whether a new scheme holds.
+
+What is deliberately *not* in this message: any hint of who the recipients are beyond an eight-byte key fingerprint, and any length signal. See RecipientBlock.key_id and ciphertext below.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `version` | uint32 | version is the envelope format, not the key version. Present from the first byte because the alternative is discovering, on the day the format has to change, that every stored envelope is a bare blob whose framing can only be guessed at from its length. A reader refuses a version it does not implement rather than parsing it optimistically. |
+| `recipients` | repeated RecipientBlock | recipients is one wrapped copy of the content key per party entitled to read: the payer, the payee, the regulator of the declared settlement jurisdiction, and every auditor whose grant was live when the payment was sent. Order is not significant and must not be relied on. A reader tries the blocks whose key_id matches a key it holds, and falls back to trying all of them — key_id is a lookup hint, never an access control. |
+| `nonce` | bytes | nonce is 12 bytes, fresh per envelope, for the content cipher. Fresh per envelope rather than derived from the payment, because a nonce reused under one key with ChaCha20-Poly1305 does not degrade gracefully: it leaks the XOR of two plaintexts and the authentication key with it. The content key is also fresh per envelope, so this is belt and braces — which is the correct amount for a value whose reuse is unrecoverable. |
+| `ciphertext` | bytes | ciphertext is ChaCha20-Poly1305 over the padded payload. Padded to a multiple of 256 bytes before encryption, so the length of the ciphertext says nothing about the length of the remittance line. Without padding the store — and anyone who can see a response size — could tell a one-word reference from a full name and address, which is a meaningful part of what the payload was moved off-chain to protect. The associated data is the payment's identity: the domain string, the instructing participant and the end-to-end id. That binds the ciphertext to one payment, so a store cannot serve the payload of one payment under the key of another — a substitution that would otherwise decrypt cleanly and then fail only against the on-chain hash, if the reader remembered to check it. |
 
 ### PaymentMetadata
 
@@ -285,6 +320,16 @@ This is the camt.053-style statement entry, and it is what participants reconcil
 | `metadata_hash` | bytes | metadata_hash pins the off-chain payload this payment's ISO 20022 detail was recorded in, so a party holding the payload can prove it is the one the chain saw and cannot substitute another afterwards. The range proof that will accompany amount_commitment is deliberately not stored here. It is checked once, at execution, and is worth nothing afterwards — keeping kilobytes of it against every payment forever is state bloat priced at one transaction fee. |
 | `settlement_jurisdiction` | string | settlement_jurisdiction is recorded because the perimeter check has to run against the payment, not against a memory of it: which authority may act on this payment is a question asked long after the block that carried it. |
 
+### RecipientBlock
+
+RecipientBlock is one entitled party's wrapped copy of the content key.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `key_id` | bytes | key_id is the first 8 bytes of SHA-256 over the recipient's X25519 public key. A hint, so a reader holding one key does not have to attempt every block, and truncated so that the block does not simply publish the recipient's public key to whoever fetches the envelope. Eight bytes is not a commitment and must never be treated as one: two keys can collide, so a reader that fails to open a matching block must try the rest. |
+| `ephemeral_public_key` | bytes | ephemeral_public_key is 32 bytes of X25519, fresh for this block. Per recipient rather than one shared across the envelope. It costs 32 bytes each and buys two things: the blocks are unlinkable to each other, and a party who later holds the content key can add a recipient — an auditor appointed after the fact, a rotated regulator key — without needing the original ephemeral secret, which nobody kept. |
+| `wrapped_key` | bytes | wrapped_key is the 32-byte content key sealed under the agreed wrapping key, so 48 bytes with the Poly1305 tag. Its associated data names the recipient's key_id, so a block cannot be moved between envelopes or reassigned to a different recipient's slot without the tag failing. |
+
 ## Parameters
 
 Changed by governance through `MsgUpdateParams`. Defaults are the values a chain starts with at genesis.
@@ -311,3 +356,4 @@ Every way a transaction to this module can be rejected.
 | 1109 | `ErrInvalidSettlementJurisdiction` | settlement jurisdiction is missing or is not an ISO 3166-1 alpha-2 code |
 | 1110 | `ErrInvalidMetadata` | payment metadata payload or its hash is malformed |
 | 1111 | `ErrConfidentialAmountUnavailable` | confidential amounts are reserved but not yet verified by this chain |
+| 1112 | `ErrInvalidPayloadStore` | payload store url must be an absolute http or https base url, or empty |

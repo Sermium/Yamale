@@ -572,6 +572,16 @@ requirement governance can vote away is a default.
 the chain, which holds what is recovered so it can be restituted to the people
 it was taken from.
 
+**It is not a key.** It is a 3-of-5 `x/group` policy account — five named
+custodians, any three of whom can act, every signature attributable on chain.
+That is not a stylistic preference: the devnet's foundation account was a single
+unencrypted key in a `keyring-test` backend on a cloud VM, printed once and
+written down nowhere, and losing that VM would have lost every asset the chain
+had ever recovered. The constitution fixes the shape as well as the address —
+exactly five custodians, exactly three signatures — and a departing custodian is
+replaced in the same message or the update is refused. See
+[the key ceremony](key-ceremony.md).
+
 It has no default and it is not optional. No address compiled into the binary is
 anybody's foundation, so genesis has to name one — and a genesis that does not
 is refused at `InitGenesis`, which means the chain does not start rather than

@@ -36,6 +36,18 @@ service Msg {
   // SetJurisdiction records or corrects the country an account belongs to.
   rpc SetJurisdiction(MsgSetJurisdiction) returns (MsgSetJurisdictionResponse);
 
+  // RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
+  rpc RegisterViewingKey(MsgRegisterViewingKey) returns (MsgRegisterViewingKeyResponse);
+
+  // RevokeViewingKey marks one of the sender's key versions compromised.
+  rpc RevokeViewingKey(MsgRevokeViewingKey) returns (MsgRevokeViewingKeyResponse);
+
+  // AppointRegulator names the authority holding the viewing key for a country.
+  rpc AppointRegulator(MsgAppointRegulator) returns (MsgAppointRegulatorResponse);
+
+  // GrantAuditor grants the time-boxed cross-account reading role.
+  rpc GrantAuditor(MsgGrantAuditor) returns (MsgGrantAuditorResponse);
+
   // UpdateParams sets the module parameters. Governance only.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
@@ -131,6 +143,111 @@ message MsgSetJurisdictionResponse {
   // account held none, in which case it will get one when it registers.
   string id = 2;
 }
+
+// MsgRegisterViewingKey publishes the sending account's X25519 public key.
+//
+// Self-signed, unlike the jurisdiction beside it, and the difference is not an
+// oversight. A jurisdiction is a claim about somebody that they must not be
+// able to make for themselves; a viewing key is a claim only about which key
+// can decrypt payloads addressed to the sender, and an account that publishes a
+// key it does not hold has locked itself out of its own payment detail and
+// nobody else out of anything.
+//
+// Sending it again rotates: the previous version stays queryable so historical
+// envelopes remain openable, and new envelopes wrap to the new version. See
+// ViewingKey.version.
+message MsgRegisterViewingKey {
+  option (cosmos.msg.v1.signer) = "account";
+  option (amino.name) = "blockchain/x/alias/MsgRegisterViewingKey";
+
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // public_key is 32 bytes of X25519. The private half never leaves the holder,
+  // and nothing on this chain has any use for it.
+  bytes public_key = 2;
+}
+
+// MsgRegisterViewingKeyResponse returns the version that was assigned.
+message MsgRegisterViewingKeyResponse {
+  // version is what an envelope will name when it wraps to this key. The sender
+  // cannot know it before the transaction lands, so it comes back here.
+  uint64 version = 1;
+}
+
+// MsgRevokeViewingKey marks one of the sender's key versions compromised.
+//
+// It does not delete the key and does not pretend the payloads wrapped to it
+// became unreadable — ciphertext that has been distributed cannot be recalled,
+// and a message that implied otherwise would be worse than none. What it does
+// is stop senders wrapping to it and let a reader see that a payload they are
+// holding was addressed to a key somebody else may also hold. Erasing the
+// payload itself is the store's job, not the chain's.
+message MsgRevokeViewingKey {
+  option (cosmos.msg.v1.signer) = "account";
+  option (amino.name) = "blockchain/x/alias/MsgRevokeViewingKey";
+
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // version is which registration to mark. Named explicitly rather than
+  // defaulting to the newest, because the key an operator wants to revoke is
+  // usually the old one they have just rotated away from.
+  uint64 version = 2;
+}
+
+// MsgRevokeViewingKeyResponse is empty.
+message MsgRevokeViewingKeyResponse {}
+
+// MsgAppointRegulator names the authority that holds the third viewing key over
+// payments settling in one country.
+//
+// Authority-gated, because this is the single most powerful grant the
+// confidentiality design makes: the appointee can read the ISO 20022 detail of
+// every payment that names their country from the moment they are appointed.
+// An account that could appoint itself regulator of Ghana would have granted
+// itself that by sending one message.
+message MsgAppointRegulator {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/alias/MsgAppointRegulator";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // country is an ISO 3166-1 alpha-2 code. Checked against the assigned list
+  // for the same reason a jurisdiction is: a mistyped NX would appoint a
+  // regulator of nowhere, and every payment declaring NG would go on being
+  // encrypted to nobody while the appointment sat in state looking done.
+  string country = 2;
+
+  // address is the appointed authority, expected to be an x/group account
+  // wherever the decision to open a payload should be M-of-N rather than one
+  // official. The chain does not require that; it records who was named.
+  string address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgAppointRegulatorResponse is empty.
+message MsgAppointRegulatorResponse {}
+
+// MsgGrantAuditor grants the time-boxed cross-account reading role.
+//
+// Authority-gated and bounded in three ways at once — it expires by height, the
+// number of live grants is capped, and every grant is recorded with who made
+// it. All three exist because this role is the one that reads payment detail
+// belonging to people who have no relationship with the holder.
+message MsgGrantAuditor {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/alias/MsgGrantAuditor";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // expires_at_height must be in the future. There is no unbounded form of this
+  // grant, and no zero-means-forever: a role that can become permanent by
+  // leaving a field unset is not time-boxed, it is time-boxed by convention.
+  int64 expires_at_height = 3;
+}
+
+// MsgGrantAuditorResponse is empty.
+message MsgGrantAuditorResponse {}
 
 // MsgUpdateParams sets the module parameters. Governance only.
 message MsgUpdateParams {

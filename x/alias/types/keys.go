@@ -23,4 +23,14 @@ var (
 	// PerimeterKey indexes (country, address). Derived from JurisdictionsKey and
 	// rebuilt by InitGenesis rather than exported, for the same reason Owners is.
 	PerimeterKey = collections.NewPrefix(5)
+	// ViewingKeysKey holds (address, version) -> ViewingKey. Every version is
+	// kept, never overwritten: an envelope sealed last year names the version
+	// that was live last year, and a store that replaced the record on rotation
+	// would turn a readable payload into an unopenable one at the moment of an
+	// operational act nobody connects to it.
+	ViewingKeysKey = collections.NewPrefix(6)
+	// RegulatorsKey holds country -> RegulatorAppointment, one per country.
+	RegulatorsKey = collections.NewPrefix(7)
+	// AuditorGrantsKey holds address -> AuditorGrant, expired ones included.
+	AuditorGrantsKey = collections.NewPrefix(8)
 )

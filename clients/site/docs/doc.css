@@ -96,3 +96,66 @@ body {
 .docbar__brand { display: inline-flex; align-items: center; gap: .5rem; }
 .docbar__brand .brand__mark { width: 22px; height: 22px; border-radius: 5px; }
 .doc h1 { border-inline-start: 3px solid var(--brass); padding-inline-start: .6rem; }
+
+/* The index is a directory, not prose. The 42rem measure above is right for
+   reading a guide and wrong here: it stacks every section into one narrow
+   column of bullets with most of the screen empty beside it. */
+.doc--index {
+  max-width: 74rem;
+}
+
+.doc--index .lede {
+  max-width: 34rem;
+  color: var(--muted);
+  margin: -0.75rem 0 2.5rem;
+}
+
+.cards {
+  display: grid;
+  gap: 1.25rem;
+  /* auto-fit rather than a fixed count, so sections fill the row on a wide
+     screen and collapse to one column on a phone without a media query. */
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  align-items: start;
+}
+
+.card {
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem 1.35rem;
+}
+
+/* Section headings sit at the top of their own card, so the 2.5rem of air the
+   prose rule gives them would push each one away from its border. */
+.doc--index .card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  border-inline-start: 3px solid var(--brass);
+  padding-inline-start: 0.55rem;
+}
+
+.card__blurb {
+  margin: 0 0 0.9rem;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.doc--index .card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doc--index .card li {
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.doc--index .card li a {
+  display: block;
+  padding: 0.5rem 0.1rem;
+  text-decoration: none;
+}
+
+.doc--index .card li a:hover { text-decoration: underline; }

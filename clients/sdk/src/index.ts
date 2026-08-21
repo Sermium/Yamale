@@ -166,9 +166,14 @@ export {
   payment,
   revokeFeeAllowance,
   send,
+  appointRegulator,
+  grantAuditor,
   registerAlias,
+  registerViewingKey,
+  revokeViewingKey,
   rotateAlias,
   setJurisdiction,
+  setPayloadStore,
   submitRates,
   swap,
   sweepCase,
@@ -225,6 +230,46 @@ export {
   verifyMetadata,
   type PaymentMetadataPayload,
 } from './metadata.ts';
+
+/**
+ * The encrypted form of that payload, sealed to the viewing keys of the payer,
+ * the payee, the regulator of the declared settlement jurisdiction and any live
+ * auditor. The chain never sees it; a participant's payload store holds it.
+ */
+export {
+  ENVELOPE_VERSION,
+  VIEWING_KEY_BYTES,
+  EnvelopeMalformedError,
+  EnvelopeUnreadableError,
+  decodeEnvelope,
+  encodeEnvelope,
+  keyId,
+  openPayload,
+  openRecipientBlock,
+  paymentAad,
+  sealPayload,
+  sealToViewingKey,
+  type EnvelopeRecipient,
+} from './envelope.ts';
+
+/**
+ * Retrieving that payload, and the vocabulary for when there is none.
+ *
+ * Every way this can end is a named outcome — erased, never stored, no store
+ * registered, not entitled, unreachable — and none of them is an empty payload.
+ * A payment whose detail was destroyed must render as detail being unavailable,
+ * never as a record with nothing in it.
+ */
+export {
+  PayloadStoreClient,
+  describeUnavailable,
+  newViewingKey,
+  sealForStore,
+  viewingKeyPublic,
+  type PayloadResult,
+  type PayloadStoreOptions,
+  type PayloadUnavailableReason,
+} from './payloadstore.ts';
 
 /**
  * Naming an account with the chain's tier included. React-only, so it lives in

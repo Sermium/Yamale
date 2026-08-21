@@ -40,6 +40,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
+	groupkeeper "github.com/cosmos/cosmos-sdk/x/group/keeper"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
@@ -121,6 +122,10 @@ type App struct {
 	EnforcementKeeper  enforcementmodulekeeper.Keeper
 	ConstitutionKeeper constitutionmodulekeeper.Keeper
 	AliasKeeper        aliasmodulekeeper.Keeper
+	// GroupKeeper is here only so the ante chain can read the foundation
+	// group's membership. Nothing in this repository writes to it: the group
+	// is created by the genesis file and changed only by its own custodians.
+	GroupKeeper groupkeeper.Keeper
 }
 
 func init() {
@@ -212,6 +217,7 @@ func New(
 		&app.EnforcementKeeper,
 		&app.ConstitutionKeeper,
 		&app.AliasKeeper,
+		&app.GroupKeeper,
 	}, slices.Concat(
 		app.emissionDepinjectOutputs(),
 		app.ammDepinjectOutputs(),

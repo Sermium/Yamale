@@ -136,7 +136,16 @@ func recover(args []string) {
 	// Checked before deriving. An invalid phrase still derives *an* address —
 	// BIP-39 will happily hash anything — so a tool that skipped this would
 	// hand somebody a plausible-looking address for a key nobody can recover.
-	if !bip39.IsMnemonicValid(mnemonic) {
+	//
+	// MnemonicToByteArray rather than IsMnemonicValid, which is what this used
+	// to call and which does not do what its name says: it checks the word
+	// count and that every word is in the wordlist, and never verifies the
+	// checksum. That let through precisely the error this guard exists for —
+	// somebody transcribing by hand writes a different real word, so the count
+	// is right and every word is in the list — and printed a confident address
+	// for an empty account. MnemonicToByteArray recomputes the checksum, which
+	// is the last word's whole purpose.
+	if _, err := bip39.MnemonicToByteArray(mnemonic); err != nil {
 		fmt.Fprintln(os.Stderr, "\nyamale-wallet: that is not a valid recovery phrase.")
 		fmt.Fprintln(os.Stderr, "Check the word count and the spelling; a phrase with one wrong word")
 		fmt.Fprintln(os.Stderr, "derives a different, empty account rather than failing.")

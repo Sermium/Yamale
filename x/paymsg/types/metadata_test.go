@@ -110,27 +110,38 @@ func TestPaymentMetadataSaltsDifferPerPayment(t *testing.T) {
 // payload, or a payload that verifies in a browser fails against the block it
 // was recorded in.
 //
-// The vector is duplicated verbatim in clients/sdk/src/metadata.test.ts, which
-// is the point: two protobuf implementations agreeing today is not the same as
-// them agreeing after somebody adds a field or changes a default, and the
-// symptom of drift is an unverifiable payment months later rather than a build
-// failure. Either both sides change this constant deliberately, or one of them
-// goes red.
-func TestPaymentMetadataHashMatchesTheClientSDK(t *testing.T) {
-	const wantHex = "fde1ea15acecb334db6b0752b9dfb33ae7ebece48f4619355cb6c7b74b03014d"
+// Both sides read testdata/vectors/confidentiality.json, and that is the whole
+// point. This test used to pin a hex constant here while the TypeScript side
+// rebuilt the wire bytes by hand: the two agreed, but neither could ever make
+// the other fail, so the drift they were meant to catch would have gone through
+// both. Reading one file means an implementation that moves goes red against a
+// fixture it cannot quietly rewrite.
+//
+// The wire encoding is asserted as well as the digest. A digest alone says the
+// two disagree; the encoding says where — a reordered field, a default that
+// stopped being omitted — which is the difference between a fix and an
+// afternoon.
+func TestPaymentMetadataMatchesTheSharedVectors(t *testing.T) {
+	for _, v := range loadVectors(t).Metadata {
+		t.Run(v.Name, func(t *testing.T) {
+			payload := types.PaymentMetadata{
+				Salt:                  mustHex(t, v.SaltHex),
+				PurposeCode:           v.PurposeCode,
+				RemittanceInformation: v.RemittanceInformation,
+			}
 
-	salt := make([]byte, types.MetadataSaltLength)
-	for i := range salt {
-		salt[i] = 7
+			wire, err := payload.Marshal()
+			require.NoError(t, err)
+			require.Equal(t, v.WireHex, hex.EncodeToString(wire),
+				"the protobuf encoding of the payload has changed")
+
+			hash, err := payload.Hash()
+			require.NoError(t, err)
+			require.Equal(t, v.HashHex, hex.EncodeToString(hash))
+
+			require.NoError(t, types.VerifyMetadata(payload, mustHex(t, v.HashHex)))
+		})
 	}
-
-	hash, err := types.PaymentMetadata{
-		Salt:                  salt,
-		PurposeCode:           "SALA",
-		RemittanceInformation: "March salary",
-	}.Hash()
-	require.NoError(t, err)
-	require.Equal(t, wantHex, hex.EncodeToString(hash))
 }
 
 // A recorded value that is not a SHA-256 digest is reported as that, not as a

@@ -580,3 +580,82 @@ export function setJurisdiction(recorder: string, account: string, country: stri
     value: { recorder, account, country: country.toUpperCase() },
   };
 }
+
+/**
+ * Publish the X25519 public key your payment payloads are sealed to.
+ *
+ * Only ever the public half. A private key on an append-only ledger is a
+ * private key published to everyone forever, and there is no erasure path that
+ * takes it back — so this refuses anything that is not 32 bytes rather than
+ * letting a caller pass whichever half was to hand.
+ *
+ * Sending it again rotates. The previous version stays queryable, so payloads
+ * already sealed to it remain openable by whoever holds that private half;
+ * everything sealed afterwards goes to the new one. Nothing re-wraps history.
+ */
+export function registerViewingKey(account: string, publicKey: Uint8Array): EncodeObject {
+  if (publicKey.length !== 32) {
+    throw new Error(
+      `a viewing key is 32 bytes of X25519, got ${publicKey.length}; a shorter value seals envelopes that open for nobody`,
+    );
+  }
+  return { typeUrl: '/blockchain.alias.v1.MsgRegisterViewingKey', value: { account, publicKey } };
+}
+
+/**
+ * Mark one of your viewing key versions compromised.
+ *
+ * It stops senders sealing to it. It does not make the payloads already sealed
+ * to it unreadable — ciphertext that has been distributed cannot be recalled —
+ * and any interface built on this must say so, because an operator who believes
+ * a transaction closed the exposure will not go and destroy the payloads.
+ *
+ * The version is named rather than defaulted to the newest, because the key an
+ * operator wants to revoke is usually the old one they have just rotated away
+ * from.
+ */
+export function revokeViewingKey(account: string, version: string): EncodeObject {
+  return { typeUrl: '/blockchain.alias.v1.MsgRevokeViewingKey', value: { account, version } };
+}
+
+/**
+ * Name the authority that holds the third viewing key over payments settling in
+ * one country. Governance or a foundation administrator.
+ */
+export function appointRegulator(authority: string, country: string, address: string): EncodeObject {
+  return {
+    typeUrl: '/blockchain.alias.v1.MsgAppointRegulator',
+    value: { authority, country: country.toUpperCase(), address },
+  };
+}
+
+/**
+ * Grant the time-boxed role that reads payment detail across accounts.
+ *
+ * It expires by itself at the height given. There is no unbounded form and no
+ * zero-means-forever: a role that can become permanent by leaving a field unset
+ * is time-boxed only by convention, and the convention is what fails when
+ * nobody is looking.
+ */
+export function grantAuditor(authority: string, address: string, expiresAtHeight: string): EncodeObject {
+  return {
+    typeUrl: '/blockchain.alias.v1.MsgGrantAuditor',
+    value: { authority, address, expiresAtHeight },
+  };
+}
+
+/**
+ * Record where you serve the encrypted payloads of the payments you instruct.
+ *
+ * A directory entry, not key material. The payee is the party that has to find
+ * it, and the only thing the payee is guaranteed to have is the payment record
+ * — which names the instructing participant and nothing else.
+ *
+ * The empty string withdraws the store, and that is a supported act: a client
+ * that then reports the detail as unavailable is telling the truth, where one
+ * still calling a dead host reports a network fault and invites a retry that
+ * will never work.
+ */
+export function setPayloadStore(participant: string, url: string): EncodeObject {
+  return { typeUrl: '/blockchain.paymsg.v1.MsgSetPayloadStore', value: { participant, url } };
+}

@@ -2,12 +2,20 @@
 # Run this ONCE, by the coordinator, after collecting every validator's
 # operator address + desired self-bond amount from step 1.
 #
-# Usage: 02-build-canonical-genesis.sh <accounts-file>
+# Usage: CEREMONY_DIR=<dir> 02-build-canonical-genesis.sh <accounts-file>
 #
 # <accounts-file> has one "address amount-with-denom" pair per line, e.g.:
 #   yml1abc...   100000000uyml
 #   yml1def...   100000000uyml
 #   yml1ghi...   100000000uyml
+#
+# CEREMONY_DIR is the output directory of the key ceremony — see
+# docs/guides/key-ceremony.md. It holds group-genesis.json and
+# constitution-invariants.json, which together put the foundation's 3-of-5
+# group into this genesis and name it as the address seized assets go to.
+# The ceremony has to happen BEFORE this script, not after: the chain will not
+# start with the recovery destination unset, and the group has to exist at
+# height zero rather than be created by a transaction afterwards.
 #
 # Produces ./canonical-genesis.json. Distribute this SAME file to every
 # validator's ~/.blockchain/config/genesis.json before they run gentx
@@ -24,6 +32,30 @@ CHAIN_ID="yamale-testnet-1"
 HOME_DIR="${BLOCKCHAIND_HOME:-$HOME/.blockchain}"
 GENESIS="$HOME_DIR/config/genesis.json"
 PRISTINE="$HOME_DIR/config/genesis.pristine.json"
+CEREMONY_DIR="${CEREMONY_DIR:-}"
+
+# The ceremony's output is required, and this is the check that makes the
+# ordering real rather than documented. The foundation is a 3-of-5 group whose
+# policy address is the recovery destination; both the group and the address
+# have to be in the genesis file, because the address x/group derives depends
+# only on the policy sequence number and not on the membership. A genesis that
+# named the address and left the group to be created by a transaction after
+# launch would be pointing every future seizure at whichever group policy
+# somebody created first.
+if [ -z "$CEREMONY_DIR" ]; then
+  echo "error: CEREMONY_DIR is not set." >&2
+  echo "The foundation's 3-of-5 group is built by the key ceremony, before this script," >&2
+  echo "and both the group and its address go into this genesis. See" >&2
+  echo "docs/guides/key-ceremony.md, then re-run as:" >&2
+  echo "  CEREMONY_DIR=/path/to/ceremony ./02-build-canonical-genesis.sh accounts.txt" >&2
+  exit 1
+fi
+for required in group-genesis.json constitution-invariants.json; do
+  if [ ! -f "$CEREMONY_DIR/$required" ]; then
+    echo "error: $CEREMONY_DIR/$required not found — run 'ceremony group' first" >&2
+    exit 1
+  fi
+done
 
 # Step 1 leaves an untouched copy beside genesis.json. Requiring it rather than
 # snapshotting whatever is present matters: if this script snapshotted an
@@ -40,6 +72,21 @@ while read -r addr amount; do
   [ -z "$addr" ] && continue
   blockchaind genesis add-genesis-account "$addr" "$amount" --home "$HOME_DIR"
 done < "$ACCOUNTS_FILE"
+
+# The foundation's group policy needs an auth account, and genesis is the only
+# place to give it one: x/group's InitGenesis imports its own tables and does
+# not create the account the runtime path would. Nothing can sign for the
+# address — it is a hash of a module name and a sequence number, not of any
+# public key — so a plain account here is safe and is what lets it hold a
+# balance from block one.
+FOUNDATION=$(sed -n 's/.*"enforcement_recovery_destination": *"\([^"]*\)".*/\1/p' \
+  "$CEREMONY_DIR/constitution-invariants.json")
+if [ -z "$FOUNDATION" ]; then
+  echo "error: could not read the foundation address from $CEREMONY_DIR/constitution-invariants.json" >&2
+  exit 1
+fi
+blockchaind genesis add-genesis-account "$FOUNDATION" "${FOUNDATION_BALANCE:-1uyml}" --home "$HOME_DIR"
+echo "  foundation account: $FOUNDATION"
 
 # Replace the parameters whose defaults exist for fast local iteration and must
 # not reach a real network.
@@ -63,12 +110,17 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 
-"$PYTHON" - "$GENESIS" <<'PYEOF'
+"$PYTHON" - "$GENESIS" "$CEREMONY_DIR" <<'PYEOF'
 import json, os, sys
 
-path = sys.argv[1]
+path, ceremony_dir = sys.argv[1], sys.argv[2]
 with open(path) as f:
     genesis = json.load(f)
+
+with open(os.path.join(ceremony_dir, "group-genesis.json")) as f:
+    foundation_group = json.load(f)
+with open(os.path.join(ceremony_dir, "constitution-invariants.json")) as f:
+    foundation = json.load(f)
 
 # --- governance ---------------------------------------------------------
 # The 10s/5s periods in config.yml are for devnet iteration only.
@@ -164,15 +216,42 @@ threshold_bps = int(oracle["vote_threshold_bps"])
 # now refuses to start without one, so a genesis built without one would only
 # fail later, on every validator at height 1.
 enforcement = genesis["app_state"]["enforcement"]["params"]
-destination = os.environ.get("RECOVERY_DESTINATION", "").strip()
+destination = foundation["enforcement_recovery_destination"].strip()
 if not destination:
-    sys.exit(
-        "RECOVERY_DESTINATION is not set.\n"
-        "Seized assets go to the foundation account, and the chain will not start\n"
-        "without one. Re-run as:\n"
-        "  RECOVERY_DESTINATION=yml1... ./02-build-canonical-genesis.sh accounts.txt"
-    )
+    sys.exit("the ceremony's constitution-invariants.json names no recovery destination")
 enforcement["recovery_destination"] = destination
+
+# --- the foundation ------------------------------------------------------
+# The 3-of-5 group itself, seeded at height zero rather than created by a
+# transaction after launch.
+#
+# The address x/group gives a policy account is derived from the policy
+# sequence number alone — not from the members, the threshold or the admin —
+# so it is perfectly knowable before genesis and commits to nothing about who
+# controls it. Naming it here while creating the group afterwards would leave
+# a window in which the address every seizure is sent to belongs to whoever
+# won the race to create the first group policy on the chain. Putting the
+# group in the same file closes the window instead of shortening it.
+genesis["app_state"]["group"] = foundation_group
+
+# --- constitution --------------------------------------------------------
+# The same address again, plus the shape the group has to keep. x/constitution
+# refuses to start with any of the three unset, and its ante gate refuses any
+# later change that would leave the group a different size — a departing
+# custodian is replaced in the same message, or three-of-five quietly becomes
+# three-of-four and then unanimity.
+constitution = genesis["app_state"]["constitution"]["invariants"]
+constitution["enforcement_recovery_destination"] = destination
+constitution["foundation_custodian_count"] = foundation["foundation_custodian_count"]
+constitution["foundation_signature_threshold"] = foundation["foundation_signature_threshold"]
+
+# The constitution restates x/enforcement's threshold and delays, and
+# x/enforcement's InitGenesis refuses a genesis where the two disagree. Copied
+# rather than typed twice, because a mismatch here fails on every validator at
+# height one and reads like a corrupt file.
+constitution["enforcement_threshold_bps"] = enforcement["threshold_bps"]
+constitution["enforcement_voting_period_blocks"] = enforcement["voting_period_blocks"]
+constitution["enforcement_provisional_freeze_blocks"] = enforcement["provisional_freeze_blocks"]
 
 # The founders' group policy address, if it exists yet. Unset means there is no
 # emergency path at all — not an implicit one — so leaving it out is safe.
@@ -242,6 +321,8 @@ print(f"  oracle denoms:          {', '.join(oracle['accepted_denoms'])}")
 print(f"  interchain accounts:    disabled (host and controller)")
 print(f"  enforcement threshold:  {enforcement_threshold_bps / 100:g}% of bonded power to freeze or seize")
 print(f"  recovery destination:   {enforcement['recovery_destination']}")
+print(f"  foundation custody:     {constitution['foundation_signature_threshold']} of {constitution['foundation_custodian_count']} custodians")
+print(f"  foundation group:       {len(foundation_group['group_members'])} members seeded at genesis")
 print(f"  emergency authority:    {enforcement['emergency_authority'] or 'unset — no emergency freeze or release path'}")
 print(f"  ombudsman:              {enforcement.get('ombudsman') or 'unset — no veto on enforcement from outside the validator set'}")
 print(f"  seizure delay floor:    {enforcement['seizure_delay_blocks']} blocks (~12h at 5s), rising with the amount")
@@ -327,6 +408,54 @@ if int(enforcement["provisional_freeze_blocks"]) < int(enforcement["voting_perio
     problems.append(
         "enforcement provisional_freeze_blocks is shorter than voting_period_blocks, so "
         "freezes would lapse in the middle of the vote that decides them"
+    )
+
+# The foundation. Every one of these has a way of being individually legal and
+# collectively wrong, which is exactly the class of mistake `genesis validate`
+# does not catch: a constitution saying three-of-five over a group that is a
+# two-of-four starts a chain quite happily, and the ante gate then refuses every
+# legitimate change to a group that was already the wrong shape.
+constitution = app["constitution"]["invariants"]
+policies = app.get("group", {}).get("group_policies") or []
+members = app.get("group", {}).get("group_members") or []
+
+if not policies:
+    problems.append(
+        "no group policy is seeded in this genesis, so the recovery destination names an "
+        "account whose controlling policy would be decided by whoever created the first "
+        "group policy on the chain"
+    )
+else:
+    policy = policies[0]
+    if policy["address"] != enforcement.get("recovery_destination", ""):
+        problems.append(
+            "the seeded group policy is at %s but seizures are sent to %s"
+            % (policy["address"], enforcement.get("recovery_destination", ""))
+        )
+    # The group administering itself is what makes its membership changeable
+    # only by the custodians. An admin anywhere else is a single key that can
+    # rewrite the whole arrangement.
+    if policy["admin"] != policy["address"]:
+        problems.append(
+            "the foundation group policy's admin is %s rather than the policy itself, so a "
+            "single key could rewrite the custodians" % policy["admin"]
+        )
+    threshold = policy.get("decision_policy", {}).get("threshold")
+    if threshold != str(constitution["foundation_signature_threshold"]):
+        problems.append(
+            "the seeded group needs %s signatures but the constitution fixes it at %s"
+            % (threshold, constitution["foundation_signature_threshold"])
+        )
+
+if len(members) != constitution["foundation_custodian_count"]:
+    problems.append(
+        "the seeded group has %d custodians but the constitution fixes the count at %d"
+        % (len(members), constitution["foundation_custodian_count"])
+    )
+if constitution["enforcement_recovery_destination"] != enforcement.get("recovery_destination", ""):
+    problems.append(
+        "the constitution and x/enforcement name different recovery destinations, and the "
+        "chain refuses to start when they disagree"
     )
 
 ica = app.get("interchainaccounts")

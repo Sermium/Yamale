@@ -182,6 +182,29 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>settlement_jurisdiction is the ISO 3166-1 alpha-2 country whose authority settles this payment. Unlike the three above it means something today. A cross-border payment touches two perimeters, and both endpoint authorities may see it, but only this one may act on it — so without the declaration there is a contest over standing that the chain cannot resolve, and the record cannot show which authority had the right to act. See docs/scope/roles-and-perimeter.md. The same declaration names the regulator who holds the third viewing key over the payload metadata_hash commits to. That is why it has to be stated when the payment is sent rather than decided afterwards: the payload is encrypted to that regulator&#39;s key at that moment, and a payment sent without a jurisdiction is one no regulator can ever open. Accepted empty for now, and required once Params.require_settlement_jurisdiction is turned on. Refusing it outright today would refuse payments that were valid when they were included, and a node syncing from block 0 re-runs every one of them.</td>
 </tr>
 </tbody></table>
+<h3>MsgSetPayloadStore</h3>
+<p><code>/blockchain.paymsg.v1.MsgSetPayloadStore</code></p>
+<p>Signed by the <code>participant</code> field.</p>
+<p>SetPayloadStore records where an approved participant serves the encrypted payloads of the payments it instructed.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>participant</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>url is an absolute http or https base URL, or empty to withdraw. Validated for scheme and length here rather than left to the clients. A value that is not a URL is not a store, and the failure it produces otherwise lands on the payee — who sees detail they are entitled to read reported as missing, with nothing to tell them the reason is a typo in somebody else&#39;s registration.</td>
+</tr>
+</tbody></table>
 <h3>MsgUpdateParams</h3>
 <p><code>/blockchain.paymsg.v1.MsgUpdateParams</code></p>
 <p>Signed by the <code>authority</code> field.</p>
@@ -468,6 +491,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>string</td>
 <td></td>
 </tr>
+<tr>
+<td><code>payload_store_url</code></td>
+<td>string</td>
+<td>payload_store_url is where this participant serves the encrypted payloads of the payments it instructed. A directory fact, not key material: it names a host, and everything behind it is already encrypted to keys this participant does not hold. It is on the chain rather than in each client&#39;s configuration because the payee is the party that has to find it, and the only thing the payee is guaranteed to have is the payment record — which names the instructing participant and nothing else. A configuration file would make &quot;which store holds this payment&#39;s detail&quot; a question every client answers separately and some answer stale, and a stale answer here renders as detail that has been lost. Empty is the honest default and means this participant runs no store. A client must show that as detail being unavailable, never as a payment with no detail.</td>
+</tr>
 </tbody></table>
 <h3>Customer</h3>
 <p>Customer is an account an approved participant acts for.</p>
@@ -520,6 +548,44 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>name</code></td>
 <td>string</td>
 <td></td>
+</tr>
+</tbody></table>
+<h3>PayloadEnvelope</h3>
+<p>PayloadEnvelope is the encrypted form of a PaymentMetadata payload.</p>
+<p>It is never sent to the chain and never stored by it — the chain holds only the SHA-256 of the <em>plaintext</em> payload, in MsgSendPayment.metadata_hash. The envelope lives in a participant&#39;s payload store. It is declared here, in the same schema as the payload it wraps, for exactly the reason PaymentMetadata is: the payer&#39;s wallet, the payee&#39;s wallet, a regulator&#39;s Go tooling and the store itself all have to agree on the bytes, and three hand-written framings in three languages agree until the first field somebody adds.</p>
+<p>The construction is the standard multi-recipient KEM/DEM composition — the one age uses, and the one RFC 9180 formalises as DHKEM(X25519, HKDF-SHA256) with ChaCha20-Poly1305:</p>
+<ol>
+<li>a fresh 32-byte content key encrypts the padded payload once, under ChaCha20-Poly1305; 2. for each recipient, a fresh ephemeral X25519 key agrees a shared secret with that recipient&#39;s registered viewing key, HKDF-SHA256 turns it into a wrapping key, and the content key is sealed under it.</li>
+</ol>
+<p>Nothing here is novel, and that is the point. The payload is the ISO 20022 detail of somebody&#39;s payment; it is not the place to find out whether a new scheme holds.</p>
+<p>What is deliberately <em>not</em> in this message: any hint of who the recipients are beyond an eight-byte key fingerprint, and any length signal. See RecipientBlock.key_id and ciphertext below.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>version</code></td>
+<td>uint32</td>
+<td>version is the envelope format, not the key version. Present from the first byte because the alternative is discovering, on the day the format has to change, that every stored envelope is a bare blob whose framing can only be guessed at from its length. A reader refuses a version it does not implement rather than parsing it optimistically.</td>
+</tr>
+<tr>
+<td><code>recipients</code></td>
+<td>repeated RecipientBlock</td>
+<td>recipients is one wrapped copy of the content key per party entitled to read: the payer, the payee, the regulator of the declared settlement jurisdiction, and every auditor whose grant was live when the payment was sent. Order is not significant and must not be relied on. A reader tries the blocks whose key_id matches a key it holds, and falls back to trying all of them — key_id is a lookup hint, never an access control.</td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td>bytes</td>
+<td>nonce is 12 bytes, fresh per envelope, for the content cipher. Fresh per envelope rather than derived from the payment, because a nonce reused under one key with ChaCha20-Poly1305 does not degrade gracefully: it leaks the XOR of two plaintexts and the authentication key with it. The content key is also fresh per envelope, so this is belt and braces — which is the correct amount for a value whose reuse is unrecoverable.</td>
+</tr>
+<tr>
+<td><code>ciphertext</code></td>
+<td>bytes</td>
+<td>ciphertext is ChaCha20-Poly1305 over the padded payload. Padded to a multiple of 256 bytes before encryption, so the length of the ciphertext says nothing about the length of the remittance line. Without padding the store — and anyone who can see a response size — could tell a one-word reference from a full name and address, which is a meaningful part of what the payload was moved off-chain to protect. The associated data is the payment&#39;s identity: the domain string, the instructing participant and the end-to-end id. That binds the ciphertext to one payment, so a store cannot serve the payload of one payment under the key of another — a substitution that would otherwise decrypt cleanly and then fail only against the on-chain hash, if the reader remembered to check it.</td>
 </tr>
 </tbody></table>
 <h3>PaymentMetadata</h3>
@@ -627,6 +693,32 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>settlement_jurisdiction is recorded because the perimeter check has to run against the payment, not against a memory of it: which authority may act on this payment is a question asked long after the block that carried it.</td>
 </tr>
 </tbody></table>
+<h3>RecipientBlock</h3>
+<p>RecipientBlock is one entitled party&#39;s wrapped copy of the content key.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>key_id</code></td>
+<td>bytes</td>
+<td>key_id is the first 8 bytes of SHA-256 over the recipient&#39;s X25519 public key. A hint, so a reader holding one key does not have to attempt every block, and truncated so that the block does not simply publish the recipient&#39;s public key to whoever fetches the envelope. Eight bytes is not a commitment and must never be treated as one: two keys can collide, so a reader that fails to open a matching block must try the rest.</td>
+</tr>
+<tr>
+<td><code>ephemeral_public_key</code></td>
+<td>bytes</td>
+<td>ephemeral_public_key is 32 bytes of X25519, fresh for this block. Per recipient rather than one shared across the envelope. It costs 32 bytes each and buys two things: the blocks are unlinkable to each other, and a party who later holds the content key can add a recipient — an auditor appointed after the fact, a rotated regulator key — without needing the original ephemeral secret, which nobody kept.</td>
+</tr>
+<tr>
+<td><code>wrapped_key</code></td>
+<td>bytes</td>
+<td>wrapped_key is the 32-byte content key sealed under the agreed wrapping key, so 48 bytes with the Poly1305 tag. Its associated data names the recipient&#39;s key_id, so a block cannot be moved between envelopes or reassigned to a different recipient&#39;s slot without the tag failing.</td>
+</tr>
+</tbody></table>
 <h2>Parameters</h2>
 <p>Changed by governance through <code>MsgUpdateParams</code>. Defaults are the values a chain starts with at genesis.</p>
 <table>
@@ -712,6 +804,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>1111</td>
 <td><code>ErrConfidentialAmountUnavailable</code></td>
 <td>confidential amounts are reserved but not yet verified by this chain</td>
+</tr>
+<tr>
+<td>1112</td>
+<td><code>ErrInvalidPayloadStore</code></td>
+<td>payload store url must be an absolute http or https base url, or empty</td>
 </tr>
 </tbody></table>
 

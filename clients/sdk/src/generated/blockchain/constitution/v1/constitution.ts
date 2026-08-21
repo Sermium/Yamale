@@ -184,6 +184,11 @@ export interface Invariants {
    * sent to. Fixed here because a mutable destination is the difference between
    * a recovery mechanism and a theft mechanism: the threshold decides whether
    * funds move, this decides who ends up with them.
+   *
+   * It is an x/group policy account, so the two fields below say what that
+   * policy has to look like. Together the three describe the whole custody
+   * arrangement: this address, held by exactly foundation_custodian_count
+   * people, any foundation_signature_threshold of whom can act.
    */
   enforcementRecoveryDestination: string;
   /**
@@ -215,6 +220,39 @@ export interface Invariants {
    * shrinking the electorate either.
    */
   amendmentThresholdBps: string;
+  /**
+   * foundation_custodian_count is how many people hold the account seized
+   * assets are sent to, and it is an exact number rather than a floor.
+   *
+   * Exact, because the failure it prevents is a ratchet rather than an event.
+   * A custodian leaves and the group drops to four: that is not "one short",
+   * it moves the rule from three of five to three of four, so the people who
+   * remain each hold more of the authority than the set agreed they should.
+   * Lose another and it is three of three, where every custodian holds a veto
+   * and one unreachable person freezes the account permanently. Nobody votes
+   * for that; it is arrived at by taking two individually reasonable decisions
+   * in sequence, months apart, each one obviously fine on its own.
+   *
+   * So a departure and a replacement are one decision. x/group's
+   * MsgUpdateGroupMembers carries adds and removes in the same message, which
+   * makes the swap the native operation rather than a convention, and an ante
+   * decorator refuses any update that would leave the foundation group at a
+   * different size — including MsgLeaveGroup, which is a custodian shrinking
+   * the set with nobody's agreement but their own.
+   */
+  foundationCustodianCount: number;
+  /**
+   * foundation_signature_threshold is how many of them must sign.
+   *
+   * Constitutional rather than an ordinary group decision because the group is
+   * its own admin: without this, three custodians could vote to make it two,
+   * and the arrangement that took a ceremony to establish would be changed by
+   * the people it constrains, in one proposal, with a week's notice. Moving it
+   * now costs a proposal, three weeks in public and a four-fifths ratification
+   * — which is the right weight for "how many people it takes to move seized
+   * property".
+   */
+  foundationSignatureThreshold: number;
 }
 
 /**
@@ -302,6 +340,8 @@ function createBaseInvariants(): Invariants {
     enforcementProvisionalFreezeBlocks: "0",
     amendmentDelayBlocks: "0",
     amendmentThresholdBps: "0",
+    foundationCustodianCount: 0,
+    foundationSignatureThreshold: 0,
   };
 }
 
@@ -339,6 +379,12 @@ export const Invariants = {
     }
     if (message.amendmentThresholdBps !== "0") {
       writer.uint32(88).uint64(message.amendmentThresholdBps);
+    }
+    if (message.foundationCustodianCount !== 0) {
+      writer.uint32(96).uint32(message.foundationCustodianCount);
+    }
+    if (message.foundationSignatureThreshold !== 0) {
+      writer.uint32(104).uint32(message.foundationSignatureThreshold);
     }
     return writer;
   },
@@ -427,6 +473,20 @@ export const Invariants = {
 
           message.amendmentThresholdBps = longToString(reader.uint64() as Long);
           continue;
+        case 12:
+          if (tag !== 96) {
+            break;
+          }
+
+          message.foundationCustodianCount = reader.uint32();
+          continue;
+        case 13:
+          if (tag !== 104) {
+            break;
+          }
+
+          message.foundationSignatureThreshold = reader.uint32();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -465,6 +525,12 @@ export const Invariants = {
       amendmentThresholdBps: isSet(object.amendmentThresholdBps)
         ? globalThis.String(object.amendmentThresholdBps)
         : "0",
+      foundationCustodianCount: isSet(object.foundationCustodianCount)
+        ? globalThis.Number(object.foundationCustodianCount)
+        : 0,
+      foundationSignatureThreshold: isSet(object.foundationSignatureThreshold)
+        ? globalThis.Number(object.foundationSignatureThreshold)
+        : 0,
     };
   },
 
@@ -503,6 +569,12 @@ export const Invariants = {
     if (message.amendmentThresholdBps !== "0") {
       obj.amendmentThresholdBps = message.amendmentThresholdBps;
     }
+    if (message.foundationCustodianCount !== 0) {
+      obj.foundationCustodianCount = Math.round(message.foundationCustodianCount);
+    }
+    if (message.foundationSignatureThreshold !== 0) {
+      obj.foundationSignatureThreshold = Math.round(message.foundationSignatureThreshold);
+    }
     return obj;
   },
 
@@ -522,6 +594,8 @@ export const Invariants = {
     message.enforcementProvisionalFreezeBlocks = object.enforcementProvisionalFreezeBlocks ?? "0";
     message.amendmentDelayBlocks = object.amendmentDelayBlocks ?? "0";
     message.amendmentThresholdBps = object.amendmentThresholdBps ?? "0";
+    message.foundationCustodianCount = object.foundationCustodianCount ?? 0;
+    message.foundationSignatureThreshold = object.foundationSignatureThreshold ?? 0;
     return message;
   },
 };

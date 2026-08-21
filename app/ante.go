@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 
+	constitutionante "yamale/blockchain/x/constitution/ante"
 	validatorgovante "yamale/blockchain/x/validatorgov/ante"
 )
 
@@ -47,6 +48,12 @@ func newAnteHandler(app *App) (sdk.AnteHandler, error) {
 		// ceiling could unjail itself in the next block and stay in the set
 		// until somebody noticed.
 		validatorgovante.NewDemotionGateDecorator(app.ValidatorgovKeeper),
+		// The foundation group must stay the size and shape the constitution
+		// says it is. Placed here rather than earlier for the same reason as
+		// the validatorgov gates: it reads state and rejects, so paying for it
+		// before the signature has been verified would let anyone make every
+		// node do those store reads for free.
+		constitutionante.NewFoundationGuardDecorator(app.ConstitutionKeeper, app.GroupKeeper),
 	})
 
 	return sdk.ChainAnteDecorators(decorators...), nil

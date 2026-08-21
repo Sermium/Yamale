@@ -13,7 +13,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 
 | Module | Purpose | Transactions | Queries |
 | --- | --- | --- | --- |
-| [x/alias](alias.md) |  | 4 | 6 |
+| [x/alias](alias.md) |  | 8 | 9 |
 | [x/amm](amm.md) | A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool's own reserves. | 5 | 3 |
 | [x/builderfee](builderfee.md) | Shares a governance-set portion of transaction fees with the developer whose message type was used. | 3 | 5 |
 | [x/constitution](constitution.md) |  | 3 | 4 |
@@ -22,7 +22,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/enforcement](enforcement.md) |  | 9 | 10 |
 | [x/land](land.md) |  | 13 | 10 |
 | [x/oracle](oracle.md) |  | 7 | 9 |
-| [x/paymsg](paymsg.md) | ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry. | 5 | 7 |
+| [x/paymsg](paymsg.md) | ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry. | 6 | 7 |
 | [x/stablecoin](stablecoin.md) | Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom. | 5 | 5 |
 | [x/tokenisation](tokenisation.md) |  | 13 | 5 |
 | [x/treasury](treasury.md) | Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone. | 16 | 12 |

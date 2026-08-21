@@ -39,4 +39,19 @@ var (
 	// customer out from under the authority investigating them.
 	ErrJurisdictionSet = sdkerrors.Register(ModuleName, 12,
 		"this account's jurisdiction is already recorded; only a foundation administrator may correct it")
+	// Raised before a key that is not an X25519 public key can be published.
+	// The check has to be here because nothing downstream can make it: an
+	// envelope sealed to a malformed key is well-formed, stores cleanly and
+	// opens for nobody.
+	ErrInvalidViewingKey = sdkerrors.Register(ModuleName, 13,
+		"that is not a 32-byte X25519 public key")
+	// Distinguishes a version that was never published from one that was. A
+	// reader told only "not found" cannot tell a key it should ask an older
+	// registry for from one that never existed.
+	ErrViewingKeyNotFound = sdkerrors.Register(ModuleName, 14,
+		"this account has published no viewing key at that version")
+	ErrNoRegulator = sdkerrors.Register(ModuleName, 15,
+		"no regulator is appointed for that country")
+	ErrInvalidAuditorGrant = sdkerrors.Register(ModuleName, 16,
+		"an auditor grant must expire at a future height, and only so many may be live at once")
 )

@@ -10,6 +10,7 @@ import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pa
 import { Alias } from "./alias.ts";
 import { Jurisdiction } from "./jurisdiction.ts";
 import { Params } from "./params.ts";
+import { AuditorGrant, RegulatorAppointment, ViewingKey } from "./viewing_key.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
 
@@ -83,6 +84,65 @@ export interface QueryPerimeterRequest {
 export interface QueryPerimeterResponse {
   jurisdictions: Jurisdiction[];
   pagination: PageResponse | undefined;
+}
+
+/** QueryViewingKeysRequest asks for every version of an account's viewing key. */
+export interface QueryViewingKeysRequest {
+  address: string;
+}
+
+/**
+ * QueryViewingKeysResponse carries them newest first, empty when the account
+ * has never registered one.
+ *
+ * Empty is a real answer and not an error: an account with no viewing key
+ * cannot be sent an encrypted payload, and a sender needs to learn that as a
+ * fact it can act on rather than as a failed request it might retry.
+ */
+export interface QueryViewingKeysResponse {
+  keys: ViewingKey[];
+}
+
+/** QueryRegulatorRequest asks who regulates one country. */
+export interface QueryRegulatorRequest {
+  /** country is an ISO 3166-1 alpha-2 code, in any case. */
+  country: string;
+}
+
+/** QueryRegulatorResponse carries the appointment and the key it can read with. */
+export interface QueryRegulatorResponse {
+  appointment:
+    | RegulatorAppointment
+    | undefined;
+  /**
+   * key is the appointee's current viewing key. Its public_key is empty when
+   * the regulator has been appointed but has not published one — a state a
+   * sender has to be able to see, because wrapping to a key of thirty-two zero
+   * bytes would produce an envelope that looks addressed to the regulator and
+   * opens for nobody.
+   */
+  key: ViewingKey | undefined;
+}
+
+/** QueryAuditorsRequest asks for the live auditor grants. */
+export interface QueryAuditorsRequest {
+}
+
+/** QueryAuditorsResponse carries them with the keys they read with. */
+export interface QueryAuditorsResponse {
+  auditors: AuditorEntitlement[];
+}
+
+/** AuditorEntitlement pairs a grant with the key it reads through. */
+export interface AuditorEntitlement {
+  grant:
+    | AuditorGrant
+    | undefined;
+  /**
+   * key carries an empty public_key when the auditor has been granted the role
+   * but has published no key, for the same reason as on the regulator above.
+   */
+  key: ViewingKey | undefined;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -799,6 +859,433 @@ export const QueryPerimeterResponse = {
   },
 };
 
+function createBaseQueryViewingKeysRequest(): QueryViewingKeysRequest {
+  return { address: "" };
+}
+
+export const QueryViewingKeysRequest = {
+  encode(message: QueryViewingKeysRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.address !== "") {
+      writer.uint32(10).string(message.address);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryViewingKeysRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryViewingKeysRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.address = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryViewingKeysRequest {
+    return { address: isSet(object.address) ? globalThis.String(object.address) : "" };
+  },
+
+  toJSON(message: QueryViewingKeysRequest): unknown {
+    const obj: any = {};
+    if (message.address !== "") {
+      obj.address = message.address;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryViewingKeysRequest>): QueryViewingKeysRequest {
+    return QueryViewingKeysRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryViewingKeysRequest>): QueryViewingKeysRequest {
+    const message = createBaseQueryViewingKeysRequest();
+    message.address = object.address ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryViewingKeysResponse(): QueryViewingKeysResponse {
+  return { keys: [] };
+}
+
+export const QueryViewingKeysResponse = {
+  encode(message: QueryViewingKeysResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.keys) {
+      ViewingKey.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryViewingKeysResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryViewingKeysResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.keys.push(ViewingKey.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryViewingKeysResponse {
+    return { keys: globalThis.Array.isArray(object?.keys) ? object.keys.map((e: any) => ViewingKey.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: QueryViewingKeysResponse): unknown {
+    const obj: any = {};
+    if (message.keys?.length) {
+      obj.keys = message.keys.map((e) => ViewingKey.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryViewingKeysResponse>): QueryViewingKeysResponse {
+    return QueryViewingKeysResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryViewingKeysResponse>): QueryViewingKeysResponse {
+    const message = createBaseQueryViewingKeysResponse();
+    message.keys = object.keys?.map((e) => ViewingKey.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseQueryRegulatorRequest(): QueryRegulatorRequest {
+  return { country: "" };
+}
+
+export const QueryRegulatorRequest = {
+  encode(message: QueryRegulatorRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.country !== "") {
+      writer.uint32(10).string(message.country);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRegulatorRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRegulatorRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.country = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRegulatorRequest {
+    return { country: isSet(object.country) ? globalThis.String(object.country) : "" };
+  },
+
+  toJSON(message: QueryRegulatorRequest): unknown {
+    const obj: any = {};
+    if (message.country !== "") {
+      obj.country = message.country;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRegulatorRequest>): QueryRegulatorRequest {
+    return QueryRegulatorRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRegulatorRequest>): QueryRegulatorRequest {
+    const message = createBaseQueryRegulatorRequest();
+    message.country = object.country ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryRegulatorResponse(): QueryRegulatorResponse {
+  return { appointment: undefined, key: undefined };
+}
+
+export const QueryRegulatorResponse = {
+  encode(message: QueryRegulatorResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.appointment !== undefined) {
+      RegulatorAppointment.encode(message.appointment, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.key !== undefined) {
+      ViewingKey.encode(message.key, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRegulatorResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRegulatorResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.appointment = RegulatorAppointment.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = ViewingKey.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRegulatorResponse {
+    return {
+      appointment: isSet(object.appointment) ? RegulatorAppointment.fromJSON(object.appointment) : undefined,
+      key: isSet(object.key) ? ViewingKey.fromJSON(object.key) : undefined,
+    };
+  },
+
+  toJSON(message: QueryRegulatorResponse): unknown {
+    const obj: any = {};
+    if (message.appointment !== undefined) {
+      obj.appointment = RegulatorAppointment.toJSON(message.appointment);
+    }
+    if (message.key !== undefined) {
+      obj.key = ViewingKey.toJSON(message.key);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRegulatorResponse>): QueryRegulatorResponse {
+    return QueryRegulatorResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRegulatorResponse>): QueryRegulatorResponse {
+    const message = createBaseQueryRegulatorResponse();
+    message.appointment = (object.appointment !== undefined && object.appointment !== null)
+      ? RegulatorAppointment.fromPartial(object.appointment)
+      : undefined;
+    message.key = (object.key !== undefined && object.key !== null) ? ViewingKey.fromPartial(object.key) : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryAuditorsRequest(): QueryAuditorsRequest {
+  return {};
+}
+
+export const QueryAuditorsRequest = {
+  encode(_: QueryAuditorsRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryAuditorsRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryAuditorsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QueryAuditorsRequest {
+    return {};
+  },
+
+  toJSON(_: QueryAuditorsRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryAuditorsRequest>): QueryAuditorsRequest {
+    return QueryAuditorsRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QueryAuditorsRequest>): QueryAuditorsRequest {
+    const message = createBaseQueryAuditorsRequest();
+    return message;
+  },
+};
+
+function createBaseQueryAuditorsResponse(): QueryAuditorsResponse {
+  return { auditors: [] };
+}
+
+export const QueryAuditorsResponse = {
+  encode(message: QueryAuditorsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.auditors) {
+      AuditorEntitlement.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryAuditorsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryAuditorsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.auditors.push(AuditorEntitlement.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryAuditorsResponse {
+    return {
+      auditors: globalThis.Array.isArray(object?.auditors)
+        ? object.auditors.map((e: any) => AuditorEntitlement.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: QueryAuditorsResponse): unknown {
+    const obj: any = {};
+    if (message.auditors?.length) {
+      obj.auditors = message.auditors.map((e) => AuditorEntitlement.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryAuditorsResponse>): QueryAuditorsResponse {
+    return QueryAuditorsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryAuditorsResponse>): QueryAuditorsResponse {
+    const message = createBaseQueryAuditorsResponse();
+    message.auditors = object.auditors?.map((e) => AuditorEntitlement.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseAuditorEntitlement(): AuditorEntitlement {
+  return { grant: undefined, key: undefined };
+}
+
+export const AuditorEntitlement = {
+  encode(message: AuditorEntitlement, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.grant !== undefined) {
+      AuditorGrant.encode(message.grant, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.key !== undefined) {
+      ViewingKey.encode(message.key, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): AuditorEntitlement {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAuditorEntitlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.grant = AuditorGrant.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = ViewingKey.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AuditorEntitlement {
+    return {
+      grant: isSet(object.grant) ? AuditorGrant.fromJSON(object.grant) : undefined,
+      key: isSet(object.key) ? ViewingKey.fromJSON(object.key) : undefined,
+    };
+  },
+
+  toJSON(message: AuditorEntitlement): unknown {
+    const obj: any = {};
+    if (message.grant !== undefined) {
+      obj.grant = AuditorGrant.toJSON(message.grant);
+    }
+    if (message.key !== undefined) {
+      obj.key = ViewingKey.toJSON(message.key);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<AuditorEntitlement>): AuditorEntitlement {
+    return AuditorEntitlement.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<AuditorEntitlement>): AuditorEntitlement {
+    const message = createBaseAuditorEntitlement();
+    message.grant = (object.grant !== undefined && object.grant !== null)
+      ? AuditorGrant.fromPartial(object.grant)
+      : undefined;
+    message.key = (object.key !== undefined && object.key !== null) ? ViewingKey.fromPartial(object.key) : undefined;
+    return message;
+  },
+};
+
 /**
  * Query defines the alias query service.
  *
@@ -844,6 +1331,34 @@ export interface Query {
    * gives no shortcut to the alias directory that is withheld above.
    */
   Perimeter(request: QueryPerimeterRequest): Promise<QueryPerimeterResponse>;
+  /**
+   * ViewingKeys returns every version of one account's viewing key, newest
+   * first.
+   *
+   * Every version, not just the live one, because a payload encrypted last year
+   * is wrapped to the key that was live last year. A client that could only
+   * fetch the current key would report an old but perfectly readable payment as
+   * undecryptable, which is the failure the version field exists to prevent.
+   */
+  ViewingKeys(request: QueryViewingKeysRequest): Promise<QueryViewingKeysResponse>;
+  /**
+   * Regulator returns the authority appointed over one country, with its
+   * current viewing key.
+   *
+   * Both in one response because the sender needs both and asking separately
+   * invites the half-answer: an appointment resolved, a key not fetched, and an
+   * envelope built without the regulator on it that looks complete.
+   */
+  Regulator(request: QueryRegulatorRequest): Promise<QueryRegulatorResponse>;
+  /**
+   * Auditors lists the grants that have not expired, with their current keys.
+   *
+   * A list endpoint in a module that avoids them, and it is the right call
+   * here: who may read across accounts is a fact the people being read about
+   * are entitled to see, and a sender cannot build a correct envelope without
+   * the whole set.
+   */
+  Auditors(request: QueryAuditorsRequest): Promise<QueryAuditorsResponse>;
 }
 
 export const QueryServiceName = "blockchain.alias.v1.Query";
@@ -859,6 +1374,9 @@ export class QueryClientImpl implements Query {
     this.Retired = this.Retired.bind(this);
     this.Jurisdiction = this.Jurisdiction.bind(this);
     this.Perimeter = this.Perimeter.bind(this);
+    this.ViewingKeys = this.ViewingKeys.bind(this);
+    this.Regulator = this.Regulator.bind(this);
+    this.Auditors = this.Auditors.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -894,6 +1412,24 @@ export class QueryClientImpl implements Query {
     const data = QueryPerimeterRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Perimeter", data);
     return promise.then((data) => QueryPerimeterResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ViewingKeys(request: QueryViewingKeysRequest): Promise<QueryViewingKeysResponse> {
+    const data = QueryViewingKeysRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ViewingKeys", data);
+    return promise.then((data) => QueryViewingKeysResponse.decode(_m0.Reader.create(data)));
+  }
+
+  Regulator(request: QueryRegulatorRequest): Promise<QueryRegulatorResponse> {
+    const data = QueryRegulatorRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "Regulator", data);
+    return promise.then((data) => QueryRegulatorResponse.decode(_m0.Reader.create(data)));
+  }
+
+  Auditors(request: QueryAuditorsRequest): Promise<QueryAuditorsResponse> {
+    const data = QueryAuditorsRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "Auditors", data);
+    return promise.then((data) => QueryAuditorsResponse.decode(_m0.Reader.create(data)));
   }
 }
 

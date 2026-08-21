@@ -28,6 +28,21 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 			return err
 		}
 	}
+	for _, v := range gs.ViewingKeys {
+		if err := k.ViewingKeys.Set(ctx, collections.Join(v.Address, v.Version), v); err != nil {
+			return err
+		}
+	}
+	for _, r := range gs.Regulators {
+		if err := k.Regulators.Set(ctx, r.Country, r); err != nil {
+			return err
+		}
+	}
+	for _, g := range gs.AuditorGrants {
+		if err := k.AuditorGrants.Set(ctx, g.Address, g); err != nil {
+			return err
+		}
+	}
 	for _, a := range gs.Aliases {
 		if err := k.Aliases.Set(ctx, a.Id, a); err != nil {
 			return err
@@ -57,6 +72,9 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		Aliases:       []types.Alias{},
 		Retired:       []string{},
 		Jurisdictions: []types.Jurisdiction{},
+		ViewingKeys:   []types.ViewingKey{},
+		Regulators:    []types.RegulatorAppointment{},
+		AuditorGrants: []types.AuditorGrant{},
 	}
 
 	if err := k.Aliases.Walk(ctx, nil, func(_ string, a types.Alias) (bool, error) {
@@ -73,6 +91,32 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}
 	if err := k.Jurisdictions.Walk(ctx, nil, func(_ string, j types.Jurisdiction) (bool, error) {
 		gs.Jurisdictions = append(gs.Jurisdictions, j)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	// Every version, live and revoked alike. An export that dropped the
+	// superseded ones would destroy the ability to read every payload sealed
+	// before the last rotation, and it would do it at an upgrade — where nobody
+	// is looking at payment detail. Revoked keys are kept for the same reason:
+	// revocation says the private half may be in other hands, not that the
+	// envelopes sealed to it stopped existing.
+	if err := k.ViewingKeys.Walk(ctx, nil, func(_ collections.Pair[string, uint64], v types.ViewingKey) (bool, error) {
+		gs.ViewingKeys = append(gs.ViewingKeys, v)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Regulators.Walk(ctx, nil, func(_ string, r types.RegulatorAppointment) (bool, error) {
+		gs.Regulators = append(gs.Regulators, r)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	// Expired grants included. "Who could read this payment" is asked long
+	// after the grant lapsed, and an export that pruned them answers "nobody".
+	if err := k.AuditorGrants.Walk(ctx, nil, func(_ string, g types.AuditorGrant) (bool, error) {
+		gs.AuditorGrants = append(gs.AuditorGrants, g)
 		return false, nil
 	}); err != nil {
 		return nil, err

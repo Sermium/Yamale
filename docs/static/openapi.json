@@ -77,6 +77,28 @@
         ]
       }
     },
+    "/yamale/blockchain/alias/v1/auditors": {
+      "get": {
+        "operationId": "Query_Auditors",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAuditorsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/alias/v1/jurisdiction/{address}": {
       "get": {
         "operationId": "Query_Jurisdiction",
@@ -193,6 +215,37 @@
         ]
       }
     },
+    "/yamale/blockchain/alias/v1/regulator/{country}": {
+      "get": {
+        "operationId": "Query_Regulator",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRegulatorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "country",
+            "description": "country is an ISO 3166-1 alpha-2 code, in any case.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/alias/v1/retired/{id}": {
       "get": {
         "operationId": "Query_Retired",
@@ -213,6 +266,36 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/viewing_keys/{address}": {
+      "get": {
+        "operationId": "Query_ViewingKeys",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryViewingKeysResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
             "in": "path",
             "required": true,
             "type": "string"
@@ -3665,6 +3748,9 @@
         },
         "name": {
           "type": "string"
+        },
+        "payload_store_url": {
+          "type": "string"
         }
       }
     },
@@ -3700,6 +3786,36 @@
         },
         "paused": {
           "type": "boolean"
+        }
+      }
+    },
+    "AuditorEntitlement": {
+      "type": "object",
+      "properties": {
+        "grant": {
+          "$ref": "#/definitions/AuditorGrant"
+        },
+        "key": {
+          "$ref": "#/definitions/ViewingKey"
+        }
+      }
+    },
+    "AuditorGrant": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "granted_by": {
+          "type": "string"
+        },
+        "granted_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "expires_at_height": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -4709,6 +4825,18 @@
         }
       }
     },
+    "QueryAuditorsResponse": {
+      "type": "object",
+      "properties": {
+        "auditors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/AuditorEntitlement"
+          }
+        }
+      }
+    },
     "QueryAuthoritiesResponse": {
       "type": "object",
       "properties": {
@@ -5308,6 +5436,17 @@
         }
       }
     },
+    "QueryRegulatorResponse": {
+      "type": "object",
+      "properties": {
+        "appointment": {
+          "$ref": "#/definitions/RegulatorAppointment"
+        },
+        "key": {
+          "$ref": "#/definitions/ViewingKey"
+        }
+      }
+    },
     "QueryRetiredResponse": {
       "type": "object",
       "properties": {
@@ -5423,6 +5562,18 @@
         }
       }
     },
+    "QueryViewingKeysResponse": {
+      "type": "object",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ViewingKey"
+          }
+        }
+      }
+    },
     "Ratification": {
       "type": "object",
       "properties": {
@@ -5452,6 +5603,24 @@
         "REDEMPTION_STATUS_CANCELLED"
       ],
       "default": "REDEMPTION_STATUS_UNSPECIFIED"
+    },
+    "RegulatorAppointment": {
+      "type": "object",
+      "properties": {
+        "country": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "appointed_by": {
+          "type": "string"
+        },
+        "appointed_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
     },
     "Restriction": {
       "type": "object",
@@ -5688,6 +5857,33 @@
         "VERIFY_SCHEDULE"
       ],
       "default": "VERIFICATION_UNSPECIFIED"
+    },
+    "ViewingKey": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "public_key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "registered_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "revoked_at_height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
     },
     "Vote": {
       "type": "object",
@@ -6013,6 +6209,14 @@
         "amendment_threshold_bps": {
           "type": "string",
           "format": "uint64"
+        },
+        "foundation_custodian_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "foundation_signature_threshold": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

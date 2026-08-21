@@ -38,7 +38,7 @@ function titleOf(markdown, file) {
   return match ? match[1].trim() : basename(file, '.md');
 }
 
-const page = (title, body, depth) => {
+const page = (title, body, depth, cls = 'doc') => {
   const up = '../'.repeat(depth);
   return `<!doctype html>
 <html lang="en">
@@ -54,7 +54,7 @@ const page = (title, body, depth) => {
   <a class="docbar__brand" href="${up}index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
   <a href="${up}../index.html">← back to the site</a>
 </header>
-<main class="doc">
+<main class="${cls}">
 ${body}
 </main>
 </body>
@@ -97,22 +97,52 @@ for (const entry of index) {
   groups.get(group).push(entry);
 }
 
+// A directory name is not a section heading, and a reader deciding where to
+// click needs to know what a section is *for* before they know what is in it.
+const SECTIONS = {
+  overview: { name: 'Start here', blurb: 'What Yamale is, in one document.' },
+  guides: { name: 'Guides', blurb: 'How to do a thing, end to end, against a real chain.' },
+  reference: {
+    name: 'Reference',
+    blurb: 'Every message, query, parameter and error code — generated from the source, never hand-written.',
+  },
+  scope: { name: 'Scope', blurb: 'What is being built and why, including the decisions taken against.' },
+};
+
+const order = ['overview', 'guides', 'reference', 'scope'];
+const rank = (g) => (order.indexOf(g) === -1 ? order.length : order.indexOf(g));
+
 const sections = [...groups.entries()]
-  .sort(([a], [b]) => (a === 'overview' ? -1 : b === 'overview' ? 1 : a.localeCompare(b)))
-  .map(
-    ([group, entries]) =>
-      `<h2>${group === 'overview' ? 'Start here' : group}</h2>\n<ul>\n` +
-      entries
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .map((e) => `  <li><a href="${e.href}">${e.title}</a></li>`)
-        .join('\n') +
-      '\n</ul>',
-  )
+  .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+  .map(([group, entries]) => {
+    const meta = SECTIONS[group] ?? { name: group, blurb: '' };
+    const links = entries
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map((e) => `      <li><a href="${e.href}">${e.title}</a></li>`)
+      .join('\n');
+    return `  <section class="card">
+    <h2>${meta.name}</h2>
+    ${meta.blurb ? `<p class="card__blurb">${meta.blurb}</p>` : ''}
+    <ul>
+${links}
+    </ul>
+  </section>`;
+  })
   .join('\n');
 
 await writeFile(
   join(outRoot, 'index.html'),
-  page('Documentation', `<h1>Yamale documentation</h1>\n${sections}`, 0),
+  page(
+    'Documentation',
+    `<h1>Yamale documentation</h1>
+<p class="lede">Written as Markdown in the repository and rendered here, so the
+website copy cannot drift from the one developers read.</p>
+<div class="cards">
+${sections}
+</div>`,
+    0,
+    'doc doc--index',
+  ),
 );
 
 console.log(`rendered ${files.length} documents into ${relative(repo, outRoot)}`);

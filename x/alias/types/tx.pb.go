@@ -379,6 +379,437 @@ func (m *MsgSetJurisdictionResponse) GetId() string {
 	return ""
 }
 
+// MsgRegisterViewingKey publishes the sending account's X25519 public key.
+//
+// Self-signed, unlike the jurisdiction beside it, and the difference is not an
+// oversight. A jurisdiction is a claim about somebody that they must not be
+// able to make for themselves; a viewing key is a claim only about which key
+// can decrypt payloads addressed to the sender, and an account that publishes a
+// key it does not hold has locked itself out of its own payment detail and
+// nobody else out of anything.
+//
+// Sending it again rotates: the previous version stays queryable so historical
+// envelopes remain openable, and new envelopes wrap to the new version. See
+// ViewingKey.version.
+type MsgRegisterViewingKey struct {
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// public_key is 32 bytes of X25519. The private half never leaves the holder,
+	// and nothing on this chain has any use for it.
+	PublicKey []byte `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+}
+
+func (m *MsgRegisterViewingKey) Reset()         { *m = MsgRegisterViewingKey{} }
+func (m *MsgRegisterViewingKey) String() string { return proto.CompactTextString(m) }
+func (*MsgRegisterViewingKey) ProtoMessage()    {}
+func (*MsgRegisterViewingKey) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{6}
+}
+func (m *MsgRegisterViewingKey) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRegisterViewingKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRegisterViewingKey.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRegisterViewingKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRegisterViewingKey.Merge(m, src)
+}
+func (m *MsgRegisterViewingKey) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRegisterViewingKey) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRegisterViewingKey.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRegisterViewingKey proto.InternalMessageInfo
+
+func (m *MsgRegisterViewingKey) GetAccount() string {
+	if m != nil {
+		return m.Account
+	}
+	return ""
+}
+
+func (m *MsgRegisterViewingKey) GetPublicKey() []byte {
+	if m != nil {
+		return m.PublicKey
+	}
+	return nil
+}
+
+// MsgRegisterViewingKeyResponse returns the version that was assigned.
+type MsgRegisterViewingKeyResponse struct {
+	// version is what an envelope will name when it wraps to this key. The sender
+	// cannot know it before the transaction lands, so it comes back here.
+	Version uint64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *MsgRegisterViewingKeyResponse) Reset()         { *m = MsgRegisterViewingKeyResponse{} }
+func (m *MsgRegisterViewingKeyResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgRegisterViewingKeyResponse) ProtoMessage()    {}
+func (*MsgRegisterViewingKeyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{7}
+}
+func (m *MsgRegisterViewingKeyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRegisterViewingKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRegisterViewingKeyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRegisterViewingKeyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRegisterViewingKeyResponse.Merge(m, src)
+}
+func (m *MsgRegisterViewingKeyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRegisterViewingKeyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRegisterViewingKeyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRegisterViewingKeyResponse proto.InternalMessageInfo
+
+func (m *MsgRegisterViewingKeyResponse) GetVersion() uint64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+// MsgRevokeViewingKey marks one of the sender's key versions compromised.
+//
+// It does not delete the key and does not pretend the payloads wrapped to it
+// became unreadable — ciphertext that has been distributed cannot be recalled,
+// and a message that implied otherwise would be worse than none. What it does
+// is stop senders wrapping to it and let a reader see that a payload they are
+// holding was addressed to a key somebody else may also hold. Erasing the
+// payload itself is the store's job, not the chain's.
+type MsgRevokeViewingKey struct {
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// version is which registration to mark. Named explicitly rather than
+	// defaulting to the newest, because the key an operator wants to revoke is
+	// usually the old one they have just rotated away from.
+	Version uint64 `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *MsgRevokeViewingKey) Reset()         { *m = MsgRevokeViewingKey{} }
+func (m *MsgRevokeViewingKey) String() string { return proto.CompactTextString(m) }
+func (*MsgRevokeViewingKey) ProtoMessage()    {}
+func (*MsgRevokeViewingKey) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{8}
+}
+func (m *MsgRevokeViewingKey) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRevokeViewingKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRevokeViewingKey.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRevokeViewingKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRevokeViewingKey.Merge(m, src)
+}
+func (m *MsgRevokeViewingKey) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRevokeViewingKey) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRevokeViewingKey.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRevokeViewingKey proto.InternalMessageInfo
+
+func (m *MsgRevokeViewingKey) GetAccount() string {
+	if m != nil {
+		return m.Account
+	}
+	return ""
+}
+
+func (m *MsgRevokeViewingKey) GetVersion() uint64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+// MsgRevokeViewingKeyResponse is empty.
+type MsgRevokeViewingKeyResponse struct {
+}
+
+func (m *MsgRevokeViewingKeyResponse) Reset()         { *m = MsgRevokeViewingKeyResponse{} }
+func (m *MsgRevokeViewingKeyResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgRevokeViewingKeyResponse) ProtoMessage()    {}
+func (*MsgRevokeViewingKeyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{9}
+}
+func (m *MsgRevokeViewingKeyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRevokeViewingKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRevokeViewingKeyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRevokeViewingKeyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRevokeViewingKeyResponse.Merge(m, src)
+}
+func (m *MsgRevokeViewingKeyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRevokeViewingKeyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRevokeViewingKeyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRevokeViewingKeyResponse proto.InternalMessageInfo
+
+// MsgAppointRegulator names the authority that holds the third viewing key over
+// payments settling in one country.
+//
+// Authority-gated, because this is the single most powerful grant the
+// confidentiality design makes: the appointee can read the ISO 20022 detail of
+// every payment that names their country from the moment they are appointed.
+// An account that could appoint itself regulator of Ghana would have granted
+// itself that by sending one message.
+type MsgAppointRegulator struct {
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	// country is an ISO 3166-1 alpha-2 code. Checked against the assigned list
+	// for the same reason a jurisdiction is: a mistyped NX would appoint a
+	// regulator of nowhere, and every payment declaring NG would go on being
+	// encrypted to nobody while the appointment sat in state looking done.
+	Country string `protobuf:"bytes,2,opt,name=country,proto3" json:"country,omitempty"`
+	// address is the appointed authority, expected to be an x/group account
+	// wherever the decision to open a payload should be M-of-N rather than one
+	// official. The chain does not require that; it records who was named.
+	Address string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *MsgAppointRegulator) Reset()         { *m = MsgAppointRegulator{} }
+func (m *MsgAppointRegulator) String() string { return proto.CompactTextString(m) }
+func (*MsgAppointRegulator) ProtoMessage()    {}
+func (*MsgAppointRegulator) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{10}
+}
+func (m *MsgAppointRegulator) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAppointRegulator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAppointRegulator.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAppointRegulator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAppointRegulator.Merge(m, src)
+}
+func (m *MsgAppointRegulator) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAppointRegulator) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAppointRegulator.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAppointRegulator proto.InternalMessageInfo
+
+func (m *MsgAppointRegulator) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgAppointRegulator) GetCountry() string {
+	if m != nil {
+		return m.Country
+	}
+	return ""
+}
+
+func (m *MsgAppointRegulator) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+// MsgAppointRegulatorResponse is empty.
+type MsgAppointRegulatorResponse struct {
+}
+
+func (m *MsgAppointRegulatorResponse) Reset()         { *m = MsgAppointRegulatorResponse{} }
+func (m *MsgAppointRegulatorResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgAppointRegulatorResponse) ProtoMessage()    {}
+func (*MsgAppointRegulatorResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{11}
+}
+func (m *MsgAppointRegulatorResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgAppointRegulatorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgAppointRegulatorResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgAppointRegulatorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgAppointRegulatorResponse.Merge(m, src)
+}
+func (m *MsgAppointRegulatorResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgAppointRegulatorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgAppointRegulatorResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgAppointRegulatorResponse proto.InternalMessageInfo
+
+// MsgGrantAuditor grants the time-boxed cross-account reading role.
+//
+// Authority-gated and bounded in three ways at once — it expires by height, the
+// number of live grants is capped, and every grant is recorded with who made
+// it. All three exist because this role is the one that reads payment detail
+// belonging to people who have no relationship with the holder.
+type MsgGrantAuditor struct {
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	Address   string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	// expires_at_height must be in the future. There is no unbounded form of this
+	// grant, and no zero-means-forever: a role that can become permanent by
+	// leaving a field unset is not time-boxed, it is time-boxed by convention.
+	ExpiresAtHeight int64 `protobuf:"varint,3,opt,name=expires_at_height,json=expiresAtHeight,proto3" json:"expires_at_height,omitempty"`
+}
+
+func (m *MsgGrantAuditor) Reset()         { *m = MsgGrantAuditor{} }
+func (m *MsgGrantAuditor) String() string { return proto.CompactTextString(m) }
+func (*MsgGrantAuditor) ProtoMessage()    {}
+func (*MsgGrantAuditor) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{12}
+}
+func (m *MsgGrantAuditor) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgGrantAuditor) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgGrantAuditor.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgGrantAuditor) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgGrantAuditor.Merge(m, src)
+}
+func (m *MsgGrantAuditor) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgGrantAuditor) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgGrantAuditor.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgGrantAuditor proto.InternalMessageInfo
+
+func (m *MsgGrantAuditor) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgGrantAuditor) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *MsgGrantAuditor) GetExpiresAtHeight() int64 {
+	if m != nil {
+		return m.ExpiresAtHeight
+	}
+	return 0
+}
+
+// MsgGrantAuditorResponse is empty.
+type MsgGrantAuditorResponse struct {
+}
+
+func (m *MsgGrantAuditorResponse) Reset()         { *m = MsgGrantAuditorResponse{} }
+func (m *MsgGrantAuditorResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgGrantAuditorResponse) ProtoMessage()    {}
+func (*MsgGrantAuditorResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_304d64f1b1d4cb86, []int{13}
+}
+func (m *MsgGrantAuditorResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgGrantAuditorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgGrantAuditorResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgGrantAuditorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgGrantAuditorResponse.Merge(m, src)
+}
+func (m *MsgGrantAuditorResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgGrantAuditorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgGrantAuditorResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgGrantAuditorResponse proto.InternalMessageInfo
+
 // MsgUpdateParams sets the module parameters. Governance only.
 type MsgUpdateParams struct {
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
@@ -389,7 +820,7 @@ func (m *MsgUpdateParams) Reset()         { *m = MsgUpdateParams{} }
 func (m *MsgUpdateParams) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParams) ProtoMessage()    {}
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_304d64f1b1d4cb86, []int{6}
+	return fileDescriptor_304d64f1b1d4cb86, []int{14}
 }
 func (m *MsgUpdateParams) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -440,7 +871,7 @@ func (m *MsgUpdateParamsResponse) Reset()         { *m = MsgUpdateParamsResponse
 func (m *MsgUpdateParamsResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParamsResponse) ProtoMessage()    {}
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_304d64f1b1d4cb86, []int{7}
+	return fileDescriptor_304d64f1b1d4cb86, []int{15}
 }
 func (m *MsgUpdateParamsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -476,6 +907,14 @@ func init() {
 	proto.RegisterType((*MsgRotateAliasResponse)(nil), "blockchain.alias.v1.MsgRotateAliasResponse")
 	proto.RegisterType((*MsgSetJurisdiction)(nil), "blockchain.alias.v1.MsgSetJurisdiction")
 	proto.RegisterType((*MsgSetJurisdictionResponse)(nil), "blockchain.alias.v1.MsgSetJurisdictionResponse")
+	proto.RegisterType((*MsgRegisterViewingKey)(nil), "blockchain.alias.v1.MsgRegisterViewingKey")
+	proto.RegisterType((*MsgRegisterViewingKeyResponse)(nil), "blockchain.alias.v1.MsgRegisterViewingKeyResponse")
+	proto.RegisterType((*MsgRevokeViewingKey)(nil), "blockchain.alias.v1.MsgRevokeViewingKey")
+	proto.RegisterType((*MsgRevokeViewingKeyResponse)(nil), "blockchain.alias.v1.MsgRevokeViewingKeyResponse")
+	proto.RegisterType((*MsgAppointRegulator)(nil), "blockchain.alias.v1.MsgAppointRegulator")
+	proto.RegisterType((*MsgAppointRegulatorResponse)(nil), "blockchain.alias.v1.MsgAppointRegulatorResponse")
+	proto.RegisterType((*MsgGrantAuditor)(nil), "blockchain.alias.v1.MsgGrantAuditor")
+	proto.RegisterType((*MsgGrantAuditorResponse)(nil), "blockchain.alias.v1.MsgGrantAuditorResponse")
 	proto.RegisterType((*MsgUpdateParams)(nil), "blockchain.alias.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "blockchain.alias.v1.MsgUpdateParamsResponse")
 }
@@ -483,44 +922,60 @@ func init() {
 func init() { proto.RegisterFile("blockchain/alias/v1/tx.proto", fileDescriptor_304d64f1b1d4cb86) }
 
 var fileDescriptor_304d64f1b1d4cb86 = []byte{
-	// 578 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0x3f, 0x6f, 0x13, 0x4f,
-	0x10, 0xf5, 0xd9, 0xfa, 0x25, 0x3f, 0x4f, 0x20, 0x81, 0x23, 0x22, 0xce, 0x81, 0x2e, 0xe1, 0x42,
-	0x04, 0x32, 0xc4, 0xa7, 0x98, 0x00, 0xc2, 0x05, 0x52, 0x5c, 0x50, 0x20, 0x59, 0x42, 0x8e, 0x68,
-	0x68, 0xa2, 0xf5, 0xdd, 0x6a, 0xb3, 0x8a, 0xef, 0xd6, 0xda, 0x5d, 0x47, 0xb6, 0x44, 0x81, 0x28,
-	0xa9, 0xf8, 0x12, 0x48, 0x94, 0x2e, 0xf8, 0x00, 0x94, 0x29, 0x03, 0x15, 0x15, 0x42, 0x76, 0xe1,
-	0xaf, 0x81, 0xf6, 0xfe, 0xd9, 0x3e, 0xce, 0x8a, 0x95, 0xc6, 0xba, 0x99, 0x79, 0x3b, 0xef, 0xcd,
-	0xd3, 0x8c, 0xe1, 0x6e, 0xab, 0xcd, 0x9c, 0x53, 0xe7, 0x04, 0x51, 0xdf, 0x46, 0x6d, 0x8a, 0x84,
-	0x7d, 0xb6, 0x6f, 0xcb, 0x5e, 0xa5, 0xc3, 0x99, 0x64, 0xfa, 0xad, 0x49, 0xb5, 0x12, 0x54, 0x2b,
-	0x67, 0xfb, 0xc6, 0x4d, 0xe4, 0x51, 0x9f, 0xd9, 0xc1, 0x6f, 0x88, 0x33, 0xb6, 0xb3, 0xba, 0x74,
-	0x10, 0x47, 0x9e, 0x88, 0x10, 0x1b, 0x0e, 0x13, 0x1e, 0x13, 0xb6, 0x27, 0x88, 0xaa, 0x79, 0x82,
-	0x44, 0x85, 0xcd, 0xb0, 0x70, 0x1c, 0x44, 0x76, 0x18, 0x44, 0xa5, 0x75, 0xc2, 0x08, 0x0b, 0xf3,
-	0xea, 0x2b, 0xcc, 0x5a, 0xef, 0xe1, 0x46, 0x43, 0x90, 0x26, 0x26, 0x54, 0x48, 0xcc, 0x0f, 0x15,
-	0x9b, 0x5e, 0x85, 0x65, 0xe4, 0x38, 0xac, 0xeb, 0xcb, 0x92, 0xb6, 0xad, 0x3d, 0x2c, 0xd6, 0x4b,
-	0x3f, 0xbf, 0xed, 0xad, 0x47, 0xcd, 0x0e, 0x5d, 0x97, 0x63, 0x21, 0x8e, 0x24, 0xa7, 0x3e, 0x69,
-	0xc6, 0xc0, 0xda, 0xc1, 0xc7, 0xf1, 0xa0, 0x1c, 0x47, 0x9f, 0xc6, 0x83, 0xf2, 0xce, 0xd4, 0x10,
-	0xbd, 0x68, 0x8c, 0x34, 0x93, 0x55, 0x86, 0x52, 0x3a, 0xd7, 0xc4, 0xa2, 0xc3, 0x7c, 0x81, 0xf5,
-	0x55, 0xc8, 0x53, 0x37, 0x14, 0xd0, 0xcc, 0x53, 0xd7, 0xea, 0xc1, 0xaa, 0xc2, 0x32, 0x89, 0x24,
-	0xbe, 0xba, 0xce, 0x6a, 0x5a, 0xe7, 0xbd, 0x39, 0x3a, 0x27, 0x3c, 0x56, 0x1d, 0x6e, 0xcf, 0x66,
-	0x12, 0x8d, 0x25, 0x58, 0xe6, 0x58, 0x52, 0x8e, 0x63, 0xa1, 0x71, 0x18, 0xa9, 0xcf, 0x27, 0xea,
-	0x7f, 0x68, 0xa0, 0x37, 0x04, 0x39, 0xc2, 0xf2, 0x75, 0x97, 0x53, 0xe1, 0x52, 0x47, 0x52, 0xe6,
-	0xeb, 0x07, 0xf0, 0x3f, 0xc7, 0x0e, 0xe3, 0x2e, 0xe6, 0x97, 0xce, 0x90, 0x20, 0xa7, 0x07, 0xcf,
-	0x2f, 0x38, 0xb8, 0x92, 0x1a, 0x7c, 0xf0, 0x7e, 0xa9, 0x10, 0x4a, 0x8d, 0xc2, 0xda, 0x73, 0x65,
-	0x49, 0xd2, 0x5c, 0x79, 0xb2, 0x9b, 0xed, 0x49, 0x4a, 0xbc, 0xf5, 0x0a, 0x8c, 0x7f, 0xb3, 0x57,
-	0xf0, 0xe6, 0xbb, 0x06, 0x6b, 0x0d, 0x41, 0xde, 0x76, 0x5c, 0x24, 0xf1, 0x9b, 0x60, 0xcf, 0xf5,
-	0x67, 0x50, 0x44, 0x5d, 0x79, 0xc2, 0x38, 0x95, 0xfd, 0x4b, 0x9d, 0x99, 0x40, 0xf5, 0x97, 0xb0,
-	0x14, 0x5e, 0x4a, 0xd0, 0x7f, 0xa5, 0x7a, 0xa7, 0x92, 0x71, 0x74, 0x95, 0x90, 0xa4, 0x5e, 0x3c,
-	0xff, 0xbd, 0x95, 0xfb, 0x3a, 0x1e, 0x94, 0xb5, 0x66, 0xf4, 0xaa, 0xf6, 0x54, 0x99, 0x31, 0xe9,
-	0xa7, 0xdc, 0xb0, 0xb2, 0xdd, 0x98, 0x96, 0x6b, 0x6d, 0xc2, 0x46, 0x2a, 0x15, 0xfb, 0x50, 0xfd,
-	0x52, 0x80, 0x42, 0x43, 0x10, 0x1d, 0xc3, 0xf5, 0xd9, 0x33, 0xdb, 0xcd, 0x94, 0x96, 0xbe, 0x07,
-	0x63, 0x6f, 0x21, 0x58, 0x62, 0xfb, 0x31, 0xac, 0x4c, 0xdf, 0xc8, 0xce, 0xdc, 0xd7, 0x13, 0x90,
-	0xf1, 0x68, 0x01, 0x50, 0x42, 0x70, 0x0a, 0x6b, 0xe9, 0x2d, 0x7e, 0x30, 0xef, 0x7d, 0x0a, 0x68,
-	0xd8, 0x0b, 0x02, 0x13, 0xb2, 0x16, 0x5c, 0x9b, 0x59, 0x8b, 0xfb, 0xf3, 0x1a, 0x4c, 0xa3, 0x8c,
-	0xc7, 0x8b, 0xa0, 0x62, 0x0e, 0xe3, 0xbf, 0x0f, 0x6a, 0x03, 0xea, 0x2f, 0xce, 0x87, 0xa6, 0x76,
-	0x31, 0x34, 0xb5, 0x3f, 0x43, 0x53, 0xfb, 0x3c, 0x32, 0x73, 0x17, 0x23, 0x33, 0xf7, 0x6b, 0x64,
-	0xe6, 0xde, 0x6d, 0xf5, 0x91, 0x87, 0xda, 0xd8, 0xce, 0xd8, 0x03, 0xd9, 0xef, 0x60, 0xd1, 0x5a,
-	0x0a, 0xfe, 0x4b, 0x9f, 0xfc, 0x0d, 0x00, 0x00, 0xff, 0xff, 0x76, 0xfd, 0x30, 0x3e, 0xff, 0x05,
-	0x00, 0x00,
+	// 840 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0x3f, 0x6f, 0xfb, 0x44,
+	0x18, 0x8e, 0x53, 0x68, 0xc9, 0xb5, 0xf4, 0x8f, 0x5b, 0x68, 0xea, 0xd2, 0xb4, 0xb8, 0x14, 0xaa,
+	0x40, 0x63, 0x1a, 0x0a, 0xa8, 0x19, 0x90, 0x92, 0x01, 0x10, 0x55, 0x24, 0xe4, 0x0a, 0x06, 0x96,
+	0xc8, 0xb1, 0x4f, 0xce, 0x29, 0x89, 0xcf, 0xba, 0xbb, 0x84, 0x44, 0x62, 0x40, 0x8c, 0x4c, 0x7c,
+	0x00, 0x56, 0x24, 0xc6, 0x0e, 0x7c, 0x00, 0xc6, 0x8e, 0x85, 0x01, 0x31, 0x41, 0xd5, 0x0e, 0xfd,
+	0x1a, 0x3f, 0xd9, 0xe7, 0x38, 0x67, 0xc7, 0x6e, 0xfd, 0x4b, 0x97, 0x2a, 0xef, 0xfb, 0x3e, 0x77,
+	0xcf, 0xf3, 0xbc, 0xbe, 0xbb, 0xb7, 0xe0, 0xad, 0x76, 0x0f, 0x9b, 0x5d, 0xb3, 0x63, 0x20, 0x47,
+	0x33, 0x7a, 0xc8, 0xa0, 0xda, 0xf0, 0x54, 0x63, 0xa3, 0x8a, 0x4b, 0x30, 0xc3, 0xf2, 0xe6, 0xb4,
+	0x5a, 0xf1, 0xab, 0x95, 0xe1, 0xa9, 0xb2, 0x61, 0xf4, 0x91, 0x83, 0x35, 0xff, 0x2f, 0xc7, 0x29,
+	0x07, 0x49, 0xbb, 0xb8, 0x06, 0x31, 0xfa, 0x34, 0x40, 0x6c, 0x9b, 0x98, 0xf6, 0x31, 0xd5, 0xfa,
+	0xd4, 0xf6, 0x6a, 0x7d, 0x6a, 0x07, 0x85, 0x1d, 0x5e, 0x68, 0xf9, 0x91, 0xc6, 0x83, 0xa0, 0xb4,
+	0x65, 0x63, 0x1b, 0xf3, 0xbc, 0xf7, 0x8b, 0x67, 0xd5, 0x1f, 0xc0, 0x7a, 0x93, 0xda, 0x3a, 0xb4,
+	0x11, 0x65, 0x90, 0xd4, 0x3d, 0x36, 0xb9, 0x0a, 0x96, 0x0c, 0xd3, 0xc4, 0x03, 0x87, 0x15, 0xa5,
+	0x03, 0xe9, 0xb8, 0xd0, 0x28, 0xfe, 0xfd, 0xc7, 0xc9, 0x56, 0xb0, 0x59, 0xdd, 0xb2, 0x08, 0xa4,
+	0xf4, 0x92, 0x11, 0xe4, 0xd8, 0xfa, 0x04, 0x58, 0x3b, 0xfb, 0xe9, 0xe1, 0xaa, 0x3c, 0x89, 0x7e,
+	0x7e, 0xb8, 0x2a, 0x1f, 0x0a, 0x26, 0x46, 0x81, 0x8d, 0x38, 0x93, 0x5a, 0x06, 0xc5, 0x78, 0x4e,
+	0x87, 0xd4, 0xc5, 0x0e, 0x85, 0xf2, 0x2a, 0xc8, 0x23, 0x8b, 0x0b, 0xd0, 0xf3, 0xc8, 0x52, 0x47,
+	0x60, 0xd5, 0xc3, 0x62, 0x66, 0x30, 0x38, 0xbf, 0xce, 0x6a, 0x5c, 0xe7, 0xdb, 0x29, 0x3a, 0xa7,
+	0x3c, 0x6a, 0x03, 0xbc, 0x19, 0xcd, 0x84, 0x1a, 0x8b, 0x60, 0x89, 0x40, 0x86, 0x08, 0x9c, 0x08,
+	0x9d, 0x84, 0x81, 0xfa, 0x7c, 0xa8, 0xfe, 0x2f, 0x09, 0xc8, 0x4d, 0x6a, 0x5f, 0x42, 0xf6, 0xd5,
+	0x80, 0x20, 0x6a, 0x21, 0x93, 0x21, 0xec, 0xc8, 0x67, 0xe0, 0x35, 0x02, 0x4d, 0x4c, 0x2c, 0x48,
+	0x9e, 0xf4, 0x10, 0x22, 0x45, 0xe3, 0xf9, 0x8c, 0xc6, 0x3d, 0xa9, 0xfe, 0x0f, 0x32, 0x2e, 0x2e,
+	0x70, 0xa9, 0x41, 0x58, 0xfb, 0xd4, 0x6b, 0x49, 0xb8, 0xb9, 0xd7, 0x93, 0xa3, 0xe4, 0x9e, 0xc4,
+	0xc4, 0xab, 0x9f, 0x03, 0x65, 0x36, 0x3b, 0x47, 0x6f, 0x7e, 0x93, 0xc0, 0x1b, 0xc2, 0x31, 0xf8,
+	0x16, 0xc1, 0xef, 0x91, 0x63, 0x5f, 0xc0, 0xf1, 0x3c, 0x5f, 0x58, 0xde, 0x03, 0xc0, 0x1d, 0xb4,
+	0x7b, 0xc8, 0x6c, 0x75, 0xe1, 0xd8, 0x67, 0x59, 0xd1, 0x0b, 0x3c, 0x73, 0x01, 0xc7, 0xb5, 0xf3,
+	0xf8, 0x01, 0x38, 0x7e, 0xfc, 0xa0, 0x4e, 0xd5, 0xa8, 0xe7, 0x60, 0x2f, 0xb1, 0x20, 0x5a, 0x1e,
+	0x42, 0x42, 0x11, 0x76, 0x7c, 0xb9, 0xaf, 0xe8, 0x93, 0x50, 0xfd, 0x55, 0x02, 0x9b, 0xfe, 0xda,
+	0x21, 0xee, 0xc2, 0x67, 0x1a, 0x14, 0x58, 0xf2, 0x11, 0x16, 0xfe, 0x25, 0x45, 0x6f, 0xef, 0xa6,
+	0x79, 0x8b, 0xca, 0x50, 0xf7, 0xc0, 0x6e, 0x42, 0x7a, 0xe2, 0x4b, 0xfd, 0x87, 0xab, 0xaf, 0xbb,
+	0x2e, 0x46, 0x0e, 0xd3, 0xa1, 0x3d, 0xe8, 0x19, 0x0c, 0x13, 0xf9, 0x13, 0x50, 0x30, 0x06, 0xac,
+	0x83, 0x09, 0x62, 0xe3, 0x27, 0xf5, 0x4f, 0xa1, 0xe2, 0x59, 0xcc, 0x47, 0xce, 0xa2, 0xdf, 0x0f,
+	0xbe, 0x8a, 0x9f, 0xd2, 0x47, 0xfb, 0xc1, 0x43, 0xfe, 0x45, 0xa7, 0xbb, 0x3f, 0xe2, 0x3b, 0x6e,
+	0x20, 0xf0, 0x1d, 0x4f, 0x87, 0xbe, 0x6f, 0x25, 0xb0, 0xd6, 0xa4, 0xf6, 0x17, 0xc4, 0x70, 0x58,
+	0x7d, 0x60, 0xa1, 0xe7, 0x78, 0x16, 0x9c, 0xe5, 0x33, 0x3a, 0x93, 0xcb, 0x60, 0x03, 0x8e, 0x5c,
+	0x44, 0x20, 0x6d, 0x19, 0xac, 0xd5, 0x81, 0xc8, 0xee, 0x30, 0xbf, 0x2f, 0x0b, 0xfa, 0x5a, 0x50,
+	0xa8, 0xb3, 0x2f, 0xfd, 0x74, 0xed, 0xe3, 0xd9, 0x2e, 0xa8, 0xc9, 0x5d, 0x10, 0xed, 0xa8, 0x3b,
+	0x60, 0x3b, 0x96, 0x0a, 0xdd, 0xff, 0xc9, 0xdd, 0x7f, 0xe3, 0x5a, 0x06, 0x83, 0x5f, 0xfb, 0xe3,
+	0x67, 0x6e, 0xf7, 0x9f, 0x81, 0x45, 0x3e, 0xc0, 0x7c, 0xf3, 0xcb, 0xd5, 0xdd, 0x4a, 0xc2, 0x2c,
+	0xac, 0x70, 0x92, 0x46, 0xe1, 0xfa, 0xbf, 0xfd, 0xdc, 0xef, 0x0f, 0x57, 0x65, 0x49, 0x0f, 0x56,
+	0xbd, 0x84, 0x3b, 0x51, 0x6e, 0xe0, 0x4e, 0x4c, 0x4d, 0xdc, 0x55, 0xff, 0x5f, 0x04, 0x0b, 0x4d,
+	0x6a, 0xcb, 0x10, 0xbc, 0x1e, 0x9d, 0x7e, 0x47, 0x89, 0xd2, 0xe2, 0x63, 0x4a, 0x39, 0xc9, 0x04,
+	0x0b, 0x9f, 0x86, 0x16, 0x58, 0x16, 0x47, 0xd7, 0x61, 0xea, 0xea, 0x29, 0x48, 0x79, 0x3f, 0x03,
+	0x28, 0x24, 0xe8, 0x82, 0xb5, 0xf8, 0x70, 0x79, 0x2f, 0x6d, 0x7d, 0x0c, 0xa8, 0x68, 0x19, 0x81,
+	0x21, 0x19, 0x03, 0x72, 0xc2, 0x6b, 0x5d, 0x7e, 0xaa, 0x25, 0x53, 0xac, 0x52, 0xcd, 0x8e, 0x0d,
+	0x59, 0x1d, 0xb0, 0x3e, 0xf3, 0x80, 0x1e, 0xa7, 0xef, 0x13, 0x45, 0x2a, 0x1f, 0x66, 0x45, 0x8a,
+	0x7c, 0x33, 0x4f, 0x5e, 0x2a, 0x5f, 0x1c, 0x99, 0xce, 0x97, 0xf6, 0xdc, 0xc8, 0x6d, 0xb0, 0x12,
+	0x79, 0x6a, 0xde, 0x49, 0xdb, 0x41, 0x44, 0x29, 0x1f, 0x64, 0x41, 0x89, 0x1c, 0x91, 0x0b, 0x9d,
+	0xca, 0x21, 0xa2, 0xd2, 0x39, 0x92, 0xae, 0x96, 0xf2, 0xea, 0x8f, 0xde, 0xdd, 0x6d, 0x9c, 0x5f,
+	0xdf, 0x95, 0xa4, 0x9b, 0xbb, 0x92, 0x74, 0x7b, 0x57, 0x92, 0x7e, 0xb9, 0x2f, 0xe5, 0x6e, 0xee,
+	0x4b, 0xb9, 0x7f, 0xef, 0x4b, 0xb9, 0xef, 0xf6, 0xc7, 0x46, 0xdf, 0xe8, 0x41, 0x2d, 0xe1, 0x06,
+	0xb3, 0xb1, 0x0b, 0x69, 0x7b, 0xd1, 0xff, 0xe7, 0xf4, 0xa3, 0x17, 0x01, 0x00, 0x00, 0xff, 0xff,
+	0x29, 0x5e, 0x77, 0xf1, 0x50, 0x0b, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -541,6 +996,14 @@ type MsgClient interface {
 	RotateAlias(ctx context.Context, in *MsgRotateAlias, opts ...grpc.CallOption) (*MsgRotateAliasResponse, error)
 	// SetJurisdiction records or corrects the country an account belongs to.
 	SetJurisdiction(ctx context.Context, in *MsgSetJurisdiction, opts ...grpc.CallOption) (*MsgSetJurisdictionResponse, error)
+	// RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
+	RegisterViewingKey(ctx context.Context, in *MsgRegisterViewingKey, opts ...grpc.CallOption) (*MsgRegisterViewingKeyResponse, error)
+	// RevokeViewingKey marks one of the sender's key versions compromised.
+	RevokeViewingKey(ctx context.Context, in *MsgRevokeViewingKey, opts ...grpc.CallOption) (*MsgRevokeViewingKeyResponse, error)
+	// AppointRegulator names the authority holding the viewing key for a country.
+	AppointRegulator(ctx context.Context, in *MsgAppointRegulator, opts ...grpc.CallOption) (*MsgAppointRegulatorResponse, error)
+	// GrantAuditor grants the time-boxed cross-account reading role.
+	GrantAuditor(ctx context.Context, in *MsgGrantAuditor, opts ...grpc.CallOption) (*MsgGrantAuditorResponse, error)
 	// UpdateParams sets the module parameters. Governance only.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
@@ -580,6 +1043,42 @@ func (c *msgClient) SetJurisdiction(ctx context.Context, in *MsgSetJurisdiction,
 	return out, nil
 }
 
+func (c *msgClient) RegisterViewingKey(ctx context.Context, in *MsgRegisterViewingKey, opts ...grpc.CallOption) (*MsgRegisterViewingKeyResponse, error) {
+	out := new(MsgRegisterViewingKeyResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Msg/RegisterViewingKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) RevokeViewingKey(ctx context.Context, in *MsgRevokeViewingKey, opts ...grpc.CallOption) (*MsgRevokeViewingKeyResponse, error) {
+	out := new(MsgRevokeViewingKeyResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Msg/RevokeViewingKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) AppointRegulator(ctx context.Context, in *MsgAppointRegulator, opts ...grpc.CallOption) (*MsgAppointRegulatorResponse, error) {
+	out := new(MsgAppointRegulatorResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Msg/AppointRegulator", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) GrantAuditor(ctx context.Context, in *MsgGrantAuditor, opts ...grpc.CallOption) (*MsgGrantAuditorResponse, error) {
+	out := new(MsgGrantAuditorResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Msg/GrantAuditor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Msg/UpdateParams", in, out, opts...)
@@ -597,6 +1096,14 @@ type MsgServer interface {
 	RotateAlias(context.Context, *MsgRotateAlias) (*MsgRotateAliasResponse, error)
 	// SetJurisdiction records or corrects the country an account belongs to.
 	SetJurisdiction(context.Context, *MsgSetJurisdiction) (*MsgSetJurisdictionResponse, error)
+	// RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
+	RegisterViewingKey(context.Context, *MsgRegisterViewingKey) (*MsgRegisterViewingKeyResponse, error)
+	// RevokeViewingKey marks one of the sender's key versions compromised.
+	RevokeViewingKey(context.Context, *MsgRevokeViewingKey) (*MsgRevokeViewingKeyResponse, error)
+	// AppointRegulator names the authority holding the viewing key for a country.
+	AppointRegulator(context.Context, *MsgAppointRegulator) (*MsgAppointRegulatorResponse, error)
+	// GrantAuditor grants the time-boxed cross-account reading role.
+	GrantAuditor(context.Context, *MsgGrantAuditor) (*MsgGrantAuditorResponse, error)
 	// UpdateParams sets the module parameters. Governance only.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 }
@@ -613,6 +1120,18 @@ func (*UnimplementedMsgServer) RotateAlias(ctx context.Context, req *MsgRotateAl
 }
 func (*UnimplementedMsgServer) SetJurisdiction(ctx context.Context, req *MsgSetJurisdiction) (*MsgSetJurisdictionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetJurisdiction not implemented")
+}
+func (*UnimplementedMsgServer) RegisterViewingKey(ctx context.Context, req *MsgRegisterViewingKey) (*MsgRegisterViewingKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterViewingKey not implemented")
+}
+func (*UnimplementedMsgServer) RevokeViewingKey(ctx context.Context, req *MsgRevokeViewingKey) (*MsgRevokeViewingKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeViewingKey not implemented")
+}
+func (*UnimplementedMsgServer) AppointRegulator(ctx context.Context, req *MsgAppointRegulator) (*MsgAppointRegulatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AppointRegulator not implemented")
+}
+func (*UnimplementedMsgServer) GrantAuditor(ctx context.Context, req *MsgGrantAuditor) (*MsgGrantAuditorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GrantAuditor not implemented")
 }
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
@@ -676,6 +1195,78 @@ func _Msg_SetJurisdiction_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_RegisterViewingKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRegisterViewingKey)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RegisterViewingKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Msg/RegisterViewingKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RegisterViewingKey(ctx, req.(*MsgRegisterViewingKey))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RevokeViewingKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRevokeViewingKey)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RevokeViewingKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Msg/RevokeViewingKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RevokeViewingKey(ctx, req.(*MsgRevokeViewingKey))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_AppointRegulator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAppointRegulator)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AppointRegulator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Msg/AppointRegulator",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AppointRegulator(ctx, req.(*MsgAppointRegulator))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_GrantAuditor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgGrantAuditor)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).GrantAuditor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Msg/GrantAuditor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).GrantAuditor(ctx, req.(*MsgGrantAuditor))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgUpdateParams)
 	if err := dec(in); err != nil {
@@ -710,6 +1301,22 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetJurisdiction",
 			Handler:    _Msg_SetJurisdiction_Handler,
+		},
+		{
+			MethodName: "RegisterViewingKey",
+			Handler:    _Msg_RegisterViewingKey_Handler,
+		},
+		{
+			MethodName: "RevokeViewingKey",
+			Handler:    _Msg_RevokeViewingKey_Handler,
+		},
+		{
+			MethodName: "AppointRegulator",
+			Handler:    _Msg_AppointRegulator_Handler,
+		},
+		{
+			MethodName: "GrantAuditor",
+			Handler:    _Msg_GrantAuditor_Handler,
 		},
 		{
 			MethodName: "UpdateParams",
@@ -928,6 +1535,261 @@ func (m *MsgSetJurisdictionResponse) MarshalToSizedBuffer(dAtA []byte) (int, err
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgRegisterViewingKey) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRegisterViewingKey) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRegisterViewingKey) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.PublicKey) > 0 {
+		i -= len(m.PublicKey)
+		copy(dAtA[i:], m.PublicKey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.PublicKey)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Account) > 0 {
+		i -= len(m.Account)
+		copy(dAtA[i:], m.Account)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Account)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRegisterViewingKeyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRegisterViewingKeyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRegisterViewingKeyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Version != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRevokeViewingKey) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRevokeViewingKey) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRevokeViewingKey) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Version != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Account) > 0 {
+		i -= len(m.Account)
+		copy(dAtA[i:], m.Account)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Account)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRevokeViewingKeyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRevokeViewingKeyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRevokeViewingKeyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgAppointRegulator) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAppointRegulator) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAppointRegulator) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Country) > 0 {
+		i -= len(m.Country)
+		copy(dAtA[i:], m.Country)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Country)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgAppointRegulatorResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgAppointRegulatorResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgAppointRegulatorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgGrantAuditor) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgGrantAuditor) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgGrantAuditor) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ExpiresAtHeight != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.ExpiresAtHeight))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgGrantAuditorResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgGrantAuditorResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgGrantAuditorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
 func (m *MsgUpdateParams) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1093,6 +1955,119 @@ func (m *MsgSetJurisdictionResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
+	return n
+}
+
+func (m *MsgRegisterViewingKey) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Account)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.PublicKey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgRegisterViewingKeyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Version != 0 {
+		n += 1 + sovTx(uint64(m.Version))
+	}
+	return n
+}
+
+func (m *MsgRevokeViewingKey) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Account)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.Version != 0 {
+		n += 1 + sovTx(uint64(m.Version))
+	}
+	return n
+}
+
+func (m *MsgRevokeViewingKeyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgAppointRegulator) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Country)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgAppointRegulatorResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgGrantAuditor) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.ExpiresAtHeight != 0 {
+		n += 1 + sovTx(uint64(m.ExpiresAtHeight))
+	}
+	return n
+}
+
+func (m *MsgGrantAuditorResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	return n
 }
 
@@ -1725,6 +2700,721 @@ func (m *MsgSetJurisdictionResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.Id = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRegisterViewingKey) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRegisterViewingKey: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRegisterViewingKey: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Account", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Account = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PublicKey = append(m.PublicKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.PublicKey == nil {
+				m.PublicKey = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRegisterViewingKeyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRegisterViewingKeyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRegisterViewingKeyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRevokeViewingKey) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRevokeViewingKey: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRevokeViewingKey: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Account", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Account = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRevokeViewingKeyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRevokeViewingKeyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRevokeViewingKeyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAppointRegulator) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAppointRegulator: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAppointRegulator: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Country", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Country = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgAppointRegulatorResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgAppointRegulatorResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgAppointRegulatorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgGrantAuditor) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgGrantAuditor: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgGrantAuditor: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExpiresAtHeight", wireType)
+			}
+			m.ExpiresAtHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ExpiresAtHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgGrantAuditorResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgGrantAuditorResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgGrantAuditorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

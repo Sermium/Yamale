@@ -32,6 +32,29 @@ export interface RampQuote {
   kind: RampKind;
   route: RampRoute;
   denom: string;
+  /**
+   * Whose account the money lands in, on the way **in**.
+   *
+   * Empty means your own. Anything else is the whole point of a remittance: the
+   * person paying cash at a counter in Paris is not the person who needs it in
+   * Dakar, and a ramp that could only credit the payer would make the app a
+   * currency exchange rather than a way to send money home. The beneficiary is
+   * named as an alias or an address and the credit goes straight to their
+   * account — the sender never holds it, so there is nothing for them to forget
+   * to forward.
+   *
+   * Unused on the way out: money out always leaves the account of whoever is
+   * signing, because taking value out of somebody else's account is not a ramp,
+   * it is a withdrawal.
+   */
+  beneficiary?: string;
+  /**
+   * How the fiat arrives, on the way **out** — and in which currency.
+   *
+   * Chosen per settlement rather than per shop, because one counter often does
+   * notes, mobile money and a bank push at three different prices.
+   */
+  payout?: { fiat: string; method: string; feeBps: number };
   /** What the person hands over (in) or receives (out), in base units. */
   amount: bigint;
   /** The counterparty's cut, in base units. */
@@ -79,24 +102,68 @@ export function quoteRamp(
   amount: bigint,
   feeBps: number,
   counterparty: string,
+  extra: { beneficiary?: string; payout?: RampQuote['payout'] } = {},
 ): RampQuote {
   // Fee is taken off the top in both directions: putting money in costs the
   // same as taking it out, and hiding one of them would make the cheaper
   // direction look free when it is not.
-  const fee = (amount * BigInt(feeBps)) / 10_000n;
+  // The payout method's own charge is added to the counterparty's, because the
+  // beneficiary pays both and only cares about the total. Showing the shop's fee
+  // alone would make a bank push look like it costs what cash costs.
+  const total = feeBps + (extra.payout?.feeBps ?? 0);
+  const fee = (amount * BigInt(total)) / 10_000n;
   return {
     kind, route, denom, amount, fee,
     net: amount - fee,
-    feeBps, counterparty,
+    feeBps: total, counterparty,
+    beneficiary: extra.beneficiary,
+    payout: extra.payout,
   };
 }
 
 export interface RampRequest extends RampQuote {
   id: string;
   createdAt: number;
-  status: 'awaiting' | 'settled' | 'cancelled';
+  status: RampStatus;
   /** The code the person shows the agent, or quotes to the partner. */
   reference: string;
+  /** The on-chain conditional lock holding the value, once one exists. */
+  lockId?: string;
+}
+
+/**
+ * Where a ramp is.
+ *
+ * `awaiting` is before anything is on-chain and means nothing has been
+ * committed by either side. `locked` is the state that matters: the value is in
+ * the treasury module account, neither party can take it unilaterally, and it is
+ * the only point at which it is safe to hand over cash.
+ */
+export type RampStatus = 'awaiting' | 'locked' | 'settled' | 'disputed' | 'cancelled';
+
+/**
+ * Which side puts the value in escrow — and it is always the crypto side.
+ *
+ * This is the whole safety property, and it is not symmetric. Cash cannot be
+ * un-handed: once notes are across a counter, the only way back is for somebody
+ * to choose to give them back. A lock can always be refunded. So the reversible
+ * side commits first, and the person about to do the irreversible thing gets to
+ * look at the chain and see that it happened.
+ *
+ *   - **Money out** — the customer holds the tokens, so the customer locks. The
+ *     shop reads the lock, hands over cash, and the customer releases.
+ *   - **Money in** — the shop holds the tokens, so the shop locks. The customer
+ *     reads the lock, pays the cash, and the shop releases.
+ *
+ * The consequence for money in is worth being honest about rather than
+ * designing around: release needs the depositor's signature, and on the way in
+ * the depositor is the shop. So a customer who has paid cash and been refused a
+ * release cannot help themselves — they open a case, and the moderator named on
+ * the shop's record decides. Verifying the lock exists before parting with cash
+ * is what keeps that a dispute about a release rather than a loss.
+ */
+export function depositorSide(kind: RampKind): 'customer' | 'counterparty' {
+  return kind === 'out' ? 'customer' : 'counterparty';
 }
 
 const STORE = 'yamale.app.ramps';
@@ -105,8 +172,15 @@ const STORE = 'yamale.app.ramps';
  * Ramp requests are kept on the device, not the chain.
  *
  * A pending request is an intention, and an intention is nobody else's
- * business. Once it settles, the resulting transfer is on-chain like any other
- * — that is the part that needs to be public and permanent.
+ * business. Once value is committed the lock is on-chain like any other — that
+ * is the part that needs to be public and permanent, and the part neither side
+ * can quietly revise.
+ *
+ * Which makes this a cache and not a record. Where the device and the chain
+ * disagree about whether something settled, the chain is right; the local copy
+ * exists so the screen has something to show before the chain answers, and so a
+ * reference the customer wrote on a slip is still findable if they close the app
+ * on the way to the shop.
  */
 export function saved(): RampRequest[] {
   try {
@@ -133,11 +207,11 @@ export function save(req: RampRequest): void {
   }
 }
 
-export function updateStatus(id: string, status: RampRequest['status']): void {
+export function updateStatus(id: string, status: RampStatus, lockId?: string): void {
   const all = saved();
   const hit = all.find((r) => r.id === id);
   if (!hit) return;
-  save({ ...hit, status });
+  save({ ...hit, status, lockId: lockId ?? hit.lockId });
 }
 
 /**

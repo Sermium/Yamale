@@ -4,6 +4,7 @@ package blockchain.alias.v1;
 import "blockchain/alias/v1/alias.proto";
 import "blockchain/alias/v1/jurisdiction.proto";
 import "blockchain/alias/v1/params.proto";
+import "blockchain/alias/v1/viewing_key.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
@@ -64,6 +65,37 @@ service Query {
   // gives no shortcut to the alias directory that is withheld above.
   rpc Perimeter(QueryPerimeterRequest) returns (QueryPerimeterResponse) {
     option (google.api.http).get = "/yamale/blockchain/alias/v1/perimeter/{country}";
+  }
+
+  // ViewingKeys returns every version of one account's viewing key, newest
+  // first.
+  //
+  // Every version, not just the live one, because a payload encrypted last year
+  // is wrapped to the key that was live last year. A client that could only
+  // fetch the current key would report an old but perfectly readable payment as
+  // undecryptable, which is the failure the version field exists to prevent.
+  rpc ViewingKeys(QueryViewingKeysRequest) returns (QueryViewingKeysResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/viewing_keys/{address}";
+  }
+
+  // Regulator returns the authority appointed over one country, with its
+  // current viewing key.
+  //
+  // Both in one response because the sender needs both and asking separately
+  // invites the half-answer: an appointment resolved, a key not fetched, and an
+  // envelope built without the regulator on it that looks complete.
+  rpc Regulator(QueryRegulatorRequest) returns (QueryRegulatorResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/regulator/{country}";
+  }
+
+  // Auditors lists the grants that have not expired, with their current keys.
+  //
+  // A list endpoint in a module that avoids them, and it is the right call
+  // here: who may read across accounts is a fact the people being read about
+  // are entitled to see, and a sender cannot build a correct envelope without
+  // the whole set.
+  rpc Auditors(QueryAuditorsRequest) returns (QueryAuditorsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/auditors";
   }
 }
 
@@ -134,4 +166,54 @@ message QueryPerimeterResponse {
   repeated Jurisdiction jurisdictions = 1 [(gogoproto.nullable) = false];
 
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryViewingKeysRequest asks for every version of an account's viewing key.
+message QueryViewingKeysRequest {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// QueryViewingKeysResponse carries them newest first, empty when the account
+// has never registered one.
+//
+// Empty is a real answer and not an error: an account with no viewing key
+// cannot be sent an encrypted payload, and a sender needs to learn that as a
+// fact it can act on rather than as a failed request it might retry.
+message QueryViewingKeysResponse {
+  repeated ViewingKey keys = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryRegulatorRequest asks who regulates one country.
+message QueryRegulatorRequest {
+  // country is an ISO 3166-1 alpha-2 code, in any case.
+  string country = 1;
+}
+
+// QueryRegulatorResponse carries the appointment and the key it can read with.
+message QueryRegulatorResponse {
+  RegulatorAppointment appointment = 1 [(gogoproto.nullable) = false];
+
+  // key is the appointee's current viewing key. Its public_key is empty when
+  // the regulator has been appointed but has not published one — a state a
+  // sender has to be able to see, because wrapping to a key of thirty-two zero
+  // bytes would produce an envelope that looks addressed to the regulator and
+  // opens for nobody.
+  ViewingKey key = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryAuditorsRequest asks for the live auditor grants.
+message QueryAuditorsRequest {}
+
+// QueryAuditorsResponse carries them with the keys they read with.
+message QueryAuditorsResponse {
+  repeated AuditorEntitlement auditors = 1 [(gogoproto.nullable) = false];
+}
+
+// AuditorEntitlement pairs a grant with the key it reads through.
+message AuditorEntitlement {
+  AuditorGrant grant = 1 [(gogoproto.nullable) = false];
+
+  // key carries an empty public_key when the auditor has been granted the role
+  // but has published no key, for the same reason as on the regulator above.
+  ViewingKey key = 2 [(gogoproto.nullable) = false];
 }

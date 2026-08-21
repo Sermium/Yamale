@@ -586,6 +586,342 @@ func (m *QueryPerimeterResponse) GetPagination() *query.PageResponse {
 	return nil
 }
 
+// QueryViewingKeysRequest asks for every version of an account's viewing key.
+type QueryViewingKeysRequest struct {
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *QueryViewingKeysRequest) Reset()         { *m = QueryViewingKeysRequest{} }
+func (m *QueryViewingKeysRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryViewingKeysRequest) ProtoMessage()    {}
+func (*QueryViewingKeysRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{12}
+}
+func (m *QueryViewingKeysRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryViewingKeysRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryViewingKeysRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryViewingKeysRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryViewingKeysRequest.Merge(m, src)
+}
+func (m *QueryViewingKeysRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryViewingKeysRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryViewingKeysRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryViewingKeysRequest proto.InternalMessageInfo
+
+func (m *QueryViewingKeysRequest) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+// QueryViewingKeysResponse carries them newest first, empty when the account
+// has never registered one.
+//
+// Empty is a real answer and not an error: an account with no viewing key
+// cannot be sent an encrypted payload, and a sender needs to learn that as a
+// fact it can act on rather than as a failed request it might retry.
+type QueryViewingKeysResponse struct {
+	Keys []ViewingKey `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys"`
+}
+
+func (m *QueryViewingKeysResponse) Reset()         { *m = QueryViewingKeysResponse{} }
+func (m *QueryViewingKeysResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryViewingKeysResponse) ProtoMessage()    {}
+func (*QueryViewingKeysResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{13}
+}
+func (m *QueryViewingKeysResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryViewingKeysResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryViewingKeysResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryViewingKeysResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryViewingKeysResponse.Merge(m, src)
+}
+func (m *QueryViewingKeysResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryViewingKeysResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryViewingKeysResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryViewingKeysResponse proto.InternalMessageInfo
+
+func (m *QueryViewingKeysResponse) GetKeys() []ViewingKey {
+	if m != nil {
+		return m.Keys
+	}
+	return nil
+}
+
+// QueryRegulatorRequest asks who regulates one country.
+type QueryRegulatorRequest struct {
+	// country is an ISO 3166-1 alpha-2 code, in any case.
+	Country string `protobuf:"bytes,1,opt,name=country,proto3" json:"country,omitempty"`
+}
+
+func (m *QueryRegulatorRequest) Reset()         { *m = QueryRegulatorRequest{} }
+func (m *QueryRegulatorRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryRegulatorRequest) ProtoMessage()    {}
+func (*QueryRegulatorRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{14}
+}
+func (m *QueryRegulatorRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryRegulatorRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryRegulatorRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryRegulatorRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryRegulatorRequest.Merge(m, src)
+}
+func (m *QueryRegulatorRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryRegulatorRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryRegulatorRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryRegulatorRequest proto.InternalMessageInfo
+
+func (m *QueryRegulatorRequest) GetCountry() string {
+	if m != nil {
+		return m.Country
+	}
+	return ""
+}
+
+// QueryRegulatorResponse carries the appointment and the key it can read with.
+type QueryRegulatorResponse struct {
+	Appointment RegulatorAppointment `protobuf:"bytes,1,opt,name=appointment,proto3" json:"appointment"`
+	// key is the appointee's current viewing key. Its public_key is empty when
+	// the regulator has been appointed but has not published one — a state a
+	// sender has to be able to see, because wrapping to a key of thirty-two zero
+	// bytes would produce an envelope that looks addressed to the regulator and
+	// opens for nobody.
+	Key ViewingKey `protobuf:"bytes,2,opt,name=key,proto3" json:"key"`
+}
+
+func (m *QueryRegulatorResponse) Reset()         { *m = QueryRegulatorResponse{} }
+func (m *QueryRegulatorResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryRegulatorResponse) ProtoMessage()    {}
+func (*QueryRegulatorResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{15}
+}
+func (m *QueryRegulatorResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryRegulatorResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryRegulatorResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryRegulatorResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryRegulatorResponse.Merge(m, src)
+}
+func (m *QueryRegulatorResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryRegulatorResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryRegulatorResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryRegulatorResponse proto.InternalMessageInfo
+
+func (m *QueryRegulatorResponse) GetAppointment() RegulatorAppointment {
+	if m != nil {
+		return m.Appointment
+	}
+	return RegulatorAppointment{}
+}
+
+func (m *QueryRegulatorResponse) GetKey() ViewingKey {
+	if m != nil {
+		return m.Key
+	}
+	return ViewingKey{}
+}
+
+// QueryAuditorsRequest asks for the live auditor grants.
+type QueryAuditorsRequest struct {
+}
+
+func (m *QueryAuditorsRequest) Reset()         { *m = QueryAuditorsRequest{} }
+func (m *QueryAuditorsRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAuditorsRequest) ProtoMessage()    {}
+func (*QueryAuditorsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{16}
+}
+func (m *QueryAuditorsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAuditorsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAuditorsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAuditorsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAuditorsRequest.Merge(m, src)
+}
+func (m *QueryAuditorsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAuditorsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAuditorsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAuditorsRequest proto.InternalMessageInfo
+
+// QueryAuditorsResponse carries them with the keys they read with.
+type QueryAuditorsResponse struct {
+	Auditors []AuditorEntitlement `protobuf:"bytes,1,rep,name=auditors,proto3" json:"auditors"`
+}
+
+func (m *QueryAuditorsResponse) Reset()         { *m = QueryAuditorsResponse{} }
+func (m *QueryAuditorsResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAuditorsResponse) ProtoMessage()    {}
+func (*QueryAuditorsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{17}
+}
+func (m *QueryAuditorsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAuditorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAuditorsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAuditorsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAuditorsResponse.Merge(m, src)
+}
+func (m *QueryAuditorsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAuditorsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAuditorsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAuditorsResponse proto.InternalMessageInfo
+
+func (m *QueryAuditorsResponse) GetAuditors() []AuditorEntitlement {
+	if m != nil {
+		return m.Auditors
+	}
+	return nil
+}
+
+// AuditorEntitlement pairs a grant with the key it reads through.
+type AuditorEntitlement struct {
+	Grant AuditorGrant `protobuf:"bytes,1,opt,name=grant,proto3" json:"grant"`
+	// key carries an empty public_key when the auditor has been granted the role
+	// but has published no key, for the same reason as on the regulator above.
+	Key ViewingKey `protobuf:"bytes,2,opt,name=key,proto3" json:"key"`
+}
+
+func (m *AuditorEntitlement) Reset()         { *m = AuditorEntitlement{} }
+func (m *AuditorEntitlement) String() string { return proto.CompactTextString(m) }
+func (*AuditorEntitlement) ProtoMessage()    {}
+func (*AuditorEntitlement) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56377b383104dead, []int{18}
+}
+func (m *AuditorEntitlement) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AuditorEntitlement) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AuditorEntitlement.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AuditorEntitlement) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AuditorEntitlement.Merge(m, src)
+}
+func (m *AuditorEntitlement) XXX_Size() int {
+	return m.Size()
+}
+func (m *AuditorEntitlement) XXX_DiscardUnknown() {
+	xxx_messageInfo_AuditorEntitlement.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AuditorEntitlement proto.InternalMessageInfo
+
+func (m *AuditorEntitlement) GetGrant() AuditorGrant {
+	if m != nil {
+		return m.Grant
+	}
+	return AuditorGrant{}
+}
+
+func (m *AuditorEntitlement) GetKey() ViewingKey {
+	if m != nil {
+		return m.Key
+	}
+	return ViewingKey{}
+}
+
 func init() {
 	proto.RegisterType((*QueryParamsRequest)(nil), "blockchain.alias.v1.QueryParamsRequest")
 	proto.RegisterType((*QueryParamsResponse)(nil), "blockchain.alias.v1.QueryParamsResponse")
@@ -599,59 +935,82 @@ func init() {
 	proto.RegisterType((*QueryJurisdictionResponse)(nil), "blockchain.alias.v1.QueryJurisdictionResponse")
 	proto.RegisterType((*QueryPerimeterRequest)(nil), "blockchain.alias.v1.QueryPerimeterRequest")
 	proto.RegisterType((*QueryPerimeterResponse)(nil), "blockchain.alias.v1.QueryPerimeterResponse")
+	proto.RegisterType((*QueryViewingKeysRequest)(nil), "blockchain.alias.v1.QueryViewingKeysRequest")
+	proto.RegisterType((*QueryViewingKeysResponse)(nil), "blockchain.alias.v1.QueryViewingKeysResponse")
+	proto.RegisterType((*QueryRegulatorRequest)(nil), "blockchain.alias.v1.QueryRegulatorRequest")
+	proto.RegisterType((*QueryRegulatorResponse)(nil), "blockchain.alias.v1.QueryRegulatorResponse")
+	proto.RegisterType((*QueryAuditorsRequest)(nil), "blockchain.alias.v1.QueryAuditorsRequest")
+	proto.RegisterType((*QueryAuditorsResponse)(nil), "blockchain.alias.v1.QueryAuditorsResponse")
+	proto.RegisterType((*AuditorEntitlement)(nil), "blockchain.alias.v1.AuditorEntitlement")
 }
 
 func init() { proto.RegisterFile("blockchain/alias/v1/query.proto", fileDescriptor_56377b383104dead) }
 
 var fileDescriptor_56377b383104dead = []byte{
-	// 740 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x95, 0xcf, 0x4f, 0x13, 0x5b,
-	0x14, 0xc7, 0x3b, 0x7d, 0x0f, 0xfa, 0x38, 0x8f, 0xf7, 0x12, 0x2f, 0xd5, 0x94, 0xd1, 0x14, 0x1c,
-	0xb5, 0xd4, 0x1a, 0x66, 0x68, 0x35, 0x18, 0xdc, 0xc1, 0x42, 0xe3, 0x2f, 0xc4, 0x71, 0xe7, 0x86,
-	0xdc, 0x76, 0x2e, 0xc3, 0xd5, 0x76, 0x6e, 0x99, 0x99, 0x12, 0x1b, 0xc2, 0xc6, 0x8d, 0x2e, 0x49,
-	0x34, 0xee, 0xfc, 0x03, 0xdc, 0xb9, 0xf0, 0x8f, 0x60, 0x49, 0x74, 0xe3, 0xca, 0x18, 0xf0, 0x0f,
-	0x31, 0xbd, 0xf7, 0x0c, 0x4c, 0x61, 0x3a, 0xc5, 0xb0, 0xeb, 0xdc, 0xfb, 0x3d, 0xe7, 0xfb, 0xb9,
-	0x27, 0xe7, 0x9c, 0xc2, 0x54, 0xbd, 0x29, 0x1a, 0x2f, 0x1b, 0xeb, 0x94, 0x7b, 0x16, 0x6d, 0x72,
-	0x1a, 0x58, 0x9b, 0x55, 0x6b, 0xa3, 0xc3, 0xfc, 0xae, 0xd9, 0xf6, 0x45, 0x28, 0xc8, 0xc4, 0x91,
-	0xc0, 0x94, 0x02, 0x73, 0xb3, 0xaa, 0x27, 0x46, 0xa9, 0x5b, 0x19, 0xa5, 0x97, 0x92, 0x04, 0x2f,
-	0x3a, 0x3e, 0x0f, 0x1c, 0xde, 0x08, 0xb9, 0xf0, 0x50, 0x37, 0x9d, 0xa4, 0x6b, 0x53, 0x9f, 0xb6,
-	0xa2, 0x4c, 0x95, 0x86, 0x08, 0x5a, 0x22, 0xb0, 0xea, 0x34, 0x60, 0x0a, 0xcc, 0xda, 0xac, 0xd6,
-	0x59, 0x48, 0x7b, 0x3a, 0x97, 0x7b, 0x34, 0x96, 0x6d, 0x52, 0x69, 0x57, 0xe5, 0x97, 0xa5, 0x3e,
-	0xf0, 0x2a, 0xef, 0x0a, 0x57, 0xa8, 0xf3, 0xde, 0x2f, 0x3c, 0xbd, 0xe4, 0x0a, 0xe1, 0x36, 0x99,
-	0x45, 0xdb, 0xdc, 0xa2, 0x9e, 0x27, 0x42, 0x99, 0x0d, 0x63, 0x8c, 0x3c, 0x90, 0xa7, 0x3d, 0xc3,
-	0x15, 0xc9, 0x63, 0xb3, 0x8d, 0x0e, 0x0b, 0x42, 0x63, 0x05, 0x26, 0xfa, 0x4e, 0x83, 0xb6, 0xf0,
-	0x02, 0x46, 0x16, 0x60, 0x54, 0x71, 0x17, 0xb4, 0x69, 0xad, 0xfc, 0x6f, 0xed, 0xa2, 0x99, 0x50,
-	0x38, 0x53, 0x05, 0x2d, 0xfd, 0xbd, 0xfb, 0x63, 0x2a, 0x63, 0x63, 0x80, 0x71, 0x05, 0xce, 0xc9,
-	0x8c, 0x8b, 0x3d, 0x15, 0xda, 0x90, 0xff, 0x21, 0xcb, 0x1d, 0x99, 0x6b, 0xcc, 0xce, 0x72, 0xc7,
-	0x78, 0x84, 0x30, 0x28, 0x42, 0xd7, 0x79, 0x18, 0x91, 0xb9, 0xd1, 0x54, 0x4f, 0x34, 0x95, 0x21,
-	0xe8, 0xa9, 0xe4, 0xc6, 0x7d, 0x7c, 0x84, 0xbc, 0x7a, 0xb2, 0x16, 0x99, 0xd6, 0x20, 0x47, 0x1d,
-	0xc7, 0x67, 0x81, 0x4a, 0x38, 0xb6, 0x54, 0xf8, 0xfa, 0x65, 0x36, 0x8f, 0x85, 0x5c, 0x54, 0x37,
-	0xcf, 0x42, 0x9f, 0x7b, 0xae, 0x1d, 0x09, 0x8d, 0x65, 0xc8, 0xf7, 0xa7, 0x3a, 0x23, 0xda, 0x35,
-	0x44, 0xb3, 0x59, 0xc8, 0x7d, 0xe6, 0x0c, 0xaa, 0xc7, 0x1c, 0xda, 0x1e, 0xca, 0xd0, 0xb6, 0x00,
-	0x39, 0x5f, 0x1d, 0x49, 0xf1, 0x3f, 0x76, 0xf4, 0x69, 0x2c, 0x43, 0x41, 0x46, 0x3c, 0x88, 0xb5,
-	0xe1, 0x59, 0x1e, 0xbe, 0x0e, 0x93, 0x09, 0xf9, 0x10, 0xe3, 0x21, 0x8c, 0xc7, 0xdb, 0x1d, 0x8b,
-	0x70, 0x39, 0xb1, 0x08, 0xf1, 0x04, 0x58, 0x8b, 0xbe, 0x60, 0xa3, 0x0b, 0xe7, 0x55, 0xcb, 0x31,
-	0x9f, 0xb7, 0x58, 0xc8, 0xfc, 0x08, 0xbb, 0x00, 0xb9, 0x86, 0xe8, 0x78, 0xa1, 0xdf, 0xc5, 0xca,
-	0x44, 0x9f, 0xe4, 0x2e, 0xc0, 0xd1, 0x78, 0x14, 0xb2, 0xd2, 0xbd, 0x64, 0xe2, 0x83, 0x7a, 0xb3,
-	0x64, 0xaa, 0x21, 0xc7, 0x59, 0x32, 0x57, 0xa8, 0xcb, 0x30, 0xab, 0x1d, 0x8b, 0x34, 0x3e, 0x6b,
-	0x70, 0xe1, 0xb8, 0x37, 0x3e, 0xf1, 0x31, 0xfc, 0x17, 0xa7, 0xec, 0x55, 0xee, 0xaf, 0x3f, 0x79,
-	0x63, 0x7f, 0x34, 0xb9, 0x97, 0x40, 0x3c, 0x33, 0x94, 0x58, 0xb1, 0xc4, 0x91, 0x6b, 0xef, 0x73,
-	0x30, 0x22, 0x91, 0xc9, 0x1b, 0x0d, 0x46, 0xd5, 0xc4, 0x91, 0x99, 0x44, 0xaa, 0x93, 0xe3, 0xad,
-	0x97, 0x87, 0x0b, 0x95, 0xa7, 0x51, 0x79, 0xfd, 0xed, 0xd7, 0xbb, 0xec, 0x55, 0x62, 0x58, 0x5d,
-	0xda, 0xa2, 0x4d, 0x66, 0x0d, 0xde, 0x65, 0xe4, 0xad, 0x06, 0x23, 0xb2, 0xd7, 0x49, 0x69, 0x70,
-	0xfe, 0xf8, 0xfc, 0xeb, 0x33, 0x43, 0x75, 0x88, 0x61, 0x4a, 0x8c, 0x32, 0x29, 0xa5, 0x61, 0xa8,
-	0x1f, 0x5b, 0xdc, 0xd9, 0x26, 0x1f, 0x34, 0xc8, 0xe1, 0xac, 0x92, 0xf2, 0x10, 0x93, 0xc3, 0xcd,
-	0xa0, 0x5f, 0x3f, 0x85, 0x12, 0x81, 0xe6, 0x25, 0xd0, 0x1c, 0x31, 0x87, 0x02, 0xad, 0x8a, 0x35,
-	0x6b, 0x0b, 0xc7, 0x69, 0x9b, 0xec, 0x68, 0x90, 0xc3, 0x69, 0x4e, 0x03, 0xeb, 0xdf, 0x0b, 0x69,
-	0x60, 0xc7, 0x56, 0x83, 0x31, 0x27, 0xc1, 0x2a, 0xa4, 0x9c, 0x06, 0x86, 0xdb, 0x42, 0xd5, 0xea,
-	0x93, 0x06, 0xe3, 0xf1, 0xce, 0x25, 0xb3, 0x83, 0xdd, 0x12, 0xd6, 0x8a, 0x6e, 0x9e, 0x56, 0x8e,
-	0x84, 0x77, 0x24, 0xe1, 0x2d, 0x52, 0x4b, 0x23, 0x8c, 0x8f, 0x4d, 0xac, 0x7c, 0x1f, 0x35, 0x18,
-	0x3b, 0x1c, 0x52, 0x52, 0x49, 0x69, 0xe3, 0x63, 0x5b, 0x44, 0xbf, 0x71, 0x2a, 0x2d, 0x22, 0xde,
-	0x96, 0x88, 0x55, 0x62, 0xa5, 0x76, 0x7d, 0x14, 0x66, 0x6d, 0xe1, 0x42, 0xda, 0x5e, 0x5a, 0xd8,
-	0xdd, 0x2f, 0x6a, 0x7b, 0xfb, 0x45, 0xed, 0xe7, 0x7e, 0x51, 0xdb, 0x39, 0x28, 0x66, 0xf6, 0x0e,
-	0x8a, 0x99, 0xef, 0x07, 0xc5, 0xcc, 0xf3, 0xa9, 0x93, 0x99, 0x5e, 0x61, 0xae, 0xb0, 0xdb, 0x66,
-	0x41, 0x7d, 0x54, 0xfe, 0x1f, 0xdf, 0xfc, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x35, 0x9a, 0x0a, 0x5f,
-	0xad, 0x08, 0x00, 0x00,
+	// 997 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0x41, 0x6f, 0x1b, 0x45,
+	0x14, 0xce, 0xa6, 0x4d, 0x9c, 0xbc, 0x14, 0x24, 0xa6, 0xa1, 0xb8, 0x0b, 0x72, 0xda, 0xa5, 0x75,
+	0x5c, 0xd3, 0xec, 0xc6, 0x01, 0xb5, 0x2a, 0x12, 0x87, 0x44, 0x82, 0xaa, 0x94, 0x96, 0xd4, 0x08,
+	0x0e, 0x5c, 0xa2, 0xb1, 0x3d, 0xdd, 0x0e, 0xb1, 0x77, 0xdc, 0xdd, 0x71, 0xc0, 0x8a, 0x72, 0xe1,
+	0x02, 0x07, 0x24, 0x2a, 0x21, 0x71, 0xe3, 0x86, 0x90, 0xb8, 0x71, 0xe0, 0x47, 0xf4, 0x58, 0xc1,
+	0x85, 0x13, 0x42, 0x09, 0x77, 0xfe, 0x02, 0xf2, 0xcc, 0xdb, 0xf5, 0xac, 0xbd, 0x5e, 0xbb, 0xcd,
+	0xcd, 0x3b, 0xf3, 0x7d, 0xef, 0x7d, 0xef, 0x9b, 0x99, 0xf7, 0x0c, 0x6b, 0x8d, 0xb6, 0x68, 0xee,
+	0x37, 0x1f, 0x51, 0x1e, 0x78, 0xb4, 0xcd, 0x69, 0xe4, 0x1d, 0xd4, 0xbc, 0xc7, 0x3d, 0x16, 0xf6,
+	0xdd, 0x6e, 0x28, 0xa4, 0x20, 0xe7, 0x87, 0x00, 0x57, 0x01, 0xdc, 0x83, 0x9a, 0x9d, 0xc9, 0xd2,
+	0xbb, 0x8a, 0x65, 0x97, 0xb3, 0x00, 0x5f, 0xf4, 0x42, 0x1e, 0xb5, 0x78, 0x53, 0x72, 0x11, 0x20,
+	0xee, 0x52, 0x16, 0xae, 0x4b, 0x43, 0xda, 0x89, 0x23, 0x5d, 0xcd, 0x42, 0x1c, 0x70, 0xf6, 0x25,
+	0x0f, 0xfc, 0xbd, 0x7d, 0x86, 0x32, 0xed, 0x6a, 0x53, 0x44, 0x1d, 0x11, 0x79, 0x0d, 0x1a, 0x31,
+	0xad, 0xdf, 0x3b, 0xa8, 0x35, 0x98, 0xa4, 0x83, 0x70, 0x3e, 0x0f, 0xa8, 0x91, 0xf4, 0xa2, 0xc6,
+	0xee, 0xa9, 0x2f, 0x4f, 0x7f, 0xe0, 0xd6, 0xaa, 0x2f, 0x7c, 0xa1, 0xd7, 0x07, 0xbf, 0x70, 0xf5,
+	0x0d, 0x5f, 0x08, 0xbf, 0xcd, 0x3c, 0xda, 0xe5, 0x1e, 0x0d, 0x02, 0x21, 0x55, 0x34, 0xe4, 0x38,
+	0xab, 0x40, 0x1e, 0x0c, 0x12, 0xee, 0x2a, 0xd9, 0x75, 0xf6, 0xb8, 0xc7, 0x22, 0xe9, 0xec, 0xc2,
+	0xf9, 0xd4, 0x6a, 0xd4, 0x15, 0x41, 0xc4, 0xc8, 0x2d, 0x58, 0xd4, 0xe5, 0x15, 0xad, 0x4b, 0x56,
+	0x65, 0x65, 0xeb, 0x75, 0x37, 0xc3, 0x5f, 0x57, 0x93, 0x76, 0xce, 0x3e, 0xfd, 0x7b, 0x6d, 0xae,
+	0x8e, 0x04, 0xe7, 0x4d, 0x78, 0x45, 0x45, 0xdc, 0x1e, 0xa0, 0x30, 0x0d, 0x79, 0x19, 0xe6, 0x79,
+	0x4b, 0xc5, 0x5a, 0xae, 0xcf, 0xf3, 0x96, 0xf3, 0x11, 0x8a, 0x41, 0x10, 0x66, 0xbd, 0x01, 0x0b,
+	0x2a, 0x36, 0x26, 0xb5, 0x33, 0x93, 0x2a, 0x0a, 0xe6, 0xd4, 0x70, 0xe7, 0x0e, 0x16, 0xa1, 0xb6,
+	0x3e, 0x7e, 0x18, 0x27, 0xdd, 0x82, 0x02, 0x6d, 0xb5, 0x42, 0x16, 0xe9, 0x80, 0xcb, 0x3b, 0xc5,
+	0x3f, 0x7e, 0xdf, 0x58, 0x45, 0x23, 0xb7, 0xf5, 0xce, 0x27, 0x32, 0xe4, 0x81, 0x5f, 0x8f, 0x81,
+	0xce, 0x7d, 0x58, 0x4d, 0x87, 0x3a, 0xa5, 0xb4, 0xab, 0x28, 0xad, 0xce, 0x24, 0x0f, 0x59, 0x6b,
+	0x92, 0x1f, 0x9b, 0x98, 0x36, 0x81, 0x61, 0xda, 0x22, 0x14, 0x42, 0xbd, 0xa4, 0xc0, 0x4b, 0xf5,
+	0xf8, 0xd3, 0xb9, 0x0f, 0x45, 0xc5, 0xf8, 0xd0, 0xb8, 0xad, 0xa7, 0x29, 0xfc, 0x11, 0x5c, 0xcc,
+	0x88, 0x87, 0x32, 0xee, 0xc2, 0x39, 0xf3, 0x55, 0xa0, 0x09, 0x97, 0x33, 0x4d, 0x30, 0x03, 0xa0,
+	0x17, 0x29, 0xb2, 0xd3, 0x87, 0x57, 0xf5, 0x95, 0x63, 0x21, 0xef, 0x30, 0xc9, 0xc2, 0x58, 0x76,
+	0x11, 0x0a, 0x4d, 0xd1, 0x0b, 0x64, 0xd8, 0x47, 0x67, 0xe2, 0x4f, 0xf2, 0x01, 0xc0, 0xf0, 0x79,
+	0x14, 0xe7, 0x55, 0xf6, 0xb2, 0x8b, 0x05, 0x0d, 0xde, 0x92, 0xab, 0x7b, 0x01, 0xbe, 0x25, 0x77,
+	0x97, 0xfa, 0x0c, 0xa3, 0xd6, 0x0d, 0xa6, 0xf3, 0x9b, 0x05, 0x17, 0x46, 0x73, 0x63, 0x89, 0xf7,
+	0xe0, 0x25, 0x53, 0xe5, 0xc0, 0xb9, 0x33, 0xcf, 0x53, 0x63, 0x9a, 0x4d, 0x6e, 0x67, 0x28, 0x5e,
+	0x9f, 0xaa, 0x58, 0x6b, 0x49, 0x49, 0xbe, 0x07, 0xaf, 0x29, 0xc5, 0x9f, 0xe9, 0x5e, 0x72, 0x97,
+	0xf5, 0xa3, 0xd3, 0x1c, 0xf3, 0xa7, 0x78, 0x6d, 0x52, 0xe1, 0x92, 0x47, 0x7f, 0x76, 0x9f, 0xf5,
+	0xe3, 0xca, 0xd7, 0x32, 0x2b, 0x1f, 0xf2, 0xb0, 0x6e, 0x45, 0x71, 0x6a, 0x78, 0xa6, 0x75, 0xe6,
+	0xf7, 0xda, 0x54, 0x8a, 0xe9, 0x67, 0xea, 0xfc, 0x1c, 0x9f, 0x85, 0xc1, 0x41, 0x21, 0x0f, 0x60,
+	0x85, 0x76, 0xbb, 0x82, 0x07, 0xb2, 0xc3, 0x02, 0x89, 0xb7, 0xed, 0x5a, 0xa6, 0x9e, 0x84, 0xbc,
+	0x3d, 0x24, 0xa0, 0x32, 0x33, 0x06, 0xb9, 0x09, 0x67, 0xf6, 0x59, 0x1f, 0x0f, 0x62, 0xc6, 0xd2,
+	0x06, 0x0c, 0xe7, 0x42, 0xdc, 0x10, 0x7a, 0x2d, 0x2e, 0x45, 0x98, 0x34, 0xce, 0x06, 0x56, 0x3c,
+	0x5c, 0x47, 0xf1, 0x77, 0x60, 0x89, 0xe2, 0x1a, 0x3a, 0xb9, 0x9e, 0xdd, 0x2c, 0x34, 0xe8, 0xfd,
+	0x40, 0x72, 0xd9, 0x66, 0x86, 0xee, 0x84, 0xee, 0x7c, 0x67, 0x01, 0x19, 0x87, 0x91, 0xf7, 0x60,
+	0xc1, 0x0f, 0x69, 0x62, 0xcc, 0xe5, 0xbc, 0xf0, 0xb7, 0x07, 0xc0, 0xb8, 0x25, 0x29, 0xd6, 0x0b,
+	0x5b, 0xb1, 0xf5, 0x1f, 0xc0, 0x82, 0xaa, 0x99, 0x7c, 0x63, 0xc1, 0xa2, 0x6e, 0xfe, 0x24, 0xbb,
+	0xb8, 0xf1, 0x49, 0x63, 0x57, 0xa6, 0x03, 0xb5, 0x83, 0x4e, 0xf5, 0xeb, 0x3f, 0xff, 0xfd, 0x61,
+	0xfe, 0x0a, 0x71, 0xbc, 0x3e, 0xed, 0xd0, 0x36, 0xf3, 0x26, 0x4f, 0x5f, 0xf2, 0xad, 0x05, 0x0b,
+	0xaa, 0xed, 0x92, 0xf2, 0xe4, 0xf8, 0xe6, 0x28, 0xb2, 0xd7, 0xa7, 0xe2, 0x50, 0x86, 0xab, 0x64,
+	0x54, 0x48, 0x39, 0x4f, 0x86, 0xfe, 0x71, 0xc8, 0x5b, 0x47, 0xe4, 0x47, 0x0b, 0x0a, 0x38, 0x36,
+	0x48, 0x65, 0x4a, 0x92, 0x64, 0x48, 0xd9, 0xd7, 0x66, 0x40, 0xa2, 0xa0, 0x1b, 0x4a, 0xd0, 0x26,
+	0x71, 0xa7, 0x0a, 0xda, 0x13, 0x0f, 0xbd, 0x43, 0x7c, 0xf2, 0x47, 0xe4, 0x89, 0x05, 0x05, 0x1c,
+	0x2c, 0x79, 0xc2, 0xd2, 0x23, 0x2a, 0x4f, 0xd8, 0xc8, 0x94, 0x72, 0x36, 0x95, 0xb0, 0x2a, 0xa9,
+	0xe4, 0x09, 0xc3, 0xc1, 0xa5, 0xbd, 0xfa, 0xd5, 0x82, 0x73, 0x66, 0x13, 0x25, 0x1b, 0x93, 0xb3,
+	0x65, 0x4c, 0x38, 0xdb, 0x9d, 0x15, 0x8e, 0x0a, 0xdf, 0x55, 0x0a, 0xdf, 0x21, 0x5b, 0x79, 0x0a,
+	0xcd, 0x0e, 0x6e, 0xd8, 0xf7, 0x93, 0x05, 0xcb, 0xc9, 0xbc, 0x20, 0xd5, 0x9c, 0x6b, 0x3c, 0x32,
+	0xd0, 0xec, 0xb7, 0x66, 0xc2, 0xa2, 0xc4, 0x9b, 0x4a, 0x62, 0x8d, 0x78, 0xb9, 0xb7, 0x3e, 0xa6,
+	0x79, 0x87, 0xd8, 0x47, 0x8f, 0xc8, 0x2f, 0x16, 0xac, 0x18, 0xed, 0x9c, 0x5c, 0x9f, 0x9c, 0x75,
+	0x7c, 0x88, 0xd8, 0x1b, 0x33, 0xa2, 0x9f, 0xc7, 0x48, 0xe3, 0x7f, 0x6f, 0x34, 0x62, 0x64, 0xd2,
+	0xaf, 0xf3, 0x8c, 0x1c, 0x9d, 0x22, 0x79, 0x46, 0x8e, 0x4d, 0x8f, 0xd9, 0x8c, 0x0c, 0x63, 0x9a,
+	0x61, 0xe4, 0xf7, 0x16, 0x2c, 0xc5, 0xed, 0x9c, 0xe4, 0xbd, 0xcb, 0xf4, 0x28, 0xb0, 0xab, 0xb3,
+	0x40, 0x51, 0xdc, 0x75, 0x25, 0xae, 0x4c, 0xae, 0xe4, 0xbe, 0x61, 0x64, 0xed, 0xdc, 0x7a, 0x7a,
+	0x5c, 0xb2, 0x9e, 0x1d, 0x97, 0xac, 0x7f, 0x8e, 0x4b, 0xd6, 0x93, 0x93, 0xd2, 0xdc, 0xb3, 0x93,
+	0xd2, 0xdc, 0x5f, 0x27, 0xa5, 0xb9, 0xcf, 0xd7, 0xc6, 0xe9, 0x5f, 0x61, 0x00, 0xd9, 0xef, 0xb2,
+	0xa8, 0xb1, 0xa8, 0xfe, 0xf5, 0xbf, 0xfd, 0x7f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x8d, 0x69, 0x67,
+	0x3f, 0x3a, 0x0d, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -689,6 +1048,28 @@ type QueryClient interface {
 	// country — a supervisory fact, and the reason the endpoint exists — and
 	// gives no shortcut to the alias directory that is withheld above.
 	Perimeter(ctx context.Context, in *QueryPerimeterRequest, opts ...grpc.CallOption) (*QueryPerimeterResponse, error)
+	// ViewingKeys returns every version of one account's viewing key, newest
+	// first.
+	//
+	// Every version, not just the live one, because a payload encrypted last year
+	// is wrapped to the key that was live last year. A client that could only
+	// fetch the current key would report an old but perfectly readable payment as
+	// undecryptable, which is the failure the version field exists to prevent.
+	ViewingKeys(ctx context.Context, in *QueryViewingKeysRequest, opts ...grpc.CallOption) (*QueryViewingKeysResponse, error)
+	// Regulator returns the authority appointed over one country, with its
+	// current viewing key.
+	//
+	// Both in one response because the sender needs both and asking separately
+	// invites the half-answer: an appointment resolved, a key not fetched, and an
+	// envelope built without the regulator on it that looks complete.
+	Regulator(ctx context.Context, in *QueryRegulatorRequest, opts ...grpc.CallOption) (*QueryRegulatorResponse, error)
+	// Auditors lists the grants that have not expired, with their current keys.
+	//
+	// A list endpoint in a module that avoids them, and it is the right call
+	// here: who may read across accounts is a fact the people being read about
+	// are entitled to see, and a sender cannot build a correct envelope without
+	// the whole set.
+	Auditors(ctx context.Context, in *QueryAuditorsRequest, opts ...grpc.CallOption) (*QueryAuditorsResponse, error)
 }
 
 type queryClient struct {
@@ -753,6 +1134,33 @@ func (c *queryClient) Perimeter(ctx context.Context, in *QueryPerimeterRequest, 
 	return out, nil
 }
 
+func (c *queryClient) ViewingKeys(ctx context.Context, in *QueryViewingKeysRequest, opts ...grpc.CallOption) (*QueryViewingKeysResponse, error) {
+	out := new(QueryViewingKeysResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Query/ViewingKeys", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) Regulator(ctx context.Context, in *QueryRegulatorRequest, opts ...grpc.CallOption) (*QueryRegulatorResponse, error) {
+	out := new(QueryRegulatorResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Query/Regulator", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) Auditors(ctx context.Context, in *QueryAuditorsRequest, opts ...grpc.CallOption) (*QueryAuditorsResponse, error) {
+	out := new(QueryAuditorsResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.alias.v1.Query/Auditors", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 type QueryServer interface {
 	// Params returns the module parameters.
@@ -778,6 +1186,28 @@ type QueryServer interface {
 	// country — a supervisory fact, and the reason the endpoint exists — and
 	// gives no shortcut to the alias directory that is withheld above.
 	Perimeter(context.Context, *QueryPerimeterRequest) (*QueryPerimeterResponse, error)
+	// ViewingKeys returns every version of one account's viewing key, newest
+	// first.
+	//
+	// Every version, not just the live one, because a payload encrypted last year
+	// is wrapped to the key that was live last year. A client that could only
+	// fetch the current key would report an old but perfectly readable payment as
+	// undecryptable, which is the failure the version field exists to prevent.
+	ViewingKeys(context.Context, *QueryViewingKeysRequest) (*QueryViewingKeysResponse, error)
+	// Regulator returns the authority appointed over one country, with its
+	// current viewing key.
+	//
+	// Both in one response because the sender needs both and asking separately
+	// invites the half-answer: an appointment resolved, a key not fetched, and an
+	// envelope built without the regulator on it that looks complete.
+	Regulator(context.Context, *QueryRegulatorRequest) (*QueryRegulatorResponse, error)
+	// Auditors lists the grants that have not expired, with their current keys.
+	//
+	// A list endpoint in a module that avoids them, and it is the right call
+	// here: who may read across accounts is a fact the people being read about
+	// are entitled to see, and a sender cannot build a correct envelope without
+	// the whole set.
+	Auditors(context.Context, *QueryAuditorsRequest) (*QueryAuditorsResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -801,6 +1231,15 @@ func (*UnimplementedQueryServer) Jurisdiction(ctx context.Context, req *QueryJur
 }
 func (*UnimplementedQueryServer) Perimeter(ctx context.Context, req *QueryPerimeterRequest) (*QueryPerimeterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Perimeter not implemented")
+}
+func (*UnimplementedQueryServer) ViewingKeys(ctx context.Context, req *QueryViewingKeysRequest) (*QueryViewingKeysResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewingKeys not implemented")
+}
+func (*UnimplementedQueryServer) Regulator(ctx context.Context, req *QueryRegulatorRequest) (*QueryRegulatorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Regulator not implemented")
+}
+func (*UnimplementedQueryServer) Auditors(ctx context.Context, req *QueryAuditorsRequest) (*QueryAuditorsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Auditors not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -915,6 +1354,60 @@ func _Query_Perimeter_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_ViewingKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryViewingKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ViewingKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Query/ViewingKeys",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ViewingKeys(ctx, req.(*QueryViewingKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_Regulator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRegulatorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Regulator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Query/Regulator",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Regulator(ctx, req.(*QueryRegulatorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_Auditors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAuditorsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Auditors(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.alias.v1.Query/Auditors",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Auditors(ctx, req.(*QueryAuditorsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Query_serviceDesc = _Query_serviceDesc
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "blockchain.alias.v1.Query",
@@ -943,6 +1436,18 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Perimeter",
 			Handler:    _Query_Perimeter_Handler,
+		},
+		{
+			MethodName: "ViewingKeys",
+			Handler:    _Query_ViewingKeys_Handler,
+		},
+		{
+			MethodName: "Regulator",
+			Handler:    _Query_Regulator_Handler,
+		},
+		{
+			MethodName: "Auditors",
+			Handler:    _Query_Auditors_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1348,6 +1853,249 @@ func (m *QueryPerimeterResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
+func (m *QueryViewingKeysRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryViewingKeysRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryViewingKeysRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryViewingKeysResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryViewingKeysResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryViewingKeysResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Keys) > 0 {
+		for iNdEx := len(m.Keys) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Keys[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryRegulatorRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryRegulatorRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryRegulatorRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Country) > 0 {
+		i -= len(m.Country)
+		copy(dAtA[i:], m.Country)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.Country)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryRegulatorResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryRegulatorResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryRegulatorResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Key.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintQuery(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Appointment.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintQuery(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAuditorsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAuditorsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAuditorsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAuditorsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAuditorsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAuditorsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Auditors) > 0 {
+		for iNdEx := len(m.Auditors) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Auditors[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AuditorEntitlement) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuditorEntitlement) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuditorEntitlement) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Key.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintQuery(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	{
+		size, err := m.Grant.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintQuery(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	offset -= sovQuery(v)
 	base := offset
@@ -1509,6 +2257,97 @@ func (m *QueryPerimeterResponse) Size() (n int) {
 		l = m.Pagination.Size()
 		n += 1 + l + sovQuery(uint64(l))
 	}
+	return n
+}
+
+func (m *QueryViewingKeysRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryViewingKeysResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Keys) > 0 {
+		for _, e := range m.Keys {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *QueryRegulatorRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Country)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryRegulatorResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Appointment.Size()
+	n += 1 + l + sovQuery(uint64(l))
+	l = m.Key.Size()
+	n += 1 + l + sovQuery(uint64(l))
+	return n
+}
+
+func (m *QueryAuditorsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *QueryAuditorsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Auditors) > 0 {
+		for _, e := range m.Auditors {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *AuditorEntitlement) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Grant.Size()
+	n += 1 + l + sovQuery(uint64(l))
+	l = m.Key.Size()
+	n += 1 + l + sovQuery(uint64(l))
 	return n
 }
 
@@ -2512,6 +3351,620 @@ func (m *QueryPerimeterResponse) Unmarshal(dAtA []byte) error {
 				m.Pagination = &query.PageResponse{}
 			}
 			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryViewingKeysRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryViewingKeysRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryViewingKeysRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryViewingKeysResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryViewingKeysResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryViewingKeysResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Keys", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Keys = append(m.Keys, ViewingKey{})
+			if err := m.Keys[len(m.Keys)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryRegulatorRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryRegulatorRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryRegulatorRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Country", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Country = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryRegulatorResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryRegulatorResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryRegulatorResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Appointment", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Appointment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Key.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAuditorsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAuditorsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAuditorsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAuditorsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAuditorsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAuditorsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Auditors", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Auditors = append(m.Auditors, AuditorEntitlement{})
+			if err := m.Auditors[len(m.Auditors)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AuditorEntitlement) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuditorEntitlement: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuditorEntitlement: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Grant", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Grant.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Key.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
