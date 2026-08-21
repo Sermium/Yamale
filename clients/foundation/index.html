@@ -183,7 +183,7 @@ import {
   // building one
   swapPlan, toBaseUnits, tooLong,
   // formatting
-  formatCoin, groupDigits, relativeTime, short, stalledAtHeight, timestampSeconds,
+  formatCoin, groupDigits, relativeTime, shellSafe, short, stalledAtHeight, timestampSeconds,
   // commands
   currentChainId, execCommand, proposalDocument, setChainId, spendMessage, submitCommand,
   swapMessage, voteCommand,
@@ -487,7 +487,7 @@ function copyable(id, text, note) {
 function wireCopies() {
   document.querySelectorAll('[data-copy]').forEach((b) => {
     b.onclick = async () => {
-      const text = document.getElementById(b.dataset.copy)?.textContent ?? '';
+      const text = shellSafe(document.getElementById(b.dataset.copy)?.textContent);
       try {
         await navigator.clipboard.writeText(text);
         b.textContent = 'copied';

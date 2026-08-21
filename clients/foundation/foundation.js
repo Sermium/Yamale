@@ -1087,3 +1087,18 @@ export function stalledAtHeight(body) {
   const height = Number(m[1]);
   return Number.isSafeInteger(height) && height > 0 ? height : null;
 }
+
+/**
+ * A composed command, with carriage returns removed.
+ *
+ * Belt and braces over the `eol=lf` pin in .gitattributes. Every command on this
+ * page is built from a template literal in a source file, so the file's own line
+ * endings end up inside the text a custodian copies — and a CRLF pasted into a
+ * shell gives `$'\r': command not found`, an error that names neither the cause
+ * nor the file. The page is served from more than one host and edited on
+ * Windows, so the guarantee is worth making here rather than assuming it
+ * upstream.
+ */
+export function shellSafe(text) {
+  return String(text ?? '').replace(/\r/g, '');
+}

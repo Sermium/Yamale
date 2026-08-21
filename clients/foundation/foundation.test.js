@@ -16,6 +16,7 @@ import {
   parseExecutions,
   parseSubmissions,
   setChainId,
+  shellSafe,
   stalledAtHeight,
   staleAgainstGroup,
   toBaseUnits,
@@ -923,4 +924,17 @@ test('stalledAtHeight refuses height zero', () => {
   // "latest" — which is the request that just failed. Retrying it is a loop.
   const fresh = STALLED.replace('(2733)', '(0)');
   assert.equal(stalledAtHeight(fresh), null);
+});
+
+test('a copied command carries no carriage returns', () => {
+  // Built from character codes rather than escapes, so this test means the
+  // same thing whatever this file's own line endings are — which is exactly
+  // the point: the bug is that a source file's endings leak into the command
+  // text a custodian copies.
+  const CR = String.fromCharCode(13);
+  const NL = String.fromCharCode(10);
+  assert.equal(shellSafe('one' + CR + NL + 'two'), 'one' + NL + 'two');
+  assert.equal(shellSafe('no returns here'), 'no returns here');
+  assert.equal(shellSafe(null), '');
+  assert.ok(!shellSafe('a' + CR + 'b').includes(CR), 'no carriage return survives');
 });

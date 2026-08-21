@@ -40,3 +40,11 @@ clients/site/docs/**  text eol=lf
 # `#!/bin/bash\r` is not an interpreter anything can find, and the error names
 # the script rather than the line ending.
 *.sh                 text eol=lf
+
+# The foundation console. Same reasoning as *.sh, one step removed: this page's
+# output *is* shell commands, composed from template literals in its own source,
+# and a custodian copies them into a terminal. A CRLF checkout puts a carriage
+# return inside every composed command, and pasting that gives
+# `$'\r': command not found` — an error that names nothing useful and appears
+# only for the person whose machine served the page.
+clients/foundation/**  text eol=lf
