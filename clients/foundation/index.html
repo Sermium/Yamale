@@ -1318,11 +1318,25 @@ async function route() {
 window.addEventListener('hashchange', route);
 route();
 
-// Refreshed rather than polled aggressively: a custodian leaves this open, and
-// the facts that matter here change on the scale of days.
+// Polled slowly, and not at all when nobody is looking.
+//
+// A custodian leaves this open for a week, and almost nothing here changes
+// faster than that: the voting period is seven days. The proposals screen costs
+// three transaction searches per refresh to rebuild the executed-proposal
+// history, and the node serving it may be a Raspberry Pi with under two
+// gigabytes of memory — so a tab left open in the background should not spend
+// that all day. The propose screen never refreshes, because reloading it would
+// discard a half-typed proposal.
 setInterval(() => {
-  if (!location.hash.startsWith('#/propose')) route();
-}, 30000);
+  if (document.hidden) return;
+  if (location.hash.startsWith('#/propose')) return;
+  route();
+}, 60000);
+
+// Catching up the moment somebody looks, so the slow poll is not felt.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !location.hash.startsWith('#/propose')) route();
+});
 </script>
 </body>
 </html>
