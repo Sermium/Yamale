@@ -9,7 +9,8 @@
     "explorer",
     "safe",
     "wallet",
-    "app"
+    "app",
+    "ceremony"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

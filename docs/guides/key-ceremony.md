@@ -61,6 +61,43 @@ printed in the record, and written into a genesis file everybody has. It has to
 be: it is where seizures go, and an address nobody can check is an address
 nobody can hold you to.
 
+## Two ways to run it, and which is stronger
+
+There are two, and they are not equivalent. Everything from **Roles** onwards
+describes the air-gapped one, which is the ceremony. The hosted one is
+[at the end](#the-hosted-ceremony) and it exists for a reason that is about
+logistics rather than security.
+
+|                          | Air-gapped (`ceremony serve`, or the terminal) | Hosted (`ceremony host`)                          |
+| ------------------------ | ---------------------------------------------- | ------------------------------------------------- |
+| Where the key is made    | On a wiped machine with no network             | In the custodian's own browser                    |
+| Who could see a phrase   | Nobody outside the room                        | Nobody — but you are trusting the served code      |
+| What you must trust      | The binary, whose hash the observer checks     | The binary **and** the bundle it serves            |
+| Memory after the fact    | Machine powered off and wiped                  | A browser tab, on a device you do not control      |
+| Who has to be present    | Everybody, in one room                         | Nobody, anywhere                                  |
+
+**The air-gapped path is stronger, and the difference is not a formality.** It
+is the only one where the code generating the key cannot have been substituted
+between the review and the ceremony: the binary is carried across on removable
+media and the observer hashes it on the machine it will run on. In the hosted
+path the custodian receives the code over the network at the moment they use it,
+and a coordinator who served a different page could take every phrase. The page
+shows the digest of the bundle it served and the browser's own measurement of
+the script it loaded, so an alteration that did not also alter the manifest is
+caught — but a coordinator who changed both would not be, and no arrangement of
+a web page can fix that.
+
+**Use the hosted path for a rehearsal**, and for the case where the alternative
+is not "a room" but "no ceremony at all". Use the air-gapped path for the keys
+that will hold value.
+
+What the hosted path does **not** concede is the thing that would make it
+pointless. The seed is generated in the custodian's browser and never
+transmitted; the coordinator relays public keys and signatures. If the
+coordinator generated the phrases and sent them down the links, one machine would
+again have held every key to the account that receives every seized asset —
+which is the single key this whole document exists to abolish, with extra steps.
+
 ---
 
 ## Roles
@@ -497,6 +534,141 @@ a four-fifths ratification by the validator set. See
 [what governance can and cannot change](constitution.md). That is deliberately
 much harder than a group vote, because the custodians should not be able to
 rewrite the rule that constrains them.
+
+---
+
+## The hosted ceremony
+
+Five custodians on five devices, in five places, each reaching the ceremony by a
+link. Read [Two ways to run it](#two-ways-to-run-it-and-which-is-stronger) first:
+this is the weaker of the two and it is the right choice for a rehearsal.
+
+### Start it
+
+```bash
+go build -o ceremony ./tools/ceremony
+./ceremony host --public-url https://pay.yamalelegal.com/ceremony/
+```
+
+That is the only command anybody types. Everything else is a page.
+
+It binds `127.0.0.1:8787` and refuses anything else — there is no flag that
+allows a wildcard bind and no fallback that would do it quietly, because a
+signing service in this project once bound `0.0.0.0` while its credential gate
+sat on another host and accepted unauthenticated requests for days. Put nginx in
+front of it, on the certificate that already exists:
+
+```nginx
+location /ceremony/ {
+    proxy_pass http://127.0.0.1:8787/ceremony/;
+    proxy_set_header Host $host;
+}
+```
+
+No new DNS and no new certificate. `--public-url` must be `https` for anything
+but loopback: the browser generates the key from the code that URL serves, so
+anything able to rewrite the response owns every key in the ceremony.
+
+On startup it prints two things. The **bundle SHA-256**, which is the digest a
+custodian sees in the page and can compare against the value published below.
+And the **coordinator link**, which is the ceremony: anyone holding it can issue
+invitations, so it is not a link to paste into a group chat.
+
+### What the coordinator does
+
+Four screens, in the order the hour happens in.
+
+1. **Set it up.** The roster of names, the threshold, the chain id, the voting
+   window. Not flags. These are covered by the parameters fingerprint every
+   custodian sees before they generate anything, and they cannot change once
+   somebody has submitted.
+2. **Hand out the links.** One per custodian, each with a copy button and a **QR
+   code** — custodians will be on phones, and nobody types a URL with a
+   256-bit token in it correctly.
+3. **Watch.** A board naming who has reached which step: invited, opened,
+   generated, submitted, attested. The first three are the page's own word for
+   it and the board says so; the last two are backed by a signature this process
+   verified. It names who you are waiting for rather than showing a spinner,
+   because a relay withholding one submission is only visible if the interface
+   says which one is missing.
+4. **Read the group out**, and render the record. The fingerprint, the policy
+   address and the genesis fragment, each with a copy action.
+
+### What a custodian does
+
+One continuous flow, with no step where they leave the page: open the link →
+what this is → generate → the twenty-four words, once → confirm written down,
+words removed from the page → read four back including the last → their address
+and fingerprint → wait, with live progress naming who is outstanding → the group
+fingerprint their own device computed → check their own address is in it → sign.
+
+Three things about it are worth knowing before you run one.
+
+**The words appear once and cannot be reissued.** Nothing on the coordinator's
+side ever held them, so there is nothing to show again. A custodian who closes
+the tab before the words appear has lost nothing. One who closes it after has
+lost that key: the coordinator presses **Reissue this link**, which revokes the
+old link and says on screen what it costs, the custodian destroys the sheet they
+started, and they generate again. If they still have the words on paper they do
+not need any of that — the page asks for them and carries on, which is a second
+check on the sheet as it now stands.
+
+**A link speaks for one custodian.** The name on a submission comes from the
+token, never from the request, so a link that leaked cannot put a stranger's
+address into the group under a custodian's name. Once a key is recorded for a
+name, a different key for that name is refused outright.
+
+**The page will not let a custodian attest to a group their own key is not in.**
+That check exists because the room used to do it: five people watching one screen
+saw the same five fingerprints. Alone on a phone they cannot, so it is a refusal
+rather than a warning.
+
+### What the coordinator cannot do
+
+It cannot see a phrase, and this is arranged rather than intended:
+
+- Every request body is decoded with `DisallowUnknownFields`, so a body carrying
+  a `phrase` field is a 400 rather than a field the server ignores. A modified
+  page could not post one here even deliberately.
+- No request type in the server has a field that could hold seed material, and a
+  test drives **every** route with a phrase in the body to prove it, iterating
+  the route table so a route added later is covered without anybody remembering.
+- The page's `Content-Security-Policy` pins `connect-src 'self'`, so even an
+  altered page could not POST anywhere else, and `script-src 'self'` with no
+  `'unsafe-inline'`.
+- The page stores nothing — no `localStorage`, `sessionStorage`, IndexedDB or
+  cookies, not even a theme — asserted against the built bundle rather than
+  assumed, so a dependency that reached for storage would fail the build's tests.
+  Custodians are told to open the link in a private window; a web page cannot
+  force that, so the response is to leave nothing behind worth hiding.
+
+### The bundle digest
+
+The page a custodian runs is committed at `tools/ceremony/hosted/`, unminified so
+it can be read, and embedded in the binary so one file is everything a
+coordinator needs. Rebuild it with:
+
+```bash
+cd clients && npm install && npm run build --workspace @yamale/ceremony
+```
+
+`ceremony host` prints the digest of what it will serve, and the page shows both
+that value and the browser's own measurement of the script it loaded. Comparing
+the printed digest against a published one is what proves the code generating the
+keys is the code that was reviewed. Publish it with the ceremony announcement —
+the digest of the reviewed build belongs somewhere the coordinator does not
+control, which is the only place it means anything.
+
+### What the two paths share
+
+Everything that matters is the same code. The addresses, the possession
+signatures, the group, the genesis fragment and the fingerprint five people read
+aloud are produced by `tools/ceremony` on one side and `clients/ceremony` on the
+other, and the two are held to byte-for-byte agreement by
+`testdata/vectors/ceremony.json`, which both test suites read. Editing that file
+turns both red. A browser that derived even slightly differently would hand five
+custodians addresses that look right and control nothing, and nobody would find
+out until a seizure arrived at an account no three people could open.
 
 ---
 

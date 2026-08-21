@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    // Plain TypeScript, no framework. This bundle is served to a custodian who
+    // is about to see twenty-four words they will hold for years, and the
+    // honesty note on the page invites them to read it: every dependency is one
+    // more file somebody checking the bundle hash has to account for.
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "vite.config.ts"]
+}
