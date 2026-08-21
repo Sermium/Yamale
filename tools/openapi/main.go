@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -87,6 +88,20 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
+
+		// Proto comments end up verbatim inside description strings, so a
+		// checkout with CRLF endings produces a spec that differs from an LF one
+		// by nothing but invisible characters — and openapi-check, which is a
+		// git diff over this file, then reports drift that is not there. Seen on
+		// Windows, where it cost a diagnosis before anyone suspected the
+		// generator. Normalised here rather than in each proto, because the next
+		// checkout would undo that.
+		// Two forms of the same thing: a real carriage return in the file, and
+		// the escaped two-character form the swagger generator writes inside a
+		// description string. The escaped one is what actually occurs, and it is
+		// invisible in a diff viewer.
+		raw = bytes.ReplaceAll(raw, []byte{0x0d, 0x0a}, []byte{0x0a})
+		raw = bytes.ReplaceAll(raw, []byte{0x5c, 0x72, 0x5c, 0x6e}, []byte{0x5c, 0x6e})
 
 		var doc document
 		if err := json.Unmarshal(raw, &doc); err != nil {
