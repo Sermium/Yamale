@@ -36,6 +36,30 @@ G=$HOME_DIR/config/genesis.json
 # key and any gentx a joining validator has already sent back.
 if [ "${PHASE:-all}" != "finalise" ]; then
 
+# Refuse to run while the chain is up, and say why.
+#
+# `rm -rf` on a running node's home does not stop it. Linux keeps a process's
+# open handles after the directory is unlinked, so the old chain carries on
+# writing, `systemctl start` afterwards is a no-op because the unit is already
+# active, and the new genesis is never read — a genesis file is only consulted at
+# height zero. The symptom is a chain that reports the new chain id and the old
+# state: this cost a launch where block 1 was seven hours older than the genesis
+# that supposedly produced it, and both were internally consistent.
+#
+# Checked rather than stopped automatically. Stopping somebody's chain because a
+# script wanted a clean directory is not a decision a script should take.
+for unit in yamale-devnet yamale-faucet; do
+  if systemctl is-active --quiet "$unit" 2>/dev/null; then
+    echo "error: $unit is running. Stop it before rebuilding the genesis:" >&2
+    echo "         sudo systemctl stop yamale-devnet yamale-faucet" >&2
+    echo >&2
+    echo "       Deleting the home under a running node does not reset it — the process" >&2
+    echo "       keeps its open files and the new genesis is never read." >&2
+    exit 1
+  fi
+done
+
+
 rm -rf "$HOME_DIR"
 
 echo "=== init ==="

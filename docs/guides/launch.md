@@ -255,6 +255,15 @@ foundation keys live unencrypted in a `test` keyring and are regenerated on ever
 reset, which is what they are for. What controls the chain — the foundation group,
 the validator's operator key — gets a ceremony. Do not let the two meet.
 
+**Stop the chain before rebuilding its genesis.** `rm -rf` on a running node's
+home does not stop it: Linux keeps the process's open handles after the
+directory is unlinked, so the old chain carries on, `systemctl start` afterwards
+is a no-op because the unit is already active, and the new genesis is never read
+— a genesis is only consulted at height zero. The symptom is a chain reporting
+the new chain id and the old state, both internally consistent. If you find
+yourself there, `blockchaind comet unsafe-reset-all` clears the data and keeps
+the config and keys. The script now refuses to run while the unit is up.
+
 **The node home is owned by whoever ran the script.** Running the init under
 `sudo` leaves it root-owned while the service runs as an unprivileged user, and
 the node then dies on `client.toml: permission denied` — which names a file
