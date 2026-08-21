@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Foundation custodians</title>
+<!--
+  The console for the foundation: the 3-of-5 x/group account that is the
+  recovery destination for every seizure on this chain.
+
+  Until this page existed the most consequential account on the network could
+  only be operated by hand-assembling protobuf JSON at a command line, which in
+  practice means it would not have been operated at all. "The foundation cannot
+  actually spend" is the worst thing to find out after a deployment, and the
+  second worst is finding out that it can, but that nobody could tell what they
+  were approving.
+
+  Three decisions shape everything below.
+
+  ONE. It does not sign. Commands are composed here and run where the key is.
+  That is the same choice the validator console and the land registry made, and
+  the reason is sharper here: the wallet's approval screen decodes a signing
+  request only as far as its message *type URLs* — it says so itself, in as many
+  words — so it cannot show an amount, a recipient or a proposal id. Signing in
+  the browser would mean this page hand-rolling protobuf encoding with no build
+  step, and a mistake in that encoding would be checked by nothing: the page
+  would say "pay 5,000 YML to Amara" and the wallet would say
+  "/cosmos.group.v1.MsgSubmitProposal", and a custodian approving the second on
+  the strength of the first has verified nothing at all. A CLI command is parsed
+  by the binary that owns the message, in front of the person who can still stop
+  it. See the note above the commands for what would have to change.
+
+  TWO. A proposal's effect is stated in words, and where it cannot be, the page
+  refuses to help rather than falling back to JSON. A custodian moving seized
+  property must not be reading a type URL to work out what they are agreeing to,
+  and an interface that prints the raw message and lets somebody vote yes on it
+  has done none of the work while appearing to.
+
+  THREE. Passing and executing are two states and are never merged. A proposal
+  that has been agreed and not carried out has moved nothing, and that is the
+  shape of the failure this page is most likely to be the only witness to:
+  everybody believes the money moved, and it is sitting still.
+
+  Read-only against /api/rest and /api/rpc. One file, no build step, no
+  dependencies — this page gets opened when something is wrong, often on a bad
+  connection, and a console that needs npm install first is a console that will
+  not be open when it matters.
+-->
+<style>
+  :root{
+    color-scheme:light dark;
+    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
+    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
+    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
+    --wash-ok:rgba(13,122,74,.10);--wash-warn:rgba(168,121,27,.12);
+    --wash-bad:rgba(176,42,37,.10);--wash-mute:rgba(92,110,136,.10);
+    --wash-brass:rgba(168,123,60,.12);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
+    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;
+    --wash-ok:rgba(111,191,165,.12);--wash-warn:rgba(210,166,94,.14);
+    --wash-bad:rgba(239,138,133,.13);--wash-mute:rgba(143,164,196,.12);
+    --wash-brass:rgba(196,152,86,.16);}}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
+         border-bottom:1px solid var(--border);flex-wrap:wrap}
+  h1{font-size:1rem;margin:0;font-weight:650}
+  h1 a{color:inherit;text-decoration:none}
+  nav{display:flex;gap:.1rem;flex-wrap:wrap;margin-inline-start:auto}
+  nav a{font-size:.82rem;color:var(--muted);text-decoration:none;padding:.3rem .6rem;
+        border-radius:8px}
+  nav a:hover{color:var(--text);background:var(--wash-mute)}
+  nav a[aria-current]{color:var(--text);background:var(--wash-mute);font-weight:600}
+  .wrap{max-width:1000px;margin:0 auto;padding:1.2rem}
+  h2{font-size:.95rem;margin:1.7rem 0 .6rem}
+  h2:first-child{margin-top:.2rem}
+  h3{font-size:.88rem;margin:0 0 .35rem}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+        padding:1rem;margin-bottom:.8rem}
+  /* The one state that costs money by looking finished. A passed proposal
+     nobody has executed gets a brass edge everywhere it appears. */
+  .card--waiting{border-inline-start:3px solid var(--brass);background:var(--wash-brass)}
+  .card--bad{border-inline-start:3px solid var(--bad)}
+  .card--ok{border-inline-start:3px solid var(--ok)}
+  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:.84rem}
+  .small{font-size:.78rem}
+  .lede{font-size:1.02rem;font-weight:600;margin:.1rem 0 .35rem}
+  .stat{font-size:1.5rem;font-weight:680;line-height:1.2;font-variant-numeric:tabular-nums}
+  .label{font-size:.72rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .pill{font-size:.7rem;font-weight:650;padding:.14rem .55rem;border-radius:999px;
+        letter-spacing:.03em;white-space:nowrap;display:inline-block}
+  .p-ok{background:var(--wash-ok);color:var(--ok)}
+  .p-warn{background:var(--wash-warn);color:var(--warn)}
+  .p-bad{background:var(--wash-bad);color:var(--bad)}
+  .p-mute{background:var(--wash-mute);color:var(--muted)}
+  .p-brass{background:var(--wash-brass);color:var(--brass)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
+  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.76rem;
+      background:var(--wash-mute);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
+      margin:.4rem 0;white-space:pre;border:1px solid var(--border)}
+  .err{background:var(--wash-bad);color:var(--bad);padding:.7rem .9rem;border-radius:10px;
+       font-size:.86rem;border:1px solid var(--bad);margin-bottom:.8rem}
+  .warnbox{background:var(--wash-warn);border:1px solid var(--warn);color:var(--text);
+           padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
+  .badbox{background:var(--wash-bad);border:1px solid var(--bad);color:var(--text);
+          padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
+  .empty{color:var(--muted);font-size:.86rem;padding:.6rem 0}
+  .vrow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem 0;
+        border-top:1px solid var(--border)}
+  .vrow:first-of-type{border-top:0}
+  .bar{height:8px;border-radius:99px;background:var(--wash-mute);overflow:hidden;margin:.55rem 0 .3rem;
+       display:flex}
+  .bar span{display:block;height:100%}
+  /* The threshold is a line on the bar, not a number beside it. Three of five is
+     a position you can see; "3" is a number you have to compare. */
+  .barwrap{position:relative}
+  .thresh{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55}
+  button{font:inherit}
+  .btn{font-size:.8rem;font-weight:600;padding:.4rem .8rem;border-radius:9px;cursor:pointer;
+       border:1px solid var(--border);background:var(--panel);color:var(--text)}
+  .btn:hover{border-color:var(--brass)}
+  .btn.ok{border-color:var(--ok);color:var(--ok)}
+  .btn.bad{border-color:var(--bad);color:var(--bad)}
+  .btn.primary{border-color:var(--brass);background:var(--wash-brass);color:var(--text)}
+  .copy{font-size:.74rem;padding:.28rem .6rem;border-radius:8px;cursor:pointer;
+        background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .copy:hover{border-color:var(--brass);color:var(--text)}
+  label{display:block;font-size:.8rem;margin:.6rem 0 .2rem;color:var(--muted)}
+  input,select,textarea{font:inherit;font-size:.88rem;padding:.5rem .6rem;border-radius:9px;
+        border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%}
+  textarea{min-height:3.4rem;resize:vertical}
+  .cmdhead{display:flex;justify-content:space-between;align-items:center;gap:.6rem;
+           margin-top:.7rem;flex-wrap:wrap}
+  details{margin-top:.5rem}
+  summary{cursor:pointer;font-size:.79rem;color:var(--muted)}
+  summary:hover{color:var(--text)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:.45rem .5rem;text-align:left;border-bottom:1px solid var(--border);font-size:.84rem}
+  th{font-size:.71rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  tr:last-child td{border-bottom:0}
+  .fp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:650;
+      letter-spacing:.06em;font-size:.84rem}
+  /* On a phone the verdict must arrive before the chrome. */
+  @media (max-width:560px){
+    header{padding:.65rem .8rem;gap:.45rem}
+    nav{margin-inline-start:0;width:100%;gap:0}
+    nav a{padding:.22rem .45rem;font-size:.78rem}
+    .wrap{padding:.9rem .8rem}
+    .stat{font-size:1.3rem}
+    pre{font-size:.7rem}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
+  <h1><a href="#/">Foundation custodians</a></h1>
+  <nav id="nav"></nav>
+  <span class="muted small" id="who"></span>
+  <span class="muted small" id="clock"></span>
+</header>
+
+<div class="wrap">
+  <div id="banner"></div>
+  <div id="view"></div>
+</div>
+
+<script type="module">
+import {
+  MAX_METADATA_LEN,
+  // reading the group
+  auditGroup, toCustodians,
+  // judging a proposal
+  describeProposal, displayLabel, executability, proposalState, staleAgainstGroup, tally,
+  // the history x/group deletes
+  carriedOut, parseExecutions, parseSubmissions,
+  // building one
+  swapPlan, toBaseUnits, tooLong,
+  // formatting
+  formatCoin, groupDigits, relativeTime, short, stalledAtHeight, timestampSeconds,
+  // commands
+  currentChainId, execCommand, proposalDocument, setChainId, spendMessage, submitCommand,
+  swapMessage, voteCommand,
+} from './foundation.js';
+
+const REST = '/api/rest';
+const RPC = '/api/rpc';
+
+const view = document.getElementById('view');
+const banner = document.getElementById('banner');
+
+/** Which custodian this page is acting as. `?as=chris3`, matched on their name. */
+const ME = new URLSearchParams(location.search).get('as');
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * A failed call, carrying the URL and the status.
+ *
+ * Both, always. "Could not read the chain" at three in the morning is worse than
+ * useless, and a 401 in particular has one cause here and one fix — see the
+ * banner text — so it is worth telling apart from a node that is down.
+ */
+class CallFailed extends Error {
+  constructor(url, status) {
+    super(`${url} → ${status}`);
+    this.url = url;
+    this.status = status;
+  }
+}
+
+/**
+ * The height every read is pinned to, once the chain is found to have stopped.
+ *
+ * Null normally, and reset on every route so it heals itself the moment blocks
+ * resume — a console still showing Tuesday's state on Thursday because it never
+ * un-pinned would be worse than one that admitted it could not read anything.
+ */
+let pinnedHeight = null;
+
+/** The last block the node has, from the RPC, which answers while halted. */
+let lastBlock = { height: null, time: null };
+
+async function get(url) {
+  const send = (height) => fetch(url, height
+    ? { headers: { 'x-cosmos-block-height': String(height) } }
+    : undefined);
+
+  let res;
+  try {
+    res = await send(pinnedHeight);
+  } catch (e) {
+    throw new CallFailed(url, 'unreachable');
+  }
+  if (res.ok) return res.json();
+
+  // A node with no finalised block refuses every query rather than serving
+  // stale state, and names the height it is stuck at in the refusal. Ask for
+  // that height explicitly and the same query answers perfectly. This is what
+  // keeps the page readable during exactly the outage that makes somebody open
+  // it.
+  const stalled = stalledAtHeight(await res.text().catch(() => ''));
+  if (stalled && stalled !== pinnedHeight) {
+    pinnedHeight = stalled;
+    try {
+      res = await send(pinnedHeight);
+    } catch {
+      throw new CallFailed(url, 'unreachable');
+    }
+    if (res.ok) return res.json();
+  }
+  throw new CallFailed(url, res.status);
+}
+
+/**
+ * Said on every screen while the chain is stopped, because every figure below it
+ * is historical and none of them look it.
+ */
+function stallBanner() {
+  if (!pinnedHeight) return '';
+  const wall = Math.floor(Date.now() / 1000);
+  const since = lastBlock.time ? ` — the last one was ${esc(relativeTime(lastBlock.time - wall))}` : '';
+  return `<p class="warnbox"><strong>This chain has stopped producing blocks${since}.</strong><br>
+    Everything below is the state at height ${esc(String(pinnedHeight))}, read by asking the node
+    for that height explicitly, which is the only thing a halted node will answer. It is accurate
+    and it is not current. A proposal can still be signed, and it will not commit until the chain
+    moves again — so a vote cast now is a vote nobody has cast yet.</p>`;
+}
+
+/** Optional reads: a missing extra should not blank a page that has the essentials. */
+const maybe = (p, fallback) => p.catch(() => fallback);
+
+// ------------------------------------------------------------------ chrome
+
+const TABS = [
+  ['#/', 'The foundation'],
+  ['#/proposals', 'Proposals'],
+  ['#/propose', 'Propose'],
+];
+
+function renderNav(path) {
+  document.getElementById('nav').innerHTML = TABS.map(([h, label]) => {
+    const on = h === path || (h === '#/proposals' && path.startsWith('#/proposal/'));
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`;
+  }).join('');
+}
+
+function setBanner(html) {
+  banner.innerHTML = html || '';
+}
+
+function failureBanner(e) {
+  if (!(e instanceof CallFailed)) return `<p class="err">${esc(e.message)}</p>`;
+  // 401 on this chain means the node's REST allowlist does not include the path,
+  // not that a password exists somewhere. Saying so saves somebody hunting for
+  // credentials that were never issued.
+  if (e.status === 401 || e.status === 403) {
+    return `<p class="err"><strong>This path is not being served to you:
+      <code>${esc(e.url.replace(REST, ''))}</code> (${e.status}).</strong><br>
+      This chain's REST surface is allowlisted per module path and denies by default, so a
+      ${e.status} here means the path is missing from the allowlist rather than that the data is
+      missing or that a password exists. The node's gateway does serve it; the proxy in front is
+      dropping it. This console needs two families allowed —
+      <code>/cosmos/group/v1/</code> and <code>/yamale/blockchain/constitution/v1/</code> — plus
+      <code>/cosmos/bank/v1beta1/</code> and <code>/cosmos/tx/v1beta1/</code>.</p>`;
+  }
+  return `<p class="err"><strong>Could not read <code>${esc(e.url)}</code> — ${esc(String(e.status))}.</strong><br>
+    That is the exact call that failed. Nothing after it was attempted, so treat anything
+    missing below as unknown rather than as absent.</p>`;
+}
+
+/** Chain time, not browser time. A drifted laptop must not decide a deadline. */
+let chainNow = Math.floor(Date.now() / 1000);
+
+// ------------------------------------------------------------ chain reading
+
+/**
+ * Everything about the foundation, resolved the way the ante decorator resolves
+ * it: the constitution names the address, the address names the group.
+ *
+ * Deriving it rather than hardcoding it is the point. A console with the policy
+ * address compiled in would keep rendering confidently after an amendment moved
+ * the recovery destination, and would be showing the wrong account.
+ */
+async function loadFoundation() {
+  const invariants = (await get(`${REST}/yamale/blockchain/constitution/v1/invariants`)).invariants;
+  const policyAddress = invariants?.enforcement_recovery_destination;
+  if (!policyAddress) {
+    throw new Error(
+      'The constitution names no recovery destination. This chain should not have started: ' +
+      'a seizure would have nowhere to send what it took.',
+    );
+  }
+
+  const policy = (await get(`${REST}/cosmos/group/v1/group_policy_info/${policyAddress}`)).info;
+  const groupId = policy?.group_id;
+  const [members, groupInfo, balances, registry] = await Promise.all([
+    get(`${REST}/cosmos/group/v1/group_members/${groupId}?pagination.limit=100`),
+    maybe(get(`${REST}/cosmos/group/v1/group_info/${groupId}`), { info: null }),
+    maybe(get(`${REST}/cosmos/bank/v1beta1/balances/${policyAddress}`), { balances: [] }),
+    denomRegistry(),
+  ]);
+
+  const custodians = toCustodians(members.members);
+  const decision = policy?.decision_policy ?? {};
+  const threshold = Number(decision.threshold ?? 0);
+
+  return {
+    invariants, policyAddress, groupId, policy, threshold,
+    votingPeriodSeconds: durationSeconds(decision.windows?.voting_period),
+    minExecutionSeconds: durationSeconds(decision.windows?.min_execution_period),
+    decisionType: decision['@type'] ?? '',
+    groupInfo: groupInfo.info,
+    // Both versions, so a proposal can be checked against the group it was
+    // raised under. x/group bumps these on every membership or policy change and
+    // aborts any proposal carrying an older pair.
+    versions: { groupVersion: groupInfo.info?.version, policyVersion: policy?.version },
+    custodians,
+    balances: balances.balances ?? [],
+    registry,
+    names: Object.fromEntries(custodians.filter((c) => c.name).map((c) => [c.address, c.name])),
+    memberAddresses: custodians.map((c) => c.address),
+  };
+}
+
+function durationSeconds(value) {
+  if (!value) return 0;
+  const n = Number(String(value).replace(/s$/, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+let registryCache = null;
+async function denomRegistry() {
+  if (registryCache) return registryCache;
+  const built = { uyml: { symbol: 'YML', exponent: 6, base: 'uyml' } };
+  try {
+    const data = await get(`${REST}/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=200`);
+    for (const meta of data.metadatas ?? []) {
+      const unit = (meta.denom_units ?? []).find((u) => u.denom === meta.display);
+      built[meta.base] = {
+        base: meta.base,
+        symbol: meta.symbol || meta.display || meta.base,
+        exponent: Number(unit?.exponent ?? 0),
+      };
+    }
+  } catch {
+    // The built-in entry covers the staking denom, which is what the foundation
+    // holds. A missing registry costs display polish, not correctness — an
+    // unknown denom renders in base units and says so.
+  }
+  registryCache = built;
+  return built;
+}
+
+async function loadProposals(f) {
+  const data = await get(
+    `${REST}/cosmos/group/v1/proposals_by_group_policy/${f.policyAddress}` +
+    '?pagination.limit=200&pagination.reverse=true',
+  );
+  const proposals = data.proposals ?? [];
+  // Votes are fetched per proposal because x/group has no bulk vote query, and
+  // they are what the page counts — see the note on tally().
+  return Promise.all(
+    proposals.map(async (p) => {
+      const votes = await maybe(
+        get(`${REST}/cosmos/group/v1/votes_by_proposal/${p.id}?pagination.limit=100`),
+        { votes: [] },
+      );
+      return { proposal: p, votes: votes.votes ?? [] };
+    }),
+  );
+}
+
+/**
+ * The proposals that have already been carried out.
+ *
+ * From the transaction log, because x/group deletes an executed proposal from
+ * state. Two searches and a join — see the note above `parseExecutions`.
+ */
+async function loadCarriedOut() {
+  const search = async (action) => {
+    const params = new URLSearchParams({
+      query: `message.action='${action}'`,
+      'pagination.limit': '50',
+      order_by: 'ORDER_BY_DESC',
+    });
+    return get(`${REST}/cosmos/tx/v1beta1/txs?${params}`);
+  };
+
+  try {
+    // Both actions, because a proposal can execute two ways. `MsgExec` is the
+    // obvious one; `MsgVote --exec 1` carries the execution inside the vote that
+    // completed the threshold, and that is the route this console recommends to
+    // whoever casts the deciding signature. Searching only for MsgExec would
+    // have missed exactly the executions the page encourages.
+    const [execs, votes, submits] = await Promise.all([
+      search('/cosmos.group.v1.MsgExec'),
+      search('/cosmos.group.v1.MsgVote'),
+      search('/cosmos.group.v1.MsgSubmitProposal'),
+    ]);
+    return {
+      history: carriedOut(
+        parseExecutions([...(execs.tx_responses ?? []), ...(votes.tx_responses ?? [])]),
+        parseSubmissions(submits.txs ?? [], submits.tx_responses ?? []),
+      ),
+      failed: false,
+    };
+  } catch {
+    // The transaction index can be off on a node, and that is worth saying
+    // rather than rendering an empty history that reads as "nothing has ever
+    // been paid out".
+    return { history: [], failed: true };
+  }
+}
+
+async function syncClock() {
+  try {
+    const s = await get(`${RPC}/status`);
+    const t = timestampSeconds(s?.result?.sync_info?.latest_block_time);
+    if (t) chainNow = t;
+    lastBlock = { height: s?.result?.sync_info?.latest_block_height ?? null, time: t ?? null };
+    // Every composed command carries this. Taken from the node the page is
+    // reading, so a console pointed at a devnet composes devnet commands.
+    setChainId(s?.result?.node_info?.network ?? '');
+  } catch {
+    chainNow = Math.floor(Date.now() / 1000);
+  }
+}
+
+// -------------------------------------------------------------- components
+
+function copyable(id, text, note) {
+  return `<div class="cmdhead">
+      <span class="muted small">${esc(note || '')}</span>
+      <button class="copy" data-copy="${id}">copy</button>
+    </div>
+    <pre id="${id}">${esc(text)}</pre>`;
+}
+
+function wireCopies() {
+  document.querySelectorAll('[data-copy]').forEach((b) => {
+    b.onclick = async () => {
+      const text = document.getElementById(b.dataset.copy)?.textContent ?? '';
+      try {
+        await navigator.clipboard.writeText(text);
+        b.textContent = 'copied';
+      } catch {
+        // Clipboard access fails on an insecure origin, which is exactly where
+        // somebody debugging a node will be. Select it instead of claiming.
+        const node = document.getElementById(b.dataset.copy);
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        b.textContent = 'selected — copy it';
+      }
+      setTimeout(() => { b.textContent = 'copy'; }, 2500);
+    };
+  });
+}
+
+/** A deadline as a date and a distance, never as a height. */
+function deadline(seconds, label) {
+  if (seconds === null) return `<span class="muted small">${esc(label)}: not stated</span>`;
+  const when = new Date(seconds * 1000);
+  const rel = relativeTime(seconds - chainNow);
+  return `<span class="small">${esc(label)} <strong>${esc(rel)}</strong>
+    <span class="muted">— ${esc(when.toUTCString().replace('GMT', 'UTC'))}</span></span>`;
+}
+
+function voteBar(counted) {
+  const total = counted.rows.reduce((s, r) => s + r.custodian.weight, 0) || 1;
+  const pct = (n) => `${(100 * n / total).toFixed(2)}%`;
+  const line = `${(100 * counted.threshold / total).toFixed(2)}%`;
+  return `<div class="barwrap">
+      <div class="bar">
+        <span style="width:${pct(counted.yes)};background:var(--ok)"></span>
+        <span style="width:${pct(counted.no + counted.veto)};background:var(--bad)"></span>
+        <span style="width:${pct(counted.abstain)};background:var(--muted)"></span>
+      </div>
+      <div class="thresh" style="left:${line}" title="threshold"></div>
+    </div>
+    <p class="muted small">${counted.yes} approved of ${counted.threshold} needed ·
+      ${counted.no + counted.veto} against · ${counted.abstain} abstained ·
+      ${counted.undecided} ${counted.individualVotes ? 'yet to vote' : 'did not vote'}</p>`;
+}
+
+const OPTION_WORD = {
+  VOTE_OPTION_YES: ['approved', 'p-ok'],
+  VOTE_OPTION_NO: ['refused', 'p-bad'],
+  VOTE_OPTION_NO_WITH_VETO: ['vetoed', 'p-bad'],
+  VOTE_OPTION_ABSTAIN: ['abstained', 'p-mute'],
+};
+
+/** Who has voted and who has not, one row per custodian. */
+function custodianVotes(counted, f, proposalId, state) {
+  // A decided proposal keeps its totals and loses the individual votes. Listing
+  // five custodians as "has not voted" under a result they produced would be a
+  // straightforward lie, so the rows are not offered at all.
+  if (!counted.individualVotes) {
+    return `<p class="muted small">The individual votes are no longer on the chain — x/group
+      discards them once a proposal is decided, keeping only the totals above. Who voted which
+      way is in the transaction log, against each custodian's own account.</p>`;
+  }
+
+  const rows = counted.rows.map((r) => {
+    const [word, cls] = OPTION_WORD[r.option] ?? ['has not voted', 'p-warn'];
+    const isMe = ME && r.custodian.name === ME;
+    const canVote = state.phase === 'open' && !r.option && isMe;
+    return `<div class="vrow">
+        <strong>${esc(r.custodian.name || short(r.custodian.address))}</strong>
+        ${r.custodian.fingerprint
+          ? `<span class="fp muted">${esc(r.custodian.fingerprint)}</span>` : ''}
+        <span class="pill ${cls}">${esc(word)}</span>
+        ${isMe ? '<span class="pill p-brass">you</span>' : ''}
+        <span style="margin-inline-start:auto" class="small">${
+          canVote
+            ? `<a href="#/proposal/${esc(proposalId)}">vote</a>`
+            : (r.at ? `<span class="muted">${esc(new Date(r.at).toUTCString().slice(5, 16))}</span>` : '')
+        }</span>
+      </div>`;
+  }).join('');
+
+  const stale = counted.stale.length
+    ? `<div class="warnbox">${counted.stale.length} vote${counted.stale.length === 1 ? '' : 's'}
+        on this proposal came from ${counted.stale.length === 1 ? 'an address' : 'addresses'} that
+        ${counted.stale.length === 1 ? 'is' : 'are'} no longer a custodian, so
+        ${counted.stale.length === 1 ? 'it does' : 'they do'} not count toward the threshold:
+        ${counted.stale.map((v) => `<code>${esc(short(v.voter))}</code>`).join(', ')}.</div>`
+    : '';
+
+  return rows + stale;
+}
+
+/**
+ * What the proposal does, in words.
+ *
+ * An undescribable message produces a refusal, not a JSON dump. The raw message
+ * is still reachable, behind a summary that says plainly that nothing has
+ * checked it — which is a different offer from presenting it as the explanation.
+ */
+function effect(described) {
+  if (described.empty) {
+    return `<div class="badbox"><strong>This proposal contains no messages.</strong>
+      Approving it would change nothing, which means it is either a mistake or a placeholder
+      somebody intends to fill by other means.</div>`;
+  }
+
+  return described.messages.map((m) => `
+    <div class="${m.understood ? '' : 'badbox'}" style="margin:.5rem 0">
+      <p class="lede">${m.understood ? esc(m.headline) : `⚠ ${esc(m.headline)}`}</p>
+      ${m.understood ? `<table>${m.detail.map((d) => `<tr>
+          <th style="width:11rem">${esc(d.label)}</th>
+          <td>${d.address ? `<code>${esc(d.value)}</code>` : esc(d.value)}</td>
+        </tr>`).join('')}</table>` : ''}
+      ${m.concerns.map((c) => `<div class="badbox">${esc(c)}</div>`).join('')}
+      <details>
+        <summary>The message as the chain holds it — not checked by this page</summary>
+        <pre>${esc(JSON.stringify(m.raw, null, 2))}</pre>
+      </details>
+    </div>`).join('');
+}
+
+// ------------------------------------------------------------ screen: group
+
+async function screenFoundation() {
+  const f = await loadFoundation();
+  const audit = auditGroup({
+    custodians: f.custodians,
+    threshold: f.threshold,
+    invariants: f.invariants,
+  });
+
+  const breaches = audit.findings.filter((x) => x.severity === 'breach');
+  const others = audit.findings.filter((x) => x.severity !== 'breach');
+
+  const verdict = breaches.length
+    ? `<div class="card card--bad">
+        <p class="lede">This is not the group the constitution describes.</p>
+        ${breaches.map((b) => `<div class="badbox">${esc(b.text)}</div>`).join('')}
+        <p class="muted small">Do not treat the membership below as authoritative until this is
+          resolved. One of these two records is wrong and this page cannot tell you which.</p>
+      </div>`
+    : `<div class="card card--ok">
+        <p class="lede">${f.custodians.length} custodians, any
+          ${f.threshold} of whom can act — which is what the constitution fixes.</p>
+        <p class="muted small">Checked against
+          <code>foundation_custodian_count</code> and
+          <code>foundation_signature_threshold</code> read from the constitution, not from this
+          page. Compare each fingerprint below against the paper from the ceremony.</p>
+      </div>`;
+
+  const custodianRows = f.custodians.map((c) => `
+    <div class="vrow">
+      <strong>${esc(c.name || 'unnamed custodian')}</strong>
+      ${c.fingerprint
+        ? `<span class="fp">${esc(c.fingerprint)}</span>`
+        : '<span class="pill p-warn">no fingerprint recorded</span>'}
+      ${c.weight === 1 ? '' : `<span class="pill p-warn">weight ${esc(c.weight)}</span>`}
+      ${ME === c.name ? '<span class="pill p-brass">you</span>' : ''}
+      <code style="margin-inline-start:auto">${esc(c.address)}</code>
+    </div>`).join('');
+
+  const holdings = f.balances.length
+    ? f.balances.map((b) => `<div class="row" style="padding:.2rem 0">
+        <strong>${esc(formatCoin(b, { registry: f.registry }))}</strong>
+        <span class="muted small"><code>${esc(b.amount)}</code> ${esc(b.denom)}</span>
+      </div>`).join('')
+    : `<p class="muted small">Nothing. The foundation holds no balance — which for the
+        destination of every seizure on this chain means either that nothing has been
+        recovered yet, or that what was recovered has already been paid out.</p>`;
+
+  view.innerHTML = `
+    <h2>The foundation as it stands</h2>
+    ${verdict}
+    ${others.map((o) => `<div class="warnbox">${esc(o.text)}</div>`).join('')}
+
+    <div class="grid">
+      <div class="card">
+        <div class="label">Signatures needed</div>
+        <div class="stat">${esc(f.threshold)} of ${esc(f.custodians.length)}</div>
+        <div class="muted small">Fixed by the constitution. Changing it takes an amendment —
+          weeks in public and a four-fifths ratification — not a vote of the custodians it
+          constrains.</div>
+      </div>
+      <div class="card">
+        <div class="label">Voting period</div>
+        <div class="stat">${esc(Math.round(f.votingPeriodSeconds / 86400))} days</div>
+        <div class="muted small">${
+          f.minExecutionSeconds === 0
+            ? 'A deadline for votes, not a delay before acting: once the threshold is reached a ' +
+              'proposal can be carried out immediately.'
+            : `And a minimum wait of ${Math.round(f.minExecutionSeconds / 3600)} hours after
+               approval before it can be carried out.`
+        }</div>
+      </div>
+      <div class="card">
+        <div class="label">Group</div>
+        <div class="stat">#${esc(f.groupId)}</div>
+        <div class="muted small">Version ${esc(f.groupInfo?.version ?? '?')} — a proposal raised
+          against an older version is void, so a membership change cancels whatever was in
+          flight.</div>
+      </div>
+      <div class="card">
+        <div class="label">Administered by</div>
+        <div class="stat" style="font-size:.95rem">itself</div>
+        <div class="muted small">${
+          f.policy?.admin === f.policyAddress
+            ? 'The group is its own admin, so membership can only change by a vote of the ' +
+              'custodians and never by one key.'
+            : `<span class="pill p-bad">admin is ${esc(short(f.policy?.admin))}</span> —
+               a single key outside the group can change it.`
+        }</div>
+      </div>
+    </div>
+
+    <h2>The five custodians</h2>
+    <div class="card">${custodianRows}</div>
+
+    <h2>What it holds</h2>
+    <div class="card">${holdings}
+      <p class="muted small" style="margin-top:.6rem">Account
+        <code>${esc(f.policyAddress)}</code></p>
+    </div>
+
+    <h2>The rules that pin this</h2>
+    <div class="card">
+      <p class="muted small">These are read from <code>x/constitution</code>. An ordinary
+        governance proposal cannot change them.</p>
+      <table>
+        <tr><th>Custodians</th><td>exactly ${esc(audit.expectedCount)}</td></tr>
+        <tr><th>Signatures</th><td>${esc(audit.expectedThreshold)} of them</td></tr>
+        <tr><th>Seized funds go to</th>
+            <td><code>${esc(f.invariants.enforcement_recovery_destination)}</code>
+              ${f.invariants.enforcement_recovery_destination === f.policyAddress
+                ? '<span class="pill p-ok">this account</span>'
+                : '<span class="pill p-bad">not this account</span>'}</td></tr>
+        <tr><th>Seizure threshold</th>
+            <td>${(Number(f.invariants.enforcement_threshold_bps || 0) / 100).toFixed(2)}%
+              of validator voting power</td></tr>
+        <tr><th>Amendment delay</th>
+            <td>${groupDigits(f.invariants.amendment_delay_blocks)} blocks before a change to any
+              of this can take effect</td></tr>
+      </table>
+    </div>
+
+    ${identityFooter(f)}`;
+  wireCopies();
+}
+
+function identityFooter(f) {
+  if (ME && f.custodians.some((c) => c.name === ME)) return '';
+  const links = f.custodians
+    .filter((c) => c.name)
+    .map((c) => `<a href="?as=${encodeURIComponent(c.name)}${location.hash}">${esc(c.name)}</a>`)
+    .join(' · ');
+  return `<div class="card">
+      <h3>Acting as somebody</h3>
+      <p class="muted small">${ME
+        ? `No custodian is named <strong>${esc(ME)}</strong> in this group, so this page is
+           read-only.`
+        : 'This page is read-only until it knows which custodian is reading it. Opening it as ' +
+          'yourself makes every command on it yours, with your address already in place.'}</p>
+      <p class="small">${links || 'No named custodians to choose from.'}</p>
+    </div>`;
+}
+
+// -------------------------------------------------------- screen: proposals
+
+async function screenProposals() {
+  const f = await loadFoundation();
+  const [all, done] = await Promise.all([loadProposals(f), loadCarriedOut()]);
+
+  const decorated = all.map((entry) => {
+    const state = proposalState(entry.proposal, chainNow);
+    const counted = tally({
+      custodians: f.custodians,
+      votes: entry.votes,
+      threshold: f.threshold,
+      finalTally: entry.proposal.final_tally_result,
+    });
+    const stale = staleAgainstGroup(entry.proposal, f.versions);
+    return { ...entry, state, counted, stale, exec: executability(state, counted, stale) };
+  });
+
+  const waiting = decorated.filter((d) => d.exec.can);
+  const open = decorated.filter((d) => !d.exec.can && d.state.phase === 'open');
+  const settled = decorated.filter((d) => !d.exec.can && d.state.phase !== 'open');
+
+  view.innerHTML = `
+    ${waiting.length ? `
+      <h2>Waiting to be carried out</h2>
+      <p class="muted small">These have the signatures they need. Nothing has moved yet —
+        a proposal has to be executed, and anybody at all can send that transaction: it needs
+        no permission, only that somebody does it.</p>
+      ${waiting.map((d) => proposalCard(d, f, true)).join('')}` : ''}
+
+    <h2>Open for voting</h2>
+    ${open.length
+      ? open.map((d) => proposalCard(d, f, false)).join('')
+      : '<p class="empty">Nothing is open for voting.</p>'}
+
+    <h2>Carried out</h2>
+    <p class="muted small">x/group deletes a proposal once it has been executed, so these are
+      rebuilt from the transaction log rather than read from the proposal list — where they no
+      longer appear. A restitution that went through leaves no proposal behind, which is what
+      success looks like here and is easy to mistake for something having been lost.</p>
+    ${done.failed
+      ? `<div class="warnbox">The transaction log could not be searched, so this list is empty
+          for a reason that has nothing to do with whether anything was paid out. Do not read it
+          as "nothing has ever been carried out".</div>`
+      : carriedOutList(done.history, f)}
+
+    <h2>Refused, void or expired</h2>
+    ${settled.length
+      ? settled.map((d) => proposalCard(d, f, false)).join('')
+      : '<p class="empty">Nothing has been refused.</p>'}`;
+  wireCopies();
+}
+
+function carriedOutList(history, f) {
+  if (!history.length) {
+    return '<p class="empty">Nothing has been carried out on this account yet.</p>';
+  }
+  return history.map((h) => {
+    const described = h.proposal
+      ? describeProposal(h.proposal, {
+          policyAddress: f.policyAddress,
+          registry: f.registry,
+          names: f.names,
+          currentMembers: f.memberAddresses,
+          expectedCount: Number(f.invariants.foundation_custodian_count ?? 0),
+        })
+      : null;
+    const t = h.tally ?? {};
+    return `<div class="card card--ok">
+        <div class="row">
+          <strong>#${esc(h.proposalId)} ${esc(h.proposal?.title || '(title not recovered)')}</strong>
+          <span class="pill p-ok">carried out</span>
+        </div>
+        ${described
+          ? effect(described)
+          : `<p class="muted small">The transaction that raised this proposal is outside the
+              window searched here, so what it did cannot be shown. It executed successfully —
+              the payload is in the log at block ${esc(h.height)}.</p>`}
+        <p class="muted small">Approved ${esc(t.yes_count ?? '?')} to
+          ${esc(Number(t.no_count ?? 0) + Number(t.no_with_veto_count ?? 0))}${
+            Number(t.abstain_count ?? 0) ? `, ${esc(t.abstain_count)} abstaining` : ''
+          } · executed at block ${esc(h.height)}${
+            h.time ? ` on ${esc(new Date(h.time).toUTCString().replace('GMT', 'UTC'))}` : ''
+          }</p>
+        <p class="muted small">Transaction <code>${esc(h.hash)}</code></p>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * The warning for a proposal the chain will abort.
+ *
+ * Stated as strongly as a refusal, because x/group leaves such a proposal
+ * looking open: its status is still SUBMITTED and its deadline is still in the
+ * future, so the only thing standing between the custodians and a wasted week is
+ * this box.
+ */
+function staleWarning(stale) {
+  const why = stale.reasons.join(', and ');
+  return `<div class="badbox"><strong>This can never be carried out.</strong>
+    ${esc(why.charAt(0).toUpperCase() + why.slice(1))}. x/group will abort it the moment anybody
+    counts the votes, whatever they say — so signing it achieves nothing. It has to be proposed
+    again against the foundation as it now stands.</div>`;
+}
+
+function proposalCard(d, f, highlight) {
+  const { proposal: p, state, counted } = d;
+  const described = describeProposal(p, {
+    policyAddress: f.policyAddress,
+    registry: f.registry,
+    names: f.names,
+    currentMembers: f.memberAddresses,
+    expectedCount: Number(f.invariants.foundation_custodian_count ?? 0),
+  });
+
+  const stale = d.stale ?? { stale: false, reasons: [] };
+  const shown = displayLabel(state, counted, stale);
+  const tone = highlight ? 'card--waiting'
+    : shown.tone === 'bad' ? 'card--bad'
+    : shown.tone === 'ok' ? 'card--ok' : '';
+
+  const dead = state.phase === 'open' && !stale.stale && !counted.couldStillPass;
+
+  return `<div class="card ${tone}">
+      <div class="row">
+        <strong><a href="#/proposal/${esc(p.id)}" style="color:inherit">#${esc(p.id)}
+          ${esc(p.title || '(untitled)')}</a></strong>
+        <span class="pill p-${esc(shown.tone)}">${esc(shown.label)}</span>
+      </div>
+      ${p.summary ? `<p class="muted small">${esc(p.summary)}</p>` : ''}
+
+      ${effect(described)}
+
+      ${stale.stale ? staleWarning(stale) : ''}
+
+      ${dead ? `<div class="badbox"><strong>This can no longer pass.</strong>
+        ${counted.no + counted.veto + counted.abstain} of ${counted.rows.length} custodians have
+        voted without approving it, so the ${counted.undecided} remaining cannot reach
+        ${counted.threshold}. It stays open until its deadline, but the outcome is settled.</div>` : ''}
+
+      ${voteBar(counted)}
+      ${state.phase === 'open' && !dead
+        ? `<p>${deadline(state.closesAt, 'Voting closes')}</p>` : ''}
+      ${state.note ? `<p class="muted small">${esc(state.note)}</p>` : ''}
+      ${state.phase === 'awaiting-exec' && state.expiresAt
+        ? `<div class="warnbox">${deadline(state.expiresAt,
+            'If nobody carries this out it stops being executable')} — and the decision is then
+            lost, not merely delayed.</div>` : ''}
+
+      <p class="small" style="margin-top:.6rem">
+        <a href="#/proposal/${esc(p.id)}">Open this proposal →</a></p>
+    </div>`;
+}
+
+// --------------------------------------------------- screen: one proposal
+
+async function screenProposal(id) {
+  // The id comes out of the URL fragment, so it is whatever was typed. Checked
+  // before it is put in a request path: a proposal id is a uint64 and nothing
+  // else, and interpolating an arbitrary string into the query URL would let a
+  // crafted link point this page's reads at a path nobody intended.
+  if (!/^\d+$/.test(id)) {
+    view.innerHTML = `<p class="small"><a href="#/proposals">← every proposal</a></p>
+      <div class="card card--bad"><p class="lede">That is not a proposal number.</p>
+      <p class="muted small">Proposal ids are whole numbers. Nothing was requested from the
+        chain.</p></div>`;
+    return;
+  }
+
+  const f = await loadFoundation();
+
+  let raw;
+  try {
+    raw = await get(`${REST}/cosmos/group/v1/proposal/${id}`);
+  } catch (e) {
+    // Not-found here usually means the proposal did its job: x/group deletes an
+    // executed proposal. Saying "not found" to the custodian who approved a
+    // restitution would be true and would read as the money having vanished.
+    return screenGoneProposal(id, f, e);
+  }
+  const p = raw.proposal;
+  const votes = (await maybe(
+    get(`${REST}/cosmos/group/v1/votes_by_proposal/${id}?pagination.limit=100`), { votes: [] },
+  )).votes ?? [];
+
+  const state = proposalState(p, chainNow);
+  const counted = tally({
+    custodians: f.custodians,
+    votes,
+    threshold: f.threshold,
+    finalTally: p.final_tally_result,
+  });
+  const stale = staleAgainstGroup(p, f.versions);
+  const exec = executability(state, counted, stale);
+  const described = describeProposal(p, {
+    policyAddress: f.policyAddress,
+    registry: f.registry,
+    names: f.names,
+    currentMembers: f.memberAddresses,
+    expectedCount: Number(f.invariants.foundation_custodian_count ?? 0),
+  });
+
+  const me = f.custodians.find((c) => c.name === ME);
+  const myVote = me ? counted.rows.find((r) => r.custodian.address === me.address) : null;
+  const dead = state.phase === 'open' && !stale.stale && !counted.couldStillPass;
+
+  const shown = displayLabel(state, counted, stale);
+
+  view.innerHTML = `
+    <p class="small"><a href="#/proposals">← every proposal</a></p>
+    <div class="card ${shown.tone === 'bad' ? 'card--bad' : exec.can ? 'card--waiting' : ''}">
+      <div class="row">
+        <strong>#${esc(p.id)} ${esc(p.title || '(untitled)')}</strong>
+        <span class="pill p-${esc(shown.tone)}">${esc(shown.label)}</span>
+      </div>
+      ${p.summary ? `<p class="muted small">${esc(p.summary)}</p>` : ''}
+      <p class="muted small">Proposed by
+        ${(p.proposers ?? []).map((a) =>
+          esc(f.names[a] ? `${f.names[a]} (${short(a)})` : short(a))).join(', ') || 'nobody'}
+        on ${esc(new Date(p.submit_time).toUTCString().replace('GMT', 'UTC'))}</p>
+      ${state.note ? `<p class="muted small">${esc(state.note)}</p>` : ''}
+    </div>
+
+    <h2>What this would do</h2>
+    ${stale.stale ? staleWarning(stale) : ''}
+    ${effect(described)}
+    ${described.understood ? '' : `<div class="badbox"><strong>Part of this proposal has not been
+      interpreted by this page.</strong> Do not vote on it here. Read it with
+      <code>blockchaind q group proposal ${esc(p.id)}</code> and decode the message against the
+      module that owns it.</div>`}
+
+    <h2>Who has voted</h2>
+    <div class="card">
+      ${voteBar(counted)}
+      ${custodianVotes(counted, f, p.id, state)}
+      ${dead ? `<div class="badbox"><strong>This can no longer pass.</strong> The remaining
+        ${counted.undecided} vote${counted.undecided === 1 ? '' : 's'} cannot reach
+        ${counted.threshold}.</div>` : ''}
+      ${state.phase === 'open' ? `<p style="margin-top:.6rem">
+        ${deadline(state.closesAt, 'Voting closes')}</p>
+        <p class="muted small">Nothing is final until then unless the threshold is reached
+          first — ${counted.reached
+            ? 'which it now has.'
+            : `${counted.stillNeeded} more signature${counted.stillNeeded === 1 ? '' : 's'} would
+               do it.`}</p>` : ''}
+    </div>
+
+    ${voteSection(f, p, state, counted, me, myVote, described, stale)}
+    ${execSection(f, p, state, exec, me)}`;
+  wireCopies();
+}
+
+/**
+ * A proposal that is no longer in state.
+ *
+ * Almost always because it executed. The log is searched before anything is
+ * claimed, so the page can say which of the two it was instead of reporting the
+ * 404 it got and leaving the custodian to guess.
+ */
+async function screenGoneProposal(id, f, originalError) {
+  const done = await loadCarriedOut();
+  const hit = done.history.find((h) => h.proposalId === String(id));
+
+  if (hit) {
+    view.innerHTML = `
+      <p class="small"><a href="#/proposals">← every proposal</a></p>
+      <div class="card card--ok">
+        <p class="lede">Proposal #${esc(id)} was carried out, and x/group then deleted it.</p>
+        <p class="muted small">That deletion is the module's normal behaviour for a proposal that
+          executed successfully, not a sign that anything went wrong — but it does mean the
+          proposal itself can no longer be looked up. What is below comes from the transaction
+          log, which keeps it.</p>
+      </div>
+      ${carriedOutList([hit], f)}`;
+    return;
+  }
+
+  view.innerHTML = `
+    <p class="small"><a href="#/proposals">← every proposal</a></p>
+    <div class="card card--bad">
+      <p class="lede">There is no proposal #${esc(id)} on this chain, and no record of one
+        having been carried out.</p>
+      <p class="muted small">Two things produce this. Either that id was never used — a mistyped
+        link — or the proposal executed so long ago that the transaction search here no longer
+        reaches it. It is not evidence of anything having been removed: x/group has no way to
+        delete a proposal other than executing it.</p>
+      <details>
+        <summary>What the node actually said</summary>
+        <pre>${esc(originalError.message)}</pre>
+      </details>
+    </div>`;
+}
+
+function voteSection(f, p, state, counted, me, myVote, described, stale) {
+  if (state.phase !== 'open') {
+    return `<h2>Vote</h2><div class="card"><p class="muted small">Voting on this proposal is
+      closed.</p></div>`;
+  }
+  // No command is composed for a proposal the chain will abort. Offering one
+  // would be offering a custodian a way to spend a signature on nothing.
+  if (stale?.stale) {
+    return `<h2>Vote</h2>
+      <div class="card card--bad">${staleWarning(stale)}
+        <p class="muted small">No voting command is offered for this proposal, because there is
+          no vote that would change its outcome.</p></div>`;
+  }
+  if (!me) {
+    return `<h2>Vote</h2><div class="card"><p class="muted small">Open this page as one of the
+      custodians to vote. ${f.custodians.filter((c) => c.name).map((c) =>
+        `<a href="?as=${encodeURIComponent(c.name)}#/proposal/${esc(p.id)}">${esc(c.name)}</a>`)
+        .join(' · ')}</p></div>`;
+  }
+  if (myVote?.option) {
+    const [word] = OPTION_WORD[myVote.option] ?? ['voted'];
+    return `<h2>Vote</h2><div class="card"><p class="muted small">You have already
+      <strong>${esc(word)}</strong> this proposal. x/group records one vote per custodian and a
+      second would be refused.</p></div>`;
+  }
+
+  // The deciding vote gets --exec, so the money moves in the same transaction
+  // rather than waiting for somebody to remember the second step.
+  const deciding = counted.stillNeeded === 1;
+
+  const options = [
+    ['VOTE_OPTION_YES', 'Approve', 'ok'],
+    ['VOTE_OPTION_NO', 'Refuse', 'bad'],
+    ['VOTE_OPTION_ABSTAIN', 'Abstain', ''],
+    ['VOTE_OPTION_NO_WITH_VETO', 'Refuse with veto', 'bad'],
+  ];
+
+  return `<h2>Vote as ${esc(me.name)}</h2>
+    <div class="card">
+      ${described.understood ? '' : `<div class="badbox">This page could not describe every
+        message in this proposal. It will still compose the command, because refusing to would
+        only push you to type it by hand — but do not run it until you have read the proposal
+        another way.</div>`}
+      ${deciding ? `<div class="warnbox"><strong>Yours would be the deciding signature.</strong>
+        The approve command below carries <code>--exec 1</code>, which votes and carries the
+        proposal out in the same transaction. Without it the proposal passes and waits for
+        somebody to execute it separately.</div>` : ''}
+      <p class="muted small">Run this where your key is. Nothing is sent from this page.</p>
+      ${options.map(([option, label, cls]) => {
+        const cmd = voteCommand({
+          proposalId: p.id, voter: me.address, option,
+          alsoExecute: deciding && option === 'VOTE_OPTION_YES',
+        });
+        return `<details${option === 'VOTE_OPTION_YES' ? ' open' : ''}>
+            <summary><span class="btn ${cls}">${esc(label)}</span></summary>
+            ${copyable(`vote-${option}`, cmd, `${label} proposal #${p.id} as ${me.name}`)}
+          </details>`;
+      }).join('')}
+      ${offlineNote(me)}
+    </div>`;
+}
+
+function execSection(f, p, state, exec, me) {
+  if (!exec.can) return '';
+  const executor = me?.address ?? f.custodians[0]?.address ?? '';
+  return `<h2>Carry it out</h2>
+    <div class="card card--waiting">
+      <p class="lede">${esc(exec.why)}</p>
+      <p class="muted small">Executing a proposal needs no membership and no permission — any
+        account on the chain can send this, and it pays only the fee. What it does not do is
+        happen by itself: until somebody sends it, the decision has changed nothing.</p>
+      ${state.expiresAt
+        ? `<p>${deadline(state.expiresAt, 'Stops being executable')}</p>` : ''}
+      ${copyable('exec-cmd', execCommand({ proposalId: p.id, executor }),
+        `Carry out proposal #${p.id}${me ? ` as ${me.name}` : ''}`)}
+    </div>`;
+}
+
+/**
+ * The path for a custodian whose key is on paper.
+ *
+ * Not an afterthought: the custodians' keys were produced by an air-gapped
+ * ceremony, so for some of them there is no keyring on any machine that can
+ * reach a node. A console that only printed a broadcast command would be
+ * unusable by exactly the people it is for.
+ */
+function offlineNote(me) {
+  return `<details>
+      <summary>My key is on paper, not in a keyring on this machine</summary>
+      <p class="muted small">Then the command above cannot sign. Build the transaction on the
+        connected machine, carry it to the offline one, sign it there, and carry the signature
+        back:</p>
+      ${copyable('offline-steps', [
+        '# on the connected machine — build it, signing nothing',
+        '…the command above… --generate-only > vote.json',
+        '',
+        '# on the offline machine, where the key is imported from paper',
+        `blockchaind tx sign vote.json --from ${me.address} \\`,
+        `  --chain-id ${currentChainId() || '<chain-id>'} --offline \\`,
+        '  --account-number <N> --sequence <S> > vote-signed.json',
+        '',
+        '# back on the connected machine',
+        'blockchaind tx broadcast vote-signed.json',
+      ].join('\n'), 'Offline signing')}
+      <p class="muted small">The account number and sequence have to be read from the chain
+        first — <code>blockchaind q auth account ${esc(short(me.address))}</code> — because an offline
+        signer cannot look them up, and a wrong sequence produces a signature the chain rejects
+        without saying why.</p>
+    </details>`;
+}
+
+// ---------------------------------------------------------- screen: propose
+
+async function screenPropose() {
+  const f = await loadFoundation();
+  const me = f.custodians.find((c) => c.name === ME);
+  const expectedCount = Number(f.invariants.foundation_custodian_count ?? 0);
+
+  if (!me) {
+    view.innerHTML = `<h2>Propose</h2>
+      <div class="card"><p class="muted small">Only a custodian can raise a proposal on this
+        account. Open this page as one of them:
+        ${f.custodians.filter((c) => c.name).map((c) =>
+          `<a href="?as=${encodeURIComponent(c.name)}#/propose">${esc(c.name)}</a>`).join(' · ')}
+      </p></div>`;
+    return;
+  }
+
+  const denoms = f.balances.length
+    ? f.balances.map((b) => b.denom)
+    : Object.keys(f.registry);
+
+  view.innerHTML = `
+    <h2>Propose as ${esc(me.name)}</h2>
+    <p class="muted small">A proposal is raised by one custodian and needs
+      ${esc(f.threshold)} signatures in total. Raising it does not vote for it — you still have to
+      vote, and your own signature counts as one of the ${esc(f.threshold)}.</p>
+
+    <h2>Return funds</h2>
+    <div class="card">
+      <p class="muted small">The restitution case: property the chain seized, going back to
+        whoever it was taken from. This spends from the foundation account itself.</p>
+      <label for="sp-to">Who is being paid</label>
+      <input id="sp-to" placeholder="yml1…" autocomplete="off">
+      <label for="sp-amt">How much, in whole units</label>
+      <input id="sp-amt" placeholder="5000" inputmode="decimal" autocomplete="off">
+      <label for="sp-denom">Currency</label>
+      <select id="sp-denom">${denoms.map((d) =>
+        `<option value="${esc(d)}">${esc(f.registry[d]?.symbol ?? d)} (${esc(d)})</option>`).join('')}</select>
+      <label for="sp-title">Title</label>
+      <input id="sp-title" placeholder="Restitution to …" autocomplete="off">
+      <label for="sp-why">Why — the custodians will read this before signing</label>
+      <textarea id="sp-why" placeholder="Case number, what was seized, and on whose authority it goes back."></textarea>
+      <div id="sp-out" style="margin-top:.7rem"></div>
+    </div>
+
+    <h2>Replace a custodian</h2>
+    <div class="card">
+      <p class="muted small">A departure and a replacement are one decision, and this page can
+        only express them together. The constitution fixes the foundation at
+        ${esc(expectedCount)} custodians and an ante decorator refuses any change that would
+        leave it at a different number — so a bare removal is not offered here, because it is not
+        a thing the chain will do. Removing one now and adding a replacement later is how three of
+        five quietly becomes three of four, and then unanimity.</p>
+      <label for="sw-out">Who is leaving</label>
+      <select id="sw-out">
+        <option value="">—</option>
+        ${f.custodians.map((c) => `<option value="${esc(c.address)}">${
+          esc(c.name || short(c.address))}${c.fingerprint ? ` · ${esc(c.fingerprint)}` : ''}</option>`).join('')}
+      </select>
+      <label for="sw-in">Who is joining — their address from the ceremony</label>
+      <input id="sw-in" placeholder="yml1…" autocomplete="off">
+      <label for="sw-title">Title</label>
+      <input id="sw-title" placeholder="Replace … with …" autocomplete="off">
+      <label for="sw-why">Why</label>
+      <textarea id="sw-why" placeholder="Why this custodian is standing down, and who has verified the incoming key."></textarea>
+      <div id="sw-outbox" style="margin-top:.7rem"></div>
+    </div>`;
+
+  const spend = () => {
+    const to = document.getElementById('sp-to').value.trim();
+    const whole = document.getElementById('sp-amt').value.trim();
+    const denom = document.getElementById('sp-denom').value;
+    const title = document.getElementById('sp-title').value.trim();
+    const why = document.getElementById('sp-why').value.trim();
+    const out = document.getElementById('sp-out');
+
+    const problems = [];
+    if (!to.startsWith('yml1') || to.length < 39) problems.push('The recipient is not a Yamale address.');
+    if (!/^\d+(\.\d+)?$/.test(whole)) problems.push('Enter an amount as a plain number.');
+    if (!title) problems.push('Give it a title — it is what the other custodians see first.');
+    if (tooLong(title)) problems.push(`The title is longer than ${MAX_METADATA_LEN} bytes, which x/group refuses.`);
+    if (tooLong(why)) problems.push(`The reason is longer than ${MAX_METADATA_LEN} bytes, which x/group refuses.`);
+    if (!why) problems.push('Say why. A custodian asked to move seized property should not have to guess.');
+
+    if (problems.length) {
+      out.innerHTML = problems.map((x) => `<div class="warnbox">${esc(x)}</div>`).join('');
+      return;
+    }
+
+    // Whole units in, base units out. The exponent comes from the chain's own
+    // denom metadata — never from a guess, because a wrong exponent on a
+    // restitution payment is a factor of a million.
+    const exponent = Number(f.registry[denom]?.exponent ?? 0);
+    let base;
+    try {
+      base = toBaseUnits(whole, exponent);
+    } catch (e) {
+      out.innerHTML = `<div class="warnbox">${esc(e.message)}</div>`;
+      return;
+    }
+    const messages = [spendMessage({ policyAddress: f.policyAddress, recipient: to, amount: base, denom })];
+    const doc = proposalDocument({
+      policyAddress: f.policyAddress, proposer: me.address, messages, title, summary: why,
+    });
+
+    out.innerHTML = `
+      <div class="card card--waiting" style="margin:0">
+        <p class="lede">Pay ${esc(formatCoin({ denom, amount: base }, { registry: f.registry }))}
+          to ${esc(short(to))}</p>
+        <p class="muted small">out of the foundation account, once
+          ${esc(f.threshold)} custodians have signed. <code>${esc(base)}</code> ${esc(denom)} in
+          base units — check that against the amount you meant.</p>
+        ${copyable('sp-doc', doc, 'Write this to proposal.json')}
+        ${copyable('sp-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+      </div>`;
+    wireCopies();
+  };
+
+  const swap = () => {
+    const outgoing = document.getElementById('sw-out').value;
+    const incoming = document.getElementById('sw-in').value.trim();
+    const title = document.getElementById('sw-title').value.trim();
+    const why = document.getElementById('sw-why').value.trim();
+    const box = document.getElementById('sw-outbox');
+
+    const plan = swapPlan({ current: f.memberAddresses, outgoing, incoming, expectedCount });
+    const problems = [...plan.problems];
+    if (incoming && (!incoming.startsWith('yml1') || incoming.length < 39)) {
+      problems.push('The incoming address is not a Yamale address.');
+    }
+    if (!title) problems.push('Give it a title.');
+    if (!why) problems.push('Say why.');
+    if (tooLong(title) || tooLong(why)) {
+      problems.push(`Titles and reasons are limited to ${MAX_METADATA_LEN} bytes.`);
+    }
+
+    if (problems.length) {
+      box.innerHTML = problems.map((x) => `<div class="warnbox">${esc(x)}</div>`).join('');
+      return;
+    }
+
+    const leaving = f.custodians.find((c) => c.address === outgoing);
+    const messages = [swapMessage({
+      policyAddress: f.policyAddress, groupId: f.groupId, updates: plan.updates,
+    })];
+    const doc = proposalDocument({
+      policyAddress: f.policyAddress, proposer: me.address, messages, title, summary: why,
+    });
+
+    box.innerHTML = `
+      <div class="card card--waiting" style="margin:0">
+        <p class="lede">Replace ${esc(leaving?.name || short(outgoing))} with
+          ${esc(short(incoming))}</p>
+        <p class="muted small">One message, removing and adding together, leaving the foundation
+          at ${esc(plan.resulting)} custodians — which is what the constitution requires. Both
+          halves are in the same message on purpose: the chain would refuse them separately.</p>
+        <div class="warnbox">Raising this voids every proposal currently open. A membership change
+          moves the group to a new version, and an x/group proposal raised against the old one can
+          never be executed — so carry out anything outstanding first.</div>
+        ${copyable('sw-doc', doc, 'Write this to proposal.json')}
+        ${copyable('sw-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+      </div>`;
+    wireCopies();
+  };
+
+  ['sp-to', 'sp-amt', 'sp-denom', 'sp-title', 'sp-why'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', spend);
+    el.addEventListener('change', spend);
+  });
+  ['sw-out', 'sw-in', 'sw-title', 'sw-why'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', swap);
+    el.addEventListener('change', swap);
+  });
+}
+
+// ------------------------------------------------------------------- router
+
+async function route() {
+  const path = (location.hash || '#/').split('?')[0];
+  renderNav(path);
+  setBanner('');
+  // Cleared per route rather than held, so a chain that comes back is noticed
+  // without a reload. The cost is one refused request per screen while it is
+  // down, which is the cheapest possible way to keep this honest.
+  pinnedHeight = null;
+  window.scrollTo(0, 0);
+  view.innerHTML = '<p class="empty">Reading the chain…</p>';
+
+  await syncClock();
+  document.getElementById('who').textContent = ME ? `acting as ${ME}` : 'read only';
+
+  try {
+    if (path.startsWith('#/proposal/')) await screenProposal(path.slice(11));
+    else if (path === '#/proposals') await screenProposals();
+    else if (path === '#/propose') await screenPropose();
+    else await screenFoundation();
+    // The chain's height, not the browser's clock, because that is what the
+    // page's deadlines were computed against.
+    document.getElementById('clock').textContent =
+      `chain time ${new Date(chainNow * 1000).toUTCString().slice(17, 22)} UTC`;
+    setBanner(stallBanner());
+  } catch (e) {
+    setBanner(stallBanner() + failureBanner(e));
+    document.getElementById('clock').textContent = '';
+    view.innerHTML = `<p class="empty">This screen could not be built, so nothing below it was
+      attempted. Treat the foundation's state as unknown rather than as empty — an account that
+      renders blank looks identical to one that has been emptied.</p>`;
+  }
+}
+
+window.addEventListener('hashchange', route);
+route();
+
+// Polled slowly, and not at all when nobody is looking.
+//
+// A custodian leaves this open for a week, and almost nothing here changes
+// faster than that: the voting period is seven days. The proposals screen costs
+// three transaction searches per refresh to rebuild the executed-proposal
+// history, and the node serving it may be a Raspberry Pi with under two
+// gigabytes of memory — so a tab left open in the background should not spend
+// that all day. The propose screen never refreshes, because reloading it would
+// discard a half-typed proposal.
+setInterval(() => {
+  if (document.hidden) return;
+  if (location.hash.startsWith('#/propose')) return;
+  route();
+}, 60000);
+
+// Catching up the moment somebody looks, so the slow poll is not felt.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !location.hash.startsWith('#/propose')) route();
+});
+</script>
+</body>
+</html>

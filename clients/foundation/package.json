@@ -1,0 +1,10 @@
+{
+  "name": "@yamale/foundation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The foundation custodians' console: the 3-of-5 x/group account that holds every recovered asset on the chain.",
+  "scripts": {
+    "test": "node --test foundation.test.js"
+  }
+}

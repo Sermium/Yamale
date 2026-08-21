@@ -10,7 +10,8 @@
     "safe",
     "wallet",
     "app",
-    "ceremony"
+    "ceremony",
+    "foundation"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
