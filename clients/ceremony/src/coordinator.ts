@@ -349,11 +349,29 @@ function groupPanel(state: HostState): HTMLElement {
     paragraph(`Where every seized asset on ${state.params.chain_id} is sent. It goes into genesis in two places, and the chain refuses to start if they disagree.`),
     copyable(assembled.policy_address),
     members,
-    el('h3', {}, ['Genesis fragment']),
-    paragraph('Splice this into app_state.group. The group and its address are fixed by the same file at height zero, so there is no window in which the address exists and the membership does not.'),
-    copyable(assembled.genesis),
-    el('h3', {}, ['Constitution invariants']),
-    copyable(assembled.constitution),
+    // No copy buttons for the genesis fragment and the invariants.
+    //
+    // They used to be here with "splice this into app_state.group", which was
+    // worse than saying nothing: rendering the record writes both to disk beside
+    // the server, and the genesis build reads that directory itself. Offering
+    // them to be copied invited somebody to paste a fragment into a file by hand
+    // — work that was already done, in a form where a truncated clipboard or a
+    // stray character would produce a genesis that starts and disagrees.
+    //
+    // The values are still shown, because a coordinator should be able to see
+    // what the ceremony produced. They are shown as a summary of what was
+    // written, not as something to carry anywhere.
+    el('h3', {}, ['What goes into genesis']),
+    paragraph(
+      'Nothing to copy. Rendering the record below writes the group and the constitutional ' +
+        'invariants beside the server, and the genesis build reads that directory — pass it as ' +
+        'CEREMONY_DIR and it splices both in itself.',
+    ),
+    el('ul', { class: 'plain small' }, [
+      el('li', {}, [`${assembled.custodians.length} custodians, threshold ${state.params.threshold}`]),
+      el('li', {}, [`recovery destination ${assembled.policy_address}`]),
+      el('li', {}, [`group fingerprint ${assembled.fingerprint}`]),
+    ]),
   ]);
 }
 
@@ -387,9 +405,10 @@ function recordPanel(
 
   const children: Array<Node | string> = [
     paragraph(
-      'The record is what somebody reads in five years to decide whether these five keys can be trusted. It is ' +
-        'rendered here and printable; the export also writes it and the genesis fragment next to the server for ' +
-        'keeping.',
+      'This is the last thing to do, and the only thing. The record is what somebody reads in five years to ' +
+        'decide whether these five keys can be trusted — so it is rendered here to print and sign, and the ' +
+        'same action writes the group and the constitutional invariants beside the server for the genesis ' +
+        'build to read. Nothing needs copying anywhere by hand.',
     ),
     field('Location', location),
     field('Notes', notes),
