@@ -114,6 +114,19 @@ $BIN genesis add-genesis-account "$FOUNDATION" 500000000000uyml --home "$HOME_DI
 # module name, not of any public key — so funding it is safe and giving it
 # nothing would only mean the foundation cannot pay a fee.
 $BIN genesis add-genesis-account "$POLICY" 100000000000uyml --home "$HOME_DIR"
+
+# Accounts for validators joining at genesis, funded here because their gentx
+# cannot be. A self-delegation needs a balance already in the genesis, so a
+# joining operator whose account is absent gets a gentx refused for having
+# nothing to bond — which reads as a problem with their key rather than with the
+# file they were sent.
+#
+# Space-separated addresses in JOINING_ACCOUNTS. They are funded before the
+# hash is printed, so the file the joiners check is the file they can use.
+for joining in ${JOINING_ACCOUNTS:-}; do
+  $BIN genesis add-genesis-account "$joining" 50000000000uyml --home "$HOME_DIR"
+  echo "  joining validator funded: $joining"
+done
 echo "  three accounts and the foundation group funded"
 
 echo "=== seeding currencies ==="
@@ -278,6 +291,8 @@ if [ "${PHASE:-all}" = "accounts" ]; then
   echo
   echo "  genesis so far: $G"
   echo "  sha256:         $(sha256sum "$G" | cut -d' ' -f1)"
+  echo
+  echo "Joining validators funded: ${JOINING_ACCOUNTS:-none — set JOINING_ACCOUNTS and re-run}"
   echo
   echo "On each joining validator, against a byte-identical copy of that file:"
   echo

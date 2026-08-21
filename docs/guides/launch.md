@@ -160,9 +160,43 @@ to unjail.
 
 ## 5. Build genesis
 
+One validator, all in one pass:
+
 ```bash
 CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=... ./scripts/devnet/init-devnet.sh
 ```
+
+More than one, in two phases — because a joining validator signs its own gentx
+on its own host, which is what makes it a second validator rather than a second
+process the first host happens to control:
+
+```bash
+# 1. On the coordinating host. Fund every joining operator here: a
+#    self-delegation needs a balance already in the genesis, and a joining
+#    operator whose account is absent gets a gentx refused for having nothing to
+#    bond — which reads as a problem with their key rather than with the file
+#    they were sent.
+PHASE=accounts JOINING_ACCOUNTS="yml1... yml1..."   CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=...   ./scripts/devnet/init-devnet.sh
+# it stops, and prints the genesis sha256
+
+# 2. On each joining host: put that genesis at <home>/config/genesis.json,
+#    COMPARE THE HASH, then
+blockchaind genesis gentx <key> <minority-stake> --chain-id <id>   --moniker <moniker> --keyring-backend file
+#    and send the gentx-*.json back
+
+# 3. On the coordinating host, with every gentx in config/gentx/
+PHASE=finalise CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=...   ./scripts/devnet/init-devnet.sh
+```
+
+**Keep joining stakes a minority.** Two thirds of two equal validators is both of
+them, so an equal set halts whenever either drops. At 10000 against 100000 the
+first validator alone stays above the threshold and keeps producing blocks
+through the other's outages.
+
+**`sudo -E` may not carry the variables.** sudo resets the environment and `-E`
+only works if the sudoers policy allows it — the symptom is a phase flag being
+ignored and the script running straight through to the end. Put them on sudo's
+own command line instead: `sudo PHASE=accounts CEREMONY_DIR=... bash ...`.
 
 It refuses without the ceremony's output, and refuses without an operator key.
 Both refusals are the point: a key created to get past them is a key with no
@@ -176,7 +210,7 @@ What it writes into genesis:
   to let governance edit;
 - `enforcement.recovery_destination`, pointing at the group's policy address.
 
-Three ways it will stop you, all of them earned:
+Five ways it will stop you, all of them earned:
 
 - **A missing invariant.** The ceremony supplies three of the thirteen — the ones
   it can derive from the group it built. The other ten are policy no key
@@ -187,6 +221,13 @@ Three ways it will stop you, all of them earned:
 - **Parameters disagreeing with the constitution.** Three enforcement parameters
   duplicate invariants, and a genesis where the two differ is refused — better
   than a chain whose constitution and whose module hold different numbers.
+- **No operator key.** It refuses rather than running `keys add`, because a key
+  created to get past that line is a key with no paper behind it and the chain
+  would launch anyway.
+- **No ceremony output.** `CEREMONY_DIR` has no default and there is no fallback
+  to a local foundation key. A single key receiving every seized asset is the
+  arrangement this replaces, and a script that quietly substituted one would
+  restore it on the next reset without anybody deciding to.
 
 ## 6. Start, and check what you actually built
 
@@ -213,6 +254,12 @@ scripts, the service units and the guides — change all of them.
 foundation keys live unencrypted in a `test` keyring and are regenerated on every
 reset, which is what they are for. What controls the chain — the foundation group,
 the validator's operator key — gets a ceremony. Do not let the two meet.
+
+**The node home is owned by whoever ran the script.** Running the init under
+`sudo` leaves it root-owned while the service runs as an unprivileged user, and
+the node then dies on `client.toml: permission denied` — which names a file
+rather than an ownership problem. `chown` the home to the service user after
+building the genesis.
 
 **A one-validator chain cannot bound concentration.** It holds every basis point,
 so the ceilings have to be 10000, which is no ceiling. That is honest rather than

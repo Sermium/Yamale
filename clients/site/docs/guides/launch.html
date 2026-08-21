@@ -155,8 +155,36 @@ generate one.</p>
 unlike a custodian key an operator key gets used again — to edit a commission,
 to unjail.</p>
 <h2>5. Build genesis</h2>
+<p>One validator, all in one pass:</p>
 <pre><code class="language-bash">CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=... ./scripts/devnet/init-devnet.sh
 </code></pre>
+<p>More than one, in two phases — because a joining validator signs its own gentx
+on its own host, which is what makes it a second validator rather than a second
+process the first host happens to control:</p>
+<pre><code class="language-bash"># 1. On the coordinating host. Fund every joining operator here: a
+#    self-delegation needs a balance already in the genesis, and a joining
+#    operator whose account is absent gets a gentx refused for having nothing to
+#    bond — which reads as a problem with their key rather than with the file
+#    they were sent.
+PHASE=accounts JOINING_ACCOUNTS=&quot;yml1... yml1...&quot;   CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=...   ./scripts/devnet/init-devnet.sh
+# it stops, and prints the genesis sha256
+
+# 2. On each joining host: put that genesis at &lt;home&gt;/config/genesis.json,
+#    COMPARE THE HASH, then
+blockchaind genesis gentx &lt;key&gt; &lt;minority-stake&gt; --chain-id &lt;id&gt;   --moniker &lt;moniker&gt; --keyring-backend file
+#    and send the gentx-*.json back
+
+# 3. On the coordinating host, with every gentx in config/gentx/
+PHASE=finalise CEREMONY_DIR=/path/to/ceremony OPERATOR_PASSPHRASE=...   ./scripts/devnet/init-devnet.sh
+</code></pre>
+<p><strong>Keep joining stakes a minority.</strong> Two thirds of two equal validators is both of
+them, so an equal set halts whenever either drops. At 10000 against 100000 the
+first validator alone stays above the threshold and keeps producing blocks
+through the other&#39;s outages.</p>
+<p><strong><code>sudo -E</code> may not carry the variables.</strong> sudo resets the environment and <code>-E</code>
+only works if the sudoers policy allows it — the symptom is a phase flag being
+ignored and the script running straight through to the end. Put them on sudo&#39;s
+own command line instead: <code>sudo PHASE=accounts CEREMONY_DIR=... bash ...</code>.</p>
 <p>It refuses without the ceremony&#39;s output, and refuses without an operator key.
 Both refusals are the point: a key created to get past them is a key with no
 paper behind it, and the chain would launch anyway.</p>
@@ -168,7 +196,7 @@ threshold, the recovery destination, the delays — which the chain then refuses
 to let governance edit;</li>
 <li><code>enforcement.recovery_destination</code>, pointing at the group&#39;s policy address.</li>
 </ul>
-<p>Three ways it will stop you, all of them earned:</p>
+<p>Five ways it will stop you, all of them earned:</p>
 <ul>
 <li><strong>A missing invariant.</strong> The ceremony supplies three of the thirteen — the ones
 it can derive from the group it built. The other ten are policy no key
@@ -179,6 +207,13 @@ than accepted and left permanently in breach.</li>
 <li><strong>Parameters disagreeing with the constitution.</strong> Three enforcement parameters
 duplicate invariants, and a genesis where the two differ is refused — better
 than a chain whose constitution and whose module hold different numbers.</li>
+<li><strong>No operator key.</strong> It refuses rather than running <code>keys add</code>, because a key
+created to get past that line is a key with no paper behind it and the chain
+would launch anyway.</li>
+<li><strong>No ceremony output.</strong> <code>CEREMONY_DIR</code> has no default and there is no fallback
+to a local foundation key. A single key receiving every seized asset is the
+arrangement this replaces, and a script that quietly substituted one would
+restore it on the next reset without anybody deciding to.</li>
 </ul>
 <h2>6. Start, and check what you actually built</h2>
 <pre><code class="language-bash">blockchaind start --minimum-gas-prices 0.0001uyml
@@ -198,6 +233,11 @@ scripts, the service units and the guides — change all of them.</p>
 foundation keys live unencrypted in a <code>test</code> keyring and are regenerated on every
 reset, which is what they are for. What controls the chain — the foundation group,
 the validator&#39;s operator key — gets a ceremony. Do not let the two meet.</p>
+<p><strong>The node home is owned by whoever ran the script.</strong> Running the init under
+<code>sudo</code> leaves it root-owned while the service runs as an unprivileged user, and
+the node then dies on <code>client.toml: permission denied</code> — which names a file
+rather than an ownership problem. <code>chown</code> the home to the service user after
+building the genesis.</p>
 <p><strong>A one-validator chain cannot bound concentration.</strong> It holds every basis point,
 so the ceilings have to be 10000, which is no ceiling. That is honest rather than
 decorative; <code>scripts/devnet/concentration-demo.sh</code> stands up four validators and
