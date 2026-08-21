@@ -80,15 +80,35 @@ func runKeyCeremony(args []string, r role) error {
 	}
 	id.Ceremony = *ceremony
 
-	if *armor != "" {
-		if err := writeArmor(c, *armor, priv); err != nil {
-			return err
-		}
-	}
-
+	// The public record is written FIRST, and the keystore export afterwards.
+	//
+	// It used to be the other way round, with a fatal error on the export. That
+	// meant a rejected passphrase at the very end discarded the whole ceremony:
+	// the phrase had already been zeroed, the record was never written, and the
+	// sheet the custodian had just filled in became a page of words belonging to
+	// no key anybody could name. The most careful part of the process was thrown
+	// away by the least important one.
 	recordPath := filepath.Join(*out, fmt.Sprintf("%s-%s.json", r, slug(*name)))
 	if err := writeIdentity(recordPath, id); err != nil {
 		return err
+	}
+
+	// And the export cannot fail the run. If it goes wrong the key still exists,
+	// on paper, and the keystore is reproducible from that paper — so this is a
+	// step to retry, not a reason to generate a new key.
+	if *armor != "" {
+		if err := writeArmor(c, *armor, priv); err != nil {
+			c.println()
+			c.printf("The encrypted keystore was NOT written: %v", err)
+			c.println()
+			c.println()
+			c.println("The key itself is fine and the sheet is good — the public record below was")
+			c.println("written before this step. Produce the keystore from the phrase when you want it:")
+			c.println()
+			c.printf("  blockchaind keys add %s --recover --keyring-backend file", slug(*name))
+			c.println()
+			c.println()
+		}
 	}
 
 	c.clear()

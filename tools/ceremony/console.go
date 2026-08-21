@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"golang.org/x/term"
@@ -112,30 +113,57 @@ func (c *console) pause(prompt string) error {
 // here because an operator who has decided to carry an encrypted export should
 // not be pushed towards typing the passphrase on a command line, where the
 // shell history keeps it.
+// minPassphrase is the floor for a keystore passphrase.
+const minPassphrase = 12
+
 func (c *console) readPassphrase() (string, error) {
 	if c.tty < 0 {
 		return "", errors.New("a passphrase cannot be read without a terminal")
 	}
 
-	fmt.Fprint(c.out, "Passphrase for the keystore: ")
-	first, err := term.ReadPassword(c.tty)
+	// The requirement is stated before anything is typed, not after.
+	//
+	// It used to be checked at the end, which meant a person typed a passphrase
+	// twice, was told it was too short, and typed a different one twice more —
+	// having learned the rule from a rejection. A rule announced after the work
+	// is a rule that made somebody do the work twice.
+	fmt.Fprintln(c.out, "This passphrase encrypts the keystore. At least "+strconv.Itoa(minPassphrase)+" characters:")
+	fmt.Fprintln(c.out, "it is the only thing between that file and this key.")
 	fmt.Fprintln(c.out)
-	if err != nil {
-		return "", err
-	}
 
-	fmt.Fprint(c.out, "Again: ")
-	second, err := term.ReadPassword(c.tty)
-	fmt.Fprintln(c.out)
-	if err != nil {
-		return "", err
-	}
+	for {
+		fmt.Fprint(c.out, "Passphrase for the keystore: ")
+		first, err := term.ReadPassword(c.tty)
+		fmt.Fprintln(c.out)
+		if err != nil {
+			return "", err
+		}
 
-	if string(first) != string(second) {
-		return "", errors.New("the two passphrases do not match")
+		// Length checked before asking for the confirmation. Making somebody
+		// retype a passphrase that was already going to be rejected is the same
+		// discourtesy in a smaller shape.
+		if len(first) < minPassphrase {
+			fmt.Fprintf(c.out, "That is %d characters; %d are needed. Again.", len(first), minPassphrase)
+			fmt.Fprintln(c.out)
+			fmt.Fprintln(c.out)
+			continue
+		}
+
+		fmt.Fprint(c.out, "Again: ")
+		second, err := term.ReadPassword(c.tty)
+		fmt.Fprintln(c.out)
+		if err != nil {
+			return "", err
+		}
+
+		if string(first) != string(second) {
+			// Retried rather than aborted. A mistyped confirmation is a typo,
+			// and failing the whole command for it would mean regenerating a key
+			// that is already on paper.
+			fmt.Fprintln(c.out, "Those do not match. Again.")
+			fmt.Fprintln(c.out)
+			continue
+		}
+		return string(first), nil
 	}
-	if len(first) < 12 {
-		return "", errors.New("use at least 12 characters: this passphrase is the only thing between the file and the chain's recovery account")
-	}
-	return string(first), nil
 }
