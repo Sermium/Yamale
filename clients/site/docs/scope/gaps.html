@@ -87,12 +87,12 @@ list is not evidence.</p>
 <td>Foundation console</td>
 <td><code>/foundation/</code> — the 3-of-5 has an interface, with the limits below</td>
 </tr>
+<tr>
+<td>Roles and the perimeter</td>
+<td><code>x/alias</code> role grants, and <code>AssertScope</code> consulted by four modules</td>
+</tr>
 </tbody></table>
 <h2>Designed, documented, not built</h2>
-<p><strong>Roles and <code>AssertScope</code>.</strong> The jurisdiction registry exists and is queryable;
-nothing consumes it. Until every authority action routes through one check, the
-perimeter is a fact the chain knows and does not enforce. See
-<a href="roles-and-perimeter.html">roles-and-perimeter.md</a>.</p>
 <p><strong>Browser signing for the foundation.</strong> The console at <code>/foundation/</code> reads the
 chain and composes the commands, and a custodian runs them. It cannot sign,
 because <code>clients/wallet</code> decodes a signing request only as far as each message&#39;s
@@ -151,6 +151,25 @@ immediately; both are defensible and it is a settlement-policy call, not a
 coding one. Documented in <code>params.proto</code> and
 <a href="../guides/settlement.html">settlement.md</a>, deliberately not decided.</p>
 </li>
+<li><p><strong>Whether a bonded validator should still be able to freeze anything.</strong>
+<code>AssertScope</code> now gates <code>x/enforcement</code>&#39;s <code>OpenCase</code>, which changes the
+module&#39;s central property from <em>any bonded validator can freeze</em> to <em>any
+bonded validator governance has placed in that country&#39;s perimeter</em>. That is
+what <a href="roles-and-perimeter.html">roles-and-perimeter.md</a> asks for and it is the
+point of having a perimeter — but it is a real narrowing of who can act in an
+emergency, and the narrower alternative was to scope only <code>EmergencyFreeze</code>
+and leave ordinary validators chain-wide. Worth confirming deliberately
+rather than discovering.</p>
+</li>
+<li><p><strong>Whether the count of chain-wide <code>*</code> grants belongs in the constitution.</strong>
+A validator set wanting to act outside its perimeter would grant itself <code>*</code>,
+and today an ordinary governance vote is all that stands in the way — which
+is exactly the test for constitutional-ness. The argument against is that it
+is a count rather than a threshold, and <code>x/alias</code> has no <code>EndBlocker</code>, so it
+would be checked in <code>GrantRole</code> and <code>InitGenesis</code> the way the
+foundation-administrator cap already is. Not added, because the invariant set
+is customer-visible.</p>
+</li>
 <li><p><strong>Whether a netting reserve is seizable.</strong> <code>x/enforcement</code> seizes
 <code>SpendableCoins</code> from a bank account; the uncommitted part of a posted
 reserve is plainly the participant&#39;s own money and sits in the netting module
@@ -174,14 +193,17 @@ the same shape as three others that were fixed.</li>
 </ul>
 <h2>Operational loose ends</h2>
 <ul>
-<li><strong>The minority validator cannot keep its signing rate up, and this is
-structural.</strong> Measured 2026-08-21: <code>pi-2</code> signed 5 of 40 blocks and was jailed
-for downtime and slashed 1%, with a 21ms direct link, clocks four seconds
-apart and a load average of 0.5. Nothing was wrong with it. A validator
-holding more than two thirds alone finishes consensus with its own precommit,
-before gossip reaches anyone, so the other node receives the commit before it
-has the block and cannot vote. See the fault-tolerance note below; the fix is
-four validators, not a bigger Pi.</li>
+<li><strong>A validator above two thirds silently excludes every other validator.</strong>
+Found and fixed 2026-08-21. <code>pi-2</code> signed 5 of 40 blocks, was jailed for
+downtime and slashed 1%, on a 21ms direct link with clocks four seconds apart
+and a load average of 0.5 — nothing wrong with it. A validator holding more
+than two thirds finishes consensus with its own precommit before gossip
+reaches anybody, so the other node gets the commit before it has the block and
+cannot vote for what it has not seen. Rebalancing to <strong>64.56% / 35.44%</strong> took
+it from 5 of 40 to <strong>25 of 25</strong> with nothing else changed. The cost is that
+neither node can now commit alone, so either one&#39;s outage stops the chain —
+which two validators could never avoid. Four is the number that gets both
+properties.</li>
 <li><strong>The ops signing service is still running</strong> with two htpasswd files. It was
 always a devnet crutch; the plan is client-side signing through
 <code>@yamale/connect</code>, then delete <code>/api/ops/</code>, both credential files and both

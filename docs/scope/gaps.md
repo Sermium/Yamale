@@ -27,13 +27,9 @@ Last verified 2026-08-21, against `yamale-devnet-2`.
 | Land registry | module, CLI, client; tokenisation refuses unauthorised fractionalisation |
 | Tiered netting | `x/netting`: collateral posted first, hold-and-retry, no recompute path |
 | Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
+| Roles and the perimeter | `x/alias` role grants, and `AssertScope` consulted by four modules |
 
 ## Designed, documented, not built
-
-**Roles and `AssertScope`.** The jurisdiction registry exists and is queryable;
-nothing consumes it. Until every authority action routes through one check, the
-perimeter is a fact the chain knows and does not enforce. See
-[roles-and-perimeter.md](roles-and-perimeter.md).
 
 **Browser signing for the foundation.** The console at `/foundation/` reads the
 chain and composes the commands, and a custodian runs them. It cannot sign,
@@ -103,7 +99,26 @@ compiled out and outside audit scope.
    coding one. Documented in `params.proto` and
    [settlement.md](../guides/settlement.md), deliberately not decided.
 
-3. **Whether a netting reserve is seizable.** `x/enforcement` seizes
+3. **Whether a bonded validator should still be able to freeze anything.**
+   `AssertScope` now gates `x/enforcement`'s `OpenCase`, which changes the
+   module's central property from *any bonded validator can freeze* to *any
+   bonded validator governance has placed in that country's perimeter*. That is
+   what [roles-and-perimeter.md](roles-and-perimeter.md) asks for and it is the
+   point of having a perimeter — but it is a real narrowing of who can act in an
+   emergency, and the narrower alternative was to scope only `EmergencyFreeze`
+   and leave ordinary validators chain-wide. Worth confirming deliberately
+   rather than discovering.
+
+4. **Whether the count of chain-wide `*` grants belongs in the constitution.**
+   A validator set wanting to act outside its perimeter would grant itself `*`,
+   and today an ordinary governance vote is all that stands in the way — which
+   is exactly the test for constitutional-ness. The argument against is that it
+   is a count rather than a threshold, and `x/alias` has no `EndBlocker`, so it
+   would be checked in `GrantRole` and `InitGenesis` the way the
+   foundation-administrator cap already is. Not added, because the invariant set
+   is customer-visible.
+
+5. **Whether a netting reserve is seizable.** `x/enforcement` seizes
    `SpendableCoins` from a bank account; the uncommitted part of a posted
    reserve is plainly the participant's own money and sits in the netting module
    account, out of reach. A freeze blocks posting and withdrawing, so value
@@ -125,14 +140,17 @@ compiled out and outside audit scope.
 
 ## Operational loose ends
 
-- **The minority validator cannot keep its signing rate up, and this is
-  structural.** Measured 2026-08-21: `pi-2` signed 5 of 40 blocks and was jailed
-  for downtime and slashed 1%, with a 21ms direct link, clocks four seconds
-  apart and a load average of 0.5. Nothing was wrong with it. A validator
-  holding more than two thirds alone finishes consensus with its own precommit,
-  before gossip reaches anyone, so the other node receives the commit before it
-  has the block and cannot vote. See the fault-tolerance note below; the fix is
-  four validators, not a bigger Pi.
+- **A validator above two thirds silently excludes every other validator.**
+  Found and fixed 2026-08-21. `pi-2` signed 5 of 40 blocks, was jailed for
+  downtime and slashed 1%, on a 21ms direct link with clocks four seconds apart
+  and a load average of 0.5 — nothing wrong with it. A validator holding more
+  than two thirds finishes consensus with its own precommit before gossip
+  reaches anybody, so the other node gets the commit before it has the block and
+  cannot vote for what it has not seen. Rebalancing to **64.56% / 35.44%** took
+  it from 5 of 40 to **25 of 25** with nothing else changed. The cost is that
+  neither node can now commit alone, so either one's outage stops the chain —
+  which two validators could never avoid. Four is the number that gets both
+  properties.
 - **The ops signing service is still running** with two htpasswd files. It was
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both

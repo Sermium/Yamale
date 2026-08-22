@@ -210,6 +210,12 @@ validator signed **5 of 40 blocks**, against a slashing window that jails below
 50 of 100. It was jailed for downtime, slashed 1%, unjailed, and began earning
 the same jail again immediately. Nothing was wrong with it.
 
+Confirmed by fixing it and changing nothing else. Delegating enough to the
+minority validator to put the majority at **64.56%** — below two thirds, so
+neither can commit alone — took its signing rate from 5 of 40 to **25 of 25**,
+immediately, in the first full window after the change. Same host, same 21ms
+link, same binary.
+
 So a lopsided pair does not give you one strong validator and one weak one. It
 gives you one validator and one node that is punished for being unable to
 participate.
