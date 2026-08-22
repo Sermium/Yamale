@@ -37,6 +37,14 @@ type Keeper struct {
 	// protection.
 	groupKeeper types.GroupKeeper
 
+	// Asked on every authority action: does this office hold the registry role
+	// in the jurisdiction it claims to administer? See types.ScopeKeeper.
+	//
+	// Held as an interface with one method rather than as the registry's keeper,
+	// so this module can read the perimeter and can never write it. An office
+	// that could widen its own perimeter is not inside one.
+	scopeKeeper types.ScopeKeeper
+
 	Schema collections.Schema
 	Params collections.Item[types.Params]
 
@@ -72,6 +80,7 @@ func NewKeeper(
 	authority []byte,
 
 	groupKeeper types.GroupKeeper,
+	scopeKeeper types.ScopeKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -85,6 +94,7 @@ func NewKeeper(
 		addressCodec: addressCodec,
 		authority:    authority,
 		groupKeeper:  groupKeeper,
+		scopeKeeper:  scopeKeeper,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params",
 			codec.CollValue[types.Params](cdc)),

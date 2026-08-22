@@ -10,6 +10,7 @@ import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pa
 import { Alias } from "./alias.ts";
 import { Jurisdiction } from "./jurisdiction.ts";
 import { Params } from "./params.ts";
+import { Role, roleFromJSON, RoleGrant, roleToJSON } from "./role.ts";
 import { AuditorGrant, RegulatorAppointment, ViewingKey } from "./viewing_key.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
@@ -131,6 +132,60 @@ export interface QueryAuditorsRequest {
 /** QueryAuditorsResponse carries them with the keys they read with. */
 export interface QueryAuditorsResponse {
   auditors: AuditorEntitlement[];
+}
+
+/** QueryRoleGrantsRequest asks what one account may do, and where. */
+export interface QueryRoleGrantsRequest {
+  holder: string;
+}
+
+/**
+ * QueryRoleGrantsResponse carries them, chain-wide grants included.
+ *
+ * Chain-wide grants belong here even though they are excluded from
+ * RoleHolders: this is the answer to "what may this account do", and omitting
+ * the widest grant it holds would make the response actively misleading.
+ */
+export interface QueryRoleGrantsResponse {
+  grants: RoleGrant[];
+}
+
+/** QueryRoleHoldersRequest asks who holds roles inside one jurisdiction. */
+export interface QueryRoleHoldersRequest {
+  /** jurisdiction is an ISO 3166-1 alpha-2 code, in any case. */
+  jurisdiction: string;
+  /**
+   * role narrows the answer to one role. Left unspecified it means every role,
+   * which is the only sense in which the zero value is accepted anywhere: here
+   * it is a filter that has not been applied, never a grant.
+   */
+  role: Role;
+  pagination: PageRequest | undefined;
+}
+
+/** QueryRoleHoldersResponse carries one page of that jurisdiction's grants. */
+export interface QueryRoleHoldersResponse {
+  grants: RoleGrant[];
+  pagination: PageResponse | undefined;
+}
+
+/**
+ * QueryChainWideGrantsRequest takes no argument. The exception should be one
+ * call away.
+ */
+export interface QueryChainWideGrantsRequest {
+}
+
+/**
+ * QueryChainWideGrantsResponse carries every grant that no border bounds.
+ *
+ * Unpaginated, and that is a statement rather than an omission: if this set
+ * ever grows past what fits in one response, the deployment has stopped
+ * treating chain-wide authority as an exception and the right fix is fewer
+ * grants, not another page.
+ */
+export interface QueryChainWideGrantsResponse {
+  grants: RoleGrant[];
 }
 
 /** AuditorEntitlement pairs a grant with the key it reads through. */
@@ -1210,6 +1265,391 @@ export const QueryAuditorsResponse = {
   },
 };
 
+function createBaseQueryRoleGrantsRequest(): QueryRoleGrantsRequest {
+  return { holder: "" };
+}
+
+export const QueryRoleGrantsRequest = {
+  encode(message: QueryRoleGrantsRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.holder !== "") {
+      writer.uint32(10).string(message.holder);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRoleGrantsRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRoleGrantsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.holder = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRoleGrantsRequest {
+    return { holder: isSet(object.holder) ? globalThis.String(object.holder) : "" };
+  },
+
+  toJSON(message: QueryRoleGrantsRequest): unknown {
+    const obj: any = {};
+    if (message.holder !== "") {
+      obj.holder = message.holder;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRoleGrantsRequest>): QueryRoleGrantsRequest {
+    return QueryRoleGrantsRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRoleGrantsRequest>): QueryRoleGrantsRequest {
+    const message = createBaseQueryRoleGrantsRequest();
+    message.holder = object.holder ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryRoleGrantsResponse(): QueryRoleGrantsResponse {
+  return { grants: [] };
+}
+
+export const QueryRoleGrantsResponse = {
+  encode(message: QueryRoleGrantsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.grants) {
+      RoleGrant.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRoleGrantsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRoleGrantsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.grants.push(RoleGrant.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRoleGrantsResponse {
+    return {
+      grants: globalThis.Array.isArray(object?.grants) ? object.grants.map((e: any) => RoleGrant.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: QueryRoleGrantsResponse): unknown {
+    const obj: any = {};
+    if (message.grants?.length) {
+      obj.grants = message.grants.map((e) => RoleGrant.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRoleGrantsResponse>): QueryRoleGrantsResponse {
+    return QueryRoleGrantsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRoleGrantsResponse>): QueryRoleGrantsResponse {
+    const message = createBaseQueryRoleGrantsResponse();
+    message.grants = object.grants?.map((e) => RoleGrant.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseQueryRoleHoldersRequest(): QueryRoleHoldersRequest {
+  return { jurisdiction: "", role: 0, pagination: undefined };
+}
+
+export const QueryRoleHoldersRequest = {
+  encode(message: QueryRoleHoldersRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jurisdiction !== "") {
+      writer.uint32(10).string(message.jurisdiction);
+    }
+    if (message.role !== 0) {
+      writer.uint32(16).int32(message.role);
+    }
+    if (message.pagination !== undefined) {
+      PageRequest.encode(message.pagination, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRoleHoldersRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRoleHoldersRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jurisdiction = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.role = reader.int32() as any;
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.pagination = PageRequest.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRoleHoldersRequest {
+    return {
+      jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
+      role: isSet(object.role) ? roleFromJSON(object.role) : 0,
+      pagination: isSet(object.pagination) ? PageRequest.fromJSON(object.pagination) : undefined,
+    };
+  },
+
+  toJSON(message: QueryRoleHoldersRequest): unknown {
+    const obj: any = {};
+    if (message.jurisdiction !== "") {
+      obj.jurisdiction = message.jurisdiction;
+    }
+    if (message.role !== 0) {
+      obj.role = roleToJSON(message.role);
+    }
+    if (message.pagination !== undefined) {
+      obj.pagination = PageRequest.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRoleHoldersRequest>): QueryRoleHoldersRequest {
+    return QueryRoleHoldersRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRoleHoldersRequest>): QueryRoleHoldersRequest {
+    const message = createBaseQueryRoleHoldersRequest();
+    message.jurisdiction = object.jurisdiction ?? "";
+    message.role = object.role ?? 0;
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageRequest.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryRoleHoldersResponse(): QueryRoleHoldersResponse {
+  return { grants: [], pagination: undefined };
+}
+
+export const QueryRoleHoldersResponse = {
+  encode(message: QueryRoleHoldersResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.grants) {
+      RoleGrant.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.pagination !== undefined) {
+      PageResponse.encode(message.pagination, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryRoleHoldersResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryRoleHoldersResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.grants.push(RoleGrant.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.pagination = PageResponse.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryRoleHoldersResponse {
+    return {
+      grants: globalThis.Array.isArray(object?.grants) ? object.grants.map((e: any) => RoleGrant.fromJSON(e)) : [],
+      pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
+    };
+  },
+
+  toJSON(message: QueryRoleHoldersResponse): unknown {
+    const obj: any = {};
+    if (message.grants?.length) {
+      obj.grants = message.grants.map((e) => RoleGrant.toJSON(e));
+    }
+    if (message.pagination !== undefined) {
+      obj.pagination = PageResponse.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryRoleHoldersResponse>): QueryRoleHoldersResponse {
+    return QueryRoleHoldersResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryRoleHoldersResponse>): QueryRoleHoldersResponse {
+    const message = createBaseQueryRoleHoldersResponse();
+    message.grants = object.grants?.map((e) => RoleGrant.fromPartial(e)) || [];
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageResponse.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryChainWideGrantsRequest(): QueryChainWideGrantsRequest {
+  return {};
+}
+
+export const QueryChainWideGrantsRequest = {
+  encode(_: QueryChainWideGrantsRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryChainWideGrantsRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryChainWideGrantsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QueryChainWideGrantsRequest {
+    return {};
+  },
+
+  toJSON(_: QueryChainWideGrantsRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryChainWideGrantsRequest>): QueryChainWideGrantsRequest {
+    return QueryChainWideGrantsRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QueryChainWideGrantsRequest>): QueryChainWideGrantsRequest {
+    const message = createBaseQueryChainWideGrantsRequest();
+    return message;
+  },
+};
+
+function createBaseQueryChainWideGrantsResponse(): QueryChainWideGrantsResponse {
+  return { grants: [] };
+}
+
+export const QueryChainWideGrantsResponse = {
+  encode(message: QueryChainWideGrantsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.grants) {
+      RoleGrant.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryChainWideGrantsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryChainWideGrantsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.grants.push(RoleGrant.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryChainWideGrantsResponse {
+    return {
+      grants: globalThis.Array.isArray(object?.grants) ? object.grants.map((e: any) => RoleGrant.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: QueryChainWideGrantsResponse): unknown {
+    const obj: any = {};
+    if (message.grants?.length) {
+      obj.grants = message.grants.map((e) => RoleGrant.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryChainWideGrantsResponse>): QueryChainWideGrantsResponse {
+    return QueryChainWideGrantsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryChainWideGrantsResponse>): QueryChainWideGrantsResponse {
+    const message = createBaseQueryChainWideGrantsResponse();
+    message.grants = object.grants?.map((e) => RoleGrant.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 function createBaseAuditorEntitlement(): AuditorEntitlement {
   return { grant: undefined, key: undefined };
 }
@@ -1359,6 +1799,34 @@ export interface Query {
    * the whole set.
    */
   Auditors(request: QueryAuditorsRequest): Promise<QueryAuditorsResponse>;
+  /**
+   * RoleGrants lists every role one account holds, and where.
+   *
+   * The question an operator actually asks about a key before trusting it, and
+   * the question a holder asks to find out what the chain thinks they may do.
+   * Empty is a real answer: an account with no grants may act nowhere.
+   */
+  RoleGrants(request: QueryRoleGrantsRequest): Promise<QueryRoleGrantsResponse>;
+  /**
+   * RoleHolders lists who holds roles inside one jurisdiction.
+   *
+   * The supervisory view: "who may act on my country's accounts". Chain-wide
+   * grants are deliberately *not* folded in — they are listed on their own
+   * endpoint — because a country's own list should show what that country
+   * granted, and silently mixing in the chain-wide exceptions would hide them
+   * among the ordinary entries of every country at once.
+   */
+  RoleHolders(request: QueryRoleHoldersRequest): Promise<QueryRoleHoldersResponse>;
+  /**
+   * ChainWideGrants lists every grant whose scope is "*".
+   *
+   * Its own endpoint, taking no argument, precisely because the chain-wide
+   * scope is the exception. An exception that can only be found by knowing to
+   * ask for the wildcard is an exception nobody audits, so a governance console
+   * can put this on a page and show the whole set of accounts that are not
+   * bounded by any border.
+   */
+  ChainWideGrants(request: QueryChainWideGrantsRequest): Promise<QueryChainWideGrantsResponse>;
 }
 
 export const QueryServiceName = "blockchain.alias.v1.Query";
@@ -1377,6 +1845,9 @@ export class QueryClientImpl implements Query {
     this.ViewingKeys = this.ViewingKeys.bind(this);
     this.Regulator = this.Regulator.bind(this);
     this.Auditors = this.Auditors.bind(this);
+    this.RoleGrants = this.RoleGrants.bind(this);
+    this.RoleHolders = this.RoleHolders.bind(this);
+    this.ChainWideGrants = this.ChainWideGrants.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -1430,6 +1901,24 @@ export class QueryClientImpl implements Query {
     const data = QueryAuditorsRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Auditors", data);
     return promise.then((data) => QueryAuditorsResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RoleGrants(request: QueryRoleGrantsRequest): Promise<QueryRoleGrantsResponse> {
+    const data = QueryRoleGrantsRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RoleGrants", data);
+    return promise.then((data) => QueryRoleGrantsResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RoleHolders(request: QueryRoleHoldersRequest): Promise<QueryRoleHoldersResponse> {
+    const data = QueryRoleHoldersRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RoleHolders", data);
+    return promise.then((data) => QueryRoleHoldersResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ChainWideGrants(request: QueryChainWideGrantsRequest): Promise<QueryChainWideGrantsResponse> {
+    const data = QueryChainWideGrantsRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ChainWideGrants", data);
+    return promise.then((data) => QueryChainWideGrantsResponse.decode(_m0.Reader.create(data)));
   }
 }
 

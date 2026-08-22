@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
+	aliasmodule "yamale/blockchain/x/alias/module"
+	aliastestutil "yamale/blockchain/x/alias/testutil"
+	aliastypes "yamale/blockchain/x/alias/types"
 	landkeeper "yamale/blockchain/x/land/keeper"
 	landtypes "yamale/blockchain/x/land/types"
 	"yamale/blockchain/x/tokenisation/keeper"
@@ -24,6 +27,11 @@ import (
 // blockTime is a fixed, sane wall clock. The expiry rule is meaningless at the
 // zero time, where every positive expiry is in the future.
 var blockTime = time.Unix(1_700_000_000, 0).UTC()
+
+// landJurisdiction is the country the office administers. It has to be a code
+// the chain recognises, because the registry's perimeter check is made against
+// this field and free text names a perimeter no grant can ever cover.
+const landJurisdiction = "GH"
 
 type landFixture struct {
 	env   *integration.Env
@@ -45,15 +53,21 @@ func landSetup(t *testing.T) *landFixture {
 	t.Helper()
 
 	env := integration.NewWith(t,
-		[]string{types.ModuleName, landtypes.ModuleName}, module.AppModule{})
+		[]string{types.ModuleName, landtypes.ModuleName, aliastypes.ModuleName},
+		module.AppModule{}, aliasmodule.AppModule{})
 	env.Ctx = env.Ctx.WithBlockTime(blockTime)
+	perimeter := aliastestutil.Init(t, env)
 
 	authority, err := env.AddressCodec.StringToBytes(env.AuthorityString(t))
 	require.NoError(t, err)
 
 	// nil group keeper: these tests exercise the bridge, not office admission.
+	// The perimeter, however, is real: the registry refuses an office acting
+	// outside its granted jurisdiction, and that refusal has to be in the way of
+	// this bridge too or the bridge is a route around it.
 	landK := landkeeper.NewKeeper(
-		env.Store(landtypes.ModuleName), env.Codec, env.AddressCodec, env.Authority, nil)
+		env.Store(landtypes.ModuleName), env.Codec, env.AddressCodec, env.Authority,
+		nil, perimeter.Keeper)
 	require.NoError(t, landK.Params.Set(env.Ctx, landtypes.DefaultParams()))
 
 	tokK := keeper.NewKeeper(
@@ -71,8 +85,9 @@ func landSetup(t *testing.T) *landFixture {
 	}
 
 	_, f.office = env.Addr(t)
+	perimeter.Grant(t, f.office, aliastypes.ROLE_REGISTRY_AUTHORITY, landJurisdiction)
 	require.NoError(t, landK.Authority.Set(env.Ctx, f.office, landtypes.Authority{
-		Address: f.office, Name: "office", Jurisdiction: "test", Active: true,
+		Address: f.office, Name: "office", Jurisdiction: landJurisdiction, Active: true,
 	}))
 
 	_, f.holder = env.Addr(t)

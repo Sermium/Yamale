@@ -16,8 +16,8 @@ import (
 func TestOpeningACaseStopsTheMoneyImmediately(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	victim, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	victim, _ := f.addr(t)
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator,
@@ -34,7 +34,7 @@ func TestOpeningACaseStopsTheMoneyImmediately(t *testing.T) {
 
 	// Being frozen stops sending, not receiving. Refusing incoming funds would
 	// bounce payments from people who have done nothing wrong.
-	funder, _ := f.env.NewFundedAddr(t, coins(10))
+	funder, _ := f.fundedAddr(t, coins(10))
 	require.NoError(t, f.env.BankKeeper.SendCoins(f.ctx, funder, scammer, coins(10)))
 }
 
@@ -43,8 +43,8 @@ func TestOpeningACaseStopsTheMoneyImmediately(t *testing.T) {
 func TestAnUnvotedFreezeExpiresByItself(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	victim, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	victim, _ := f.addr(t)
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator,
@@ -76,7 +76,7 @@ func TestAnUnvotedFreezeExpiresByItself(t *testing.T) {
 func TestTheProvisionalFreezeOutlivesTheVoteButNotForever(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator,
@@ -106,7 +106,7 @@ func TestASupermajorityIsNeededToPass(t *testing.T) {
 	two := f.addValidator(t, 10)
 	three := f.addValidator(t, 10)
 	four := f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one,
@@ -153,8 +153,8 @@ func TestACaseIsRejectedAsSoonAsItCannotPass(t *testing.T) {
 	two := f.addValidator(t, 10)
 	three := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	other, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	other, _ := f.addr(t)
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one,
@@ -185,8 +185,8 @@ func TestOnlyBondedValidatorsMayOpenAndVote(t *testing.T) {
 	// A second validator so that one yes does not resolve the case, which would
 	// hide the double-vote check behind an already-closed one.
 	f.addValidator(t, 10)
-	_, stranger := f.env.Addr(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000))
+	_, stranger := f.addr(t)
+	_, scammerStr := f.fundedAddr(t, coins(1_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: stranger,
@@ -240,7 +240,7 @@ func TestOneCaseAtATimePerAddress(t *testing.T) {
 	f := initFixture(t)
 	one := f.addValidator(t, 10)
 	two := f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "first",
@@ -259,8 +259,8 @@ func TestOnlyTheOpenerMayWithdraw(t *testing.T) {
 	f := initFixture(t)
 	one := f.addValidator(t, 10)
 	two := f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000))
-	other, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000))
+	other, _ := f.addr(t)
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "a mistake",
@@ -281,7 +281,7 @@ func TestOnlyTheOpenerMayWithdraw(t *testing.T) {
 func TestASeizureNeedsEvidenceAndSomewhereToSend(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_SEIZE, Reason: "theft",

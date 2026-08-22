@@ -92,7 +92,8 @@ func TestGenesisRoundTrip(t *testing.T) {
 	// and the comparison would be measuring the fixture rather than the
 	// round trip.
 	genv := integration.New(t, types.ModuleName)
-	g := keeper.NewKeeper(genv.StoreService, genv.Codec, genv.AddressCodec, genv.Authority, nil)
+	g := keeper.NewKeeper(genv.StoreService, genv.Codec, genv.AddressCodec, genv.Authority,
+		nil, nil)
 	require.NoError(t, g.InitGenesis(genv.Ctx, *exported))
 
 	again, err := g.ExportGenesis(genv.Ctx)

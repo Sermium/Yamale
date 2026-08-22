@@ -8,6 +8,7 @@
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { Params } from "./params.ts";
+import { Role, roleFromJSON, roleToJSON } from "./role.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
 
@@ -217,6 +218,76 @@ export interface MsgGrantAuditor {
 
 /** MsgGrantAuditorResponse is empty. */
 export interface MsgGrantAuditorResponse {
+}
+
+/**
+ * MsgGrantRole grants a role inside one jurisdiction.
+ *
+ * Governance only, and unlike the appointments above a foundation administrator
+ * cannot sign it either. The reason is the difference between using a power and
+ * deciding who holds one: an administrator naming a country's regulator is
+ * operating the rail governance already put them on, whereas an administrator
+ * able to grant roles could grant themselves the chain-wide scope and then
+ * grant it to anyone else. Every widening of who may act therefore goes through
+ * a vote, in public, one grant at a time.
+ *
+ * The holder must be an x/group account. A role is only worth the office that
+ * holds it, and an office that is one key is one bribe — which is the same
+ * reasoning that makes x/land refuse a registry office that is not a group.
+ */
+export interface MsgGrantRole {
+  authority: string;
+  /** holder is the account being granted the role. */
+  holder: string;
+  /**
+   * role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role
+   * was left unset must never be honoured, and proto3 cannot tell that from a
+   * role that happens to be numbered zero.
+   */
+  role: Role;
+  /**
+   * jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for
+   * chain-wide. The reserved code the foundation's own identifiers carry is
+   * refused — it marks the absence of a perimeter, so a grant over it would
+   * confer nothing while reading like everything.
+   */
+  jurisdiction: string;
+}
+
+/** MsgGrantRoleResponse is empty. */
+export interface MsgGrantRoleResponse {
+}
+
+/**
+ * MsgRevokeRole removes one grant, named exactly.
+ *
+ * The jurisdiction is part of what is revoked rather than implied, because a
+ * holder may hold the same role in several countries and revoking "their
+ * enforcement role" would be ambiguous between removing one perimeter and
+ * removing all of them. Governance says which.
+ */
+export interface MsgRevokeRole {
+  authority: string;
+  /** holder is the account losing the role. */
+  holder: string;
+  /**
+   * role is which of the holder's roles to remove. ROLE_UNSPECIFIED is refused
+   * here as well as on the grant: "revoke whatever role was left unset" has no
+   * meaning, and a message that resolved it to one would revoke something
+   * nobody named.
+   */
+  role: Role;
+  /**
+   * jurisdiction is which perimeter to remove it in. Naming one that was never
+   * granted is an error rather than a quiet success — "nothing to revoke" is how
+   * a proposal that named the wrong country passes while leaving the authority
+   * it meant to remove in place.
+   */
+  jurisdiction: string;
+}
+
+/** MsgRevokeRoleResponse is empty. */
+export interface MsgRevokeRoleResponse {
 }
 
 /** MsgUpdateParams sets the module parameters. Governance only. */
@@ -1149,6 +1220,300 @@ export const MsgGrantAuditorResponse = {
   },
 };
 
+function createBaseMsgGrantRole(): MsgGrantRole {
+  return { authority: "", holder: "", role: 0, jurisdiction: "" };
+}
+
+export const MsgGrantRole = {
+  encode(message: MsgGrantRole, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.holder !== "") {
+      writer.uint32(18).string(message.holder);
+    }
+    if (message.role !== 0) {
+      writer.uint32(24).int32(message.role);
+    }
+    if (message.jurisdiction !== "") {
+      writer.uint32(34).string(message.jurisdiction);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgGrantRole {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgGrantRole();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.holder = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.role = reader.int32() as any;
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.jurisdiction = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgGrantRole {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
+      role: isSet(object.role) ? roleFromJSON(object.role) : 0,
+      jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
+    };
+  },
+
+  toJSON(message: MsgGrantRole): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.holder !== "") {
+      obj.holder = message.holder;
+    }
+    if (message.role !== 0) {
+      obj.role = roleToJSON(message.role);
+    }
+    if (message.jurisdiction !== "") {
+      obj.jurisdiction = message.jurisdiction;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgGrantRole>): MsgGrantRole {
+    return MsgGrantRole.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgGrantRole>): MsgGrantRole {
+    const message = createBaseMsgGrantRole();
+    message.authority = object.authority ?? "";
+    message.holder = object.holder ?? "";
+    message.role = object.role ?? 0;
+    message.jurisdiction = object.jurisdiction ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgGrantRoleResponse(): MsgGrantRoleResponse {
+  return {};
+}
+
+export const MsgGrantRoleResponse = {
+  encode(_: MsgGrantRoleResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgGrantRoleResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgGrantRoleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgGrantRoleResponse {
+    return {};
+  },
+
+  toJSON(_: MsgGrantRoleResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgGrantRoleResponse>): MsgGrantRoleResponse {
+    return MsgGrantRoleResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgGrantRoleResponse>): MsgGrantRoleResponse {
+    const message = createBaseMsgGrantRoleResponse();
+    return message;
+  },
+};
+
+function createBaseMsgRevokeRole(): MsgRevokeRole {
+  return { authority: "", holder: "", role: 0, jurisdiction: "" };
+}
+
+export const MsgRevokeRole = {
+  encode(message: MsgRevokeRole, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.holder !== "") {
+      writer.uint32(18).string(message.holder);
+    }
+    if (message.role !== 0) {
+      writer.uint32(24).int32(message.role);
+    }
+    if (message.jurisdiction !== "") {
+      writer.uint32(34).string(message.jurisdiction);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeRole {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeRole();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.holder = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.role = reader.int32() as any;
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.jurisdiction = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRevokeRole {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
+      role: isSet(object.role) ? roleFromJSON(object.role) : 0,
+      jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
+    };
+  },
+
+  toJSON(message: MsgRevokeRole): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.holder !== "") {
+      obj.holder = message.holder;
+    }
+    if (message.role !== 0) {
+      obj.role = roleToJSON(message.role);
+    }
+    if (message.jurisdiction !== "") {
+      obj.jurisdiction = message.jurisdiction;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeRole>): MsgRevokeRole {
+    return MsgRevokeRole.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRevokeRole>): MsgRevokeRole {
+    const message = createBaseMsgRevokeRole();
+    message.authority = object.authority ?? "";
+    message.holder = object.holder ?? "";
+    message.role = object.role ?? 0;
+    message.jurisdiction = object.jurisdiction ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgRevokeRoleResponse(): MsgRevokeRoleResponse {
+  return {};
+}
+
+export const MsgRevokeRoleResponse = {
+  encode(_: MsgRevokeRoleResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeRoleResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeRoleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgRevokeRoleResponse {
+    return {};
+  },
+
+  toJSON(_: MsgRevokeRoleResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeRoleResponse>): MsgRevokeRoleResponse {
+    return MsgRevokeRoleResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgRevokeRoleResponse>): MsgRevokeRoleResponse {
+    const message = createBaseMsgRevokeRoleResponse();
+    return message;
+  },
+};
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -1300,6 +1665,10 @@ export interface Msg {
   AppointRegulator(request: MsgAppointRegulator): Promise<MsgAppointRegulatorResponse>;
   /** GrantAuditor grants the time-boxed cross-account reading role. */
   GrantAuditor(request: MsgGrantAuditor): Promise<MsgGrantAuditorResponse>;
+  /** GrantRole grants a role inside one jurisdiction. Governance only. */
+  GrantRole(request: MsgGrantRole): Promise<MsgGrantRoleResponse>;
+  /** RevokeRole removes one such grant. Governance only. */
+  RevokeRole(request: MsgRevokeRole): Promise<MsgRevokeRoleResponse>;
   /** UpdateParams sets the module parameters. Governance only. */
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse>;
 }
@@ -1318,6 +1687,8 @@ export class MsgClientImpl implements Msg {
     this.RevokeViewingKey = this.RevokeViewingKey.bind(this);
     this.AppointRegulator = this.AppointRegulator.bind(this);
     this.GrantAuditor = this.GrantAuditor.bind(this);
+    this.GrantRole = this.GrantRole.bind(this);
+    this.RevokeRole = this.RevokeRole.bind(this);
     this.UpdateParams = this.UpdateParams.bind(this);
   }
   RegisterAlias(request: MsgRegisterAlias): Promise<MsgRegisterAliasResponse> {
@@ -1360,6 +1731,18 @@ export class MsgClientImpl implements Msg {
     const data = MsgGrantAuditor.encode(request).finish();
     const promise = this.rpc.request(this.service, "GrantAuditor", data);
     return promise.then((data) => MsgGrantAuditorResponse.decode(_m0.Reader.create(data)));
+  }
+
+  GrantRole(request: MsgGrantRole): Promise<MsgGrantRoleResponse> {
+    const data = MsgGrantRole.encode(request).finish();
+    const promise = this.rpc.request(this.service, "GrantRole", data);
+    return promise.then((data) => MsgGrantRoleResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RevokeRole(request: MsgRevokeRole): Promise<MsgRevokeRoleResponse> {
+    const data = MsgRevokeRole.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RevokeRole", data);
+    return promise.then((data) => MsgRevokeRoleResponse.decode(_m0.Reader.create(data)));
   }
 
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {

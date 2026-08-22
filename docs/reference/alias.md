@@ -36,6 +36,21 @@ GrantAuditor grants the time-boxed cross-account reading role.
 | `address` | string |  |
 | `expires_at_height` | int64 | expires_at_height must be in the future. There is no unbounded form of this grant, and no zero-means-forever: a role that can become permanent by leaving a field unset is not time-boxed, it is time-boxed by convention. |
 
+### MsgGrantRole
+
+`/blockchain.alias.v1.MsgGrantRole`
+
+Signed by the `authority` field.
+
+GrantRole grants a role inside one jurisdiction. Governance only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `holder` | string | holder is the account being granted the role. |
+| `role` | Role | role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role was left unset must never be honoured, and proto3 cannot tell that from a role that happens to be numbered zero. |
+| `jurisdiction` | string | jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for chain-wide. The reserved code the foundation's own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. |
+
 ### MsgRegisterAlias
 
 `/blockchain.alias.v1.MsgRegisterAlias`
@@ -60,6 +75,21 @@ RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
 | --- | --- | --- |
 | `account` | string |  |
 | `public_key` | bytes | public_key is 32 bytes of X25519. The private half never leaves the holder, and nothing on this chain has any use for it. |
+
+### MsgRevokeRole
+
+`/blockchain.alias.v1.MsgRevokeRole`
+
+Signed by the `authority` field.
+
+RevokeRole removes one such grant. Governance only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `holder` | string | holder is the account losing the role. |
+| `role` | Role | role is which of the holder's roles to remove. ROLE_UNSPECIFIED is refused here as well as on the grant: "revoke whatever role was left unset" has no meaning, and a message that resolved it to one would revoke something nobody named. |
+| `jurisdiction` | string | jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — "nothing to revoke" is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place. |
 
 ### MsgRevokeViewingKey
 
@@ -165,6 +195,20 @@ Response:
 | --- | --- | --- |
 | `auditors` | repeated AuditorEntitlement |  |
 
+### ChainWideGrants
+
+`GET /yamale/blockchain/alias/v1/chain_wide_grants`
+
+ChainWideGrants lists every grant whose scope is "*".
+
+Its own endpoint, taking no argument, precisely because the chain-wide scope is the exception. An exception that can only be found by knowing to ask for the wildcard is an exception nobody audits, so a governance console can put this on a page and show the whole set of accounts that are not bounded by any border.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `grants` | repeated RoleGrant |  |
+
 ### Jurisdiction
 
 `GET /yamale/blockchain/alias/v1/jurisdiction/{address}`
@@ -256,6 +300,49 @@ Response:
 | --- | --- | --- |
 | `retired` | bool |  |
 
+### RoleGrants
+
+`GET /yamale/blockchain/alias/v1/role_grants/{holder}`
+
+RoleGrants lists every role one account holds, and where.
+
+The question an operator actually asks about a key before trusting it, and the question a holder asks to find out what the chain thinks they may do. Empty is a real answer: an account with no grants may act nowhere.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `holder` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `grants` | repeated RoleGrant |  |
+
+### RoleHolders
+
+`GET /yamale/blockchain/alias/v1/role_holders/{jurisdiction}`
+
+RoleHolders lists who holds roles inside one jurisdiction.
+
+The supervisory view: "who may act on my country's accounts". Chain-wide grants are deliberately *not* folded in — they are listed on their own endpoint — because a country's own list should show what that country granted, and silently mixing in the chain-wide exceptions would hide them among the ordinary entries of every country at once.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jurisdiction` | string | jurisdiction is an ISO 3166-1 alpha-2 code, in any case. |
+| `role` | Role | role narrows the answer to one role. Left unspecified it means every role, which is the only sense in which the zero value is accepted anywhere: here it is a filter that has not been applied, never a grant. |
+| `pagination` | PageRequest |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `grants` | repeated RoleGrant |  |
+| `pagination` | PageResponse |  |
+
 ### ViewingKeys
 
 `GET /yamale/blockchain/alias/v1/viewing_keys/{address}`
@@ -340,6 +427,20 @@ One per country, deliberately. The settlement jurisdiction is the field that set
 | `appointed_by` | string | appointed_by is the authority that made the appointment. Kept because "who says this account regulates Nigeria" is the question asked when the answer turns out to be wrong, and an unattributed appointment cannot answer it. |
 | `appointed_at_height` | int64 | appointed_at_height is when it was last written, so a change to who regulates a country is visible as a change rather than as a fact that was always there. |
 
+### RoleGrant
+
+RoleGrant is the triple the whole perimeter is built from: who, what role, where.
+
+It is created and removed by governance and by nobody else. A role its own holder could grant is not a perimeter, and neither is one another holder of the same role could hand out — buying one office would buy the power to manufacture the rest.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `holder` | string | holder is the granted account. Expected to be an x/group account wherever the decision the role carries should be M-of-N rather than one official's key; that expectation is checked at grant time rather than trusted, for the same reason x/land refuses a registry office that is a plain key. |
+| `role` | Role | role is what the holder may do. Never ROLE_UNSPECIFIED. |
+| `jurisdiction` | string | jurisdiction is where the holder may do it: an ISO 3166-1 alpha-2 country code from the assigned list, or "*" for chain-wide. The chain-wide form is the exception and is meant to stay rare. It has its own query endpoint so a governance console can list every one of them without having to know how to spell the wildcard — an exception nobody can enumerate is an exception nobody audits. Note what cannot appear here: the foundation's reserved code. That code marks the *absence* of a national perimeter, so a grant naming it would be a grant over nowhere, and it would read to a human as chain-wide authority while conferring none. Chain-wide is spelled "*" and only "*". |
+| `granted_by` | string | granted_by is the authority that made the grant. Kept because "who says this account may freeze Nigerian accounts" is the question asked when the answer turns out to be wrong, and an unattributed grant cannot answer it. |
+| `granted_at_height` | int64 | granted_at_height is when it was written, so a widening of somebody's powers is visible as a change rather than as a fact that was always there. |
+
 ### ViewingKey
 
 ViewingKey is the X25519 public key a payment payload is encrypted to.
@@ -357,6 +458,23 @@ Only the public half is ever recorded. That is not a convention that could be re
 | `revoked` | bool | revoked marks a key whose private half is believed compromised. Revocation is not rotation, and conflating them loses the record. A revoked key must not be wrapped to again — but the envelopes already wrapped to it stay wrapped to it, because ciphertext that exists cannot be recalled. The flag is therefore a warning to senders and an exposure marker for readers, never a claim that old payloads became unreadable. A boolean beside the height rather than "height != 0", which is what this field was first. Proto3 cannot tell a height of zero from an unset field, so a key revoked at height zero — a genesis-seeded revocation, or any revocation on a chain that has not produced a block — read back as live. That failure is silent and points the wrong way: senders go on sealing payment detail to a key its holder has already declared compromised. |
 | `revoked_at_height` | int64 | revoked_at_height is when it happened, and is meaningful only when revoked is set. Kept because "when did this key stop being trustworthy" decides which stored payloads are exposed, and a bare boolean cannot answer it. |
 
+## Value types
+
+### Role
+
+Role is a power an account may be granted inside a perimeter.
+
+The list is short and closed on purpose. A role is only worth having if some module refuses an action without it, so a role nothing consults is a name in a registry pretending to be a control — and the way that happens is by letting the set grow faster than the checks.
+
+| Value | Meaning |
+| --- | --- |
+| `ROLE_UNSPECIFIED` | ROLE_UNSPECIFIED is the unset default and is never valid. The zero value is reserved rather than given to a real role, and every path refuses it. Proto3 cannot tell a zero from an absent field, so a grant whose role happened to be the first of the list would be indistinguishable from a grant whose role nobody filled in — and the second must never be honoured. |
+| `ROLE_REGISTRY_AUTHORITY` | ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office: registering a parcel, validating a transfer, freezing land. |
+| `ROLE_MONETARY_AUTHORITY` | ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a currency inside its jurisdiction. |
+| `ROLE_PAYMENTS_AUTHORITY` | ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a payment instruction. Separate from the monetary authority because licensing a payment service provider and issuing money are different offices in most of the deployments this chain is built for, and collapsing them here would force one key to hold both. |
+| `ROLE_ENFORCEMENT_AUTHORITY` | ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it, or freezing it outright. |
+| `ROLE_SUPERVISOR` | ROLE_SUPERVISOR is oversight without the power to act — the role held by an auditor or a regulator that watches a perimeter it does not administer. It is granted through the same registry as the rest so that "who is watching this country" has one answer in one place. |
+
 ## Errors
 
 Every way a transaction to this module can be rejected.
@@ -370,7 +488,13 @@ Every way a transaction to this module can be rejected.
 | 14 | `ErrViewingKeyNotFound` | this account has published no viewing key at that version |
 | 15 | `ErrNoRegulator` | no regulator is appointed for that country |
 | 16 | `ErrInvalidAuditorGrant` | an auditor grant must expire at a future height, and only so many may be live at once |
+| 17 | `ErrInvalidRole` | that is not a role that can be held, and an unset role is never a default |
+| 18 | `ErrInvalidScope` | a role's jurisdiction must be an assigned country code or the chain-wide marker |
+| 19 | `ErrOutOfScope` | this account holds no grant of that role covering that jurisdiction |
 | 2 | `ErrAlreadyRegistered` | this account already holds an identifier |
+| 20 | `ErrHolderNotGroup` | a role holder must be an x/group account, so that acting on it is M-of-N |
+| 21 | `ErrGrantNotFound` | no such grant: this account does not hold that role in that jurisdiction |
+| 22 | `ErrNoScopeKeeper` | the jurisdictional perimeter cannot be checked because the registry is not wired in |
 | 3 | `ErrNotRegistered` | this account holds no identifier |
 | 4 | `ErrNotFound` | no account holds that identifier |
 | 5 | `ErrMalformedID` | that is not a well-formed identifier |

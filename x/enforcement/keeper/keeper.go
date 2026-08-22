@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/enforcement/types"
 )
 
@@ -33,6 +34,12 @@ type Keeper struct {
 	// constitutionKeeper holds the four parameters governance is not allowed to
 	// move. Read-only, and read on both write paths into Params.
 	constitutionKeeper types.ConstitutionKeeper
+
+	// scopeKeeper is the jurisdictional perimeter. Consulted on every path that
+	// stops an account — opening a case and the emergency freeze — because
+	// stopping somebody's money is the act this chain most needs to be able to
+	// refuse to the wrong authority. Read-only; see types.ScopeKeeper.
+	scopeKeeper types.ScopeKeeper
 
 	CaseSeq collections.Sequence
 	Case    collections.Map[uint64, types.Case]
@@ -85,6 +92,7 @@ func NewKeeper(
 	bankKeeper types.BankKeeper,
 	stakingKeeper types.StakingKeeper,
 	constitutionKeeper types.ConstitutionKeeper,
+	scopeKeeper types.ScopeKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -99,6 +107,7 @@ func NewKeeper(
 		authority:    authority,
 
 		constitutionKeeper: constitutionKeeper,
+		scopeKeeper:        scopeKeeper,
 
 		authKeeper:    authKeeper,
 		bankKeeper:    bankKeeper,
@@ -145,6 +154,25 @@ func NewKeeper(
 // GetAuthority returns the module's authority.
 func (k Keeper) GetAuthority() []byte {
 	return k.authority
+}
+
+// assertScope refuses an actor stopping an account outside its perimeter.
+//
+// Fails closed when no registry is wired in. A check that is skipped because its
+// dependency is missing is a check a wiring mistake silently removes, and the
+// thing it would silently permit here is one account freezing another's money.
+//
+// Called from the message server rather than from an ante decorator, which is
+// not a stylistic choice: an ante gate only sees messages that arrive as
+// transactions, and an interchain account or an x/authz grant reaches the
+// message router without passing one. This repository has been bitten by that
+// before, and a freeze is the last message on the chain that should be reachable
+// by a road the perimeter does not watch.
+func (k Keeper) assertScope(ctx context.Context, actor, target string) error {
+	if k.scopeKeeper == nil {
+		return aliastypes.ErrNoScopeKeeper
+	}
+	return k.scopeKeeper.AssertScope(ctx, actor, aliastypes.ROLE_ENFORCEMENT_AUTHORITY, target)
 }
 
 // IsFrozen reports whether an address may not send.

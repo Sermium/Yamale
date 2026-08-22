@@ -35,6 +35,10 @@ type ModuleInputs struct {
 	// Supplied so the module can refuse a jurisdiction recorded by anyone but
 	// the institution that onboarded the account. See types.ParticipantKeeper.
 	ParticipantKeeper types.ParticipantKeeper
+
+	// Supplied so the module can refuse a role granted to a plain key. See
+	// types.GroupKeeper.
+	GroupKeeper types.GroupKeeper
 }
 
 type ModuleOutputs struct {
@@ -46,12 +50,17 @@ type ModuleOutputs struct {
 
 // ProvideModule builds the keeper.
 //
-// It takes one other keeper, and only to ask two read-only questions: who
-// onboarded an account, and is that institution still admitted. It cannot move
-// funds, mint, or read a balance, and the dependency runs one way — x/paymsg
-// knows nothing about x/alias. That narrowness is the point: an identifier
-// registry with a bank keeper in it is a registry that could eventually be made
-// to spend.
+// It takes two other keepers and asks each of them read-only questions and
+// nothing else: who onboarded an account and is that institution still admitted,
+// and is a prospective role holder a group account. It cannot move funds, mint,
+// or read a balance. That narrowness is the point: an identifier registry with a
+// bank keeper in it is a registry that could eventually be made to spend.
+//
+// Note which direction the dependencies run. x/paymsg and x/group know nothing
+// about x/alias, so a module that this one *consults* must never be given this
+// keeper by depinject — that is a cycle, and the graph refuses to build. x/paymsg
+// is exactly that case, and it is why the payments module receives the perimeter
+// check by a setter in app.go rather than through the graph.
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	authority := authtypes.NewModuleAddress(types.GovModuleName)
 	if in.Config.Authority != "" {
@@ -65,6 +74,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.Logger,
 		authority.String(),
 		in.ParticipantKeeper,
+		in.GroupKeeper,
 	)
 	return ModuleOutputs{AliasKeeper: k, Module: NewAppModule(in.Cdc, k)}
 }

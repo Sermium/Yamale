@@ -39,6 +39,10 @@ type ModuleInputs struct {
 
 	// Supplied so the registry can refuse an office that is a single key.
 	GroupKeeper types.GroupKeeper
+
+	// Supplied so the registry can refuse an office acting outside the
+	// jurisdiction governance granted it. See types.ScopeKeeper.
+	ScopeKeeper types.ScopeKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,7 +60,8 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		authority = authtypes.NewModuleAddressOrBech32Address(in.Config.Authority)
 	}
 
-	k := keeper.NewKeeper(in.StoreService, in.Cdc, in.AddressCodec, authority, in.GroupKeeper)
+	k := keeper.NewKeeper(in.StoreService, in.Cdc, in.AddressCodec, authority,
+		in.GroupKeeper, in.ScopeKeeper)
 	m := NewAppModule(in.Cdc, k)
 
 	return ModuleOutputs{LandKeeper: k, Module: m}

@@ -9,6 +9,7 @@ import _m0 from "protobufjs/minimal.js";
 import { Alias } from "./alias.ts";
 import { Jurisdiction } from "./jurisdiction.ts";
 import { Params } from "./params.ts";
+import { RoleGrant } from "./role.ts";
 import { AuditorGrant, RegulatorAppointment, ViewingKey } from "./viewing_key.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
@@ -16,12 +17,12 @@ export const protobufPackage = "blockchain.alias.v1";
 /**
  * GenesisState defines the alias module's genesis state.
  *
- * Note what is *not* here: the address-to-identifier index, and the
- * country-to-address index. Both are derived from the records below by
- * InitGenesis and deliberately not exported, because a derived index emitted
- * alongside its source is a second copy that can disagree with it — and an
- * export that does not round-trip byte-for-byte breaks upgrades and state
- * migrations.
+ * Note what is *not* here: the address-to-identifier index, the
+ * country-to-address index, and the jurisdiction-to-role-holder index. All
+ * three are derived from the records below by InitGenesis and deliberately not
+ * exported, because a derived index emitted alongside its source is a second
+ * copy that can disagree with it — and an export that does not round-trip
+ * byte-for-byte breaks upgrades and state migrations.
  */
 export interface GenesisState {
   params:
@@ -72,6 +73,23 @@ export interface GenesisState {
    * an answer.
    */
   auditorGrants: AuditorGrant[];
+  /**
+   * role_grants is who may act, in what role, inside which perimeter.
+   *
+   * Seeded at genesis rather than only granted by transaction, because a chain
+   * that starts with no authorities anywhere cannot admit its first
+   * participant, register its first parcel or stop its first theft until a
+   * governance cycle has completed — and a deployment stood up that way spends
+   * its first days with every authority action refused, which is the fastest
+   * route to somebody proposing that the check be made optional.
+   *
+   * Validate checks these rather than trusting them, for the same reason it
+   * checks the identifiers: nothing re-examines a record written at height
+   * zero, so a grant with an unset role or a jurisdiction naming nowhere would
+   * sit in state forever, and the second would be a perimeter no authority
+   * holds while looking to a human like chain-wide authority.
+   */
+  roleGrants: RoleGrant[];
 }
 
 function createBaseGenesisState(): GenesisState {
@@ -83,6 +101,7 @@ function createBaseGenesisState(): GenesisState {
     viewingKeys: [],
     regulators: [],
     auditorGrants: [],
+    roleGrants: [],
   };
 }
 
@@ -108,6 +127,9 @@ export const GenesisState = {
     }
     for (const v of message.auditorGrants) {
       AuditorGrant.encode(v!, writer.uint32(58).fork()).ldelim();
+    }
+    for (const v of message.roleGrants) {
+      RoleGrant.encode(v!, writer.uint32(66).fork()).ldelim();
     }
     return writer;
   },
@@ -168,6 +190,13 @@ export const GenesisState = {
 
           message.auditorGrants.push(AuditorGrant.decode(reader, reader.uint32()));
           continue;
+        case 8:
+          if (tag !== 66) {
+            break;
+          }
+
+          message.roleGrants.push(RoleGrant.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -193,6 +222,9 @@ export const GenesisState = {
         : [],
       auditorGrants: globalThis.Array.isArray(object?.auditorGrants)
         ? object.auditorGrants.map((e: any) => AuditorGrant.fromJSON(e))
+        : [],
+      roleGrants: globalThis.Array.isArray(object?.roleGrants)
+        ? object.roleGrants.map((e: any) => RoleGrant.fromJSON(e))
         : [],
     };
   },
@@ -220,6 +252,9 @@ export const GenesisState = {
     if (message.auditorGrants?.length) {
       obj.auditorGrants = message.auditorGrants.map((e) => AuditorGrant.toJSON(e));
     }
+    if (message.roleGrants?.length) {
+      obj.roleGrants = message.roleGrants.map((e) => RoleGrant.toJSON(e));
+    }
     return obj;
   },
 
@@ -237,6 +272,7 @@ export const GenesisState = {
     message.viewingKeys = object.viewingKeys?.map((e) => ViewingKey.fromPartial(e)) || [];
     message.regulators = object.regulators?.map((e) => RegulatorAppointment.fromPartial(e)) || [];
     message.auditorGrants = object.auditorGrants?.map((e) => AuditorGrant.fromPartial(e)) || [];
+    message.roleGrants = object.roleGrants?.map((e) => RoleGrant.fromPartial(e)) || [];
     return message;
   },
 };

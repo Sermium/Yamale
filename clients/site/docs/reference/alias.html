@@ -75,6 +75,39 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>expires_at_height must be in the future. There is no unbounded form of this grant, and no zero-means-forever: a role that can become permanent by leaving a field unset is not time-boxed, it is time-boxed by convention.</td>
 </tr>
 </tbody></table>
+<h3>MsgGrantRole</h3>
+<p><code>/blockchain.alias.v1.MsgGrantRole</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>GrantRole grants a role inside one jurisdiction. Governance only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td>holder is the account being granted the role.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td>role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role was left unset must never be honoured, and proto3 cannot tell that from a role that happens to be numbered zero.</td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or &quot;*&quot; for chain-wide. The reserved code the foundation&#39;s own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything.</td>
+</tr>
+</tbody></table>
 <h3>MsgRegisterAlias</h3>
 <p><code>/blockchain.alias.v1.MsgRegisterAlias</code></p>
 <p>Signed by the <code>account</code> field.</p>
@@ -114,6 +147,39 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>public_key</code></td>
 <td>bytes</td>
 <td>public_key is 32 bytes of X25519. The private half never leaves the holder, and nothing on this chain has any use for it.</td>
+</tr>
+</tbody></table>
+<h3>MsgRevokeRole</h3>
+<p><code>/blockchain.alias.v1.MsgRevokeRole</code></p>
+<p>Signed by the <code>authority</code> field.</p>
+<p>RevokeRole removes one such grant. Governance only.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>authority</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td>holder is the account losing the role.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td>role is which of the holder&#39;s roles to remove. ROLE_UNSPECIFIED is refused here as well as on the grant: &quot;revoke whatever role was left unset&quot; has no meaning, and a message that resolved it to one would revoke something nobody named.</td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — &quot;nothing to revoke&quot; is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place.</td>
 </tr>
 </tbody></table>
 <h3>MsgRevokeViewingKey</h3>
@@ -294,6 +360,25 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>ChainWideGrants</h3>
+<p><code>GET /yamale/blockchain/alias/v1/chain_wide_grants</code></p>
+<p>ChainWideGrants lists every grant whose scope is &quot;*&quot;.</p>
+<p>Its own endpoint, taking no argument, precisely because the chain-wide scope is the exception. An exception that can only be found by knowing to ask for the wildcard is an exception nobody audits, so a governance console can put this on a page and show the whole set of accounts that are not bounded by any border.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>grants</code></td>
+<td>repeated RoleGrant</td>
+<td></td>
+</tr>
+</tbody></table>
 <h3>Jurisdiction</h3>
 <p><code>GET /yamale/blockchain/alias/v1/jurisdiction/{address}</code></p>
 <p>Jurisdiction reports the country recorded against one account.</p>
@@ -458,6 +543,89 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>retired</code></td>
 <td>bool</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>RoleGrants</h3>
+<p><code>GET /yamale/blockchain/alias/v1/role_grants/{holder}</code></p>
+<p>RoleGrants lists every role one account holds, and where.</p>
+<p>The question an operator actually asks about a key before trusting it, and the question a holder asks to find out what the chain thinks they may do. Empty is a real answer: an account with no grants may act nowhere.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>grants</code></td>
+<td>repeated RoleGrant</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3>RoleHolders</h3>
+<p><code>GET /yamale/blockchain/alias/v1/role_holders/{jurisdiction}</code></p>
+<p>RoleHolders lists who holds roles inside one jurisdiction.</p>
+<p>The supervisory view: &quot;who may act on my country&#39;s accounts&quot;. Chain-wide grants are deliberately <em>not</em> folded in — they are listed on their own endpoint — because a country&#39;s own list should show what that country granted, and silently mixing in the chain-wide exceptions would hide them among the ordinary entries of every country at once.</p>
+<p>Request:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is an ISO 3166-1 alpha-2 code, in any case.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td>role narrows the answer to one role. Left unspecified it means every role, which is the only sense in which the zero value is accepted anywhere: here it is a filter that has not been applied, never a grant.</td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageRequest</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>grants</code></td>
+<td>repeated RoleGrant</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td>PageResponse</td>
 <td></td>
 </tr>
 </tbody></table>
@@ -641,6 +809,43 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>appointed_at_height is when it was last written, so a change to who regulates a country is visible as a change rather than as a fact that was always there.</td>
 </tr>
 </tbody></table>
+<h3>RoleGrant</h3>
+<p>RoleGrant is the triple the whole perimeter is built from: who, what role, where.</p>
+<p>It is created and removed by governance and by nobody else. A role its own holder could grant is not a perimeter, and neither is one another holder of the same role could hand out — buying one office would buy the power to manufacture the rest.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>holder</code></td>
+<td>string</td>
+<td>holder is the granted account. Expected to be an x/group account wherever the decision the role carries should be M-of-N rather than one official&#39;s key; that expectation is checked at grant time rather than trusted, for the same reason x/land refuses a registry office that is a plain key.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>Role</td>
+<td>role is what the holder may do. Never ROLE_UNSPECIFIED.</td>
+</tr>
+<tr>
+<td><code>jurisdiction</code></td>
+<td>string</td>
+<td>jurisdiction is where the holder may do it: an ISO 3166-1 alpha-2 country code from the assigned list, or &quot;<em>&quot; for chain-wide. The chain-wide form is the exception and is meant to stay rare. It has its own query endpoint so a governance console can list every one of them without having to know how to spell the wildcard — an exception nobody can enumerate is an exception nobody audits. Note what cannot appear here: the foundation&#39;s reserved code. That code marks the <em>absence</em> of a national perimeter, so a grant naming it would be a grant over nowhere, and it would read to a human as chain-wide authority while conferring none. Chain-wide is spelled &quot;</em>&quot; and only &quot;*&quot;.</td>
+</tr>
+<tr>
+<td><code>granted_by</code></td>
+<td>string</td>
+<td>granted_by is the authority that made the grant. Kept because &quot;who says this account may freeze Nigerian accounts&quot; is the question asked when the answer turns out to be wrong, and an unattributed grant cannot answer it.</td>
+</tr>
+<tr>
+<td><code>granted_at_height</code></td>
+<td>int64</td>
+<td>granted_at_height is when it was written, so a widening of somebody&#39;s powers is visible as a change rather than as a fact that was always there.</td>
+</tr>
+</tbody></table>
 <h3>ViewingKey</h3>
 <p>ViewingKey is the X25519 public key a payment payload is encrypted to.</p>
 <p>It lives in this module for the same reason the jurisdiction does. The payload is encrypted at the moment the payment is sent, so the sender has to be able to look up every recipient&#39;s key <em>then</em> — the payer&#39;s, the payee&#39;s, the key of the regulator of the declared settlement jurisdiction, and every live auditor&#39;s. A registry that only covered accounts which happen to be somebody&#39;s payment customer would leave the regulator and the auditor unresolvable, which are two of the three parties the design exists to serve.</p>
@@ -682,6 +887,42 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>revoked_at_height</code></td>
 <td>int64</td>
 <td>revoked_at_height is when it happened, and is meaningful only when revoked is set. Kept because &quot;when did this key stop being trustworthy&quot; decides which stored payloads are exposed, and a bare boolean cannot answer it.</td>
+</tr>
+</tbody></table>
+<h2>Value types</h2>
+<h3>Role</h3>
+<p>Role is a power an account may be granted inside a perimeter.</p>
+<p>The list is short and closed on purpose. A role is only worth having if some module refuses an action without it, so a role nothing consults is a name in a registry pretending to be a control — and the way that happens is by letting the set grow faster than the checks.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROLE_UNSPECIFIED</code></td>
+<td>ROLE_UNSPECIFIED is the unset default and is never valid. The zero value is reserved rather than given to a real role, and every path refuses it. Proto3 cannot tell a zero from an absent field, so a grant whose role happened to be the first of the list would be indistinguishable from a grant whose role nobody filled in — and the second must never be honoured.</td>
+</tr>
+<tr>
+<td><code>ROLE_REGISTRY_AUTHORITY</code></td>
+<td>ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office: registering a parcel, validating a transfer, freezing land.</td>
+</tr>
+<tr>
+<td><code>ROLE_MONETARY_AUTHORITY</code></td>
+<td>ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a currency inside its jurisdiction.</td>
+</tr>
+<tr>
+<td><code>ROLE_PAYMENTS_AUTHORITY</code></td>
+<td>ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a payment instruction. Separate from the monetary authority because licensing a payment service provider and issuing money are different offices in most of the deployments this chain is built for, and collapsing them here would force one key to hold both.</td>
+</tr>
+<tr>
+<td><code>ROLE_ENFORCEMENT_AUTHORITY</code></td>
+<td>ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it, or freezing it outright.</td>
+</tr>
+<tr>
+<td><code>ROLE_SUPERVISOR</code></td>
+<td>ROLE_SUPERVISOR is oversight without the power to act — the role held by an auditor or a regulator that watches a perimeter it does not administer. It is granted through the same registry as the rest so that &quot;who is watching this country&quot; has one answer in one place.</td>
 </tr>
 </tbody></table>
 <h2>Errors</h2>
@@ -730,9 +971,39 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>an auditor grant must expire at a future height, and only so many may be live at once</td>
 </tr>
 <tr>
+<td>17</td>
+<td><code>ErrInvalidRole</code></td>
+<td>that is not a role that can be held, and an unset role is never a default</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>ErrInvalidScope</code></td>
+<td>a role&#39;s jurisdiction must be an assigned country code or the chain-wide marker</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>ErrOutOfScope</code></td>
+<td>this account holds no grant of that role covering that jurisdiction</td>
+</tr>
+<tr>
 <td>2</td>
 <td><code>ErrAlreadyRegistered</code></td>
 <td>this account already holds an identifier</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>ErrHolderNotGroup</code></td>
+<td>a role holder must be an x/group account, so that acting on it is M-of-N</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>ErrGrantNotFound</code></td>
+<td>no such grant: this account does not hold that role in that jurisdiction</td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>ErrNoScopeKeeper</code></td>
+<td>the jurisdictional perimeter cannot be checked because the registry is not wired in</td>
 </tr>
 <tr>
 <td>3</td>

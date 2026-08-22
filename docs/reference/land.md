@@ -572,6 +572,7 @@ Every way a transaction to this module can be rejected.
 | 32 | `ErrOfficeNotGroup` | a registry office must be a group account, so its decisions need several signatures |
 | 33 | `ErrBadExpiry` | the authorisation must expire at a time in the future |
 | 34 | `ErrNoAuthorisation` | this parcel has no fractionalisation authorisation to withdraw |
+| 35 | `ErrInvalidJurisdiction` | a registry office's jurisdiction must be an assigned ISO 3166-1 alpha-2 country code |
 | 4 | `ErrNoCadastralRef` | a cadastral reference is required |
 | 5 | `ErrInvalidHolder` | the holder is not a valid account |
 | 6 | `ErrGeometryTitled` | this ground is already titled |

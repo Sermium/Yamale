@@ -7,9 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
+	aliasmodule "yamale/blockchain/x/alias/module"
+	aliastestutil "yamale/blockchain/x/alias/testutil"
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/land/keeper"
 	"yamale/blockchain/x/land/types"
 )
+
+// jurisdiction is the country these offices administer. Any assigned code would
+// do; what matters is that it is one the chain accepts, because the perimeter
+// check is made against it and free text names a perimeter no grant can cover.
+const jurisdiction = "GH"
 
 // fixture builds a registry with one office in charge and three independent
 // offices able to attest — the smallest set that can actually exercise the
@@ -22,23 +30,36 @@ type fixture struct {
 	others []string
 	holder string
 	buyer  string
+
+	// perimeter is a real x/alias keeper. The rule perimeter_test.go exercises is
+	// that module's, and a stub of it would be this test writing down the answer
+	// it wanted.
+	perimeter *aliastestutil.Perimeter
 }
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
-	env := integration.New(t, types.ModuleName)
+	env := integration.NewWith(t,
+		[]string{types.ModuleName, aliastypes.ModuleName}, aliasmodule.AppModule{})
+	perimeter := aliastestutil.Init(t, env)
 
 	// nil group keeper: these tests exercise the transfer rules, not admission.
-	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority, nil)
+	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority,
+		nil, perimeter.Keeper)
 	require.NoError(t, k.Params.Set(env.Ctx, types.DefaultParams()))
 
-	f := &fixture{env: env, k: k, srv: keeper.NewMsgServerImpl(k)}
+	f := &fixture{env: env, k: k, srv: keeper.NewMsgServerImpl(k), perimeter: perimeter}
 
+	// An office is admitted *and* granted the registry role in the jurisdiction
+	// it administers. Both, because either alone leaves it unable to act: the
+	// admission says which office holds a parcel's file, and the grant says
+	// governance agreed that office may act in that country at all.
 	admit := func() string {
 		_, addr := env.Addr(t)
 		require.NoError(t, k.Authority.Set(env.Ctx, addr, types.Authority{
-			Address: addr, Name: "office", Jurisdiction: "test", Active: true,
+			Address: addr, Name: "office", Jurisdiction: jurisdiction, Active: true,
 		}))
+		perimeter.Grant(t, addr, aliastypes.ROLE_REGISTRY_AUTHORITY, jurisdiction)
 		return addr
 	}
 	f.office = admit()

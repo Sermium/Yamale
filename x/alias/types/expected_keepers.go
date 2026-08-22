@@ -1,6 +1,10 @@
 package types
 
-import "context"
+import (
+	"context"
+
+	"github.com/cosmos/cosmos-sdk/x/group"
+)
 
 // ParticipantKeeper is the slice of x/paymsg this module consults before it
 // will let somebody record where an account is.
@@ -31,4 +35,21 @@ type ParticipantKeeper interface {
 	// "nobody acts for this account" is an answer, and the caller turns it into
 	// its own refusal.
 	ParticipantOf(ctx context.Context, account string) (participant string, found bool, err error)
+}
+
+// GroupKeeper is the slice of x/group this module needs to grant a role.
+//
+// One question, asked once, at the moment a role is granted: *is this address a
+// group policy?* That is what turns "the central bank signed" into "several
+// people inside the central bank signed", and it is the difference between a
+// perimeter where one bribe moves an authority and one where it does not.
+//
+// The same interface x/land already keeps for admitting a registry office, and
+// for the same reason. The alternative — trusting governance to only ever grant
+// roles to group addresses — puts the whole intra-office protection in a human
+// review step that will eventually be rushed. Checking costs one lookup, once.
+type GroupKeeper interface {
+	GroupPolicyInfo(
+		ctx context.Context, req *group.QueryGroupPolicyInfoRequest,
+	) (*group.QueryGroupPolicyInfoResponse, error)
 }

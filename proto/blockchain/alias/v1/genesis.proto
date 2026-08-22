@@ -4,6 +4,7 @@ package blockchain.alias.v1;
 import "blockchain/alias/v1/alias.proto";
 import "blockchain/alias/v1/jurisdiction.proto";
 import "blockchain/alias/v1/params.proto";
+import "blockchain/alias/v1/role.proto";
 import "blockchain/alias/v1/viewing_key.proto";
 import "gogoproto/gogo.proto";
 
@@ -11,12 +12,12 @@ option go_package = "yamale/blockchain/x/alias/types";
 
 // GenesisState defines the alias module's genesis state.
 //
-// Note what is *not* here: the address-to-identifier index, and the
-// country-to-address index. Both are derived from the records below by
-// InitGenesis and deliberately not exported, because a derived index emitted
-// alongside its source is a second copy that can disagree with it — and an
-// export that does not round-trip byte-for-byte breaks upgrades and state
-// migrations.
+// Note what is *not* here: the address-to-identifier index, the
+// country-to-address index, and the jurisdiction-to-role-holder index. All
+// three are derived from the records below by InitGenesis and deliberately not
+// exported, because a derived index emitted alongside its source is a second
+// copy that can disagree with it — and an export that does not round-trip
+// byte-for-byte breaks upgrades and state migrations.
 message GenesisState {
   Params params = 1 [(gogoproto.nullable) = false];
 
@@ -62,4 +63,20 @@ message GenesisState {
   // answer "nobody" — which is worse than not answering, because it looks like
   // an answer.
   repeated AuditorGrant auditor_grants = 7 [(gogoproto.nullable) = false];
+
+  // role_grants is who may act, in what role, inside which perimeter.
+  //
+  // Seeded at genesis rather than only granted by transaction, because a chain
+  // that starts with no authorities anywhere cannot admit its first
+  // participant, register its first parcel or stop its first theft until a
+  // governance cycle has completed — and a deployment stood up that way spends
+  // its first days with every authority action refused, which is the fastest
+  // route to somebody proposing that the check be made optional.
+  //
+  // Validate checks these rather than trusting them, for the same reason it
+  // checks the identifiers: nothing re-examines a record written at height
+  // zero, so a grant with an unset role or a jurisdiction naming nowhere would
+  // sit in state forever, and the second would be a perimeter no authority
+  // holds while looking to a human like chain-wide authority.
+  repeated RoleGrant role_grants = 8 [(gogoproto.nullable) = false];
 }

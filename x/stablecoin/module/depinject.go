@@ -35,6 +35,10 @@ type ModuleInputs struct {
 
 	AuthKeeper types.AuthKeeper
 	BankKeeper types.BankKeeper
+
+	// ScopeKeeper lets a national monetary authority admit issuers inside its own
+	// borders, and refuses it everywhere else. See types.ScopeKeeper.
+	ScopeKeeper types.ScopeKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,6 +60,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.AddressCodec,
 		authority,
 		in.BankKeeper,
+		in.ScopeKeeper,
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 

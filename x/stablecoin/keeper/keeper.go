@@ -22,7 +22,11 @@ type Keeper struct {
 	Schema collections.Schema
 	Params collections.Item[types.Params]
 
-	bankKeeper        types.BankKeeper
+	bankKeeper types.BankKeeper
+	// scopeKeeper is the jurisdictional perimeter. Consulted when an issuer is
+	// admitted, so that a monetary authority admits issuers inside its own
+	// borders and nowhere else. Read-only; see types.ScopeKeeper.
+	scopeKeeper       types.ScopeKeeper
 	IssuerApplication collections.Map[string, types.IssuerApplication]
 	ApprovedIssuer    collections.Map[string, types.ApprovedIssuer]
 }
@@ -34,6 +38,7 @@ func NewKeeper(
 	authority []byte,
 
 	bankKeeper types.BankKeeper,
+	scopeKeeper types.ScopeKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -48,6 +53,7 @@ func NewKeeper(
 		authority:    authority,
 
 		bankKeeper:        bankKeeper,
+		scopeKeeper:       scopeKeeper,
 		Params:            collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		IssuerApplication: collections.NewMap(sb, types.IssuerApplicationKey, "issuerApplication", collections.StringKey, codec.CollValue[types.IssuerApplication](cdc)), ApprovedIssuer: collections.NewMap(sb, types.ApprovedIssuerKey, "approvedIssuer", collections.StringKey, codec.CollValue[types.ApprovedIssuer](cdc))}
 

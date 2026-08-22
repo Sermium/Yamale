@@ -4,13 +4,26 @@ It answers one requirement from the revised scope: multiple stakeholders hold
 roles that are bounded by country, so a national authority can act on its own
 jurisdiction's accounts and records and on nobody else's.
 
-**Status.** Piece 1 below — the jurisdiction on the account, the country prefix
-in the identifier, and both of the decided rules — is built, in `x/alias`.
-Pieces 2 and 3 — role grants and the single `AssertScope` every authority action
-routes through — are still a design. The registry the roles will be scoped
-against exists and is queryable, which is the part that had to come first: a
-grant naming a country is meaningless until the chain knows which country an
-account is in.
+**Status.** All three pieces are built, in `x/alias`. Piece 1 is the jurisdiction
+on the account, the country prefix in the identifier, and both of the decided
+rules. Piece 2 is the grant registry: a `(holder, role, jurisdiction)` triple,
+created and removed by governance only, with the chain-wide scope listed on its
+own query endpoint because it is the exception. Piece 3 is `AssertScope`, which
+`x/land`, `x/enforcement`, `x/stablecoin` and `x/paymsg` route their authority
+actions through — in their message servers, not in an ante decorator, because an
+ante gate does not see the messages that arrive through an interchain account or
+an `authz` grant.
+
+What this changed for existing behaviour, stated plainly because it is
+consensus-breaking: a bonded validator can no longer open an enforcement case
+against an account outside the jurisdiction governance granted it, a registry
+office can no longer act without a grant covering the country it administers, and
+an account with no recorded jurisdiction cannot be acted on by anybody. A
+deployment therefore has to seed its grants — genesis carries them — or its
+authority actions are refused from block one.
+
+The registry the roles are scoped against had to come first: a grant naming a
+country is meaningless until the chain knows which country an account is in.
 
 ---
 
@@ -95,24 +108,40 @@ longer records, and a prefix that can go stale is a prefix that can lie. Every
 existing property of the module survives — the old identifier is tombstoned
 rather than repointed, and is never issued again.
 
-### 2. Roles scoped to a jurisdiction — not yet built
+### 2. Roles scoped to a jurisdiction — built
 
 A grant is a triple — **who, what role, where**:
 
 ```
-(yml1lands…, REGISTRY_AUTHORITY,   GH)
-(yml1cbn…,   MONETARY_AUTHORITY,   NG)
-(yml1audit…, SUPERVISOR,           *)
+(yml1lands…, ROLE_REGISTRY_AUTHORITY,   GH)
+(yml1cbn…,   ROLE_MONETARY_AUTHORITY,   NG)
+(yml1audit…, ROLE_SUPERVISOR,           *)
 ```
 
 `*` means chain-wide and should be rare, granted visibly, and listed on the
-governance console precisely because it is the exception.
+governance console precisely because it is the exception. It has a query endpoint
+of its own — `chain-wide-grants`, which takes no argument — so the whole set of
+accounts that no border bounds fits on one page. An exception that can only be
+found by knowing to ask for the wildcard is an exception nobody audits.
 
-Roles are held by `x/group` accounts wherever a decision matters, so an authority
-action is M-of-N rather than one official — which is already how `x/land` treats
-registry offices, and the same reasoning applies everywhere else.
+The five roles are registry authority, monetary authority, payments authority,
+enforcement authority and supervisor. The zero value of the enum is reserved as
+unspecified and refused everywhere: proto3 cannot tell a zero from an absent
+field, so a role numbered zero would make "grant the first role in the list" and
+"grant whatever the default is" the same message.
 
-### 3. One check, called everywhere — not yet built
+Grants are created and removed by **governance only** — not by a foundation
+administrator, which is stricter than the regulator appointment beside it in the
+same module. The difference is between using a power and deciding who holds one:
+an administrator who could grant roles could grant themselves the chain-wide
+scope and then grant it to anybody, at which point the perimeter is whatever the
+administrators say it is.
+
+Roles are held by `x/group` accounts, checked at grant time rather than trusted,
+so an authority action is M-of-N rather than one official — which is already how
+`x/land` treats registry offices, and the same reasoning applies everywhere else.
+
+### 3. One check, called everywhere — built
 
 A single keeper function — `AssertScope(ctx, actor, role, target)` — resolves the
 target's jurisdiction and refuses when the actor's grant does not cover it. Every
@@ -122,6 +151,47 @@ authority action routes through it: registering, validating and freezing in
 
 One function, because a perimeter enforced in eleven places is a perimeter with
 eleven ways to be wrong.
+
+There is a second entry point, `AssertScopeIn(ctx, actor, role, jurisdiction)`,
+for the case where the jurisdiction is **named in the record** rather than looked
+up from an account. `x/land` uses it today: a registry office administers a
+country, and that country is a field on the office's own admission record, so
+there is no account to resolve. It is also the shape a payment's declared
+settlement jurisdiction will take when a message exists by which an authority
+*acts* on a payment — today the declaration decides who may read the payload and
+nothing on the chain acts on a settled payment, so there is nothing yet to gate.
+
+The two are not interchangeable and neither is folded into the other: collapsing
+the second into the first would mean inventing an account to stand for a country,
+and collapsing the first into the second would let an actor tell the check which
+perimeter its target is in, which is exactly the claim an actor must not be able
+to make. `AssertScopeIn` therefore refuses both the chain-wide marker and the
+foundation's reserved code as inputs — a named jurisdiction is an assigned
+country or it is nothing.
+
+Three things it refuses, in this order:
+
+1. an unset or unknown role;
+2. a target whose jurisdiction the chain does not know — before any grant is
+   consulted, so not even the chain-wide scope reaches an account nobody has
+   placed;
+3. no grant covering that country, which includes and is mostly the actor holding
+   no grants at all.
+
+The consumers reach it through a narrow local interface with the one or two
+methods they call, never through the keeper. `x/paymsg` is the exception in *how*
+it receives that interface rather than in what it does with it: `x/alias` consults
+`x/paymsg` to find out who onboarded an account, so an edge back the other way
+would be a dependency cycle. It is handed the perimeter after construction, and
+the check refuses until it is — so a wiring mistake removes a national authority's
+ability to admit anybody rather than letting everybody in.
+
+The two governance-gated admissions — issuer approval and participant approval —
+accept **either** governance or the relevant national authority. That is a
+widening of who may act and the perimeter is what makes it safe: Nigeria's central
+bank can admit an issuer recorded in Nigeria and cannot touch one recorded in
+Senegal. Governance is accepted without a grant because it is the body that makes
+the grants; requiring it to hold one would be circular.
 
 ## Two rules, decided
 

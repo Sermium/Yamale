@@ -7,6 +7,9 @@ import (
 	"cosmossdk.io/core/address"
 
 	"yamale/blockchain/testutil/integration"
+	aliasmodule "yamale/blockchain/x/alias/module"
+	aliastestutil "yamale/blockchain/x/alias/testutil"
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/stablecoin/keeper"
 	module "yamale/blockchain/x/stablecoin/module"
 	"yamale/blockchain/x/stablecoin/types"
@@ -17,12 +20,20 @@ type fixture struct {
 	keeper       keeper.Keeper
 	addressCodec address.Codec
 	env          *integration.Env
+
+	// perimeter is a real x/alias keeper. The rule the delegated approval path
+	// rests on is that module's — who may act where — and a stub of it would be
+	// this test writing down the answer it wanted.
+	perimeter *aliastestutil.Perimeter
 }
 
 func initFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
+	env := integration.NewWith(t,
+		[]string{types.ModuleName, aliastypes.ModuleName},
+		module.AppModule{}, aliasmodule.AppModule{})
+	perimeter := aliastestutil.Init(t, env)
 
 	k := keeper.NewKeeper(
 		env.StoreService,
@@ -30,6 +41,7 @@ func initFixture(t *testing.T) *fixture {
 		env.AddressCodec,
 		env.Authority,
 		env.BankKeeper,
+		perimeter.Keeper,
 	)
 
 	// Initialize params
@@ -42,5 +54,6 @@ func initFixture(t *testing.T) *fixture {
 		keeper:       k,
 		addressCodec: env.AddressCodec,
 		env:          env,
+		perimeter:    perimeter,
 	}
 }

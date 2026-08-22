@@ -1,0 +1,92 @@
+syntax = "proto3";
+package blockchain.alias.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/alias/types";
+
+// Role is a power an account may be granted inside a perimeter.
+//
+// The list is short and closed on purpose. A role is only worth having if some
+// module refuses an action without it, so a role nothing consults is a name in
+// a registry pretending to be a control — and the way that happens is by
+// letting the set grow faster than the checks.
+enum Role {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // ROLE_UNSPECIFIED is the unset default and is never valid.
+  //
+  // The zero value is reserved rather than given to a real role, and every
+  // path refuses it. Proto3 cannot tell a zero from an absent field, so a
+  // grant whose role happened to be the first of the list would be
+  // indistinguishable from a grant whose role nobody filled in — and the
+  // second must never be honoured.
+  ROLE_UNSPECIFIED = 0;
+
+  // ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office:
+  // registering a parcel, validating a transfer, freezing land.
+  ROLE_REGISTRY_AUTHORITY = 1;
+
+  // ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a
+  // currency inside its jurisdiction.
+  ROLE_MONETARY_AUTHORITY = 2;
+
+  // ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a
+  // payment instruction. Separate from the monetary authority because
+  // licensing a payment service provider and issuing money are different
+  // offices in most of the deployments this chain is built for, and collapsing
+  // them here would force one key to hold both.
+  ROLE_PAYMENTS_AUTHORITY = 3;
+
+  // ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it,
+  // or freezing it outright.
+  ROLE_ENFORCEMENT_AUTHORITY = 4;
+
+  // ROLE_SUPERVISOR is oversight without the power to act — the role held by
+  // an auditor or a regulator that watches a perimeter it does not administer.
+  // It is granted through the same registry as the rest so that "who is
+  // watching this country" has one answer in one place.
+  ROLE_SUPERVISOR = 5;
+}
+
+// RoleGrant is the triple the whole perimeter is built from: who, what role,
+// where.
+//
+// It is created and removed by governance and by nobody else. A role its own
+// holder could grant is not a perimeter, and neither is one another holder of
+// the same role could hand out — buying one office would buy the power to
+// manufacture the rest.
+message RoleGrant {
+  // holder is the granted account. Expected to be an x/group account wherever
+  // the decision the role carries should be M-of-N rather than one official's
+  // key; that expectation is checked at grant time rather than trusted, for
+  // the same reason x/land refuses a registry office that is a plain key.
+  string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // role is what the holder may do. Never ROLE_UNSPECIFIED.
+  Role role = 2;
+
+  // jurisdiction is where the holder may do it: an ISO 3166-1 alpha-2 country
+  // code from the assigned list, or "*" for chain-wide.
+  //
+  // The chain-wide form is the exception and is meant to stay rare. It has its
+  // own query endpoint so a governance console can list every one of them
+  // without having to know how to spell the wildcard — an exception nobody can
+  // enumerate is an exception nobody audits.
+  //
+  // Note what cannot appear here: the foundation's reserved code. That code
+  // marks the *absence* of a national perimeter, so a grant naming it would be
+  // a grant over nowhere, and it would read to a human as chain-wide authority
+  // while conferring none. Chain-wide is spelled "*" and only "*".
+  string jurisdiction = 3;
+
+  // granted_by is the authority that made the grant. Kept because "who says
+  // this account may freeze Nigerian accounts" is the question asked when the
+  // answer turns out to be wrong, and an unattributed grant cannot answer it.
+  string granted_by = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // granted_at_height is when it was written, so a widening of somebody's
+  // powers is visible as a change rather than as a fact that was always there.
+  int64 granted_at_height = 5;
+}
