@@ -14,7 +14,16 @@
 //	yamale-wallet new                      # a fresh key, printed once
 //	yamale-wallet new --accounts 5         # a key and the first five accounts
 //	yamale-wallet new --armor wallet.asc   # also write an importable keystore
+//	yamale-wallet new --country SN         # also print a placement request
 //	yamale-wallet recover --index 3        # an address from an existing phrase
+//
+// A key is not an account anybody can pay. Every account on this chain belongs
+// to a country, the chain issues no identifier for one nobody has placed, and
+// without an identifier no payment can be addressed to it. --country prints the
+// request to hand to the institution that onboarded the holder; it does not and
+// cannot record anything, because the first recording belongs to the party that
+// performed the KYC. An account free to name its own perimeter would name the
+// one with no authority watching it.
 package main
 
 import (
@@ -31,6 +40,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	bip39 "github.com/cosmos/go-bip39"
 	"golang.org/x/term"
+
+	aliastypes "yamale/blockchain/x/alias/types"
 )
 
 const (
@@ -103,7 +114,19 @@ func newKey(args []string) {
 	index := flags.Int("index", -1, "derive a single account by index")
 	asJSON := flags.Bool("json", false, "machine-readable output")
 	armorPath := flags.String("armor", "", "write an encrypted keystore to this file")
+	country := flags.String("country", "",
+		"the country this account will be recorded in; prints a placement request and records nothing")
 	flags.Parse(args)
+
+	// Refused here rather than accepted and rejected by the chain later. A
+	// request naming a country the chain will not record is a request the
+	// holder's institution cannot act on, and they would find that out after
+	// sending it.
+	if *country != "" {
+		if err := checkCountry(*country); err != nil {
+			fail(err)
+		}
+	}
 
 	entropy, err := bip39.NewEntropy(entropyBits)
 	if err != nil {
@@ -114,7 +137,7 @@ func newKey(args []string) {
 		fail(err)
 	}
 
-	emit(mnemonic, true, *accounts, *index, *asJSON, *armorPath)
+	emit(mnemonic, true, *accounts, *index, *asJSON, *armorPath, *country)
 }
 
 func recover(args []string) {
@@ -152,10 +175,10 @@ func recover(args []string) {
 		os.Exit(1)
 	}
 
-	emit(mnemonic, false, *accounts, *index, *asJSON, *armorPath)
+	emit(mnemonic, false, *accounts, *index, *asJSON, *armorPath, "")
 }
 
-func emit(mnemonic string, isNew bool, count uint, index int, asJSON bool, armorPath string) {
+func emit(mnemonic string, isNew bool, count uint, index int, asJSON bool, armorPath, country string) {
 	indexes := make([]uint32, 0, count)
 	if index >= 0 {
 		indexes = append(indexes, uint32(index))
@@ -197,7 +220,7 @@ func emit(mnemonic string, isNew bool, count uint, index int, asJSON bool, armor
 		return
 	}
 
-	print(result, isNew, armorPath)
+	print(result, isNew, armorPath, country)
 }
 
 // derive turns a mnemonic and an account index into a key, using the same code
@@ -289,7 +312,7 @@ func readPassphrase() (string, error) {
 	return string(first), nil
 }
 
-func print(result output, isNew bool, armorPath string) {
+func print(result output, isNew bool, armorPath, country string) {
 	if result.Mnemonic != "" {
 		fmt.Println("Recovery phrase — write it down now. It is shown once and cannot be recovered.")
 		fmt.Println()
@@ -321,6 +344,56 @@ func print(result output, isNew bool, armorPath string) {
 		fmt.Println("Anyone with that phrase controls these accounts. There is no support desk")
 		fmt.Println("that can restore it and nobody who can freeze it on your behalf.")
 	}
+
+	// Said whether or not a country was given, because the absence is the part
+	// people are surprised by: the key works, the address is real, and nothing
+	// can be sent to it.
+	if len(result.Accounts) > 0 {
+		printPlacement(result.Accounts[0].Address, country)
+	}
+}
+
+// printPlacement writes the request that makes an account reachable, or says
+// why it is not reachable yet.
+//
+// The address is repeated inside the request rather than left to whatever
+// message carries it. Being placed at the wrong address succeeds, looks
+// correct, and issues an identifier to an account nobody holds.
+func printPlacement(address, country string) {
+	fmt.Println()
+	if country == "" {
+		fmt.Println("This account has no country recorded, so the chain will issue it no user ID")
+		fmt.Println("and nobody can address a payment to it. The institution that onboarded the")
+		fmt.Println("holder records the country — re-run with --country XX to print the request.")
+		return
+	}
+
+	c := aliastypes.NormaliseCountry(country)
+	fmt.Println("PLACEMENT REQUEST — give this to the institution that onboarded you")
+	fmt.Println()
+	fmt.Printf("  account:  %s\n", address)
+	fmt.Printf("  country:  %s\n", c)
+	fmt.Println()
+	fmt.Println("You cannot record this yourself. The institution that performed the identity")
+	fmt.Println("check records it, once, and until it does this account has no user ID and")
+	fmt.Println("cannot be paid. What they run:")
+	fmt.Println()
+	fmt.Printf("  blockchaind tx alias set-jurisdiction %s %s \\\n", address, c)
+	fmt.Println("    --from <their key> --fees 500uyml --yes")
+}
+
+// checkCountry refuses a code the chain would refuse, before a request is built
+// around it.
+func checkCountry(code string) error {
+	c := aliastypes.NormaliseCountry(code)
+	if c == aliastypes.FoundationCountry {
+		return fmt.Errorf(
+			"%s is the foundation's reserved code, not a country an account can be placed in", c)
+	}
+	if !aliastypes.AssignedCountry(c) {
+		return fmt.Errorf("%q is not an assigned ISO 3166-1 alpha-2 country code", code)
+	}
+	return nil
 }
 
 func fail(err error) {

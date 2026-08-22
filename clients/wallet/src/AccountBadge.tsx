@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { displayName, getContact, saveContact, LanguagePicker, t } from '@yamale/chain';
 
+import { client } from './chain.ts';
 import { destroyVault, lock, vaultSummary } from './vault.ts';
 import { ClaimUserId } from './ClaimUserId.tsx';
 
@@ -17,8 +19,10 @@ import { ClaimUserId } from './ClaimUserId.tsx';
  * different authority: presenting them identically would train people to trust
  * a name they typed themselves as if the network had confirmed it.
  *
- * Tier two is wired but dark until `x/alias` exists — `lookupUserId` has
- * nothing to ask yet. See docs/guides/identity.md.
+ * Tier two resolves against `x/alias`, which issues an identifier only for an
+ * account recorded in a country — so an account no authority has placed shows
+ * its address, and that is accurate rather than a fallback: it has no user ID
+ * to show. See docs/guides/identity.md.
  */
 export function AccountBadge() {
   const [open, setOpen] = useState(false);
@@ -27,6 +31,15 @@ export function AccountBadge() {
   const [draft, setDraft] = useState('');
   const location = useLocation();
   const box = useRef<HTMLDivElement>(null);
+
+  // Asked once and cached here rather than inside displayName, which stays
+  // synchronous and testable on purpose. Null is the ordinary answer for an
+  // account nobody has placed in a country.
+  const userId = useQuery({
+    queryKey: ['userId', account?.address],
+    queryFn: () => client.userIdOf(account!.address),
+    enabled: Boolean(account?.address),
+  });
 
   // The vault is written by another page in this same tab, so no storage event
   // fires; re-reading on navigation keeps the badge honest.
@@ -63,9 +76,11 @@ export function AccountBadge() {
     );
   }
 
-  // No user-id lookup passed yet: x/alias is designed, not built, so tier two
-  // resolves to nothing and the rule falls through to the address.
-  const shown = displayName(account.address);
+  // The lookup answers for this one account and nothing else. A closure that
+  // returned a value for any address would be a directory, and the chain
+  // deliberately offers none.
+  const shown = displayName(account.address, (a) =>
+    a === account.address ? (userId.data ?? undefined) : undefined);
   const contact = getContact(account.address);
 
   return (

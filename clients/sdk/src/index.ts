@@ -39,6 +39,22 @@ export {
   validUserId,
 } from './alias.ts';
 
+/**
+ * Placement: whether an account is inside a country's perimeter, and what it
+ * costs while it is not. Every account on this chain is country-gated, and an
+ * unplaced one holds no user ID — so nobody can address a payment to it.
+ */
+export {
+  countryName,
+  countryProblem,
+  placementRequest,
+  placementVerdict,
+  type Placement,
+  type PlacementRequest,
+  type PlacementState,
+  type PlacementVerdict,
+} from './placement.ts';
+
 export {
   addressHue,
   addressLabel,

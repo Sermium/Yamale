@@ -1,4 +1,4 @@
-import { t } from '@yamale/chain';
+import { countryName, countryProblem, placementRequest, t } from '@yamale/chain';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
@@ -27,6 +27,9 @@ export function CreatePage() {
   const [confirm, setConfirm] = useState('');
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [country, setCountry] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
 
   async function generate() {
     setBusy(true);
@@ -171,6 +174,68 @@ export function CreatePage() {
             The phrase is encrypted in this browser. Applications can now open this wallet to ask
             for a signature, and each request shows you what it is before you approve it.
           </p>
+          <p className="notice">
+            <strong>{t('placement.pending')}</strong> {t('placement.lede')}
+          </p>
+        </section>
+      )}
+
+      {/* The step that makes the account usable, and the one a key generator
+          cannot perform.
+
+          An account with no country recorded gets no user ID — the chain
+          refuses to issue one — and without a user ID nobody can address a
+          payment to it. So the flow does not end at "saved". It ends at a
+          request the holder hands to the institution that onboarded them,
+          because the first recording of a country belongs to the party that
+          performed the KYC and to nobody else. An account free to name its own
+          perimeter would name the one with no authority watching it. */}
+      {written && address && (
+        <section className="card">
+          <h2>{t('placement.title')}</h2>
+          <p className="lede">{t('placement.lede')}</p>
+          <p className="notice">{t('placement.cannotSelf')}</p>
+
+          <label className="field">
+            <span>{t('placement.country')}</span>
+            <input
+              value={country}
+              onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+              placeholder="SN"
+              autoCapitalize="characters"
+              autoComplete="off"
+              size={4}
+            />
+          </label>
+          {/* The name in the reader's own language, beside the code the chain
+              stores. Somebody choosing their country needs the name; somebody
+              confirming it to their institution over the phone needs the two
+              letters. */}
+          {country.length === 2 && !countryProblem(country) && (
+            <p className="small muted">
+              {countryName(country)} — {country}
+            </p>
+          )}
+          {country !== '' && countryProblem(country) !== null && (
+            <p className="notice notice--bad">{countryProblem(country)}</p>
+          )}
+
+          <label className="field">
+            <span>{t('placement.institution')}</span>
+            <input
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+
+          <PlacementRequest
+            address={address}
+            country={country}
+            institution={institution}
+            copied={copied}
+            onCopy={setCopied}
+          />
         </section>
       )}
 
@@ -178,6 +243,64 @@ export function CreatePage() {
         Nothing on this page was transmitted. You can confirm that: disconnect from the network and
         generate another — it works the same, because the phrase is made in your browser.
       </p>
+    </>
+  );
+}
+
+/**
+ * The document a holder gives their institution, and the command that
+ * institution runs.
+ *
+ * Neither is a transaction. This wallet holds no key that could sign one, and
+ * the key that must sign belongs to the participant — so what is produced is
+ * the exact thing they need in order to act, in a form that survives being sent
+ * over any channel and read before it is run.
+ */
+function PlacementRequest({
+  address,
+  country,
+  institution,
+  copied,
+  onCopy,
+}: {
+  address: string;
+  country: string;
+  institution: string;
+  copied: string | null;
+  onCopy: (id: string | null) => void;
+}) {
+  const request = placementRequest({ address, country, institution });
+  if ('problem' in request) return null;
+
+  const blocks: { id: string; label: string; text: string }[] = [
+    { id: 'doc', label: t('placement.give'), text: request.document },
+    { id: 'cmd', label: t('placement.theyRun'), text: request.command },
+  ];
+
+  return (
+    <>
+      {blocks.map(({ id, label, text }) => (
+        <div key={id}>
+          <div className="row">
+            <span className="small muted">{label}</span>
+            <button
+              type="button"
+              className="ghost"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  onCopy(id);
+                } catch {
+                  onCopy(null);
+                }
+              }}
+            >
+              {copied === id ? t('placement.copied') : t('placement.copy')}
+            </button>
+          </div>
+          <pre>{text}</pre>
+        </div>
+      ))}
     </>
   );
 }

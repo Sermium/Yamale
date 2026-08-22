@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { formatAmount, formatCoins, resolveDenom, truncateAddress } from '@yamale/chain';
+import {
+  formatAmount,
+  formatCoins,
+  placementVerdict,
+  resolveDenom,
+  truncateAddress,
+} from '@yamale/chain';
 
 import { client } from '../chain.ts';
 
@@ -26,6 +32,16 @@ export function AccountPage({ address }: { address: string }) {
     queryKey: ['allowances', address],
     queryFn: () => client.feeAllowances(address),
   });
+  // Both, because they are two facts that can disagree and the disagreement is
+  // itself worth reporting: the chain issues an identifier when it records a
+  // country, so a country with no identifier is a fault rather than a state.
+  const placement = useQuery({
+    queryKey: ['placement', address],
+    queryFn: async () => ({
+      country: await client.jurisdictionOf(address),
+      userId: await client.userIdOf(address),
+    }),
+  });
 
   const held = balances.data ?? [];
   const native = held.find((c) => c.denom === 'uyml');
@@ -47,6 +63,28 @@ export function AccountPage({ address }: { address: string }) {
           <strong>This account cannot send.</strong> Enforcement case {freeze.data.case.id} froze it:
           “{freeze.data.case.reason}”. It can still receive. The case is public — anyone can read the
           grounds and how the validators voted.
+        </div>
+      )}
+
+      {/* Second only to a freeze, because it is the other thing that makes an
+          account unusable while looking perfectly healthy. A frozen account
+          cannot send; an unplaced one cannot be found — it holds no user ID,
+          because the chain refuses to issue one for an account no authority has
+          placed. A wallet showing a balance and saying nothing about that hides
+          the reason nobody can pay you. */}
+      {placement.data && placement.data.country === null && (
+        <div className="notice">
+          <strong>{placementVerdict(placement.data).headline}.</strong>{' '}
+          {placementVerdict(placement.data).consequence}{' '}
+          {placementVerdict(placement.data).remedy}
+        </div>
+      )}
+
+      {placement.data?.country && !placement.data.userId && (
+        <div className="notice notice--bad">
+          <strong>{placementVerdict(placement.data).headline}.</strong>{' '}
+          {placementVerdict(placement.data).consequence}{' '}
+          {placementVerdict(placement.data).remedy}
         </div>
       )}
 
