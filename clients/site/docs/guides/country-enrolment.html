@@ -516,6 +516,50 @@ comes <em>before</em> any grant is consulted.</p>
 <p>That last one is worth internalising, because it is the shape of most surprises
 here: a great many failures that look like &quot;my authority does not work&quot; are
 actually &quot;the account you named has no jurisdiction record&quot;.</p>
+<h3>Two of the five roles have nothing to do yet</h3>
+<p>This is a gap in the chain rather than in the enrolment, and it is stated here
+because an operator will otherwise grant a role and then spend an afternoon
+finding out why nobody can use it.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>What consults it today</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROLE_PAYMENTS_AUTHORITY</code></td>
+<td><code>x/paymsg</code> — admitting a participant. Works.</td>
+</tr>
+<tr>
+<td><code>ROLE_MONETARY_AUTHORITY</code></td>
+<td><code>x/stablecoin</code> — approving an issuer. Works.</td>
+</tr>
+<tr>
+<td><code>ROLE_REGISTRY_AUTHORITY</code></td>
+<td><code>x/land</code> — parcels, transfers, freezes. Works.</td>
+</tr>
+<tr>
+<td><code>ROLE_ENFORCEMENT_AUTHORITY</code></td>
+<td><code>x/enforcement</code> — but see below.</td>
+</tr>
+<tr>
+<td><code>ROLE_SUPERVISOR</code></td>
+<td><strong>nothing at all.</strong></td>
+</tr>
+</tbody></table>
+<p><code>ROLE_ENFORCEMENT_AUTHORITY</code> is consulted in exactly two places and both have a
+second gate an office cannot pass. <code>MsgOpenCase</code> requires the opener to be a
+<strong>bonded validator</strong>, and a group policy account cannot be one.
+<code>MsgEmergencyFreeze</code> requires the signer to be <code>x/enforcement</code>&#39;s
+<code>emergency_authority</code> parameter. So a country&#39;s enforcement office holds a grant
+that no message currently lets it use. Grant it anyway — the enrolment is the
+right moment, and appointing the office later is much harder than appointing it
+now — but do not expect it to be able to freeze anything yet.</p>
+<p><code>ROLE_SUPERVISOR</code> has no consumer anywhere. It is a name in the registry, which is
+precisely what <code>role.proto</code>&#39;s own comment warns about: &quot;a role nothing consults is
+a name in a registry pretending to be a control&quot;. Granting it records who is
+watching a country and confers nothing.</p>
 <h2>Validators are a different registry, and the difference is real</h2>
 <p><code>x/validatorgov</code> collects a validator&#39;s jurisdiction in its application, alongside
 its legal entity and beneficial owner, and validates it against the same assigned

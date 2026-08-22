@@ -117,6 +117,15 @@ enforcement authority and supervisor. The zero value of the enum is reserved as
 unspecified and refused everywhere: proto3 cannot tell a zero from an absent
 field, so a role numbered zero would make &quot;grant the first role in the list&quot; and
 &quot;grant whatever the default is&quot; the same message.</p>
+<p><strong>Two of the five currently confer nothing, and that is a gap rather than a
+design.</strong> <code>role.proto</code> keeps the list short on the stated grounds that &quot;a role
+nothing consults is a name in a registry pretending to be a control&quot; — and today
+<code>ROLE_SUPERVISOR</code> is exactly that, with no consumer anywhere. <code>ROLE_ENFORCEMENT_ AUTHORITY</code> is nearly that: its only two consumers, <code>MsgOpenCase</code> and
+<code>MsgEmergencyFreeze</code>, each impose a second condition an office cannot satisfy —
+being a bonded validator, or being <code>x/enforcement</code>&#39;s <code>emergency_authority</code>
+parameter — so a country&#39;s enforcement office holds a grant no message lets it
+use. The perimeter check is correct in both; what is missing is a message a
+national enforcement authority can send.</p>
 <p>Grants naming a <strong>country</strong> are created and removed by governance <strong>or by the
 foundation</strong> — meaning the one account <code>x/constitution</code> pins as
 <code>enforcement_recovery_destination</code>, which is the 3-of-5 from the key ceremony.
