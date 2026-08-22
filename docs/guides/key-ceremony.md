@@ -706,6 +706,35 @@ The address in all three has to be the one on the signed record.
 
 ---
 
+---
+
+## The same ceremony, for a country
+
+Everything above happens once, before the chain starts. The other thing this
+machinery is for happens repeatedly afterwards, and it is
+[enrolling a country](country-enrolment.md): one M-of-N group per office, the
+roles that office holds inside its own borders, and the jurisdiction records that
+make those roles reach anything.
+
+It is a sibling rather than a second copy. The keys, the possession signatures,
+the group assembly and the eighty-bit fingerprint read aloud before anybody signs
+are the same `ceremony host` and the same code — an office's super users generate
+in their own browsers exactly as custodians do, and the coordinator's setup screen
+takes the office's country and roles so that what they are being asked to hold is
+inside the fingerprint they compare.
+
+What is completely different is the far end, and it is worth knowing before you
+read that guide. This ceremony produces a **genesis fragment**, because the
+foundation must exist at height zero. A country's produces **transactions and
+proposals**, because the chain is already running — which turns the property
+[step 8](#8-assemble-the-group) relies on into a hazard. A policy address derived
+from a sequence number is knowable offline and commits to nothing about who
+controls it, so on a live chain an office's address has to be read back from the
+chain and checked against the office's own membership before anything is granted to
+it. `ceremony country` refuses to compose a grant any other way.
+
+---
+
 **Full reference:** [x/constitution](../reference/constitution.md) and
 [x/enforcement](../reference/enforcement.md) — every message, query, parameter
 and error code, generated from the source.

@@ -35,13 +35,21 @@ type Perimeter struct {
 // Name types.ModuleName in integration.NewWith for the store to exist, and pass
 // module.AppModule{} so the codec knows this module's types.
 //
-// The participant keeper is nil and the group keeper is nil, deliberately.
+// All three consulted keepers are nil, deliberately.
+//
 // Nothing here records a jurisdiction as a participant — governance does it, the
 // route a deployment uses for the accounts that are not somebody's payment
 // customer — so a call into x/paymsg from these paths would panic rather than
 // quietly pass. The nil group keeper means Grant does not require its holders to
 // be group accounts, which is the one rule these fixtures cannot exercise
 // without standing up x/group; it is covered in x/alias's own tests.
+//
+// The nil constitution keeper means there is no foundation, so governance is the
+// only account that may grant a role here. That is the pre-widening rule, which
+// is the right default for a fixture whose consumers all act as governance: a
+// test that wanted to prove the foundation route works must construct the
+// constitution it is relying on rather than inherit one, and x/alias's own tests
+// do exactly that.
 func Init(t *testing.T, env *integration.Env) *Perimeter {
 	t.Helper()
 
@@ -51,6 +59,7 @@ func Init(t *testing.T, env *integration.Env) *Perimeter {
 		env.Store(types.ModuleName),
 		log.NewNopLogger(),
 		env.AuthorityString(t),
+		nil,
 		nil,
 		nil,
 	)

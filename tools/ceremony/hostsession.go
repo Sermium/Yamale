@@ -397,6 +397,14 @@ func (h *hostSession) handleCoordinatorState(w http.ResponseWriter, _ *http.Requ
 	reply(w, http.StatusOK, h.view(true))
 }
 
+// setupRequest is the coordinator's form.
+//
+// Country and Roles are what make this the same flow for a country office as for
+// the foundation. Both blank is the foundation ceremony; a country turns it into
+// an enrolment for one national office, and both values end up inside the
+// parameters fingerprint the super users read aloud before generating — which is
+// the whole reason they are here rather than in a config file the coordinator
+// fills in afterwards.
 type setupRequest struct {
 	Ceremony     string   `json:"ceremony"`
 	ChainID      string   `json:"chain_id"`
@@ -404,6 +412,8 @@ type setupRequest struct {
 	Custodians   []string `json:"custodians"`
 	PolicySeq    uint64   `json:"policy_seq"`
 	VotingPeriod string   `json:"voting_period"`
+	Country      string   `json:"country"`
+	Roles        []string `json:"roles"`
 }
 
 func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -448,6 +458,22 @@ func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A blank country is the foundation ceremony and Office stays nil. Trimmed and
+	// uppercased on the way in because a form field is typed by a person, and then
+	// params.validate() refuses anything the normalisation would have had to
+	// change beyond that — so "sn " becomes "SN" and is accepted, while a code
+	// that is not a country is refused rather than recorded.
+	var office *officeParams
+	if country := strings.ToUpper(strings.TrimSpace(body.Country)); country != "" {
+		roles := make([]string, 0, len(body.Roles))
+		for _, role := range body.Roles {
+			if trimmed := strings.ToUpper(strings.TrimSpace(role)); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		office = &officeParams{Country: country, Roles: roles}
+	}
+
 	id, err := newCeremonyID()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err)
@@ -461,6 +487,7 @@ func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
 		Custodians:   roster,
 		PolicySeq:    body.PolicySeq,
 		VotingPeriod: strings.TrimSpace(body.VotingPeriod),
+		Office:       office,
 	}
 	if err := params.validate(); err != nil {
 		fail(w, http.StatusBadRequest, err)
@@ -557,6 +584,48 @@ type exportRequest struct {
 	Notes        []string      `json:"notes"`
 }
 
+// exportedGroup is group.json: the assembled document plus the submissions it was
+// computed from.
+//
+// The submissions are here so that a consumer can RECOMPUTE rather than read.
+// This file travels — the country enrolment ceremony picks it up on another
+// machine to find out which addresses make up an office — and the member set in
+// it is the single field that decides who holds a country's payments and
+// enforcement authority. A consumer that trusted the custodians field would put
+// an added member into a real office's group, and every check after that point
+// would agree with it because they all read the same field. With the submissions
+// present, an edited file disagrees with itself.
+//
+// Additive: every existing key keeps its name and its place, because
+// scripts/devnet/init-devnet.sh reads policy_address, group_genesis and
+// constitution_invariants out of this file by name with a tolerant JSON decoder.
+// Nothing here reaches assembled.canonical(), so no fingerprint moves.
+type exportedGroup struct {
+	assembled
+	Submissions []submission `json:"submissions"`
+	// PolicyNote is present only for a country office, where policy_address is a
+	// prediction rather than a fact. A person reads this file.
+	PolicyNote string `json:"policy_address_note,omitempty"`
+}
+
+// policyAddressNote qualifies policy_address for a country office.
+//
+// The address is derived from the policy sequence number and nothing else, so for
+// the foundation — whose group is seeded at genesis, with the sequence fixed by
+// the same file — it is a fact. For an office, whose group is created by a
+// transaction on a chain that has been running for months, it is a guess about
+// how many group policies that chain has created. The chain decides, and
+// `ceremony country confirm` reads the real address back. Said in the file
+// because a person reads the file.
+func policyAddressNote(params ceremonyParams) string {
+	if params.Office == nil {
+		return ""
+	}
+	return fmt.Sprintf(
+		"predicted from policy_seq %d; for a country office the chain decides the sequence, so this is not the "+
+			"office's address until `ceremony country confirm` has read it back", params.PolicySeq)
+}
+
 // handleExport renders the record and writes the launch material.
 //
 // A file, not a step. The custodian journey never touches one: everything a
@@ -604,6 +673,10 @@ func (h *hostSession) handleExport(w http.ResponseWriter, r *http.Request) {
 		Participants: body.Participants,
 		Threshold:    h.params.Threshold,
 		Notes:        notes,
+		// Carried so the record describes the thing that was actually made. For an
+		// office this suppresses the foundation paragraph, every sentence of which
+		// would be false about it.
+		Office: h.params.Office,
 	}
 
 	files := map[string]string{}
@@ -613,25 +686,57 @@ func (h *hostSession) handleExport(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusBadRequest, err)
 			return
 		}
+		// Written to the record either way, because renderRecord requires it and a
+		// foundation record is meaningless without it. For a country office it is
+		// a PREDICTION and it is labelled as one: the address is derived from the
+		// policy sequence number alone, and an office's group is created by a
+		// transaction on a running chain, so the chain decides the sequence and
+		// `ceremony country confirm` reads the real address back. Labelled rather
+		// than omitted, because a record with a blank where an address belongs
+		// reads as a value nobody bothered to fill in.
 		config.PolicyAddress = a.PolicyAddress
-		genesisPath := filepath.Join(h.out, "group-genesis.json")
-		if err := writeRawFile(genesisPath, a.Genesis); err != nil {
-			fail(w, http.StatusInternalServerError, err)
-			return
-		}
-		constitutionPath := filepath.Join(h.out, "constitution-invariants.json")
-		if err := writeRawFile(constitutionPath, a.Constitution); err != nil {
-			fail(w, http.StatusInternalServerError, err)
-			return
+		if note := policyAddressNote(h.params); note != "" {
+			config.PolicyAddress += "\n" + note
 		}
 		groupPath := filepath.Join(h.out, "group.json")
-		if err := writeJSONFile(groupPath, a); err != nil {
+		if err := writeJSONFile(groupPath, exportedGroup{
+			assembled:   a,
+			Submissions: subs,
+			PolicyNote:  policyAddressNote(h.params),
+		}); err != nil {
 			fail(w, http.StatusInternalServerError, err)
 			return
 		}
-		files["group_genesis"] = genesisPath
-		files["constitution"] = constitutionPath
 		files["group"] = groupPath
+
+		// Neither of these is written for a country office, and both omissions are
+		// the point.
+		//
+		// group-genesis.json names group id 1 and policy sequence 1. That is
+		// correct for the foundation, whose group IS the first one on the chain and
+		// is seeded at height zero. An office's group is the Nth, created by
+		// transaction on a chain that has been running for months — so a fragment
+		// claiming id 1 is a file somebody in a hurry could splice into a launch
+		// and get a genesis that starts and is wrong.
+		//
+		// constitution-invariants.json is worse: it says "send every seized asset
+		// on this chain to this address", with the address being the office's.
+		// Nobody should have to know not to use a file sitting in the output
+		// directory.
+		if h.params.Office == nil {
+			genesisPath := filepath.Join(h.out, "group-genesis.json")
+			if err := writeRawFile(genesisPath, a.Genesis); err != nil {
+				fail(w, http.StatusInternalServerError, err)
+				return
+			}
+			constitutionPath := filepath.Join(h.out, "constitution-invariants.json")
+			if err := writeRawFile(constitutionPath, a.Constitution); err != nil {
+				fail(w, http.StatusInternalServerError, err)
+				return
+			}
+			files["group_genesis"] = genesisPath
+			files["constitution"] = constitutionPath
+		}
 	}
 
 	rendered, err := renderRecord(config, custodians)

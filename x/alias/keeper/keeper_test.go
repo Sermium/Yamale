@@ -37,6 +37,7 @@ func setup(t *testing.T) (*integration.Env, keeper.Keeper, types.MsgServer, type
 		env.AuthorityString(t),
 		nil,
 		nil,
+		nil,
 	)
 	// InitGenesis, not a bare Params.Set: the keeper reads params on every
 	// issue, and a fixture that skipped genesis would exercise a state the
@@ -206,7 +207,7 @@ func TestGenesisRoundTrips(t *testing.T) {
 	// nothing at all.
 	other := integration.New(t, types.ModuleName, module.AppModule{})
 	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec, other.StoreService,
-		log.NewNopLogger(), other.AuthorityString(t), nil, nil)
+		log.NewNopLogger(), other.AuthorityString(t), nil, nil, nil)
 	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
 	again, err := fresh.ExportGenesis(other.Ctx)

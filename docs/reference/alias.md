@@ -42,14 +42,14 @@ GrantAuditor grants the time-boxed cross-account reading role.
 
 Signed by the `authority` field.
 
-GrantRole grants a role inside one jurisdiction. Governance only.
+GrantRole grants a role inside one jurisdiction. Governance, or the foundation for a country; governance alone for the chain-wide scope.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `authority` | string |  |
+| `authority` | string | authority is the governance account, or the foundation — the address x/constitution pins as enforcement_recovery_destination. Any other signer is refused, and so is the foundation when the jurisdiction below is "*". |
 | `holder` | string | holder is the account being granted the role. |
 | `role` | Role | role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role was left unset must never be honoured, and proto3 cannot tell that from a role that happens to be numbered zero. |
-| `jurisdiction` | string | jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for chain-wide. The reserved code the foundation's own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. |
+| `jurisdiction` | string | jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for chain-wide. The reserved code the foundation's own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. This field also decides who may sign the message, so it is validated before the signer is checked. "*" narrows the acceptable authority to governance alone, and that narrowing happens before the constitution is read: a store failure while resolving the foundation must not be the thing that decides whether the chain-wide scope was allowed. |
 
 ### MsgRegisterAlias
 
@@ -82,14 +82,14 @@ RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
 
 Signed by the `authority` field.
 
-RevokeRole removes one such grant. Governance only.
+RevokeRole removes one such grant. The same signers as GrantRole.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `authority` | string |  |
+| `authority` | string | authority is the governance account, or the foundation. Same rule as MsgGrantRole, including that "*" is governance alone. |
 | `holder` | string | holder is the account losing the role. |
 | `role` | Role | role is which of the holder's roles to remove. ROLE_UNSPECIFIED is refused here as well as on the grant: "revoke whatever role was left unset" has no meaning, and a message that resolved it to one would revoke something nobody named. |
-| `jurisdiction` | string | jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — "nothing to revoke" is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place. |
+| `jurisdiction` | string | jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — "nothing to revoke" is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place. As on the grant, this decides who may sign: "*" is governance alone. |
 
 ### MsgRevokeViewingKey
 

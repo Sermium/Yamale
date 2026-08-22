@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/x/group"
+
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
 
 // ParticipantKeeper is the slice of x/paymsg this module consults before it
@@ -52,4 +54,35 @@ type GroupKeeper interface {
 	GroupPolicyInfo(
 		ctx context.Context, req *group.QueryGroupPolicyInfoRequest,
 	) (*group.QueryGroupPolicyInfoResponse, error)
+}
+
+// ConstitutionKeeper is the slice of x/constitution this module needs in order
+// to know who the foundation is.
+//
+// One question, and it is deliberately not "is this account privileged". The
+// module asks for the settlement in force and reads one field of it: the address
+// every seized asset on the chain is sent to. That address is the foundation,
+// and identifying it this way rather than by a list of its own is the whole
+// point. x/constitution does not let governance edit an invariant at all —
+// changing one is a constitutional amendment, weeks in public with a four-fifths
+// ratification by the validator set. A parameter list naming "the foundation"
+// would be a list one ordinary proposal could append to, and appending to it
+// would be appending to the set of accounts that may admit a country.
+//
+// So the account that may admit a country is the same account the constitution
+// protects, and it cannot be widened without amending the constitution.
+//
+// The dependency runs one way and moves no money. x/constitution imports nothing
+// from this repository — its ModuleInputs takes x/staking and nothing else — so
+// there is no cycle to wire around, and its InitGenesis runs before this
+// module's, so the invariants are in the store before any message reaches here.
+type ConstitutionKeeper interface {
+	// GetInvariants returns the settlement in force, or an error when nothing has
+	// been written.
+	//
+	// The error is load-bearing. A chain with no constitution must not be one
+	// where the foundation's address reads as the empty string, because an unset
+	// signer would then compare equal to it — which is the proto3 zero-value trap
+	// this repository has been caught by four times.
+	GetInvariants(ctx context.Context) (constitutiontypes.Invariants, error)
 }

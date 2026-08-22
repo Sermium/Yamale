@@ -11,8 +11,42 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
+
+// AliasKeeper is the recorded side of the jurisdiction question: what has the
+// chain been told about this account, and by whom.
+//
+// This module already collects a jurisdiction — the validator declares one when
+// it applies, signs for it, and the concentration ceilings group by it. x/alias
+// holds the other one, written by the approved participant that onboarded the
+// account and did the know-your-customer work, or corrected by a foundation
+// administrator, and never by the account itself. The two are kept apart and
+// reconciled rather than merged; see the JurisdictionReconciliation query for
+// why neither is the other's source.
+//
+// It returns the raw registry record and not x/alias's CountryOf, and that
+// choice is the whole of the reconciliation. CountryOf answers a different
+// question — "which country does this account belong to", the one the perimeter
+// checks ask — and to answer it always, it falls back to the foundation's
+// reserved code for a named administrator nobody has placed. That fallback is
+// derived from a parameter list: no recorder stands behind it and no height
+// dates it. Reporting it as the recorded side would have this module publish a
+// provenance that does not exist, which is precisely the failure a
+// reconciliation is built to expose rather than to commit.
+//
+// So found is false when there is no record, reported as a value rather than as
+// an error, because "nobody has placed this account" is an answer the question
+// has. It is never folded into agreement.
+//
+// One method and it only reads. An interface wide enough to write through would
+// let the module that collects self-declared jurisdictions go and confirm them
+// itself, which would turn two registries with different provenance into one
+// with none. The direction is acyclic: x/alias knows nothing about this module.
+type AliasKeeper interface {
+	JurisdictionOf(ctx context.Context, address string) (record aliastypes.Jurisdiction, found bool, err error)
+}
 
 // ConstitutionKeeper is where the concentration ceilings come from.
 //

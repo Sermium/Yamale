@@ -33,6 +33,18 @@ type Keeper struct {
 	// is enforced against.
 	constitutionKeeper types.ConstitutionKeeper
 
+	// aliasKeeper is read-only and holds the jurisdiction the chain recorded
+	// against an account, as opposed to the one the validator declared here.
+	//
+	// Nil is a state the query detects and refuses, not one it works around.
+	// Nothing on a consensus path reads this — it feeds one supervisory query —
+	// so a nil keeper cannot halt a chain; what it could do is let that query
+	// answer "every validator agrees" on a chain where the comparison was never
+	// made. A check that quietly disappears with its dependency is a check a
+	// wiring mistake removes, and this one is read by somebody deciding whether
+	// the register is sound.
+	aliasKeeper types.AliasKeeper
+
 	ValidatorApplication collections.Map[string, types.ValidatorApplication]
 	ApprovedValidator    collections.Map[string, types.ApprovedValidator]
 
@@ -66,6 +78,7 @@ func NewKeeper(
 	authKeeper types.AuthKeeper,
 	bankKeeper types.BankKeeper,
 	constitutionKeeper types.ConstitutionKeeper,
+	aliasKeeper types.AliasKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -84,6 +97,7 @@ func NewKeeper(
 		authKeeper:           authKeeper,
 		bankKeeper:           bankKeeper,
 		constitutionKeeper:   constitutionKeeper,
+		aliasKeeper:          aliasKeeper,
 		Params:               collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ValidatorApplication: collections.NewMap(sb, types.ValidatorApplicationKey, "validatorApplication", collections.StringKey, codec.CollValue[types.ValidatorApplication](cdc)), ApprovedValidator: collections.NewMap(sb, types.ApprovedValidatorKey, "approvedValidator", collections.StringKey, codec.CollValue[types.ApprovedValidator](cdc)),
 

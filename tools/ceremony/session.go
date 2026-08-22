@@ -865,8 +865,18 @@ func (s *session) handleAssemble(w http.ResponseWriter, r *http.Request) {
 	}
 	s.assembledDoc = &a
 
+	// The same shape the hosted path writes: assembled, plus the submissions it
+	// was computed from. One shape rather than two, because `ceremony country`
+	// recomputes an office's membership from the submissions and would otherwise
+	// accept a group.json from one path and refuse the same office's from the
+	// other — and the air-gapped path is the STRONGER one, so it must not be the
+	// one that cannot be used.
 	path := filepath.Join(s.out, "group.json")
-	if err := writeJSONFile(path, a); err != nil {
+	if err := writeJSONFile(path, exportedGroup{
+		assembled:   a,
+		Submissions: s.submissions,
+		PolicyNote:  policyAddressNote(s.params),
+	}); err != nil {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}

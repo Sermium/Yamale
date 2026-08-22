@@ -21,16 +21,24 @@ import { fileURLToPath } from 'node:url';
 
 import { deriveKey, identityOf, sign, signSubmission, verify } from './key.ts';
 import {
+  FOUNDATION_LABEL,
+  MAX_GROUP_METADATA,
   assembleGroup,
   assembledCanonical,
   buildGroup,
+  foundationPurpose,
+  groupLabel,
+  groupMetadata,
   policyAddress,
   presence,
+  purposeFor,
   validateParams,
   verifySubmission,
 } from './group.ts';
 import {
+  VALID_ROLES,
   attestationCanonical,
+  canonBytes,
   fromBase64,
   paramsCanonical,
   paramsFingerprint,
@@ -43,13 +51,30 @@ import {
 } from './wire.ts';
 import { goJSONString, parseGoDuration, protoDuration } from './gojson.ts';
 
+type GroupVector = {
+  computed_at: string;
+  policy_address: string;
+  label: string;
+  metadata: string;
+  policy_metadata: string;
+  genesis_json: string;
+  constitution_json: string;
+  canonical_hex: string;
+  fingerprint: string;
+};
+
 type Vectors = {
   policy_derivation: { module: string; group_policy_table_prefix: number };
+  role_names: string[];
   policy_addresses: Array<{ seq: number; address: string }>;
   duration_vectors: Array<{ duration: string; windows_json: string }>;
   params: CeremonyParams;
   params_canonical_hex: string;
   params_fingerprint: string;
+  office_params: CeremonyParams;
+  office_params_canonical_hex: string;
+  office_params_fingerprint: string;
+  office_group: GroupVector;
   custodians: Array<{
     name: string;
     phrase: string;
@@ -62,14 +87,7 @@ type Vectors = {
     possession_message_hex: string;
     possession_signature_base64: string;
   }>;
-  group: {
-    computed_at: string;
-    policy_address: string;
-    genesis_json: string;
-    constitution_json: string;
-    canonical_hex: string;
-    fingerprint: string;
-  };
+  group: GroupVector;
   attestations: Array<{ attestation: Attestation; canonical_hex: string; signature_base64: string }>;
 };
 
@@ -90,6 +108,20 @@ test('the shared vectors are present and non-empty', () => {
   assert.ok(vectors.attestations.length > 0);
   assert.equal(vectors.policy_derivation.module, 'group');
   assert.equal(vectors.policy_derivation.group_policy_table_prefix, 0x20);
+  assert.ok(vectors.office_params.office, 'the fixture must carry the office ceremony');
+  assert.ok(vectors.office_group.fingerprint.length > 0);
+});
+
+// The role table, pinned the same way the two SDK constants are.
+//
+// This page cannot import x/alias's enum, so it carries a copy, and a copy that
+// nothing checks is a copy that drifts. A role added to the chain and not here
+// would be a role the coordinator's form silently refused; one removed from the
+// chain and not here would be a ceremony whose super users read a fingerprint
+// aloud for authority the chain will never grant.
+test("the page's role table is the chain's role table", () => {
+  assert.deepEqual([...VALID_ROLES], vectors.role_names);
+  assert.ok(!vectors.role_names.includes('ROLE_UNSPECIFIED'), 'the unset default is never a role');
 });
 
 test('a group policy address derives the same as the Go binary', () => {
@@ -157,6 +189,57 @@ test('the params canonical bytes and fingerprint match Go', () => {
   assert.equal(paramsFingerprint(vectors.params), vectors.params_fingerprint);
 });
 
+// The office half of the params encoding, which is the new one and therefore the
+// one that can diverge without anybody noticing.
+//
+// The foundation's bytes are the old bytes plus a fixed empty tail, so they would
+// keep matching even if the office block had been implemented differently on each
+// side. These would not.
+test('the office params canonical bytes and fingerprint match Go', () => {
+  assert.equal(toHex(paramsCanonical(vectors.office_params)), vectors.office_params_canonical_hex);
+  assert.equal(paramsFingerprint(vectors.office_params), vectors.office_params_fingerprint);
+  assert.notEqual(vectors.office_params_fingerprint, vectors.params_fingerprint);
+});
+
+// An absent office and an explicitly-empty one must encode identically.
+//
+// Go's nil pointer and this page's undefined both have to produce canonField('')
+// followed by a zero count. If they did not, a foundation ceremony read by one
+// side as "no office" and by the other as "an office with nothing in it" would
+// produce two different fingerprints from the same parameters.
+test('no office encodes the same as an empty one', () => {
+  const absent = { ...vectors.params };
+  delete absent.office;
+  const explicitlyNull = { ...vectors.params, office: null };
+  const empty = { ...vectors.params, office: { country: '', roles: [] } };
+  assert.equal(toHex(paramsCanonical(absent)), vectors.params_canonical_hex);
+  assert.equal(toHex(paramsCanonical(explicitlyNull)), vectors.params_canonical_hex);
+  assert.equal(toHex(paramsCanonical(empty)), vectors.params_canonical_hex);
+
+  // And the tail really is eight zero bytes: four for the empty country, four
+  // for the zero role count.
+  assert.ok(vectors.params_canonical_hex.endsWith('0000000000000000'));
+});
+
+// The office is in the fingerprint so that keys generated for one country cannot
+// be reused for an office over another. That is only true if changing either
+// value moves the fingerprint, so it is asserted rather than assumed.
+test('the country and the roles are covered by the fingerprint', () => {
+  const office = vectors.office_params.office as { country: string; roles: string[] };
+  const elsewhere = { ...vectors.office_params, office: { ...office, country: 'NG' } };
+  assert.notEqual(paramsFingerprint(elsewhere), vectors.office_params_fingerprint);
+
+  const fewer = { ...vectors.office_params, office: { ...office, roles: office.roles.slice(0, 1) } };
+  assert.notEqual(paramsFingerprint(fewer), vectors.office_params_fingerprint);
+
+  // But the ORDER must not move it: two coordinators typing the same two roles
+  // in different orders have to produce the same value, or the read-aloud check
+  // fails for a reason that has nothing to do with an attacker.
+  const reversed = { ...vectors.office_params, office: { ...office, roles: [...office.roles].reverse() } };
+  assert.notDeepEqual([...office.roles].reverse(), office.roles, 'the fixture roles must not already be sorted');
+  assert.equal(paramsFingerprint(reversed), vectors.office_params_fingerprint);
+});
+
 test('a duration renders the way protobuf JSON renders it', () => {
   for (const entry of vectors.duration_vectors) {
     const rendered =
@@ -186,6 +269,137 @@ test('the group canonical bytes and the fingerprint read aloud match Go', () => 
   const assembled = assembleGroup(vectors.params, fixtureSubmissions());
   assert.equal(toHex(assembledCanonical(assembled)), vectors.group.canonical_hex);
   assert.equal(assembled.fingerprint, vectors.group.fingerprint);
+});
+
+// officeSubmissions rebuilds the office ceremony's submissions from the same
+// phrases, signed over the OFFICE ceremony id.
+//
+// Regenerated rather than stored, because the derivation and the signing are
+// already pinned by the foundation vectors; what is under test here is the group
+// the office parameters produce from them.
+function officeSubmissions(): Submission[] {
+  return vectors.office_params.custodians.map((name) => {
+    const custodian = vectors.custodians.find((c) => c.name === name);
+    assert.ok(custodian, `no custodian vector for ${name}`);
+    const key = deriveKey(custodian.phrase, custodian.index);
+    const id = identityOf(name, key, new Date(custodian.generated_at));
+    return signSubmission(vectors.office_params.ceremony_id, id, key.priv);
+  });
+}
+
+test("an office's group is byte-identical to the one Go builds", () => {
+  const assembled = assembleGroup(vectors.office_params, officeSubmissions());
+  assert.equal(assembled.genesis, vectors.office_group.genesis_json);
+  assert.equal(assembled.policy_address, vectors.office_group.policy_address);
+  assert.equal(assembled.computed_at, vectors.office_group.computed_at);
+  assert.equal(toHex(assembledCanonical(assembled)), vectors.office_group.canonical_hex);
+  assert.equal(assembled.fingerprint, vectors.office_group.fingerprint);
+  assert.notEqual(assembled.fingerprint, vectors.group.fingerprint);
+});
+
+// The label, on both paths, because it is what the group is called on chain
+// permanently and it is inside the bytes the fingerprint covers.
+test('the group label names the office, not the foundation', () => {
+  assert.equal(groupLabel(vectors.params), FOUNDATION_LABEL);
+  assert.equal(groupLabel(vectors.params), vectors.group.label);
+  assert.equal(groupLabel(vectors.office_params), vectors.office_group.label);
+  assert.ok(!vectors.office_group.label.includes(FOUNDATION_LABEL));
+
+  for (const [params, vector] of [
+    [vectors.params, vectors.group],
+    [vectors.office_params, vectors.office_group],
+  ] as const) {
+    const submissions = params === vectors.params ? fixtureSubmissions() : officeSubmissions();
+    const identities = submissions.map((s) => verifySubmission(params, s));
+    const documents = buildGroup(
+      identities,
+      purposeFor(params),
+      params.threshold,
+      params.voting_period,
+      params.policy_seq,
+      vector.computed_at,
+    );
+    assert.equal(documents.metadata, vector.metadata);
+    assert.equal(documents.policyMetadata, vector.policy_metadata);
+    assert.ok(documents.genesis.includes(vector.label.replace(/&/g, '\\u0026')) || documents.genesis.includes(vector.label));
+  }
+});
+
+// The single most likely place for the two languages to part company.
+//
+// Go leaves assembled.Constitution nil; this page holds ''. canonBytes has to
+// turn both into the same four zero bytes. A null on one side and a "null" or
+// "{}" on the other would give a country's super users a different group
+// fingerprint from their coordinator's — the one failure the read-aloud step
+// cannot tell apart from an attack.
+test('an office gets no constitutional invariants fragment, and its absence hashes identically', () => {
+  const assembled = assembleGroup(vectors.office_params, officeSubmissions());
+  assert.equal(assembled.constitution, '');
+  assert.equal(vectors.office_group.constitution_json, '');
+
+  // The foundation still gets one.
+  assert.notEqual(vectors.group.constitution_json, '');
+
+  // Four zero bytes, from an empty string, from a zero-length array, and at the
+  // end of the office's canonical bytes.
+  assert.deepEqual([...canonBytes(new TextEncoder().encode(''))], [0, 0, 0, 0]);
+  assert.deepEqual([...canonBytes(new Uint8Array(0))], [0, 0, 0, 0]);
+  assert.ok(vectors.office_group.canonical_hex.endsWith('00000000'));
+});
+
+// x/group refuses metadata over 255 bytes and nothing on the genesis path checks
+// it, so the foundation would never have noticed while an office's
+// create-group transaction would have failed after the ceremony was over.
+test('metadata longer than x/group accepts is refused', () => {
+  const identities = officeSubmissions().map((s) => verifySubmission(vectors.office_params, s));
+  const long = 'Autorité nationale de régulation des paiements '.repeat(8);
+  assert.throws(
+    () =>
+      buildGroup(identities, { label: long, office: true }, 2, vectors.office_params.voting_period, 7, vectors.office_group.computed_at),
+    new RegExp(`x/group refuses anything over ${MAX_GROUP_METADATA}`),
+  );
+
+  // The boundary is not off by one: the office's real label must still build.
+  const documents = buildGroup(
+    identities,
+    purposeFor(vectors.office_params),
+    vectors.office_params.threshold,
+    vectors.office_params.voting_period,
+    vectors.office_params.policy_seq,
+    vectors.office_group.computed_at,
+  );
+  assert.ok(new TextEncoder().encode(documents.metadata).length <= MAX_GROUP_METADATA);
+});
+
+// The office parameters, refused on this side too. The coordinator is where a
+// person types these, and a page that accepted what the binary refuses would send
+// somebody round a loop with a server error instead of a sentence.
+test('office parameters this chain cannot honour are refused', () => {
+  validateParams(vectors.office_params);
+
+  const office = vectors.office_params.office as { country: string; roles: string[] };
+  const withOffice = (patch: Partial<{ country: string; roles: string[] }>) => ({
+    ...vectors.office_params,
+    office: { ...office, ...patch },
+  });
+
+  assert.throws(() => validateParams(withOffice({ country: 'sn' })), /two uppercase letters/);
+  assert.throws(() => validateParams(withOffice({ country: '*' })), /chain-wide scope/);
+  assert.throws(() => validateParams(withOffice({ country: 'ZZ' })), /ABSENCE of a national perimeter/);
+  assert.throws(() => validateParams(withOffice({ country: 'SEN' })), /exactly two uppercase letters/);
+  assert.throws(() => validateParams(withOffice({ roles: [] })), /holds no roles/);
+  assert.throws(() => validateParams(withOffice({ roles: ['ROLE_TREASURER'] })), /not a role this chain has/);
+  assert.throws(() => validateParams(withOffice({ roles: ['ROLE_UNSPECIFIED'] })), /unset default/);
+  assert.throws(() => validateParams(withOffice({ roles: ['role_supervisor'] })), /not written the way this chain spells it/);
+  assert.throws(
+    () => validateParams(withOffice({ roles: ['ROLE_SUPERVISOR', 'ROLE_SUPERVISOR'] })),
+    /listed twice/,
+  );
+
+  // And no office at all stays legal: that is the foundation ceremony.
+  const foundation = { ...vectors.office_params };
+  delete foundation.office;
+  validateParams(foundation);
 });
 
 test('the order submissions arrive in does not change the fingerprint', () => {
@@ -273,7 +487,7 @@ test('a group policy address cannot be a custodian', () => {
   assert.ok(first);
   first.address = policyAddress(9);
   assert.throws(
-    () => buildGroup(identities, 3, vectors.params.voting_period, 1, vectors.group.computed_at),
+    () => buildGroup(identities, foundationPurpose(), 3, vectors.params.voting_period, 1, vectors.group.computed_at),
     /derived account rather than a key/,
   );
 });

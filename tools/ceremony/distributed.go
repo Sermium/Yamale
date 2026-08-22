@@ -49,6 +49,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+
+	aliastypes "yamale/blockchain/x/alias/types"
 )
 
 // The domains keep every digest and every signature in this program from being
@@ -56,7 +58,7 @@ import (
 // the canonical encodings below has to invalidate old values rather than
 // silently produce a different fingerprint for the same ceremony.
 const (
-	paramsDomain      = "yamale-ceremony-params-v1"
+	paramsDomain      = "yamale-ceremony-params-v2"
 	groupDomain       = "yamale-ceremony-group-v1"
 	possessionDomain  = "yamale-ceremony-possession-v1"
 	attestationDomain = "yamale-ceremony-attestation-v1"
@@ -78,6 +80,13 @@ const (
 // "we are missing Chipo's submission" a statement an instance can make. Without
 // it a relay who supplied four honest submissions and one of their own would
 // produce a group of five that every instance would happily compute.
+//
+// Office is the country-office half, and it is nil for the foundation. It is in
+// the parameters — and therefore inside the fingerprint read aloud before
+// anybody generates — because it is what the key is FOR. Without it a
+// coordinator could take the keys five super users generated "for Senegal" and
+// stand up an office granted authority over Nigeria, and nothing any of the five
+// had seen would have said so.
 type ceremonyParams struct {
 	ID           string   `json:"ceremony_id"`
 	Name         string   `json:"ceremony"`
@@ -86,6 +95,36 @@ type ceremonyParams struct {
 	Custodians   []string `json:"custodians"`
 	PolicySeq    uint64   `json:"policy_seq"`
 	VotingPeriod string   `json:"voting_period"`
+	Office       *officeParams `json:"office,omitempty"`
+}
+
+// officeParams is the country-office half of a ceremony's parameters.
+//
+// Nil for the foundation ceremony, which belongs to no national perimeter.
+type officeParams struct {
+	Country string   `json:"country"`
+	Roles   []string `json:"roles"`
+}
+
+// foundationLabel is what a group with no office is called.
+//
+// A constant rather than a literal in three places, because it is inside the
+// group metadata that the group fingerprint covers: the foundation's bytes must
+// not move when the country path is added, and the way to guarantee that is for
+// there to be one spelling of it.
+const foundationLabel = "Yamale foundation"
+
+// groupLabel is what this ceremony's group is called, on chain, permanently.
+//
+// It is the one field a human reads to find out what a group is, which is why it
+// is derived from the parameters rather than hard-coded. A country office
+// recorded as "Yamale foundation" would be a lie in exactly the place nobody
+// would think to check.
+func groupLabel(p ceremonyParams) string {
+	if p.Office == nil {
+		return foundationLabel
+	}
+	return p.Name + " (" + p.Office.Country + ")"
 }
 
 // newCeremonyID is a fresh ceremony identifier.
@@ -138,9 +177,27 @@ func canonBytes(b []byte, v []byte) []byte {
 // change without anybody intending to change what the custodians read aloud.
 // This is the value five people compare over a telephone; it does not get to
 // move because a struct tag was edited.
+// The office block is last, and a nil office encodes IDENTICALLY to an office
+// with an empty country and no roles: canonField("") followed by a count of
+// zero. That ambiguity is deliberate and unreachable — validate() refuses an
+// office whose country is not an assigned code, so no valid ceremony can produce
+// the second of the two. What it buys is that the foundation's canonical bytes
+// are the old bytes plus a fixed eight-byte tail, rather than two shapes a
+// reader has to hold in their head.
 func (p ceremonyParams) canonical() []byte {
 	names := append([]string(nil), p.Custodians...)
 	sort.Strings(names)
+
+	officeCountry := ""
+	var officeRoles []string
+	if p.Office != nil {
+		officeCountry = p.Office.Country
+		// Sorted on a copy, for the same reason the custodian names are: the
+		// encoding must depend on the SET of roles the office is being granted,
+		// not on the order somebody happened to type them into a form.
+		officeRoles = append([]string(nil), p.Office.Roles...)
+		sort.Strings(officeRoles)
+	}
 
 	b := canonField(nil, paramsDomain)
 	b = canonField(b, p.ID)
@@ -152,6 +209,11 @@ func (p ceremonyParams) canonical() []byte {
 	b = binary.BigEndian.AppendUint32(b, uint32(len(names)))
 	for _, name := range names {
 		b = canonField(b, name)
+	}
+	b = canonField(b, officeCountry)
+	b = binary.BigEndian.AppendUint32(b, uint32(len(officeRoles)))
+	for _, role := range officeRoles {
+		b = canonField(b, role)
 	}
 	return b
 }
@@ -228,7 +290,127 @@ func (p ceremonyParams) validate() error {
 			"policy_seq %d is past anything a chain could have reached, and past the range a browser holds exactly",
 			p.PolicySeq)
 	}
+	return p.validateOffice()
+}
+
+// validateOffice checks the country-office half.
+//
+// Nil is the foundation ceremony and there is nothing to check. A non-nil office
+// is checked against the chain's own tables — x/alias's assigned-country list and
+// its role enum — rather than against a copy written here, because a tool with
+// its own copy of either is a tool that will eventually produce a ceremony for a
+// perimeter or a role the chain does not have. The super users would have
+// generated keys, read a fingerprint aloud, and signed attestations for an office
+// the chain then refuses to grant anything to.
+func (p ceremonyParams) validateOffice() error {
+	if p.Office == nil {
+		return nil
+	}
+
+	country := p.Office.Country
+	// Refused rather than normalised. The country is inside the parameters
+	// fingerprint the super users read aloud before generating, so a value this
+	// program silently rewrote would be a value none of them agreed to — the same
+	// rule checkCanonicalTimestamp applies to generated_at, and for the same
+	// reason.
+	if country != aliastypes.NormaliseCountry(country) {
+		return fmt.Errorf(
+			"the office's country is %q and this ceremony writes %q — two uppercase letters. A value silently "+
+				"rewritten is a value the super users did not read aloud before generating",
+			country, aliastypes.NormaliseCountry(country))
+	}
+	switch {
+	case country == aliastypes.ChainWide:
+		return fmt.Errorf(
+			"%q is the chain-wide scope, which is the foundation's alone and is not a country. An office holds "+
+				"authority inside one perimeter; a ceremony that could name %q would be a ceremony for handing a "+
+				"national office authority over every country",
+			country, aliastypes.ChainWide)
+	case country == aliastypes.FoundationCountry:
+		return fmt.Errorf(
+			"%q is the reserved code that marks the ABSENCE of a national perimeter, not a country. An office "+
+				"recorded there would hold authority over nowhere while reading to a human as authority over "+
+				"everywhere. A ceremony with no perimeter is the foundation's: leave the country blank",
+			country)
+	}
+	if len(country) != aliastypes.CountryLength || !upperASCII(country) {
+		return fmt.Errorf(
+			"the office's country is %q; a country code here is exactly two uppercase letters, A to Z", country)
+	}
+	if !aliastypes.AssignedCountry(country) {
+		return fmt.Errorf(
+			"%q is not an assigned ISO 3166-1 alpha-2 country code, so no authority's perimeter could contain "+
+				"anything granted in it. NX, QK and ZX are all two letters and none of them is a country",
+			country)
+	}
+
+	if len(p.Office.Roles) == 0 {
+		return errors.New(
+			"the office holds no roles, so the chain would refuse every action it ever attempted. " +
+				"An office worth a key ceremony holds at least one")
+	}
+	seen := map[string]bool{}
+	for _, name := range p.Office.Roles {
+		if name != strings.ToUpper(strings.TrimSpace(name)) {
+			return fmt.Errorf(
+				"the role %q is not written the way this chain spells it, %q. The roles are covered by the "+
+					"fingerprint the super users read aloud, so this is refused rather than tidied up",
+				name, strings.ToUpper(strings.TrimSpace(name)))
+		}
+		value, known := aliastypes.Role_value[name]
+		if !known {
+			return fmt.Errorf(
+				"%q is not a role this chain has. They are %s",
+				name, strings.Join(ceremonyRoleNames(), ", "))
+		}
+		// ROLE_UNSPECIFIED is spellable, and it is the zero value. Proto3 cannot
+		// tell a zero from a field nobody filled in, which is why the enum
+		// reserves it — so an office that named it would produce a grant the
+		// chain rejects AFTER three custodians had voted for it.
+		if !aliastypes.ValidRole(aliastypes.Role(value)) {
+			return fmt.Errorf(
+				"%q is the unset default and is never a role. Proto3 cannot tell a zero from a field nobody "+
+					"filled in, which is why it is reserved", name)
+		}
+		if seen[name] {
+			return fmt.Errorf(
+				"%s is listed twice. The roles are a set, and a list that repeats one reads on the record as "+
+					"though the office were granted it twice", name)
+		}
+		seen[name] = true
+	}
 	return nil
+}
+
+// upperASCII reports whether every byte is A–Z.
+//
+// Written out rather than reached for through unicode, because the question is
+// specifically about the two ASCII letters an ISO 3166-1 alpha-2 code is made of.
+// A Cyrillic А that looks identical is not one of them.
+func upperASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 'A' || s[i] > 'Z' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// ceremonyRoleNames is every role name a ceremony will accept, sorted.
+//
+// Built from the chain's own enum, filtered by the chain's own ValidRole, so the
+// set is exactly the set the chain has. It is also what the cross-language
+// fixture publishes as role_names for the browser, which cannot import a Go enum
+// — the same arrangement the two SDK constants in policy_derivation already use.
+func ceremonyRoleNames() []string {
+	names := make([]string, 0, len(aliastypes.Role_name))
+	for value, name := range aliastypes.Role_name {
+		if aliastypes.ValidRole(aliastypes.Role(value)) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // submission is what leaves a custodian's machine, and it is all that leaves.
@@ -434,15 +616,28 @@ func onRoster(roster []string, name string) bool {
 
 // assembled is the group every instance computes for itself.
 type assembled struct {
-	Params        ceremonyParams `json:"params"`
-	Custodians    []identity     `json:"custodians"`
-	PolicyAddress string         `json:"policy_address"`
+	Params     ceremonyParams `json:"params"`
+	Custodians []identity     `json:"custodians"`
+	// PolicyAddress is derived from PolicySeq alone. For the foundation that is
+	// a fact, because the group is seeded at genesis and the sequence number is
+	// fixed by the same file. For a country office it is a PREDICTION: the
+	// office's group is created by a transaction on a running chain and the chain
+	// decides the sequence, so the real address is read back afterwards by
+	// `ceremony country confirm`. It stays here because the group fingerprint
+	// covers it and the foundation record needs it.
+	PolicyAddress string `json:"policy_address"`
 	// Fingerprint is the eighty bits the five custodians read to each other. It
 	// covers the parameters, all five public keys, and the exact bytes of the
 	// genesis fragment below.
-	Fingerprint  string          `json:"fingerprint"`
-	Genesis      json.RawMessage `json:"group_genesis"`
-	Constitution json.RawMessage `json:"constitution_invariants"`
+	Fingerprint string          `json:"fingerprint"`
+	Genesis     json.RawMessage `json:"group_genesis"`
+	// Constitution is nil for a country office, and that is load-bearing rather
+	// than an omission. The fragment says "send every seized asset on the chain
+	// to this address"; produced for Senegal's payments office it is a
+	// ready-to-splice document handing that office the whole chain's seizures.
+	// canonical() encodes nil as a bare zero length, so the fingerprint covers
+	// its absence.
+	Constitution json.RawMessage `json:"constitution_invariants,omitempty"`
 	Members      json.RawMessage `json:"group_members"`
 	Policy       json.RawMessage `json:"group_policy"`
 	CreateMsg    json.RawMessage `json:"group_create_msg"`
@@ -505,7 +700,7 @@ func assembleGroup(params ceremonyParams, submissions []submission) (assembled, 
 	// non-custodian roles. Called rather than reimplemented: the co-located path
 	// and the distributed one must produce the same group from the same five
 	// keys, and two builders would eventually stop doing that.
-	documents, err := buildGroup(custodians, params.Threshold, votingPeriod, params.PolicySeq, latest.UTC())
+	documents, err := buildGroup(custodians, purposeFor(params), params.Threshold, votingPeriod, params.PolicySeq, latest.UTC())
 	if err != nil {
 		return assembled{}, err
 	}

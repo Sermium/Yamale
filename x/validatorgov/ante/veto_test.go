@@ -50,7 +50,7 @@ func initVetoFixture(t *testing.T) *vetoFixture {
 	_, destination := env.Addr(t)
 	constitution := constitutiontestutil.Init(t, env, staking, constitutiontestutil.Invariants(destination))
 	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority,
-		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution)
+		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution, nil)
 	require.NoError(t, k.InitGenesis(env.Ctx, *types.DefaultGenesis()))
 
 	env.Ctx = env.Ctx.WithBlockHeight(1)

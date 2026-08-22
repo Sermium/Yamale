@@ -148,9 +148,20 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						{ProtoField: "expires_at_height"},
 					},
 				},
-				// GrantRole and RevokeRole are governance-only, like UpdateParams
-				// below, and are submitted as proposal payloads. A command that can
-				// only ever fail is a support ticket.
+				// GrantRole and RevokeRole are still not offered, and the reason has
+				// changed even though the conclusion has not.
+				//
+				// They used to be governance-only, which made this obvious. They now
+				// accept governance OR the foundation for a country scope — and the
+				// foundation is an x/group policy address, so neither acceptable
+				// signer is an account anybody holds a key for. A `--from` on this
+				// command can only ever name a key that is refused, and a command
+				// that can only ever fail is a support ticket.
+				//
+				// Both arrive as proposal payloads: a governance proposal, or an
+				// x/group proposal to the foundation. `ceremony country` composes the
+				// second — see docs/guides/country-enrolment.md — through the chain's
+				// own message types rather than by hand.
 				{RpcMethod: "GrantRole", Skip: true},
 				{RpcMethod: "RevokeRole", Skip: true},
 				// UpdateParams is governance-only and is submitted as a proposal

@@ -58,7 +58,7 @@ func TestFiveCustodianCeremony(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	documents, err := buildGroup(people, 3, 7*24*time.Hour, 1, time.Now())
+	documents, err := buildGroup(people, foundationPurpose(), 3, 7*24*time.Hour, 1, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

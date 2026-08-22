@@ -132,7 +132,7 @@ func TestBuildGroupRefusesADerivedAddressAsACustodian(t *testing.T) {
 	people := custodians(t, 5)
 	people[3].Address = firstPolicyAddress
 
-	_, err := buildGroup(people, 3, 0, 1, testTime())
+	_, err := buildGroup(people, foundationPurpose(), 3, 0, 1, testTime())
 	if err == nil {
 		t.Fatal("a 32-byte derived address was accepted as a custodian")
 	}

@@ -7311,7 +7311,7 @@ zebra
 zero
 zone
 zoo`.split("\n");
-const PARAMS_DOMAIN = "yamale-ceremony-params-v1";
+const PARAMS_DOMAIN = "yamale-ceremony-params-v2";
 const GROUP_DOMAIN = "yamale-ceremony-group-v1";
 const POSSESSION_DOMAIN = "yamale-ceremony-possession-v1";
 const ATTESTATION_DOMAIN = "yamale-ceremony-attestation-v1";
@@ -7358,8 +7358,16 @@ function longDigest(domain, data) {
   const encoded = crockfordEncode(digest(domain, data).subarray(0, 10));
   return `${encoded.slice(0, 4)}-${encoded.slice(4, 8)}-${encoded.slice(8, 12)}-${encoded.slice(12, 16)}`;
 }
+const VALID_ROLES = [
+  "ROLE_ENFORCEMENT_AUTHORITY",
+  "ROLE_MONETARY_AUTHORITY",
+  "ROLE_PAYMENTS_AUTHORITY",
+  "ROLE_REGISTRY_AUTHORITY",
+  "ROLE_SUPERVISOR"
+];
 function paramsCanonical(p) {
   const names = [...p.custodians].sort(compareGoStrings);
+  const roles = [...p.office?.roles ?? []].sort(compareGoStrings);
   return concatBytes(
     canonField(PARAMS_DOMAIN),
     canonField(p.ceremony_id),
@@ -7369,7 +7377,10 @@ function paramsCanonical(p) {
     canonField(String(p.policy_seq)),
     canonField(p.voting_period),
     canonCount(names.length),
-    ...names.map(canonField)
+    ...names.map(canonField),
+    canonField(p.office?.country ?? ""),
+    canonCount(roles.length),
+    ...roles.map(canonField)
   );
 }
 function compareGoStrings(a, b) {
@@ -7504,6 +7515,13 @@ const GROUP_MODULE = "group";
 const GROUP_POLICY_TABLE_PREFIX = 32;
 const THRESHOLD_POLICY_TYPE = "/cosmos.group.v1.ThresholdDecisionPolicy";
 const GROUP_ID = 1;
+const FOUNDATION_LABEL = "Yamale foundation";
+const MAX_GROUP_METADATA = 255;
+const utf8Length = (value) => new TextEncoder().encode(value).length;
+function groupLabel(p) {
+  if (!p.office) return FOUNDATION_LABEL;
+  return `${p.ceremony} (${p.office.country})`;
+}
 const utf8 = new TextEncoder();
 function addressHash(typ, key2) {
   return sha256(concatBytes(sha256(typ), key2));
@@ -7559,6 +7577,58 @@ function validateParams(p) {
     throw new Error(
       `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page holds exactly`
     );
+  }
+  validateOffice(p.office);
+}
+const CHAIN_WIDE = "*";
+const FOUNDATION_COUNTRY = "ZZ";
+function validateOffice(office) {
+  if (!office) return;
+  const country = office.country;
+  if (country !== country.toUpperCase()) {
+    throw new Error(
+      `the office's country is "${country}" and this ceremony writes "${country.toUpperCase()}" — two uppercase letters. A value silently rewritten is a value the super users did not read aloud before generating`
+    );
+  }
+  if (country === CHAIN_WIDE) {
+    throw new Error(
+      `"${country}" is the chain-wide scope, which is the foundation's alone and is not a country. An office holds authority inside one perimeter; a ceremony that could name it would be a ceremony for handing a national office authority over every country`
+    );
+  }
+  if (country === FOUNDATION_COUNTRY) {
+    throw new Error(
+      `"${country}" is the reserved code that marks the ABSENCE of a national perimeter, not a country. An office recorded there would hold authority over nowhere while reading to a human as authority over everywhere. A ceremony with no perimeter is the foundation's: leave the country blank`
+    );
+  }
+  if (!/^[A-Z]{2}$/.test(country)) {
+    throw new Error(`the office's country is "${country}"; a country code here is exactly two uppercase letters, A to Z`);
+  }
+  if (office.roles.length === 0) {
+    throw new Error(
+      "the office holds no roles, so the chain would refuse every action it ever attempted. An office worth a key ceremony holds at least one"
+    );
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const role of office.roles) {
+    if (role !== role.toUpperCase().trim()) {
+      throw new Error(
+        `the role "${role}" is not written the way this chain spells it, "${role.toUpperCase().trim()}". The roles are covered by the fingerprint the super users read aloud, so this is refused rather than tidied up`
+      );
+    }
+    if (role === "ROLE_UNSPECIFIED") {
+      throw new Error(
+        `"${role}" is the unset default and is never a role. Proto3 cannot tell a zero from a field nobody filled in, which is why it is reserved`
+      );
+    }
+    if (!VALID_ROLES.includes(role)) {
+      throw new Error(`"${role}" is not a role this chain has. They are ${VALID_ROLES.join(", ")}`);
+    }
+    if (seen.has(role)) {
+      throw new Error(
+        `${role} is listed twice. The roles are a set, and a list that repeats one reads on the record as though the office were granted it twice`
+      );
+    }
+    seen.add(role);
   }
 }
 function onRoster(roster, name) {
@@ -7653,7 +7723,14 @@ function assembleGroup(params, submissions) {
     custodians.push(id);
     if (id.generated_at > latest) latest = id.generated_at;
   }
-  const documents = buildGroup(custodians, params.threshold, params.voting_period, params.policy_seq, latest);
+  const documents = buildGroup(
+    custodians,
+    purposeFor(params),
+    params.threshold,
+    params.voting_period,
+    params.policy_seq,
+    latest
+  );
   const sorted = [...custodians].sort((a, b) => compareGoStrings(a.address, b.address));
   const assembled = {
     params,
@@ -7703,11 +7780,14 @@ function missingFrom(params, submissions) {
   if (missing.length === 0) return "Every name on the roster has a submission.";
   return `Still missing: ${missing.join(", ")}.`;
 }
-function groupMetadata(custodians, threshold) {
-  const names = custodians.map((c) => `${c.name} ${c.fingerprint}`);
-  return `Yamale foundation, ${threshold} of ${custodians.length}: ${names.join("; ")}`;
+function purposeFor(params) {
+  return { label: groupLabel(params), office: Boolean(params.office) };
 }
-function buildGroup(input, threshold, votingPeriod, seq, createdAt) {
+function groupMetadata(label, custodians, threshold) {
+  const names = custodians.map((c) => `${c.name} ${c.fingerprint}`);
+  return `${label}, ${threshold} of ${custodians.length}: ${names.join("; ")}`;
+}
+function buildGroup(input, purpose, threshold, votingPeriod, seq, createdAt) {
   if (input.length < threshold) {
     throw new Error(`threshold ${threshold} cannot be met by ${input.length} custodians: this group could never act`);
   }
@@ -7745,7 +7825,19 @@ function buildGroup(input, threshold, votingPeriod, seq, createdAt) {
     seen.set(custodian.address, custodian.name);
   }
   const policyAddr = policyAddress(seq);
-  const metadata = groupMetadata(custodians, threshold);
+  const metadata = groupMetadata(purpose.label, custodians, threshold);
+  const policyMetadata = `${purpose.label} ${threshold}-of-${custodians.length}`;
+  for (const [what, value] of [
+    ["group metadata", metadata],
+    ["group policy metadata", policyMetadata]
+  ]) {
+    const size = utf8Length(value);
+    if (size > MAX_GROUP_METADATA) {
+      throw new Error(
+        `the ${what} is ${size} bytes and x/group refuses anything over ${MAX_GROUP_METADATA}, so the transaction that creates this group would fail after the ceremony was over. Shorten the office name: it is the part of "${purpose.label}" that this ceremony chose`
+      );
+    }
+  }
   const created = goJSONString(createdAt);
   const period = protoDuration(parseGoDuration(votingPeriod));
   const decisionPolicy = goJSONObject([
@@ -7823,13 +7915,13 @@ function buildGroup(input, threshold, votingPeriod, seq, createdAt) {
     ["proposals", "[]"],
     ["votes", "[]"]
   ]);
-  const constitution = indentGoJSON([
+  const constitution = purpose.office ? "" : indentGoJSON([
     ["enforcement_recovery_destination", goJSONString(policyAddr)],
     ["foundation_custodian_count", String(custodians.length)],
     ["foundation_signature_threshold", String(threshold)]
   ]);
   const members = membersDocument(custodians);
-  return { policyAddress: policyAddr, genesis, constitution, members };
+  return { policyAddress: policyAddr, metadata, policyMetadata, genesis, constitution, members };
 }
 function membersDocument(custodians) {
   const rows = custodians.map(
@@ -7920,6 +8012,16 @@ function setupPanel(submit) {
   days.value = "7";
   const seq = el("input", { type: "number", min: "0" });
   seq.value = "1";
+  const country = textInput("", "blank for the foundation, e.g. SN");
+  const roles = textInput("", "ROLE_PAYMENTS_AUTHORITY, ROLE_ENFORCEMENT_AUTHORITY");
+  const whose = muted("");
+  const describe = () => {
+    const code = country.value.trim().toUpperCase();
+    whose.textContent = code === "" ? 'No country: this is the foundation ceremony. The group will be recorded as "Yamale foundation" and the ceremony writes the constitutional invariants for genesis.' : `A country office for ${code}. The group will be recorded as "${name.value.trim()} (${code})", every super user sees the country and the roles before they generate, and no genesis fragment is written — the office's group is created by a transaction on a running chain.`;
+  };
+  describe();
+  country.addEventListener("input", describe);
+  name.addEventListener("input", describe);
   const roster = el("div", { class: "roster" });
   const addRow = (value = "") => {
     const input = textInput(value, "name, as it will appear in the record");
@@ -7937,6 +8039,13 @@ function setupPanel(submit) {
       field("Days to vote", days),
       field("Group policy sequence number", seq)
     ]),
+    el("h3", {}, ["Whose keys these are"]),
+    field("Country (ISO 3166-1 alpha-2)", country),
+    field("Roles this office will hold", roles),
+    muted(
+      "Both values go into the fingerprint every custodian reads aloud before generating. That is the whole point of them being here: without it, keys generated for one country could be used for an office granted authority over another, and nothing anybody saw would have said so."
+    ),
+    whose,
     el("h3", {}, ["The custodians"]),
     muted("One name per custodian. Each gets their own link, and a link speaks for that name only."),
     roster,
@@ -7954,24 +8063,44 @@ function setupPanel(submit) {
           // carry and what the fingerprint covers. Days in the interface,
           // because "how many hours should a vote stay open" is not a question
           // anybody answers in hours.
-          voting_period: `${Number(days.value) * 24}h0m0s`
+          voting_period: `${Number(days.value) * 24}h0m0s`,
+          // Uppercased and trimmed here as well as on the server, so what the
+          // coordinator sees described above is what gets sent. The server
+          // refuses anything its own normalisation would have had to change
+          // beyond that, rather than rewriting a value nobody agreed to.
+          country: country.value.trim().toUpperCase(),
+          roles: roles.value.split(",").map((role) => role.trim().toUpperCase()).filter((role) => role !== "")
         });
       })
     )
   ]);
 }
 function agreedPanel(state) {
+  const office = state.params.office;
+  const facts = [
+    el("dt", {}, ["Ceremony"]),
+    el("dd", {}, [state.params.ceremony]),
+    el("dt", {}, ["Chain"]),
+    el("dd", {}, [state.params.chain_id]),
+    el("dt", {}, ["Threshold"]),
+    el("dd", {}, [`${state.params.threshold} of ${state.params.custodians.length}`]),
+    el("dt", {}, ["Voting window"]),
+    el("dd", {}, [state.params.voting_period])
+  ];
+  if (office) {
+    facts.push(
+      el("dt", {}, ["Country"]),
+      el("dd", { class: "mono" }, [office.country]),
+      el("dt", {}, ["Roles"]),
+      el("dd", { class: "mono" }, [office.roles.join(", ")]),
+      el("dt", {}, ["Recorded as"]),
+      el("dd", {}, [`${state.params.ceremony} (${office.country})`])
+    );
+  } else {
+    facts.push(el("dt", {}, ["Recorded as"]), el("dd", {}, ["Yamale foundation"]));
+  }
   return panel("What everybody is agreeing to", [
-    el("dl", { class: "facts" }, [
-      el("dt", {}, ["Ceremony"]),
-      el("dd", {}, [state.params.ceremony]),
-      el("dt", {}, ["Chain"]),
-      el("dd", {}, [state.params.chain_id]),
-      el("dt", {}, ["Threshold"]),
-      el("dd", {}, [`${state.params.threshold} of ${state.params.custodians.length}`]),
-      el("dt", {}, ["Voting window"]),
-      el("dd", {}, [state.params.voting_period])
-    ]),
+    el("dl", { class: "facts" }, facts),
     paragraph("Read this aloud before anybody generates a key. Every custodian's page shows the same value."),
     showFingerprint(state.params_fingerprint)
   ]);
@@ -8056,7 +8185,11 @@ function boardPanel(state) {
   const outstanding = state.custodians.filter((c) => c.phase !== "attested").map((c) => c.name);
   return panel(state.complete ? "Finished" : "Where everybody is", [
     el("p", { class: "waiting" }, [
-      outstanding.length === 0 ? "All five have attested. Nothing is outstanding." : `Waiting on: ${outstanding.join(", ")}.`
+      // Counted rather than written out as "all five": a country office is a
+      // 2-of-3 or a 3-of-4 as often as it is a 3-of-5, and an interface that
+      // hard-codes the foundation's shape is an interface that is wrong on the
+      // screen somebody is checking.
+      outstanding.length === 0 ? `All ${state.custodians.length} have attested. Nothing is outstanding.` : `Waiting on: ${outstanding.join(", ")}.`
     ]),
     list,
     muted(state.missing)
@@ -8080,13 +8213,38 @@ function groupPanel(state) {
       ])
     );
   }
-  return panel("The group", [
+  const office = state.params.office;
+  const children = [
     paragraph("Read this out loud. Every custodian must be showing the same sixteen characters on their own device."),
     showFingerprint(assembled.fingerprint),
     el("h3", {}, ["Policy address"]),
-    paragraph(`Where every seized asset on ${state.params.chain_id} is sent. It goes into genesis in two places, and the chain refuses to start if they disagree.`),
+    // Two different claims, because the address means two different things. For
+    // the foundation it is a fact fixed by the same genesis file that fixes the
+    // membership. For an office it is a guess about how many group policies the
+    // running chain has created, and presenting a guess as an address is how
+    // somebody ends up sending money to it.
+    paragraph(
+      office ? `Predicted from policy sequence ${state.params.policy_seq}. An office's group is created by a transaction on a running chain, so the chain decides the sequence and this is not the address until \`ceremony country confirm\` has read it back.` : `Where every seized asset on ${state.params.chain_id} is sent. It goes into genesis in two places, and the chain refuses to start if they disagree.`
+    ),
     copyable(assembled.policy_address),
-    members,
+    members
+  ];
+  if (office) {
+    children.push(
+      el("h3", {}, ["What happens next"]),
+      paragraph(
+        "Nothing here goes into a genesis file. Rendering the record below writes the group and the submissions it was computed from beside the server; `ceremony country` reads that to create the office's group on the running chain and to verify its role grants afterwards."
+      ),
+      el("ul", { class: "plain small" }, [
+        el("li", {}, [`${assembled.custodians.length} super users, threshold ${state.params.threshold}`]),
+        el("li", {}, [`${office.country}: ${office.roles.join(", ")}`]),
+        el("li", {}, [`group fingerprint ${assembled.fingerprint}`])
+      ])
+    );
+    return panel("The group", children);
+  }
+  return panel("The group", [
+    ...children,
     // No copy buttons for the genesis fragment and the invariants.
     //
     // They used to be here with "splice this into app_state.group", which was
@@ -8345,23 +8503,56 @@ function welcomeScreen(view, next) {
       paragraph("The coordinator has not set this ceremony up. Leave this page open; it will follow along.")
     ]);
   }
-  return panel(`You are custodian for ${view.params.ceremony}`, [
-    paragraph(
-      "In a moment this page will create twenty-four words on this device. They are the only thing that ever recovers your key, they are shown once, and nobody else — including whoever is running this ceremony — ever sees them."
-    ),
-    el("ol", { class: "steps" }, [
-      el("li", {}, ["Write the twenty-four words on paper. Not a photograph, not a note app."]),
-      el("li", {}, ["Read four of them back, so a mis-copied word is caught now rather than in five years."]),
-      el("li", {}, ["Send only the public half: an address and a signature proving you hold the key."]),
-      el("li", {}, [`Wait for the other ${view.params.custodians.length - 1}, then compare one value out loud.`]),
-      el("li", {}, ["Sign your attestation and put the sheet somewhere it will survive."])
+  const office = view.params.office;
+  return panel(
+    office ? `You are a super user for ${view.params.ceremony} (${office.country})` : `You are custodian for ${view.params.ceremony}`,
+    [
+      paragraph(
+        "In a moment this page will create twenty-four words on this device. They are the only thing that ever recovers your key, they are shown once, and nobody else — including whoever is running this ceremony — ever sees them."
+      ),
+      // Named here as well as on the generate screen. The welcome screen is the one
+      // a super user reads before deciding to start at all, and "what am I holding
+      // authority over" is the question they are answering by starting.
+      office ? paragraph(
+        `This key becomes one share of an office that will hold ${office.roles.join(" and ")} inside ${office.country}. You will see both again, under the fingerprint, before you generate.`
+      ) : el("span", {}, []),
+      el("ol", { class: "steps" }, [
+        el("li", {}, ["Write the twenty-four words on paper. Not a photograph, not a note app."]),
+        el("li", {}, ["Read four of them back, so a mis-copied word is caught now rather than in five years."]),
+        el("li", {}, ["Send only the public half: an address and a signature proving you hold the key."]),
+        el("li", {}, [`Wait for the other ${view.params.custodians.length - 1}, then compare one value out loud.`]),
+        el("li", {}, ["Sign your attestation and put the sheet somewhere it will survive."])
+      ]),
+      paragraph(
+        "What you need before you start: a pen, a sheet of paper, and about fifteen minutes you will not be interrupted in."
+      ),
+      muted("Open this link in a private window if you have not already — it keeps the URL out of your history."),
+      trustNote(view.bundle_hash),
+      row(button("I have paper and a pen — begin", next))
+    ]
+  );
+}
+function whatThisKeyIsFor(view) {
+  const office = view.params.office;
+  if (!office) {
+    return el("div", {}, [
+      paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+      muted("No country: this is the foundation ceremony, which belongs to no national perimeter.")
+    ]);
+  }
+  return el("div", {}, [
+    paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+    el("dl", { class: "facts" }, [
+      el("dt", {}, ["Country"]),
+      el("dd", { class: "mono" }, [office.country]),
+      el("dt", {}, ["Authority this office will hold"]),
+      el("dd", { class: "mono" }, [office.roles.join(", ")]),
+      el("dt", {}, ["Recorded on chain as"]),
+      el("dd", {}, [`${view.params.ceremony} (${office.country})`])
     ]),
     paragraph(
-      "What you need before you start: a pen, a sheet of paper, and about fifteen minutes you will not be interrupted in."
-    ),
-    muted("Open this link in a private window if you have not already — it keeps the URL out of your history."),
-    trustNote(view.bundle_hash),
-    row(button("I have paper and a pen — begin", next))
+      `Your key becomes one share of an office holding that authority inside ${office.country}, and nowhere else. Both values are covered by the fingerprint below: if either is wrong, the fingerprint is wrong too, and this is the moment to say so — not after you have written twenty-four words down.`
+    )
   ]);
 }
 function generateScreen(view, generate) {
@@ -8369,7 +8560,7 @@ function generateScreen(view, generate) {
     paragraph(
       "This happens on this device. The words appear once and this page will not show them again — there is nowhere to fetch them from, so nobody can."
     ),
-    paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+    whatThisKeyIsFor(view),
     el("div", {}, [
       muted("The value below is what the coordinator and every other custodian should also be showing. If it differs, stop."),
       showFingerprint(view.params_fingerprint)
@@ -8516,12 +8707,31 @@ function groupScreen(view, keypair, credential, done, fail) {
   }
   const sealed = el("input", { type: "checkbox", id: "sealed" });
   const drilled = el("input", { type: "checkbox", id: "drilled" });
+  const office = view.params.office;
   const children = [
-    paragraph("Read this out loud on the call. All five of you must be showing the same sixteen characters."),
+    paragraph(
+      `Read this out loud on the call. All ${view.params.custodians.length} of you must be showing the same sixteen characters.`
+    ),
     showFingerprint(assembled.fingerprint),
-    paragraph(`Foundation policy address — where every seized asset on ${view.params.chain_id} will be sent:`),
+    // Two different claims, because the address means two different things. For
+    // the foundation it is fixed by the same genesis file that fixes the
+    // membership. For a country office it is derived from a policy sequence number
+    // the running chain has not reached yet, so presenting it as the office's
+    // address would be presenting a guess as a fact.
+    office ? paragraph(
+      `This office's group policy address, predicted from policy sequence ${view.params.policy_seq}. The chain decides the real one when the group is created, so do not send anything to it on the strength of this screen:`
+    ) : paragraph(`Foundation policy address — where every seized asset on ${view.params.chain_id} will be sent:`),
     el("p", { class: "mono break" }, [assembled.policy_address]),
-    el("h3", {}, ["The five custodians in this group"]),
+    office ? el("div", {}, [
+      el("h3", {}, ["What this office will hold"]),
+      el("dl", { class: "facts" }, [
+        el("dt", {}, ["Country"]),
+        el("dd", { class: "mono" }, [office.country]),
+        el("dt", {}, ["Authority"]),
+        el("dd", { class: "mono" }, [office.roles.join(", ")])
+      ])
+    ]) : el("span", {}, []),
+    el("h3", {}, [`The ${assembled.custodians.length} custodians in this group`]),
     rows
   ];
   if (absent) {

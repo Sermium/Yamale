@@ -148,6 +148,30 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
   const seq = el('input', { type: 'number', min: '0' });
   seq.value = '1';
 
+  // Blank is the foundation. There is no toggle and no second screen, because the
+  // country IS the difference: a ceremony with a perimeter is a country office's
+  // and one without is the foundation's, and a checkbox that could disagree with
+  // the field next to it would be a third state nobody wants.
+  const country = textInput('', 'blank for the foundation, e.g. SN');
+  const roles = textInput('', 'ROLE_PAYMENTS_AUTHORITY, ROLE_ENFORCEMENT_AUTHORITY');
+
+  // Said as the coordinator types, because the consequence is not obvious from an
+  // empty field: what changes is what the office is named on chain forever, and
+  // what the super users are shown before they generate.
+  const whose = muted('');
+  const describe = () => {
+    const code = country.value.trim().toUpperCase();
+    whose.textContent = code === ''
+      ? 'No country: this is the foundation ceremony. The group will be recorded as "Yamale foundation" and the ' +
+        'ceremony writes the constitutional invariants for genesis.'
+      : `A country office for ${code}. The group will be recorded as "${name.value.trim()} (${code})", every ` +
+        'super user sees the country and the roles before they generate, and no genesis fragment is written — ' +
+        "the office's group is created by a transaction on a running chain.";
+  };
+  describe();
+  country.addEventListener('input', describe);
+  name.addEventListener('input', describe);
+
   const roster = el('div', { class: 'roster' });
   const addRow = (value = '') => {
     const input = textInput(value, 'name, as it will appear in the record');
@@ -168,6 +192,15 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
       field('Days to vote', days),
       field('Group policy sequence number', seq),
     ]),
+    el('h3', {}, ['Whose keys these are']),
+    field('Country (ISO 3166-1 alpha-2)', country),
+    field('Roles this office will hold', roles),
+    muted(
+      'Both values go into the fingerprint every custodian reads aloud before generating. That is the whole ' +
+        'point of them being here: without it, keys generated for one country could be used for an office ' +
+        'granted authority over another, and nothing anybody saw would have said so.',
+    ),
+    whose,
     el('h3', {}, ['The custodians']),
     muted('One name per custodian. Each gets their own link, and a link speaks for that name only.'),
     roster,
@@ -188,6 +221,15 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
           // because "how many hours should a vote stay open" is not a question
           // anybody answers in hours.
           voting_period: `${Number(days.value) * 24}h0m0s`,
+          // Uppercased and trimmed here as well as on the server, so what the
+          // coordinator sees described above is what gets sent. The server
+          // refuses anything its own normalisation would have had to change
+          // beyond that, rather than rewriting a value nobody agreed to.
+          country: country.value.trim().toUpperCase(),
+          roles: roles.value
+            .split(',')
+            .map((role) => role.trim().toUpperCase())
+            .filter((role) => role !== ''),
         });
       }),
     ),
@@ -195,17 +237,31 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
 }
 
 function agreedPanel(state: HostState): HTMLElement {
+  const office = state.params.office;
+  const facts: Array<Node | string> = [
+    el('dt', {}, ['Ceremony']),
+    el('dd', {}, [state.params.ceremony]),
+    el('dt', {}, ['Chain']),
+    el('dd', {}, [state.params.chain_id]),
+    el('dt', {}, ['Threshold']),
+    el('dd', {}, [`${state.params.threshold} of ${state.params.custodians.length}`]),
+    el('dt', {}, ['Voting window']),
+    el('dd', {}, [state.params.voting_period]),
+  ];
+  if (office) {
+    facts.push(
+      el('dt', {}, ['Country']),
+      el('dd', { class: 'mono' }, [office.country]),
+      el('dt', {}, ['Roles']),
+      el('dd', { class: 'mono' }, [office.roles.join(', ')]),
+      el('dt', {}, ['Recorded as']),
+      el('dd', {}, [`${state.params.ceremony} (${office.country})`]),
+    );
+  } else {
+    facts.push(el('dt', {}, ['Recorded as']), el('dd', {}, ['Yamale foundation']));
+  }
   return panel('What everybody is agreeing to', [
-    el('dl', { class: 'facts' }, [
-      el('dt', {}, ['Ceremony']),
-      el('dd', {}, [state.params.ceremony]),
-      el('dt', {}, ['Chain']),
-      el('dd', {}, [state.params.chain_id]),
-      el('dt', {}, ['Threshold']),
-      el('dd', {}, [`${state.params.threshold} of ${state.params.custodians.length}`]),
-      el('dt', {}, ['Voting window']),
-      el('dd', {}, [state.params.voting_period]),
-    ]),
+    el('dl', { class: 'facts' }, facts),
     paragraph('Read this aloud before anybody generates a key. Every custodian\'s page shows the same value.'),
     showFingerprint(state.params_fingerprint),
   ]);
@@ -309,8 +365,12 @@ function boardPanel(state: HostState): HTMLElement {
   const outstanding = state.custodians.filter((c) => c.phase !== 'attested').map((c) => c.name);
   return panel(state.complete ? 'Finished' : 'Where everybody is', [
     el('p', { class: 'waiting' }, [
+      // Counted rather than written out as "all five": a country office is a
+      // 2-of-3 or a 3-of-4 as often as it is a 3-of-5, and an interface that
+      // hard-codes the foundation's shape is an interface that is wrong on the
+      // screen somebody is checking.
       outstanding.length === 0
-        ? 'All five have attested. Nothing is outstanding.'
+        ? `All ${state.custodians.length} have attested. Nothing is outstanding.`
         : `Waiting on: ${outstanding.join(', ')}.`,
     ]),
     list,
@@ -342,13 +402,46 @@ function groupPanel(state: HostState): HTMLElement {
     );
   }
 
-  return panel('The group', [
+  const office = state.params.office;
+  const children: Array<Node | string> = [
     paragraph('Read this out loud. Every custodian must be showing the same sixteen characters on their own device.'),
     showFingerprint(assembled.fingerprint),
     el('h3', {}, ['Policy address']),
-    paragraph(`Where every seized asset on ${state.params.chain_id} is sent. It goes into genesis in two places, and the chain refuses to start if they disagree.`),
+    // Two different claims, because the address means two different things. For
+    // the foundation it is a fact fixed by the same genesis file that fixes the
+    // membership. For an office it is a guess about how many group policies the
+    // running chain has created, and presenting a guess as an address is how
+    // somebody ends up sending money to it.
+    paragraph(
+      office
+        ? `Predicted from policy sequence ${state.params.policy_seq}. An office's group is created by a ` +
+          'transaction on a running chain, so the chain decides the sequence and this is not the address until ' +
+          '`ceremony country confirm` has read it back.'
+        : `Where every seized asset on ${state.params.chain_id} is sent. It goes into genesis in two places, and the chain refuses to start if they disagree.`,
+    ),
     copyable(assembled.policy_address),
     members,
+  ];
+
+  if (office) {
+    children.push(
+      el('h3', {}, ['What happens next']),
+      paragraph(
+        'Nothing here goes into a genesis file. Rendering the record below writes the group and the ' +
+          "submissions it was computed from beside the server; `ceremony country` reads that to create the " +
+          "office's group on the running chain and to verify its role grants afterwards.",
+      ),
+      el('ul', { class: 'plain small' }, [
+        el('li', {}, [`${assembled.custodians.length} super users, threshold ${state.params.threshold}`]),
+        el('li', {}, [`${office.country}: ${office.roles.join(', ')}`]),
+        el('li', {}, [`group fingerprint ${assembled.fingerprint}`]),
+      ]),
+    );
+    return panel('The group', children);
+  }
+
+  return panel('The group', [
+    ...children,
     // No copy buttons for the genesis fragment and the invariants.
     //
     // They used to be here with "splice this into app_state.group", which was
