@@ -15,6 +15,8 @@ import {
   execCommand,
   parseExecutions,
   parseSubmissions,
+  auditMessages,
+  parseMessages,
   setChainId,
   shellSafe,
   stalledAtHeight,
@@ -937,4 +939,114 @@ test('a copied command carries no carriage returns', () => {
   assert.equal(shellSafe('no returns here'), 'no returns here');
   assert.equal(shellSafe(null), '');
   assert.ok(!shellSafe('a' + CR + 'b').includes(CR), 'no carriage return survives');
+});
+
+// --- the general proposal form ------------------------------------------------
+
+const FOUNDATION = 'yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj';
+const OUTSIDER = 'yml1yd94ndw74k3ku9uuqf5u83rxusgtvdl0t5fsj5';
+
+test('messages are accepted in each of the three shapes a person pastes', () => {
+  const msg = { '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: FOUNDATION };
+
+  // A bare list, which is what a colleague sends.
+  assert.deepEqual(parseMessages(JSON.stringify([msg])).messages, [msg]);
+  // A single message, which is what module documentation shows.
+  assert.deepEqual(parseMessages(JSON.stringify(msg)).messages, [msg]);
+  // A whole proposal document, which is what this page emits and the CLI takes.
+  assert.deepEqual(
+    parseMessages(JSON.stringify({ group_policy_address: FOUNDATION, messages: [msg] })).messages,
+    [msg],
+  );
+});
+
+test('broken input is refused with the reason, not silently emptied', () => {
+  assert.match(parseMessages('{oh dear').error, /not valid JSON/);
+  assert.match(parseMessages('[]').error, /no messages/);
+  assert.match(parseMessages('   ').error, /Nothing pasted/);
+  assert.match(parseMessages('"a string"').error, /Expected a message/);
+  assert.match(parseMessages('42').error, /Expected a message/);
+});
+
+test('a message the foundation does not sign is a fatal problem, not a note', () => {
+  // This is the failure worth catching: it passes submission, collects three
+  // signatures, waits out the voting period and only then fails.
+  const [a] = auditMessages(
+    [{ '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: OUTSIDER }],
+    { policyAddress: FOUNDATION },
+  );
+  assert.equal(a.problems.length, 1);
+  assert.match(a.problems[0], /not the foundation account/);
+  assert.match(a.problems[0], /fail at execution/);
+});
+
+test('the foundation signing its own message raises nothing', () => {
+  const [a] = auditMessages(
+    [{ '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: FOUNDATION, to_address: OUTSIDER }],
+    { policyAddress: FOUNDATION },
+  );
+  assert.deepEqual(a.problems, []);
+  // to_address is not a signer field, so naming somebody else there is the
+  // entire point of a payment and must not be flagged.
+  assert.deepEqual(a.concerns, []);
+});
+
+test('authority and admin are checked, since they are the signer where they appear', () => {
+  const [params] = auditMessages(
+    [{ '@type': '/yamale.blockchain.oracle.v1.MsgUpdateParams', authority: OUTSIDER }],
+    { policyAddress: FOUNDATION },
+  );
+  assert.match(params.problems[0], /"authority"/);
+
+  const [members] = auditMessages(
+    [{ '@type': '/cosmos.group.v1.MsgUpdateGroupMembers', admin: OUTSIDER }],
+    { policyAddress: FOUNDATION },
+  );
+  assert.match(members.problems[0], /"admin"/);
+});
+
+test('an ambiguous signer field is raised as a concern, not asserted as an error', () => {
+  // delegator_address is usually the signer and sometimes just a party, so the
+  // page says which of those it cannot tell rather than claiming a failure.
+  const [a] = auditMessages(
+    [{ '@type': '/cosmos.staking.v1beta1.MsgDelegate', delegator_address: OUTSIDER }],
+    { policyAddress: FOUNDATION },
+  );
+  assert.deepEqual(a.problems, []);
+  assert.equal(a.concerns.length, 1);
+  assert.match(a.concerns[0], /If it is just a party to the message, this is fine/);
+});
+
+test('a missing or malformed type url is caught before anybody signs', () => {
+  const [none] = auditMessages([{ from_address: FOUNDATION }], { policyAddress: FOUNDATION });
+  assert.match(none.problems[0], /no "@type"/);
+
+  const [bad] = auditMessages([{ '@type': 'MsgSend' }], { policyAddress: FOUNDATION });
+  assert.match(bad.problems[0], /not a type URL/);
+
+  // A well-formed one this page has never heard of is NOT a problem. Refusing
+  // unknown messages would defeat the entire purpose of a general form.
+  const [ok] = auditMessages(
+    [{ '@type': '/some.future.v1.MsgWhatever' }], { policyAddress: FOUNDATION },
+  );
+  assert.deepEqual(ok.problems, []);
+});
+
+test('every message is audited, not just the first', () => {
+  const audit = auditMessages([
+    { '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: FOUNDATION },
+    { '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: OUTSIDER },
+  ], { policyAddress: FOUNDATION });
+  assert.equal(audit.length, 2);
+  assert.deepEqual(audit[0].problems, []);
+  assert.equal(audit[1].problems.length, 1);
+  assert.equal(audit[1].index, 1, 'the index is reported so the message can be pointed at');
+});
+
+test('auditing without a policy address checks shape only', () => {
+  // The page always supplies one; this guards against a caller that does not,
+  // which must not silently treat every address as acceptable *or* fail.
+  const [a] = auditMessages([{ '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: OUTSIDER }]);
+  assert.deepEqual(a.problems, []);
+  assert.deepEqual(a.concerns, []);
 });

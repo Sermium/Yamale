@@ -1102,3 +1102,145 @@ export function stalledAtHeight(body) {
 export function shellSafe(text) {
   return String(text ?? '').replace(/\r/g, '');
 }
+
+// --- the general case ---------------------------------------------------------
+//
+// The foundation is a multisig account, so it can do anything an account can do:
+// pay a grant, delegate a stake, vote in governance, update a module it has
+// authority over. The two forms above are shortcuts for the cases that recur,
+// not the limit of what the account is — and a console offering only shortcuts
+// would quietly redefine the account as the two things its interface happened to
+// implement.
+//
+// So there is a general form, and its honesty problem is the whole design
+// question: this page cannot decode arbitrary protobuf, so for most messages it
+// cannot tell a custodian what they are approving. It says so, loudly, rather
+// than rendering a confident summary of something it has not understood. What it
+// can do is check the things that are checkable without understanding the
+// message at all — and those turn out to be the failures that actually happen.
+
+/**
+ * Messages pasted by a custodian, in any of the three shapes they arrive in.
+ *
+ * A full proposal document, a bare array, or a single message object. All three
+ * are things a person reasonably pastes: the first is what this page emits and
+ * what the CLI takes, the second is what a colleague sends in a chat, and the
+ * third is what a module's documentation shows. Accepting one and rejecting the
+ * others would be a puzzle, not a validation.
+ */
+export function parseMessages(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw) return { messages: [], error: 'Nothing pasted yet.' };
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    // The parser's own message names the character offset, which is the most
+    // useful thing anybody has ever said about broken JSON.
+    return { messages: [], error: `That is not valid JSON — ${e.message}` };
+  }
+
+  const messages = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.messages)
+      ? parsed.messages
+      : parsed && typeof parsed === 'object'
+        ? [parsed]
+        : null;
+
+  if (!messages) {
+    return { messages: [], error: 'Expected a message, a list of messages, or a proposal document.' };
+  }
+  if (!messages.length) {
+    return { messages: [], error: 'That proposal contains no messages, so it would do nothing.' };
+  }
+  return { messages, error: null };
+}
+
+/**
+ * The field names that carry the signer in the messages that have them.
+ *
+ * Split in two because the confidence differs and saying so is the point.
+ * `from_address`, `authority` and `admin` are the signer wherever they appear in
+ * the SDK's own messages — MsgSend, MsgUpdateParams, MsgUpdateGroupMembers. The
+ * rest are *usually* the signer and sometimes just a party to the message, so
+ * they are worth raising and not worth asserting.
+ */
+const SIGNER_DEFINITE = ['from_address', 'authority', 'admin'];
+const SIGNER_LIKELY = [
+  'sender', 'signer', 'owner', 'creator', 'proposer', 'voter', 'depositor',
+  'delegator_address', 'granter', 'grantee', 'from',
+];
+
+/** Anything that looks like it might be an address, without pretending to validate one. */
+const looksLikeAddress = (v) => typeof v === 'string' && /^[a-z]{2,10}1[02-9ac-hj-np-z]{20,}$/.test(v);
+
+/**
+ * What can be checked about a message without decoding it.
+ *
+ * Three things, and between them they cover the failures that actually reach a
+ * vote:
+ *
+ *  1. **No type URL.** Rejected at submission, immediately, so it costs nothing
+ *     but confusion — but it is the single most common paste error.
+ *
+ *  2. **A signer that is not the foundation.** This is the one worth having.
+ *     x/group executes a proposal's messages with the *policy address* as the
+ *     only signer, so a message naming anybody else is not authorised by this
+ *     account. It passes submission, collects three signatures, waits out the
+ *     voting period, and fails at execution — the most expensive possible place
+ *     to find out, because by then several people have committed to it and the
+ *     decision looks taken.
+ *
+ *  3. **Nothing recognised.** Reported as an absence of knowledge rather than a
+ *     verdict, because "this page could not read it" and "this is fine" must
+ *     never look the same.
+ */
+export function auditMessages(messages, { policyAddress } = {}) {
+  return (Array.isArray(messages) ? messages : []).map((m, i) => {
+    const typeUrl = m?.['@type'] ?? m?.typeUrl ?? '';
+    const problems = [];
+    const concerns = [];
+
+    if (!typeUrl) {
+      problems.push(
+        'This message has no "@type", so the chain cannot tell what it is. Every message in a ' +
+          'proposal needs one, e.g. "/cosmos.bank.v1beta1.MsgSend".',
+      );
+    } else if (!typeUrl.startsWith('/') || !typeUrl.includes('.')) {
+      problems.push(
+        `"${typeUrl}" is not a type URL. They start with a slash and name a proto package, ` +
+          'like "/cosmos.staking.v1beta1.MsgDelegate".',
+      );
+    }
+
+    if (policyAddress && m && typeof m === 'object') {
+      for (const field of SIGNER_DEFINITE) {
+        if (looksLikeAddress(m[field]) && m[field] !== policyAddress) {
+          problems.push(
+            `"${field}" is ${m[field]}, which is not the foundation account. x/group signs every ` +
+              'message in a proposal as the foundation, so this one is not authorised by it: it ' +
+              'would be submitted, voted on, and then fail at execution.',
+          );
+        }
+      }
+      for (const field of SIGNER_LIKELY) {
+        if (looksLikeAddress(m[field]) && m[field] !== policyAddress) {
+          concerns.push(
+            `"${field}" is ${m[field]}, not the foundation. If that field is this message's ` +
+              'signer, the proposal will fail at execution — the foundation is the only signer a ' +
+              'proposal has. If it is just a party to the message, this is fine.',
+          );
+        }
+      }
+    }
+
+    return { index: i, typeUrl, problems, concerns };
+  });
+}
+
+/** A message the custodian typed, exactly as typed, for the proposal document. */
+export function customMessages(messages) {
+  return Array.isArray(messages) ? messages : [];
+}

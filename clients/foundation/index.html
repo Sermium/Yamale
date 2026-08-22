@@ -177,11 +177,12 @@ import {
   // reading the group
   auditGroup, toCustodians,
   // judging a proposal
-  describeProposal, displayLabel, executability, proposalState, staleAgainstGroup, tally,
+  describeMessage, describeProposal, displayLabel, executability, proposalState,
+  staleAgainstGroup, tally,
   // the history x/group deletes
   carriedOut, parseExecutions, parseSubmissions,
   // building one
-  swapPlan, toBaseUnits, tooLong,
+  auditMessages, parseMessages, swapPlan, toBaseUnits, tooLong,
   // formatting
   formatCoin, groupDigits, relativeTime, shellSafe, short, stalledAtHeight, timestampSeconds,
   // commands
@@ -344,7 +345,14 @@ async function loadFoundation() {
   const [members, groupInfo, balances, registry] = await Promise.all([
     get(`${REST}/cosmos/group/v1/group_members/${groupId}?pagination.limit=100`),
     maybe(get(`${REST}/cosmos/group/v1/group_info/${groupId}`), { info: null }),
-    maybe(get(`${REST}/cosmos/bank/v1beta1/balances/${policyAddress}`), { balances: [] }),
+    // Explicitly paginated. Without a limit the gateway returns the first
+    // hundred denominations and says so only in a field nobody reads — and
+    // this is the account every seizure on the chain is sent to, so it is
+    // precisely the account that ends up holding a long tail of currencies.
+    // A truncated list of what the foundation holds looks exactly like a
+    // complete one.
+    maybe(get(`${REST}/cosmos/bank/v1beta1/balances/${policyAddress}?pagination.limit=1000`),
+      { balances: [] }),
     denomRegistry(),
   ]);
 
@@ -364,6 +372,10 @@ async function loadFoundation() {
     versions: { groupVersion: groupInfo.info?.version, policyVersion: policy?.version },
     custodians,
     balances: balances.balances ?? [],
+    // A next_key means the gateway had more denominations than it returned.
+    // Surfaced rather than dropped, because a short list of what this
+    // account holds is indistinguishable from a complete one.
+    balancesTruncated: Boolean(balances.pagination?.next_key),
     registry,
     names: Object.fromEntries(custodians.filter((c) => c.name).map((c) => [c.address, c.name])),
     memberAddresses: custodians.map((c) => c.address),
@@ -648,8 +660,19 @@ async function screenFoundation() {
       <code style="margin-inline-start:auto">${esc(c.address)}</code>
     </div>`).join('');
 
+  // Said out loud, because a single row and a truncated list look identical,
+  // and on this account the difference is what the foundation is holding.
+  const holdingsNote = f.balances.length
+    ? `<p class="muted small" style="margin-bottom:.5rem">${f.balances.length === 1
+        ? 'One currency, and this is the whole balance.'
+        : `${f.balances.length} currencies, and this is all of them.`}${
+        f.balancesTruncated
+          ? ' <strong>More than this page requested — the list below is incomplete.</strong>'
+          : ''}</p>`
+    : '';
+
   const holdings = f.balances.length
-    ? f.balances.map((b) => `<div class="row" style="padding:.2rem 0">
+    ? holdingsNote + f.balances.map((b) => `<div class="row" style="padding:.2rem 0">
         <strong>${esc(formatCoin(b, { registry: f.registry }))}</strong>
         <span class="muted small"><code>${esc(b.amount)}</code> ${esc(b.denom)}</span>
       </div>`).join('')
@@ -1183,10 +1206,12 @@ async function screenPropose() {
       ${esc(f.threshold)} signatures in total. Raising it does not vote for it — you still have to
       vote, and your own signature counts as one of the ${esc(f.threshold)}.</p>
 
-    <h2>Return funds</h2>
+    <h2>Pay out</h2>
     <div class="card">
-      <p class="muted small">The restitution case: property the chain seized, going back to
-        whoever it was taken from. This spends from the foundation account itself.</p>
+      <p class="muted small">A transfer out of the foundation account — restitution of
+        something seized, a grant, a reimbursement, any payment the custodians decide to make.
+        It is the same message in every case and the reason below is what distinguishes them,
+        which is why the reason is required and goes on the permanent record.</p>
       <label for="sp-to">Who is being paid</label>
       <input id="sp-to" placeholder="yml1…" autocomplete="off">
       <label for="sp-amt">How much, in whole units</label>
@@ -1195,9 +1220,9 @@ async function screenPropose() {
       <select id="sp-denom">${denoms.map((d) =>
         `<option value="${esc(d)}">${esc(f.registry[d]?.symbol ?? d)} (${esc(d)})</option>`).join('')}</select>
       <label for="sp-title">Title</label>
-      <input id="sp-title" placeholder="Restitution to …" autocomplete="off">
+      <input id="sp-title" placeholder="Restitution to … / Grant to …" autocomplete="off">
       <label for="sp-why">Why — the custodians will read this before signing</label>
-      <textarea id="sp-why" placeholder="Case number, what was seized, and on whose authority it goes back."></textarea>
+      <textarea id="sp-why" placeholder="What this pays for, and on whose authority. A case number if it is a restitution."></textarea>
       <div id="sp-out" style="margin-top:.7rem"></div>
     </div>
 
@@ -1222,6 +1247,35 @@ async function screenPropose() {
       <label for="sw-why">Why</label>
       <textarea id="sw-why" placeholder="Why this custodian is standing down, and who has verified the incoming key."></textarea>
       <div id="sw-outbox" style="margin-top:.7rem"></div>
+    </div>
+
+    <h2>Anything else</h2>
+    <div class="card">
+      <p class="muted small">The foundation is a multisig account, so it can do anything an
+        account can do — delegate a stake, vote in a governance proposal, update a module it
+        holds authority over, send several payments at once. The two forms above are shortcuts
+        for the cases that recur, not the limit of what this account is.</p>
+      <div class="warnbox"><strong>This page cannot tell you what an arbitrary message does.</strong>
+        It has no protobuf decoder, so for anything other than a payment or a membership change it
+        can check the shape and not the meaning. Read it yourself, and have a second custodian read
+        it independently, before three of you sign. What it <em>can</em> check is below, and those
+        checks catch the failure that costs the most: a message the foundation is not the signer
+        of passes submission, collects three signatures, waits out the week, and only then fails.</p>
+      <label for="gp-msgs">The messages — a proposal document, a list, or one message</label>
+      <textarea id="gp-msgs" rows="10" spellcheck="false"
+        placeholder='[
+  {
+    "@type": "/cosmos.staking.v1beta1.MsgDelegate",
+    "delegator_address": "&lt;the foundation&gt;",
+    "validator_address": "ymlvaloper1…",
+    "amount": { "denom": "uyml", "amount": "1000000" }
+  }
+]'></textarea>
+      <label for="gp-title">Title</label>
+      <input id="gp-title" placeholder="What this does, in a line" autocomplete="off">
+      <label for="gp-why">Why — the custodians will read this before signing</label>
+      <textarea id="gp-why" placeholder="What it does, why now, and what you checked. This is the only explanation the other custodians get."></textarea>
+      <div id="gp-out" style="margin-top:.7rem"></div>
     </div>`;
 
   const spend = () => {
@@ -1238,7 +1292,7 @@ async function screenPropose() {
     if (!title) problems.push('Give it a title — it is what the other custodians see first.');
     if (tooLong(title)) problems.push(`The title is longer than ${MAX_METADATA_LEN} bytes, which x/group refuses.`);
     if (tooLong(why)) problems.push(`The reason is longer than ${MAX_METADATA_LEN} bytes, which x/group refuses.`);
-    if (!why) problems.push('Say why. A custodian asked to move seized property should not have to guess.');
+    if (!why) problems.push('Say why. A custodian asked to move money out of this account should not have to guess.');
 
     if (problems.length) {
       out.innerHTML = problems.map((x) => `<div class="warnbox">${esc(x)}</div>`).join('');
@@ -1321,6 +1375,82 @@ async function screenPropose() {
     wireCopies();
   };
 
+  const general = () => {
+    const text = document.getElementById('gp-msgs').value;
+    const title = document.getElementById('gp-title').value.trim();
+    const why = document.getElementById('gp-why').value.trim();
+    const out = document.getElementById('gp-out');
+
+    const { messages, error } = parseMessages(text);
+    if (error) {
+      out.innerHTML = text.trim()
+        ? `<div class="warnbox">${esc(error)}</div>`
+        : '';
+      return;
+    }
+
+    const problems = [];
+    if (!title) problems.push('Give it a title — it is what the other custodians see first.');
+    if (!why) problems.push('Say what this does. Nobody should be asked to sign an undescribed message.');
+    if (tooLong(title) || tooLong(why)) {
+      problems.push(`Titles and reasons are limited to ${MAX_METADATA_LEN} bytes.`);
+    }
+
+    const audit = auditMessages(messages, { policyAddress: f.policyAddress });
+    const fatal = audit.flatMap((a) => a.problems);
+
+    // What each message is, where the page can say — so pasting a payment or a
+    // membership change still gets described in words rather than being treated
+    // as unknowable just because it arrived through the general form.
+    const described = messages.map((m, i) => {
+      // registry included, so an amount renders as 2.5 YML and not as
+      // 2,500,000 uyml. Every other place on this page converts; a custodian
+      // should never be the one doing a factor of a million in their head,
+      // least of all on the form that cannot explain the rest of the message.
+      const d = describeMessage(m, {
+        policyAddress: f.policyAddress, names: f.names, registry: f.registry,
+        currentMembers: f.memberAddresses,
+      });
+      const label = `Message ${i + 1}`;
+      if (d.understood) {
+        return `<div class="row" style="padding:.3rem 0"><strong>${esc(label)}:</strong>
+          ${esc(d.headline)}</div>`;
+      }
+      return `<div class="row" style="padding:.3rem 0"><strong>${esc(label)}:</strong>
+        <code>${esc(audit[i].typeUrl || 'no type')}</code>
+        <span class="muted small">— this page cannot say what this does.</span></div>`;
+    }).join('');
+
+    const notes = [
+      ...problems.map((x) => `<div class="warnbox">${esc(x)}</div>`),
+      ...fatal.map((x) => `<div class="badbox">${esc(x)}</div>`),
+      ...audit.flatMap((a) => a.concerns).map((x) => `<div class="warnbox">${esc(x)}</div>`),
+    ].join('');
+
+    if (problems.length || fatal.length) {
+      out.innerHTML = `<div class="card" style="margin:0">${described}</div>${notes}`;
+      return;
+    }
+
+    const doc = proposalDocument({
+      policyAddress: f.policyAddress, proposer: me.address, messages, title, summary: why,
+    });
+    out.innerHTML = `${notes}
+      <div class="card card--waiting" style="margin:0">
+        <p class="lede">${esc(messages.length)} message${messages.length === 1 ? '' : 's'},
+          signed as the foundation once ${esc(f.threshold)} custodians agree</p>
+        ${described}
+        ${copyable('gp-doc', doc, 'Write this to proposal.json')}
+        ${copyable('gp-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+      </div>`;
+    wireCopies();
+  };
+
+  ['gp-msgs', 'gp-title', 'gp-why'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', general);
+    el.addEventListener('change', general);
+  });
   ['sp-to', 'sp-amt', 'sp-denom', 'sp-title', 'sp-why'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('input', spend);
