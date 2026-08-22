@@ -11,6 +11,7 @@ before publishing.
 | [Set up a treasury](treasury.md) | Shared funds with roles, spending limits and a vesting schedule. |
 | [What governance can and cannot change](constitution.md) | The line between an ordinary parameter and an invariant, and how one is amended. |
 | [The key ceremony](key-ceremony.md) | The room, the paper and the 3-of-5 that ends up holding every seized asset. |
+| [Enrolling a country](country-enrolment.md) | A country's offices, their M-of-N accounts and the powers they hold inside their own borders. |
 | [Netting and settlement](settlement.md) | What the chain settles between institutions, and what to do when a window does not clear. |
 
 For exhaustive detail on any message, query, parameter or error code, see the

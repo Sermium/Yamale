@@ -16,6 +16,105 @@ import { ValidatorApplication } from "./validator_application.ts";
 
 export const protobufPackage = "blockchain.validatorgov.v1";
 
+/**
+ * JurisdictionAgreement is what the two registries say about one validator when
+ * they are set beside each other.
+ *
+ * Three outcomes and not two. "No record" is kept apart from "they agree"
+ * because collapsing them is how a reconciliation stops reconciling: an account
+ * nobody has placed would report as agreeing with a declaration nobody has
+ * checked, and the query would grow quieter exactly as the registry emptied out.
+ */
+export const JurisdictionAgreement = {
+  /**
+   * JURISDICTION_AGREEMENT_UNSPECIFIED - JURISDICTION_AGREEMENT_UNSPECIFIED is the unset default and is never a
+   * finding.
+   *
+   * The zero value is reserved rather than given to a real outcome, and no
+   * reader should treat it as one. Proto3 cannot tell a zero from an absent
+   * field, so if the first of these values were AGREE, a row this module failed
+   * to fill in would arrive at a supervisor's console indistinguishable from a
+   * validator whose country two independent parties concur on — and it is the
+   * reassuring reading that must never be the one a bug produces.
+   */
+  JURISDICTION_AGREEMENT_UNSPECIFIED: 0,
+  /**
+   * JURISDICTION_AGREEMENT_AGREE - JURISDICTION_AGREEMENT_AGREE means the validator declared the country the
+   * chain has recorded against its operator account. A self-attested claim and
+   * an onboarding participant's finding pointing at the same place, which is the
+   * state the register is supposed to be in.
+   */
+  JURISDICTION_AGREEMENT_AGREE: 1,
+  /**
+   * JURISDICTION_AGREEMENT_DISAGREE - JURISDICTION_AGREEMENT_DISAGREE means the two name different countries.
+   *
+   * Reported, never resolved. The chain cannot tell which party is wrong — it
+   * has no way to verify either statement — so it publishes both alongside the
+   * account that recorded one and the operator that signed the other, and leaves
+   * the finding to whoever can actually check.
+   */
+  JURISDICTION_AGREEMENT_DISAGREE: 2,
+  /**
+   * JURISDICTION_AGREEMENT_UNRECORDED - JURISDICTION_AGREEMENT_UNRECORDED means the validator declared a country and
+   * the chain has no jurisdiction record for its operator account at all.
+   *
+   * Not agreement and not a failure of the query: the declaration stands
+   * uncorroborated, which is a distinct and actionable state. It is the ordinary
+   * state of a validator that was approved by governance without ever being
+   * anybody's onboarded customer, and the remedy is to place the account, not to
+   * trust the declaration harder.
+   */
+  JURISDICTION_AGREEMENT_UNRECORDED: 3,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type JurisdictionAgreement = typeof JurisdictionAgreement[keyof typeof JurisdictionAgreement];
+
+export namespace JurisdictionAgreement {
+  export type JURISDICTION_AGREEMENT_UNSPECIFIED = typeof JurisdictionAgreement.JURISDICTION_AGREEMENT_UNSPECIFIED;
+  export type JURISDICTION_AGREEMENT_AGREE = typeof JurisdictionAgreement.JURISDICTION_AGREEMENT_AGREE;
+  export type JURISDICTION_AGREEMENT_DISAGREE = typeof JurisdictionAgreement.JURISDICTION_AGREEMENT_DISAGREE;
+  export type JURISDICTION_AGREEMENT_UNRECORDED = typeof JurisdictionAgreement.JURISDICTION_AGREEMENT_UNRECORDED;
+  export type UNRECOGNIZED = typeof JurisdictionAgreement.UNRECOGNIZED;
+}
+
+export function jurisdictionAgreementFromJSON(object: any): JurisdictionAgreement {
+  switch (object) {
+    case 0:
+    case "JURISDICTION_AGREEMENT_UNSPECIFIED":
+      return JurisdictionAgreement.JURISDICTION_AGREEMENT_UNSPECIFIED;
+    case 1:
+    case "JURISDICTION_AGREEMENT_AGREE":
+      return JurisdictionAgreement.JURISDICTION_AGREEMENT_AGREE;
+    case 2:
+    case "JURISDICTION_AGREEMENT_DISAGREE":
+      return JurisdictionAgreement.JURISDICTION_AGREEMENT_DISAGREE;
+    case 3:
+    case "JURISDICTION_AGREEMENT_UNRECORDED":
+      return JurisdictionAgreement.JURISDICTION_AGREEMENT_UNRECORDED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return JurisdictionAgreement.UNRECOGNIZED;
+  }
+}
+
+export function jurisdictionAgreementToJSON(object: JurisdictionAgreement): string {
+  switch (object) {
+    case JurisdictionAgreement.JURISDICTION_AGREEMENT_UNSPECIFIED:
+      return "JURISDICTION_AGREEMENT_UNSPECIFIED";
+    case JurisdictionAgreement.JURISDICTION_AGREEMENT_AGREE:
+      return "JURISDICTION_AGREEMENT_AGREE";
+    case JurisdictionAgreement.JURISDICTION_AGREEMENT_DISAGREE:
+      return "JURISDICTION_AGREEMENT_DISAGREE";
+    case JurisdictionAgreement.JURISDICTION_AGREEMENT_UNRECORDED:
+      return "JURISDICTION_AGREEMENT_UNRECORDED";
+    case JurisdictionAgreement.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 /** QueryParamsRequest is request type for the Query/Params RPC method. */
 export interface QueryParamsRequest {
 }
@@ -137,6 +236,97 @@ export interface QueryAllDemotionRequest {
 export interface QueryAllDemotionResponse {
   demotion: Demotion[];
   pagination: PageResponse | undefined;
+}
+
+/**
+ * JurisdictionReconciliation is one approved validator with both countries and
+ * the finding.
+ */
+export interface JurisdictionReconciliation {
+  /**
+   * candidate is the operator address in its account form, matching how the
+   * approval allowlist, the rotation records and the jurisdiction registry all
+   * key an operator.
+   */
+  candidate: string;
+  /**
+   * declared_jurisdiction is the country from the validator's own declaration:
+   * an ISO 3166-1 alpha-2 code, signed for at application and re-signed at every
+   * attestation. Never empty on an approved validator — a blank one is refused at
+   * the message, because a validator belonging to no jurisdiction group would sit
+   * outside the one ceiling that keeps a single state below a blocking minority.
+   */
+  declaredJurisdiction: string;
+  /**
+   * recorded_jurisdiction is the country x/alias holds against the same account,
+   * and it is empty when there is no record. Empty rather than a placeholder code,
+   * because every code that could stand in here means something else: a real
+   * country would invent a perimeter, and the foundation's reserved code would
+   * claim the account is outside every national perimeter on purpose.
+   */
+  recordedJurisdiction: string;
+  /**
+   * recorded_by is the participant or foundation administrator that wrote the
+   * record, and it is empty when there is none.
+   *
+   * This is the field the query is for. "Senegal" and "Senegal, according to the
+   * bank that onboarded them" are not the same fact, and a reconciliation that
+   * reported only the two codes would show a supervisor a mismatch without
+   * showing them who to ask about it.
+   */
+  recordedBy: string;
+  /**
+   * recorded_at_height is when the record was last written, so a disagreement
+   * that appeared because somebody corrected a country is distinguishable from
+   * one that has been sitting there since the account was onboarded. Zero when
+   * there is no record.
+   */
+  recordedAtHeight: string;
+  /** agreement is the finding. Never JURISDICTION_AGREEMENT_UNSPECIFIED. */
+  agreement: JurisdictionAgreement;
+}
+
+/**
+ * QueryJurisdictionReconciliationRequest defines the
+ * QueryJurisdictionReconciliationRequest message. It takes no arguments: this is
+ * the supervisory view of the whole register, and narrowing it to one validator
+ * is what GetApprovedValidator and x/alias's Jurisdiction query already do.
+ */
+export interface QueryJurisdictionReconciliationRequest {
+}
+
+/**
+ * QueryJurisdictionReconciliationResponse carries every approved validator, not
+ * only the ones that disagree.
+ *
+ * Two reasons for returning the agreements too. A query that answers with an
+ * empty list when all is well is indistinguishable from one that is broken,
+ * mis-wired or pointed at an empty registry, and this is precisely the query
+ * whose silence would be believed. And the denominator is part of the answer:
+ * "two disagree" means something different out of four validators than out of
+ * forty, and a caller should not have to run a second query to learn which.
+ *
+ * The counts are here so the list does not have to be read to be understood.
+ * They are over the rows below and nothing else, so they always sum to the
+ * number of rows.
+ *
+ * Applications are deliberately absent. An application is a request, carries no
+ * consensus power, and its declared country is checked against the assigned list
+ * at submission and read again by whoever votes on the approval. Mixing the two
+ * would make the counts uninterpretable — "three disagree" would no longer say
+ * whether three validators are misplaced or three strangers mistyped a form —
+ * and it is the approved set the jurisdiction ceiling is actually computed over.
+ */
+export interface QueryJurisdictionReconciliationResponse {
+  records: JurisdictionReconciliation[];
+  /**
+   * agree_count, disagree_count and unrecorded_count sum to the number of rows.
+   * Returned so an operator sees "three disagree" without scanning, and so that
+   * a reader can check the rows against the summary rather than trust it.
+   */
+  agreeCount: number;
+  disagreeCount: number;
+  unrecordedCount: number;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -1427,6 +1617,296 @@ export const QueryAllDemotionResponse = {
   },
 };
 
+function createBaseJurisdictionReconciliation(): JurisdictionReconciliation {
+  return {
+    candidate: "",
+    declaredJurisdiction: "",
+    recordedJurisdiction: "",
+    recordedBy: "",
+    recordedAtHeight: "0",
+    agreement: 0,
+  };
+}
+
+export const JurisdictionReconciliation = {
+  encode(message: JurisdictionReconciliation, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.candidate !== "") {
+      writer.uint32(10).string(message.candidate);
+    }
+    if (message.declaredJurisdiction !== "") {
+      writer.uint32(18).string(message.declaredJurisdiction);
+    }
+    if (message.recordedJurisdiction !== "") {
+      writer.uint32(26).string(message.recordedJurisdiction);
+    }
+    if (message.recordedBy !== "") {
+      writer.uint32(34).string(message.recordedBy);
+    }
+    if (message.recordedAtHeight !== "0") {
+      writer.uint32(40).int64(message.recordedAtHeight);
+    }
+    if (message.agreement !== 0) {
+      writer.uint32(48).int32(message.agreement);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): JurisdictionReconciliation {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJurisdictionReconciliation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.candidate = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.declaredJurisdiction = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.recordedJurisdiction = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.recordedBy = reader.string();
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.recordedAtHeight = longToString(reader.int64() as Long);
+          continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.agreement = reader.int32() as any;
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JurisdictionReconciliation {
+    return {
+      candidate: isSet(object.candidate) ? globalThis.String(object.candidate) : "",
+      declaredJurisdiction: isSet(object.declaredJurisdiction) ? globalThis.String(object.declaredJurisdiction) : "",
+      recordedJurisdiction: isSet(object.recordedJurisdiction) ? globalThis.String(object.recordedJurisdiction) : "",
+      recordedBy: isSet(object.recordedBy) ? globalThis.String(object.recordedBy) : "",
+      recordedAtHeight: isSet(object.recordedAtHeight) ? globalThis.String(object.recordedAtHeight) : "0",
+      agreement: isSet(object.agreement) ? jurisdictionAgreementFromJSON(object.agreement) : 0,
+    };
+  },
+
+  toJSON(message: JurisdictionReconciliation): unknown {
+    const obj: any = {};
+    if (message.candidate !== "") {
+      obj.candidate = message.candidate;
+    }
+    if (message.declaredJurisdiction !== "") {
+      obj.declaredJurisdiction = message.declaredJurisdiction;
+    }
+    if (message.recordedJurisdiction !== "") {
+      obj.recordedJurisdiction = message.recordedJurisdiction;
+    }
+    if (message.recordedBy !== "") {
+      obj.recordedBy = message.recordedBy;
+    }
+    if (message.recordedAtHeight !== "0") {
+      obj.recordedAtHeight = message.recordedAtHeight;
+    }
+    if (message.agreement !== 0) {
+      obj.agreement = jurisdictionAgreementToJSON(message.agreement);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JurisdictionReconciliation>): JurisdictionReconciliation {
+    return JurisdictionReconciliation.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JurisdictionReconciliation>): JurisdictionReconciliation {
+    const message = createBaseJurisdictionReconciliation();
+    message.candidate = object.candidate ?? "";
+    message.declaredJurisdiction = object.declaredJurisdiction ?? "";
+    message.recordedJurisdiction = object.recordedJurisdiction ?? "";
+    message.recordedBy = object.recordedBy ?? "";
+    message.recordedAtHeight = object.recordedAtHeight ?? "0";
+    message.agreement = object.agreement ?? 0;
+    return message;
+  },
+};
+
+function createBaseQueryJurisdictionReconciliationRequest(): QueryJurisdictionReconciliationRequest {
+  return {};
+}
+
+export const QueryJurisdictionReconciliationRequest = {
+  encode(_: QueryJurisdictionReconciliationRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryJurisdictionReconciliationRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryJurisdictionReconciliationRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): QueryJurisdictionReconciliationRequest {
+    return {};
+  },
+
+  toJSON(_: QueryJurisdictionReconciliationRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryJurisdictionReconciliationRequest>): QueryJurisdictionReconciliationRequest {
+    return QueryJurisdictionReconciliationRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<QueryJurisdictionReconciliationRequest>): QueryJurisdictionReconciliationRequest {
+    const message = createBaseQueryJurisdictionReconciliationRequest();
+    return message;
+  },
+};
+
+function createBaseQueryJurisdictionReconciliationResponse(): QueryJurisdictionReconciliationResponse {
+  return { records: [], agreeCount: 0, disagreeCount: 0, unrecordedCount: 0 };
+}
+
+export const QueryJurisdictionReconciliationResponse = {
+  encode(message: QueryJurisdictionReconciliationResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.records) {
+      JurisdictionReconciliation.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.agreeCount !== 0) {
+      writer.uint32(16).uint32(message.agreeCount);
+    }
+    if (message.disagreeCount !== 0) {
+      writer.uint32(24).uint32(message.disagreeCount);
+    }
+    if (message.unrecordedCount !== 0) {
+      writer.uint32(32).uint32(message.unrecordedCount);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryJurisdictionReconciliationResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryJurisdictionReconciliationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.records.push(JurisdictionReconciliation.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.agreeCount = reader.uint32();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.disagreeCount = reader.uint32();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.unrecordedCount = reader.uint32();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryJurisdictionReconciliationResponse {
+    return {
+      records: globalThis.Array.isArray(object?.records)
+        ? object.records.map((e: any) => JurisdictionReconciliation.fromJSON(e))
+        : [],
+      agreeCount: isSet(object.agreeCount) ? globalThis.Number(object.agreeCount) : 0,
+      disagreeCount: isSet(object.disagreeCount) ? globalThis.Number(object.disagreeCount) : 0,
+      unrecordedCount: isSet(object.unrecordedCount) ? globalThis.Number(object.unrecordedCount) : 0,
+    };
+  },
+
+  toJSON(message: QueryJurisdictionReconciliationResponse): unknown {
+    const obj: any = {};
+    if (message.records?.length) {
+      obj.records = message.records.map((e) => JurisdictionReconciliation.toJSON(e));
+    }
+    if (message.agreeCount !== 0) {
+      obj.agreeCount = Math.round(message.agreeCount);
+    }
+    if (message.disagreeCount !== 0) {
+      obj.disagreeCount = Math.round(message.disagreeCount);
+    }
+    if (message.unrecordedCount !== 0) {
+      obj.unrecordedCount = Math.round(message.unrecordedCount);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryJurisdictionReconciliationResponse>): QueryJurisdictionReconciliationResponse {
+    return QueryJurisdictionReconciliationResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryJurisdictionReconciliationResponse>): QueryJurisdictionReconciliationResponse {
+    const message = createBaseQueryJurisdictionReconciliationResponse();
+    message.records = object.records?.map((e) => JurisdictionReconciliation.fromPartial(e)) || [];
+    message.agreeCount = object.agreeCount ?? 0;
+    message.disagreeCount = object.disagreeCount ?? 0;
+    message.unrecordedCount = object.unrecordedCount ?? 0;
+    return message;
+  },
+};
+
 /** Query defines the gRPC querier service. */
 export interface Query {
   /** Parameters queries the parameters of the module. */
@@ -1462,6 +1942,41 @@ export interface Query {
   Concentration(request: QueryConcentrationRequest): Promise<QueryConcentrationResponse>;
   /** ListDemotion queries every demotion currently in force. */
   ListDemotion(request: QueryAllDemotionRequest): Promise<QueryAllDemotionResponse>;
+  /**
+   * JurisdictionReconciliation sets each approved validator's declared country
+   * beside the country the chain has recorded for its operator account, and says
+   * whether the two agree.
+   *
+   * The chain holds that fact twice, and it is not a duplication to be tidied
+   * away. A validator declares its jurisdiction when it applies: the declaration
+   * is signed by the operator, checked against the assigned country list, and it
+   * is what the concentration ceilings group by, because a ceiling on the power
+   * answering to one national authority has to be computed over something the
+   * applicant is on the record as claiming. The jurisdiction registry in x/alias
+   * is the other thing entirely: it is written by the approved participant that
+   * onboarded the account and did the know-your-customer work, or corrected by a
+   * foundation administrator, and never by the account itself. One is a claim
+   * under the claimant's own key. The other is a finding by somebody who looked.
+   *
+   * So the two are reconciled here and merged nowhere. Overwriting the
+   * declaration from the registry would destroy the signature that makes a false
+   * declaration an offence rather than a data-entry error; overwriting the
+   * registry from the declaration would let a validator place itself in whatever
+   * perimeter has the least authority watching it, which is the single thing the
+   * registry exists to prevent. Neither registry is the other's source, and the
+   * useful product of having both is the disagreement.
+   *
+   * A disagreement is not by itself a breach and nothing is done to a validator
+   * for it. What it means is that one of two things has gone wrong and a human
+   * has to find out which: the validator declared a country it does not answer
+   * to, or the participant recorded the wrong one. Both are worth knowing, and
+   * the second matters more, because the jurisdiction ceiling is being computed
+   * over the declaration while every authority acting on that account is being
+   * scoped by the record.
+   */
+  JurisdictionReconciliation(
+    request: QueryJurisdictionReconciliationRequest,
+  ): Promise<QueryJurisdictionReconciliationResponse>;
 }
 
 export const QueryServiceName = "blockchain.validatorgov.v1.Query";
@@ -1481,6 +1996,7 @@ export class QueryClientImpl implements Query {
     this.PendingOperatorRotation = this.PendingOperatorRotation.bind(this);
     this.Concentration = this.Concentration.bind(this);
     this.ListDemotion = this.ListDemotion.bind(this);
+    this.JurisdictionReconciliation = this.JurisdictionReconciliation.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -1542,6 +2058,14 @@ export class QueryClientImpl implements Query {
     const data = QueryAllDemotionRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "ListDemotion", data);
     return promise.then((data) => QueryAllDemotionResponse.decode(_m0.Reader.create(data)));
+  }
+
+  JurisdictionReconciliation(
+    request: QueryJurisdictionReconciliationRequest,
+  ): Promise<QueryJurisdictionReconciliationResponse> {
+    const data = QueryJurisdictionReconciliationRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "JurisdictionReconciliation", data);
+    return promise.then((data) => QueryJurisdictionReconciliationResponse.decode(_m0.Reader.create(data)));
   }
 }
 

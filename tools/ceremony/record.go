@@ -39,6 +39,17 @@ type recordConfig struct {
 	CustodianFiles   []string `json:"custodian_files"`
 	GroupGenesisFile string   `json:"group_genesis_file,omitempty"`
 	PolicyAddress    string   `json:"policy_address"`
+	// Office is set when this is a country office's ceremony rather than the
+	// foundation's, and it changes what the record CLAIMS about the address
+	// above.
+	//
+	// It has to, and this is not presentation. For the foundation the policy
+	// address is a fact fixed by the genesis file, and the record says it is the
+	// constitution's recovery destination. For an office it is a prediction from
+	// a sequence number, and every sentence of that paragraph would be false —
+	// including the one naming it as the place every seized asset on the chain is
+	// sent. A record is a document somebody acts on.
+	Office *officeParams `json:"office,omitempty"`
 	BinaryHash       string   `json:"binary_hash,omitempty"`
 	// Notes is where an exposure, an interruption, a destroyed key or a
 	// regenerated one is written down. An empty list is a claim that nothing
@@ -114,7 +125,16 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 			"threshold %d over %d custodians is not a group that both works and survives a loss",
 			config.Threshold, len(custodians))
 	}
-	if strings.TrimSpace(config.PolicyAddress) == "" {
+	// Required for the foundation, where the address IS the record: a genesis file
+	// names it, the constitution pins it, and a record without it attests to
+	// nothing checkable.
+	//
+	// Not required for a country office, because at the moment its keys are made
+	// the office genuinely has no address — the chain has not created its group
+	// yet. Demanding one here would have forced the record to print a prediction
+	// in the place a person reads an address, which is the whole failure the
+	// enrolment's two phases exist to avoid.
+	if config.Office == nil && strings.TrimSpace(config.PolicyAddress) == "" {
 		return "", fmt.Errorf("policy_address is required: it is the whole reason this record exists")
 	}
 	if strings.TrimSpace(config.ChainID) == "" {
@@ -136,15 +156,44 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 	b.WriteString("Everything in this document is public. It contains no key material and no\n")
 	b.WriteString("recovery phrase, and it is meant to be published.\n\n")
 
-	b.WriteString("## The foundation account\n\n")
-	fmt.Fprintf(&b, "A **%d-of-%d** `x/group` policy. Any %d of the %d custodians below can move what\n",
-		config.Threshold, len(custodians), config.Threshold, len(custodians))
-	b.WriteString("this account holds; no smaller number can, and every signature is attributable\n")
-	b.WriteString("on chain to the custodian who made it.\n\n")
-	fmt.Fprintf(&b, "```\n%s\n```\n\n", config.PolicyAddress)
-	b.WriteString("This address is `enforcement_recovery_destination` in the constitution and\n")
-	b.WriteString("`recovery_destination` in `x/enforcement`'s parameters. It is where every asset\n")
-	b.WriteString("this chain ever seizes is sent.\n\n")
+	if office := config.Office; office != nil {
+		// A country office, whose record must not claim to be the foundation's.
+		//
+		// The paragraph below used to be printed for every ceremony, and for an
+		// office every sentence of it was false: it named the address as the
+		// constitution's recovery destination and as the place every seized asset
+		// on the chain is sent. A signed record saying that about a national
+		// payments office is not a cosmetic problem — it is a document somebody
+		// would act on.
+		fmt.Fprintf(&b, "## %s\n\n", config.Ceremony)
+		fmt.Fprintf(&b, "A **%d-of-%d** `x/group` policy for a country office in `%s`. Any %d of the %d\n",
+			config.Threshold, len(custodians), office.Country, config.Threshold, len(custodians))
+		b.WriteString("super users below can act for it; no smaller number can, and every signature is\n")
+		b.WriteString("attributable on chain to the person who made it.\n\n")
+		if len(office.Roles) > 0 {
+			fmt.Fprintf(&b, "It is intended to hold **%s**, in `%s` and nowhere else.\n\n",
+				strings.Join(office.Roles, "**, **"), office.Country)
+		}
+		b.WriteString("**This office has no address yet.** An `x/group` policy address is derived from\n")
+		b.WriteString("the group policy sequence number alone — not from these members, not from the\n")
+		b.WriteString("threshold — so it cannot be known until the group has been created on the chain,\n")
+		b.WriteString("and an address computed in advance would commit to nothing about who controls\n")
+		b.WriteString("it. The enrolment reads it back and checks it against the membership above; see\n")
+		b.WriteString("the country enrolment guide. Any address printed elsewhere in this ceremony's\n")
+		b.WriteString("output is a prediction and is not this office.\n\n")
+		fmt.Fprintf(&b, "What this record fixes is **which %d keys** the office is, and their\n", len(custodians))
+		b.WriteString("fingerprints. That is what the enrolment checks the chain's answer against.\n\n")
+	} else {
+		b.WriteString("## The foundation account\n\n")
+		fmt.Fprintf(&b, "A **%d-of-%d** `x/group` policy. Any %d of the %d custodians below can move what\n",
+			config.Threshold, len(custodians), config.Threshold, len(custodians))
+		b.WriteString("this account holds; no smaller number can, and every signature is attributable\n")
+		b.WriteString("on chain to the custodian who made it.\n\n")
+		fmt.Fprintf(&b, "```\n%s\n```\n\n", config.PolicyAddress)
+		b.WriteString("This address is `enforcement_recovery_destination` in the constitution and\n")
+		b.WriteString("`recovery_destination` in `x/enforcement`'s parameters. It is where every asset\n")
+		b.WriteString("this chain ever seizes is sent.\n\n")
+	}
 
 	b.WriteString("## Custodians\n\n")
 	b.WriteString("| # | Custodian | Fingerprint | Address |\n")

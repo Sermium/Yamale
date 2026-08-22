@@ -3762,6 +3762,28 @@
         ]
       }
     },
+    "/yamale/blockchain/validatorgov/v1/jurisdiction_reconciliation": {
+      "get": {
+        "operationId": "Query_JurisdictionReconciliation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJurisdictionReconciliationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/validatorgov/v1/operator_rotation": {
       "get": {
         "operationId": "Query_ListOperatorRotation",
@@ -4633,6 +4655,16 @@
           "type": "string"
         }
       }
+    },
+    "JurisdictionAgreement": {
+      "type": "string",
+      "enum": [
+        "JURISDICTION_AGREEMENT_UNSPECIFIED",
+        "JURISDICTION_AGREEMENT_AGREE",
+        "JURISDICTION_AGREEMENT_DISAGREE",
+        "JURISDICTION_AGREEMENT_UNRECORDED"
+      ],
+      "default": "JURISDICTION_AGREEMENT_UNSPECIFIED"
     },
     "LegalInstrument": {
       "type": "object",
@@ -5702,6 +5734,30 @@
       "properties": {
         "invariants": {
           "$ref": "#/definitions/v1.Invariants"
+        }
+      }
+    },
+    "QueryJurisdictionReconciliationResponse": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.JurisdictionReconciliation"
+          }
+        },
+        "agree_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "disagree_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unrecorded_count": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -6872,6 +6928,30 @@
         "recorded_at_height": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "v1.JurisdictionReconciliation": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "declared_jurisdiction": {
+          "type": "string"
+        },
+        "recorded_jurisdiction": {
+          "type": "string"
+        },
+        "recorded_by": {
+          "type": "string"
+        },
+        "recorded_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "agreement": {
+          "$ref": "#/definitions/JurisdictionAgreement"
         }
       }
     },

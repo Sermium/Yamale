@@ -25,6 +25,7 @@ import { ACCOUNT_PREFIX, addressBytes, bech32Address, decodeBech32, fingerprintO
 import {
   GROUP_DOMAIN,
   SECP256K1_PUBKEY_TYPE,
+  VALID_ROLES,
   canonBytes,
   canonCount,
   canonField,
@@ -37,6 +38,7 @@ import {
   possessionMessage,
   type CeremonyParams,
   type Identity,
+  type OfficeParams,
   type Submission,
 } from './wire.ts';
 
@@ -53,6 +55,40 @@ const GROUP_POLICY_TABLE_PREFIX = 0x20;
 
 const THRESHOLD_POLICY_TYPE = '/cosmos.group.v1.ThresholdDecisionPolicy';
 const GROUP_ID = 1;
+
+// FOUNDATION_LABEL is what a group with no office is called.
+//
+// A constant rather than a literal in three places, because it is inside the
+// group metadata the group fingerprint covers: the foundation's bytes must not
+// move because the country path was added.
+export const FOUNDATION_LABEL = 'Yamale foundation';
+
+// MAX_GROUP_METADATA is x/group's limit, in bytes.
+//
+// Not ours: the keeper's assertMetadataLength refuses metadata longer than
+// Config.MaxMetadataLen, which defaults to 255 and this chain does not override.
+// clients/foundation/foundation.js carries the same number.
+//
+// Checked here because the two paths fail differently and one fails silently.
+// x/group's genesis validation never checks metadata length, so an over-long
+// string imports into a genesis file happily — the foundation path would never
+// notice. A country office's group is created by MsgCreateGroupWithPolicy on a
+// running chain, which IS checked, so the transaction would fail after the whole
+// ceremony was over and the keys were on paper.
+export const MAX_GROUP_METADATA = 255;
+
+const utf8Length = (value: string): number => new TextEncoder().encode(value).length;
+
+// groupLabel is what this ceremony's group is called, on chain, permanently.
+//
+// It is the one field a human reads to find out what a group is, which is why it
+// is derived from the parameters rather than hard-coded. A country office
+// recorded as "Yamale foundation" would be a lie in exactly the place nobody
+// would think to check.
+export function groupLabel(p: CeremonyParams): string {
+  if (!p.office) return FOUNDATION_LABEL;
+  return `${p.ceremony} (${p.office.country})`;
+}
 
 const utf8 = new TextEncoder();
 
@@ -145,6 +181,97 @@ export function validateParams(p: CeremonyParams): void {
       `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page ` +
         'holds exactly',
     );
+  }
+  validateOffice(p.office);
+}
+
+// CHAIN_WIDE and FOUNDATION_COUNTRY are the two two-character values that are
+// legal somewhere on this chain and are never a country office's perimeter.
+//
+// "*" is the chain-wide scope, which is the foundation's alone. "ZZ" marks the
+// ABSENCE of a national perimeter. They are refused with their own messages
+// rather than falling through to "not a country", because one of them reads to a
+// human like authority over everywhere while conferring authority over nowhere,
+// and the other is the highest privilege on the chain.
+const CHAIN_WIDE = '*';
+const FOUNDATION_COUNTRY = 'ZZ';
+
+// validateOffice checks the country-office half.
+//
+// The assigned-country list is NOT duplicated here. This page cannot import
+// x/alias's table and a copy of it would drift, so the shape and the two reserved
+// values are checked here and the membership of the list is left to the
+// coordinator, which does import it — params.validate() on the Go side refuses an
+// unassigned code before any invitation is issued, so the page never sees one.
+// What this catches is a page and a binary that disagree about the SHAPE, which
+// is what would move the fingerprint.
+export function validateOffice(office: OfficeParams | null | undefined): void {
+  if (!office) return;
+
+  const country = office.country;
+  // Refused rather than normalised. The country is inside the parameters
+  // fingerprint the super users read aloud before generating, so a value this
+  // page silently rewrote would be a value none of them agreed to — the same rule
+  // checkCanonicalTimestamp applies to generated_at, and for the same reason.
+  if (country !== country.toUpperCase()) {
+    throw new Error(
+      `the office's country is "${country}" and this ceremony writes "${country.toUpperCase()}" — two uppercase ` +
+        'letters. A value silently rewritten is a value the super users did not read aloud before generating',
+    );
+  }
+  if (country === CHAIN_WIDE) {
+    throw new Error(
+      `"${country}" is the chain-wide scope, which is the foundation's alone and is not a country. An office ` +
+        'holds authority inside one perimeter; a ceremony that could name it would be a ceremony for handing a ' +
+        'national office authority over every country',
+    );
+  }
+  if (country === FOUNDATION_COUNTRY) {
+    throw new Error(
+      `"${country}" is the reserved code that marks the ABSENCE of a national perimeter, not a country. An ` +
+        'office recorded there would hold authority over nowhere while reading to a human as authority over ' +
+        'everywhere. A ceremony with no perimeter is the foundation\'s: leave the country blank',
+    );
+  }
+  if (!/^[A-Z]{2}$/.test(country)) {
+    throw new Error(`the office's country is "${country}"; a country code here is exactly two uppercase letters, A to Z`);
+  }
+
+  if (office.roles.length === 0) {
+    throw new Error(
+      'the office holds no roles, so the chain would refuse every action it ever attempted. An office worth a ' +
+        'key ceremony holds at least one',
+    );
+  }
+  const seen = new Set<string>();
+  for (const role of office.roles) {
+    if (role !== role.toUpperCase().trim()) {
+      throw new Error(
+        `the role "${role}" is not written the way this chain spells it, "${role.toUpperCase().trim()}". The ` +
+          'roles are covered by the fingerprint the super users read aloud, so this is refused rather than tidied up',
+      );
+    }
+    // Refused explicitly rather than by absence from the table. ROLE_UNSPECIFIED
+    // is spellable and it is the enum's zero value; proto3 cannot tell a zero
+    // from a field nobody filled in, which is why it is reserved. An office that
+    // named it would produce a grant the chain rejects AFTER the custodians had
+    // voted for it.
+    if (role === 'ROLE_UNSPECIFIED') {
+      throw new Error(
+        `"${role}" is the unset default and is never a role. Proto3 cannot tell a zero from a field nobody ` +
+          'filled in, which is why it is reserved',
+      );
+    }
+    if (!(VALID_ROLES as readonly string[]).includes(role)) {
+      throw new Error(`"${role}" is not a role this chain has. They are ${VALID_ROLES.join(', ')}`);
+    }
+    if (seen.has(role)) {
+      throw new Error(
+        `${role} is listed twice. The roles are a set, and a list that repeats one reads on the record as though ` +
+          'the office were granted it twice',
+      );
+    }
+    seen.add(role);
   }
 }
 
@@ -321,7 +448,14 @@ export function assembleGroup(params: CeremonyParams, submissions: Submission[])
     if (id.generated_at > latest) latest = id.generated_at;
   }
 
-  const documents = buildGroup(custodians, params.threshold, params.voting_period, params.policy_seq, latest);
+  const documents = buildGroup(
+    custodians,
+    purposeFor(params),
+    params.threshold,
+    params.voting_period,
+    params.policy_seq,
+    latest,
+  );
   const sorted = [...custodians].sort((a, b) => compareGoStrings(a.address, b.address));
 
   const assembled: Assembled = {
@@ -399,14 +533,53 @@ export function missingFrom(params: CeremonyParams, submissions: Submission[]): 
 
 type GroupDocuments = {
   policyAddress: string;
+  // The two strings recorded on chain as what this group is, returned so that a
+  // caller — and the cross-language suite — reads the values buildGroup actually
+  // used rather than recomposing them and agreeing with itself.
+  metadata: string;
+  policyMetadata: string;
   genesis: string;
+  // The empty string for a country office, and that is the value under test
+  // rather than an omission. Go leaves its field nil; canonBytes has to turn both
+  // into the same four zero bytes, or a country's super users and their
+  // coordinator compute different group fingerprints from the same submissions.
   constitution: string;
   members: string;
 };
 
-function groupMetadata(custodians: Identity[], threshold: number): string {
+// GroupPurpose is which of the two groups this ceremony is building.
+//
+// Two things differ between the foundation's 3-of-5 and a country office's
+// M-of-N, and neither is cosmetic:
+//
+//   - The label, which goes into the group and policy metadata recorded on chain
+//     permanently and is the one field a human reads to find out what a group is.
+//
+//   - The constitutional invariants fragment. For an office it is a
+//     ready-to-splice JSON saying "send every seized asset on this chain to
+//     Senegal's payments office", so it is not produced at all. Not produced
+//     rather than produced-with-a-warning, because nobody should have to know not
+//     to use a document the page handed them.
+export type GroupPurpose = { label: string; office: boolean };
+
+export function foundationPurpose(): GroupPurpose {
+  return { label: FOUNDATION_LABEL, office: false };
+}
+
+export function purposeFor(params: CeremonyParams): GroupPurpose {
+  return { label: groupLabel(params), office: Boolean(params.office) };
+}
+
+// groupMetadata is the string recorded on chain, permanently, as what this group
+// is.
+//
+// The label is a parameter rather than a literal because it is the only thing a
+// human reads to tell one group from another. For the foundation it is
+// "Yamale foundation" and the bytes are unchanged from before the country path
+// existed; for a country office it names the office and its perimeter.
+export function groupMetadata(label: string, custodians: Identity[], threshold: number): string {
   const names = custodians.map((c) => `${c.name} ${c.fingerprint}`);
-  return `Yamale foundation, ${threshold} of ${custodians.length}: ${names.join('; ')}`;
+  return `${label}, ${threshold} of ${custodians.length}: ${names.join('; ')}`;
 }
 
 // buildGroup turns the custodians' public records into the documents that create
@@ -417,6 +590,7 @@ function groupMetadata(custodians: Identity[], threshold: number): string {
 // membership, which is the single key this ceremony exists to abolish.
 export function buildGroup(
   input: Identity[],
+  purpose: GroupPurpose,
   threshold: number,
   votingPeriod: string,
   seq: number,
@@ -479,7 +653,25 @@ export function buildGroup(
   }
 
   const policyAddr = policyAddress(seq);
-  const metadata = groupMetadata(custodians, threshold);
+  const metadata = groupMetadata(purpose.label, custodians, threshold);
+  const policyMetadata = `${purpose.label} ${threshold}-of-${custodians.length}`;
+  // Refused here rather than discovered by the transaction that creates the
+  // group. See MAX_GROUP_METADATA: the genesis path does not check this, so the
+  // foundation would never notice, and an office's create-group transaction would
+  // fail after the ceremony was over.
+  for (const [what, value] of [
+    ['group metadata', metadata],
+    ['group policy metadata', policyMetadata],
+  ] as const) {
+    const size = utf8Length(value);
+    if (size > MAX_GROUP_METADATA) {
+      throw new Error(
+        `the ${what} is ${size} bytes and x/group refuses anything over ${MAX_GROUP_METADATA}, so the ` +
+          'transaction that creates this group would fail after the ceremony was over. Shorten the office ' +
+          `name: it is the part of "${purpose.label}" that this ceremony chose`,
+      );
+    }
+  }
   const created = goJSONString(createdAt);
   const period = protoDuration(parseGoDuration(votingPeriod));
 
@@ -560,15 +752,24 @@ export function buildGroup(
     ['votes', '[]'],
   ]);
 
-  const constitution = indentGoJSON([
-    ['enforcement_recovery_destination', goJSONString(policyAddr)],
-    ['foundation_custodian_count', String(custodians.length)],
-    ['foundation_signature_threshold', String(threshold)],
-  ]);
+  // Withheld for a country office, and left as the empty string so that
+  // canonBytes(utf8.encode('')) produces the same four zero bytes Go's
+  // canonBytes(nil) produces. The three fields in it are the FOUNDATION's: where
+  // the chain sends every seizure, how many custodians the foundation has, and how
+  // many must sign. Produced for a country office it reads as an instruction to
+  // hand that office the whole chain's seized assets, and a genesis built from it
+  // would start perfectly happily.
+  const constitution = purpose.office
+    ? ''
+    : indentGoJSON([
+        ['enforcement_recovery_destination', goJSONString(policyAddr)],
+        ['foundation_custodian_count', String(custodians.length)],
+        ['foundation_signature_threshold', String(threshold)],
+      ]);
 
   const members = membersDocument(custodians);
 
-  return { policyAddress: policyAddr, genesis, constitution, members };
+  return { policyAddress: policyAddr, metadata, policyMetadata, genesis, constitution, members };
 }
 
 // membersDocument is the file `blockchaind tx group create-group-with-policy`

@@ -48,7 +48,7 @@ func initGateFixture(t *testing.T) *gateFixture {
 	_, destination := env.Addr(t)
 	constitution := constitutiontestutil.Init(t, env, staking, constitutiontestutil.Invariants(destination))
 	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority,
-		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution)
+		staking, vgtestutil.NewAuthzKeeper(), env.AuthKeeper, env.BankKeeper, constitution, nil)
 	require.NoError(t, k.Params.Set(env.Ctx, types.DefaultParams()))
 
 	// The gate runs on every block after genesis.

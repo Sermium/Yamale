@@ -67,6 +67,15 @@ type Keeper struct {
 	// granted. Read-only; see types.GroupKeeper.
 	groups types.GroupKeeper
 
+	// constitution answers "who is the foundation", asked when a role is granted
+	// or revoked. Read-only; see types.ConstitutionKeeper.
+	//
+	// Nil is a legal state and it means "nobody but governance may grant a role",
+	// which is the closed direction: a wiring mistake costs the foundation its
+	// ability to admit a country and cannot hand anybody an authority they were
+	// not meant to have.
+	constitution types.ConstitutionKeeper
+
 	Schema        collections.Schema
 	Params        collections.Item[types.Params]
 	Aliases       collections.Map[string, types.Alias]
@@ -95,6 +104,7 @@ func NewKeeper(
 	authority string,
 	participants types.ParticipantKeeper,
 	groups types.GroupKeeper,
+	constitution types.ConstitutionKeeper,
 ) Keeper {
 	if _, err := addressCodec.StringToBytes(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -108,6 +118,7 @@ func NewKeeper(
 		logger:       logger.With("module", "x/"+types.ModuleName),
 		participants: participants,
 		groups:       groups,
+		constitution: constitution,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params",
 			codec.CollValue[types.Params](cdc)),

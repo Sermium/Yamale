@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -796,6 +798,189 @@ func TestExportDoesNotClaimTheCeremonyFinishedEarly(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.False(t, result.Complete,
 		"a record exported before anybody attested must not mark the ceremony complete")
+}
+
+// TestAnOfficeCeremonyRunsTheSameFlow drives a country office through the same
+// HTTP surface the foundation uses.
+//
+// One flow, not two implementations, is the whole design of this change — so the
+// thing worth asserting is that the office reaches the parts of the output it is
+// supposed to reach, and does not reach the parts it must not. What must not
+// appear is a genesis fragment (an office's group is created by transaction on a
+// running chain, and a fragment naming group id 1 is a file somebody in a hurry
+// could splice into a launch) and a constitutional invariants fragment (which
+// says every seized asset on the chain goes to the address in it).
+func TestAnOfficeCeremonyRunsTheSameFlow(t *testing.T) {
+	h := newHostHarness(t)
+	roster := []string{"Direction du Trésor", "Banque centrale <BCEAO>", "Autorité de contrôle"}
+
+	// Lowercase and padded on purpose: what a person types into a form. The server
+	// trims and uppercases, then refuses anything its own normalisation would have
+	// had to change beyond that.
+	status, raw := h.post(t, "/ceremony/api/coordinator/setup", testCoordinatorToken, setupRequest{
+		Ceremony:     "Senegal payments authority",
+		ChainID:      "yamale-1",
+		Threshold:    2,
+		Custodians:   roster,
+		PolicySeq:    7,
+		VotingPeriod: "72h0m0s",
+		Country:      " sn ",
+		Roles:        []string{" role_payments_authority ", "ROLE_ENFORCEMENT_AUTHORITY"},
+	})
+	require.Equal(t, http.StatusOK, status, string(raw))
+	var view hostStateView
+	require.NoError(t, json.Unmarshal(raw, &view))
+	require.NotNil(t, view.Params.Office, "the setup form must have produced an office")
+	require.Equal(t, "SN", view.Params.Office.Country)
+	require.Equal(t,
+		[]string{"ROLE_PAYMENTS_AUTHORITY", "ROLE_ENFORCEMENT_AUTHORITY"},
+		view.Params.Office.Roles,
+		"the roles are stored as typed and sorted only inside the canonical encoding")
+
+	params := h.currentParams(t)
+	for i, name := range roster {
+		token := h.tokenFor(t, view, name)
+		status, raw := h.post(t, "/ceremony/api/invite/opened", token, nil)
+		require.Equal(t, http.StatusOK, status, string(raw))
+		status, raw = h.post(t, "/ceremony/api/invite/generated", token, nil)
+		require.Equal(t, http.StatusOK, status, string(raw))
+
+		key := newCustodianKey(t, name, i, time.Now())
+		sub, err := signSubmission(params.ID, key.ID, key.Priv)
+		require.NoError(t, err)
+		status, raw = h.post(t, "/ceremony/api/invite/submission", token, sub)
+		require.Equal(t, http.StatusOK, status, string(raw))
+	}
+
+	// The super user's own page is where the country and the roles have to be
+	// visible, because they are inside the fingerprint it displays.
+	status, raw = h.get(t, "/ceremony/api/invite", h.tokenFor(t, view, roster[0]))
+	require.Equal(t, http.StatusOK, status)
+	var invited inviteView
+	require.NoError(t, json.Unmarshal(raw, &invited))
+	require.NotNil(t, invited.Params.Office, "a super user must be able to see what the key is for")
+	require.Equal(t, "SN", invited.Params.Office.Country)
+	require.Equal(t, params.fingerprint(), invited.Fingerprint)
+
+	a, err := assembleGroup(params, invited.Submissions)
+	require.NoError(t, err)
+	require.Contains(t, string(a.Genesis), "Senegal payments authority (SN), 2 of 3: ",
+		"the office's own label has to be in the metadata the group fingerprint covers")
+	require.NotContains(t, string(a.Genesis), foundationLabel,
+		"a country office recorded as the foundation is a lie in the field a human reads")
+	require.Nil(t, a.Constitution)
+
+	status, raw = h.post(t, "/ceremony/api/coordinator/export", testCoordinatorToken,
+		exportRequest{Location: "Dakar"})
+	require.Equal(t, http.StatusOK, status, string(raw))
+	var exported struct {
+		Files map[string]string `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &exported))
+	require.Contains(t, exported.Files, "group")
+	require.Contains(t, exported.Files, "record")
+	require.NotContains(t, exported.Files, "group_genesis",
+		"an office's group is created by transaction; a genesis fragment naming group id 1 is wrong for it")
+	require.NotContains(t, exported.Files, "constitution",
+		"an office must not be handed a document saying every seized asset on the chain goes to it")
+
+	for _, name := range []string{"group-genesis.json", "constitution-invariants.json"} {
+		_, err := os.Stat(filepath.Join(h.session.out, name))
+		require.True(t, os.IsNotExist(err), "%s must not exist beside the server for an office ceremony", name)
+	}
+
+	// group.json carries the submissions, so a consumer on another machine
+	// recomputes the membership rather than reading it. An added member in an
+	// edited file has to make the file disagree with itself.
+	blob, err := os.ReadFile(filepath.Join(h.session.out, "group.json"))
+	require.NoError(t, err)
+	var written struct {
+		PolicyAddress string          `json:"policy_address"`
+		PolicyNote    string          `json:"policy_address_note"`
+		Constitution  json.RawMessage `json:"constitution_invariants"`
+		Submissions   []submission    `json:"submissions"`
+	}
+	require.NoError(t, json.Unmarshal(blob, &written))
+	require.Len(t, written.Submissions, len(roster))
+	require.Equal(t, a.PolicyAddress, written.PolicyAddress)
+	require.Contains(t, written.PolicyNote, "predicted from policy_seq 7",
+		"a person reads this file, and the address in it is a prediction rather than the office's")
+	require.Empty(t, written.Constitution)
+
+	recomputed, err := assembleGroup(params, written.Submissions)
+	require.NoError(t, err)
+	require.Equal(t, a.Fingerprint, recomputed.Fingerprint,
+		"group.json must carry enough to recompute the group it claims")
+}
+
+// TestOfficeSetupRefusesAPerimeterTheChainWouldNot checks the refusals at the
+// door rather than after three people have generated keys.
+func TestOfficeSetupRefusesAPerimeterTheChainWouldNot(t *testing.T) {
+	roster := []string{"One", "Two", "Three"}
+	for _, tc := range []struct {
+		name    string
+		country string
+		roles   []string
+		message string
+	}{
+		{"chain-wide", "*", []string{"ROLE_SUPERVISOR"}, "chain-wide scope"},
+		{"foundation code", "ZZ", []string{"ROLE_SUPERVISOR"}, "ABSENCE of a national perimeter"},
+		{"not a country", "QK", []string{"ROLE_SUPERVISOR"}, "not an assigned ISO 3166-1"},
+		{"no roles", "SN", nil, "holds no roles"},
+		{"unknown role", "SN", []string{"ROLE_TREASURER"}, "not a role this chain has"},
+		{"unset default", "SN", []string{"ROLE_UNSPECIFIED"}, "unset default"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHostHarness(t)
+			status, raw := h.post(t, "/ceremony/api/coordinator/setup", testCoordinatorToken, setupRequest{
+				Ceremony:     "Somewhere payments authority",
+				ChainID:      "yamale-1",
+				Threshold:    2,
+				Custodians:   roster,
+				PolicySeq:    7,
+				VotingPeriod: "72h0m0s",
+				Country:      tc.country,
+				Roles:        tc.roles,
+			})
+			require.Equal(t, http.StatusBadRequest, status, string(raw))
+			require.Contains(t, string(raw), tc.message)
+		})
+	}
+}
+
+// TestAFoundationCeremonyStillWritesBothFragments is the other half of the same
+// property: closing the office path must not have closed the foundation's.
+func TestAFoundationCeremonyStillWritesBothFragments(t *testing.T) {
+	h := newHostHarness(t)
+	_, final := h.runWholeCeremony(t)
+	require.Nil(t, final.Params.Office, "the roster setup helper must still produce a foundation ceremony")
+
+	status, raw := h.post(t, "/ceremony/api/coordinator/export", testCoordinatorToken,
+		exportRequest{Location: "a desk"})
+	require.Equal(t, http.StatusOK, status, string(raw))
+	var exported struct {
+		Files map[string]string `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &exported))
+	require.Contains(t, exported.Files, "group_genesis")
+	require.Contains(t, exported.Files, "constitution")
+
+	blob, err := os.ReadFile(filepath.Join(h.session.out, "group.json"))
+	require.NoError(t, err)
+	var written struct {
+		PolicyAddress string          `json:"policy_address"`
+		PolicyNote    string          `json:"policy_address_note"`
+		Constitution  json.RawMessage `json:"constitution_invariants"`
+		Genesis       json.RawMessage `json:"group_genesis"`
+		Submissions   []submission    `json:"submissions"`
+	}
+	require.NoError(t, json.Unmarshal(blob, &written))
+	// The three keys scripts/devnet/init-devnet.sh reads out of this file by name.
+	require.NotEmpty(t, written.PolicyAddress)
+	require.NotEmpty(t, written.Genesis)
+	require.NotEmpty(t, written.Constitution)
+	require.Empty(t, written.PolicyNote, "the foundation's policy address is a fact, not a prediction")
+	require.Len(t, written.Submissions, len(testRoster))
 }
 
 func TestHostRefusesAWildcardBind(t *testing.T) {

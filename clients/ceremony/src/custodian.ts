@@ -235,12 +235,26 @@ function welcomeScreen(view: InviteView, next: () => void): HTMLElement {
       paragraph('The coordinator has not set this ceremony up. Leave this page open; it will follow along.'),
     ]);
   }
-  return panel(`You are custodian for ${view.params.ceremony}`, [
+  const office = view.params.office;
+  return panel(
+    office
+      ? `You are a super user for ${view.params.ceremony} (${office.country})`
+      : `You are custodian for ${view.params.ceremony}`,
+    [
     paragraph(
       'In a moment this page will create twenty-four words on this device. They are the only thing that ever ' +
         'recovers your key, they are shown once, and nobody else — including whoever is running this ' +
         'ceremony — ever sees them.',
     ),
+    // Named here as well as on the generate screen. The welcome screen is the one
+    // a super user reads before deciding to start at all, and "what am I holding
+    // authority over" is the question they are answering by starting.
+    office
+      ? paragraph(
+          `This key becomes one share of an office that will hold ${office.roles.join(' and ')} inside ` +
+            `${office.country}. You will see both again, under the fingerprint, before you generate.`,
+        )
+      : el('span', {}, []),
     el('ol', { class: 'steps' }, [
       el('li', {}, ['Write the twenty-four words on paper. Not a photograph, not a note app.']),
       el('li', {}, ['Read four of them back, so a mis-copied word is caught now rather than in five years.']),
@@ -255,6 +269,46 @@ function welcomeScreen(view: InviteView, next: () => void): HTMLElement {
     muted('Open this link in a private window if you have not already — it keeps the URL out of your history.'),
     trustNote(view.bundle_hash),
     row(button('I have paper and a pen — begin', next)),
+    ],
+  );
+}
+
+// whatThisKeyIsFor is what the custodian is shown before the generate button.
+//
+// It exists because the office is inside the parameters fingerprint, and a value
+// inside a fingerprint that nobody is shown is a value nobody agreed to. A super
+// user generating a key for their country's payments authority is signing up to
+// hold a share of an account that will be granted authority over one named
+// perimeter; if that perimeter is not on this screen, a coordinator could take
+// the keys generated "for Senegal" and stand up an office over Nigeria, and every
+// check afterwards would agree because they all read the same field.
+//
+// Rendered as its own block rather than folded into the ceremony line, because
+// the country and the roles are the two things they are being asked to remember
+// long enough to say out loud on the call.
+function whatThisKeyIsFor(view: InviteView): HTMLElement {
+  const office = view.params.office;
+  if (!office) {
+    return el('div', {}, [
+      paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+      muted('No country: this is the foundation ceremony, which belongs to no national perimeter.'),
+    ]);
+  }
+  return el('div', {}, [
+    paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+    el('dl', { class: 'facts' }, [
+      el('dt', {}, ['Country']),
+      el('dd', { class: 'mono' }, [office.country]),
+      el('dt', {}, ['Authority this office will hold']),
+      el('dd', { class: 'mono' }, [office.roles.join(', ')]),
+      el('dt', {}, ['Recorded on chain as']),
+      el('dd', {}, [`${view.params.ceremony} (${office.country})`]),
+    ]),
+    paragraph(
+      `Your key becomes one share of an office holding that authority inside ${office.country}, and nowhere ` +
+        'else. Both values are covered by the fingerprint below: if either is wrong, the fingerprint is wrong ' +
+        'too, and this is the moment to say so — not after you have written twenty-four words down.',
+    ),
   ]);
 }
 
@@ -264,7 +318,7 @@ function generateScreen(view: InviteView, generate: () => void): HTMLElement {
       'This happens on this device. The words appear once and this page will not show them again — there is ' +
         'nowhere to fetch them from, so nobody can.',
     ),
-    paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+    whatThisKeyIsFor(view),
     el('div', {}, [
       muted('The value below is what the coordinator and every other custodian should also be showing. If it differs, stop.'),
       showFingerprint(view.params_fingerprint),
@@ -461,12 +515,38 @@ function groupScreen(
   const sealed = el('input', { type: 'checkbox', id: 'sealed' });
   const drilled = el('input', { type: 'checkbox', id: 'drilled' });
 
+  const office = view.params.office;
   const children: Array<Node | string> = [
-    paragraph('Read this out loud on the call. All five of you must be showing the same sixteen characters.'),
+    paragraph(
+      `Read this out loud on the call. All ${view.params.custodians.length} of you must be showing the same ` +
+        'sixteen characters.',
+    ),
     showFingerprint(assembled.fingerprint),
-    paragraph(`Foundation policy address — where every seized asset on ${view.params.chain_id} will be sent:`),
+    // Two different claims, because the address means two different things. For
+    // the foundation it is fixed by the same genesis file that fixes the
+    // membership. For a country office it is derived from a policy sequence number
+    // the running chain has not reached yet, so presenting it as the office's
+    // address would be presenting a guess as a fact.
+    office
+      ? paragraph(
+          `This office's group policy address, predicted from policy sequence ${view.params.policy_seq}. The ` +
+            'chain decides the real one when the group is created, so do not send anything to it on the ' +
+            'strength of this screen:',
+        )
+      : paragraph(`Foundation policy address — where every seized asset on ${view.params.chain_id} will be sent:`),
     el('p', { class: 'mono break' }, [assembled.policy_address]),
-    el('h3', {}, ['The five custodians in this group']),
+    office
+      ? el('div', {}, [
+          el('h3', {}, ['What this office will hold']),
+          el('dl', { class: 'facts' }, [
+            el('dt', {}, ['Country']),
+            el('dd', { class: 'mono' }, [office.country]),
+            el('dt', {}, ['Authority']),
+            el('dd', { class: 'mono' }, [office.roles.join(', ')]),
+          ]),
+        ])
+      : el('span', {}, []),
+    el('h3', {}, [`The ${assembled.custodians.length} custodians in this group`]),
     rows,
   ];
 

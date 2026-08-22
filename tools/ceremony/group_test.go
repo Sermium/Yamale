@@ -82,7 +82,7 @@ func custodians(t *testing.T, n int) []identity {
 func TestBuildGroupProducesAThreeOfFive(t *testing.T) {
 	people := custodians(t, 5)
 
-	documents, err := buildGroup(people, 3, 7*24*time.Hour, 1, time.Unix(1700000000, 0))
+	documents, err := buildGroup(people, foundationPurpose(), 3, 7*24*time.Hour, 1, time.Unix(1700000000, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestGroupGenesisIsAValidImportableFragment(t *testing.T) {
 	people := custodians(t, 5)
 	now := time.Unix(1700000000, 0)
 
-	documents, err := buildGroup(people, 3, 7*24*time.Hour, 1, now)
+	documents, err := buildGroup(people, foundationPurpose(), 3, 7*24*time.Hour, 1, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestTheConstitutionFragmentAgreesWithTheGroup(t *testing.T) {
 	// wrong. Both documents come from one call so they cannot disagree.
 	people := custodians(t, 5)
 
-	documents, err := buildGroup(people, 3, 7*24*time.Hour, 1, time.Unix(1700000000, 0))
+	documents, err := buildGroup(people, foundationPurpose(), 3, 7*24*time.Hour, 1, time.Unix(1700000000, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,14 +203,14 @@ func TestTheConstitutionFragmentAgreesWithTheGroup(t *testing.T) {
 
 func TestBuildGroupRefusesAThresholdNobodyCouldMeet(t *testing.T) {
 	people := custodians(t, 3)
-	if _, err := buildGroup(people, 5, time.Hour, 1, time.Now()); err == nil {
+	if _, err := buildGroup(people, foundationPurpose(), 5, time.Hour, 1, time.Now()); err == nil {
 		t.Fatal("a group that could never reach its threshold was accepted")
 	}
 }
 
 func TestBuildGroupRefusesASingleSigner(t *testing.T) {
 	people := custodians(t, 5)
-	if _, err := buildGroup(people, 1, time.Hour, 1, time.Now()); err == nil {
+	if _, err := buildGroup(people, foundationPurpose(), 1, time.Hour, 1, time.Now()); err == nil {
 		t.Fatal("a 1-of-5 was accepted, which is the single key this ceremony replaces")
 	}
 }
@@ -219,7 +219,7 @@ func TestBuildGroupRefusesUnanimity(t *testing.T) {
 	// 5-of-5 looks like the safest option and is the least safe available: one
 	// lost key freezes the account the chain keeps sending seizures to.
 	people := custodians(t, 5)
-	if _, err := buildGroup(people, 5, time.Hour, 1, time.Now()); err == nil {
+	if _, err := buildGroup(people, foundationPurpose(), 5, time.Hour, 1, time.Now()); err == nil {
 		t.Fatal("a 5-of-5 was accepted")
 	}
 }
@@ -228,7 +228,7 @@ func TestBuildGroupRefusesADuplicateCustodian(t *testing.T) {
 	people := custodians(t, 5)
 	people[4].Address = people[0].Address
 
-	_, err := buildGroup(people, 3, time.Hour, 1, time.Now())
+	_, err := buildGroup(people, foundationPurpose(), 3, time.Hour, 1, time.Now())
 	if err == nil {
 		t.Fatal("two members at one address were accepted: that is a 3-of-4 with somebody holding two votes")
 	}
@@ -241,7 +241,7 @@ func TestBuildGroupRefusesAValidatorOperatorKey(t *testing.T) {
 	people := custodians(t, 5)
 	people[2].Role = roleValidator
 
-	if _, err := buildGroup(people, 3, time.Hour, 1, time.Now()); err == nil {
+	if _, err := buildGroup(people, foundationPurpose(), 3, time.Hour, 1, time.Now()); err == nil {
 		t.Fatal("a validator operator key was accepted into the foundation group")
 	}
 }
@@ -250,7 +250,7 @@ func TestBuildGroupRefusesAnUnreadableAddress(t *testing.T) {
 	people := custodians(t, 5)
 	people[1].Address = "yml1definitelynotanaddress"
 
-	if _, err := buildGroup(people, 3, time.Hour, 1, time.Now()); err == nil {
+	if _, err := buildGroup(people, foundationPurpose(), 3, time.Hour, 1, time.Now()); err == nil {
 		t.Fatal("an address this chain cannot decode was accepted")
 	}
 }
@@ -259,7 +259,7 @@ func TestBuildGroupIsDeterministic(t *testing.T) {
 	people := custodians(t, 5)
 	now := time.Unix(1700000000, 0)
 
-	first, err := buildGroup(people, 3, 7*24*time.Hour, 1, now)
+	first, err := buildGroup(people, foundationPurpose(), 3, 7*24*time.Hour, 1, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestBuildGroupIsDeterministic(t *testing.T) {
 	// from a list would give them. The documents must come out byte-identical
 	// so a genesis can be rebuilt and compared rather than taken on trust.
 	shuffled := []identity{people[3], people[0], people[4], people[1], people[2]}
-	second, err := buildGroup(shuffled, 3, 7*24*time.Hour, 1, now)
+	second, err := buildGroup(shuffled, foundationPurpose(), 3, 7*24*time.Hour, 1, now)
 	if err != nil {
 		t.Fatal(err)
 	}

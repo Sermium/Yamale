@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrolling a country — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Enrolling a country</h1>
+<p>How a country&#39;s authorities come to exist on a chain that is already running:
+their keys made in their own offices, their groups created by transaction, and
+their powers granted by the foundation in one decision three custodians sign.</p>
+<p><strong>You need:</strong> the country&#39;s offices named and staffed, two to five people per
+office who can each open a link on their own device, three of the foundation&#39;s
+five custodians reachable, and somebody with a funded key who can broadcast.</p>
+<p><strong>You will end with:</strong> one <code>x/group</code> account per office, a role grant per office
+scoped to that country and to nothing else, a jurisdiction record for each
+office&#39;s own account, the first institutions placed so they can be admitted, and
+a signed record naming every address and who granted what.</p>
+<p><strong>The steps, in the order they happen:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Command</th>
+<th>Who signs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>ceremony host</code> — once per office</td>
+<td>each super user, in their own browser</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ceremony country init</code></td>
+<td>nobody; it reads and refuses</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>ceremony country groups</code></td>
+<td>any funded key</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>ceremony country confirm</code></td>
+<td>nobody; it reads the chain back</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>ceremony country grants</code></td>
+<td>the foundation, M-of-N</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>ceremony country verify</code></td>
+<td>nobody; it reads the chain back</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>ceremony country seed</code></td>
+<td>the foundation, M-of-N</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>ceremony country admit</code></td>
+<td>the country&#39;s payments office, M-of-N</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>ceremony country record</code></td>
+<td>everybody, on paper</td>
+</tr>
+</tbody></table>
+<p><code>ceremony country validator</code> slots in wherever a validator needs placing. Each
+step refuses until the previous one&#39;s evidence is in the dossier.</p>
+<hr>
+<h2>Why this is a separate ceremony</h2>
+<p><a href="key-ceremony.html">The key ceremony</a> exists because one account mattered more than
+any other and had been created by a line of shell. This one exists for the
+opposite reason: because there are going to be a great many of these, in a hurry,
+and the thing that goes wrong at volume is not carelessness about a single key.
+It is a procedure with a step in it that looks optional.</p>
+<p>The two share everything that touches key material. An office&#39;s super users
+generate their keys in their own browsers, from the same <code>ceremony host</code>, over the
+same code, with the same possession signatures, the same group assembly and the
+same eighty-bit fingerprint read aloud before anybody signs anything. If you have
+run the hosted foundation ceremony you have already run three quarters of this
+one.</p>
+<p>What differs is the far end, and it differs completely. The foundation&#39;s ceremony
+produces a <strong>genesis fragment</strong>, because the foundation has to exist at height
+zero — <code>x/constitution</code> refuses to start a chain whose recovery destination is
+unset. A country&#39;s ceremony produces <strong>transactions and proposals</strong>, because the
+chain is up, blocks are being made, and money is already moving.</p>
+<p>That one difference is where all the danger in this document lives.</p>
+<h2>The one thing that will bite you</h2>
+<p>An <code>x/group</code> policy address is derived from the <strong>group policy sequence number
+and nothing else</strong>. Not the members. Not the threshold. Not the admin. Not the
+chain id. <code>ceremony address --seq N</code> prints it offline, and that is a real
+property the launch runbook depends on.</p>
+<p>On a live chain it is a trap.</p>
+<p>Suppose this tool predicted an office&#39;s address, and a grant were composed naming
+it. Whoever created a group policy first owns that address. The grant would still
+be a real grant — <code>PAYMENTS_AUTHORITY</code> over a whole country, or
+<code>ENFORCEMENT_AUTHORITY</code>, signed by the foundation, every signature valid, sitting
+in the registry. And nothing downstream would notice, because every later check
+reads the same predicted address and agrees with it.</p>
+<p>So the enrolment is <strong>two phases</strong>, and the boundary between them is not
+negotiable:</p>
+<ol>
+<li><strong>Create the group.</strong> <code>ceremony country groups</code> writes the transactions. It
+writes no address and composes no grant.</li>
+<li><strong>Read the address back.</strong> <code>ceremony country confirm</code> takes the chain&#39;s own
+answers and checks that the policy at that address really is this office — the
+same members, the same threshold, administering itself.</li>
+<li><strong>Then compose the grant.</strong> <code>ceremony country grants</code> refuses outright for any
+office whose address has not been read back. There is no flag that relaxes it
+and no <code>--seq</code> to fall back on.</li>
+</ol>
+<p>If you remember one thing from this document, remember that an office&#39;s address
+comes from the chain and is checked against its membership. Everything else here
+is bookkeeping by comparison.</p>
+<h2>Who admits a country, and what that cost</h2>
+<p>The <strong>foundation</strong> does — the 3-of-5 from the key ceremony, which is to say the
+account <code>x/constitution</code> pins as <code>enforcement_recovery_destination</code>.</p>
+<p>This used to be governance and nobody else, and the argument for that was good:
+there is a difference between using a power and deciding who holds one, and every
+widening of who may act ought to cost a public vote. What broke it was arithmetic.
+Enrolling one country is a group per office, two to five grants across those
+offices, and a jurisdiction record per office — a sequence that has to land in
+order. Under governance-only that was five or six separate proposals, each able to
+pass, fail or time out on its own, for one decision a room had already taken. The
+predictable result of that is a bundle proposal nobody reads.</p>
+<p><strong>What was given up is publicity and delay.</strong> The validator set no longer has a
+veto over who administers a perimeter, and the appointment no longer sits in
+public for a voting period before it takes effect. What replaces those is
+narrower: three of five custodians from five organisations, on chain, with the
+grant attributed in <code>granted_by</code> and the height in <code>granted_at_height</code>.</p>
+<p><strong>Chain-wide is still governance and nobody else.</strong> The foundation admitting a
+country and the foundation manufacturing authority over every country are
+different acts, and only the first was decided. <code>*</code> is refused from the foundation
+by the chain, before the constitution is even consulted, and refused again by this
+tool.</p>
+<p>The residual risk, stated plainly because it is not closed: the foundation can
+grant one office the same role in every country, one grant at a time, and arrive
+where a chain-wide grant would by a longer road. It is bounded by the assigned
+country list rather than prevented, and it is enumerable —
+<code>blockchaind query alias role-holders &lt;CC&gt;</code> for each country,
+<code>blockchaind query alias chain-wide-grants</code> for the exceptions.</p>
+<h2>Before the day</h2>
+<h3>The offices</h3>
+<p>Decide them first, on paper, and decide the roles with them. The
+<a href="../scope/roles-and-perimeter.html">roles and perimeter design</a> has the five:
+registry authority, monetary authority, payments authority, enforcement authority
+and supervisor. A payments country needs <strong>payments authority and enforcement
+authority</strong> at a minimum, and the tool refuses without both unless you write down
+why.</p>
+<p>Why those two. Without a payments authority nothing in the country can be admitted
+to the rail, so no account in the country can be onboarded or placed, and the
+country is enrolled and inert. Without an enforcement authority money moves in a
+perimeter and no office can stop it. If the country genuinely is registry-only or
+supervision-only, say so in the config:</p>
+<pre><code class="language-json">&quot;waivers&quot;: [{&quot;rule&quot;: &quot;payments-minimum&quot;, &quot;reason&quot;: &quot;land registry pilot; no payments licence yet&quot;}]
+</code></pre>
+<p>The rule still refuses. What gets past it is a sentence that ends up on the signed
+record, which is the same arrangement as <code>preflight</code>&#39;s
+<code>--network-acknowledged</code>.</p>
+<h3>One person, one office</h3>
+<p>An office of two-of-three sharing a member with the office that supervises it is
+not the separation the roles describe. The tool refuses a super user who appears
+in two of a country&#39;s offices, because once both groups exist the arrangement is
+invisible: each policy looks correct on its own.</p>
+<h3>The threshold</h3>
+<p>Per office, and the same rules as the foundation&#39;s: never one (that is a key with
+extra steps), never unanimity (one person unreachable freezes the office
+permanently). Two-of-three and three-of-five are the shapes that work.</p>
+<h3>What the foundation needs to be able to do</h3>
+<p>Two separate things, and they are granted by two separate mechanisms with two
+different costs. Check both before the day, because discovering the second one
+late means a governance cycle in the middle of a ceremony.</p>
+<table>
+<thead>
+<tr>
+<th>The foundation must</th>
+<th>Mechanism</th>
+<th>Cost to change</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>grant a role in a country</td>
+<td>it is the address <code>x/constitution</code> pins as <code>enforcement_recovery_destination</code></td>
+<td>a constitutional amendment</td>
+</tr>
+<tr>
+<td>record a jurisdiction</td>
+<td>it is in <code>alias.params.foundation_administrators</code></td>
+<td>one governance proposal</td>
+</tr>
+</tbody></table>
+<p>The second is the one people miss. An office&#39;s group account was onboarded by no
+participant, so nobody but a foundation administrator or governance may record
+where it is — and that record is part of what makes the office real. So:</p>
+<pre><code class="language-bash">blockchaind query alias params
+</code></pre>
+<p>If the foundation&#39;s policy address is not in <code>foundation_administrators</code>, put it
+there with a governance proposal, <strong>once, before enrolling any country</strong>. It is
+not part of an enrolment and it should not be. <code>ceremony country grants</code> checks it
+and refuses rather than composing a proposal that would be voted through and then
+fail.</p>
+<hr>
+<h2>The sequence</h2>
+<h3>1. Generate each office&#39;s keys</h3>
+<p>One <code>ceremony host</code> per office, with the country and the roles set:</p>
+<pre><code class="language-bash">go build -o ceremony ./tools/ceremony
+./ceremony host --public-url https://pay.yamalelegal.com/ceremony/ --out ./senegal-payments
+</code></pre>
+<p>The coordinator&#39;s setup screen takes the office name, the roster, the threshold,
+the chain id — and now a <strong>country</strong> and a list of <strong>roles</strong>. Fill them in. They
+are not decoration:</p>
+<p><strong>The country and the roles are inside the parameters fingerprint every super user
+reads before generating a key.</strong> That is the point. Without them the sequence is:
+three people are told they are generating keys for Senegal&#39;s payments authority,
+they compare a fingerprint, they sign — and then a config pairs their group with a
+grant of enforcement authority over Nigeria, with every signature still verifying.
+With them in the fingerprint, a config that disagrees with what they signed is a
+refusal, and <code>ceremony country init</code> is where it refuses.</p>
+<p>Leave the country blank and it is a foundation ceremony. <code>ceremony country</code> refuses
+a foundation ceremony used as an office, and says why: those custodians attested to
+holding the chain&#39;s recovery destination, and nothing they signed mentions
+administering a country.</p>
+<p>Everything else is the hosted ceremony as documented: the words appear once and
+are never transmitted, a link speaks for one person, the page will not let anybody
+attest to a group their own key is not in. Read
+<a href="key-ceremony.html#the-hosted-ceremony">the hosted ceremony</a> before running one, and
+in particular read <a href="key-ceremony.html#two-ways-to-run-it-and-which-is-stronger">which of the two paths is stronger</a>
+— the same trade applies here, and for a country whose enforcement authority will
+be able to freeze accounts, the air-gapped path is still the stronger one.</p>
+<p>What each office ends with is <code>group.json</code> in its own directory, and a record its
+super users sign. <strong>Keep the group fingerprint.</strong> It is written into the enrolment
+record later and it is what ties an on-chain office back to the ceremony that made
+its keys.</p>
+<h3>2. Write the enrolment config</h3>
+<pre><code class="language-json">{
+  &quot;ceremony&quot;: &quot;Senegal enrolment&quot;,
+  &quot;chain_id&quot;: &quot;yamale-testnet-1&quot;,
+  &quot;country&quot;: &quot;SN&quot;,
+  &quot;foundation&quot;: &quot;yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj&quot;,
+  &quot;offices&quot;: [
+    {
+      &quot;name&quot;: &quot;Senegal payments authority&quot;,
+      &quot;roles&quot;: [&quot;ROLE_PAYMENTS_AUTHORITY&quot;, &quot;ROLE_ENFORCEMENT_AUTHORITY&quot;],
+      &quot;group&quot;: &quot;./senegal-payments/group.json&quot;
+    },
+    {
+      &quot;name&quot;: &quot;Senegal lands commission&quot;,
+      &quot;roles&quot;: [&quot;ROLE_REGISTRY_AUTHORITY&quot;],
+      &quot;group&quot;: &quot;./senegal-lands/group.json&quot;
+    }
+  ]
+}
+</code></pre>
+<p>Note what is <strong>not</strong> in it: no thresholds, no member addresses, no policy
+addresses. The first two come from the group files, which the offices&#39; super users
+signed for; the third comes from the chain. A config field for any of them would
+be a field somebody could fill in wrongly, and two of the three decide who ends up
+holding a country&#39;s authority.</p>
+<pre><code class="language-bash">./ceremony country init --config senegal.json
+</code></pre>
+<p>This prints every office, its threshold, its members with their fingerprints, its
+roles — and <strong>no address for anything</strong>, which is not an omission. It writes
+<code>country-SN.json</code>, the dossier, which every later step reads and rewrites.</p>
+<p>Read the printed fingerprints against the records the offices signed. This is the
+last moment at which a wrong group file costs nothing.</p>
+<h3>3. Create the groups</h3>
+<pre><code class="language-bash">./ceremony country groups --dossier country-SN.json --from operator
+</code></pre>
+<p>Two files per office and the exact command line for each. Broadcast them.</p>
+<p><strong>Any funded key can broadcast these</strong>, and that is safe rather than sloppy.
+<code>--group-policy-as-admin</code> makes the policy its own admin, so the account that
+signs keeps nothing: it cannot change the membership, the threshold, or who
+administers the office afterwards. Step 4 checks that it came out that way rather
+than assuming it.</p>
+<h3>4. Read the addresses back</h3>
+<p>For each office:</p>
+<pre><code class="language-bash">blockchaind query tx &lt;hash&gt; -o json &gt; tx.json
+# the policy address is in the EventCreateGroupPolicy in that file
+blockchaind query group group-policy-info &lt;address&gt; -o json &gt; policy.json
+blockchaind query group group-members &lt;group id&gt; -o json &gt; members.json
+
+./ceremony country confirm --dossier country-SN.json \
+  --office &quot;Senegal payments authority&quot; \
+  --tx tx.json --policy policy.json --members members.json
+</code></pre>
+<p>Three files, and yes, that is more copying than fetching would be. <code>tools/ceremony</code>
+makes no outbound network connections, and the key ceremony guide makes that claim
+to people who are about to type a seed phrase in front of it. One <code>net/http</code> call
+here would cost the claim to save a paste.</p>
+<p>What it buys is that the address is <strong>verified rather than trusted</strong>. A fetched
+address would be believed because it came over a socket. This one is checked
+against what the office is:</p>
+<table>
+<thead>
+<tr>
+<th>Refusal</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>the transaction created no group policy</td>
+<td>you queried the wrong transaction</td>
+</tr>
+<tr>
+<td>the policy is for a different address than the transaction created</td>
+<td>the grant would land on whichever one the tool believed</td>
+</tr>
+<tr>
+<td>the group id disagrees between the three documents</td>
+<td>one of them is about something else</td>
+</tr>
+<tr>
+<td>the policy is not its own admin</td>
+<td>somebody outside can rewrite the membership, so the threshold is advisory</td>
+</tr>
+<tr>
+<td>the threshold is not what the super users attested to</td>
+<td>the office on the chain is not the office they agreed to</td>
+</tr>
+<tr>
+<td>the members are not exactly the office&#39;s roster</td>
+<td><strong>this is the whole check</strong> — see below</td>
+</tr>
+<tr>
+<td>the address is the foundation&#39;s own</td>
+<td>the foundation would be appointing itself</td>
+</tr>
+</tbody></table>
+<p>The member check is set equality both ways. Not &quot;the office&#39;s members are among
+the group&#39;s&quot; — a group with a fourth member is a two-of-four. Not &quot;the group&#39;s are
+among the office&#39;s&quot; — a group missing one is a two-of-two, which concentrates more
+authority in whoever remains than the ceremony gave them. And a member with weight
+2 is refused, because equal weight is what makes &quot;two of three&quot; mean what it says.</p>
+<p><strong>Note the trap in the transaction result.</strong> A broadcast reporting <code>code: 0</code> has
+been <strong>accepted into a mempool</strong>. It has not executed. The tool refuses a document
+with <code>height: 0</code> for exactly this reason and tells you to query it instead. This
+is not hypothetical — see the next section, where the same trap has a much worse
+version.</p>
+<h3>5. The enrolment proposal</h3>
+<pre><code class="language-bash">blockchaind query constitution invariants -o json &gt; invariants.json
+blockchaind query alias params -o json &gt; alias-params.json
+
+./ceremony country grants --dossier country-SN.json \
+  --proposer &lt;a foundation custodian&gt; \
+  --invariants invariants.json --alias-params alias-params.json
+</code></pre>
+<p>One proposal for the whole country, carrying, in this order:</p>
+<ul>
+<li><code>MsgSetJurisdiction</code> per office, placing its own group account in the country,
+signed by the foundation as a foundation administrator;</li>
+<li><code>MsgGrantRole</code> per office per role, scoped to the country, never to <code>*</code>.</li>
+</ul>
+<p><strong>One proposal and not one per grant</strong>, deliberately. <code>x/group</code> executes a
+proposal&#39;s messages together or not at all, so this is the only shape in which
+&quot;the country is enrolled&quot; is a thing that either happened or did not. Split up,
+the state in between is a country with a payments authority and no enforcement
+authority — money moving in a perimeter nobody can stop. The cost is a longer
+document for three custodians to read, and the summary states every grant in words
+so that a custodian who reads only the summary has read the proposal.</p>
+<p>Submit it, and three custodians vote. Use the
+<a href="../../clients/foundation">foundation console</a> — it decodes a proposal into words,
+counts the votes, and composes the commands to run where the keys are.</p>
+<p><strong>Read the proposal on your own node before voting.</strong> Not this tool&#39;s summary of
+it, and not the console&#39;s:</p>
+<pre><code class="language-bash">blockchaind query group proposals-by-group-policy &lt;foundation&gt; -o json
+</code></pre>
+<h3>6. Verify that it actually happened</h3>
+<p>This step is not optional and here is why.</p>
+<p><code>blockchaind tx group exec</code> on a proposal that has <strong>not</strong> reached its threshold
+returns <strong><code>code: 0</code></strong>. Not an authorization error. Not a failed transaction. A
+clean, successful transaction that does nothing at all. The only signal anywhere
+is an event attribute:</p>
+<pre><code>EventExec.result = PROPOSAL_EXECUTOR_RESULT_NOT_RUN     # two of five
+EventExec.result = PROPOSAL_EXECUTOR_RESULT_SUCCESS     # three of five
+</code></pre>
+<p>So a script that checked the exit status, or even <code>query tx | .code</code>, would
+conclude the foundation had acted on two signatures. And an executed proposal is
+<strong>pruned</strong>, so <code>query group proposal &lt;id&gt;</code> afterwards returning &quot;not found&quot; is
+success rather than a fault.</p>
+<p>Do not infer. Read the registry:</p>
+<pre><code class="language-bash">blockchaind query alias role-grants &lt;office policy address&gt; -o json &gt; grants.json
+blockchaind query alias jurisdiction &lt;office policy address&gt; -o json &gt; placed.json
+
+./ceremony country verify --dossier country-SN.json \
+  --office &quot;Senegal payments authority&quot; \
+  --grants grants.json --jurisdiction placed.json
+</code></pre>
+<p>It checks that every role the dossier describes is present, in this country, and
+<strong>granted by the foundation</strong> — that last part as much as the first, because a
+grant of the right role in the right country made by some other authority is
+somebody else&#39;s act, and recording it on this enrolment&#39;s record would put your
+signature on it.</p>
+<p>Grants the office holds that this enrolment did not make are <strong>reported, not
+refused</strong>. An office may legitimately have been granted something by governance.
+An office holding a chain-wide grant is the single most important thing a reader of
+the record could want to know, so it appears on the screen rather than being
+filtered out.</p>
+<h3>7. Place the first institutions</h3>
+<p>This is the step nothing announces, and skipping it produces a chain that looks
+broken.</p>
+<p>The country&#39;s payments authority now holds a perfectly good grant. It still cannot
+admit the first bank in its own country. <code>x/paymsg</code>&#39;s delegated approval path calls
+the perimeter check on the <strong>applicant</strong>, and the perimeter check refuses a target
+the chain cannot place <em>before</em> it consults any grant. The applicant has no
+jurisdiction record. It may not declare its own. And there is no approved
+participant in the country yet to record one, because that is what is being
+attempted.</p>
+<p>So the foundation records it, once, for the seed:</p>
+<pre><code class="language-bash">./ceremony country seed --dossier country-SN.json \
+  --proposer &lt;a foundation custodian&gt; --account &lt;applicant&gt;
+</code></pre>
+<p>Another foundation proposal, three votes, and then:</p>
+<pre><code class="language-bash">blockchaind query alias jurisdiction &lt;applicant&gt; -o json &gt; placed.json
+./ceremony country seed --dossier country-SN.json --account &lt;applicant&gt; --verified placed.json
+</code></pre>
+<p><strong>Every account after these is placed by the participant that onboarded it</strong>,
+which is where the record belongs: the participant did the KYC and is the only
+party that knows the answer. The seed is a bootstrap and not a pattern. A
+deployment that kept using it would have the foundation asserting the country of
+accounts it has never met, which is exactly the arrangement
+<a href="../scope/roles-and-perimeter.html">the perimeter design</a> rejects.</p>
+<h3>8. The payments authority admits them</h3>
+<pre><code class="language-bash">./ceremony country admit --dossier country-SN.json \
+  --proposer &lt;an office super user&gt; --applicant &lt;bank&gt;
+</code></pre>
+<p>A proposal to <strong>the office&#39;s</strong> group, not the foundation&#39;s. This is what enrolling
+the country bought: licensing a payment service provider in Senegal is decided by
+Senegal&#39;s payments authority, M-of-N, and not by the foundation and not by a
+chain-wide governance vote.</p>
+<p>The tool refuses to compose it until two things have been read back off the chain
+— the office&#39;s grant, and the applicant&#39;s placement — because both failures look
+identical from the outside. A payments authority whose grant never executed refuses
+exactly as one that was never appointed does.</p>
+<p>Then verify, as always:</p>
+<pre><code class="language-bash">blockchaind query paymsg get-approved-participant &lt;bank&gt; -o json &gt; admitted.json
+./ceremony country admit --dossier country-SN.json --applicant &lt;bank&gt; --verified admitted.json
+</code></pre>
+<h3>9. The record</h3>
+<pre><code class="language-bash">./ceremony country record --dossier country-SN.json --config record.json
+</code></pre>
+<pre><code class="language-json">{
+  &quot;location&quot;: &quot;Dakar&quot;,
+  &quot;started_at&quot;: &quot;2026-09-01T09:00:00Z&quot;,
+  &quot;completed_at&quot;: &quot;2026-09-01T15:30:00Z&quot;,
+  &quot;proposal_id&quot;: &quot;4&quot;,
+  &quot;custodians&quot;: [&quot;Amara Okafor&quot;, &quot;Chipo Mwale&quot;, &quot;Eshe Njoroge&quot;],
+  &quot;participants&quot;: [
+    {&quot;name&quot;: &quot;R. Lead&quot;, &quot;role&quot;: &quot;enrolment lead&quot;, &quot;organisation&quot;: &quot;Yamale Foundation&quot;},
+    {&quot;name&quot;: &quot;S. Scribe&quot;, &quot;role&quot;: &quot;scribe&quot;, &quot;organisation&quot;: &quot;Yamale Foundation&quot;},
+    {&quot;name&quot;: &quot;O. Observer&quot;, &quot;role&quot;: &quot;independent observer&quot;, &quot;organisation&quot;: &quot;External Auditors LLP&quot;}
+  ],
+  &quot;notes&quot;: []
+}
+</code></pre>
+<p>Every address, threshold, grant and fingerprint in the rendered record is read out
+of the dossier — which is to say out of the chain&#39;s own answers, verified. Nothing
+is retyped. An enrolment record carrying a mistyped office address would be a
+document whose only purpose is to detect mistyped office addresses.</p>
+<p><strong>It refuses to render</strong> if any office is unconfirmed or any grant unverified. A
+record signed at that point would state that a country&#39;s authorities hold powers
+nobody has checked they hold, and an accepted-but-unexecuted proposal looks exactly
+like that.</p>
+<p>One claim in it is typed rather than read, and the record says so: <strong>which three
+custodians voted</strong>. That is a fact on the chain, in the proposal&#39;s votes, and this
+tool cannot read it. The record names the proposal so a reader can check.</p>
+<p><strong>Print it. Everybody signs the paper copy before leaving</strong> — every office&#39;s super
+users, the lead, the scribe and the observer.</p>
+<hr>
+<h2>Checking somebody else&#39;s enrolment</h2>
+<p>Every claim in the record is a query. This is the whole point of putting the
+addresses in it.</p>
+<pre><code class="language-bash"># the foundation is who the record says it is, and cannot be changed by a vote
+blockchaind query constitution invariants
+
+# each office is the group the record describes
+blockchaind query group group-members &lt;group id&gt;
+blockchaind query group group-policies-by-group &lt;group id&gt;
+
+# and holds exactly the roles the record lists, granted by the foundation
+blockchaind query alias role-grants &lt;office policy address&gt;
+
+# everybody who may act in the country, from the country&#39;s end
+blockchaind query alias role-holders SN
+
+# and everybody no border bounds, which should be a very short list
+blockchaind query alias chain-wide-grants
+</code></pre>
+<p>The last two are the supervisory pair. <code>role-holders SN</code> deliberately does <strong>not</strong>
+fold in the chain-wide grants: a country&#39;s own list should show what that country
+granted, and mixing the exceptions in would hide them among the ordinary entries
+of every country at once.</p>
+<h2>What an authority can and cannot do once enrolled</h2>
+<p>The perimeter is not advisory and it is not checked once at appointment. It is
+<code>AssertScope</code>, in every message server that acts on an account, against current
+state, every time.</p>
+<p>So Senegal&#39;s enforcement authority can open a case against an account recorded in
+<code>SN</code> and is refused — <code>ErrOutOfScope</code>, naming the role and the country — against
+an account recorded anywhere else. An account the chain cannot place at all is
+refused to everybody, including the holder of a chain-wide grant, and that refusal
+comes <em>before</em> any grant is consulted.</p>
+<p>That last one is worth internalising, because it is the shape of most surprises
+here: a great many failures that look like &quot;my authority does not work&quot; are
+actually &quot;the account you named has no jurisdiction record&quot;.</p>
+<h2>Validators are a different registry, and the difference is real</h2>
+<p><code>x/validatorgov</code> collects a validator&#39;s jurisdiction in its application, alongside
+its legal entity and beneficial owner, and validates it against the same assigned
+country list. It does <strong>not</strong> write it into <code>x/alias</code>.</p>
+<p>That is not an oversight and it is not being fixed by merging them. The two facts
+have different provenance:</p>
+<ul>
+<li>a validator <strong>declaring</strong> Senegal is a signed claim by its operator;</li>
+<li>Senegal&#39;s participant <strong>recording</strong> Senegal is a finding by whoever did the KYC.</li>
+</ul>
+<p>Merging either direction destroys something. Overwriting the declaration with the
+record throws away the signature that makes a false declaration an offence.
+Treating the declaration as a record makes the registry a place where accounts
+place themselves, which is the one thing it exists to prevent.</p>
+<p>So they are reconciled and the disagreement is made visible:</p>
+<pre><code class="language-bash">blockchaind query validatorgov jurisdiction-reconciliation
+</code></pre>
+<p>Every approved validator, its declared country, its recorded country if it has
+one, who recorded it, and a state: <code>AGREE</code>, <code>DISAGREE</code>, or <code>UNRECORDED</code> — plus
+counts, so &quot;three disagree&quot; is visible without scanning. The zero value of that
+enum is reserved as unspecified, like every enum on this chain, so an unfilled row
+can never read as agreement.</p>
+<p><code>UNRECORDED</code> is the ordinary state for a validator nobody has placed, and it is a
+real answer rather than a fault: a validator&#39;s operator account can be put in a
+jurisdiction the same way any other account is, and until somebody does, no
+authority&#39;s perimeter contains it.</p>
+<p>To place one, the enrolment has a command of its own, and it reads the
+reconciliation first:</p>
+<pre><code class="language-bash">blockchaind query validatorgov jurisdiction-reconciliation -o json &gt; reconciliation.json
+
+./ceremony country validator --dossier country-SN.json \
+  --proposer &lt;a foundation custodian&gt; \
+  --candidate &lt;the validator&#39;s operator account&gt; \
+  --reconciliation reconciliation.json
+</code></pre>
+<p>A foundation proposal, for the same reason the first institutions need one: a
+validator&#39;s operator account is nobody&#39;s payment customer, so no approved
+participant acts for it, and <code>MsgSetJurisdiction</code> accepts only that participant, a
+foundation administrator or governance.</p>
+<p><strong>It refuses to place a validator in a country it did not declare</strong>, and that is
+why it wants the reconciliation rather than just an address. Placing one against a
+different declaration would <em>manufacture</em> the disagreement that query exists to
+reveal, with the foundation&#39;s signature on it. If the two really do differ, that
+is a finding for a person: either the validator declared a country it does not
+answer to, or somebody is about to record the wrong one. The declaration is signed
+by the operator, so if it is the declaration that is wrong, that is what has to be
+corrected — through <code>x/validatorgov</code>, by whoever signed it.</p>
+<p>It also refuses a candidate that is not an <em>approved</em> validator, because an
+application is not an approval; and where the two already agree it says there is
+nothing to do rather than composing a proposal that changes nothing. Where the
+state is <code>DISAGREE</code> it will compose one — correcting a recorded country is exactly
+a foundation administrator&#39;s job — but it labels the proposal a correction and
+names on screen whose finding is being overwritten.</p>
+<p>What it never does is copy one registry into the other. It writes the <code>x/alias</code>
+record and leaves the declaration where it is. The two remain two, and the
+reconciliation query remains the thing that shows them side by side.</p>
+<hr>
+<h2>When something goes wrong</h2>
+<p><strong>A group was created with the wrong members.</strong> Do not grant anything to it.
+<code>confirm</code> will refuse it, which is the tool doing its job. Create the group again
+from the same <code>group.json</code> — the office&#39;s keys are untouched — and confirm the new
+one. The abandoned group policy sits on the chain holding nothing; note it in the
+record.</p>
+<p><strong>The enrolment proposal was accepted and did not execute.</strong> <code>verify</code> refuses and
+names the missing grant. Look at the proposal rather than the transaction: it may
+not have reached three votes, it may have expired, or one message in it may have
+failed and taken the rest with it. Re-submitting the same proposal is ordinary and
+safe — granting the same triple again rewrites the attribution and the height and
+changes nothing else, deliberately, so that a proposal resubmitted after a timeout
+does what an operator expects.</p>
+<p><strong>An office&#39;s keys are compromised.</strong> Revoke first, ask questions afterwards. The
+foundation may revoke what the foundation may grant, so this is one 3-of-5 vote
+rather than a governance cycle — that asymmetry is deliberate, because the reason
+to revoke in a hurry is that somebody is abusing an authority, and granting is the
+act that wants friction rather than removing.</p>
+<pre><code class="language-bash">blockchaind query alias role-grants &lt;office policy address&gt;
+# then a foundation proposal carrying MsgRevokeRole for each grant, named exactly
+</code></pre>
+<p>Revoking a grant that was never made is an <strong>error</strong> rather than a quiet success,
+on purpose: &quot;nothing to revoke&quot; is how a proposal that named the wrong country
+passes while leaving the authority it meant to remove in place.</p>
+<p><strong>A super user leaves.</strong> The office&#39;s group administers itself, so a
+<code>MsgUpdateGroupMembers</code> proposal to that office, voted by its own threshold. The
+foundation is not involved and does not need to be. Read
+<a href="key-ceremony.html#replacing-a-custodian">replacing a custodian</a> first — the ratchet
+described there applies to any M-of-N: dropping three-of-three to three-of-two is
+not &quot;one short&quot;, it is a veto for everybody left. Departures and replacements are
+one decision.</p>
+<p>Note that <code>x/constitution</code>&#39;s ante gate protects the <strong>foundation&#39;s</strong> group shape
+and not an office&#39;s. An office that drifts to a size nobody intended is not
+refused by the chain; the only thing standing between a country&#39;s payments
+authority and a two-of-two is the people voting on it. That is a real gap between
+the two ceremonies and it is stated here rather than left to be discovered.</p>
+<hr>
+<p><strong>Full reference:</strong> <a href="../reference/alias.html">x/alias</a> for the grants, the
+jurisdictions and every error code; <a href="../reference/validatorgov.html">x/validatorgov</a>
+for the reconciliation query; <a href="../reference/constitution.html">x/constitution</a> for
+what governance can and cannot change. All generated from the source.</p>
+
+</main>
+</body>
+</html>

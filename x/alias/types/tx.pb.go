@@ -812,18 +812,74 @@ var xxx_messageInfo_MsgGrantAuditorResponse proto.InternalMessageInfo
 
 // MsgGrantRole grants a role inside one jurisdiction.
 //
-// Governance only, and unlike the appointments above a foundation administrator
-// cannot sign it either. The reason is the difference between using a power and
-// deciding who holds one: an administrator naming a country's regulator is
-// operating the rail governance already put them on, whereas an administrator
-// able to grant roles could grant themselves the chain-wide scope and then
-// grant it to anyone else. Every widening of who may act therefore goes through
-// a vote, in public, one grant at a time.
+// Two signers, and which one is allowed depends on the scope being granted:
+//
+//   - a **country** scope may be granted by governance or by the foundation;
+//   - the **chain-wide** scope may be granted by governance and nobody else.
+//
+// "The foundation" here means one specific account: the address
+// x/constitution pins as enforcement_recovery_destination, which is the 3-of-5
+// group produced by the key ceremony and the account every seized asset on the
+// chain is sent to. It is deliberately not the foundation_administrators list in
+// this module's own parameters, and the difference matters — a parameter list is
+// editable by one ordinary governance proposal, so naming the foundation there
+// would make "who may appoint a country's authorities" a set that a single vote
+// could append to. An invariant cannot be changed without a constitutional
+// amendment.
+//
+// # Why the foundation, when this used to be governance alone
+//
+// It was governance-only, and the argument was that there is a difference
+// between using a power and deciding who holds one: an administrator naming a
+// country's regulator is operating the rail governance already put them on,
+// whereas an administrator able to grant roles could grant themselves the
+// chain-wide scope and then grant it to anyone. Every widening of who may act
+// went through a vote, in public, one grant at a time.
+//
+// What that did not survive was enrolling a country. Bringing one country onto
+// the rail is not one grant: it is an M-of-N group per office, two to five role
+// grants across those offices, and the jurisdiction records for the offices' own
+// accounts — a sequence that has to land in a particular order. Under
+// governance-only, each part was a separate proposal that could pass, fail or
+// time out on its own, so the friction was not being paid once per widening of
+// authority but several times over for one decision. The outcome of that is a
+// bundle proposal nobody reads, or a deployment that seeds its grants in genesis
+// and never revisits them.
+//
+// So admitting a country is the foundation's act: three of five custodians from
+// five organisations, attributable on chain in granted_by. What was given up is
+// publicity and delay — the validator set no longer has a veto over who
+// administers a perimeter, and the appointment no longer sits in public for a
+// voting period first.
+//
+// Three residual consequences, stated rather than discovered. None of them lets
+// the foundation reach a state governance could not, and all three are bounded by
+// the chain-wide scope staying closed:
+//
+//  1. The foundation can grant one office the same role in every country, one
+//     grant at a time, arriving where a chain-wide grant would by a longer road.
+//     Bounded by the assigned country list rather than prevented, and enumerable:
+//     every grant is listed by RoleGrants and RoleHolders, and the chain-wide ones
+//     have an endpoint of their own.
+//  2. It can revoke a country grant GOVERNANCE made — a reduction of the validator
+//     set's power, kept because the alternative makes an emergency the expensive
+//     case. See MsgRevokeRole.
+//  3. It can grant itself a country role. That is permitted on purpose: a country
+//     admitted before its offices exist needs an interim authority, and refusing
+//     holder == authority would block that while preventing nothing, since the
+//     foundation can appoint any group it controls. Re-granting an existing triple
+//     also rewrites granted_by, so that field names the last authority to write
+//     the grant rather than the first; the events carry the history.
 //
 // The holder must be an x/group account. A role is only worth the office that
 // holds it, and an office that is one key is one bribe — which is the same
-// reasoning that makes x/land refuse a registry office that is not a group.
+// reasoning that makes x/land refuse a registry office that is not a group. That
+// applies to the foundation's grants exactly as it applies to governance's: the
+// widening is about who may sign and about nothing else.
 type MsgGrantRole struct {
+	// authority is the governance account, or the foundation — the address
+	// x/constitution pins as enforcement_recovery_destination. Any other signer is
+	// refused, and so is the foundation when the jurisdiction below is "*".
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	// holder is the account being granted the role.
 	Holder string `protobuf:"bytes,2,opt,name=holder,proto3" json:"holder,omitempty"`
@@ -835,6 +891,12 @@ type MsgGrantRole struct {
 	// chain-wide. The reserved code the foundation's own identifiers carry is
 	// refused — it marks the absence of a perimeter, so a grant over it would
 	// confer nothing while reading like everything.
+	//
+	// This field also decides who may sign the message, so it is validated before
+	// the signer is checked. "*" narrows the acceptable authority to governance
+	// alone, and that narrowing happens before the constitution is read: a store
+	// failure while resolving the foundation must not be the thing that decides
+	// whether the chain-wide scope was allowed.
 	Jurisdiction string `protobuf:"bytes,4,opt,name=jurisdiction,proto3" json:"jurisdiction,omitempty"`
 }
 
@@ -938,11 +1000,26 @@ var xxx_messageInfo_MsgGrantRoleResponse proto.InternalMessageInfo
 
 // MsgRevokeRole removes one grant, named exactly.
 //
+// The same signers as MsgGrantRole, and deliberately not a narrower set: whoever
+// may appoint a country's authority may also remove it, and only governance may
+// touch a chain-wide grant in either direction.
+//
+// Keeping revocation governance-only while granting was widened was considered
+// and rejected, because it puts the slow path on the wrong action. The reason to
+// revoke in a hurry is that an office's keys are compromised or its authority is
+// being abused, and a rule under which the foundation can appoint a national
+// enforcement authority with one 3-of-5 vote but needs a full governance cycle to
+// remove one makes the emergency the expensive case. Granting authority is the
+// act that wants friction; taking it away is the act that has to be possible on a
+// Sunday.
+//
 // The jurisdiction is part of what is revoked rather than implied, because a
 // holder may hold the same role in several countries and revoking "their
 // enforcement role" would be ambiguous between removing one perimeter and
-// removing all of them. Governance says which.
+// removing all of them. The signer says which.
 type MsgRevokeRole struct {
+	// authority is the governance account, or the foundation. Same rule as
+	// MsgGrantRole, including that "*" is governance alone.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	// holder is the account losing the role.
 	Holder string `protobuf:"bytes,2,opt,name=holder,proto3" json:"holder,omitempty"`
@@ -955,6 +1032,8 @@ type MsgRevokeRole struct {
 	// granted is an error rather than a quiet success — "nothing to revoke" is how
 	// a proposal that named the wrong country passes while leaving the authority
 	// it meant to remove in place.
+	//
+	// As on the grant, this decides who may sign: "*" is governance alone.
 	Jurisdiction string `protobuf:"bytes,4,opt,name=jurisdiction,proto3" json:"jurisdiction,omitempty"`
 }
 
@@ -1263,9 +1342,10 @@ type MsgClient interface {
 	AppointRegulator(ctx context.Context, in *MsgAppointRegulator, opts ...grpc.CallOption) (*MsgAppointRegulatorResponse, error)
 	// GrantAuditor grants the time-boxed cross-account reading role.
 	GrantAuditor(ctx context.Context, in *MsgGrantAuditor, opts ...grpc.CallOption) (*MsgGrantAuditorResponse, error)
-	// GrantRole grants a role inside one jurisdiction. Governance only.
+	// GrantRole grants a role inside one jurisdiction. Governance, or the
+	// foundation for a country; governance alone for the chain-wide scope.
 	GrantRole(ctx context.Context, in *MsgGrantRole, opts ...grpc.CallOption) (*MsgGrantRoleResponse, error)
-	// RevokeRole removes one such grant. Governance only.
+	// RevokeRole removes one such grant. The same signers as GrantRole.
 	RevokeRole(ctx context.Context, in *MsgRevokeRole, opts ...grpc.CallOption) (*MsgRevokeRoleResponse, error)
 	// UpdateParams sets the module parameters. Governance only.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
@@ -1385,9 +1465,10 @@ type MsgServer interface {
 	AppointRegulator(context.Context, *MsgAppointRegulator) (*MsgAppointRegulatorResponse, error)
 	// GrantAuditor grants the time-boxed cross-account reading role.
 	GrantAuditor(context.Context, *MsgGrantAuditor) (*MsgGrantAuditorResponse, error)
-	// GrantRole grants a role inside one jurisdiction. Governance only.
+	// GrantRole grants a role inside one jurisdiction. Governance, or the
+	// foundation for a country; governance alone for the chain-wide scope.
 	GrantRole(context.Context, *MsgGrantRole) (*MsgGrantRoleResponse, error)
-	// RevokeRole removes one such grant. Governance only.
+	// RevokeRole removes one such grant. The same signers as GrantRole.
 	RevokeRole(context.Context, *MsgRevokeRole) (*MsgRevokeRoleResponse, error)
 	// UpdateParams sets the module parameters. Governance only.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)

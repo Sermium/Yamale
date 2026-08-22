@@ -20,7 +20,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 // distributed.go: a change to any canonical encoding has to invalidate old
 // values rather than silently produce a different fingerprint for the same
 // ceremony.
-export const PARAMS_DOMAIN = 'yamale-ceremony-params-v1';
+export const PARAMS_DOMAIN = 'yamale-ceremony-params-v2';
 export const GROUP_DOMAIN = 'yamale-ceremony-group-v1';
 export const POSSESSION_DOMAIN = 'yamale-ceremony-possession-v1';
 export const ATTESTATION_DOMAIN = 'yamale-ceremony-attestation-v1';
@@ -103,6 +103,31 @@ export function longDigest(domain: string, data: Uint8Array): string {
   return `${encoded.slice(0, 4)}-${encoded.slice(4, 8)}-${encoded.slice(8, 12)}-${encoded.slice(12, 16)}`;
 }
 
+// VALID_ROLES is every role a country office can be granted.
+//
+// Hard-coded because this bundle cannot import a Go enum, and pinned by the
+// fixture's role_names array — exactly the arrangement policy_derivation already
+// uses for the two SDK constants. If the chain's enum moves and this does not,
+// the Go test says so rather than the page silently offering a role the chain
+// does not have, or refusing one it does.
+export const VALID_ROLES = [
+  'ROLE_ENFORCEMENT_AUTHORITY',
+  'ROLE_MONETARY_AUTHORITY',
+  'ROLE_PAYMENTS_AUTHORITY',
+  'ROLE_REGISTRY_AUTHORITY',
+  'ROLE_SUPERVISOR',
+] as const;
+
+// OfficeParams is the country-office half of a ceremony's parameters.
+//
+// Absent for the foundation ceremony, which belongs to no national perimeter.
+export type OfficeParams = { country: string; roles: string[] };
+
+// The office is inside the parameters — and therefore inside the fingerprint the
+// super users read aloud before generating — because it is what the key is FOR.
+// Without it a coordinator could take the keys three people generated "for
+// Senegal" and stand up an office granted authority over Nigeria, and nothing any
+// of them had seen would have said so.
 export type CeremonyParams = {
   ceremony_id: string;
   ceremony: string;
@@ -111,6 +136,7 @@ export type CeremonyParams = {
   custodians: string[];
   policy_seq: number;
   voting_period: string;
+  office?: OfficeParams | null;
 };
 
 // paramsCanonical is the byte string the params fingerprint is taken over.
@@ -119,8 +145,20 @@ export type CeremonyParams = {
 // Go writes it out by hand: a JSON encoding would make the fingerprint depend on
 // key order and on whether an empty field was omitted, and this is the value
 // five people compare over a telephone before anybody generates a key.
+//
+// The office block is last, and an absent office encodes IDENTICALLY to one with
+// an empty country and no roles: canonField('') followed by a count of zero. That
+// ambiguity is deliberate and unreachable — validateParams refuses an office
+// whose country is not an assigned code — and what it buys is that the
+// foundation's canonical bytes are the old bytes plus a fixed eight-byte tail
+// rather than two shapes a reader has to hold in their head.
 export function paramsCanonical(p: CeremonyParams): Uint8Array {
   const names = [...p.custodians].sort(compareGoStrings);
+  // Sorted on a copy, for the same reason the names are: the encoding must depend
+  // on the SET of roles the office is being granted, not on the order somebody
+  // typed them into a form. compareGoStrings rather than the default sort so the
+  // order is Go's sort.Strings — UTF-8 bytes — even though role names are ASCII.
+  const roles = [...(p.office?.roles ?? [])].sort(compareGoStrings);
   return concatBytes(
     canonField(PARAMS_DOMAIN),
     canonField(p.ceremony_id),
@@ -131,6 +169,9 @@ export function paramsCanonical(p: CeremonyParams): Uint8Array {
     canonField(p.voting_period),
     canonCount(names.length),
     ...names.map(canonField),
+    canonField(p.office?.country ?? ''),
+    canonCount(roles.length),
+    ...roles.map(canonField),
   );
 }
 

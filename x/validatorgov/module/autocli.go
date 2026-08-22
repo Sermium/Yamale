@@ -75,6 +75,28 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "list-demotion",
 					Short:     "Lists the validators the concentration ceilings are currently holding down",
 				},
+				{
+					RpcMethod: "JurisdictionReconciliation",
+					Use:       "jurisdiction-reconciliation",
+					Short:     "Compares each validator's declared country with the one the chain recorded",
+					Long: "Compares each validator's declared country with the one the chain recorded.\n\n" +
+						"Two registries, on purpose. A validator declares its jurisdiction when it\n" +
+						"applies and signs for it; the jurisdiction registry is written by the\n" +
+						"participant that onboarded the account and did the know-your-customer work,\n" +
+						"or corrected by a foundation administrator, and never by the account itself.\n" +
+						"They are reconciled here and merged nowhere: merging one into the other would\n" +
+						"either destroy the signature that makes a false declaration an offence, or let\n" +
+						"a validator choose the perimeter with the least authority watching it.\n\n" +
+						"DISAGREE is not a breach and nothing is done to the validator for it. It means\n" +
+						"one of two things is wrong and somebody has to find out which, because the\n" +
+						"jurisdiction ceiling is computed over the declaration while every authority\n" +
+						"acting on the account is scoped by the record.\n\n" +
+						"UNRECORDED is reported apart from AGREE: an account nobody has placed has a\n" +
+						"declaration nobody has corroborated, and the remedy is to place the account.\n\n" +
+						"Every approved validator is listed, agreements included, with counts. A query\n" +
+						"that answered with an empty list when all was well would be indistinguishable\n" +
+						"from one pointed at an empty registry.",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

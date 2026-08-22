@@ -1,6 +1,10 @@
 package validatorgov
 
 import (
+	"context"
+	"errors"
+
+	"cosmossdk.io/collections"
 	"cosmossdk.io/core/address"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/store"
@@ -10,6 +14,8 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 
+	aliaskeeper "yamale/blockchain/x/alias/keeper"
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/validatorgov/keeper"
 	"yamale/blockchain/x/validatorgov/types"
 )
@@ -49,6 +55,19 @@ type ModuleInputs struct {
 	// in this repository, so this module and x/enforcement can both consult it
 	// without depinject having a cycle to resolve.
 	ConstitutionKeeper types.ConstitutionKeeper
+
+	// AliasKeeper supplies the jurisdiction the chain has on record for an
+	// account, so the JurisdictionReconciliation query can set it beside the one
+	// the validator declared here. Read-only and one-directional in the same way
+	// as the constitution above: x/alias imports nothing from this module, so
+	// depinject has no cycle to resolve.
+	//
+	// Taken as the concrete keeper rather than as an interface, following
+	// AuthzKeeper. The record this module needs is x/alias's exported
+	// Jurisdictions collection, and a collection is a field — no interface can
+	// name it. Adapting it here is what keeps the alternative off the table,
+	// which was adding a reader to another module's keeper for one consumer.
+	AliasKeeper aliaskeeper.Keeper
 }
 
 type ModuleOutputs struct {
@@ -74,8 +93,45 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.AuthKeeper,
 		in.BankKeeper,
 		in.ConstitutionKeeper,
+		NewAliasJurisdictions(in.AliasKeeper),
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 
 	return ModuleOutputs{ValidatorgovKeeper: k, Module: m}
+}
+
+var _ types.AliasKeeper = AliasJurisdictions{}
+
+// AliasJurisdictions is the one read this module makes of x/alias's jurisdiction
+// registry, and nothing else.
+//
+// It exists so that x/alias needs no change to be consulted. Its Jurisdictions
+// collection is already exported, so the record is already readable; what was
+// missing was a method to name in an interface, and inventing one inside the
+// other module would have put a reader there for a single caller.
+//
+// Nothing here decides anything, which is the point of keeping it this thin. A
+// missing record becomes found=false and every other store error is returned
+// untouched. There is no path on which a failed lookup produces a country.
+type AliasJurisdictions struct{ k aliaskeeper.Keeper }
+
+// NewAliasJurisdictions wraps an x/alias keeper as the read this module needs.
+// Exported so that a test wiring the real registry uses the same adapter the
+// chain does, rather than a stub that would answer with whatever the test
+// already believed.
+func NewAliasJurisdictions(k aliaskeeper.Keeper) AliasJurisdictions {
+	return AliasJurisdictions{k: k}
+}
+
+// JurisdictionOf returns the record x/alias holds for an account, if any.
+func (a AliasJurisdictions) JurisdictionOf(ctx context.Context, address string) (aliastypes.Jurisdiction, bool, error) {
+	record, err := a.k.Jurisdictions.Get(ctx, address)
+	switch {
+	case err == nil:
+		return record, true, nil
+	case errors.Is(err, collections.ErrNotFound):
+		return aliastypes.Jurisdiction{}, false, nil
+	default:
+		return aliastypes.Jurisdiction{}, false, err
+	}
 }

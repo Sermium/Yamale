@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,16 @@ type ceremonyVectors struct {
 		TablePrefix int    `json:"group_policy_table_prefix"`
 	} `json:"policy_derivation"`
 
+	// RoleNames pins the chain's role enum for the browser, which cannot import
+	// it. Same arrangement as PolicyDerivation above: the Go side generates it
+	// from aliastypes.Role_name filtered by ValidRole, and the TypeScript suite
+	// asserts its own hard-coded table equals this array. A role added to the
+	// chain and not to the page would otherwise be a role the coordinator's form
+	// silently refused; one removed from the chain and not from the page would be
+	// a ceremony whose super users read a fingerprint aloud for authority the
+	// chain will never grant.
+	RoleNames []string `json:"role_names"`
+
 	PolicyAddresses []policyAddressVector `json:"policy_addresses"`
 
 	// Durations pin two things the browser has to do that look trivial and are
@@ -81,6 +92,22 @@ type ceremonyVectors struct {
 	Group groupVector `json:"group"`
 
 	Attestations []attestationVector `json:"attestations"`
+
+	// The country-office ceremony, pinned separately and in full.
+	//
+	// Without it only the foundation path is covered, and the foundation path is
+	// the one with a track record: its canonical bytes are the old bytes plus a
+	// fixed empty tail, so it would keep agreeing across the two languages even if
+	// the office encoding had been implemented differently on each side. The
+	// office path is the new one, it is the one where a nil and an empty string
+	// have to produce identical bytes, and it is therefore exactly the one that
+	// can diverge silently — with the consequence that a country's super users and
+	// their coordinator read different fingerprints and cannot tell that apart
+	// from an attack.
+	OfficeParams            ceremonyParams `json:"office_params"`
+	OfficeParamsCanonicalHx string         `json:"office_params_canonical_hex"`
+	OfficeParamsFingerprint string         `json:"office_params_fingerprint"`
+	OfficeGroup             groupVector    `json:"office_group"`
 }
 
 type policyAddressVector struct {
@@ -112,9 +139,21 @@ type custodianVector struct {
 }
 
 type groupVector struct {
-	ComputedAt       string `json:"computed_at"`
-	PolicyAddress    string `json:"policy_address"`
-	GenesisJSON      string `json:"genesis_json"`
+	ComputedAt    string `json:"computed_at"`
+	PolicyAddress string `json:"policy_address"`
+	// Label, Metadata and PolicyMetadata are the three strings recorded on chain
+	// as what this group is. Pinned because the first two are inside the genesis
+	// fragment the group fingerprint covers, and because they are the field a
+	// human reads to find out whose group they are looking at — a country office
+	// recorded as "Yamale foundation" is a lie in the one place nobody checks.
+	Label          string `json:"label"`
+	Metadata       string `json:"metadata"`
+	PolicyMetadata string `json:"policy_metadata"`
+	GenesisJSON    string `json:"genesis_json"`
+	// ConstitutionJSON is the empty string for a country office. That is the
+	// value under test, not an omission: Go leaves the field nil and the browser
+	// holds "", and canonBytes has to produce the same four zero bytes from both
+	// or the two languages compute different group fingerprints.
 	ConstitutionJSON string `json:"constitution_json"`
 	CanonicalHex     string `json:"canonical_hex"`
 	Fingerprint      string `json:"fingerprint"`
@@ -181,6 +220,7 @@ func buildVectors(t *testing.T) ceremonyVectors {
 	}
 	v.PolicyDerivation.Module = group.ModuleName
 	v.PolicyDerivation.TablePrefix = int(groupkeeper.GroupPolicyTablePrefix)
+	v.RoleNames = ceremonyRoleNames()
 
 	for _, seq := range []uint64{0, 1, 2, 4096} {
 		address, err := policyAddress(seq)
@@ -246,14 +286,56 @@ func buildVectors(t *testing.T) ceremonyVectors {
 
 	a, err := assembleGroup(v.Params, submissions)
 	require.NoError(t, err)
-	v.Group = groupVector{
-		ComputedAt:       a.ComputedAt,
-		PolicyAddress:    a.PolicyAddress,
-		GenesisJSON:      string(a.Genesis),
-		ConstitutionJSON: string(a.Constitution),
-		CanonicalHex:     hex.EncodeToString(a.canonical()),
-		Fingerprint:      a.Fingerprint,
+	v.Group = groupVectorOf(a, v.Params)
+
+	// The office ceremony, over the first three of the same phrases.
+	//
+	// A 2-of-3 rather than a 3-of-5, because that is the shape a country office
+	// actually is, and over the same names so that the office's genesis fragment
+	// exercises Go's HTML escaping the way the foundation's does. Two roles, given
+	// in the order a coordinator would type them rather than sorted, so the
+	// fixture proves the encoding sorts them.
+	v.OfficeParams = ceremonyParams{
+		ID:           "9WPXTM-3KZ4QC-7HB0VN-2RJDGS",
+		Name:         "Senegal payments authority",
+		ChainID:      "yamale-1",
+		Threshold:    2,
+		Custodians:   append([]string(nil), vectorNames[:3]...),
+		PolicySeq:    7,
+		VotingPeriod: "72h0m0s",
+		Office: &officeParams{
+			Country: "SN",
+			Roles:   []string{"ROLE_PAYMENTS_AUTHORITY", "ROLE_ENFORCEMENT_AUTHORITY"},
+		},
 	}
+	require.NoError(t, v.OfficeParams.validate())
+	v.OfficeParamsCanonicalHx = hex.EncodeToString(v.OfficeParams.canonical())
+	v.OfficeParamsFingerprint = v.OfficeParams.fingerprint()
+
+	officeSubmissions := make([]submission, 0, 3)
+	for i := range v.OfficeParams.Custodians {
+		phrase := fixturePhrase(i)
+		s, err := secretFromInput(phrase)
+		require.NoError(t, err)
+		priv, path, err := s.derive(0)
+		require.NoError(t, err)
+		generated, err := time.Parse(time.RFC3339, vectorTimes[i])
+		require.NoError(t, err)
+		id, err := identityOf(vectorNames[i], roleCustodian, priv, path, generated)
+		require.NoError(t, err)
+		sub, err := signSubmission(v.OfficeParams.ID, id, priv)
+		require.NoError(t, err)
+		officeSubmissions = append(officeSubmissions, sub)
+	}
+
+	office, err := assembleGroup(v.OfficeParams, officeSubmissions)
+	require.NoError(t, err)
+	// The one assertion in the generator itself, because a fixture written from a
+	// run that HAD produced the fragment would pin the dangerous document rather
+	// than its absence.
+	require.Nil(t, office.Constitution,
+		"an office's assembled group must carry no constitutional invariants fragment")
+	v.OfficeGroup = groupVectorOf(office, v.OfficeParams)
 
 	for i, name := range vectorNames {
 		var own identity
@@ -285,6 +367,24 @@ func buildVectors(t *testing.T) ceremonyVectors {
 	return v
 }
 
+// groupVectorOf records one assembled group, both paths through the same
+// function so that the office case cannot be recorded differently from the
+// foundation one.
+func groupVectorOf(a assembled, params ceremonyParams) groupVector {
+	label := groupLabel(params)
+	return groupVector{
+		ComputedAt:       a.ComputedAt,
+		PolicyAddress:    a.PolicyAddress,
+		Label:            label,
+		Metadata:         groupMetadata(label, a.Custodians, params.Threshold),
+		PolicyMetadata:   fmt.Sprintf("%s %d-of-%d", label, params.Threshold, len(a.Custodians)),
+		GenesisJSON:      string(a.Genesis),
+		ConstitutionJSON: string(a.Constitution),
+		CanonicalHex:     hex.EncodeToString(a.canonical()),
+		Fingerprint:      a.Fingerprint,
+	}
+}
+
 func loadCeremonyVectors(t *testing.T) ceremonyVectors {
 	t.Helper()
 	blob, err := os.ReadFile(filepath.Clean(vectorFile))
@@ -306,6 +406,9 @@ func loadCeremonyVectors(t *testing.T) ceremonyVectors {
 	require.NotEmpty(t, v.Attestations, "no attestation vectors")
 	require.NotEmpty(t, v.Group.Fingerprint, "no group fingerprint")
 	require.NotEmpty(t, v.Durations, "no duration vectors")
+	require.NotEmpty(t, v.RoleNames, "no role names: the browser's table would be pinned against nothing")
+	require.NotEmpty(t, v.OfficeGroup.Fingerprint, "no office group fingerprint: the country path would be unpinned")
+	require.NotNil(t, v.OfficeParams.Office, "the office ceremony in the fixture has no office block")
 	return v
 }
 
@@ -334,6 +437,9 @@ func TestCeremonyVectors(t *testing.T) {
 	require.Equal(t, want.PolicyDerivation.TablePrefix, built.PolicyDerivation.TablePrefix,
 		"x/group's policy table prefix has changed upstream; the address in every genesis this tool produced is now wrong")
 
+	require.Equal(t, want.RoleNames, built.RoleNames,
+		"the chain's role enum has moved; the browser's own table is pinned against this array and would now be wrong")
+
 	require.Equal(t, want.PolicyAddresses, built.PolicyAddresses)
 	require.Equal(t, want.Durations, built.Durations,
 		"protobuf JSON's duration rendering has moved; every genesis fragment this tool has produced now hashes differently")
@@ -350,6 +456,183 @@ func TestCeremonyVectors(t *testing.T) {
 	require.Equal(t, want.Group, built.Group,
 		"the assembled group has drifted from the fixture; the browser and this binary would compute different fingerprints from the same five submissions")
 	require.Equal(t, want.Attestations, built.Attestations)
+
+	require.Equal(t, want.OfficeParams, built.OfficeParams)
+	require.Equal(t, want.OfficeParamsCanonicalHx, built.OfficeParamsCanonicalHx,
+		"the office params canonical encoding has moved, so the fingerprint a country's super users read aloud before generating is not the one in the fixture")
+	require.Equal(t, want.OfficeParamsFingerprint, built.OfficeParamsFingerprint)
+	require.Equal(t, want.OfficeGroup, built.OfficeGroup,
+		"the office group has drifted; a country's super users and their coordinator would compute different fingerprints from the same submissions")
+}
+
+// TestTheTwoPathsAreDistinguishable is the check that the office block actually
+// reaches everything it is supposed to reach.
+//
+// Every assertion here would still pass if officeParams were carried around and
+// then dropped before the digest — which is precisely the bug that would let a
+// coordinator take keys generated "for Senegal" and use them for an office
+// granted authority over somewhere else. So each value that is supposed to depend
+// on the office is asserted to DIFFER from the foundation's, and the constitution
+// is asserted to be absent rather than merely different.
+func TestTheTwoPathsAreDistinguishable(t *testing.T) {
+	v := loadCeremonyVectors(t)
+
+	require.NotEqual(t, v.ParamsCanonicalHx, v.OfficeParamsCanonicalHx)
+	require.NotEqual(t, v.ParamsFingerprint, v.OfficeParamsFingerprint)
+	require.NotEqual(t, v.Group.Fingerprint, v.OfficeGroup.Fingerprint)
+
+	require.Equal(t, "Yamale foundation", v.Group.Label,
+		"the foundation's label must not move: its metadata bytes are inside a fingerprint five custodians have read aloud")
+	require.Contains(t, v.Group.Metadata, "Yamale foundation, 3 of 5: ")
+	require.Equal(t, "Senegal payments authority (SN)", v.OfficeGroup.Label)
+	require.Contains(t, v.OfficeGroup.Metadata, "Senegal payments authority (SN), 2 of 3: ")
+	require.NotContains(t, v.OfficeGroup.Metadata, "Yamale foundation",
+		"a country office recorded as the foundation is a lie in the one field a human reads to find out what a group is")
+	require.NotContains(t, v.OfficeGroup.PolicyMetadata, "Yamale foundation")
+	require.Contains(t, v.OfficeGroup.GenesisJSON, "Senegal payments authority (SN)",
+		"the label has to be inside the genesis fragment, which is what the group fingerprint covers")
+
+	require.NotEmpty(t, v.Group.ConstitutionJSON,
+		"the foundation still needs its constitutional invariants fragment")
+	require.Empty(t, v.OfficeGroup.ConstitutionJSON,
+		"an office must not be handed a ready-to-splice document saying every seized asset on the chain goes to it")
+
+	// The nil-versus-empty equivalence, asserted on the bytes rather than trusted.
+	//
+	// Go leaves assembled.Constitution nil and the browser holds "". canonBytes
+	// has to turn both into the same four zero bytes, and this is the single most
+	// likely place for the two languages to part company — a null on one side and
+	// a "null" or "{}" on the other would give a country's super users a different
+	// group fingerprint from their coordinator's, which is the one failure the
+	// read-aloud step cannot tell apart from an attack.
+	raw, err := hex.DecodeString(v.OfficeGroup.CanonicalHex)
+	require.NoError(t, err)
+	require.Equal(t, []byte{0, 0, 0, 0}, raw[len(raw)-4:],
+		"an office's canonical bytes must end in a bare zero-length constitution")
+	require.Equal(t, canonBytes(nil, nil), []byte{0, 0, 0, 0},
+		"canonBytes must encode nil as four zero bytes, which is what the browser's empty string produces")
+	require.Equal(t, canonBytes(nil, nil), canonBytes(nil, []byte("")),
+		"a nil constitution and an empty one must encode identically, or Go and the browser diverge")
+}
+
+// TestOfficeParametersRefuseWhatTheChainWouldRefuse checks the office half of
+// validate() at the boundary, not in the middle.
+//
+// Each of these is a value that reaches the chain and is refused there, after the
+// super users have generated keys, read a fingerprint aloud and signed
+// attestations. Refusing at setup is the difference between a coordinator
+// retyping a field and a country's whole ceremony being held again.
+func TestOfficeParametersRefuseWhatTheChainWouldRefuse(t *testing.T) {
+	base := func() ceremonyParams {
+		return ceremonyParams{
+			ID:           "9WPXTM-3KZ4QC-7HB0VN-2RJDGS",
+			Name:         "Senegal payments authority",
+			ChainID:      "yamale-1",
+			Threshold:    2,
+			Custodians:   []string{"A", "B", "C"},
+			PolicySeq:    7,
+			VotingPeriod: "72h0m0s",
+			Office:       &officeParams{Country: "SN", Roles: []string{"ROLE_PAYMENTS_AUTHORITY"}},
+		}
+	}
+	require.NoError(t, base().validate())
+
+	// No office at all is the foundation ceremony, and it must stay legal.
+	foundation := base()
+	foundation.Office = nil
+	require.NoError(t, foundation.validate())
+
+	for _, tc := range []struct {
+		name    string
+		office  officeParams
+		message string
+	}{
+		{"lowercase country", officeParams{Country: "sn", Roles: []string{"ROLE_SUPERVISOR"}}, "two uppercase letters"},
+		{"chain-wide", officeParams{Country: "*", Roles: []string{"ROLE_SUPERVISOR"}}, "chain-wide scope"},
+		{"foundation code", officeParams{Country: "ZZ", Roles: []string{"ROLE_SUPERVISOR"}}, "ABSENCE of a national perimeter"},
+		{"unassigned", officeParams{Country: "QK", Roles: []string{"ROLE_SUPERVISOR"}}, "not an assigned ISO 3166-1"},
+		{"one letter", officeParams{Country: "S", Roles: []string{"ROLE_SUPERVISOR"}}, "exactly two uppercase letters"},
+		{"three letters", officeParams{Country: "SEN", Roles: []string{"ROLE_SUPERVISOR"}}, "exactly two uppercase letters"},
+		{"no roles", officeParams{Country: "SN"}, "holds no roles"},
+		{"unknown role", officeParams{Country: "SN", Roles: []string{"ROLE_TREASURER"}}, "not a role this chain has"},
+		{"unspecified role", officeParams{Country: "SN", Roles: []string{"ROLE_UNSPECIFIED"}}, "unset default"},
+		{"lowercase role", officeParams{Country: "SN", Roles: []string{"role_supervisor"}}, "not written the way this chain spells it"},
+		{
+			"duplicate role",
+			officeParams{Country: "SN", Roles: []string{"ROLE_SUPERVISOR", "ROLE_SUPERVISOR"}},
+			"listed twice",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			params := base()
+			office := tc.office
+			params.Office = &office
+			err := params.validate()
+			require.Error(t, err, "%+v was accepted", tc.office)
+			require.ErrorContains(t, err, tc.message)
+		})
+	}
+}
+
+// TestTheOfficeEncodingDependsOnTheSetNotTheOrder is the reason the roles are
+// sorted on a copy.
+//
+// Two coordinators typing the same two roles in different orders must produce the
+// same fingerprint, or the read-aloud check fails for a reason that has nothing
+// to do with an attacker — which is how five people learn to shrug at it.
+func TestTheOfficeEncodingDependsOnTheSetNotTheOrder(t *testing.T) {
+	v := loadCeremonyVectors(t)
+	require.NotNil(t, v.OfficeParams.Office)
+
+	reversed := v.OfficeParams
+	roles := append([]string(nil), v.OfficeParams.Office.Roles...)
+	for i, j := 0, len(roles)-1; i < j; i, j = i+1, j-1 {
+		roles[i], roles[j] = roles[j], roles[i]
+	}
+	reversed.Office = &officeParams{Country: v.OfficeParams.Office.Country, Roles: roles}
+	require.NotEqual(t, v.OfficeParams.Office.Roles, roles, "the fixture's roles must not already be sorted")
+	require.Equal(t, v.OfficeParams.fingerprint(), reversed.fingerprint())
+
+	// And it must depend on the set: dropping one role has to move the value the
+	// super users read aloud, because that role is authority over a country.
+	fewer := v.OfficeParams
+	fewer.Office = &officeParams{Country: v.OfficeParams.Office.Country, Roles: roles[:1]}
+	require.NotEqual(t, v.OfficeParams.fingerprint(), fewer.fingerprint())
+
+	// Changing the country must move it too. This is the whole reason the office
+	// is in the parameters: five keys generated "for Senegal" cannot be silently
+	// reused for an office granted authority over Nigeria.
+	elsewhere := v.OfficeParams
+	elsewhere.Office = &officeParams{Country: "NG", Roles: v.OfficeParams.Office.Roles}
+	require.NotEqual(t, v.OfficeParams.fingerprint(), elsewhere.fingerprint())
+}
+
+// TestOverLongGroupMetadataIsRefused closes a latent bug rather than describing
+// one.
+//
+// x/group's keeper refuses metadata over 255 bytes, and nothing on the genesis
+// path checks it: GroupInfo.ValidateBasic does not, and x/group's
+// GenesisState.Validate never goes deeper than ValidateBasic. So an over-long
+// label produced a genesis fragment that imported perfectly happily — the
+// foundation path would never have noticed — while a country office, whose group
+// is created by MsgCreateGroupWithPolicy on a running chain, would have failed
+// the transaction after the ceremony was over and the keys were on paper.
+func TestOverLongGroupMetadataIsRefused(t *testing.T) {
+	configureAddresses()
+	people := custodians(t, 4)
+
+	long := strings.Repeat("Autorité nationale de régulation des paiements ", 8)
+	_, err := buildGroup(people, groupPurpose{Label: long, Office: true}, 2, time.Hour, 7, testTime())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "x/group refuses anything over 255")
+	require.ErrorContains(t, err, "Shorten the office name")
+
+	// And the boundary is not off by one: the longest metadata x/group accepts
+	// must still build.
+	fitting, err := buildGroup(people, foundationPurpose(), 2, time.Hour, 7, testTime())
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(groupMetadata(foundationLabel, people, 2)), maxGroupMetadata)
+	require.NotEmpty(t, fitting.genesis)
 }
 
 // TestVectorSignaturesVerifyWithTheProductionPath checks the fixture's

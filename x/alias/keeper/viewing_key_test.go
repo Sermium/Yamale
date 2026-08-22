@@ -379,7 +379,7 @@ func TestConfidentialityRegistriesRoundTripThroughGenesis(t *testing.T) {
 	// on top of the state the messages above already wrote.
 	other := integration.New(t, types.ModuleName, module.AppModule{})
 	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec, other.StoreService,
-		log.NewNopLogger(), other.AuthorityString(t), nil, nil)
+		log.NewNopLogger(), other.AuthorityString(t), nil, nil, nil)
 	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
 	again, err := fresh.ExportGenesis(other.Ctx)

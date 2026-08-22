@@ -39,6 +39,11 @@ type ModuleInputs struct {
 	// Supplied so the module can refuse a role granted to a plain key. See
 	// types.GroupKeeper.
 	GroupKeeper types.GroupKeeper
+
+	// Supplied so the module can recognise the foundation when it admits a
+	// country. See types.ConstitutionKeeper for why the constitution is asked
+	// rather than a parameter list of this module's own.
+	ConstitutionKeeper types.ConstitutionKeeper
 }
 
 type ModuleOutputs struct {
@@ -50,11 +55,12 @@ type ModuleOutputs struct {
 
 // ProvideModule builds the keeper.
 //
-// It takes two other keepers and asks each of them read-only questions and
+// It takes three other keepers and asks each of them read-only questions and
 // nothing else: who onboarded an account and is that institution still admitted,
-// and is a prospective role holder a group account. It cannot move funds, mint,
-// or read a balance. That narrowness is the point: an identifier registry with a
-// bank keeper in it is a registry that could eventually be made to spend.
+// is a prospective role holder a group account, and which address does the
+// constitution name as the foundation. It cannot move funds, mint, or read a
+// balance. That narrowness is the point: an identifier registry with a bank
+// keeper in it is a registry that could eventually be made to spend.
 //
 // Note which direction the dependencies run. x/paymsg and x/group know nothing
 // about x/alias, so a module that this one *consults* must never be given this
@@ -75,6 +81,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		authority.String(),
 		in.ParticipantKeeper,
 		in.GroupKeeper,
+		in.ConstitutionKeeper,
 	)
 	return ModuleOutputs{AliasKeeper: k, Module: NewAppModule(in.Cdc, k)}
 }

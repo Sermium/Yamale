@@ -78,7 +78,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <h3>MsgGrantRole</h3>
 <p><code>/blockchain.alias.v1.MsgGrantRole</code></p>
 <p>Signed by the <code>authority</code> field.</p>
-<p>GrantRole grants a role inside one jurisdiction. Governance only.</p>
+<p>GrantRole grants a role inside one jurisdiction. Governance, or the foundation for a country; governance alone for the chain-wide scope.</p>
 <table>
 <thead>
 <tr>
@@ -90,7 +90,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>authority</code></td>
 <td>string</td>
-<td></td>
+<td>authority is the governance account, or the foundation — the address x/constitution pins as enforcement_recovery_destination. Any other signer is refused, and so is the foundation when the jurisdiction below is &quot;*&quot;.</td>
 </tr>
 <tr>
 <td><code>holder</code></td>
@@ -105,7 +105,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>jurisdiction</code></td>
 <td>string</td>
-<td>jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or &quot;*&quot; for chain-wide. The reserved code the foundation&#39;s own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything.</td>
+<td>jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or &quot;<em>&quot; for chain-wide. The reserved code the foundation&#39;s own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. This field also decides who may sign the message, so it is validated before the signer is checked. &quot;</em>&quot; narrows the acceptable authority to governance alone, and that narrowing happens before the constitution is read: a store failure while resolving the foundation must not be the thing that decides whether the chain-wide scope was allowed.</td>
 </tr>
 </tbody></table>
 <h3>MsgRegisterAlias</h3>
@@ -152,7 +152,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <h3>MsgRevokeRole</h3>
 <p><code>/blockchain.alias.v1.MsgRevokeRole</code></p>
 <p>Signed by the <code>authority</code> field.</p>
-<p>RevokeRole removes one such grant. Governance only.</p>
+<p>RevokeRole removes one such grant. The same signers as GrantRole.</p>
 <table>
 <thead>
 <tr>
@@ -164,7 +164,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>authority</code></td>
 <td>string</td>
-<td></td>
+<td>authority is the governance account, or the foundation. Same rule as MsgGrantRole, including that &quot;*&quot; is governance alone.</td>
 </tr>
 <tr>
 <td><code>holder</code></td>
@@ -179,7 +179,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>jurisdiction</code></td>
 <td>string</td>
-<td>jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — &quot;nothing to revoke&quot; is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place.</td>
+<td>jurisdiction is which perimeter to remove it in. Naming one that was never granted is an error rather than a quiet success — &quot;nothing to revoke&quot; is how a proposal that named the wrong country passes while leaving the authority it meant to remove in place. As on the grant, this decides who may sign: &quot;*&quot; is governance alone.</td>
 </tr>
 </tbody></table>
 <h3>MsgRevokeViewingKey</h3>

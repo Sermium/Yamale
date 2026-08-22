@@ -416,6 +416,42 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>JurisdictionReconciliation</h3>
+<p><code>GET /yamale/blockchain/validatorgov/v1/jurisdiction_reconciliation</code></p>
+<p>JurisdictionReconciliation sets each approved validator&#39;s declared country beside the country the chain has recorded for its operator account, and says whether the two agree.</p>
+<p>The chain holds that fact twice, and it is not a duplication to be tidied away. A validator declares its jurisdiction when it applies: the declaration is signed by the operator, checked against the assigned country list, and it is what the concentration ceilings group by, because a ceiling on the power answering to one national authority has to be computed over something the applicant is on the record as claiming. The jurisdiction registry in x/alias is the other thing entirely: it is written by the approved participant that onboarded the account and did the know-your-customer work, or corrected by a foundation administrator, and never by the account itself. One is a claim under the claimant&#39;s own key. The other is a finding by somebody who looked.</p>
+<p>So the two are reconciled here and merged nowhere. Overwriting the declaration from the registry would destroy the signature that makes a false declaration an offence rather than a data-entry error; overwriting the registry from the declaration would let a validator place itself in whatever perimeter has the least authority watching it, which is the single thing the registry exists to prevent. Neither registry is the other&#39;s source, and the useful product of having both is the disagreement.</p>
+<p>A disagreement is not by itself a breach and nothing is done to a validator for it. What it means is that one of two things has gone wrong and a human has to find out which: the validator declared a country it does not answer to, or the participant recorded the wrong one. Both are worth knowing, and the second matters more, because the jurisdiction ceiling is being computed over the declaration while every authority acting on that account is being scoped by the record.</p>
+<p>Response:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>records</code></td>
+<td>repeated JurisdictionReconciliation</td>
+<td></td>
+</tr>
+<tr>
+<td><code>agree_count</code></td>
+<td>uint32</td>
+<td>agree_count, disagree_count and unrecorded_count sum to the number of rows. Returned so an operator sees &quot;three disagree&quot; without scanning, and so that a reader can check the rows against the summary rather than trust it.</td>
+</tr>
+<tr>
+<td><code>disagree_count</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+<tr>
+<td><code>unrecorded_count</code></td>
+<td>uint32</td>
+<td></td>
+</tr>
+</tbody></table>
 <h3>ListApprovedValidator</h3>
 <p><code>GET /yamale/blockchain/validatorgov/v1/approved_validator</code></p>
 <p>ListApprovedValidator defines the ListApprovedValidator RPC.</p>
@@ -1030,6 +1066,47 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td></td>
 </tr>
 </tbody></table>
+<h3>JurisdictionReconciliation</h3>
+<p>JurisdictionReconciliation is one approved validator with both countries and the finding.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidate</code></td>
+<td>string</td>
+<td>candidate is the operator address in its account form, matching how the approval allowlist, the rotation records and the jurisdiction registry all key an operator.</td>
+</tr>
+<tr>
+<td><code>declared_jurisdiction</code></td>
+<td>string</td>
+<td>declared_jurisdiction is the country from the validator&#39;s own declaration: an ISO 3166-1 alpha-2 code, signed for at application and re-signed at every attestation. Never empty on an approved validator — a blank one is refused at the message, because a validator belonging to no jurisdiction group would sit outside the one ceiling that keeps a single state below a blocking minority.</td>
+</tr>
+<tr>
+<td><code>recorded_jurisdiction</code></td>
+<td>string</td>
+<td>recorded_jurisdiction is the country x/alias holds against the same account, and it is empty when there is no record. Empty rather than a placeholder code, because every code that could stand in here means something else: a real country would invent a perimeter, and the foundation&#39;s reserved code would claim the account is outside every national perimeter on purpose.</td>
+</tr>
+<tr>
+<td><code>recorded_by</code></td>
+<td>string</td>
+<td>recorded_by is the participant or foundation administrator that wrote the record, and it is empty when there is none. This is the field the query is for. &quot;Senegal&quot; and &quot;Senegal, according to the bank that onboarded them&quot; are not the same fact, and a reconciliation that reported only the two codes would show a supervisor a mismatch without showing them who to ask about it.</td>
+</tr>
+<tr>
+<td><code>recorded_at_height</code></td>
+<td>int64</td>
+<td>recorded_at_height is when the record was last written, so a disagreement that appeared because somebody corrected a country is distinguishable from one that has been sitting there since the account was onboarded. Zero when there is no record.</td>
+</tr>
+<tr>
+<td><code>agreement</code></td>
+<td>JurisdictionAgreement</td>
+<td>agreement is the finding. Never JURISDICTION_AGREEMENT_UNSPECIFIED.</td>
+</tr>
+</tbody></table>
 <h3>OperatorRotation</h3>
 <p>OperatorRotation is one attempt to move a validator&#39;s operator key, and everything the chain did about it. Rotations are never deleted: a recovery that was vetoed is the record of somebody having claimed a key was lost when it was not, and that is precisely the history worth keeping.</p>
 <table>
@@ -1152,6 +1229,33 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tr>
 <td><code>CONCENTRATION_CAP_JURISDICTION</code></td>
 <td>CONCENTRATION_CAP_JURISDICTION is the ceiling on the power answering to one national authority.</td>
+</tr>
+</tbody></table>
+<h3>JurisdictionAgreement</h3>
+<p>JurisdictionAgreement is what the two registries say about one validator when they are set beside each other.</p>
+<p>Three outcomes and not two. &quot;No record&quot; is kept apart from &quot;they agree&quot; because collapsing them is how a reconciliation stops reconciling: an account nobody has placed would report as agreeing with a declaration nobody has checked, and the query would grow quieter exactly as the registry emptied out.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>JURISDICTION_AGREEMENT_UNSPECIFIED</code></td>
+<td>JURISDICTION_AGREEMENT_UNSPECIFIED is the unset default and is never a finding. The zero value is reserved rather than given to a real outcome, and no reader should treat it as one. Proto3 cannot tell a zero from an absent field, so if the first of these values were AGREE, a row this module failed to fill in would arrive at a supervisor&#39;s console indistinguishable from a validator whose country two independent parties concur on — and it is the reassuring reading that must never be the one a bug produces.</td>
+</tr>
+<tr>
+<td><code>JURISDICTION_AGREEMENT_AGREE</code></td>
+<td>JURISDICTION_AGREEMENT_AGREE means the validator declared the country the chain has recorded against its operator account. A self-attested claim and an onboarding participant&#39;s finding pointing at the same place, which is the state the register is supposed to be in.</td>
+</tr>
+<tr>
+<td><code>JURISDICTION_AGREEMENT_DISAGREE</code></td>
+<td>JURISDICTION_AGREEMENT_DISAGREE means the two name different countries. Reported, never resolved. The chain cannot tell which party is wrong — it has no way to verify either statement — so it publishes both alongside the account that recorded one and the operator that signed the other, and leaves the finding to whoever can actually check.</td>
+</tr>
+<tr>
+<td><code>JURISDICTION_AGREEMENT_UNRECORDED</code></td>
+<td>JURISDICTION_AGREEMENT_UNRECORDED means the validator declared a country and the chain has no jurisdiction record for its operator account at all. Not agreement and not a failure of the query: the declaration stands uncorroborated, which is a distinct and actionable state. It is the ordinary state of a validator that was approved by governance without ever being anybody&#39;s onboarded customer, and the remedy is to place the account, not to trust the declaration harder.</td>
 </tr>
 </tbody></table>
 <h3>RotationKind</h3>

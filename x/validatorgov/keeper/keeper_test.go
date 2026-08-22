@@ -7,6 +7,9 @@ import (
 	"cosmossdk.io/core/address"
 
 	"yamale/blockchain/testutil/integration"
+	aliasmodule "yamale/blockchain/x/alias/module"
+	aliastestutil "yamale/blockchain/x/alias/testutil"
+	aliastypes "yamale/blockchain/x/alias/types"
 	constitutionkeeper "yamale/blockchain/x/constitution/keeper"
 	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
 	constitutiontypes "yamale/blockchain/x/constitution/types"
@@ -29,6 +32,12 @@ type fixture struct {
 	// hand-written struct would only prove it can read one it wrote itself.
 	constitution constitutionkeeper.Keeper
 	invariants   constitutiontypes.Invariants
+
+	// perimeter is the real x/alias keeper, for the same reason the constitution
+	// is real. The reconciliation query's whole subject is two registries with
+	// different provenance disagreeing; a stub standing in for one of them would
+	// be the test asserting against the answer it had just written down.
+	perimeter *aliastestutil.Perimeter
 }
 
 func initFixture(t *testing.T) *fixture {
@@ -43,7 +52,9 @@ func initFixture(t *testing.T) *fixture {
 func newFixture(t *testing.T, initGenesis bool) *fixture {
 	t.Helper()
 
-	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
+	env := integration.NewWith(t,
+		[]string{types.ModuleName, constitutiontypes.ModuleName, aliastypes.ModuleName},
+		module.AppModule{}, aliasmodule.AppModule{})
 
 	staking := vgtestutil.NewStakingKeeper()
 	authzKeeper := vgtestutil.NewAuthzKeeper()
@@ -51,6 +62,7 @@ func newFixture(t *testing.T, initGenesis bool) *fixture {
 	_, destination := env.Addr(t)
 	invariants := constitutiontestutil.Invariants(destination)
 	constitution := constitutiontestutil.Init(t, env, staking, invariants)
+	perimeter := aliastestutil.Init(t, env)
 
 	k := keeper.NewKeeper(
 		env.StoreService,
@@ -62,6 +74,7 @@ func newFixture(t *testing.T, initGenesis bool) *fixture {
 		env.AuthKeeper,
 		env.BankKeeper,
 		constitution,
+		module.NewAliasJurisdictions(perimeter.Keeper),
 	)
 
 	// Initialised the way a chain does, rather than by setting params alone:
@@ -84,5 +97,6 @@ func newFixture(t *testing.T, initGenesis bool) *fixture {
 		authz:        authzKeeper,
 		constitution: constitution,
 		invariants:   invariants,
+		perimeter:    perimeter,
 	}
 }

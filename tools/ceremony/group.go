@@ -87,6 +87,8 @@ func runAddress(args []string) error {
 }
 
 // groupDocuments is everything `ceremony group` produces.
+//
+// constitution is empty for a country office. See groupPurpose.
 type groupDocuments struct {
 	members      []byte
 	policy       []byte
@@ -95,6 +97,62 @@ type groupDocuments struct {
 	constitution []byte
 	policyAddr   string
 }
+
+// groupPurpose is which of the two groups this ceremony is building.
+//
+// Two things differ between the foundation's 3-of-5 and a country office's
+// M-of-N, and neither is cosmetic:
+//
+//   - The label. It goes into the group metadata and the policy metadata, which
+//     are recorded on chain permanently and are the one field a human reads to
+//     find out what a group is. Senegal's payments authority recorded as "Yamale
+//     foundation" is a lie in exactly the place nobody thinks to check.
+//
+//   - The constitutional invariants fragment. For the foundation it is the three
+//     values that must agree with the group in genesis. For an office it is a
+//     ready-to-splice JSON saying "send every seized asset on this chain to
+//     Senegal's payments office", so it is not produced at all. Not produced
+//     rather than produced-with-a-warning, because nobody should have to know
+//     not to use a file that is sitting in the output directory.
+//
+// A struct rather than two bare parameters so that neither call site can pass
+// them in the wrong order or read as a mystery boolean.
+type groupPurpose struct {
+	Label string
+	// Office is true when this group belongs to a country office, in which case
+	// the constitutional fragment is withheld.
+	Office bool
+}
+
+// foundationPurpose is the foundation's 3-of-5.
+//
+// The label is the same constant the old code had inline, so the foundation's
+// metadata bytes — and therefore its group fingerprint — do not move because the
+// country path was added.
+func foundationPurpose() groupPurpose {
+	return groupPurpose{Label: foundationLabel}
+}
+
+// purposeFor reads the purpose out of a ceremony's parameters.
+func purposeFor(params ceremonyParams) groupPurpose {
+	return groupPurpose{Label: groupLabel(params), Office: params.Office != nil}
+}
+
+// maxGroupMetadata is x/group's limit, in bytes.
+//
+// Not ours: the keeper's assertMetadataLength refuses any metadata longer than
+// Config.MaxMetadataLen, which DefaultConfig sets to 255 and this chain does not
+// override. clients/foundation/foundation.js carries the same number for the
+// proposal titles it composes.
+//
+// Checked here because the two paths fail differently and one of them fails
+// silently. GroupInfo.ValidateBasic does NOT check metadata length and neither
+// does x/group's GenesisState.Validate, so an over-long metadata string imports
+// into a genesis file perfectly happily — the foundation path would never notice.
+// A country office's group is created by MsgCreateGroupWithPolicy on a running
+// chain, which is the path that IS checked, so the same string that launched a
+// chain would fail a transaction after the whole ceremony had been held.
+const maxGroupMetadata = 255
 
 // constitutionFragment is the part of app_state.constitution.invariants this
 // ceremony decides.
@@ -142,7 +200,7 @@ func decisionPolicy(threshold int, votingPeriod time.Duration) *group.ThresholdD
 // policy as its own admin, changing who the custodians are needs the same
 // three-of-five as spending, and there is no address anywhere that can do it
 // alone.
-func buildGroup(custodians []identity, threshold int, votingPeriod time.Duration, seq uint64, now time.Time) (groupDocuments, error) {
+func buildGroup(custodians []identity, purpose groupPurpose, threshold int, votingPeriod time.Duration, seq uint64, now time.Time) (groupDocuments, error) {
 	if len(custodians) < threshold {
 		return groupDocuments{}, fmt.Errorf(
 			"threshold %d cannot be met by %d custodians: this group could never act",
@@ -233,6 +291,26 @@ func buildGroup(custodians []identity, threshold int, votingPeriod time.Duration
 		return groupDocuments{}, err
 	}
 
+	// Composed once and checked once, then used for the group, the policy and the
+	// genesis fragment, so the three cannot disagree.
+	metadata := groupMetadata(purpose.Label, custodians, threshold)
+	policyMetadata := fmt.Sprintf("%s %d-of-%d", purpose.Label, threshold, len(custodians))
+	for _, candidate := range []struct {
+		what  string
+		value string
+	}{
+		{"group metadata", metadata},
+		{"group policy metadata", policyMetadata},
+	} {
+		if size := len(candidate.value); size > maxGroupMetadata {
+			return groupDocuments{}, fmt.Errorf(
+				"the %s is %d bytes and x/group refuses anything over %d, so the transaction that creates this "+
+					"group would fail after the ceremony was over. Shorten the office name: it is the part of "+
+					"%q that this ceremony chose",
+				candidate.what, size, maxGroupMetadata, purpose.Label)
+		}
+	}
+
 	registry := codectypes.NewInterfaceRegistry()
 	group.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
@@ -248,7 +326,23 @@ func buildGroup(custodians []identity, threshold int, votingPeriod time.Duration
 	if err != nil {
 		return groupDocuments{}, err
 	}
-	documents.policy, err = cdc.MarshalJSON(policy)
+	// MarshalInterfaceJSON, not MarshalJSON, and the difference is the whole
+	// difference between a file the CLI reads and a file it refuses.
+	//
+	// A decision policy travels inside an Any, so the document has to carry an
+	// "@type". MarshalJSON on the concrete *ThresholdDecisionPolicy emits its
+	// fields and no type URL, and `blockchaind tx group create-group-with-policy`
+	// then fails with "failed to parse decision policy: Any JSON doesn't have
+	// '@type'" — which is what this file did for as long as it existed. It went
+	// unnoticed because the foundation's launch path splices the genesis fragment
+	// and never reads this document; the first thing that actually needed it was a
+	// country office, whose group is created by a transaction on a running chain.
+	//
+	// Nothing downstream of the fingerprint moves. assembled.canonical() covers
+	// the parameters, the policy address, the custodians, the genesis fragment and
+	// the constitution fragment — not this document — so the value five people read
+	// aloud is unchanged, and the browser never computes it at all.
+	documents.policy, err = cdc.MarshalInterfaceJSON(policy)
 	if err != nil {
 		return groupDocuments{}, err
 	}
@@ -256,8 +350,8 @@ func buildGroup(custodians []identity, threshold int, votingPeriod time.Duration
 	msg, err := group.NewMsgCreateGroupWithPolicy(
 		admin.String(),
 		members,
-		groupMetadata(custodians, threshold),
-		fmt.Sprintf("Yamale foundation %d-of-%d", threshold, len(custodians)),
+		metadata,
+		policyMetadata,
 		// The group policy is its own admin, so nothing outside the group can
 		// change the membership or the threshold.
 		true,
@@ -271,29 +365,45 @@ func buildGroup(custodians []identity, threshold int, votingPeriod time.Duration
 		return groupDocuments{}, err
 	}
 
-	documents.genesis, err = groupGenesis(cdc, custodians, members, policy, admin, seq, threshold, now)
+	documents.genesis, err = groupGenesis(cdc, metadata, members, policy, admin, seq, now)
 	if err != nil {
 		return groupDocuments{}, err
 	}
 
-	documents.constitution, err = json.MarshalIndent(constitutionFragment{
-		EnforcementRecoveryDestination: policyAddr,
-		FoundationCustodianCount:       len(custodians),
-		FoundationSignatureThreshold:   threshold,
-	}, "", "  ")
-	if err != nil {
-		return groupDocuments{}, err
+	// Withheld for a country office, and left nil rather than emptied to a "{}"
+	// somebody could still splice. The three fields in it are the FOUNDATION's:
+	// where the chain sends every seizure, how many custodians the foundation
+	// has, and how many of them must sign. Produced for Senegal's payments
+	// office, it is a document that reads as an instruction to hand that office
+	// the whole chain's seized assets — and a genesis built from it would start
+	// perfectly happily.
+	if !purpose.Office {
+		documents.constitution, err = json.MarshalIndent(constitutionFragment{
+			EnforcementRecoveryDestination: policyAddr,
+			FoundationCustodianCount:       len(custodians),
+			FoundationSignatureThreshold:   threshold,
+		}, "", "  ")
+		if err != nil {
+			return groupDocuments{}, err
+		}
 	}
 
 	return documents, nil
 }
 
-func groupMetadata(custodians []identity, threshold int) string {
+// groupMetadata is the string recorded on chain, permanently, as what this group
+// is.
+//
+// The label is a parameter rather than a literal because it is the only thing a
+// human reads to tell one group from another. For the foundation it is
+// "Yamale foundation" and the bytes are unchanged from before the country path
+// existed; for a country office it names the office and its perimeter.
+func groupMetadata(label string, custodians []identity, threshold int) string {
 	names := make([]string, len(custodians))
 	for i, custodian := range custodians {
 		names[i] = fmt.Sprintf("%s %s", custodian.Name, custodian.Fingerprint)
 	}
-	return fmt.Sprintf("Yamale foundation, %d of %d: %s", threshold, len(custodians), strings.Join(names, "; "))
+	return fmt.Sprintf("%s, %d of %d: %s", label, threshold, len(custodians), strings.Join(names, "; "))
 }
 
 // groupGenesis is the app_state.group fragment that puts the group in the
@@ -320,14 +430,17 @@ func groupMetadata(custodians []identity, threshold int) string {
 // the genesis ceremony adds it with `add-genesis-account` so that it holds a
 // balance from block one. Verified against a running chain: a genesis-seeded
 // group executes proposals exactly as a transaction-created one does.
+// The metadata is passed in rather than recomposed here, so the string in the
+// genesis fragment is the same object as the string in the create message and in
+// the length check above. Two compositions of "the same" metadata is how a
+// genesis-seeded group and a transaction-created one come to differ by a byte.
 func groupGenesis(
 	cdc codec.Codec,
-	custodians []identity,
+	metadata string,
 	members []group.MemberRequest,
 	policy group.DecisionPolicy,
 	policyAddr sdk.AccAddress,
 	seq uint64,
-	threshold int,
 	now time.Time,
 ) ([]byte, error) {
 	const groupID = 1
@@ -340,7 +453,7 @@ func groupGenesis(
 	info := group.GroupInfo{
 		Id:          groupID,
 		Admin:       policyAddr.String(),
-		Metadata:    groupMetadata(custodians, threshold),
+		Metadata:    metadata,
 		Version:     1,
 		TotalWeight: fmt.Sprintf("%d", len(members)),
 		CreatedAt:   created,
@@ -402,7 +515,13 @@ func runGroup(args []string) error {
 		return err
 	}
 
-	documents, err := buildGroup(custodians, *threshold, *votingPeriod, *seq, time.Now())
+	// The foundation, always. `ceremony group` builds the foundation's 3-of-5 from
+	// five public records on one machine; a country office's group comes out of
+	// the hosted flow, where the office and its perimeter are in the parameters
+	// every super user read a fingerprint of. There is deliberately no flag for it
+	// here, because a country office assembled from files on a coordinator's
+	// laptop would have nobody who could say what they had generated a key for.
+	documents, err := buildGroup(custodians, foundationPurpose(), *threshold, *votingPeriod, *seq, time.Now())
 	if err != nil {
 		return err
 	}

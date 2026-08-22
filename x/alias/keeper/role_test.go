@@ -13,6 +13,7 @@ import (
 	"yamale/blockchain/x/alias/keeper"
 	module "yamale/blockchain/x/alias/module"
 	"yamale/blockchain/x/alias/types"
+	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
 
 // The tests for piece two and piece three: the grant registry, and the one check
@@ -44,16 +45,44 @@ func (s stubGroups) GroupPolicyInfo(
 	return nil, errors.New("no group policy for " + req.Address)
 }
 
+// stubConstitution answers the one question x/alias asks x/constitution: which
+// address is the foundation.
+//
+// A pointer receiver over a mutable field, so a test can move the pinned address
+// or blank it out mid-run. Blanking it is not a hypothetical shape — it is the
+// state a chain would be in if an invariant were somehow unset, and the assertion
+// that an unset destination does not compare equal to an unset signer is the one
+// this stub exists for.
+type stubConstitution struct {
+	invariants constitutiontypes.Invariants
+	err        error
+}
+
+func (s *stubConstitution) GetInvariants(_ context.Context) (constitutiontypes.Invariants, error) {
+	if s.err != nil {
+		return constitutiontypes.Invariants{}, s.err
+	}
+	return s.invariants, nil
+}
+
 type roleFixture struct {
 	env    *integration.Env
 	k      keeper.Keeper
 	ms     types.MsgServer
 	qs     types.QueryServer
 	groups stubGroups
+	consti *stubConstitution
 
 	// admin holds the foundation exemption: no jurisdiction, and the reserved
 	// code as its country.
 	admin string
+
+	// foundation is the address the constitution pins as the recovery
+	// destination — the account that may admit a country. A group policy, like
+	// the real one, because a role holder has to be one and the foundation is the
+	// account granting the role rather than holding it: making it a plain key
+	// here would let a test pass that the chain would refuse.
+	foundation string
 }
 
 func roleSetup(t *testing.T) *roleFixture {
@@ -61,9 +90,10 @@ func roleSetup(t *testing.T) *roleFixture {
 
 	env := integration.New(t, types.ModuleName, module.AppModule{})
 	groups := stubGroups{policies: map[string]bool{}}
+	consti := &stubConstitution{}
 
 	k := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
-		log.NewNopLogger(), env.AuthorityString(t), nil, groups)
+		log.NewNopLogger(), env.AuthorityString(t), nil, groups, consti)
 
 	f := &roleFixture{
 		env:    env,
@@ -71,7 +101,13 @@ func roleSetup(t *testing.T) *roleFixture {
 		ms:     keeper.NewMsgServerImpl(k),
 		qs:     keeper.NewQueryServerImpl(k),
 		groups: groups,
+		consti: consti,
 	}
+
+	_, f.foundation = env.Addr(t)
+	groups.policies[f.foundation] = true
+	consti.invariants = constitutiontypes.DefaultInvariants()
+	consti.invariants.EnforcementRecoveryDestination = f.foundation
 
 	_, f.admin = env.Addr(t)
 	gs := types.DefaultGenesis()
@@ -296,7 +332,17 @@ func TestAMessageCannotDeclareTheWidestPerimeterForItself(t *testing.T) {
 
 // Grants are governance's to make. Not the holder's, not another holder's, and
 // not a foundation administrator's.
-func TestOnlyGovernanceMayGrantOrRevokeARole(t *testing.T) {
+// Everybody who is neither governance nor the foundation is refused, and that
+// includes the two accounts most likely to look privileged: the holder of the
+// role itself, and a foundation *administrator* from this module's own params.
+//
+// The second is the one worth keeping an eye on. Widening this message to accept
+// "the foundation" means one specific account — the one x/constitution pins — and
+// not the params list that happens to share the word. If those two ever became
+// the same set, the account that may admit a country would be editable by an
+// ordinary governance proposal, which is the property the widening was designed
+// not to have.
+func TestNeitherAHolderNorAnAdministratorMayGrantOrRevokeARole(t *testing.T) {
 	f := roleSetup(t)
 	holder := f.office(t)
 	f.grant(t, holder, types.ROLE_REGISTRY_AUTHORITY, "GH")
@@ -321,6 +367,345 @@ func TestOnlyGovernanceMayGrantOrRevokeARole(t *testing.T) {
 	require.NoError(t, f.k.AssertScopeIn(f.env.Ctx, holder, types.ROLE_REGISTRY_AUTHORITY, "GH"))
 	require.ErrorIs(t, f.k.AssertScopeIn(f.env.Ctx, holder, types.ROLE_REGISTRY_AUTHORITY, "KE"),
 		types.ErrOutOfScope)
+}
+
+// The foundation may appoint a country's authority, which is the point of the
+// widening: enrolling a country is one decision by three of five custodians
+// rather than a handful of governance proposals that have to land in order.
+func TestTheFoundationMayGrantAndRevokeInsideACountry(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	target := f.placed(t, "SN")
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+
+	// The grant works, and it works only where it was made.
+	require.NoError(t, f.k.AssertScope(f.env.Ctx, office, types.ROLE_PAYMENTS_AUTHORITY, target))
+	require.ErrorIs(t,
+		f.k.AssertScopeIn(f.env.Ctx, office, types.ROLE_PAYMENTS_AUTHORITY, "NG"),
+		types.ErrOutOfScope)
+
+	// Attributed to the foundation rather than to governance. "Who says this
+	// account may act on Senegalese accounts" is the question asked when the
+	// answer turns out to be wrong, and a grant recorded against the wrong
+	// authority cannot answer it.
+	grants, err := f.k.GrantsOf(f.env.Ctx, office)
+	require.NoError(t, err)
+	require.Len(t, grants, 1)
+	require.Equal(t, f.foundation, grants[0].GrantedBy)
+
+	// And it can take it back. Symmetric on purpose: an authority that can be
+	// appointed with one 3-of-5 vote and needs a governance cycle to remove is an
+	// arrangement where the emergency is the expensive case.
+	_, err = f.ms.RevokeRole(f.env.Ctx, &types.MsgRevokeRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+	require.ErrorIs(t, f.k.AssertScope(f.env.Ctx, office, types.ROLE_PAYMENTS_AUTHORITY, target),
+		types.ErrOutOfScope)
+}
+
+// The foundation admitting a country and the foundation manufacturing authority
+// over every country are different acts, and only the first one was decided.
+func TestTheFoundationCannotReachTheChainWideScope(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+
+	for _, spelling := range []string{types.ChainWide} {
+		_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+			Authority: f.foundation, Holder: office,
+			Role: types.ROLE_SUPERVISOR, Jurisdiction: spelling,
+		})
+		require.ErrorIs(t, err, types.ErrInvalidSigner)
+	}
+
+	// Nor may it revoke one. A chain-wide grant that the foundation could remove
+	// would be a chain-wide grant the foundation controls.
+	f.grant(t, office, types.ROLE_SUPERVISOR, types.ChainWide)
+	_, err := f.ms.RevokeRole(f.env.Ctx, &types.MsgRevokeRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: types.ChainWide,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+	require.NoError(t, f.k.AssertScopeIn(f.env.Ctx, office, types.ROLE_SUPERVISOR, "KE"))
+}
+
+// The chain-wide refusal does not depend on the constitution being readable.
+//
+// Ordering, asserted rather than assumed. An implementation that resolved the
+// foundation first and checked the scope afterwards would behave identically on a
+// healthy chain and would let a store failure decide whether "*" was allowed.
+func TestTheChainWideRefusalDoesNotDependOnTheConstitution(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	f.consti.err = errors.New("the constitution could not be read")
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: types.ChainWide,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+	require.Contains(t, err.Error(), types.ChainWide,
+		"the refusal should name the scope it refused, not the constitution it never read")
+}
+
+// An unset recovery destination does not make an unset signer the foundation.
+//
+// This is the proto3 zero-value trap in a string costume, and this repository has
+// been caught by the numeric version of it four times. If foundationAddress
+// returned "" for an unwritten invariant, then a message whose authority field
+// nobody filled in would compare equal to it and every grant would be permitted
+// by the absence of a constitution.
+func TestAnUnsetFoundationIsNobodyRatherThanEverybody(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	f.consti.invariants.EnforcementRecoveryDestination = ""
+
+	for _, signer := range []string{"", f.foundation} {
+		_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+			Authority: signer, Holder: office,
+			Role: types.ROLE_ENFORCEMENT_AUTHORITY, Jurisdiction: "SN",
+		})
+		require.ErrorIsf(t, err, types.ErrInvalidSigner,
+			"an unwritten recovery destination admitted %q", signer)
+		// The message, not just the error, and a mutation pass is why. An empty
+		// destination is caught twice — once as an unset invariant and once as an
+		// undecodable address — so removing the first guard changes no outcome and
+		// no test noticed. What it changes is what an operator is told: "there is
+		// no enforcement_recovery_destination" sends them to the constitution,
+		// where "not an address this chain can read" sends them hunting a typo
+		// that does not exist.
+		require.Containsf(t, err.Error(), "names no enforcement_recovery_destination",
+			"the refusal for %q should say the constitution names no destination", signer)
+	}
+
+	// Governance is unaffected: the closed state is the rule this message had
+	// before the widening, not a chain where nobody can grant anything.
+	f.grant(t, office, types.ROLE_ENFORCEMENT_AUTHORITY, "SN")
+}
+
+// A constitution that cannot be read is a refusal, never an acceptance.
+func TestAnUnreadableConstitutionRefusesTheFoundation(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	f.consti.err = errors.New("store failure")
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_MONETARY_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.Error(t, err)
+	require.ErrorIs(t,
+		f.k.AssertScopeIn(f.env.Ctx, office, types.ROLE_MONETARY_AUTHORITY, "SN"),
+		types.ErrOutOfScope, "a refused grant left a row behind")
+}
+
+// With no constitution keeper wired at all, governance is the only signer.
+//
+// Not skipped, which is what the nil group keeper does. The difference is which
+// way the bypass runs: a missing group keeper can only cause a grant that should
+// have been refused, and a missing constitution keeper that resolved to the empty
+// string would make every signer the foundation.
+func TestWithoutAConstitutionKeeperOnlyGovernanceMayGrant(t *testing.T) {
+	env := integration.New(t, types.ModuleName, module.AppModule{})
+	groups := stubGroups{policies: map[string]bool{}}
+	k := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
+		log.NewNopLogger(), env.AuthorityString(t), nil, groups, nil)
+	require.NoError(t, k.InitGenesis(env.Ctx, *types.DefaultGenesis()))
+	ms := keeper.NewMsgServerImpl(k)
+
+	_, office := env.Addr(t)
+	groups.policies[office] = true
+	_, stranger := env.Addr(t)
+
+	_, err := ms.GrantRole(env.Ctx, &types.MsgGrantRole{
+		Authority: stranger, Holder: office,
+		Role: types.ROLE_REGISTRY_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+
+	_, err = ms.GrantRole(env.Ctx, &types.MsgGrantRole{
+		Authority: env.AuthorityString(t), Holder: office,
+		Role: types.ROLE_REGISTRY_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+}
+
+// The foundation is resolved on every message, never cached.
+//
+// A cached authority is an authority that outlives the amendment that changed it.
+// Moving the pinned address has to take the power away from the old holder in the
+// very next message, because the reason to move it is usually that the old one
+// should no longer have it.
+func TestMovingThePinnedAddressMovesTheAuthority(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	old := f.foundation
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: old, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+
+	_, replacement := f.env.Addr(t)
+	f.consti.invariants.EnforcementRecoveryDestination = replacement
+
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: old, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: "NG",
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: replacement, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: "NG",
+	})
+	require.NoError(t, err)
+}
+
+// The foundation may revoke a country grant that GOVERNANCE made, and may re-make
+// one, rewriting the attribution to itself.
+//
+// Both of those follow from the signers being symmetric, both are surprising, and
+// an untested surprise is worse than the surprise. So they are written down here
+// rather than discovered.
+//
+// The revocation is the one worth thinking about, because it is a reduction of
+// governance's power: an authority the validator set deliberately installed can be
+// removed by three custodians. It is kept because the alternative — letting the
+// foundation revoke only what it granted — means an office installed by governance
+// whose keys are compromised cannot be stopped without a governance cycle, and the
+// whole reason revocation is not governance-only is that the emergency must not be
+// the expensive case. The foundation cannot reach a state governance could not: it
+// can grant the same country grant straight back, and it can never touch "*".
+//
+// The re-grant rewriting granted_by is a consequence of granting the same triple
+// being idempotent, which is deliberate elsewhere (a proposal resubmitted after a
+// timeout must not fail). What it costs is that granted_by names the last authority
+// to write the grant rather than the first, and the events carry the history.
+func TestTheFoundationCanUndoAndRewriteAGovernanceGrant(t *testing.T) {
+	f := roleSetup(t)
+	office := f.office(t)
+	target := f.placed(t, "SN")
+
+	// Governance grants it.
+	f.grant(t, office, types.ROLE_REGISTRY_AUTHORITY, "SN")
+	grants, err := f.k.GrantsOf(f.env.Ctx, office)
+	require.NoError(t, err)
+	require.Len(t, grants, 1)
+	require.Equal(t, f.env.AuthorityString(t), grants[0].GrantedBy)
+
+	// The foundation re-grants the same triple. The grant is unchanged except that
+	// it is now attributed to the foundation.
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_REGISTRY_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+	grants, err = f.k.GrantsOf(f.env.Ctx, office)
+	require.NoError(t, err)
+	require.Len(t, grants, 1, "re-granting the same triple must not create a second row")
+	require.Equal(t, f.foundation, grants[0].GrantedBy)
+	require.NoError(t, f.k.AssertScope(f.env.Ctx, office, types.ROLE_REGISTRY_AUTHORITY, target))
+
+	// And the foundation can take it away.
+	_, err = f.ms.RevokeRole(f.env.Ctx, &types.MsgRevokeRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_REGISTRY_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+	require.ErrorIs(t, f.k.AssertScope(f.env.Ctx, office, types.ROLE_REGISTRY_AUTHORITY, target),
+		types.ErrOutOfScope)
+
+	// What it cannot do, in either direction, is the chain-wide scope — so there is
+	// no state reachable this way that governance could not have reached.
+	f.grant(t, office, types.ROLE_SUPERVISOR, types.ChainWide)
+	_, err = f.ms.RevokeRole(f.env.Ctx, &types.MsgRevokeRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_SUPERVISOR, Jurisdiction: types.ChainWide,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+}
+
+// The foundation can grant itself a country-scoped role, and the chain permits it
+// on purpose rather than by omission.
+//
+// It looks alarming and it is bounded. The foundation already holds the account
+// every seized asset is sent to and can appoint any office it likes, so a
+// self-grant confers nothing it could not confer on a group it controls. What it
+// buys is a real case: a country admitted before its offices exist, where the
+// foundation acts as the interim authority until there is somebody to hand it to.
+// Refusing holder == authority would block that, and would not prevent the thing
+// it looks like it prevents.
+//
+// The chain-wide scope is still closed, which is the boundary that matters, and
+// `ceremony country` refuses to COMPOSE a self-grant — an office whose members
+// include the foundation is refused at init, and an office confirmed at the
+// foundation's own address is refused at confirm. So reaching this state takes a
+// hand-written proposal rather than a mistake.
+func TestTheFoundationMayHoldACountryRoleItself(t *testing.T) {
+	f := roleSetup(t)
+	target := f.placed(t, "SN")
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: f.foundation,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.k.AssertScope(f.env.Ctx, f.foundation, types.ROLE_PAYMENTS_AUTHORITY, target))
+
+	// And still not everywhere.
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: f.foundation,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: types.ChainWide,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidSigner)
+
+	ng := f.placed(t, "NG")
+	require.ErrorIs(t, f.k.AssertScope(f.env.Ctx, f.foundation, types.ROLE_PAYMENTS_AUTHORITY, ng),
+		types.ErrOutOfScope)
+}
+
+// Everything else the message refuses, it still refuses for the foundation.
+//
+// The widening is about who may sign, and nothing else. A separate signer path
+// that skipped the group check or the role check would be a second, weaker
+// implementation of the same message.
+func TestTheFoundationIsBoundByEveryOtherRule(t *testing.T) {
+	f := roleSetup(t)
+	_, plainKey := f.env.Addr(t)
+	office := f.office(t)
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: plainKey,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.ErrorIs(t, err, types.ErrHolderNotGroup)
+
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_UNSPECIFIED, Jurisdiction: "SN",
+	})
+	require.ErrorIs(t, err, types.ErrInvalidRole)
+
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: office,
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "ZZ",
+	})
+	require.ErrorIs(t, err, types.ErrInvalidScope,
+		"the foundation's reserved code is a grant over nowhere that reads as a grant over everywhere")
+
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.foundation, Holder: "not-an-address",
+		Role: types.ROLE_PAYMENTS_AUTHORITY, Jurisdiction: "SN",
+	})
+	require.Error(t, err)
 }
 
 // A role goes to an office, and an office that is one key is one bribe.
@@ -496,7 +881,7 @@ func TestGenesisRoundTripsWithRoleGrants(t *testing.T) {
 	// rebuilt it or not — which is exactly what they exist to check.
 	other := integration.New(t, types.ModuleName, module.AppModule{})
 	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec, other.StoreService,
-		log.NewNopLogger(), other.AuthorityString(t), nil, nil)
+		log.NewNopLogger(), other.AuthorityString(t), nil, nil, nil)
 	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
 	again, err := fresh.ExportGenesis(other.Ctx)
@@ -594,7 +979,7 @@ func TestGenesisRefusesAGrantTheHandlerWouldRefuse(t *testing.T) {
 func TestAGrantSeededAtGenesisWorks(t *testing.T) {
 	env := integration.New(t, types.ModuleName, module.AppModule{})
 	k := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
-		log.NewNopLogger(), env.AuthorityString(t), nil, nil)
+		log.NewNopLogger(), env.AuthorityString(t), nil, nil, nil)
 
 	_, holder := env.Addr(t)
 	_, target := env.Addr(t)

@@ -23,9 +23,20 @@
 //   - The machine is checked, and what could not be checked is said out loud
 //     rather than implied.
 //
-// Like tools/wallet, this program contains no network code: there is nothing
-// here that could phone home, which is the only version of that claim worth
-// making to somebody about to type a seed phrase in front of it.
+// Like tools/wallet, this program makes no outbound network connections: there is
+// nothing here that could phone home, which is the only version of that claim
+// worth making to somebody about to type a seed phrase in front of it. `host` and
+// `serve` listen — on loopback, and on nothing else — and neither of them, nor
+// anything else here, ever dials out.
+//
+// That constraint is why `country` reads the chain through files rather than over
+// a socket. Enrolling a country has to know what the chain says: the address a
+// group policy actually landed on, whether a grant actually executed. Fetching
+// those would be one line of net/http and would cost the claim above. So the
+// operator runs `blockchaind query ... -o json`, and this tool verifies the answer
+// against what it already knows — a policy's members against the roster its super
+// users signed for, a grant's authority against the constitution's own record of
+// who the foundation is. See tools/ceremony/country.go.
 //
 //	ceremony preflight                       # check the machine, nothing else
 //	ceremony custodian --name "A. Okafor" --role custodian
@@ -94,6 +105,8 @@ func main() {
 		err = runAddress(os.Args[2:])
 	case "record":
 		err = runRecord(os.Args[2:])
+	case "country":
+		err = runCountry(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -144,6 +157,8 @@ func usage() {
               swap a departing custodian for their replacement, in one proposal
   address     derive a group policy address for a sequence number
   record      render the ceremony record for signature
+  country     enrol one country: its offices' groups, their role grants, their
+              jurisdictions and the record — against a chain that is running
 
 Run "ceremony <command> --help" for the flags.
 
