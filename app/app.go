@@ -240,6 +240,21 @@ func New(
 	// through.
 	app.BankKeeper.AppendSendRestriction(app.EnforcementKeeper.SendRestriction)
 
+	// The jurisdictional perimeter, handed to x/paymsg after the graph is built.
+	//
+	// Every other consumer of the perimeter receives it through depinject. This
+	// one cannot: x/alias asks x/paymsg who onboarded an account, so an edge back
+	// from x/paymsg to x/alias would be a cycle and depinject.Inject above would
+	// refuse to resolve it. The keeper holds the perimeter behind a pointer
+	// allocated in its constructor precisely so that this assignment reaches the
+	// copy the message server was built from.
+	//
+	// Forgetting this line does not open a hole. Until it runs, the only signer
+	// x/paymsg accepts on a participant approval is governance — a national
+	// payments authority is refused, loudly, with an error naming the missing
+	// registry.
+	app.PaymsgKeeper.SetScopeKeeper(app.AliasKeeper)
+
 	// add to default baseapp options
 	// enable optimistic execution
 	baseAppOptions = append(baseAppOptions, baseapp.SetOptimisticExecution())

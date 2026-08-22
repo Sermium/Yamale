@@ -13,6 +13,7 @@ func DefaultGenesis() *GenesisState {
 		ViewingKeys:   []ViewingKey{},
 		Regulators:    []RegulatorAppointment{},
 		AuditorGrants: []AuditorGrant{},
+		RoleGrants:    []RoleGrant{},
 	}
 }
 
@@ -108,7 +109,43 @@ func (gs GenesisState) Validate() error {
 		seenAddr[a.Address] = struct{}{}
 	}
 
-	return gs.validateViewing()
+	if err := gs.validateViewing(); err != nil {
+		return err
+	}
+	return gs.validateRoles()
+}
+
+// validateRoles checks the grant registry.
+//
+// The rules are the handler's rules, held against a file: a role that is set
+// and real, a jurisdiction that is either an assigned country or the chain-wide
+// marker, and one record per (holder, role, jurisdiction). Nothing re-examines a
+// grant seeded at height zero, so a rule enforced only in the handler is a rule
+// a genesis file walks around — and the grant registry is the one place where
+// walking around a rule hands somebody an authority nobody voted for.
+//
+// What it deliberately does not check: whether the holder is a group account.
+// That question needs x/group's state, which genesis validation does not have,
+// and inventing an answer here would be worse than leaving it to the handler and
+// to whoever reads the file.
+func (gs GenesisState) validateRoles() error {
+	seen := make(map[string]struct{}, len(gs.RoleGrants))
+	for _, g := range gs.RoleGrants {
+		if err := g.Validate(); err != nil {
+			return err
+		}
+		// One record per triple. A duplicate is not harmless: the derived index
+		// would carry one entry for two records, so an export would emit two and
+		// the reverse view would list one, and the file would stop round-tripping
+		// the moment anybody revoked either of them.
+		key := g.Holder + "\x00" + RoleName(g.Role) + "\x00" + g.Jurisdiction
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("%s is granted %s in %s twice",
+				g.Holder, RoleName(g.Role), g.Jurisdiction)
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
 }
 
 // validateViewing checks the confidentiality registries.

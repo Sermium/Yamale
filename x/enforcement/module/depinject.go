@@ -40,6 +40,10 @@ type ModuleInputs struct {
 	// ConstitutionKeeper holds the parameters this module may read and may not
 	// change.
 	ConstitutionKeeper types.ConstitutionKeeper
+
+	// ScopeKeeper is the jurisdictional perimeter this module may read and may
+	// not change. See types.ScopeKeeper.
+	ScopeKeeper types.ScopeKeeper
 }
 
 type ModuleOutputs struct {
@@ -64,6 +68,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.BankKeeper,
 		in.StakingKeeper,
 		in.ConstitutionKeeper,
+		in.ScopeKeeper,
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 

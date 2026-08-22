@@ -28,7 +28,7 @@ func TestASeizureWithoutALegalInstrumentIsRefused(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener:       validator,
@@ -61,7 +61,7 @@ func TestEvidenceDoesNotSubstituteForLegalAuthority(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	// Evidence waived by governance, instrument still required. The two are
 	// governed separately on purpose: a deployment may decide how much evidence
@@ -107,7 +107,7 @@ func TestAMalformedLegalInstrumentIsRefused(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, target := f.env.NewFundedAddr(t, coins(1_000))
+			_, target := f.fundedAddr(t, coins(1_000))
 			li := instrument()
 			mutate(&li)
 
@@ -128,7 +128,7 @@ func TestAFreezeNeedsNoLegalInstrument(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, suspectStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, suspectStr := f.fundedAddr(t, coins(1_000_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: suspectStr, Action: types.CASE_ACTION_FREEZE,
@@ -142,7 +142,7 @@ func TestAFreezeNeedsNoLegalInstrument(t *testing.T) {
 // seizure rested on is the only thing that makes the authority checkable later.
 func TestTheLegalInstrumentIsKeptOnTheCase(t *testing.T) {
 	f := initFixture(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	id := f.openAndHoldSeizure(t, scammerStr)
 
@@ -159,8 +159,8 @@ func TestTheLegalInstrumentIsKeptOnTheCase(t *testing.T) {
 // at the same speed.
 func TestALargeSeizureWaitsLongerThanASmallOne(t *testing.T) {
 	f := initFixture(t)
-	_, smallStr := f.env.NewFundedAddr(t, coins(100_000))   // below every tier
-	_, largeStr := f.env.NewFundedAddr(t, coins(5_000_000)) // over the 1,000,000 tier
+	_, smallStr := f.fundedAddr(t, coins(100_000))   // below every tier
+	_, largeStr := f.fundedAddr(t, coins(5_000_000)) // over the 1,000,000 tier
 
 	smallID := f.openAndHoldSeizure(t, smallStr)
 	largeID := f.openAndHoldSeizure(t, largeStr)
@@ -205,7 +205,7 @@ func TestStakedFundsCountTowardsTheDelay(t *testing.T) {
 	require.NoError(t, err)
 	operator := sdk.ValAddress(holderBz).String()
 
-	_, richStr := f.env.NewFundedAddr(t, coins(1_000))
+	_, richStr := f.fundedAddr(t, coins(1_000))
 	f.staking.delegate(richStr, operator, 9_000_000)
 
 	id := f.openAndHoldSeizure(t, richStr)
@@ -229,7 +229,7 @@ func TestAHeldSeizureTakesNothingAndUnbondsNothing(t *testing.T) {
 	require.NoError(t, err)
 	operator := sdk.ValAddress(holderBz).String()
 
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(500_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(500_000))
 	f.staking.delegate(scammerStr, operator, 200_000)
 
 	f.openAndHoldSeizure(t, scammerStr)
@@ -253,8 +253,8 @@ func TestAHeldSeizureTakesNothingAndUnbondsNothing(t *testing.T) {
 // it. Sweep is that message.
 func TestSweepCannotShortCircuitTheDelay(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	_, senderStr := f.env.NewFundedAddr(t, coins(1))
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	_, senderStr := f.fundedAddr(t, coins(1))
 
 	id := f.openAndHoldSeizure(t, scammerStr)
 
@@ -290,7 +290,7 @@ func TestResolvedIsEmittedOnceAndOnlyAtAFinalStatus(t *testing.T) {
 
 	t.Run("a seizure resolves once, when it executes", func(t *testing.T) {
 		f := initFixture(t)
-		_, target := f.env.NewFundedAddr(t, coins(80_000))
+		_, target := f.fundedAddr(t, coins(80_000))
 
 		id := f.openAndHoldSeizure(t, target)
 		require.Empty(t, resolvedStatuses(f),
@@ -306,7 +306,7 @@ func TestResolvedIsEmittedOnceAndOnlyAtAFinalStatus(t *testing.T) {
 		ombudsman := f.appointOmbudsman(t)
 		validator := f.addValidator(t, 10)
 		f.addValidator(t, 10)
-		_, target := f.env.NewFundedAddr(t, coins(80_000))
+		_, target := f.fundedAddr(t, coins(80_000))
 
 		opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 			Opener: validator, Target: target, Action: types.CASE_ACTION_FREEZE, Reason: "suspicion",
@@ -331,7 +331,7 @@ func TestTheOmbudsmanCanVetoACaseStillBeingVotedOn(t *testing.T) {
 	ombudsman := f.appointOmbudsman(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(400_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(400_000))
 
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "suspected theft",
@@ -353,7 +353,7 @@ func TestTheOmbudsmanCanVetoACaseStillBeingVotedOn(t *testing.T) {
 
 	// The account can send again, in the same block.
 	require.False(t, f.keeper.IsFrozen(f.ctx, scammerStr))
-	elsewhere, _ := f.env.Addr(t)
+	elsewhere, _ := f.addr(t)
 	require.NoError(t, f.env.BankKeeper.SendCoins(f.ctx, scammer, elsewhere, coins(400_000)))
 
 	// And the case does not resolve again when its voting period ends.
@@ -368,7 +368,7 @@ func TestTheOmbudsmanCanVetoACaseStillBeingVotedOn(t *testing.T) {
 func TestTheOmbudsmanCanVetoAnAgreedSeizureBeforeItExecutes(t *testing.T) {
 	f := initFixture(t)
 	ombudsman := f.appointOmbudsman(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(2_000_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(2_000_000))
 
 	id := f.openAndHoldSeizure(t, scammerStr)
 	held, err := f.keeper.Case.Get(f.ctx, id)
@@ -411,7 +411,7 @@ func TestTheOmbudsmanCanVetoAnAgreedSeizureBeforeItExecutes(t *testing.T) {
 func TestTheOmbudsmanCannotVetoASeizureThatHasExecuted(t *testing.T) {
 	f := initFixture(t)
 	ombudsman := f.appointOmbudsman(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(300_000))
+	_, scammerStr := f.fundedAddr(t, coins(300_000))
 
 	id := f.openAndPassSeizure(t, scammerStr)
 	require.Equal(t, math.NewInt(300_000), f.env.Balance(f.destination, "uyml"))
@@ -433,7 +433,7 @@ func TestWithNoOmbudsmanAppointedThereIsNoVeto(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "suspicion",
@@ -445,7 +445,7 @@ func TestWithNoOmbudsmanAppointedThereIsNoVeto(t *testing.T) {
 	})
 	require.ErrorIs(t, err, types.ErrNoOmbudsman)
 
-	_, stranger := f.env.Addr(t)
+	_, stranger := f.addr(t)
 	_, err = f.ms.OmbudsmanVeto(f.ctx, &types.MsgOmbudsmanVeto{
 		Ombudsman: stranger, CaseId: opened.Id, Reason: "nor me",
 	})
@@ -459,14 +459,14 @@ func TestOnlyTheAppointedOmbudsmanMayVeto(t *testing.T) {
 	f.appointOmbudsman(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "suspicion",
 	})
 	require.NoError(t, err)
 
-	_, stranger := f.env.Addr(t)
+	_, stranger := f.addr(t)
 	_, err = f.ms.OmbudsmanVeto(f.ctx, &types.MsgOmbudsmanVeto{
 		Ombudsman: stranger, CaseId: opened.Id, Reason: "not my office",
 	})
@@ -558,7 +558,7 @@ func TestABondedOmbudsmanStillCannotOpenOrVote(t *testing.T) {
 	f.addValidator(t, 10)
 	f.setParams(t, func(p *types.Params) { p.Ombudsman = ombudsman })
 
-	_, targetStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, targetStr := f.fundedAddr(t, coins(1_000_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: ombudsman, Target: targetStr, Action: types.CASE_ACTION_FREEZE, Reason: "opening one myself",
@@ -604,7 +604,7 @@ func TestABondedOmbudsmanStillCannotOpenOrVote(t *testing.T) {
 func TestTheOmbudsmanCannotSweep(t *testing.T) {
 	f := initFixture(t)
 	ombudsman := f.appointOmbudsman(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	id := f.openAndPassSeizure(t, scammerStr)
 	f.env.Fund(t, mustAddr(t, f, scammerStr), coins(50_000))
@@ -613,7 +613,7 @@ func TestTheOmbudsmanCannotSweep(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrOmbudsmanCannotInitiate)
 
 	// And the chore is still done by anybody else, so nothing is stranded.
-	_, anyone := f.env.NewFundedAddr(t, coins(1))
+	_, anyone := f.fundedAddr(t, coins(1))
 	_, err = f.ms.Sweep(f.ctx, &types.MsgSweep{Sender: anyone, CaseId: id})
 	require.NoError(t, err)
 }
@@ -625,7 +625,7 @@ func TestParamsRefuseAnOmbudsmanThatCouldAlsoInitiate(t *testing.T) {
 	base, err := f.keeper.Params.Get(f.ctx)
 	require.NoError(t, err)
 
-	_, shared := f.env.Addr(t)
+	_, shared := f.addr(t)
 
 	both := base
 	both.EmergencyAuthority = shared
@@ -647,7 +647,7 @@ func TestEvenUnvalidatedParamsCannotLetTheOmbudsmanOpenACase(t *testing.T) {
 	f.addValidator(t, 10)
 	f.addValidator(t, 10)
 
-	_, shared := f.env.Addr(t)
+	_, shared := f.addr(t)
 	params, err := f.keeper.Params.Get(f.ctx)
 	require.NoError(t, err)
 	params.EmergencyAuthority = shared
@@ -657,7 +657,7 @@ func TestEvenUnvalidatedParamsCannotLetTheOmbudsmanOpenACase(t *testing.T) {
 	// Written anyway, as a bad migration would.
 	require.NoError(t, f.keeper.Params.Set(f.ctx, params))
 
-	_, targetStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, targetStr := f.fundedAddr(t, coins(100_000))
 	_, err = f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: shared, Target: targetStr, Reason: "letting myself in through the emergency door",
 	})
@@ -682,8 +682,8 @@ func TestTheRollingWindowRefusesASeizureThatWouldBreachItAndAllowsOneAfterItRoll
 		p.SeizureWindowCap = sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(1_000_000)))
 	})
 
-	firstAcct, first := f.env.NewFundedAddr(t, coins(600_000))
-	secondAcct, second := f.env.NewFundedAddr(t, coins(600_000))
+	firstAcct, first := f.fundedAddr(t, coins(600_000))
+	secondAcct, second := f.fundedAddr(t, coins(600_000))
 
 	// The first seizure fits inside the window and is carried out.
 	firstID := f.openAndHoldSeizure(t, first)
@@ -749,11 +749,11 @@ func TestTheCountCapRefusesASeizureInAnUncappedDenomination(t *testing.T) {
 		p.MaxSeizuresPerWindow = 1
 	})
 
-	_, first := f.env.NewFundedAddr(t, coins(10_000))
+	_, first := f.fundedAddr(t, coins(10_000))
 
 	// A currency the value cap has never heard of.
 	exotic := sdk.NewCoins(sdk.NewCoin("ukes", math.NewInt(9_000_000_000)))
-	secondAcct, second := f.env.Addr(t)
+	secondAcct, second := f.addr(t)
 	f.env.Fund(t, secondAcct, exotic)
 
 	firstID := f.openAndHoldSeizure(t, first)
@@ -790,8 +790,8 @@ func TestADeferredSeizureThatIsVetoedNeverExecutes(t *testing.T) {
 		p.Ombudsman = ombudsman
 	})
 
-	_, first := f.env.NewFundedAddr(t, coins(10_000))
-	secondAcct, second := f.env.NewFundedAddr(t, coins(20_000))
+	_, first := f.fundedAddr(t, coins(10_000))
+	secondAcct, second := f.fundedAddr(t, coins(20_000))
 
 	// Fill the window, so the next seizure is deferred rather than carried out.
 	firstID := f.openAndHoldSeizure(t, first)
@@ -844,7 +844,7 @@ func TestTheWindowForgetsNothingItShouldStillCount(t *testing.T) {
 		p.SeizureWindowBlocks = 1_000
 	})
 
-	_, target := f.env.NewFundedAddr(t, coins(700_000))
+	_, target := f.fundedAddr(t, coins(700_000))
 	id := f.openAndHoldSeizure(t, target)
 	f.executeHeld(t, id)
 
@@ -909,7 +909,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	statuses := make(map[types.CaseStatus]uint64)
 
 	// WITHDRAWN
-	_, withdrawnTarget := f.env.NewFundedAddr(t, coins(10_000))
+	_, withdrawnTarget := f.fundedAddr(t, coins(10_000))
 	withdrawn, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: withdrawnTarget, Action: types.CASE_ACTION_FREEZE, Reason: "taken back",
 	})
@@ -919,7 +919,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	statuses[types.CASE_STATUS_WITHDRAWN] = withdrawn.Id
 
 	// REJECTED — enough no power that the threshold is unreachable.
-	_, rejectedTarget := f.env.NewFundedAddr(t, coins(10_000))
+	_, rejectedTarget := f.fundedAddr(t, coins(10_000))
 	rejected, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: rejectedTarget, Action: types.CASE_ACTION_FREEZE, Reason: "refused by the set",
 	})
@@ -939,7 +939,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	statuses[types.CASE_STATUS_REJECTED] = rejected.Id
 
 	// EXPIRED — nobody votes and the period runs out.
-	_, expiredTarget := f.env.NewFundedAddr(t, coins(10_000))
+	_, expiredTarget := f.fundedAddr(t, coins(10_000))
 	expired, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: two, Target: expiredTarget, Action: types.CASE_ACTION_FREEZE, Reason: "nobody voted",
 	})
@@ -950,7 +950,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	statuses[types.CASE_STATUS_EXPIRED] = expired.Id
 
 	// VETOED
-	_, vetoedTarget := f.env.NewFundedAddr(t, coins(10_000))
+	_, vetoedTarget := f.fundedAddr(t, coins(10_000))
 	vetoed, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: vetoedTarget, Action: types.CASE_ACTION_FREEZE, Reason: "stopped by the ombudsman",
 	})
@@ -962,13 +962,13 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	statuses[types.CASE_STATUS_VETOED] = vetoed.Id
 
 	// HELD — agreed and waiting out its delay, with a freeze that must survive.
-	_, heldTarget := f.env.NewFundedAddr(t, coins(2_000_000))
+	_, heldTarget := f.fundedAddr(t, coins(2_000_000))
 	heldID := f.openAndHoldSeizure(t, heldTarget)
 	statuses[types.CASE_STATUS_HELD] = heldID
 
 	// PASSED — a seizure carried all the way through, which also puts a record
 	// in the rolling window's ledger.
-	_, passedTarget := f.env.NewFundedAddr(t, coins(150_000))
+	_, passedTarget := f.fundedAddr(t, coins(150_000))
 	passedID := f.openAndPassSeizure(t, passedTarget)
 	statuses[types.CASE_STATUS_PASSED] = passedID
 
@@ -981,7 +981,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 
 	// A second passed seizure so that PASSED is still represented after the
 	// reversal above, and so the ledger carries a record that must round-trip.
-	_, secondPassedTarget := f.env.NewFundedAddr(t, coins(90_000))
+	_, secondPassedTarget := f.fundedAddr(t, coins(90_000))
 	secondPassedID := f.openAndPassSeizure(t, secondPassedTarget)
 	statuses[types.CASE_STATUS_PASSED] = secondPassedID
 
@@ -989,7 +989,7 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	// case opened earlier would have been resolved by one of them — which is
 	// how an earlier draft of this test exported no VOTING case at all and only
 	// noticed because it asserts that every status is present.
-	_, votingTarget := f.env.NewFundedAddr(t, coins(10_000))
+	_, votingTarget := f.fundedAddr(t, coins(10_000))
 	voting, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: one, Target: votingTarget, Action: types.CASE_ACTION_FREEZE, Reason: "still being argued",
 	})
@@ -1061,14 +1061,14 @@ func TestCasesPassedMatchesWhatAnImportRebuilds(t *testing.T) {
 
 	// One seizure carried out, one still waiting, one vetoed while waiting.
 	// Only the first has been carried out, so only the first should count.
-	_, executedTarget := f.env.NewFundedAddr(t, coins(120_000))
+	_, executedTarget := f.fundedAddr(t, coins(120_000))
 	executedID := f.openAndPassSeizure(t, executedTarget)
 	require.NotZero(t, executedID)
 
-	_, waitingTarget := f.env.NewFundedAddr(t, coins(130_000))
+	_, waitingTarget := f.fundedAddr(t, coins(130_000))
 	f.openAndHoldSeizure(t, waitingTarget)
 
-	_, vetoedTarget := f.env.NewFundedAddr(t, coins(140_000))
+	_, vetoedTarget := f.fundedAddr(t, coins(140_000))
 	vetoedID := f.openAndHoldSeizure(t, vetoedTarget)
 	_, err := f.ms.OmbudsmanVeto(f.ctx, &types.MsgOmbudsmanVeto{
 		Ombudsman: ombudsman, CaseId: vetoedID, Reason: "the instrument names another account",
@@ -1104,7 +1104,7 @@ func TestTheRollingWindowSurvivesAnUpgrade(t *testing.T) {
 		p.MaxSeizuresPerWindow = 1
 	})
 
-	_, target := f.env.NewFundedAddr(t, coins(100_000))
+	_, target := f.fundedAddr(t, coins(100_000))
 	id := f.openAndHoldSeizure(t, target)
 	f.executeHeld(t, id)
 
@@ -1155,7 +1155,7 @@ func TestAProvisionalFreezeLapsesEvenIfItsCaseIsNeverResolved(t *testing.T) {
 		p.ProvisionalFreezeBlocks = 30
 	})
 
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(50_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(50_000))
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "suspected theft",
 	})
@@ -1178,7 +1178,7 @@ func TestAProvisionalFreezeLapsesEvenIfItsCaseIsNeverResolved(t *testing.T) {
 	// One block before it lapses, the account still cannot send.
 	f.runTo(t, freeze.ExpiresAtHeight-1)
 	require.True(t, f.keeper.IsFrozen(f.ctx, scammerStr))
-	elsewhere, _ := f.env.Addr(t)
+	elsewhere, _ := f.addr(t)
 	require.ErrorIs(t, f.env.BankKeeper.SendCoins(f.ctx, scammer, elsewhere, coins(1)), types.ErrFrozen)
 
 	// At the expiry height it lapses, with nobody having done anything and the
@@ -1209,9 +1209,12 @@ func mustAddr(t *testing.T, f *fixture, addr string) sdk.AccAddress {
 	return sdk.AccAddress(mustBytes(t, f, addr))
 }
 
+// mustNewAddr returns a fresh account that may act: placed, and granted the
+// enforcement role. Its one caller uses it as the emergency authority.
 func mustNewAddr(t *testing.T, f *fixture) string {
 	t.Helper()
-	_, s := f.env.Addr(t)
+	_, s := f.addr(t)
+	f.grantEnforcement(t, s)
 	return s
 }
 

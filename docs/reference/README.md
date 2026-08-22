@@ -13,7 +13,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 
 | Module | Purpose | Transactions | Queries |
 | --- | --- | --- | --- |
-| [x/alias](alias.md) |  | 8 | 9 |
+| [x/alias](alias.md) |  | 10 | 12 |
 | [x/amm](amm.md) | A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool's own reserves. | 5 | 3 |
 | [x/builderfee](builderfee.md) | Shares a governance-set portion of transaction fees with the developer whose message type was used. | 3 | 5 |
 | [x/constitution](constitution.md) |  | 3 | 4 |

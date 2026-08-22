@@ -55,7 +55,7 @@ func jSetup(t *testing.T) *jFixture {
 
 	k := keeper.NewKeeper(
 		env.Codec, env.AddressCodec, env.Store(types.ModuleName),
-		log.NewNopLogger(), env.AuthorityString(t), paymsgK)
+		log.NewNopLogger(), env.AuthorityString(t), paymsgK, nil)
 
 	f := &jFixture{
 		env:      env,
@@ -432,7 +432,7 @@ func TestGenesisRoundTripsWithJurisdictions(t *testing.T) {
 		[]string{types.ModuleName, paymsgtypes.ModuleName},
 		module.AppModule{}, paymsgmodule.AppModule{})
 	fresh := keeper.NewKeeper(other.Codec, other.AddressCodec,
-		other.Store(types.ModuleName), log.NewNopLogger(), other.AuthorityString(t), nil)
+		other.Store(types.ModuleName), log.NewNopLogger(), other.AuthorityString(t), nil, nil)
 	require.NoError(t, fresh.InitGenesis(other.Ctx, *exported))
 
 	again, err := fresh.ExportGenesis(other.Ctx)

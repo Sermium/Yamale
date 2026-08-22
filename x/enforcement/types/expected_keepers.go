@@ -9,8 +9,28 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	constitutiontypes "yamale/blockchain/x/constitution/types"
 )
+
+// ScopeKeeper is the jurisdictional perimeter, and one method of it.
+//
+// The thing this module acts on is always an account, and the country an account
+// is in is a fact the chain holds rather than one the accuser gets to state — so
+// this is the shape that resolves the target itself. The other shape, where the
+// jurisdiction is named in the message, is deliberately not here: an accuser who
+// could tell the check which perimeter their target is in could reach anybody by
+// naming their own.
+//
+// Read-only, one method. x/alias knows nothing about this module, so the
+// dependency runs one way and the perimeter cannot be widened from inside the
+// module it constrains.
+type ScopeKeeper interface {
+	// AssertScope returns nil only when the actor holds a grant of the role
+	// covering the country the target account is recorded in. A target the chain
+	// cannot place is an error, not a match.
+	AssertScope(ctx context.Context, actor string, role aliastypes.Role, target string) error
+}
 
 // ConstitutionKeeper is where this module's non-negotiable parameters really
 // live.

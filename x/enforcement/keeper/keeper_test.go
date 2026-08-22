@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
+	aliasmodule "yamale/blockchain/x/alias/module"
+	aliastestutil "yamale/blockchain/x/alias/testutil"
+	aliastypes "yamale/blockchain/x/alias/types"
 	constitutiontestutil "yamale/blockchain/x/constitution/testutil"
 	constitutiontypes "yamale/blockchain/x/constitution/types"
 	"yamale/blockchain/x/enforcement/keeper"
@@ -150,6 +153,17 @@ func (s *stubStaking) matureUnbonding(delegator string) {
 	delete(s.unbonding, delegator)
 }
 
+// country is where every account in these tests is recorded, and the perimeter
+// every validator here is granted.
+//
+// It has to be stated, because a target the chain cannot place is refused before
+// any grant is consulted — which is the point of the perimeter and is also why
+// these fixtures place every address they hand out. A test that forgot would fail
+// with "no recorded jurisdiction", which is the correct refusal and not the one
+// it meant to exercise. The cross-perimeter refusals are in perimeter_test.go,
+// where a second country is introduced deliberately.
+const country = "KE"
+
 type fixture struct {
 	ctx     context.Context
 	keeper  keeper.Keeper
@@ -157,6 +171,11 @@ type fixture struct {
 	ms      types.MsgServer
 	qs      types.QueryServer
 	staking *stubStaking
+
+	// perimeter is a real x/alias keeper. The rule being enforced is that
+	// module's — who may stop whose money — and a stub would be this test writing
+	// down the answer it wanted.
+	perimeter *aliastestutil.Perimeter
 
 	// destination is the recovery destination — the foundation account.
 	destination    sdk.AccAddress
@@ -166,8 +185,11 @@ type fixture struct {
 func initFixture(t *testing.T) *fixture {
 	t.Helper()
 
-	env := integration.NewWith(t, []string{types.ModuleName, constitutiontypes.ModuleName}, module.AppModule{})
+	env := integration.NewWith(t,
+		[]string{types.ModuleName, constitutiontypes.ModuleName, aliastypes.ModuleName},
+		module.AppModule{}, aliasmodule.AppModule{})
 	staking := newStubStaking()
+	perimeter := aliastestutil.Init(t, env)
 
 	// Fixed rather than random. The recovery destination is constitutional now,
 	// so two fixtures with different destinations are two different chains — and
@@ -191,6 +213,7 @@ func initFixture(t *testing.T) *fixture {
 		env.BankKeeper,
 		staking,
 		constitution,
+		perimeter.Keeper,
 	)
 
 	params := types.DefaultParams()
@@ -236,9 +259,46 @@ func initFixture(t *testing.T) *fixture {
 		ms:             keeper.NewMsgServerImpl(k),
 		qs:             keeper.NewQueryServerImpl(k),
 		staking:        staking,
+		perimeter:      perimeter,
 		destination:    destination,
 		destinationStr: destinationStr,
 	}
+}
+
+// addr returns a fresh account already recorded in the fixture's country.
+//
+// Every account these tests hand out goes through here rather than through
+// env.Addr, because an account the chain cannot place cannot be acted on at all
+// — correctly, and for a reason unrelated to whatever the test is checking.
+func (f *fixture) addr(t *testing.T) (sdk.AccAddress, string) {
+	t.Helper()
+	addr, s := f.env.Addr(t)
+	f.place(t, s)
+	return addr, s
+}
+
+// fundedAddr returns a fresh placed account already holding coins.
+func (f *fixture) fundedAddr(t *testing.T, amount sdk.Coins) (sdk.AccAddress, string) {
+	t.Helper()
+	addr, s := f.addr(t)
+	f.env.Fund(t, addr, amount)
+	return addr, s
+}
+
+// place records an existing account in the fixture's country.
+//
+// Needed on its own for the genesis tests, which carry addresses from one chain
+// into a second fixture whose perimeter registry starts empty — the same
+// situation as an account that existed before the perimeter did.
+func (f *fixture) place(t *testing.T, addr string) {
+	t.Helper()
+	f.perimeter.Place(t, addr, country)
+}
+
+// grantEnforcement grants the enforcement role over the fixture's country.
+func (f *fixture) grantEnforcement(t *testing.T, addr string) {
+	t.Helper()
+	f.perimeter.Grant(t, addr, aliastypes.ROLE_ENFORCEMENT_AUTHORITY, country)
 }
 
 // atHeight moves the chain forward.
@@ -260,6 +320,13 @@ func (f *fixture) addValidator(t *testing.T, power int64) string {
 		bonded:   true,
 		power:    power,
 	})
+	// Bonded *and* granted. Being trusted to secure the chain is a different
+	// question from being permitted to stop a particular country's accounts, and
+	// this module used to answer only the first. Every fixture validator is
+	// granted the fixture's country here so the tests below exercise the rules
+	// they are about; the refusal for a validator granted somewhere else is in
+	// perimeter_test.go.
+	f.grantEnforcement(t, account)
 	return account
 }
 
@@ -301,7 +368,7 @@ func (f *fixture) setParams(t *testing.T, mutate func(*types.Params)) types.Para
 // appointOmbudsman names an ombudsman and returns the address it signs with.
 func (f *fixture) appointOmbudsman(t *testing.T) string {
 	t.Helper()
-	_, ombudsman := f.env.Addr(t)
+	_, ombudsman := f.addr(t)
 	f.setParams(t, func(p *types.Params) { p.Ombudsman = ombudsman })
 	return ombudsman
 }

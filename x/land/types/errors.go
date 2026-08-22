@@ -76,3 +76,14 @@ var (
 // ErrOfficeNotGroup refuses a registry office that is a single key.
 var ErrOfficeNotGroup = errors.Register(ModuleName, 32,
 	"a registry office must be a group account, so its decisions need several signatures")
+
+// ErrInvalidJurisdiction refuses an office admitted for somewhere that is not a
+// country.
+//
+// The jurisdiction on an office record is what the perimeter check is made
+// against, so a free-text value there is a perimeter no grant can ever cover:
+// the office would be admitted, look admitted, and be unable to register a
+// single parcel. Refused at admission so the failure is visible in the proposal
+// rather than the first time a registrar tries to do their job.
+var ErrInvalidJurisdiction = errors.Register(ModuleName, 35,
+	"a registry office's jurisdiction must be an assigned ISO 3166-1 alpha-2 country code")

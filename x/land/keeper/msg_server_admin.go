@@ -8,6 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/land/types"
 )
 
@@ -50,10 +51,22 @@ func (m msgServer) RegisterAuthority(
 	if err := m.assertGroupAccount(ctx, msg.Office); err != nil {
 		return nil, err
 	}
+	// The jurisdiction on this record is what the perimeter check is made
+	// against, so it has to be a country the chain recognises. Free text here
+	// would admit an office to a perimeter no grant can ever cover: it would look
+	// admitted and be unable to register a single parcel, and the failure would
+	// surface to a registrar rather than to whoever wrote the proposal.
+	//
+	// Normalised as well as checked, so "gh" and "GH" are the same office rather
+	// than one that works and one that does not.
+	jurisdiction := aliastypes.NormaliseCountry(msg.Jurisdiction)
+	if !aliastypes.AssignedCountry(jurisdiction) {
+		return nil, types.ErrInvalidJurisdiction.Wrapf("%q", msg.Jurisdiction)
+	}
 	if err := m.Authority.Set(ctx, msg.Office, types.Authority{
 		Address:      msg.Office,
 		Name:         msg.Name,
-		Jurisdiction: msg.Jurisdiction,
+		Jurisdiction: jurisdiction,
 		Active:       msg.Active,
 	}); err != nil {
 		return nil, err

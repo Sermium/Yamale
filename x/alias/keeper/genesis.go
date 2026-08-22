@@ -43,6 +43,15 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 			return err
 		}
 	}
+	for _, g := range gs.RoleGrants {
+		// Written through the same helper the handler uses, so the derived index
+		// is built by the same code in both cases. Rebuilding it here with its own
+		// loop is how the two come to disagree: one of them gets a field added and
+		// the other does not.
+		if err := k.grant(ctx, g); err != nil {
+			return err
+		}
+	}
 	for _, a := range gs.Aliases {
 		if err := k.Aliases.Set(ctx, a.Id, a); err != nil {
 			return err
@@ -75,6 +84,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		ViewingKeys:   []types.ViewingKey{},
 		Regulators:    []types.RegulatorAppointment{},
 		AuditorGrants: []types.AuditorGrant{},
+		RoleGrants:    []types.RoleGrant{},
 	}
 
 	if err := k.Aliases.Walk(ctx, nil, func(_ string, a types.Alias) (bool, error) {
@@ -119,6 +129,17 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		gs.AuditorGrants = append(gs.AuditorGrants, g)
 		return false, nil
 	}); err != nil {
+		return nil, err
+	}
+	// The registry, and not the (jurisdiction, role, holder) index beside it. The
+	// index is rebuilt from these records by InitGenesis, for the same reason
+	// Owners and Perimeter are: two copies of one fact in a genesis file can
+	// disagree, and the one that gets believed is whichever the code reads first.
+	if err := k.RoleGrants.Walk(ctx, nil,
+		func(_ collections.Triple[string, int32, string], g types.RoleGrant) (bool, error) {
+			gs.RoleGrants = append(gs.RoleGrants, g)
+			return false, nil
+		}); err != nil {
 		return nil, err
 	}
 	return &gs, nil

@@ -99,6 +99,28 @@
         ]
       }
     },
+    "/yamale/blockchain/alias/v1/chain_wide_grants": {
+      "get": {
+        "operationId": "Query_ChainWideGrants",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryChainWideGrantsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/alias/v1/jurisdiction/{address}": {
       "get": {
         "operationId": "Query_Jurisdiction",
@@ -269,6 +291,116 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/role_grants/{holder}": {
+      "get": {
+        "operationId": "Query_RoleGrants",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRoleGrantsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "holder",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/alias/v1/role_holders/{jurisdiction}": {
+      "get": {
+        "operationId": "Query_RoleHolders",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRoleHoldersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "jurisdiction",
+            "description": "jurisdiction is an ISO 3166-1 alpha-2 code, in any case.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "role",
+            "description": " - ROLE_UNSPECIFIED: ROLE_UNSPECIFIED is the unset default and is never valid.\n\nThe zero value is reserved rather than given to a real role, and every\npath refuses it. Proto3 cannot tell a zero from an absent field, so a\ngrant whose role happened to be the first of the list would be\nindistinguishable from a grant whose role nobody filled in — and the\nsecond must never be honoured.\n - ROLE_REGISTRY_AUTHORITY: ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office:\nregistering a parcel, validating a transfer, freezing land.\n - ROLE_MONETARY_AUTHORITY: ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a\ncurrency inside its jurisdiction.\n - ROLE_PAYMENTS_AUTHORITY: ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a\npayment instruction. Separate from the monetary authority because\nlicensing a payment service provider and issuing money are different\noffices in most of the deployments this chain is built for, and collapsing\nthem here would force one key to hold both.\n - ROLE_ENFORCEMENT_AUTHORITY: ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it,\nor freezing it outright.\n - ROLE_SUPERVISOR: ROLE_SUPERVISOR is oversight without the power to act — the role held by\nan auditor or a regulator that watches a perimeter it does not administer.\nIt is granted through the same registry as the rest so that \"who is\nwatching this country\" has one answer in one place.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "ROLE_UNSPECIFIED",
+              "ROLE_REGISTRY_AUTHORITY",
+              "ROLE_MONETARY_AUTHORITY",
+              "ROLE_PAYMENTS_AUTHORITY",
+              "ROLE_ENFORCEMENT_AUTHORITY",
+              "ROLE_SUPERVISOR"
+            ],
+            "default": "ROLE_UNSPECIFIED"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "tags": [
@@ -5227,6 +5359,18 @@
         }
       }
     },
+    "QueryChainWideGrantsResponse": {
+      "type": "object",
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/RoleGrant"
+          }
+        }
+      }
+    },
     "QueryClaimableAmountResponse": {
       "type": "object",
       "properties": {
@@ -5864,6 +6008,33 @@
         }
       }
     },
+    "QueryRoleGrantsResponse": {
+      "type": "object",
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/RoleGrant"
+          }
+        }
+      }
+    },
+    "QueryRoleHoldersResponse": {
+      "type": "object",
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/RoleGrant"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QuerySeizureWindowResponse": {
       "type": "object",
       "properties": {
@@ -6077,6 +6248,27 @@
         },
         "role": {
           "$ref": "#/definitions/Role"
+        }
+      }
+    },
+    "RoleGrant": {
+      "type": "object",
+      "properties": {
+        "holder": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/Role"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "granted_by": {
+          "type": "string"
+        },
+        "granted_at_height": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

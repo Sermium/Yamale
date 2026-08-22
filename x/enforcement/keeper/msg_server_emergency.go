@@ -45,6 +45,15 @@ func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyF
 	if err := k.assertTargetable(ctx, sdk.AccAddress(targetBz), msg.Target); err != nil {
 		return nil, err
 	}
+	// The perimeter, and the emergency is not an exception to it. Skipping the
+	// jurisdiction check because the situation is urgent would mean the one path
+	// that acts on a single signature is also the one path with no territorial
+	// limit — which is the shape of every abuse this design exists to make
+	// impossible. An authority that needs to stop an account outside its
+	// perimeter needs the authority of that perimeter, urgently or otherwise.
+	if err := k.assertScope(ctx, msg.Authority, msg.Target); err != nil {
+		return nil, err
+	}
 
 	// The grounds are required here for the same reason as everywhere else, and
 	// more so: acting in an emergency is not a reason to leave the record blank,

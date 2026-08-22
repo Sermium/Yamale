@@ -49,8 +49,8 @@ func TestGenesisRoundTripsWithFreezesIntact(t *testing.T) {
 	f.addValidator(t, 10)
 	f.addValidator(t, 10)
 
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(500_000))
-	suspect, suspectStr := f.env.NewFundedAddr(t, coins(100_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(500_000))
+	suspect, suspectStr := f.fundedAddr(t, coins(100_000))
 
 	// One case still being voted on, one already passed.
 	open, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
@@ -67,7 +67,15 @@ func TestGenesisRoundTripsWithFreezesIntact(t *testing.T) {
 	require.NoError(t, exported.Validate(), "an export the chain would refuse to import is not an export")
 
 	// A fresh chain, started from what the old one wrote.
+	//
+	// x/alias's state is not part of x/enforcement's export, so the accounts the
+	// old chain had placed have to be placed again here. That is not a workaround:
+	// it is the same situation as a chain whose perimeter registry is younger than
+	// its accounts, and the perimeter's answer to it is to refuse until somebody
+	// records where the account is.
 	g := initFixture(t)
+	g.place(t, scammerStr)
+	g.place(t, suspectStr)
 	require.NoError(t, g.keeper.InitGenesis(g.ctx, *exported))
 
 	reexported, err := g.keeper.ExportGenesis(g.ctx)
@@ -79,7 +87,7 @@ func TestGenesisRoundTripsWithFreezesIntact(t *testing.T) {
 	require.True(t, g.keeper.IsFrozen(g.ctx, scammerStr))
 	require.True(t, g.keeper.IsFrozen(g.ctx, suspectStr))
 
-	elsewhere, _ := g.env.Addr(t)
+	elsewhere, _ := g.addr(t)
 	g.env.Fund(t, scammer, coins(10))
 	g.env.Fund(t, suspect, coins(10))
 	require.ErrorIs(t, g.env.BankKeeper.SendCoins(g.ctx, scammer, elsewhere, coins(10)), types.ErrFrozen)
@@ -115,7 +123,7 @@ func TestDefaultGenesisNumbersCasesFromOne(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, target := f.env.NewFundedAddr(t, coins(1))
+	_, target := f.fundedAddr(t, coins(1))
 
 	resp, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: target, Action: types.CASE_ACTION_FREEZE, Reason: "the first case",

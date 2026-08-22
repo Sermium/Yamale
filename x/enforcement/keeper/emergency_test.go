@@ -13,7 +13,11 @@ import (
 func (f *fixture) withEmergencyAuthority(t *testing.T) string {
 	t.Helper()
 
-	_, founders := f.env.Addr(t)
+	_, founders := f.addr(t)
+	// Named in the parameters *and* granted the enforcement role. The emergency
+	// path is not an exception to the perimeter: acting on a single signature is
+	// exactly the power that must still stop at a border.
+	f.grantEnforcement(t, founders)
 	params, err := f.keeper.Params.Get(f.ctx)
 	require.NoError(t, err)
 	params.EmergencyAuthority = founders
@@ -27,8 +31,8 @@ func TestTheFoundersCanFreezeWithoutWaitingForAValidator(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	elsewhere, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	elsewhere, _ := f.addr(t)
 
 	resp, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: founders,
@@ -54,8 +58,8 @@ func TestAFoundersFreezeStillLapsesIfNobodyConfirmsIt(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(500_000))
-	elsewhere, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(500_000))
+	elsewhere, _ := f.addr(t)
 
 	resp, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: founders, Target: scammerStr, Reason: "reported stolen",
@@ -82,8 +86,8 @@ func TestValidatorsCanRefuseAFoundersFreeze(t *testing.T) {
 	f.addValidator(t, 10)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(500_000))
-	elsewhere, _ := f.env.Addr(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(500_000))
+	elsewhere, _ := f.addr(t)
 
 	resp, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: founders, Target: scammerStr, Reason: "reported stolen",
@@ -110,8 +114,8 @@ func TestTheFoundersCanReleaseAValidatorsFreezeImmediately(t *testing.T) {
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	business, businessStr := f.env.NewFundedAddr(t, coins(1_000_000))
-	supplier, _ := f.env.Addr(t)
+	business, businessStr := f.fundedAddr(t, coins(1_000_000))
+	supplier, _ := f.addr(t)
 
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: businessStr, Action: types.CASE_ACTION_FREEZE,
@@ -150,7 +154,7 @@ func TestTheFoundersCanReleaseAValidatorsFreezeImmediately(t *testing.T) {
 // says so rather than implying otherwise.
 func TestReleasingAfterASeizureDoesNotReturnTheFunds(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(400_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(400_000))
 	founders := f.withEmergencyAuthority(t)
 
 	id := f.openAndPassSeizure(t, scammerStr)
@@ -178,7 +182,7 @@ func TestTheFoundersCannotSeize(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	_, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	// The emergency message has no action field at all — a seizure cannot even
 	// be expressed. What it can do is freeze, and the case it opens is a freeze
@@ -197,8 +201,8 @@ func TestOnlyTheNamedAuthorityMayUseTheEmergencyPath(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
-	_, stranger := f.env.Addr(t)
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
+	_, stranger := f.addr(t)
 
 	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: stranger, Target: scammerStr, Reason: "I say so",
@@ -227,14 +231,14 @@ func TestOnlyTheNamedAuthorityMayUseTheEmergencyPath(t *testing.T) {
 func TestWithNoAuthoritySetThereIsNoEmergencyPath(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: "", Target: scammerStr, Reason: "nobody in particular",
 	})
 	require.ErrorIs(t, err, types.ErrNoEmergencyAuthority)
 
-	_, other := f.env.Addr(t)
+	_, other := f.addr(t)
 	_, err = f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: other, Target: scammerStr, Reason: "still nobody",
 	})
@@ -245,7 +249,7 @@ func TestAnEmergencyFreezeStillRefusesModuleAccountsAndNeedsGrounds(t *testing.T
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: founders, Target: scammerStr, Reason: "   ",
@@ -269,7 +273,7 @@ func TestReleasingACaseThatIsAlreadyClosedIsRefused(t *testing.T) {
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	opened, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "a mistake",

@@ -49,6 +49,18 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 	if err := k.assertTargetable(ctx, sdk.AccAddress(targetBz), msg.Target); err != nil {
 		return nil, err
 	}
+	// The perimeter. Being a bonded validator says you are trusted to secure this
+	// chain; it does not say which country's accounts you may stop. Those are
+	// different questions and this module used to answer only the first, which is
+	// how a validator in one jurisdiction could freeze an account in another.
+	//
+	// Checked against the signing account rather than the operator address,
+	// because a grant is made to an account and the operator address is derived
+	// from it — granting to the derived form would be granting to an account
+	// nobody holds a key for.
+	if err := k.assertScope(ctx, msg.Opener, msg.Target); err != nil {
+		return nil, err
+	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 

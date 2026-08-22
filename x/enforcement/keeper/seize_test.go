@@ -15,7 +15,7 @@ import (
 // bonded power, and with it the number of yes votes the case needs.
 func (f *fixture) someValidatorAddress(t *testing.T) string {
 	t.Helper()
-	addr, _ := f.env.Addr(t)
+	addr, _ := f.addr(t)
 	return sdk.ValAddress(addr).String()
 }
 
@@ -96,7 +96,7 @@ func (f *fixture) executeHeld(t *testing.T, id uint64) {
 // foundation and the scammer keeps nothing.
 func TestAPassedSeizureMovesTheFundsToTheDestination(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(1_000_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
 
 	id := f.openAndPassSeizure(t, scammerStr)
 
@@ -120,7 +120,7 @@ func TestAPassedSeizureMovesTheFundsToTheDestination(t *testing.T) {
 // the unbonding period and nothing else.
 func TestASeizureReachesStakedFundsWhenTheyUnbond(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(200_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(200_000))
 	f.staking.delegate(scammerStr, f.someValidatorAddress(t), 800_000)
 
 	id := f.openAndPassSeizure(t, scammerStr)
@@ -135,7 +135,7 @@ func TestASeizureReachesStakedFundsWhenTheyUnbond(t *testing.T) {
 	require.False(t, seized.SweepComplete, "the unbonding stake has not arrived yet")
 
 	// Sweeping now collects nothing, and says so rather than claiming success.
-	sweeper, sweeperStr := f.env.NewFundedAddr(t, coins(1))
+	sweeper, sweeperStr := f.fundedAddr(t, coins(1))
 	_ = sweeper
 	empty, err := f.ms.Sweep(f.ctx, &types.MsgSweep{Sender: sweeperStr, CaseId: id})
 	require.NoError(t, err)
@@ -161,16 +161,16 @@ func TestASeizureReachesStakedFundsWhenTheyUnbond(t *testing.T) {
 // moved on before the next sweep collects them.
 func TestFundsArrivingAfterASeizureAreStillTrapped(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	id := f.openAndPassSeizure(t, scammerStr)
 	require.Equal(t, math.NewInt(100_000), f.env.Balance(f.destination, "uyml"))
 
 	// A late payment from an accomplice.
-	accomplice, _ := f.env.NewFundedAddr(t, coins(50_000))
+	accomplice, _ := f.fundedAddr(t, coins(50_000))
 	require.NoError(t, f.env.BankKeeper.SendCoins(f.ctx, accomplice, scammer, coins(50_000)))
 
-	elsewhere, _ := f.env.Addr(t)
+	elsewhere, _ := f.addr(t)
 	require.ErrorIs(t, f.env.BankKeeper.SendCoins(f.ctx, scammer, elsewhere, coins(50_000)), types.ErrFrozen)
 
 	_, err := f.ms.Sweep(f.ctx, &types.MsgSweep{Sender: scammerStr, CaseId: id})
@@ -185,14 +185,14 @@ func TestAFrozenAccountCanOnlySendToTheRecoveryDestination(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(100_000))
 
 	_, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
 		Opener: validator, Target: scammerStr, Action: types.CASE_ACTION_FREEZE, Reason: "suspected theft",
 	})
 	require.NoError(t, err)
 
-	elsewhere, _ := f.env.Addr(t)
+	elsewhere, _ := f.addr(t)
 	require.ErrorIs(t, f.env.BankKeeper.SendCoins(f.ctx, scammer, elsewhere, coins(1)), types.ErrFrozen)
 
 	// Paying the destination is allowed, and there is nothing to gain by it:
@@ -204,8 +204,8 @@ func TestOnlyAPassedSeizureCanBeSwept(t *testing.T) {
 	f := initFixture(t)
 	validator := f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	_, scammerStr := f.env.NewFundedAddr(t, coins(100_000))
-	_, senderStr := f.env.NewFundedAddr(t, coins(1))
+	_, scammerStr := f.fundedAddr(t, coins(100_000))
+	_, senderStr := f.fundedAddr(t, coins(1))
 
 	// A freeze case takes nothing, ever.
 	freezeCase, err := f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
@@ -224,7 +224,7 @@ func TestOnlyAPassedSeizureCanBeSwept(t *testing.T) {
 // chain was wrong. It does not pretend to return what was already taken.
 func TestGovernanceCanReverseAPassedCase(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(500_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(500_000))
 
 	id := f.openAndPassSeizure(t, scammerStr)
 	require.Equal(t, math.NewInt(500_000), f.env.Balance(f.destination, "uyml"))
@@ -244,11 +244,11 @@ func TestGovernanceCanReverseAPassedCase(t *testing.T) {
 
 	// The account can send again.
 	f.env.Fund(t, scammer, coins(10))
-	elsewhere, _ := f.env.Addr(t)
+	elsewhere, _ := f.addr(t)
 	require.NoError(t, f.env.BankKeeper.SendCoins(f.ctx, scammer, elsewhere, coins(10)))
 
 	// And nobody but governance can do it.
-	_, stranger := f.env.Addr(t)
+	_, stranger := f.addr(t)
 	_, err = f.ms.ReverseCase(f.ctx, &types.MsgReverseCase{Authority: stranger, CaseId: id})
 	require.ErrorIs(t, err, types.ErrInvalidSigner)
 }
@@ -258,7 +258,7 @@ func TestGovernanceCanReverseAPassedCase(t *testing.T) {
 // the next sweep.
 func TestAFailedUndelegationDoesNotStopTheSeizure(t *testing.T) {
 	f := initFixture(t)
-	scammer, scammerStr := f.env.NewFundedAddr(t, coins(300_000))
+	scammer, scammerStr := f.fundedAddr(t, coins(300_000))
 	f.staking.delegate(scammerStr, f.someValidatorAddress(t), 700_000)
 	f.staking.undelegateFails = true
 

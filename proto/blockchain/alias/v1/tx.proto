@@ -3,6 +3,7 @@ package blockchain.alias.v1;
 
 import "amino/amino.proto";
 import "blockchain/alias/v1/params.proto";
+import "blockchain/alias/v1/role.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
@@ -47,6 +48,12 @@ service Msg {
 
   // GrantAuditor grants the time-boxed cross-account reading role.
   rpc GrantAuditor(MsgGrantAuditor) returns (MsgGrantAuditorResponse);
+
+  // GrantRole grants a role inside one jurisdiction. Governance only.
+  rpc GrantRole(MsgGrantRole) returns (MsgGrantRoleResponse);
+
+  // RevokeRole removes one such grant. Governance only.
+  rpc RevokeRole(MsgRevokeRole) returns (MsgRevokeRoleResponse);
 
   // UpdateParams sets the module parameters. Governance only.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
@@ -248,6 +255,74 @@ message MsgGrantAuditor {
 
 // MsgGrantAuditorResponse is empty.
 message MsgGrantAuditorResponse {}
+
+// MsgGrantRole grants a role inside one jurisdiction.
+//
+// Governance only, and unlike the appointments above a foundation administrator
+// cannot sign it either. The reason is the difference between using a power and
+// deciding who holds one: an administrator naming a country's regulator is
+// operating the rail governance already put them on, whereas an administrator
+// able to grant roles could grant themselves the chain-wide scope and then
+// grant it to anyone else. Every widening of who may act therefore goes through
+// a vote, in public, one grant at a time.
+//
+// The holder must be an x/group account. A role is only worth the office that
+// holds it, and an office that is one key is one bribe — which is the same
+// reasoning that makes x/land refuse a registry office that is not a group.
+message MsgGrantRole {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/alias/MsgGrantRole";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // holder is the account being granted the role.
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role
+  // was left unset must never be honoured, and proto3 cannot tell that from a
+  // role that happens to be numbered zero.
+  Role role = 3;
+
+  // jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for
+  // chain-wide. The reserved code the foundation's own identifiers carry is
+  // refused — it marks the absence of a perimeter, so a grant over it would
+  // confer nothing while reading like everything.
+  string jurisdiction = 4;
+}
+
+// MsgGrantRoleResponse is empty.
+message MsgGrantRoleResponse {}
+
+// MsgRevokeRole removes one grant, named exactly.
+//
+// The jurisdiction is part of what is revoked rather than implied, because a
+// holder may hold the same role in several countries and revoking "their
+// enforcement role" would be ambiguous between removing one perimeter and
+// removing all of them. Governance says which.
+message MsgRevokeRole {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/alias/MsgRevokeRole";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // holder is the account losing the role.
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // role is which of the holder's roles to remove. ROLE_UNSPECIFIED is refused
+  // here as well as on the grant: "revoke whatever role was left unset" has no
+  // meaning, and a message that resolved it to one would revoke something
+  // nobody named.
+  Role role = 3;
+
+  // jurisdiction is which perimeter to remove it in. Naming one that was never
+  // granted is an error rather than a quiet success — "nothing to revoke" is how
+  // a proposal that named the wrong country passes while leaving the authority
+  // it meant to remove in place.
+  string jurisdiction = 4;
+}
+
+// MsgRevokeRoleResponse is empty.
+message MsgRevokeRoleResponse {}
 
 // MsgUpdateParams sets the module parameters. Governance only.
 message MsgUpdateParams {

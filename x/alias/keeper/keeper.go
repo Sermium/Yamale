@@ -27,18 +27,27 @@ import (
 //   - ViewingKeys    (address, version) -> ViewingKey    every version ever published
 //   - Regulators     country            -> Appointment   who holds the third key
 //   - AuditorGrants  address            -> Grant         the time-boxed cross-account role
+//   - RoleGrants     (holder, role, jurisdiction) -> RoleGrant   who may act, where
+//   - GrantsByScope  (jurisdiction, role, holder)              the reverse, derived
 //
-// The last three are here rather than in x/paymsg because the sender of a
+// The role grants are here, beside the jurisdictions, because "who is where"
+// and "who may act where" are one question asked from two ends. Split across
+// two modules, every authority action becomes a cross-module read on the path
+// that refuses it, and the two registries can disagree about what a country is;
+// here the check is a lookup in the same store as the record it is checked
+// against.
+//
+// The confidentiality registries are here rather than in x/paymsg because the sender of a
 // payment has to resolve all of them at the moment it seals the payload — its
 // own key, the payee's, the regulator of the declared settlement jurisdiction,
 // and every live auditor. A registry that only covered accounts which happen to
 // be somebody's payment customer would leave the regulator and the auditor
 // unresolvable, which are two of the three parties the design exists to serve.
 //
-// Owners and Perimeter are rebuilt from their sources by InitGenesis rather
-// than carried in genesis. A derived index emitted alongside its source is a
-// second copy that can disagree with it, and an export that does not round-trip
-// byte-for-byte breaks upgrades.
+// Owners, Perimeter and GrantsByScope are rebuilt from their sources by
+// InitGenesis rather than carried in genesis. A derived index emitted alongside
+// its source is a second copy that can disagree with it, and an export that does
+// not round-trip byte-for-byte breaks upgrades.
 //
 // The two registries are here together because an identifier's country prefix
 // is only true if it is checked against a jurisdiction at the moment it is
@@ -54,6 +63,10 @@ type Keeper struct {
 	// admitted". Read-only; see types.ParticipantKeeper.
 	participants types.ParticipantKeeper
 
+	// groups answers "is this address a group policy", asked once, when a role is
+	// granted. Read-only; see types.GroupKeeper.
+	groups types.GroupKeeper
+
 	Schema        collections.Schema
 	Params        collections.Item[types.Params]
 	Aliases       collections.Map[string, types.Alias]
@@ -64,6 +77,14 @@ type Keeper struct {
 	ViewingKeys   collections.Map[collections.Pair[string, uint64], types.ViewingKey]
 	Regulators    collections.Map[string, types.RegulatorAppointment]
 	AuditorGrants collections.Map[string, types.AuditorGrant]
+
+	// RoleGrants is keyed (holder, role, jurisdiction). The role is stored as the
+	// enum's int32 so the key sorts by role within a holder, which is what makes
+	// "everything this account may do" one prefix scan.
+	RoleGrants collections.Map[collections.Triple[string, int32, string], types.RoleGrant]
+	// GrantsByScope is keyed (jurisdiction, role, holder). Derived, never
+	// exported.
+	GrantsByScope collections.KeySet[collections.Triple[string, int32, string]]
 }
 
 func NewKeeper(
@@ -73,6 +94,7 @@ func NewKeeper(
 	logger log.Logger,
 	authority string,
 	participants types.ParticipantKeeper,
+	groups types.GroupKeeper,
 ) Keeper {
 	if _, err := addressCodec.StringToBytes(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -85,6 +107,7 @@ func NewKeeper(
 		authority:    authority,
 		logger:       logger.With("module", "x/"+types.ModuleName),
 		participants: participants,
+		groups:       groups,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params",
 			codec.CollValue[types.Params](cdc)),
@@ -105,6 +128,11 @@ func NewKeeper(
 			collections.StringKey, codec.CollValue[types.RegulatorAppointment](cdc)),
 		AuditorGrants: collections.NewMap(sb, types.AuditorGrantsKey, "auditorGrants",
 			collections.StringKey, codec.CollValue[types.AuditorGrant](cdc)),
+		RoleGrants: collections.NewMap(sb, types.RoleGrantsKey, "roleGrants",
+			collections.TripleKeyCodec(collections.StringKey, collections.Int32Key, collections.StringKey),
+			codec.CollValue[types.RoleGrant](cdc)),
+		GrantsByScope: collections.NewKeySet(sb, types.GrantsByScopeKey, "grantsByScope",
+			collections.TripleKeyCodec(collections.StringKey, collections.Int32Key, collections.StringKey)),
 	}
 
 	schema, err := sb.Build()

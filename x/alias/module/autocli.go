@@ -67,6 +67,26 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:     "List the live cross-account reading grants",
 					Long:      "Who may read payment detail belonging to people who never dealt with them. Listed because the people being read about are entitled to see it.",
 				},
+				{
+					RpcMethod:      "RoleGrants",
+					Use:            "role-grants [holder]",
+					Short:          "Show every role an account holds, and where",
+					Long:           "What the chain will let this key do. An empty answer means it may act nowhere, which is the default for every account.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "holder"}},
+				},
+				{
+					RpcMethod:      "RoleHolders",
+					Use:            "role-holders [jurisdiction]",
+					Short:          "List who may act inside one country",
+					Long:           "What that country granted. Chain-wide grants are deliberately not mixed in; see chain-wide-grants.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jurisdiction"}},
+				},
+				{
+					RpcMethod: "ChainWideGrants",
+					Use:       "chain-wide-grants",
+					Short:     "List every role no border bounds",
+					Long:      "The exception, on its own page. These accounts may act on any jurisdiction, so the list should be short and every entry should be one somebody can account for.",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -128,6 +148,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						{ProtoField: "expires_at_height"},
 					},
 				},
+				// GrantRole and RevokeRole are governance-only, like UpdateParams
+				// below, and are submitted as proposal payloads. A command that can
+				// only ever fail is a support ticket.
+				{RpcMethod: "GrantRole", Skip: true},
+				{RpcMethod: "RevokeRole", Skip: true},
 				// UpdateParams is governance-only and is submitted as a proposal
 				// payload, so it is deliberately not offered as a CLI command:
 				// a command that can only ever fail is a support ticket.

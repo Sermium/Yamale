@@ -33,4 +33,22 @@ var (
 	RegulatorsKey = collections.NewPrefix(7)
 	// AuditorGrantsKey holds address -> AuditorGrant, expired ones included.
 	AuditorGrantsKey = collections.NewPrefix(8)
+	// RoleGrantsKey holds (holder, role, jurisdiction) -> RoleGrant.
+	//
+	// The jurisdiction is part of the key rather than a field inside one record
+	// per (holder, role), because a holder may legitimately hold the same role in
+	// several countries and a single record would have to carry a list — which is
+	// a set that can be appended to by a message that meant to replace it.
+	RoleGrantsKey = collections.NewPrefix(9)
+	// GrantsByScopeKey indexes (jurisdiction, role, holder). Derived from
+	// RoleGrantsKey and rebuilt by InitGenesis rather than exported, for the same
+	// reason Owners and Perimeter are.
+	//
+	// It exists because the two questions an operator asks are opposite
+	// directions of the same fact: "what may this key do" and "who may act on my
+	// country". Answering the second by walking every grant on the chain is a
+	// query whose cost is the whole chain, which is a query an operator learns
+	// not to run — and the chain-wide exceptions are listed off the same index,
+	// so the exception list cannot disagree with the grants it summarises.
+	GrantsByScopeKey = collections.NewPrefix(10)
 )

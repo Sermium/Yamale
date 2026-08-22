@@ -54,4 +54,36 @@ var (
 		"no regulator is appointed for that country")
 	ErrInvalidAuditorGrant = sdkerrors.Register(ModuleName, 16,
 		"an auditor grant must expire at a future height, and only so many may be live at once")
+	// Raised when a grant names no role, or a number that is not one. The zero
+	// value is reserved as unspecified, so this is what a message with the role
+	// field left unset gets — never a default.
+	ErrInvalidRole = sdkerrors.Register(ModuleName, 17,
+		"that is not a role that can be held, and an unset role is never a default")
+	// Raised when a grant's *where* is neither an assigned country code nor the
+	// chain-wide marker. The foundation's reserved code lands here too: it marks
+	// the absence of a perimeter, and a grant over nowhere that reads like a
+	// grant over everywhere is the one confusion this module cannot allow.
+	ErrInvalidScope = sdkerrors.Register(ModuleName, 18,
+		"a role's jurisdiction must be an assigned country code or the chain-wide marker")
+	// The refusal the whole of piece three exists to produce: the actor holds no
+	// grant of that role reaching that perimeter. Raised for an actor with no
+	// grants at all as readily as for one whose grant names another country —
+	// there is no state in which the absence of a grant permits an action.
+	ErrOutOfScope = sdkerrors.Register(ModuleName, 19,
+		"this account holds no grant of that role covering that jurisdiction")
+	// Raised when a role would be granted to a plain key. A role is only worth
+	// the office that holds it, and an office that is one key is one bribe.
+	ErrHolderNotGroup = sdkerrors.Register(ModuleName, 20,
+		"a role holder must be an x/group account, so that acting on it is M-of-N")
+	// Distinguishes revoking a grant that was never made from revoking one that
+	// was. An operator told only "done" cannot tell that they revoked the
+	// jurisdiction they meant from that they revoked nothing at all.
+	ErrGrantNotFound = sdkerrors.Register(ModuleName, 21,
+		"no such grant: this account does not hold that role in that jurisdiction")
+	// Raised when the perimeter check cannot be made because the module that
+	// would answer it was not wired in. It fails closed on purpose: a check that
+	// is skipped when its dependency is missing is a check that a wiring mistake
+	// silently removes, which is worse than one that is absent on purpose.
+	ErrNoScopeKeeper = sdkerrors.Register(ModuleName, 22,
+		"the jurisdictional perimeter cannot be checked because the registry is not wired in")
 )
