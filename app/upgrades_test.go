@@ -14,6 +14,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/stretchr/testify/require"
+
+	"cosmossdk.io/collections"
+
+	aliastypes "yamale/blockchain/x/alias/types"
+	nettingtypes "yamale/blockchain/x/netting/types"
 )
 
 // The upgrade path is exercised here rather than left until it is needed.
@@ -161,4 +166,113 @@ func TestUpgradeDeclarationsAreWellFormed(t *testing.T) {
 			require.NotEmpty(t, renamed.NewKey, "upgrade %q renames to an empty key", u.Name)
 		}
 	}
+}
+
+// priorVersions is the version map a real upgrade actually receives.
+//
+// Not GetVersionMap(): that is the map the *new* binary reports, which already
+// contains every new module at its current version — so RunMigrations sees
+// nothing to do and never calls a new module's InitGenesis. A real upgrade reads
+// the map stored on chain by the old binary, which does not know the module
+// exists. Passing the wrong one makes an upgrade test pass while the upgrade it
+// claims to exercise does nothing.
+func priorVersions(app *App, without ...string) module.VersionMap {
+	vm := app.ModuleManager.GetVersionMap()
+	for _, name := range without {
+		delete(vm, name)
+	}
+	return vm
+}
+
+// findUpgrade returns the declared upgrade by name, failing if it is gone.
+//
+// By name rather than by index, because the assertions below are about one
+// specific upgrade's handler and an index would silently start testing a
+// different one the next time the list grows.
+func findUpgrade(t *testing.T, name string) Upgrade {
+	t.Helper()
+	for _, u := range upgrades {
+		if u.Name == name {
+			return u
+		}
+	}
+	t.Fatalf("upgrade %q is no longer declared; if it was renamed, every node that "+
+		"already has the old plan scheduled will halt on a name mismatch", name)
+	return Upgrade{}
+}
+
+// The netting-and-perimeter upgrade must leave netting switched off.
+//
+// This is the assertion the handler exists for. A netting cycle length is a
+// divisor in an end blocker and a window that opens on a chain where nobody has
+// posted a reserve collects obligations that cannot settle — so the upgrade has
+// to be the thing that decides netting is off, not something that inherits it
+// from whatever DefaultParams happens to say later.
+func TestNettingArrivesSwitchedOff(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	u := findUpgrade(t, "netting-and-perimeter")
+	require.NotNil(t, u.Handler, "the assertions in this upgrade live in its handler")
+	require.Contains(t, u.StoreUpgrades.Added, nettingtypes.StoreKey,
+		"x/netting is a new module, so its store has to be added before migrations run")
+
+	_, err := u.Handler(ctx, app, priorVersions(app, nettingtypes.ModuleName))
+	require.NoError(t, err)
+
+	params, err := app.NettingKeeper.Params.Get(ctx)
+	require.NoError(t, err, "the upgrade must leave netting's parameters readable")
+	require.Zero(t, params.CycleBlocks,
+		"netting must arrive off and be enabled deliberately once reserves are posted")
+}
+
+// And it must refuse, loudly, if netting is somehow on.
+//
+// Without this the assertion above only tests DefaultParams, which is the thing
+// most likely to change under it. Here the handler is given a chain where
+// netting is already running and has to stop the upgrade rather than proceed.
+func TestTheUpgradeRefusesToLeaveNettingRunning(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	u := findUpgrade(t, "netting-and-perimeter")
+	_, err := u.Handler(ctx, app, priorVersions(app, nettingtypes.ModuleName))
+	require.NoError(t, err)
+
+	params, err := app.NettingKeeper.Params.Get(ctx)
+	require.NoError(t, err)
+	params.CycleBlocks = 100
+	require.NoError(t, app.NettingKeeper.Params.Set(ctx, params))
+
+	// The full version map this time, so RunMigrations does NOT re-run netting's
+	// InitGenesis and reset what was just written. That is also the realistic
+	// shape of the hazard: the handler checks whatever the parameters are once
+	// migrations have finished, whether a migration wrote them or they were
+	// already there.
+	_, err = u.Handler(ctx, app, app.ModuleManager.GetVersionMap())
+	require.Error(t, err, "an upgrade that switches netting on for a chain with no reserves must stop")
+	require.Contains(t, err.Error(), "must arrive switched off")
+}
+
+// The perimeter arrives empty, which is the whole point.
+//
+// An upgrade that seeded a chain-wide grant to get the existing flows working
+// again would be granting authority nobody voted for — on a chain where a grant
+// is what permits freezing an account. So this asserts the absence, and the
+// absence is why authority actions refuse until governance acts.
+func TestThePerimeterArrivesWithNoGrants(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	u := findUpgrade(t, "netting-and-perimeter")
+	_, err := u.Handler(ctx, app, priorVersions(app, nettingtypes.ModuleName))
+	require.NoError(t, err)
+
+	count := 0
+	require.NoError(t, app.AliasKeeper.RoleGrants.Walk(ctx, nil,
+		func(_ collections.Triple[string, int32, string], _ aliastypes.RoleGrant) (bool, error) {
+			count++
+			return false, nil
+		}))
+	require.Zero(t, count, "an upgrade must not invent authority; grants come from governance")
 }

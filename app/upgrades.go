@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	constitutiontypes "yamale/blockchain/x/constitution/types"
+	nettingtypes "yamale/blockchain/x/netting/types"
 )
 
 // Coordinated upgrades.
@@ -96,6 +97,67 @@ var upgrades = []Upgrade{
 			}
 
 			return app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+		},
+	},
+	{
+		// Two changes that ship together because they are one halt.
+		//
+		// x/netting is a new module with a new store, so the store has to be
+		// added before any module migration runs. Its own InitGenesis then
+		// arrives through the standard migration path, which is why there is no
+		// hand-written state here.
+		//
+		// x/alias gained role grants, and those live under new key prefixes
+		// inside the module's existing store — no store to add, no migration to
+		// run, because a chain with no grants recorded is the correct starting
+		// state and an upgrade that invented some would be granting authority
+		// nobody voted for.
+		//
+		// The handler exists for the two assertions below rather than for any
+		// state it writes.
+		Name:          "netting-and-perimeter",
+		StoreUpgrades: storetypes.StoreUpgrades{Added: []string{nettingtypes.StoreKey}},
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Netting must arrive switched off. A netting cycle length is a
+			// divisor in an end blocker, and a window that opens on a chain
+			// where nobody has posted a reserve collects obligations it cannot
+			// settle. Off is the shipped default; asserted here so it is a
+			// decision this upgrade made rather than one it inherited, and so a
+			// future change to DefaultParams cannot quietly switch netting on
+			// for a chain in the middle of an upgrade.
+			params, err := app.NettingKeeper.Params.Get(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the netting parameters this upgrade just wrote: %w", err)
+			}
+			if params.CycleBlocks != 0 {
+				return nil, fmt.Errorf(
+					"netting arrived with cycle_blocks=%d; it must arrive switched off and be "+
+						"enabled by a deliberate governance proposal once participants have "+
+						"posted reserves", params.CycleBlocks)
+			}
+
+			// Said out loud, in every validator's log, at the moment it becomes
+			// true. From this height every authority action in x/land,
+			// x/enforcement, x/stablecoin and x/paymsg is checked against a
+			// jurisdictional grant — and this chain has none, so those actions
+			// refuse until governance makes some. That is the perimeter working
+			// as specified, and it is also the kind of change that gets
+			// diagnosed as a broken node three days later by somebody who was
+			// not in the room.
+			ctx.Logger().Info(
+				"the jurisdictional perimeter is now enforced",
+				"consequence", "authority actions in land, enforcement, stablecoin and paymsg "+
+					"refuse until governance grants a role covering the target's country, and "+
+					"until each target account has a jurisdiction recorded",
+				"next", "MsgGrantRole by governance, and MsgSetJurisdiction per account",
+			)
+
+			return vm, nil
 		},
 	},
 }
