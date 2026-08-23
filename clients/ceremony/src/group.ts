@@ -86,8 +86,12 @@ const utf8Length = (value: string): number => new TextEncoder().encode(value).le
 // recorded as "Yamale foundation" would be a lie in exactly the place nobody
 // would think to check.
 export function groupLabel(p: CeremonyParams): string {
-  if (!p.office) return FOUNDATION_LABEL;
-  return `${p.ceremony} (${p.office.country})`;
+  if (p.office) return `${p.ceremony} (${p.office.country})`;
+  // The suffix matters more than it looks: on this chain the foundation already
+  // exists, so two groups both recorded as "Yamale foundation" would be
+  // indistinguishable in the one field a human reads.
+  if (p.foundation_administrators) return `${p.ceremony} (foundation administrators)`;
+  return FOUNDATION_LABEL;
 }
 
 const utf8 = new TextEncoder();
@@ -180,6 +184,15 @@ export function validateParams(p: CeremonyParams): void {
     throw new Error(
       `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page ` +
         'holds exactly',
+    );
+  }
+  if (p.foundation_administrators && p.office) {
+    throw new Error(
+      `this ceremony claims both a country office in "${p.office.country}" and the foundation-administrator ` +
+        "exemption, and those are opposites. An administrator's authority is chain-wide and its identifier " +
+        'carries the reserved code that marks the ABSENCE of a national perimeter; an office holds authority ' +
+        'inside one. A group cannot be both, and a ceremony that said so would have every super user ' +
+        'generating a key for something that does not exist',
     );
   }
   validateOffice(p.office);
@@ -560,14 +573,22 @@ type GroupDocuments = {
 //     Senegal's payments office", so it is not produced at all. Not produced
 //     rather than produced-with-a-warning, because nobody should have to know not
 //     to use a document the page handed them.
-export type GroupPurpose = { label: string; office: boolean };
+// `onChain` rather than `office`, because the flag means "created by a
+// transaction on a running chain, so no genesis fragment" — true for a country
+// office AND for a foundation-administrator group, false only for the foundation.
+// Named for the first case that needed it, it read as though a fragment declaring
+// an administrator group the destination of every seized asset would be emitted.
+export type GroupPurpose = { label: string; onChain: boolean };
 
 export function foundationPurpose(): GroupPurpose {
-  return { label: FOUNDATION_LABEL, office: false };
+  return { label: FOUNDATION_LABEL, onChain: false };
 }
 
 export function purposeFor(params: CeremonyParams): GroupPurpose {
-  return { label: groupLabel(params), office: Boolean(params.office) };
+  return {
+    label: groupLabel(params),
+    onChain: Boolean(params.office) || Boolean(params.foundation_administrators),
+  };
 }
 
 // groupMetadata is the string recorded on chain, permanently, as what this group
@@ -752,14 +773,16 @@ export function buildGroup(
     ['votes', '[]'],
   ]);
 
-  // Withheld for a country office, and left as the empty string so that
+  // Withheld for any group created on a running chain — a country office or a
+  // foundation-administrator group — and left as the empty string so that
   // canonBytes(utf8.encode('')) produces the same four zero bytes Go's
   // canonBytes(nil) produces. The three fields in it are the FOUNDATION's: where
   // the chain sends every seizure, how many custodians the foundation has, and how
   // many must sign. Produced for a country office it reads as an instruction to
   // hand that office the whole chain's seized assets, and a genesis built from it
-  // would start perfectly happily.
-  const constitution = purpose.office
+  // would start perfectly happily. Produced for an administrator group it is
+  // worse, because that group's name already contains the word "foundation".
+  const constitution = purpose.onChain
     ? ''
     : indentGoJSON([
         ['enforcement_recovery_destination', goJSONString(policyAddr)],

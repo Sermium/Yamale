@@ -254,7 +254,10 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <h3>MsgUpdateParams</h3>
 <p><code>/blockchain.alias.v1.MsgUpdateParams</code></p>
 <p>Signed by the <code>authority</code> field.</p>
-<p>UpdateParams sets the module parameters. Governance only.</p>
+<p>UpdateParams sets the module parameters. Governance only, and it is the only way a foundation administrator is appointed or removed — the foundation&#39;s own M-of-N group cannot do it, and nothing else can either.</p>
+<p>It REPLACES THE WHOLE Params OBJECT. <code>params</code> is a message, not a field mask, and there is no partial update, so &quot;appoint one administrator&quot; means reading the current parameters, adding one address, and resubmitting every parameter. A proposal composed without reading them first passes and silently drops the administrators already appointed, or resets payload_length. Nothing catches that: a list shorter than the one before it is a valid list.</p>
+<p>A payload_length that reads back as 0 means the value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody filled in, and Validate() refuses a zero, so no chain holds one. Resubmitting a guess would re-parameterise the chain while reading as an appointment.</p>
+<p>Note also what Validate() does NOT check: that an entry in foundation_administrators is an address. A mistyped one passes a governance vote, occupies one of the eight capped places, and grants the exemption to nobody. Verify the bech32 checksum before composing; the chain will not.</p>
 <table>
 <thead>
 <tr>
@@ -266,12 +269,12 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>authority</code></td>
 <td>string</td>
-<td></td>
+<td>authority is the governance module account. Any other signer is refused, so a proposal naming the wrong address passes its vote and is then refused when it executes — reported in a transaction log nobody is watching.</td>
 </tr>
 <tr>
 <td><code>params</code></td>
 <td>Params</td>
-<td></td>
+<td>params is the COMPLETE parameter set, replacing whatever is there. See above: every field omitted is a field reset, not a field preserved.</td>
 </tr>
 </tbody></table>
 <h2>Queries</h2>

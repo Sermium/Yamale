@@ -243,8 +243,8 @@ func validatorPlacementProposal(dossier countryDossier, proposer string, placeme
 	if err := requireMetadataLength("title", title); err != nil {
 		return nil, err
 	}
-	if len(summary) > maxMetadataLen {
-		summary = summary[:maxMetadataLen]
+	if len(summary) > maxSummaryLen {
+		summary = summary[:maxSummaryLen]
 	}
 
 	return json.MarshalIndent(proposalDocument{

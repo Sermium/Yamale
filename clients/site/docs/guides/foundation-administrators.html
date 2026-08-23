@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appointing a foundation administrator — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Appointing a foundation administrator</h1>
+<p>How the one account that can move a customer out from under the authority
+investigating them comes into existence, and who gets to decide.</p>
+<p><strong>You need:</strong> three to eight people who do not report to each other, a device
+each, about ninety minutes for the ceremony, and a governance voting period —
+which on this chain is thirty minutes and on a real one is days.</p>
+<p><strong>You will end with:</strong> an M-of-N <code>x/group</code> account named in
+<code>alias.params.foundation_administrators</code>, a signed record, and a governance
+proposal in the chain&#39;s permanent history saying who agreed to it.</p>
+<hr>
+<h2>What the power actually is</h2>
+<p>A foundation administrator is the account that may <strong>correct</strong> the country
+recorded against any account on the chain.</p>
+<p>That sounds administrative. It is not. Read
+<a href="../reference/alias.html"><code>MsgSetJurisdiction</code></a> and note who may write a country:</p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Who may record it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>First recording</td>
+<td>the approved participant that onboarded the account — it did the KYC, so it is the only party that knows</td>
+</tr>
+<tr>
+<td>A <strong>correction</strong></td>
+<td>a foundation administrator, or governance</td>
+</tr>
+<tr>
+<td>An account declaring its own</td>
+<td>nobody, ever</td>
+</tr>
+</tbody></table>
+<p>The correction is the one that matters. Every jurisdictional rule on this chain
+— who may freeze, who may seize, who may supervise, who may see a payment —
+resolves through the country recorded against an account. An administrator who
+changes Amara&#39;s country from NG to KE has moved her out of the perimeter of the
+Nigerian authority investigating her and into one that has never heard of her.
+Nothing else on the chain can do that.</p>
+<p>It also <strong>retires her identifier and issues a replacement</strong>, in the same
+message. It has to: the identifier carries the country as a prefix, and a prefix
+that can go stale is a prefix that can lie. So a correction is visible — the old
+identifier is tombstoned and never reissued — but the visibility is after the
+fact.</p>
+<p>And administrators are the only accounts permitted to hold an identifier with
+<strong>no country at all</strong>, carrying <code>ZZ</code>, which ISO 3166-1 reserves permanently and
+will never assign. That is the second half of what the parameter is for: an
+account that belongs to no national perimeter, because it is the chain-wide
+authority and there is no country that would be true of it.</p>
+<h2>Who appoints them, and why it is not the foundation</h2>
+<p><code>alias.params.foundation_administrators</code> is a <strong>module parameter</strong>. The only
+message that can change it is <code>MsgUpdateParams</code>, whose authority is the
+governance module account and nothing else.</p>
+<p>So the foundation&#39;s own M-of-N <strong>cannot appoint an administrator</strong>. Not &quot;should
+not&quot; — cannot. It is worth being clear about why that is right rather than an
+oversight:</p>
+<ul>
+<li>The foundation is already the account that admits countries and receives every
+seized asset. An account that could also decide who may rewrite a jurisdiction
+would be able to grant itself the ability to move any customer anywhere, and
+the perimeter would be advisory.</li>
+<li>The list is the single exception to &quot;every account carries a country&quot;. Widening
+it is the kind of act that should cost a public vote and a waiting period, not
+three signatures on a call.</li>
+</ul>
+<p>Compare <a href="../reference/alias.html"><code>GrantRole</code></a>, where the foundation <em>can</em> act for
+a country but chain-wide scope stays governance-only, for the same argument by
+the same road.</p>
+<p><strong>Empty is the default and empty is safe.</strong> With nobody named, the exemption
+grants nothing at all. What it costs is that no recorded country can ever be
+corrected, and that a new country cannot be enrolled — the first institutions in
+one have no participant to record their jurisdiction, so somebody with the
+exemption has to do it. That is the trade, and it is a real one in both
+directions.</p>
+<h2>The one thing that will bite you</h2>
+<p><code>MsgUpdateParams</code> carries a <code>Params</code> <strong>message</strong>, not a field mask. Setting it
+<strong>replaces the whole object</strong>.</p>
+<p>So &quot;appoint one administrator&quot; is really <em>read the current parameters, add one
+address, and resubmit every parameter</em>. Composed by hand, the proposal that
+appoints one administrator silently:</p>
+<ul>
+<li>drops the administrators already appointed, or</li>
+<li>resets <code>payload_length</code> to its default on a chain that had raised it.</li>
+</ul>
+<p><strong>Nothing on the chain catches either.</strong> <code>Params.Validate()</code> bounds the list and
+refuses duplicates; a list shorter than the one before it is a perfectly valid
+list. The proposal passes, executes, and reads as correct. The only evidence is
+a count that went down, in a field nobody was watching.</p>
+<p>Two tools absorb this, and both refuse rather than defaulting:</p>
+<ul>
+<li><strong><code>clients/governance</code></strong> reads the current parameters, changes exactly one
+thing, and shows you the <strong>whole object before and after</strong> — including what did
+not move, because &quot;payload_length is unchanged&quot; is information when the message
+replaces everything.</li>
+<li><strong><code>ceremony administrators propose</code></strong> requires <code>--alias-params</code> and will not
+run without it.</li>
+</ul>
+<p>A third trap sits inside that one. If <code>payload_length</code> reads back as <strong>0</strong>, both
+tools <strong>refuse</strong>. Proto3 cannot tell a zero from a field nobody filled in, so a
+zero means the value is <em>unknown</em> — and <code>Validate()</code> refuses a zero, so the chain
+never actually holds one. A tool that defaulted it to 8 would compose a proposal
+that re-parameterised the chain while reading as an appointment.</p>
+<blockquote>
+<p><code>blockchaind query alias params -o json</code> on the live devnet returns
+<code>{&quot;params&quot;:{&quot;payload_length&quot;:8}}</code> — the empty administrator list is <strong>omitted
+entirely</strong>, because protobuf JSON drops an empty repeated field. That is fine:
+for a repeated field, absent and empty are the same value, and there is no
+third state to confuse them with. <code>payload_length</code> is the field where a zero is
+ambiguous, which is why only that one is a refusal.</p>
+</blockquote>
+<h2>What the chain does not check</h2>
+<p><code>Params.Validate()</code> refuses an empty string, a duplicate, and a ninth entry. It
+does <strong>not</strong> check that an entry is an address.</p>
+<p>A mistyped address therefore passes a governance vote, occupies one of the eight
+capped places, and grants the exemption to nobody. The list reads as five names
+and grants four, which is exactly the auditability the cap exists to protect.
+Both interfaces verify the bech32 checksum themselves before composing, because
+the chain will not. Six characters of checksum catch every single-character typo
+and every transposition, which is what somebody copying an address off a record
+actually does wrong.</p>
+<p>The chain also does not require an administrator to be a <strong>group account</strong>. It
+matches by exact address equality and does not care what kind of account it is —
+unlike <code>MsgGrantRole</code>, which refuses a holder that is not an M-of-N group. So the
+interfaces <strong>warn</strong> and proceed, and say plainly that the chain will accept a
+single key. Appoint a group anyway. An office that is one key is one bribe, and
+this particular office can move any customer on the chain.</p>
+<h2>Before the day</h2>
+<h3>Who the custodians are</h3>
+<p>Three at minimum, eight at most in the list overall, and <strong>not people who report
+to each other</strong>. The whole value of M-of-N is that some of them would have to
+agree against the interests of the others, and colleagues with a shared manager
+cannot do that. If separate organisations are not available, separate line
+managers and separate offices is the floor.</p>
+<h3>The threshold</h3>
+<p>Never <code>1</code> — that is the single key this ceremony exists to abolish, and the tool
+refuses it. Never equal to the membership either: a 4-of-4 means losing one key
+freezes the account forever, and the tool refuses that too. 3-of-5 or 3-of-4 are
+the shapes that work.</p>
+<h3>The cap</h3>
+<p>Eight administrators, chain-wide, from <code>MaxFoundationAdministrators</code>. It is not
+about storage. It is there so that widening the one rule the whole perimeter
+rests on cannot happen by accident: a proposal that appends a hundred addresses
+fails outright rather than passing because nobody scrolled.</p>
+<p>At the cap, the tools refuse an appointment and tell you to remove somebody
+<strong>first, in its own proposal</strong>, so both decisions are voted on separately.</p>
+<hr>
+<h2>The sequence</h2>
+<h3>1. Generate the keys</h3>
+<p>Same machinery as <a href="key-ceremony.html">the key ceremony</a> — read that first, and in
+particular the section on the <a href="key-ceremony.html#two-ways-to-run-it-and-which-is-stronger">hosted path versus the air-gapped
+one</a>. The air-gapped
+path is stronger and the difference is not a formality.</p>
+<pre><code class="language-bash">ceremony host --out ./out --public-url https://ceremony.example/
+</code></pre>
+<p>On the coordinator&#39;s screen, tick <strong>&quot;These keys are for a foundation-administrator
+group&quot;</strong> and leave the country blank. Both matter:</p>
+<ul>
+<li>The <strong>country blank</strong> because an administrator has no perimeter — that is what
+it <em>is</em>. A country and the administrator exemption are opposites, and the tool
+refuses them together rather than choosing between them.</li>
+<li>The <strong>box ticked</strong> because the marker is inside the parameters fingerprint every
+custodian reads aloud before they generate. Without it, keys generated &quot;for the
+Yamale foundation&quot; could be stood up as an administrator group and nothing
+anybody saw would have said so — and the group would be recorded on chain as
+<code>Yamale foundation</code>, indistinguishable in the one field a human reads from the
+account that holds every seized asset.</li>
+</ul>
+<p>Each custodian&#39;s page says, in as many words, that the key becomes one share of a
+group that may correct any account&#39;s country. They read the params fingerprint
+aloud, generate, write twenty-four words on paper, send only the public half,
+compare the <strong>group</strong> fingerprint aloud, and sign an attestation.</p>
+<p>You end with <code>out/group.json</code>. There is <strong>no</strong> <code>group-genesis.json</code> and <strong>no</strong>
+<code>constitution-invariants.json</code>, and both omissions are deliberate: this group is
+created by a transaction on a running chain, and a constitutional fragment
+naming it the destination of every seized asset would be the most dangerous file
+this tool could produce — its name already contains the word &quot;foundation&quot;.</p>
+<h3>2. Write the config</h3>
+<pre><code class="language-json">{
+  &quot;ceremony&quot;: &quot;Yamale foundation administrators&quot;,
+  &quot;chain_id&quot;: &quot;yamale-devnet-2&quot;,
+  &quot;group&quot;: &quot;./out/group.json&quot;,
+  &quot;reason&quot;: &quot;Appointed at the ceremony of 2026-08-23; four fingerprints read aloud and attested.&quot;
+}
+</code></pre>
+<p>Note what is <strong>not</strong> in it: the threshold, the members, and the address. The
+first two come from <code>group.json</code>, so the config cannot disagree with what the
+custodians signed for. The third comes from the chain.</p>
+<p>The <code>reason</code> is required. It becomes the proposal&#39;s summary, which is the only
+explanation most of the voting set will read.</p>
+<pre><code class="language-bash">ceremony administrators init --config administrators.json
+</code></pre>
+<p>This refuses a <code>group.json</code> from the wrong kind of ceremony — the foundation&#39;s,
+or a country office&#39;s — in both directions, and says which.</p>
+<h3>3. Create the group</h3>
+<pre><code class="language-bash">ceremony administrators group --dossier appointment-yamale-foundation-administrators.json
+</code></pre>
+<p>It prints the transaction and <strong>nothing else</strong>. No proposal, no address.</p>
+<pre><code class="language-bash">blockchaind tx group create-group-with-policy &lt;your-key&gt; \
+  &quot;&lt;metadata&gt;&quot; &quot;&lt;metadata&gt;&quot; \
+  administrators-...-members.json administrators-...-policy.json \
+  --group-policy-as-admin --chain-id yamale-devnet-2
+</code></pre>
+<p>Any funded key can broadcast it. <code>--group-policy-as-admin</code> makes the policy its
+own admin, so the key that signs keeps nothing — it cannot change the membership,
+the threshold, or who administers the group afterwards.</p>
+<h3>4. Read the address back</h3>
+<p><strong>This is the step that cannot be skipped, and here is what it costs to skip it.</strong></p>
+<p>An <code>x/group</code> policy address derives from the group policy sequence number alone —
+not from the members, not from the threshold, not from the admin. So an address
+computed offline commits to nothing whatever about who controls it.</p>
+<p>This is not hypothetical, and it happened again while this guide was being
+written. A rehearsal appointment on <code>yamale-devnet-2</code> printed a predicted address
+of:</p>
+<pre><code>yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj
+</code></pre>
+<p>which is byte-for-byte the value of <code>enforcement_recovery_destination</code> in that
+chain&#39;s constitution — <strong>the foundation&#39;s own account</strong> — because both were policy
+sequence 1. The chain gave the group sequence 2, and a completely different
+address. Carried into an appointment proposal, the prediction would have been a
+governance vote appointing the foundation a foundation administrator: passing,
+executing, and reading as correct at every step, with the group the ceremony was
+actually held for holding nothing.</p>
+<p>So <code>confirm</code> takes a <code>--foundation</code> flag and refuses that address outright. Pass
+it. Without it the step says so rather than staying quiet, because a check
+somebody skipped silently is not a check.</p>
+<pre><code class="language-bash">blockchaind query tx &lt;hash&gt; -o json &gt; tx.json
+# the address is in the EventCreateGroupPolicy in that file
+blockchaind query group group-policy-info &lt;address&gt; -o json &gt; policy.json
+blockchaind query group group-members &lt;group id&gt; -o json &gt; members.json
+blockchaind query constitution invariants -o json   # for --foundation
+
+ceremony administrators confirm --dossier appointment-*.json \
+  --tx tx.json --policy policy.json --members members.json \
+  --foundation &lt;the foundation&#39;s policy address&gt;
+</code></pre>
+<p>A broadcast reporting <code>code: 0</code> has been <strong>accepted</strong> and has not executed. The
+code that matters is in the queried result.</p>
+<p><code>confirm</code> checks that the policy at that address really is this group: the same
+members both ways as a set, equal weight, the same threshold, administering
+itself. Set equality both ways, not &quot;the ceremony&#39;s members are among the
+group&#39;s&quot; — a group with an extra member has an extra vote, and a 3-of-4 with five
+members is a 3-of-5.</p>
+<h3>5. The governance proposal</h3>
+<pre><code class="language-bash">blockchaind query alias params -o json &gt; alias-params.json
+blockchaind query auth module-account gov -o json &gt; gov-account.json
+blockchaind query gov params deposit -o json      # for --deposit
+
+ceremony administrators propose --dossier appointment-*.json \
+  --alias-params alias-params.json --gov-account gov-account.json \
+  --deposit 1000000uyml
+</code></pre>
+<p>Both files are required and neither has a default. <code>--alias-params</code> because the
+message replaces every parameter, and <code>--gov-account</code> because the authority is
+read off the chain rather than compiled in — one that had gone stale would
+produce a proposal that passed its vote and was then refused when it executed.</p>
+<p>The tool prints the whole object, before and after, and every address it is
+re-submitting. <strong>Read that list.</strong> Every address in it is one this proposal
+carries; any that is missing is one it removes, silently, with a valid signature.
+If the count is lower than you believe it should be, the parameters were read
+before somebody else&#39;s proposal landed — re-read them and compose it again.</p>
+<pre><code class="language-bash">blockchaind tx gov submit-proposal appoint-...-proposal.json \
+  --from &lt;your-key&gt; --chain-id yamale-devnet-2 \
+  --gas 600000 --fees 20000uyml
+</code></pre>
+<p>The gas is explicit because the 200,000 default runs out part-way through a
+proposal carrying a message and fails with <code>code: 11</code> — which reads like a
+rejected proposal rather than an unfunded transaction.</p>
+<p>The proposal is <strong>not</strong> expedited, deliberately. Shortening the vote on the
+appointment of the account that can move any customer out from under their
+regulator buys nothing except less time for somebody to notice.</p>
+<h3>6. Vote</h3>
+<p>The proposal id is in the queried transaction&#39;s events and nowhere in the
+broadcast&#39;s own output.</p>
+<pre><code class="language-bash">blockchaind query tx &lt;hash&gt; -o json          # find the proposal id
+blockchaind tx gov vote &lt;id&gt; yes --from &lt;key&gt; --chain-id yamale-devnet-2
+</code></pre>
+<p>Each validator votes from its own node, where its key is. The governance console
+composes the command for each one.</p>
+<h3>7. Verify that it actually happened</h3>
+<pre><code class="language-bash">blockchaind query alias params -o json &gt; alias-params.json
+ceremony administrators verify --dossier appointment-*.json --alias-params alias-params.json
+</code></pre>
+<p><strong>A proposal that PASSED and a proposal that took effect are two different
+states.</strong> A proposal can pass its vote and still fail when it executes, which
+leaves the parameters exactly as they were and reports it in a transaction log
+nobody is watching. <code>PROPOSAL_STATUS_PASSED</code> is not evidence.</p>
+<p><code>verify</code> records the <strong>whole</strong> administrator list, not just this group. That is
+deliberate: the list is what a carelessly composed <code>MsgUpdateParams</code> destroys,
+and if it is shorter than it was before this proposal, the evidence is here and
+nowhere else.</p>
+<h3>8. The record</h3>
+<pre><code class="language-bash">ceremony administrators record --dossier appointment-*.json --config record.json
+</code></pre>
+<p>Print it, read it in the room, sign it on paper. It states what the power is, that
+this ceremony did not confer it, and that the address was read off the chain
+rather than predicted.</p>
+<hr>
+<h2>Using it</h2>
+<p>The administrator is the <strong>group</strong>, so a correction is a group proposal that its
+custodians vote on. Write the message:</p>
+<pre><code class="language-json">{
+  &quot;group_policy_address&quot;: &quot;&lt;the administrator group&gt;&quot;,
+  &quot;messages&quot;: [
+    {
+      &quot;@type&quot;: &quot;/blockchain.alias.v1.MsgSetJurisdiction&quot;,
+      &quot;recorder&quot;: &quot;&lt;the administrator group&gt;&quot;,
+      &quot;account&quot;: &quot;&lt;the account being corrected&gt;&quot;,
+      &quot;country&quot;: &quot;KE&quot;
+    }
+  ],
+  &quot;metadata&quot;: &quot;&quot;,
+  &quot;proposers&quot;: [&quot;&lt;one custodian&gt;&quot;],
+  &quot;title&quot;: &quot;Correct &lt;account&gt; to KE&quot;,
+  &quot;summary&quot;: &quot;Why, and on whose authority. A case number if there is one.&quot;
+}
+</code></pre>
+<pre><code class="language-bash">blockchaind tx group submit-proposal correction.json --from &lt;custodian&gt; \
+  --chain-id yamale-devnet-2 --gas 600000 --fees 20000uyml
+# then M custodians vote yes, and one of them executes
+</code></pre>
+<p>Two things to know:</p>
+<ul>
+<li><code>country</code> must be an <strong>assigned</strong> ISO 3166-1 alpha-2 code. <code>ZZ</code> and <code>*</code> are
+refused here: <code>ZZ</code> marks the absence of a perimeter, and recorded as a
+jurisdiction it would let an ordinary account be issued an identifier that reads
+as chain-wide authority.</li>
+<li>Correcting to the <strong>same</strong> country is a deliberate no-op that retires nothing.
+Rotating an identifier for a no-op would destroy a live handle for free, and a
+message resubmitted after a timeout is the ordinary way that happens.</li>
+</ul>
+<p>Check that it landed:</p>
+<pre><code class="language-bash">blockchaind query alias jurisdiction &lt;account&gt; -o json    # the new country
+blockchaind query alias id-of &lt;account&gt; -o json           # the new identifier
+blockchaind query alias retired &lt;the old identifier&gt; -o json   # true, forever
+</code></pre>
+<p><code>tx group exec</code> below the threshold returns <strong>code 0 and does nothing</strong>. The only
+signal is the <code>EventExec</code> attribute in the transaction, which reads
+<code>PROPOSAL_EXECUTOR_RESULT_NOT_RUN</code> rather than <code>SUCCESS</code>.</p>
+<h2>Removing one</h2>
+<p>The same message, with the address taken out instead of added — and it is the
+same trap, so use the governance console or compose it against a fresh read of
+the parameters.</p>
+<p>Removing the <strong>last</strong> administrator leaves the list empty, which is a real state
+and the documented default. Nothing blocks it. What it means: no recorded country
+can be corrected until governance appoints somebody again, no account can hold a
+<code>ZZ</code> identifier, and a new country cannot be enrolled. Governance can appoint
+again by another proposal exactly like this one, so it is recoverable — it is just
+not reversible by the people who did it.</p>
+<h2>What a run of this actually looked like</h2>
+<p>A rehearsal on <code>yamale-devnet-2</code>, 2026-08-23, so the numbers above are checkable
+rather than illustrative. The list was empty before it and nobody on the chain
+could correct a recorded country.</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happened</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ceremony</td>
+<td>3-of-4, params fingerprint <code>E1TH-KP2X-GWM6-X594</code>, group fingerprint <code>RVA4-6W1S-RX0V-GNDK</code></td>
+</tr>
+<tr>
+<td>Predicted address</td>
+<td><code>yml1afk9zr2…3xm8uj</code> — <strong>the foundation&#39;s own</strong>, sequence 1</td>
+</tr>
+<tr>
+<td>Real address</td>
+<td><code>yml1dlszg2s…rmuayr</code>, group 2, created at height 28480</td>
+</tr>
+<tr>
+<td>Proposal</td>
+<td>gov #2, deposit 1 YML, 30-minute vote, passed 65,000,000,000 yes / 0 no</td>
+</tr>
+<tr>
+<td>After</td>
+<td><code>foundation_administrators</code> had one entry; <code>payload_length</code> still 8</td>
+</tr>
+</tbody></table>
+<p>Then, as the appointed group, three of the four custodians voting:</p>
+<table>
+<thead>
+<tr>
+<th>Act</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Record alice in <code>NG</code></td>
+<td><code>jurisdiction_recorded</code>, <code>recorded_by</code> the group, height 28854</td>
+</tr>
+<tr>
+<td>alice registers</td>
+<td>identifier <code>NGH8QTHP2B4</code></td>
+</tr>
+<tr>
+<td><strong>bob</strong> tries to correct her to <code>KE</code></td>
+<td>refused, <code>code 12</code> in codespace <code>alias</code>: <em>&quot;is recorded in NG: this account&#39;s jurisdiction is already recorded; only a foundation administrator may correct it&quot;</em></td>
+</tr>
+<tr>
+<td><strong>alice</strong> tries to correct herself</td>
+<td>refused, identically</td>
+</tr>
+<tr>
+<td>The <strong>group</strong> corrects her to <code>KE</code></td>
+<td><code>retired: NGH8QTHP2B4</code>, <code>id: KEM1BMZ66YP</code>, height 28873</td>
+</tr>
+<tr>
+<td><code>query alias retired NGH8QTHP2B4</code></td>
+<td><code>true</code> — and it resolves to no account, permanently</td>
+</tr>
+</tbody></table>
+<p>That last row is the point of the whole feature. The prefix followed the country,
+the old identifier was tombstoned rather than repointed, and the correction is on
+the record with the group that made it named in it.</p>
+<h2>Checking somebody else&#39;s appointment</h2>
+<pre><code class="language-bash"># who holds the exemption, and how many places are left
+blockchaind query alias params -o json
+
+# each one: is it a group, and who is in it?
+blockchaind query group group-policy-info &lt;address&gt; -o json
+blockchaind query group group-members &lt;group id&gt; -o json
+
+# a plain-account answer here means it is a single key
+</code></pre>
+<p>An address in that list that <code>group-policy-info</code> does not recognise is a single
+key holding the power to move any customer on the chain. That is not
+misconfiguration the chain will report; it is a thing you have to go and look at.</p>
+<h2>When something goes wrong</h2>
+<p><strong>The proposal passed and the parameters did not change.</strong> It failed at
+execution. <code>blockchaind query gov proposal &lt;id&gt; -o json</code> and read the
+<code>failed_reason</code>. The usual causes are an authority that is not the gov module
+account, and a <code>Params</code> object the chain refuses.</p>
+<p><strong>The list is shorter than it was.</strong> Somebody composed a proposal from a stale
+read of the parameters. The administrators that vanished are in the chain&#39;s
+history — find the proposal, take the list from <em>before</em> it, and propose that plus
+whatever legitimate change has happened since. There is no undo.</p>
+<p><strong>A group in the list cannot act.</strong> Check <code>group-members</code> against the ceremony
+record. A membership that does not match means the group at that address is not
+the group the record describes, and the appointment went to whoever created that
+policy.</p>
+<p><strong>An entry in the list is not an address.</strong> It grants nothing and occupies one of
+the eight places. Remove it with a proposal like any other. The chain accepted it
+because <code>Validate()</code> never checks — see <a href="#what-the-chain-does-not-check">what the chain does not
+check</a>.</p>
+
+</main>
+</body>
+</html>

@@ -136,12 +136,18 @@ SetJurisdiction records or corrects the country an account belongs to.
 
 Signed by the `authority` field.
 
-UpdateParams sets the module parameters. Governance only.
+UpdateParams sets the module parameters. Governance only, and it is the only way a foundation administrator is appointed or removed — the foundation's own M-of-N group cannot do it, and nothing else can either.
+
+It REPLACES THE WHOLE Params OBJECT. `params` is a message, not a field mask, and there is no partial update, so "appoint one administrator" means reading the current parameters, adding one address, and resubmitting every parameter. A proposal composed without reading them first passes and silently drops the administrators already appointed, or resets payload_length. Nothing catches that: a list shorter than the one before it is a valid list.
+
+A payload_length that reads back as 0 means the value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody filled in, and Validate() refuses a zero, so no chain holds one. Resubmitting a guess would re-parameterise the chain while reading as an appointment.
+
+Note also what Validate() does NOT check: that an entry in foundation_administrators is an address. A mistyped one passes a governance vote, occupies one of the eight capped places, and grants the exemption to nobody. Verify the bech32 checksum before composing; the chain will not.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `authority` | string |  |
-| `params` | Params |  |
+| `authority` | string | authority is the governance module account. Any other signer is refused, so a proposal naming the wrong address passes its vote and is then refused when it executes — reported in a transaction log nobody is watching. |
+| `params` | Params | params is the COMPLETE parameter set, replacing whatever is there. See above: every field omitted is a field reset, not a field preserved. |
 
 ## Queries
 

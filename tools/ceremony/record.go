@@ -50,7 +50,16 @@ type recordConfig struct {
 	// including the one naming it as the place every seized asset on the chain is
 	// sent. A record is a document somebody acts on.
 	Office *officeParams `json:"office,omitempty"`
-	BinaryHash       string   `json:"binary_hash,omitempty"`
+	// Administrators is set when this ceremony built a foundation-administrator
+	// group, and it changes what the record claims for the same reason Office
+	// does. The foundation paragraph would be false about it in the sentence that
+	// matters most — an administrator group is NOT where seized assets go — and
+	// the office paragraph would be false too, because an administrator holds no
+	// country. What the record has to say instead is what the group is FOR: the
+	// power to correct any account's recorded country, which the group does not
+	// hold until a governance proposal has appointed it.
+	Administrators bool   `json:"foundation_administrators,omitempty"`
+	BinaryHash     string `json:"binary_hash,omitempty"`
 	// Notes is where an exposure, an interruption, a destroyed key or a
 	// regenerated one is written down. An empty list is a claim that nothing
 	// happened, which is itself worth signing.
@@ -134,7 +143,12 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 	// yet. Demanding one here would have forced the record to print a prediction
 	// in the place a person reads an address, which is the whole failure the
 	// enrolment's two phases exist to avoid.
-	if config.Office == nil && strings.TrimSpace(config.PolicyAddress) == "" {
+	// Not required for a foundation-administrator group either, and for exactly the
+	// office's reason: at the moment its keys are made, the chain has not created
+	// its group, so it genuinely has no address. Demanding one would force a
+	// prediction into the place a person reads an address — and on a live run a
+	// predicted address came out as the foundation's own.
+	if config.Office == nil && !config.Administrators && strings.TrimSpace(config.PolicyAddress) == "" {
 		return "", fmt.Errorf("policy_address is required: it is the whole reason this record exists")
 	}
 	if strings.TrimSpace(config.ChainID) == "" {
@@ -183,6 +197,56 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 		b.WriteString("output is a prediction and is not this office.\n\n")
 		fmt.Fprintf(&b, "What this record fixes is **which %d keys** the office is, and their\n", len(custodians))
 		b.WriteString("fingerprints. That is what the enrolment checks the chain's answer against.\n\n")
+	} else if config.Administrators {
+		// A foundation-administrator group. Neither of the other two paragraphs is
+		// true about it: it is not where seizures go, and it holds no country.
+		fmt.Fprintf(&b, "## %s\n\n", config.Ceremony)
+		fmt.Fprintf(&b, "A **%d-of-%d** `x/group` policy intended to be appointed a **foundation\n",
+			config.Threshold, len(custodians))
+		fmt.Fprintf(&b, "administrator** on `x/alias`. Any %d of the %d custodians below can act for it; no\n",
+			config.Threshold, len(custodians))
+		b.WriteString("smaller number can, and every signature is attributable on chain to the person\n")
+		b.WriteString("who made it.\n\n")
+		b.WriteString("**What that power is.** A foundation administrator may correct the country\n")
+		b.WriteString("recorded against *any* account on the chain. A correction moves that account out\n")
+		b.WriteString("from under the authority investigating it, and it retires and reissues the\n")
+		b.WriteString("account's identifier in the same message. An administrator is also the only kind\n")
+		b.WriteString("of account permitted to hold an identifier with no country at all, carrying the\n")
+		b.WriteString("reserved `ZZ` code.\n\n")
+		b.WriteString("**This group holds none of that yet, and this record does not confer it.** The\n")
+		b.WriteString("list of administrators is a parameter of `x/alias`, and the only thing that can\n")
+		b.WriteString("change it is an ordinary governance `MsgUpdateParams` — authority-gated to the\n")
+		b.WriteString("governance module account. The foundation's own 3-of-5 cannot do it. So this\n")
+		b.WriteString("ceremony ends at a proposal, not at a power.\n\n")
+		// Two versions of the same paragraph, and which one appears depends on
+		// whether the group has been read back off the chain yet. A record rendered
+		// before `confirm` genuinely has no address; one rendered after has a real
+		// one and must print it, because this is the document somebody acts on and
+		// "this group has no address" would be false in the field they came to
+		// read. Getting this wrong in the other direction is worse: a record that
+		// printed a PREDICTED address would be handing somebody the foundation's.
+		if address := strings.TrimSpace(config.PolicyAddress); address != "" {
+			b.WriteString("**The group's address, read back off the chain.** Not derived, not\n")
+			b.WriteString("predicted:\n\n")
+			fmt.Fprintf(&b, "```\n%s\n```\n\n", address)
+			b.WriteString("An `x/group` policy address comes from the group policy sequence number alone —\n")
+			b.WriteString("not from these members, not from the threshold — so an address computed in\n")
+			b.WriteString("advance commits to nothing about who controls it. On a live run a predicted\n")
+			b.WriteString("address came out as the *foundation's own*, because both were policy sequence\n")
+			b.WriteString("1. The address above was read out of the chain's own answer and checked against\n")
+			fmt.Fprintf(&b, "the %d members below: the same set, equal weight, the same threshold,\n", len(custodians))
+			b.WriteString("administering itself.\n\n")
+		} else {
+			b.WriteString("**This group has no address yet.** An `x/group` policy address is derived from\n")
+			b.WriteString("the group policy sequence number alone — not from these members, not from the\n")
+			b.WriteString("threshold — so it cannot be known until the group has been created on the chain.\n")
+			b.WriteString("An address computed in advance commits to nothing about who controls it, and on\n")
+			b.WriteString("a live run of the country ceremony a predicted address came out as the\n")
+			b.WriteString("*foundation's own*, because both were policy sequence 1. Any address printed\n")
+			b.WriteString("elsewhere in this ceremony's output is a prediction and is not this group.\n\n")
+		}
+		fmt.Fprintf(&b, "What this record fixes is **which %d keys** the group is, and their\n", len(custodians))
+		b.WriteString("fingerprints. That is what the appointment checks the chain's answer against.\n\n")
 	} else {
 		b.WriteString("## The foundation account\n\n")
 		fmt.Fprintf(&b, "A **%d-of-%d** `x/group` policy. Any %d of the %d custodians below can move what\n",

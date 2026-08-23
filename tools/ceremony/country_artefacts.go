@@ -41,6 +41,21 @@ import (
 // too long — and by then three custodians have already been asked to vote.
 const maxMetadataLen = 255
 
+// maxSummaryLen is the cap on a proposal's SUMMARY, which is not the same number.
+//
+// Both x/group and x/gov check the summary against 40*MaxMetadataLen and the title
+// and metadata against MaxMetadataLen — see assertSummaryLength in each module's
+// keeper. So a summary has 10,200 bytes, not 255.
+//
+// This constant exists because every summary in this package was being truncated
+// at 255, which is forty times stricter than the chain. That is not a harmless
+// excess of caution: the truncation lands in the field that states, in words, what
+// a proposal does — so the enrolment summary lost the tail of its list of grants,
+// and the appointment summary had to have the sentence naming the reserved ZZ code
+// cut out of it to fit. A voter who reads only the summary was reading a summary
+// this tool had shortened for no reason.
+const maxSummaryLen = 40 * maxMetadataLen
+
 // enrolmentCodec is the codec every artefact is marshalled through.
 //
 // x/group for the proposal wrapper, x/alias for the grants and the jurisdiction
@@ -290,7 +305,7 @@ func enrolmentSummary(dossier countryDossier, placed, granted []string) string {
 	// legitimately exceed 255 bytes and refusing would mean an enrolment that
 	// cannot be proposed at all. The full list is in the dossier and on the
 	// record; what is lost here is the tail of a sentence, and the marker says so.
-	if len(summary) > maxMetadataLen {
+	if len(summary) > maxSummaryLen {
 		const marker = " [truncated; see the enrolment record]"
 		summary = summary[:maxMetadataLen-len(marker)] + marker
 	}
@@ -489,8 +504,8 @@ func seedProposal(dossier countryDossier, proposer string, accounts []string) ([
 	if err := requireMetadataLength("title", title); err != nil {
 		return nil, err
 	}
-	if len(summary) > maxMetadataLen {
-		summary = summary[:maxMetadataLen]
+	if len(summary) > maxSummaryLen {
+		summary = summary[:maxSummaryLen]
 	}
 
 	return json.MarshalIndent(proposalDocument{
@@ -583,8 +598,8 @@ func admissionProposal(dossier countryDossier, proposer, applicant string, appro
 	if err := requireMetadataLength("title", title); err != nil {
 		return nil, err
 	}
-	if len(summary) > maxMetadataLen {
-		summary = summary[:maxMetadataLen]
+	if len(summary) > maxSummaryLen {
+		summary = summary[:maxSummaryLen]
 	}
 
 	return json.MarshalIndent(proposalDocument{

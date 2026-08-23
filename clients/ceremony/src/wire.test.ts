@@ -36,6 +36,7 @@ import {
   verifySubmission,
 } from './group.ts';
 import {
+  ADMINISTRATORS_MARKER,
   VALID_ROLES,
   attestationCanonical,
   canonBytes,
@@ -75,6 +76,10 @@ type Vectors = {
   office_params_canonical_hex: string;
   office_params_fingerprint: string;
   office_group: GroupVector;
+  administrators_params: CeremonyParams;
+  administrators_params_canonical_hex: string;
+  administrators_params_fingerprint: string;
+  administrators_group: GroupVector;
   custodians: Array<{
     name: string;
     phrase: string;
@@ -110,6 +115,11 @@ test('the shared vectors are present and non-empty', () => {
   assert.equal(vectors.policy_derivation.group_policy_table_prefix, 0x20);
   assert.ok(vectors.office_params.office, 'the fixture must carry the office ceremony');
   assert.ok(vectors.office_group.fingerprint.length > 0);
+  assert.ok(
+    vectors.administrators_params.foundation_administrators,
+    'the fixture must carry the foundation-administrator ceremony, marked as one',
+  );
+  assert.ok(vectors.administrators_group.fingerprint.length > 0);
 });
 
 // The role table, pinned the same way the two SDK constants are.
@@ -297,9 +307,94 @@ test("an office's group is byte-identical to the one Go builds", () => {
   assert.notEqual(assembled.fingerprint, vectors.group.fingerprint);
 });
 
-// The label, on both paths, because it is what the group is called on chain
+// The foundation-administrator ceremony's submissions, over the first four of the
+// same phrases, signed over the ADMINISTRATOR ceremony id.
+function administratorSubmissions(): Submission[] {
+  return vectors.administrators_params.custodians.map((name) => {
+    const custodian = vectors.custodians.find((c) => c.name === name);
+    assert.ok(custodian, `no custodian vector for ${name}`);
+    const key = deriveKey(custodian.phrase, custodian.index);
+    const id = identityOf(name, key, new Date(custodian.generated_at));
+    return signSubmission(vectors.administrators_params.ceremony_id, id, key.priv);
+  });
+}
+
+// The two things the marker has to buy, asserted against Go's own bytes.
+test("the administrators marker matches Go's canonical encoding", () => {
+  assert.equal(
+    toHex(paramsCanonical(vectors.administrators_params)),
+    vectors.administrators_params_canonical_hex,
+  );
+  assert.equal(
+    paramsFingerprint(vectors.administrators_params),
+    vectors.administrators_params_fingerprint,
+  );
+  assert.notEqual(vectors.administrators_params_fingerprint, vectors.params_fingerprint);
+  assert.notEqual(vectors.administrators_params_fingerprint, vectors.office_params_fingerprint);
+});
+
+// The compatibility claim, from this side.
+//
+// The marker is appended only when set, so a foundation ceremony's bytes are
+// exactly what they were before the administrator path existed. If that ever
+// stops being true, every params fingerprint written on paper at a ceremony
+// already held becomes uncheckable — so it is asserted rather than assumed.
+test("a foundation ceremony's canonical bytes carry no marker", () => {
+  assert.ok(
+    vectors.params_canonical_hex.endsWith('0000000000000000'),
+    'a foundation ceremony must end with the empty office block and nothing after it',
+  );
+  assert.ok(!vectors.params_canonical_hex.includes(toHex(new TextEncoder().encode(ADMINISTRATORS_MARKER))));
+
+  // Same parameters, marker flipped: the fingerprint everybody reads aloud has to
+  // move. Otherwise a coordinator could take keys generated for the foundation and
+  // stand up an administrator group, with nothing any custodian saw saying so.
+  const asFoundation = { ...vectors.administrators_params, foundation_administrators: false };
+  assert.notEqual(
+    paramsFingerprint(asFoundation),
+    vectors.administrators_params_fingerprint,
+  );
+});
+
+test("an administrator group is byte-identical to the one Go builds", () => {
+  const assembled = assembleGroup(vectors.administrators_params, administratorSubmissions());
+  assert.equal(assembled.genesis, vectors.administrators_group.genesis_json);
+  assert.equal(assembled.policy_address, vectors.administrators_group.policy_address);
+  assert.equal(toHex(assembledCanonical(assembled)), vectors.administrators_group.canonical_hex);
+  assert.equal(assembled.fingerprint, vectors.administrators_group.fingerprint);
+  assert.notEqual(assembled.fingerprint, vectors.group.fingerprint);
+  assert.notEqual(assembled.fingerprint, vectors.office_group.fingerprint);
+
+  // No constitutional fragment. For an administrator group this is the one that
+  // matters most: a fragment produced for it would read as "send every seized
+  // asset on this chain to the foundation administrators", and the name in it
+  // already contains the word "foundation".
+  assert.equal(assembled.constitution, '');
+  assert.equal(assembled.constitution, vectors.administrators_group.constitution_json);
+});
+
+// A ceremony cannot be both. An administrator's authority is chain-wide and its
+// identifier carries the code marking the ABSENCE of a perimeter; an office holds
+// authority inside one.
+test('an office and an administrator ceremony are refused together', () => {
+  const both = {
+    ...vectors.office_params,
+    foundation_administrators: true,
+  };
+  assert.throws(() => validateParams(both), /opposites/);
+  assert.doesNotThrow(() => validateParams(vectors.office_params));
+  assert.doesNotThrow(() => validateParams(vectors.administrators_params));
+});
+
+// The label, on all three paths, because it is what the group is called on chain
 // permanently and it is inside the bytes the fingerprint covers.
 test('the group label names the office, not the foundation', () => {
+  assert.equal(groupLabel(vectors.administrators_params), vectors.administrators_group.label);
+  // Contains the word, is not the constant. On this chain the foundation already
+  // exists, so two groups both recorded as the bare constant would be
+  // indistinguishable in the one field a human reads.
+  assert.notEqual(vectors.administrators_group.label, FOUNDATION_LABEL);
+  assert.ok(vectors.administrators_group.label.includes('foundation administrators'));
   assert.equal(groupLabel(vectors.params), FOUNDATION_LABEL);
   assert.equal(groupLabel(vectors.params), vectors.group.label);
   assert.equal(groupLabel(vectors.office_params), vectors.office_group.label);
@@ -355,7 +450,7 @@ test('metadata longer than x/group accepts is refused', () => {
   const long = 'Autorité nationale de régulation des paiements '.repeat(8);
   assert.throws(
     () =>
-      buildGroup(identities, { label: long, office: true }, 2, vectors.office_params.voting_period, 7, vectors.office_group.computed_at),
+      buildGroup(identities, { label: long, onChain: true }, 2, vectors.office_params.voting_period, 7, vectors.office_group.computed_at),
     new RegExp(`x/group refuses anything over ${MAX_GROUP_METADATA}`),
   );
 

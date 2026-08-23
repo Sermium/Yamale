@@ -87,15 +87,61 @@ const (
 // coordinator could take the keys five super users generated "for Senegal" and
 // stand up an office granted authority over Nigeria, and nothing any of the five
 // had seen would have said so.
+// Administrators marks a ceremony for a foundation-administrator group, and it is
+// in the parameters for the same reason Office is: it is what the key is FOR.
+// A foundation administrator may correct the country recorded against any account
+// on the chain — which moves that account out from under the authority
+// investigating it — and may hold an identifier with no country at all. Somebody
+// generating a key for "the Yamale foundation" has not agreed to that, and without
+// this field inside the fingerprint they read aloud, nothing they saw would have
+// distinguished the two.
+//
+// Mutually exclusive with Office, and validate() refuses both together. An
+// administrator's authority is chain-wide by construction, so a ceremony that
+// claimed both a national perimeter and the exemption from having one would be
+// describing something that cannot exist.
 type ceremonyParams struct {
-	ID           string   `json:"ceremony_id"`
-	Name         string   `json:"ceremony"`
-	ChainID      string   `json:"chain_id"`
-	Threshold    int      `json:"threshold"`
-	Custodians   []string `json:"custodians"`
-	PolicySeq    uint64   `json:"policy_seq"`
-	VotingPeriod string   `json:"voting_period"`
-	Office       *officeParams `json:"office,omitempty"`
+	ID             string        `json:"ceremony_id"`
+	Name           string        `json:"ceremony"`
+	ChainID        string        `json:"chain_id"`
+	Threshold      int           `json:"threshold"`
+	Custodians     []string      `json:"custodians"`
+	PolicySeq      uint64        `json:"policy_seq"`
+	VotingPeriod   string        `json:"voting_period"`
+	Office         *officeParams `json:"office,omitempty"`
+	Administrators bool          `json:"foundation_administrators,omitempty"`
+}
+
+// administratorsMarker is the canonical tail that distinguishes an administrator
+// ceremony's bytes from a foundation ceremony's. See canonical().
+const administratorsMarker = "foundation-administrators"
+
+// administratorsLabel is what an administrator group is called on chain.
+//
+// The suffix matters more than it looks. Two groups both recorded as "Yamale
+// foundation" would be indistinguishable in the one field a human reads to find
+// out what a group is — and on this chain the foundation already exists, so that
+// is not hypothetical.
+func administratorsLabel(name string) string {
+	return name + " (foundation administrators)"
+}
+
+// onChain reports whether this ceremony's group is created by a transaction on a
+// running chain rather than seeded at genesis.
+//
+// True for a country office and for an administrator group; false only for the
+// foundation. It decides three things, and all three are omissions: no
+// group-genesis.json (which names group id 1 and policy sequence 1, correct only
+// for the first group on the chain), no constitution-invariants.json (which would
+// declare this group the destination of every seized asset), and a policy address
+// labelled as the prediction it is.
+//
+// One predicate rather than the same disjunction written at three call sites,
+// because a rule spelled out three times is a rule with three places to stop
+// being true — and the failure here is a file sitting in an output directory that
+// somebody in a hurry splices into a genesis.
+func (p ceremonyParams) onChain() bool {
+	return p.Office != nil || p.Administrators
 }
 
 // officeParams is the country-office half of a ceremony's parameters.
@@ -121,10 +167,14 @@ const foundationLabel = "Yamale foundation"
 // recorded as "Yamale foundation" would be a lie in exactly the place nobody
 // would think to check.
 func groupLabel(p ceremonyParams) string {
-	if p.Office == nil {
+	switch {
+	case p.Office != nil:
+		return p.Name + " (" + p.Office.Country + ")"
+	case p.Administrators:
+		return administratorsLabel(p.Name)
+	default:
 		return foundationLabel
 	}
-	return p.Name + " (" + p.Office.Country + ")"
 }
 
 // newCeremonyID is a fresh ceremony identifier.
@@ -215,6 +265,30 @@ func (p ceremonyParams) canonical() []byte {
 	for _, role := range officeRoles {
 		b = canonField(b, role)
 	}
+	// The administrators marker is APPENDED ONLY WHEN SET, and paramsDomain stays
+	// at v2. That is a deliberate departure from how the office block was added,
+	// which always encodes and therefore moved every fingerprint and bumped the
+	// domain to v2. Both choices are defensible and this one is the right way
+	// round here:
+	//
+	//   - Always encoding would move the FOUNDATION's params fingerprint, and that
+	//     value is on paper, in ink, in five sealed envelopes from a ceremony that
+	//     has already happened. Somebody checking an old record against a new
+	//     binary would see a mismatch and have no way to tell whether the
+	//     parameters had changed or the tool had.
+	//   - Omitting it leaves exactly one ambiguity: a ceremony with the marker
+	//     absent and one with it set to empty encode identically. That is
+	//     unreachable, because the marker is a fixed non-empty constant and
+	//     Administrators is a bool. An office ceremony cannot collide with it
+	//     either: reaching these bytes with the marker appended requires an empty
+	//     office country, which validate() refuses.
+	//
+	// This is the same argument the nil-office case above already relies on —
+	// deliberate, unreachable ambiguity — applied to keep old fingerprints valid
+	// rather than to keep one shape in a reader's head.
+	if p.Administrators {
+		b = canonField(b, administratorsMarker)
+	}
 	return b
 }
 
@@ -303,6 +377,15 @@ func (p ceremonyParams) validate() error {
 // generated keys, read a fingerprint aloud, and signed attestations for an office
 // the chain then refuses to grant anything to.
 func (p ceremonyParams) validateOffice() error {
+	if p.Administrators && p.Office != nil {
+		return fmt.Errorf(
+			"this ceremony claims both a country office in %q and the foundation-administrator exemption, and "+
+				"those are opposites. An administrator's authority is chain-wide and its identifier carries the "+
+				"reserved code that marks the ABSENCE of a national perimeter; an office holds authority inside "+
+				"one. A group cannot be both, and a ceremony that said so would have every super user generating "+
+				"a key for something that does not exist",
+			p.Office.Country)
+	}
 	if p.Office == nil {
 		return nil
 	}

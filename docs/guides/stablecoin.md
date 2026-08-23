@@ -65,7 +65,7 @@ sign — so it happens through a proposal. Write it to a file:
 {
   "messages": [{
     "@type": "/blockchain.stablecoin.v1.MsgApproveIssuer",
-    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur",
+    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jz5s386",
     "denom": "ueur",
     "approve": true
   }],

@@ -12,6 +12,7 @@ before publishing.
 | [What governance can and cannot change](constitution.md) | The line between an ordinary parameter and an invariant, and how one is amended. |
 | [The key ceremony](key-ceremony.md) | The room, the paper and the 3-of-5 that ends up holding every seized asset. |
 | [Enrolling a country](country-enrolment.md) | A country's offices, their M-of-N accounts and the powers they hold inside their own borders. |
+| [Appointing a foundation administrator](foundation-administrators.md) | The one account that can move a customer out from under the authority investigating them, and why only a governance vote can grant it. |
 | [Netting and settlement](settlement.md) | What the chain settles between institutions, and what to do when a window does not clear. |
 
 For exhaustive detail on any message, query, parameter or error code, see the

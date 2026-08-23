@@ -128,6 +128,15 @@ export type OfficeParams = { country: string; roles: string[] };
 // Without it a coordinator could take the keys three people generated "for
 // Senegal" and stand up an office granted authority over Nigeria, and nothing any
 // of them had seen would have said so.
+// foundation_administrators marks a ceremony for a foundation-administrator group.
+// It is in the parameters for the same reason the office is: it is what the key is
+// FOR. A foundation administrator may correct the country recorded against any
+// account on the chain — moving it out from under the authority investigating it —
+// and may hold an identifier with no country at all. Somebody generating a key for
+// "the Yamale foundation" has not agreed to that, and without this inside the
+// fingerprint they read aloud, nothing they saw would tell the two apart.
+//
+// Mutually exclusive with the office; validateParams refuses both together.
 export type CeremonyParams = {
   ceremony_id: string;
   ceremony: string;
@@ -137,7 +146,14 @@ export type CeremonyParams = {
   policy_seq: number;
   voting_period: string;
   office?: OfficeParams | null;
+  foundation_administrators?: boolean;
 };
+
+// ADMINISTRATORS_MARKER is the canonical tail that distinguishes an administrator
+// ceremony's bytes from a foundation ceremony's. It must match
+// administratorsMarker in tools/ceremony/distributed.go exactly, and the
+// cross-language vectors in vectors_test.go are what hold the two together.
+export const ADMINISTRATORS_MARKER = 'foundation-administrators';
 
 // paramsCanonical is the byte string the params fingerprint is taken over.
 //
@@ -172,6 +188,19 @@ export function paramsCanonical(p: CeremonyParams): Uint8Array {
     canonField(p.office?.country ?? ''),
     canonCount(roles.length),
     ...roles.map(canonField),
+    // Appended ONLY when set, and PARAMS_DOMAIN stays at v2 — deliberately unlike
+    // the office block, which always encodes and therefore moved every
+    // fingerprint when it was added. The reason is that the foundation's params
+    // fingerprint is on paper, in ink, in five sealed envelopes from a ceremony
+    // that has already happened; always encoding would move it and leave somebody
+    // checking an old record unable to tell whether the parameters had changed or
+    // the tool had.
+    //
+    // The one ambiguity it leaves — marker absent versus marker set to empty — is
+    // unreachable: the marker is a fixed non-empty constant behind a boolean, and
+    // an office ceremony cannot reach these bytes with it appended because that
+    // needs an empty office country, which validateParams refuses.
+    ...(p.foundation_administrators ? [canonField(ADMINISTRATORS_MARKER)] : []),
   );
 }
 
