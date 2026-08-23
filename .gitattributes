@@ -48,3 +48,13 @@ clients/site/docs/**  text eol=lf
 # `$'\r': command not found` — an error that names nothing useful and appears
 # only for the person whose machine served the page.
 clients/foundation/**  text eol=lf
+
+# The hosted ceremony's HTML shell. Vite copies this file into
+# tools/ceremony/hosted/ almost verbatim, and that output is the bundle whose
+# bytes the host hashes so a custodian's page can verify itself against a digest
+# published out of band. A CRLF here therefore reaches the digest: two operators
+# on different platforms compute different hashes for an identical, honest page,
+# and a mismatch is indistinguishable from substitution — which is the one thing
+# that check exists to detect. Pinned at the source, because the generated copy
+# inherits whatever this file has.
+clients/ceremony/index.html  text eol=lf
