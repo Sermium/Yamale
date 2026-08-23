@@ -148,6 +148,15 @@ func runCountryInit(args []string) error {
 	for _, office := range dossier.Offices {
 		c.printf("  %s\n", office.Name)
 		c.printf("    %d of %d, group fingerprint %s\n", office.Threshold, len(office.Members), office.GroupFingerprint)
+		// The minimum beside the actual, because the two are different claims and
+		// the operator reading this screen is the last person who can notice that
+		// the office turned up larger or smaller than the country agreed. Printed
+		// even when they match, so that "required" is never absent from the screen
+		// somebody checks against the signed record.
+		if office.Minimum != nil {
+			c.printf("    required at least %s, and the chain will refuse an action below it\n",
+				office.Minimum.rule())
+		}
 		c.printf("    roles: %s\n", strings.Join(office.Roles, ", "))
 		for _, member := range office.Members {
 			c.printf("      %s  %s  %s\n", member.Fingerprint, member.Address, member.Name)

@@ -152,11 +152,56 @@ not the separation the roles describe. The tool refuses a super user who appears
 in two of a country's offices, because once both groups exist the arrangement is
 invisible: each policy looks correct on its own.
 
-### The threshold
+### The threshold, and the minimum it may never fall below
 
 Per office, and the same rules as the foundation's: never one (that is a key with
 extra steps), never unanimity (one person unreachable freezes the office
 permanently). Two-of-three and three-of-five are the shapes that work.
+
+Decide **two** numbers per office and write both down, because they are different
+claims:
+
+| | What it is | Where it comes from |
+| --- | --- | --- |
+| The threshold | what the office **is** | the group file its super users signed |
+| The minimum | what the office may **never fall below** | `minimum` in the config, decided before the day |
+
+The minimum is the one that is new and the one that does the work. It goes onto
+every grant as `required_shape`, and from then on the chain resolves the office's
+group policy on **every** authority action and refuses when the office has fallen
+below it. That is the difference between multisig as a fact checked once and
+multisig as a state:
+
+- An office is its own admin — that is what makes its membership changeable by its
+  own members and by nobody else. So a properly-ceremonied three-of-five can vote
+  itself to a one-of-one the next morning, and before this it went on freezing
+  accounts with nothing notified and nothing refused. `x/constitution`'s ante gate
+  pins the **foundation's** shape and has never had anything to say about an
+  office's.
+- Both numbers are floors, and only floors. Three-of-six is fine — a member
+  joined. Four-of-six is fine — the office decided to be more careful.
+  Three-of-four is refused: a member left and was not replaced, which moves sixty
+  per cent to seventy-five and walks towards unanimity. One-of-five is refused for
+  the obvious reason.
+- "How many signatures" means **how many people**, not the threshold number.
+  `x/group` counts weight, so a group with a threshold of three whose members
+  weigh 3, 1, 1, 1 and 1 is a one-of-five: the first member reaches the threshold
+  alone. The chain takes the members in descending weight and counts how few of
+  them can reach the threshold, which for the equal weights every ceremony
+  produces is exactly the threshold.
+
+`ceremony country init` refuses an office whose signed group file does not reach
+its minimum, before any group exists on the chain. It also refuses a minimum of
+one signature, and a unanimous minimum — the chain holds an office to its
+minimum, so a floor of three-of-three is a promise that the office may never
+survive a lost key.
+
+**Choose the minimum at or below the shape you are actually standing up.** A
+country agreeing three-of-five and generating three-of-five gets a grant it
+satisfies exactly, and one lost key takes the office out of service until it is
+replaced — which is the intended behaviour and is why departures and replacements
+are one decision. A country wanting slack can agree three-of-five and stand up
+four-of-seven; the chain holds it to the three-of-five.
 
 ### What the foundation needs to be able to do
 
@@ -238,12 +283,14 @@ its keys.
     {
       "name": "Senegal payments authority",
       "roles": ["ROLE_PAYMENTS_AUTHORITY", "ROLE_ENFORCEMENT_AUTHORITY"],
-      "group": "./senegal-payments/group.json"
+      "group": "./senegal-payments/group.json",
+      "minimum": {"signatures": 3, "members": 5}
     },
     {
       "name": "Senegal lands commission",
       "roles": ["ROLE_REGISTRY_AUTHORITY"],
-      "group": "./senegal-lands/group.json"
+      "group": "./senegal-lands/group.json",
+      "minimum": {"signatures": 2, "members": 3}
     }
   ]
 }
@@ -255,16 +302,39 @@ signed for; the third comes from the chain. A config field for any of them would
 be a field somebody could fill in wrongly, and two of the three decide who ends up
 holding a country's authority.
 
+`minimum` is the exception, and it is not the same kind of thing. An actual
+threshold in a config is an **observation**, and one that could contradict the
+keys — a config claiming three-of-five over a group file that says one-of-one
+would be a config that lies about who holds an authority. A minimum is a
+**constraint**: the decision the country took before anybody generated a key, and
+what the ceremony holds the signed group file against. It is required per office,
+with no default, because a default of "no minimum" would silently produce exactly
+the state it exists to prevent.
+
 ```bash
 ./ceremony country init --config senegal.json
 ```
 
-This prints every office, its threshold, its members with their fingerprints, its
-roles — and **no address for anything**, which is not an omission. It writes
-`country-SN.json`, the dossier, which every later step reads and rewrites.
+This prints every office, its threshold, the minimum it may never fall below, its
+members with their fingerprints, its roles — and **no address for anything**,
+which is not an omission. It writes `country-SN.json`, the dossier, which every
+later step reads and rewrites.
 
 Read the printed fingerprints against the records the offices signed. This is the
 last moment at which a wrong group file costs nothing.
+
+It is also where a shape that does not match the decision is refused:
+
+```
+Senegal payments authority must be at least 3-of-5 and ./senegal-payments/group.json
+was generated as 2-of-3: its threshold of 2 is below the 3 signatures this enrolment
+requires.
+```
+
+That is the tool doing its job, and the two ways out are both deliberate: run the
+office's ceremony again with the agreed threshold, or change the minimum in the
+config and have the change agreed. Not silently — the chain will hold the office to
+whichever number ends up on the grant, for as long as the grant exists.
 
 ### 3. Create the groups
 
@@ -687,11 +757,131 @@ described there applies to any M-of-N: dropping three-of-three to three-of-two i
 not "one short", it is a veto for everybody left. Departures and replacements are
 one decision.
 
-Note that `x/constitution`'s ante gate protects the **foundation's** group shape
-and not an office's. An office that drifts to a size nobody intended is not
-refused by the chain; the only thing standing between a country's payments
-authority and a two-of-two is the people voting on it. That is a real gap between
-the two ceremonies and it is stated here rather than left to be discovered.
+Do it as one message. Removing a member on the understanding that a replacement
+will be added next week takes the office below its minimum, and the office stops
+being able to act the moment that proposal executes.
+
+---
+
+## When an office falls below its minimum
+
+The office is still an office. Its grants are still in the store, its queries still
+answer, and every action it attempts is refused:
+
+```
+yml1dlszg2s… was granted its authority as 3-of-5 and is now 3-of-4. An office may
+grow; it may not fall below the shape it was granted under. Restore it with a
+MsgUpdateGroupMembers or a MsgUpdateGroupPolicyDecisionPolicy voted by the office
+itself, or have the grant re-made: an office's M-of-N and the shape its authority
+requires do not agree
+```
+
+Note the shapes in it: the threshold is **untouched** at three. One member left and
+was not replaced, and that alone is the refusal — which is the half of this rule
+that surprises people.
+
+An office acts through its own group, so that text arrives where nobody looks
+first. **The transaction's code is 0.** An `x/group` proposal that fails in
+execution produces a successful transaction carrying
+`cosmos.group.v1.EventExec` with `result: PROPOSAL_EXECUTOR_RESULT_FAILURE` and
+the refusal in its `logs` attribute:
+
+```bash
+blockchaind query tx <exec hash> -o json   # look at events, not at code
+blockchaind query group proposal <id> -o json   # a failed proposal is not pruned
+```
+
+That is error code **23**, `ErrOfficeShape`, from `x/alias`. Note what it is not:
+it is not `ErrOutOfScope` (code 19), which means this office never held that
+authority here. The two send you to different places, which is why they are
+different codes — code 19 is a question about the grant, code 23 is a question
+about the group.
+
+**Diagnose it.** Two queries, and the second is the one that matters:
+
+```bash
+blockchaind query alias role-grants <office policy address> -o json
+# required_shape on each grant is what the office is held to
+
+blockchaind query group group-policy-info <office policy address> -o json
+blockchaind query group group-members <group id> -o json
+# the threshold it has now, and how many members hold a weight
+```
+
+If `required_shape` is absent from a grant, that grant predates this rule and
+constrains nothing — see below.
+
+**Fix it: the office restores itself.** No foundation involvement, no governance,
+no re-grant. The office proposes to itself and votes with its own threshold:
+
+```bash
+# a member left and was not replaced — add the replacement
+blockchaind tx group submit-proposal <proposal.json>   # MsgUpdateGroupMembers
+# or the threshold was lowered — put it back
+blockchaind tx group submit-proposal <proposal.json>   # MsgUpdateGroupPolicyDecisionPolicy
+```
+
+The authority comes back on the next block, with nothing else to do. That is the
+whole point of recording the requirement rather than revoking on discovery: the
+chain refuses while the office is short and stops refusing when it is not, and
+nobody has to be watching either way.
+
+The one case the office cannot vote its way out of is the one where it has fallen
+so far that it cannot reach its own threshold — a three-of-five that lost three
+keys cannot pass anything, including its own repair. The refusal says so
+(`no set of members can act at all`), and the way out is the foundation revoking
+the grants and the country running the office's ceremony again.
+
+**Relax the requirement instead.** A country that has genuinely decided its
+enforcement authority is a two-of-three now, not a three-of-five, changes the
+grant rather than the group. It is a foundation act and it takes two messages, in
+one proposal:
+
+```
+MsgRevokeRole  { holder, role, jurisdiction }
+MsgGrantRole   { holder, role, jurisdiction, required_shape: 2-of-3 }
+```
+
+Two rather than one, because a re-grant may **raise** a recorded requirement and
+may never lower or drop one. The reason is the resubmission: the obvious way to
+re-make a grant is to compose it from the proposal summary, the summary does not
+list `required_shape`, and a single `MsgGrantRole` with the field omitted would
+remove the pin while claiming to change nothing. `x/group` executes a proposal's
+messages together or not at all, so the revoke-and-grant pair is atomic and the
+office is never briefly unpinned. Attempting it as one message is refused:
+
+```
+yml1dlszg2s… already holds ROLE_PAYMENTS_AUTHORITY in GH with a required shape of
+3-of-5, and this grant records none. Omitting required_shape on a re-grant would
+remove the pin; to relax it deliberately, revoke the grant and make a new one in
+the same proposal
+```
+
+And a grant requiring more than the office is refused before it is written, which
+is the other half of the same rule:
+
+```
+a grant requiring 3-of-5 cannot be made to yml1c799jdd…, which is 1-of-1. Either
+the office is not the one this grant was meant for, or it has to be brought up to
+3-of-5 before it can hold the authority
+```
+
+**Grants made before this existed.** A grant with no `required_shape` is treated
+as recording no requirement, and its holder can shrink to a single key without
+losing anything. That is deliberate — the alternative is a chain upgrade that
+disables every existing authority at once — and it is a real gap until each one is
+re-granted. To close it for an office, one foundation proposal per grant carrying
+`required_shape`; adding a requirement to a grant that had none is an ordinary
+re-grant and needs no revoke first. `blockchaind query alias role-holders <CC>`
+lists who to do it for.
+
+`x/constitution`'s ante gate still protects the **foundation's** group shape by a
+different mechanism: it refuses the transaction that would change it, rather than
+refusing the actions afterwards. The difference is deliberate. There is one
+foundation, its shape is in the constitution, and a gate can read it on every
+transaction; there are as many offices as there are countries times offices, their
+shapes are on their grants, and an ante gate would not see an office acting through
+an interchain account or `x/authz` at all.
 
 ---
 

@@ -713,6 +713,17 @@ type roleGrantsResponse struct {
 		Jurisdiction    string    `json:"jurisdiction"`
 		GrantedBy       string    `json:"granted_by"`
 		GrantedAtHeight flexInt64 `json:"granted_at_height"`
+
+		// RequiredShape is a pointer because the chain omits it when a grant
+		// records no requirement, and those two states must not read the same. A
+		// struct value would decode an absent field as zero-of-zero, and a grant
+		// pinning nothing would then look like a grant pinning a shape whose
+		// numbers happened to be zero — which is the whole reason the chain's own
+		// field is a message rather than two integers.
+		RequiredShape *struct {
+			Signatures flexUint64 `json:"signatures"`
+			Members    flexUint64 `json:"members"`
+		} `json:"required_shape"`
 	} `json:"grants"`
 }
 
@@ -741,6 +752,10 @@ func verifyGrants(office *officeRecord, country, foundation, path string, now ti
 	}
 
 	expected, err := rolesOf(office.Roles)
+	if err != nil {
+		return nil, nil, err
+	}
+	minimum, err := requireOfficeMinimum(*office)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -775,12 +790,48 @@ func verifyGrants(office *officeRecord, country, foundation, path string, now ti
 						"this ceremony's name on it",
 					office.Name, name, country, grant.GrantedBy, foundation)
 			}
+			// The shape the chain records, checked against the minimum this
+			// enrolment agreed. Two failures and they are different failures:
+			//
+			//   - absent. The grant landed without a required shape at all, so the
+			//     office is unconstrained and could vote itself to a single key.
+			//     That is a grant made by a chain, a proposal or a tool that did not
+			//     carry the requirement, and recording it as verified would put this
+			//     ceremony's signature on an office nothing holds to anything.
+			//   - present and lower than agreed. Somebody edited the proposal, or the
+			//     dossier and the proposal disagree. Either way what is on the chain
+			//     is not what was decided.
+			//
+			// A shape HIGHER than the minimum is accepted and recorded as what the
+			// chain says. It constrains the office more than agreed, which is not
+			// this check's business to reverse, and the record names the real number
+			// rather than the one that was asked for.
+			if grant.RequiredShape == nil {
+				return nil, nil, fmt.Errorf(
+					"%s holds %s in %s and the grant records no required shape, though this enrolment agreed %s.\n"+
+						"An office with no recorded shape can vote itself down to a single key and go on holding "+
+						"the authority, so this grant does not constrain it. Re-make it with the required shape:\n"+
+						"  ceremony country grants --dossier <file> --proposer <custodian>",
+					office.Name, name, country, minimum.rule())
+			}
+			onChain := officeMinimum{
+				Signatures: int(grant.RequiredShape.Signatures),
+				Members:    int(grant.RequiredShape.Members),
+			}
+			if onChain.Signatures < minimum.Signatures || onChain.Members < minimum.Members {
+				return nil, nil, fmt.Errorf(
+					"%s holds %s in %s with a required shape of %s, and this enrolment agreed %s.\n"+
+						"The grant on the chain is weaker than the decision on the record, so one of the two is "+
+						"wrong and neither can be signed as though it described the other",
+					office.Name, name, country, onChain.rule(), minimum.rule())
+			}
 			found = &grantEvidence{
 				Role:            name,
 				Jurisdiction:    country,
 				GrantedBy:       strings.TrimSpace(grant.GrantedBy),
 				GrantedAtHeight: int64(grant.GrantedAtHeight),
 				VerifiedAt:      stamp,
+				RequiredShape:   onChain.rule(),
 			}
 			break
 		}

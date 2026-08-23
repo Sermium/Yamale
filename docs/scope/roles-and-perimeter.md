@@ -195,6 +195,48 @@ Roles are held by `x/group` accounts, checked at grant time rather than trusted,
 so an authority action is M-of-N rather than one official — which is already how
 `x/land` treats registry offices, and the same reasoning applies everywhere else.
 
+**And the M-of-N is recorded on the grant, not just asserted once.** "Is the
+holder a group policy" was the whole of the check for a while, and it was the
+right question asked once and never asked again. Two things followed:
+
+- A one-of-one group *is* a group policy, so it answered yes. Multisig was
+  guaranteed in form and not in substance.
+- An office is its own admin — necessarily, because that is what makes its
+  membership changeable by its own members and by nobody else — so it can vote to
+  change its own threshold at any time after the grant. A country could hold a
+  proper ceremony, stand up a three-of-five enforcement authority, and that office
+  could later become a one-of-one and go on freezing accounts.
+
+A grant therefore carries an optional `required_shape`, a minimum number of
+signatures and a minimum number of members, and both perimeter functions resolve
+the holder's group policy on every call and refuse when the office has fallen
+below it. Both numbers are floors: an office may grow, and may tighten, and may
+not shrink — the same rule `x/constitution` applies to the foundation's own group,
+for the same reason. Three-of-five becoming three-of-four moves sixty per cent to
+seventy-five and walks towards unanimity.
+
+Three properties worth stating because each was a decision:
+
+- **"Signatures" means people, not the threshold number.** `x/group` counts
+  weight, so a threshold of three over members weighing 3, 1, 1, 1 and 1 is a
+  one-of-five. The check sorts the weights descending and counts how few can reach
+  the threshold, which for equal weights is exactly the threshold.
+- **Absent means no requirement**, and absence is a nil message rather than a zero
+  integer, so the two can never be confused. Grants made before the field existed
+  are unchanged in effect, which is honest rather than ideal: their holders can
+  still shrink to a single key until each grant is re-made.
+- **The requirement is decided before the ceremony**, in the enrolment config, and
+  the ceremony refuses to assemble an office whose signed group file does not meet
+  it. A requirement captured from whatever group turned up would ratify a
+  one-of-one as readily as a three-of-five, which is not a requirement.
+
+It is a state check on the action rather than a gate on the transaction that
+changes the group, and that is not a stylistic choice. `x/constitution` guards the
+foundation's shape with an ante decorator because there is one foundation and its
+shape is in the constitution; an office's shape is on its grant, there are as many
+as there are countries times offices, and an ante gate would not see an office
+acting through an interchain account or `x/authz` at all.
+
 ### 3. One check, called everywhere — built
 
 A single keeper function — `AssertScope(ctx, actor, role, target)` — resolves the

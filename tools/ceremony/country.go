@@ -99,6 +99,17 @@ import (
 // users signed for; the third comes from the chain. A config field for any of
 // them would be a field somebody could fill in wrongly, and two of the three
 // decide who ends up holding a country's authority.
+//
+// A REQUIRED MINIMUM is a different thing from an actual value, and it does
+// belong here — see officeMinimum. The distinction is worth holding on to,
+// because the two look alike in a JSON file and behave nothing alike. An
+// office's actual threshold is an observation: reading it out of the config
+// rather than out of the signed group file would let a config claim a
+// three-of-five that the keys do not support. A required minimum is a
+// constraint: it is the decision the country took before anybody generated a
+// key, and the ceremony checks the attested group file against it. One is
+// something to be read from the evidence; the other is what the evidence is
+// held to.
 type countryConfig struct {
 	// Ceremony is the human name of this enrolment, printed on the record.
 	Ceremony string `json:"ceremony"`
@@ -144,6 +155,103 @@ type officeConfig struct {
 	// Group is the path to the assembled group file the hosted ceremony wrote for
 	// this office — group.json from `ceremony host --out`.
 	Group string `json:"group"`
+
+	// Minimum is the smallest M-of-N this office may be and still hold these
+	// roles. Required.
+	Minimum *officeMinimum `json:"minimum"`
+}
+
+// officeMinimum is the M-of-N an office must not fall below, decided before the
+// ceremony and written onto every grant this enrolment makes.
+//
+// # Why it is decided in advance
+//
+// The alternative is to capture whatever the group file turns out to say, and
+// that would be no requirement at all: it would ratify a one-of-one as readily as
+// a three-of-five, because there would be nothing for the office to disagree
+// with. The customer's own framing is the right one — the shape is a decision the
+// country takes about how its authority is exercised, and a decision taken after
+// seeing the answer is not a decision.
+//
+// So it is written in the config, before the day, by the person who also writes
+// down which offices exist and what roles they hold. The ceremony then refuses to
+// assemble an office whose signed group file does not meet it, and the grants it
+// composes carry it onto the chain in required_shape, where every authority action
+// is checked against it for as long as the grant exists.
+//
+// # Why the ceremony refuses rather than warns
+//
+// Because the alternative is a warning at the end of a long day. By the time an
+// office's shape is wrong there are keys in five people's hands and a fingerprint
+// somebody read aloud, and the cheapest moment to find out is before the groups
+// are created — which is `country init`, which is where this refuses.
+type officeMinimum struct {
+	// Signatures is the fewest members that must sign for the office to act.
+	//
+	// Never one. A minimum of one signature is a minimum that permits the single
+	// key this whole arrangement exists to abolish, and a config that could
+	// express it would eventually contain it.
+	Signatures int `json:"signatures"`
+
+	// Members is the fewest members the office must have.
+	//
+	// Never equal to Signatures. A floor of three-of-three is a floor at which one
+	// unreachable member freezes the office permanently, and the chain will hold
+	// the office to the floor — so a unanimous minimum is a promise that the
+	// office may never recover from a lost key. Two-of-three and three-of-five are
+	// the shapes that work.
+	//
+	// The foundation's own ceremony refuses unanimity for its actual threshold, for
+	// the same reason and one step earlier: see distributed.go, which will not
+	// agree a threshold equal to the number of custodians. This is the same
+	// reasoning applied to a floor rather than to a value.
+	Members int `json:"members"`
+}
+
+func (m officeMinimum) rule() string {
+	return fmt.Sprintf("%d-of-%d", m.Signatures, m.Members)
+}
+
+// shape is the requirement as the chain records it.
+//
+// Built here rather than assembled at each call site, so that the numbers on the
+// signed record, the numbers checked against the group file and the numbers
+// written into required_shape are one value that cannot drift into three.
+//
+// The conversion to uint32 is safe because every path to this method validates
+// first — see requireOfficeMinimum, which re-validates a dossier an operator may
+// have edited rather than trusting the config's validation of a different file.
+func (m officeMinimum) shape() *aliastypes.OfficeShape {
+	return &aliastypes.OfficeShape{
+		Signatures: uint32(m.Signatures),
+		Members:    uint32(m.Members),
+	}
+}
+
+// validate refuses a minimum that is not one, before any key exists.
+func (m officeMinimum) validate(office string) error {
+	switch {
+	case m.Signatures < 2:
+		return fmt.Errorf(
+			"%s's minimum asks for %d signature(s). A minimum of one is a minimum that permits a single key, "+
+				"which is the arrangement every office on this chain exists to replace",
+			office, m.Signatures)
+	case m.Members < m.Signatures:
+		return fmt.Errorf(
+			"%s's minimum of %s asks for more signatures than members, which no office could satisfy",
+			office, m.rule())
+	case m.Members == m.Signatures:
+		return fmt.Errorf(
+			"%s's minimum of %s is unanimity. The chain holds an office to its minimum, so this one could never "+
+				"lose a member: one unreachable super user would freeze it permanently. Two-of-three and "+
+				"three-of-five are the shapes that work",
+			office, m.rule())
+	case m.Members > aliastypes.MaxOfficeMembers:
+		return fmt.Errorf(
+			"%s's minimum of %s asks for more than the %d members the chain can read a group's shape from",
+			office, m.rule(), aliastypes.MaxOfficeMembers)
+	}
+	return nil
 }
 
 // waiver is a rule this enrolment is knowingly proceeding without.
@@ -216,6 +324,16 @@ type officeRecord struct {
 	Threshold int            `json:"threshold"`
 	Members   []officeMember `json:"members"`
 
+	// Minimum is the M-of-N this office may never fall below, from the config.
+	//
+	// Carried here rather than re-read from the config on every command, because
+	// the config is not an input to the later phases at all — the dossier is, and
+	// the grant composed in the last phase has to name the same minimum the first
+	// phase checked the group file against. A pointer so that a dossier written
+	// before this field existed is an explicit refusal rather than a grant
+	// requiring zero of zero.
+	Minimum *officeMinimum `json:"minimum"`
+
 	// CeremonyID and GroupFingerprint tie this office back to the ceremony that
 	// made its keys. The fingerprint is the eighty bits its super users read to
 	// each other; carrying it means the signed record of the enrolment and the
@@ -273,6 +391,13 @@ type grantEvidence struct {
 	GrantedBy       string `json:"granted_by"`
 	GrantedAtHeight int64  `json:"granted_at_height"`
 	VerifiedAt      string `json:"verified_at"`
+
+	// RequiredShape is the M-of-N the chain says this grant records, rendered as
+	// "3-of-5". Read back off the chain and checked against the office's minimum
+	// rather than copied from the dossier, for the same reason GrantedBy is: a
+	// grant that landed without the shape the proposal named is a grant that does
+	// not constrain the office, and the record must not claim otherwise.
+	RequiredShape string `json:"required_shape"`
 }
 
 // placement is a jurisdiction record that has been verified to exist.
@@ -358,6 +483,22 @@ func (c countryConfig) validate() error {
 		}
 		if _, err := rolesOf(office.Roles); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
+		}
+		// Required, not defaulted. A default would be this tool deciding how a
+		// country's authority is exercised, and a default of "no minimum" would
+		// silently produce the state this field exists to end: an office that can
+		// vote itself down to one key and go on holding a national authority. An
+		// omitted minimum is therefore a refusal that says what to write.
+		if office.Minimum == nil {
+			return fmt.Errorf(
+				"%s has no minimum. Every office needs one: it is the M-of-N the office may never fall below, "+
+					"decided before anybody generates a key, checked against the group file, and written onto "+
+					"every grant so the chain refuses an action by an office that has shrunk.\n"+
+					"  \"minimum\": {\"signatures\": 3, \"members\": 5}",
+				name)
+		}
+		if err := office.Minimum.validate(name); err != nil {
+			return err
 		}
 	}
 
@@ -561,12 +702,16 @@ func dossierFor(config countryConfig, now time.Time) (countryDossier, error) {
 		if err := requireOfficeAttested(office, dossier.Country, roles, assembled.Params); err != nil {
 			return countryDossier{}, err
 		}
+		if err := requireOfficeMeetsMinimum(office, assembled); err != nil {
+			return countryDossier{}, err
+		}
 
 		record := officeRecord{
 			Name:             strings.TrimSpace(office.Name),
 			Roles:            roleNames(roles),
 			GroupFile:        office.Group,
 			Threshold:        assembled.Params.Threshold,
+			Minimum:          office.Minimum,
 			CeremonyID:       assembled.Params.ID,
 			GroupFingerprint: assembled.Fingerprint,
 		}
@@ -660,6 +805,63 @@ func requireOfficeAttested(office officeConfig, country string, roles []aliastyp
 	return nil
 }
 
+// requireOfficeMeetsMinimum refuses to assemble an office whose signed group file
+// does not reach the minimum the config demands.
+//
+// This is the moment the whole arrangement turns on, so read what is being
+// compared with what. The minimum comes from the config, written before the day.
+// The threshold and the membership come from the assembled group file, which the
+// office's super users signed and whose fingerprint they read to each other. So
+// this is not a config checking itself: it is a decision taken in advance, held
+// against evidence produced independently of it.
+//
+// Refused here, at `country init`, because this is the last moment at which a
+// wrong shape costs nothing. Afterwards there are groups on the chain, a proposal
+// three custodians have voted on, and an office that has been told it holds an
+// authority.
+//
+// Note the direction of both comparisons. The office may EXCEED the minimum
+// freely — a country that agreed three-of-five and turned up with four-of-seven
+// has more people and more agreement than it promised, and the chain will hold it
+// to the promise rather than to the excess. What it may not do is fall short,
+// because a config demanding three-of-five over a group file that says one-of-one
+// is a config whose signed record and whose chain state would disagree about what
+// the office is.
+func requireOfficeMeetsMinimum(office officeConfig, signed assembled) error {
+	if office.Minimum == nil {
+		// Unreachable through validate(), which refuses an absent minimum before
+		// any group file is read. Kept because this function is the one that must
+		// never be satisfiable by an absent value: a nil dereference here would be
+		// a crash, and a silent `return nil` would be the check removing itself.
+		return fmt.Errorf("%s has no minimum, so there is nothing to hold its group file to", office.Name)
+	}
+	minimum := *office.Minimum
+	actual := fmt.Sprintf("%d-of-%d", signed.Params.Threshold, len(signed.Custodians))
+
+	if signed.Params.Threshold < minimum.Signatures {
+		return fmt.Errorf(
+			"%s must be at least %s and %s was generated as %s: its threshold of %d is below the %d signatures "+
+				"this enrolment requires.\n"+
+				"The minimum is the decision the country took before anybody generated a key, and the group file "+
+				"is what its super users signed. Run the office's ceremony again with the agreed threshold, or "+
+				"change the minimum in the config and have the change agreed — but not silently, because the "+
+				"chain will hold this office to whichever number ends up on the grant",
+			office.Name, minimum.rule(), office.Group, actual,
+			signed.Params.Threshold, minimum.Signatures)
+	}
+	if len(signed.Custodians) < minimum.Members {
+		return fmt.Errorf(
+			"%s must be at least %s and %s was generated as %s: %d super users is below the %d this enrolment "+
+				"requires.\n"+
+				"An office cannot be topped up later without the foundation's involvement: the chain refuses an "+
+				"action by an office below the shape its grant records, so enrolling this one now would produce a "+
+				"national authority that cannot act",
+			office.Name, minimum.rule(), office.Group, actual,
+			len(signed.Custodians), minimum.Members)
+	}
+	return nil
+}
+
 // sameRoleSet compares two sorted, deduplicated role lists.
 //
 // Set equality both ways, for the same reason confirmMembers insists on it: an
@@ -703,6 +905,32 @@ func (d *countryDossier) office(name string) (*officeRecord, error) {
 		names[i] = office.Name
 	}
 	return nil, fmt.Errorf("%q is not an office in this enrolment. It has: %s", name, strings.Join(names, ", "))
+}
+
+// requireOfficeMinimum returns the office's minimum, or refuses.
+//
+// A dossier written before the minimum existed decodes with the field absent, and
+// this is where that becomes a refusal rather than a grant requiring zero of zero
+// — which the chain would refuse anyway, but after three custodians had voted for
+// it. The message names the fix, because the fix is cheap: re-run `country init`
+// against a config that has the minimums in it, before the groups are created.
+func requireOfficeMinimum(office officeRecord) (officeMinimum, error) {
+	if office.Minimum == nil {
+		return officeMinimum{}, fmt.Errorf(
+			"%s has no minimum in this dossier, so a grant to it would record no required shape — and an office "+
+				"with no recorded shape can vote itself down to a single key and go on holding a national "+
+				"authority.\n"+
+				"Add \"minimum\": {\"signatures\": 3, \"members\": 5} to each office in the config and run "+
+				"`ceremony country init` again",
+			office.Name)
+	}
+	if err := office.Minimum.validate(office.Name); err != nil {
+		// Re-validated rather than trusted, because a dossier is a file an operator
+		// edits and this one is the number the chain will hold the office to
+		// forever. The config's own validation ran on a different file.
+		return officeMinimum{}, err
+	}
+	return *office.Minimum, nil
 }
 
 // holdsRole reports whether an office is configured to hold a role.
