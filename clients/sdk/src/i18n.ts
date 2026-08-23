@@ -6,6 +6,8 @@
 // interpolation and a plural rule, and a dependency that ships its own loader,
 // its own React bindings and its own detection logic buys none of those three.
 
+import { toDisplayAmount } from './denom.ts';
+
 export type Locale = string;
 
 /** Direction is a property of the script, not the country. */
@@ -164,13 +166,73 @@ export function plural(key: string, count: number, vars?: Record<string, string 
  * is required rather than assumed.
  */
 export function formatMoney(amount: bigint | string, exponent: number, currency?: string): string {
-  const raw = typeof amount === 'bigint' ? amount : BigInt(amount || '0');
-  const value = Number(raw) / Math.pow(10, exponent);
-  return new Intl.NumberFormat(active, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: exponent,
-    ...(currency ? { style: 'currency', currency } : {}),
-  }).format(value);
+  let raw: bigint;
+  try {
+    raw = typeof amount === 'bigint' ? amount : BigInt((amount ?? '').toString().trim() || '0');
+  } catch {
+    return String(amount ?? '');
+  }
+
+  // A currency style asks Intl for a symbol and a symbol's placement, which is
+  // locale data this function has no business reimplementing. It is also the
+  // only branch that needs a Number, and it is used for quoted prices rather
+  // than for ledger balances.
+  if (currency) {
+    return new Intl.NumberFormat(active, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: exponent,
+      style: 'currency',
+      currency,
+    }).format(Number(raw) / Math.pow(10, exponent));
+  }
+
+  return formatExactDecimal(toDisplayAmount(raw, exponent), active, exponent);
+}
+
+/**
+ * A decimal string, grouped and punctuated for a locale, with no float in the
+ * path.
+ *
+ * The integer part is handed to Intl as a BigInt — exact at any size — and the
+ * fraction is formatted as its own integer with `minimumIntegerDigits`, which
+ * is what carries it into the locale's numbering system (Eastern Arabic digits
+ * for ar-EG, Latin for ar-SA) instead of being concatenated as ASCII. The
+ * decimal separator is read out of the locale rather than assumed, because half
+ * the languages this ships in write it as a comma.
+ *
+ * This replaces `Number(base) / 10 ** exponent`. Above 2^53 that expression
+ * silently misstates a balance, and a misstated balance is the one defect this
+ * whole layer exists to prevent.
+ */
+function formatExactDecimal(decimal: string, locale: Locale, maxFraction: number): string {
+  const negative = decimal.startsWith('-');
+  const unsigned = negative ? decimal.slice(1) : decimal;
+  const [whole = '0', fraction = ''] = unsigned.split('.');
+
+  const kept = fraction.slice(0, maxFraction).replace(/0+$/, '');
+
+  let out: string;
+  try {
+    out = new Intl.NumberFormat(locale).format(BigInt(whole || '0'));
+    if (kept !== '') {
+      const separator =
+        new Intl.NumberFormat(locale).formatToParts(1.1).find((p) => p.type === 'decimal')?.value ?? '.';
+      const digits = new Intl.NumberFormat(locale, {
+        useGrouping: false,
+        minimumIntegerDigits: kept.length,
+      }).format(BigInt(kept));
+      out = `${out}${separator}${digits}`;
+    }
+  } catch {
+    out = kept === '' ? whole : `${whole}.${kept}`;
+  }
+
+  // The sign from the locale, for the same reason as the separator: a minus is
+  // written differently in several of them, and Intl already knows which.
+  if (!negative) return out;
+  const minus =
+    new Intl.NumberFormat(locale).formatToParts(-1).find((p) => p.type === 'minusSign')?.value ?? '-';
+  return `${minus}${out}`;
 }
 
 export function formatDate(d: Date | string | number): string {

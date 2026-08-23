@@ -166,14 +166,95 @@ export function toDisplayAmount(base: string | bigint, exponent: number): string
   return `${sign}${whole.toString()}.${fractionStr}`;
 }
 
-/** Groups the integer part with thousands separators for readability. */
+/**
+ * Groups the integer part with thousands separators for readability.
+ *
+ * The integer part goes through Intl as a **BigInt**, not a Number. It used to
+ * be `Number(digits).toLocaleString(...)`, which is exact only below 2^53 —
+ * and a total supply, a pool reserve or a treasury balance on this chain
+ * routinely exceeds that. The old form rendered 9007199254740993 as
+ * 9,007,199,254,740,992: a wrong figure, silently, on the one screen where the
+ * figure is the whole point.
+ */
 export function groupDigits(value: string, locale = 'en-US'): string {
   const [whole, fraction] = value.split('.');
   const negative = whole.startsWith('-');
-  const digits = negative ? whole.slice(1) : whole;
-  const grouped = Number(digits).toLocaleString(locale, { maximumFractionDigits: 0 });
+  const digits = (negative ? whole.slice(1) : whole).replace(/[^0-9]/g, '');
+  let grouped: string;
+  try {
+    grouped = BigInt(digits || '0').toLocaleString(locale);
+  } catch {
+    grouped = digits || '0';
+  }
   const sign = negative ? '-' : '';
   return fraction ? `${sign}${grouped}.${fraction}` : `${sign}${grouped}`;
+}
+
+/**
+ * What a person typed, as base units. The other direction from
+ * `toDisplayAmount`, and the one that decides how much money moves.
+ *
+ * Every arithmetic step is on strings and BigInt. The form this replaces —
+ * `Math.round(Number(input) * 10 ** exponent)` — appeared in three separate
+ * places in the clients and is wrong twice over: `Number` loses precision above
+ * 2^53, and `* 10 ** 6` on a binary float turns 0.07 into 70000.00000000001, so
+ * whether the rounding lands on the amount the payer typed depends on the
+ * decimal they happened to choose.
+ *
+ * Returns `null` when the text is not a non-negative decimal, so an interface
+ * can disable the action rather than submit a guess. `truncated` is true when
+ * the input carried more decimal places than the denom can hold: the value is
+ * usable, but the caller owes the payer a note, because digits they typed are
+ * not in the amount that will move.
+ */
+export interface BaseUnits {
+  /** The integer amount the chain stores, as a decimal string. */
+  base: string;
+  /** True when decimal places beyond the denom's exponent were dropped. */
+  truncated: boolean;
+}
+
+export function toBaseUnits(input: string, exponent: number): BaseUnits | null {
+  if (!Number.isInteger(exponent) || exponent < 0 || exponent > 30) return null;
+
+  // Group separators a person or a locale may have inserted: ordinary spaces,
+  // non-breaking and narrow no-break spaces (fr), and apostrophes (de-CH).
+  const cleaned = input.replace(/[\s   ']/g, '');
+  if (cleaned === '') return null;
+
+  // One decimal separator, either convention. A string carrying both is
+  // ambiguous rather than clever, so it is refused.
+  const dots = (cleaned.match(/\./g) ?? []).length;
+  const commas = (cleaned.match(/,/g) ?? []).length;
+  if (dots > 1 || commas > 1 || (dots > 0 && commas > 0)) return null;
+
+  const normalised = cleaned.replace(',', '.');
+  if (!/^\d*(?:\.\d*)?$/.test(normalised) || normalised === '.') return null;
+
+  const [whole = '', fraction = ''] = normalised.split('.');
+  const kept = fraction.slice(0, exponent);
+  const truncated = fraction.length > exponent && /[1-9]/.test(fraction.slice(exponent));
+
+  const digits = `${whole || '0'}${kept.padEnd(exponent, '0')}`;
+  // Leading zeros stripped by BigInt rather than by a regex, so "000.5" and
+  // "0.5" cannot disagree.
+  return { base: BigInt(digits).toString(), truncated };
+}
+
+/**
+ * The same, resolving the exponent from the chain's own denom metadata rather
+ * than from a number the caller guessed.
+ *
+ * A hardcoded `1e6` is right for every denom this chain mints today and wrong
+ * the first time an IBC voucher with eight decimals arrives — and wrong by
+ * orders of magnitude, in the direction of sending a hundred times too much.
+ */
+export function toBaseUnitsOf(
+  input: string,
+  denom: string,
+  registry: Record<string, DenomInfo> = KNOWN_DENOMS,
+): BaseUnits | null {
+  return toBaseUnits(input, resolveDenom(denom, registry).exponent);
 }
 
 export interface FormatAmountOptions {

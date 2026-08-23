@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { describeCase, requiredPower, truncateAddress, t} from '@yamale/chain';
+import { describeCase, requiredPower, t } from '@yamale/chain';
 
 import { client } from '../chain.ts';
+import { Address } from '../Address.tsx';
 
 /**
  * The operations console: what a validator or the founders' group has to act on.
@@ -38,11 +39,26 @@ export function OperationsPage() {
 
       <h2 className="section">Waiting on a vote</h2>
       {cases.isPending ? (
-        <p className="muted">Reading cases…</p>
+        <section className="card" aria-busy="true">
+          <div className="skeleton"><i /><i /></div>
+          <p className="small muted" role="status">Reading cases…</p>
+        </section>
+      ) : cases.isError ? (
+        <section className="card">
+          <h2>{t('safe.cannotReach')}</h2>
+          <p className="muted">
+            The node did not answer, so this page cannot say whether anything is waiting on a
+            decision. Treat that as unknown rather than as nothing.
+          </p>
+          <p>
+            <button type="button" className="chip" onClick={() => cases.refetch()}>Try again</button>
+          </p>
+        </section>
       ) : open.length === 0 ? (
-        <p className="muted">
-          No open enforcement cases. Nothing is frozen pending a decision.
-        </p>
+        <section className="empty">
+          <h2>Nothing waiting</h2>
+          <p>No open enforcement cases. No account is frozen pending a decision.</p>
+        </section>
       ) : (
         open.map((c) => {
           const needed = requiredPower(c.totalPowerAtOpen);
@@ -58,13 +74,32 @@ export function OperationsPage() {
               </div>
 
               <p className="case-target">
-                Against {truncateAddress(c.target)}, opened by {truncateAddress(c.opener)}
+                Against <Address address={c.target} />, opened by <Address address={c.opener} />
               </p>
               <blockquote className="case-reason">{c.reason}</blockquote>
               <p className="case-meaning">{describeCase(c)}</p>
+              {/* Progress as a bar as well as a pair of figures. Whether a
+                  vote is close is a shape, not a subtraction, and two
+                  six-figure integers side by side are not a comparison anybody
+                  performs by eye.
+
+                  These are consensus voting power, not an amount of YML —
+                  x/staking has already divided the stake by the power
+                  reduction — so they are grouped as plain integers rather than
+                  run through formatAmount, which would put a currency symbol
+                  on a number that is not money. */}
+              <div
+                className="tally"
+                role="img"
+                aria-label={`${c.yesPower.toLocaleString()} of the ${needed.toLocaleString()} voting power needed`}
+              >
+                <i style={{ inlineSize: `${share(c.yesPower, needed)}%` }} />
+              </div>
               <p className="small muted">
-                {c.yesPower} of the {needed} voting power it needs · {c.noPower} against · voting
-                ends at block {c.votingEndsAtHeight.toLocaleString()}
+                <span className="y-num">{c.yesPower.toLocaleString()}</span> of the{' '}
+                <span className="y-num">{needed.toLocaleString()}</span> voting power it needs ·{' '}
+                <span className="y-num">{c.noPower.toLocaleString()}</span> against · voting ends at
+                block {c.votingEndsAtHeight.toLocaleString()}
               </p>
 
               <VoteBuilder caseId={c.id} />
@@ -123,6 +158,18 @@ function VoteBuilder({ caseId }: { caseId: string }) {
       )}
     </div>
   );
+}
+
+/**
+ * How far a tally has come, as a percentage of what it needs.
+ *
+ * Capped at 100: a bar that overflows its track reads as a rendering fault
+ * rather than as a threshold already met, and a case can pass its threshold
+ * before the last vote is counted.
+ */
+function share(have: number, needed: number): number {
+  if (!Number.isFinite(have) || !Number.isFinite(needed) || needed <= 0) return 0;
+  return Math.max(0, Math.min(100, (have / needed) * 100));
 }
 
 type Action = 'freeze' | 'seize' | 'emergency-freeze' | 'emergency-release';

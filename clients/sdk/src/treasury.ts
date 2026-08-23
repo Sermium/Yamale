@@ -13,7 +13,7 @@
  * figure.
  */
 
-import type { Coin } from './denom.ts';
+import { resolveDenom, type Coin } from './denom.ts';
 
 /** A treasury: shared funds with an admin, roles and policies. */
 export interface Treasury {
@@ -131,7 +131,10 @@ export function checkSpend(
   for (const coin of amount) {
     const balance = balances.find((b) => b.denom === coin.denom);
     if (!balance) {
-      return { ok: false, reason: `This treasury holds no ${coin.denom}.` };
+      // The symbol, not the base denom. "This treasury holds no uyml" asks a
+      // treasurer to know that uyml is YML divided by a million, which is the
+      // one fact this whole layer exists so that nobody has to know.
+      return { ok: false, reason: `This treasury holds no ${resolveDenom(coin.denom).symbol}.` };
     }
     if (BigInt(balance.available) < BigInt(coin.amount)) {
       const locked = BigInt(balance.locked);

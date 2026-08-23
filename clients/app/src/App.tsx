@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId } from '@yamale/chain';
 
 import { signIn, signUp, signOut, lastEmail, revealPhrase, eraseEverything, type Signer } from './account.ts';
-import { CURRENCIES, currencyOf, display, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
+import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
 import { topUpEmpty, needsTopUp as topUpEmpty_needed, balances } from './topup.ts';
 import { encodeSigned, shortCodeSigned, readSigned, describe,
          type PaymentRequest, type Recurrence } from './request.ts';
@@ -504,17 +504,96 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
   );
 }
 
+/**
+ * Paying somebody.
+ *
+ * This screen used to render a success receipt without broadcasting anything:
+ * `complete()` wrote the payee into the address book and set `sent`, and no
+ * transaction was ever built. Somebody could show a tick, a name and an amount
+ * to the person they were paying while their balance had not moved by a unit.
+ *
+ * It now signs and waits for the block, and it reports execution rather than
+ * acceptance — see chain.ts, which also documents why the transaction is a bank
+ * transfer carrying the reference in its memo rather than an ISO 20022
+ * `MsgSendPayment`. The short version: the chain requires both named
+ * participants to be governance-approved and the payer to be a registered
+ * customer of the one it names, and `yamale-devnet-2` has no approved
+ * participants at all. The receipt says which rails carried it.
+ */
 function Pay({ signer }: { signer: Signer }) {
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
-  const [denom, setDenom] = useState(CURRENCIES[0].denom);
-  const [sent, setSent] = useState(false);
+  const [reference, setReference] = useState('');
+  const [denom, setDenom] = useState(defaultDenom());
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [verdict, setVerdict] = useState<'none' | 'trusted' | 'untrusted' | 'unreadable'>('none');
   const [incoming, setIncoming] = useState<PaymentRequest | null>(null);
   const [scanning, setScanning] = useState(false);
   const [confirmingNew, setConfirmingNew] = useState(false);
+
+  // What the account actually holds, so the action can be disabled with the
+  // precondition stated rather than the payment refused after signing.
+  const [held, setHeld] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const address = await signer.internalAddress();
+      const map = await balances(address);
+      if (live) setHeld(map);
+    })();
+    return () => { live = false; };
+  }, [signer]);
+
+  // Who the typed id resolves to on the chain. Resolved before the money
+  // moves, because "no account answers to that" is a thing to say now and not
+  // after a failed transaction.
+  const [payee, setPayee] = useState<{ id: string; address: string | null; looking: boolean }>({
+    id: '', address: null, looking: false,
+  });
+  useEffect(() => {
+    const id = to.trim();
+    if (id === '') { setPayee({ id: '', address: null, looking: false }); return; }
+    let live = true;
+    setPayee({ id, address: null, looking: true });
+    void book.resolve(id).then((address) => {
+      if (live) setPayee({ id, address, looking: false });
+    });
+    return () => { live = false; };
+  }, [to]);
+
+  const [stage, setStage] = useState<'compose' | 'sending' | 'done'>('compose');
+  const [outcome, setOutcome] = useState<chain.PaymentOutcome | null>(null);
+
+  const currency = currencyOf(denom);
+  const parsed = amount.trim() === '' ? null : parseAmount(amount, denom);
+  const unreadableAmount = amount.trim() !== '' && parsed === null;
+  const balance = held?.get(denom) ?? '0';
+  const enough = parsed !== null && BigInt(parsed.base) > 0n && BigInt(parsed.base) <= BigInt(balance);
+  const ready = payee.address !== null && enough && stage === 'compose';
+
+  /**
+   * Sign it, wait for the block, and report what the chain did.
+   *
+   * The address book is written *after* success. Recording a payee for a
+   * payment that failed is how a "recent" list fills up with people who were
+   * never paid.
+   */
+  async function send() {
+    if (!payee.address || !parsed) return;
+    setStage('sending');
+    const result = await chain.pay(signer, payee.address, parsed.base, denom, reference);
+    setOutcome(result);
+    if (result.ok) book.remember(payee.id, incoming?.payeeName);
+    setStage('done');
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ready) return;
+    if (!book.isKnown(to)) { setConfirmingNew(true); return; }
+    void send();
+  }
 
   /**
    * Read a code somebody sent, and say plainly whether it can be trusted.
@@ -524,18 +603,6 @@ function Pay({ signer }: { signer: Signer }) {
    * private, and none of them need to be: what matters is that a tampered or
    * impersonated code is detectable here, before any money moves.
    */
-  /** Record them, then show the receipt. */
-  function complete() {
-    book.remember(to, incoming?.payeeName);
-    setSent(true);
-  }
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!book.isKnown(to)) { setConfirmingNew(true); return; }
-    complete();
-  }
-
   async function readCode() {
     setChecking(true);
     setVerdict('none');
@@ -555,14 +622,71 @@ function Pay({ signer }: { signer: Signer }) {
     }
   }
 
-  if (sent) {
+  if (stage === 'sending') {
     return (
       <div className="done">
-        <div className="done__tick">✓</div>
-        <h2>{t('app.paymentSent')}</h2>
-        <p className="muted">{display(toBaseUnits(amount, denom), denom)} → {to}</p>
-        <button className="primary" onClick={() => { setSent(false); setTo(''); setAmount(''); }}>
-          {t('app.done')}
+        {/* Pending, with the figure already visible. A spinner with nothing
+            beside it leaves somebody unsure whether they pressed the button. */}
+        <div className="done__pending" aria-hidden="true"><i /><i /><i /></div>
+        <h2>{display(parsed?.base ?? '0', denom)}</h2>
+        <p className="muted" role="status">{t('app.paySending')}</p>
+      </div>
+    );
+  }
+
+  if (stage === 'done' && outcome) {
+    return (
+      <div className="done">
+        {/* The tick is set from execution, never from broadcast. A node
+            accepting a transaction into its mempool has moved nothing. */}
+        <div className={outcome.ok ? 'done__tick' : 'done__cross'} aria-hidden="true">
+          {outcome.ok ? '✓' : '!'}
+        </div>
+        <h2>{outcome.ok ? t('app.paymentSent') : t('app.payFailed')}</h2>
+
+        {outcome.ok ? (
+          <>
+            <p className="done__amount">{display(parsed?.base ?? '0', denom)}</p>
+            <p className="muted">{book.displayName(payee.id)}</p>
+            <p className="small-note muted">{t('app.paySettled', { height: outcome.height })}</p>
+
+            {/* What this screen actually did, and what it did not. The old
+                version showed this tick without broadcasting anything at all;
+                the least it owes anybody now is an accurate account of which
+                rails carried the money and where the reference went. */}
+            <p className="small-note muted">
+              {t('app.payViaTransfer')}
+              {outcome.reference.on === 'none' && <> {t('app.payNoReference')}</>}
+            </p>
+            {outcome.reference.on === 'memo' && (
+              <p className="ref-shown y-mono">{outcome.reference.value}</p>
+            )}
+          </>
+        ) : (
+          <>
+            {/* What happened, why, and the one next action — with the raw text
+                behind a disclosure. */}
+            <p><strong>{outcome.error?.message}</strong></p>
+            {outcome.error?.reason && <p className="muted">{outcome.error.reason}</p>}
+            {outcome.error?.nextStep && <p>{outcome.error.nextStep}</p>}
+            {outcome.error?.raw && outcome.error.raw !== outcome.error.message && (
+              <details className="raw">
+                <summary className="muted">{t('app.reveal')}</summary>
+                <pre>{outcome.error.raw}</pre>
+              </details>
+            )}
+          </>
+        )}
+
+        <button
+          className="primary"
+          onClick={() => {
+            setStage('compose');
+            setOutcome(null);
+            if (outcome.ok) { setTo(''); setAmount(''); setReference(''); }
+          }}
+        >
+          {outcome.ok ? t('app.payAgain') : t('app.done')}
         </button>
       </div>
     );
@@ -622,7 +746,7 @@ function Pay({ signer }: { signer: Signer }) {
             <button type="button" className="ghost" onClick={() => setConfirmingNew(false)}>
               {t('app.cancel')}
             </button>
-            <button type="button" className="primary" onClick={() => { setConfirmingNew(false); complete(); }}>
+            <button type="button" className="primary" onClick={() => { setConfirmingNew(false); void send(); }}>
               {t('app.payAnyway')}
             </button>
           </div>
@@ -636,17 +760,68 @@ function Pay({ signer }: { signer: Signer }) {
           <span>{t('app.payTo')}</span>
           <input value={to} onChange={(e) => setTo(e.target.value)} placeholder={t('app.payToHint')} required />
         </label>
-        <label>
-          <span>{t('app.amount')}</span>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-        </label>
+        {/* Resolved before anything moves, and named. "No account answers to
+            that" is worth saying while the money is still here. */}
+        {payee.looking && <p className="small-note muted">{t('app.searching')}</p>}
+        {!payee.looking && payee.id !== '' && payee.address === null && (
+          <p className="notice notice--bad">{t('app.unknownId')}</p>
+        )}
+        {payee.address && (
+          <p className="notice notice--good">{book.displayName(payee.id)}</p>
+        )}
+
         <label>
           <span>{t('app.currency')}</span>
           <select value={denom} onChange={(e) => setDenom(e.target.value)}>
             {CURRENCIES.map((c) => <option key={c.denom} value={c.denom}>{c.name}</option>)}
           </select>
         </label>
-        <button className="primary">{t('app.sendNow')}</button>
+        <label>
+          <span>{t('app.amount')}</span>
+          <input className="y-num" inputMode="decimal" value={amount}
+                 /* The decimal comma survives. A field allowing only [0-9.]
+                    turns the 1250,50 a French or Portuguese reader types into
+                    125050 — a hundred times the payment they meant. */
+                 onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,\s  ]/g, ''))}
+                 required />
+        </label>
+
+        {/* Prevention rather than error handling: the balance, one tap to use
+            all of it, and the action disabled with the reason stated. */}
+        {held !== null && BigInt(balance) > 0n && (
+          <button type="button" className="linkish available"
+                  onClick={() => setAmount(rawAmount(balance, denom))}>
+            {t('app.available', { amount: display(balance, denom) })}
+          </button>
+        )}
+        {held !== null && BigInt(balance) === 0n && (
+          <p className="small-note muted">{t('app.emptyBalance')}</p>
+        )}
+        {unreadableAmount && <p className="notice notice--bad">{t('app.payNotAnAmount')}</p>}
+        {parsed?.truncated && currency && (
+          <p className="notice">
+            {t('app.payTruncated', {
+              code: currency.code,
+              places: currency.exponent,
+              amount: display(parsed.base, denom),
+            })}
+          </p>
+        )}
+        {parsed !== null && BigInt(parsed.base) > BigInt(balance) && (
+          <p className="notice notice--bad">{t('app.payTooMuch')}</p>
+        )}
+
+        {/* The reference, as first-class content rather than an afterthought.
+            This is a payments surface, and reconciliation is the thing the
+            reference exists for — so it sits in the form beside the amount,
+            not behind a disclosure. */}
+        <label>
+          <span>{t('app.reference')}</span>
+          <input value={reference} onChange={(e) => setReference(e.target.value)}
+                 placeholder={t('app.referenceHint')} maxLength={64} />
+        </label>
+
+        <button className="primary" disabled={!ready}>{t('app.sendNow')}</button>
       </form>
     </>
   );

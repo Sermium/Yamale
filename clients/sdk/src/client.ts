@@ -99,6 +99,34 @@ export interface Commitment {
   endTime: number;
 }
 
+/**
+ * One lock as a treasury sees it, which is not how a beneficiary sees it.
+ *
+ * `Commitment` above answers "what has been set aside *for me*", so it carries
+ * the live claimable figure and no beneficiary — the beneficiary is whoever
+ * asked. This answers "what has this treasury promised, and to whom", so it
+ * carries the beneficiary and does not pay for a claimable query per row.
+ */
+export interface TreasuryLock {
+  id: string;
+  treasuryId: string;
+  beneficiary: string;
+  denom: string;
+  /** Everything committed under this lock, in base units. */
+  amount: string;
+  /** How much of it has already been released to the beneficiary. */
+  claimed: string;
+  claimable: string;
+  /** The chain's LOCK_TYPE_* value. */
+  lockType: string;
+  startTime: number;
+  cliffTime: number;
+  endTime: number;
+  revocable: boolean;
+  /** True when the treasury cancelled the unvested part. */
+  revoked: boolean;
+}
+
 export interface Block {
   height: number;
   timestamp: string;
@@ -572,8 +600,18 @@ export class ChainClient {
     return (data.role ?? data.roles ?? []).map(toRoleAssignment);
   }
 
-  /** The locks a treasury has created — its vesting schedules and escrows. */
-  async treasuryLocks(id: string): Promise<Commitment[]> {
+  /**
+   * The locks a treasury has created — its vesting schedules and escrows.
+   *
+   * Returns `TreasuryLock`, not `Commitment`. It was declared as `Commitment`
+   * and returns a different set of fields entirely: `amount` where a Commitment
+   * has `total`, `claimed` where it has `released`, `revoked` where it has
+   * `active`, plus a `beneficiary` a Commitment does not carry. TypeScript
+   * accepted it because the mapper's input is `any`, so the annotation was a
+   * claim nothing checked — and any caller that believed it would have read
+   * `undefined` out of every field and rendered a screen full of blanks.
+   */
+  async treasuryLocks(id: string): Promise<TreasuryLock[]> {
     const data = await this.get<any>(this.rest, `/yamale/blockchain/treasury/v1/treasury/${id}/locks?pagination.limit=200`);
     return (data.lock ?? data.locks ?? []).map((lock: any) => ({
       id: String(lock.id ?? '0'),

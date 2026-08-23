@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { App } from './App.tsx';
 import { registerAll, AVAILABLE, setLocale, resolveLocale } from '@yamale/chain';
+// The shared visual system first, then this surface's own rules on top of it.
+import '../../shared/yamale.css';
 import './styles.css';
 
 // Language before first paint: setLocale writes documentElement.dir, and every

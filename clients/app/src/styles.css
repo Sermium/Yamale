@@ -1,50 +1,74 @@
-/* A phone on a desk. The frame is the point: this is what a citizen holds, not
-   what an operator runs, and showing it inside a browser chrome would invite
-   the wrong comparison. */
+/* Yamale Pay.
+ *
+ * A phone on a desk. The frame is the point: this is what a citizen holds, not
+ * what an operator runs, and showing it inside a browser chrome would invite the
+ * wrong comparison.
+ *
+ * Colour, type, spacing and elevation come from yamale.css. This file used to
+ * carry its own palette, its own `--font: ui-sans-serif, system-ui, …`, and the
+ * same status colours declared three times over in duplicated blocks — the whole
+ * middle of the file was a second copy of its own top half. The tokens are
+ * inherited now; what stays is the phone, the screens and the components.
+ *
+ * The one deliberate override is `body`, which is the desk the phone sits on
+ * rather than a page: it keeps the navy gradient in both themes, because a phone
+ * photographed on white looks like a screenshot of a website.
+ */
+
 :root {
+  /* Local aliases onto the shared tokens, so the rules below read the way they
+     always did. `--panel` is the shared system's `--surface`. */
+  --panel: var(--surface);
+  --muted: var(--text-muted);
+  --on-accent: var(--accent-ink);
+  --danger: var(--bad);
+  --accent-soft: var(--wash-mute);
+
   color-scheme: light dark;
-  --navy: #12253f;
-  --brass: #a87b3c;
-  --ink: #0b1523;
-  --paper: #f6f7f9;
-  --mist: #e3e7ee;
-  --slate: #5c6e88;
-
-  --bg: var(--paper);
-  --panel: #ffffff;
-  --text: var(--ink);
-  --muted: var(--slate);
-  --border: var(--mist);
-  --accent: var(--navy);
-  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
-  --on-accent: #ffffff;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) { /* system */
-  :root:not([data-theme="light"])  {
-    --bg: var(--ink);
-    --panel: var(--navy);
-    --text: #e8eef7;
-    --muted: #8fa4c4;
-    --border: #24405f;
-    --accent: #8fa4c4;
-  --on-accent: var(--ink);
-    --brass: #d2a65e;
-  }
-}
-
-* { box-sizing: border-box; }
+/* The accent inside the phone is the brand navy in light and a legible blue in
+   dark; both come from the shared tokens. `--accent-soft` is derived from the
+   accent rather than from the neutral wash, so a filled control and its tinted
+   sibling belong to the same colour. */
+:root { --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 body {
   margin: 0;
-  font-family: var(--font);
-  background: linear-gradient(160deg, var(--navy), var(--ink));
+  /* The desk, not the page. Fixed rather than tokenised: it is the same dark
+     navy in both themes on purpose. */
+  background: linear-gradient(160deg, #12253f, #0b1523);
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
+  display: block;
+  padding: 0;
 }
+
+/* --- the page around the phone --- */
+.stage {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 var(--sp-4) var(--sp-6);
+}
+.stage__bar {
+  width: 100%; max-width: 1060px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-4); padding: var(--sp-4) var(--sp-1) var(--sp-5);
+  /* On the dark desk, not on the page ground: these tokens would flip with the
+     theme and disappear against the gradient. */
+  color: #e8eef7;
+}
+.stage__back, .stage__link { color: inherit; text-decoration: none; font-size: var(--step-0); }
+.stage__back {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em;
+}
+.stage__back .brand__mark { border-radius: 5px; }
+.stage__title {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.65;
+}
+.stage__link { opacity: 0.75; border-bottom: 1px solid rgba(232, 238, 247, 0.35); padding-bottom: 1px; }
+.stage__link:hover { opacity: 1; }
 
 .phone {
   width: 390px;
@@ -53,11 +77,19 @@ body {
   background: var(--bg);
   border-radius: 38px;
   border: 10px solid #05090f;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, .45);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+@media (max-width: 430px) {
+  /* Below the frame's own width there is no room for a conceit. The phone
+     becomes the page rather than overflowing it sideways. */
+  .stage { padding: 0; }
+  .phone { width: 100%; max-height: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+  .phone__notch { display: none; }
+  .stage__bar { display: none; }
 }
 
 .phone__notch {
@@ -83,179 +115,237 @@ body {
 /* --- app bar --- */
 .appbar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: .5rem;
-  padding: 2.2rem 1.1rem .8rem;
+  gap: var(--sp-2);
+  padding: 2.2rem var(--sp-4) var(--sp-3);
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
-/* The mark holds the start of the bar, so the greeting sits inboard of the
-   edge rather than hard against it. margin-inline-end rather than a padding on
-   the text: it is the gap after the logo, and writing it that way keeps it
-   correct when the whole bar mirrors in Arabic. */
-.appbar__mark { flex: 0 0 auto; margin-inline-end: .55rem; }
-.appbar__hello { font-size: .75rem; color: var(--muted); }
-.appbar__name { font-weight: 650; }
-/* Pushes the sign-out to the far edge now that the row starts with the mark. */
-.appbar__right { display: flex; align-items: center; gap: .4rem; margin-inline-start: auto; }
+/* The mark holds the start of the bar, so the greeting sits inboard of the edge
+   rather than hard against it. margin-inline-end rather than a padding on the
+   text: it is the gap after the logo, and writing it that way keeps it correct
+   when the whole bar mirrors in Arabic. */
+.appbar__mark { flex: 0 0 auto; margin-inline-end: var(--sp-2); }
+.appbar__hello {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.appbar__name { font-weight: 600; }
+.appbar__right { display: flex; align-items: center; gap: var(--sp-2); margin-inline-start: auto; }
 
-.screen { flex: 1; overflow-y: auto; padding: 1rem 1.1rem 1.5rem; }
-.screen__title { font-size: 1.05rem; margin: .2rem 0 1rem; }
+.screen { flex: 1; overflow-y: auto; padding: var(--sp-4) var(--sp-4) var(--sp-5); }
+.screen__title {
+  font-family: var(--font-display); font-size: var(--step-2);
+  letter-spacing: -0.01em; margin: var(--sp-1) 0 var(--sp-4);
+}
+.screen__subtitle { font-size: var(--step-1); font-family: var(--font-display); margin: var(--sp-5) 0 var(--sp-1); }
 
 /* --- money cards --- */
-.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .card {
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1rem;
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-4);
 }
 .card--money { border-inline-start: 3px solid var(--brass); }
-.card__amount { font-size: 1.3rem; font-weight: 650; }
+.card--danger { border: 1px solid var(--danger); }
+.card__amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-2); font-weight: 500;
+}
 
 /* --- forms --- */
-.form { display: grid; gap: .8rem; }
-.form label { display: grid; gap: .3rem; }
-.form label span { font-size: .8rem; color: var(--muted); }
-.form input, .form select {
+.form { display: grid; gap: var(--sp-3); }
+.form label { display: grid; gap: var(--sp-1); }
+.form label span {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.form input, .form select, .field input {
   font: inherit;
-  padding: .7rem .8rem;
+  padding: var(--sp-3);
   border-radius: 11px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--surface);
   color: var(--text);
   width: 100%;
 }
+.form input:focus, .form select:focus { border-color: var(--accent); }
+/* An amount is data. In mono with tabular figures a payer can see at a glance
+   that they typed one digit too many, which in a proportional face they cannot. */
+.form input.y-num {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-2);
+}
+
 .primary {
   font: inherit; font-weight: 600;
-  padding: .8rem 1rem;
+  padding: var(--sp-3) var(--sp-4);
   border: 0; border-radius: 11px;
   background: var(--accent);
-  color: var(--on-accent);
+  color: var(--accent-ink);
   cursor: pointer;
 }
-.primary:disabled { opacity: .6; cursor: default; }
+.primary:disabled { opacity: 0.5; cursor: default; }
+
+.ghost {
+  font: inherit; padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border); border-radius: 11px;
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.ghost:disabled { opacity: 0.5; cursor: default; }
 
 .linkish {
   background: none; border: 0; font: inherit; color: var(--accent);
-  cursor: pointer; padding: .3rem; text-decoration: underline;
+  cursor: pointer; padding: var(--sp-1); text-decoration: underline;
 }
 .lang {
-  font: inherit; font-size: .78rem; color: var(--muted);
-  background: var(--panel); color-scheme: light dark;
-  border: 1px solid var(--border); border-radius: 8px; padding: .2rem .3rem;
+  font: inherit; font-size: var(--step--1); color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: var(--sp-1) var(--sp-1);
 }
+.lang option { background: var(--surface); color: var(--text); }
 
 /* --- welcome --- */
-.welcome { padding: 3rem 1.4rem 1.4rem; display: grid; gap: .6rem; align-content: start; height: 100%; overflow-y: auto; }
+.welcome {
+  padding: var(--sp-7) var(--sp-5) var(--sp-5);
+  display: grid; gap: var(--sp-2); align-content: start;
+  height: 100%; overflow-y: auto;
+}
 .welcome__mark { border-radius: 12px; }
-.welcome h1 { font-size: 1.4rem; margin: .6rem 0 0; }
-.muted { color: var(--muted); font-size: .88rem; margin: 0; }
-.lang-row { margin-top: auto; padding-top: 1rem; }
+.welcome h1 { font-size: var(--step-4); margin: var(--sp-2) 0 0; }
+.muted { color: var(--text-muted); font-size: var(--step-0); margin: 0; }
+.lang-row { margin-top: auto; padding-top: var(--sp-4); }
 
-.notice { font-size: .85rem; padding: .5rem .7rem; border-radius: 9px; margin: 0; }
-.notice--bad { background: #fbe9e8; color: #b02a25; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .notice--bad { background: #3a1c1b; color: #f0a9a5; } }
-:root[data-theme="dark"] .notice--bad { background: #3a1c1b; color: #f0a9a5; }
+/* A notice carries its state in a border and in words as well as in a wash.
+   Colour alone would leave a colour-blind payer unable to tell "this code is
+   trusted" from "this code is forged", which on this screen is the difference
+   that matters most. */
+.notice {
+  font-size: var(--step-0); padding: var(--sp-2) var(--sp-3);
+  border-radius: 9px; margin: 0;
+  border-inline-start: 3px solid var(--warn);
+  background: var(--wash-warn); color: var(--text);
+}
+.notice--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+.notice--good { border-inline-start-color: var(--ok); background: var(--wash-ok); }
 
-.empty { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
+.empty { text-align: center; color: var(--text-muted); padding: var(--sp-7) var(--sp-4); }
+.center { text-align: center; }
+.small-note { font-size: var(--step--1); margin: var(--sp-3) 0; }
+.available { font-size: var(--step--1); text-align: start; padding: 0; }
 
-/* --- done --- */
-.done { display: grid; gap: .7rem; place-items: center; text-align: center; padding-top: 3rem; }
-.done__tick {
+/* --- the outcome of a payment --------------------------------------------
+ *
+ * Three states, and the screen used to have only one — a tick shown whether or
+ * not anything had been broadcast. Pending has to be visible because the chain
+ * takes a few seconds; failure has to be as prominent as success, because a
+ * payer who thinks they have paid stops trying. */
+.done { display: grid; gap: var(--sp-3); place-items: center; text-align: center; padding-top: var(--sp-7); }
+.done__tick, .done__cross {
   width: 62px; height: 62px; border-radius: 50%;
-  background: var(--brass); color: #fff;
   display: grid; place-items: center; font-size: 1.8rem;
+  color: #fff;
+}
+.done__tick { background: var(--ok); }
+.done__cross { background: var(--bad); }
+.done__amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-4); line-height: 1.05; margin: 0;
+}
+/* Waiting. Three dots the same size as the tick's disc, so the layout does not
+   move when the answer arrives. */
+.done__pending {
+  width: 62px; height: 62px; border-radius: 50%;
+  background: var(--wash-brass);
+  display: grid; grid-auto-flow: column; gap: 5px; place-content: center;
+}
+.done__pending i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--brass);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.done__pending i:nth-child(2) { animation-delay: 0.18s; }
+.done__pending i:nth-child(3) { animation-delay: 0.36s; }
+
+/* The reference as it will appear on the ledger. Mono, because it is a string
+   somebody will match character for character against an invoice. */
+.ref-shown {
+  font-size: var(--step-0); padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2); border-radius: 8px;
+  word-break: break-all; margin: 0;
+}
+
+/* The raw chain error, behind a disclosure. Kept because "it failed" is not
+   something support can act on. */
+.raw { width: 100%; text-align: start; }
+.raw summary { cursor: pointer; font-size: var(--step--1); }
+.raw pre {
+  overflow-x: auto; font-size: var(--step--1);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: var(--sp-2);
+  white-space: pre-wrap; word-break: break-word;
 }
 
 /* --- tab bar --- */
 .tabbar {
-  display: grid; grid-auto-flow: column;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   border-top: 1px solid var(--border);
-  background: var(--panel);
-  padding-bottom: .5rem;
+  background: var(--surface);
+  padding-bottom: var(--sp-2);
 }
 .tab {
-  font: inherit; font-size: .8rem;
-  background: none; border: 0; color: var(--muted);
-  padding: .55rem .2rem; cursor: pointer;
-  display: grid; justify-items: center; gap: .18rem;
+  font: inherit; font-size: var(--step--1);
+  background: none; border: 0; color: var(--text-muted);
+  padding: var(--sp-2) var(--sp-1); cursor: pointer;
+  display: grid; justify-items: center; gap: 0.18rem;
 }
 .tab__icon { width: 20px; height: 20px; }
-/* Seven tabs on a 390px screen: the label has to shrink, but it must not
-   vanish. An unlabelled glyph is a guess, and a wrong guess here spends money. */
-.tab__label { font-size: .62rem; line-height: 1.1; }
+/* The label has to shrink on a 390px screen, but it must not vanish. An
+   unlabelled glyph is a guess, and a wrong guess here spends money. */
+.tab__label { font-size: 0.62rem; line-height: 1.1; }
 .tab--on { color: var(--accent); box-shadow: inset 0 2px 0 var(--brass); }
 
 /* --- payment request --- */
-.qr-wrap { display: grid; place-items: center; padding: .4rem 0 .8rem; }
+.qr-wrap { display: grid; place-items: center; padding: var(--sp-2) 0 var(--sp-3); }
 .code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.05rem; letter-spacing: .06em;
-  text-align: center; margin: 0 0 .2rem;
+  font-family: var(--font-mono);
+  font-size: var(--step-1); letter-spacing: 0.06em;
+  text-align: center; margin: 0 0 var(--sp-1);
   color: var(--text); word-break: break-all;
 }
-.center { text-align: center; }
-.small-note { font-size: .78rem; margin: .8rem 0; }
-
-.ghost {
-  font: inherit; padding: .6rem 1rem;
-  border: 1px solid var(--border); border-radius: 11px;
-  background: transparent; color: var(--text); cursor: pointer;
-}
-.ghost:disabled { opacity: .5; cursor: default; }
-.notice--good { background: #eaf3ef; color: #0d7a4a; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .notice--good { background: #17271f; color: #6fbfa5; } }
-:root[data-theme="dark"] .notice--good { background: #17271f; color: #6fbfa5; }
+.qr-actions { display: flex; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-1); }
+.qr-actions button { flex: 1; font-size: var(--step--1); padding: var(--sp-2) var(--sp-1); }
 
 /* --- money arriving --- */
 .topping {
-  display: flex; align-items: center; gap: .6rem;
-  font-size: .85rem; color: var(--muted);
-  padding: .7rem .9rem; margin-bottom: .7rem;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--step--1); color: var(--text-muted);
+  padding: var(--sp-3); margin-bottom: var(--sp-3);
   border: 1px dashed var(--border); border-radius: 12px;
 }
-.topping__dots { display: inline-flex; gap: .25rem; }
+.topping__dots { display: inline-flex; gap: var(--sp-1); }
 .topping__dots i {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--brass);
   animation: pulse 1.1s ease-in-out infinite;
 }
-.topping__dots i:nth-child(2) { animation-delay: .18s; }
-.topping__dots i:nth-child(3) { animation-delay: .36s; }
+.topping__dots i:nth-child(2) { animation-delay: 0.18s; }
+.topping__dots i:nth-child(3) { animation-delay: 0.36s; }
 @keyframes pulse {
-  0%, 100% { opacity: .25; transform: translateY(0); }
-  50%      { opacity: 1;   transform: translateY(-3px); }
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50%      { opacity: 1;    transform: translateY(-3px); }
 }
 @media (prefers-reduced-motion: reduce) {
   /* Motion is decoration here; the sentence beside it carries the meaning. */
-  .topping__dots i { animation: none; opacity: .7; }
+  .topping__dots i, .done__pending i { animation: none; opacity: 0.7; }
 }
 
 .center-link { display: block; text-align: center; text-decoration: none; }
-.tabbar { grid-auto-columns: 1fr; }
-.tab { font-size: .72rem; }
-
-/* --- the page around the phone --- */
-body { display: block; padding: 0; }
-.stage {
-  min-height: 100vh;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 0 1rem 2rem;
-}
-.stage__bar {
-  width: 100%; max-width: 1060px;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 1rem; padding: 1rem .2rem 1.6rem;
-  color: #e8eef7;
-}
-.stage__back, .stage__link { color: inherit; text-decoration: none; font-size: .9rem; }
-.stage__back { display: inline-flex; align-items: center; gap: .5rem; font-weight: 650; }
-.stage__back .brand__mark { border-radius: 5px; }
-.stage__title { font-size: .82rem; opacity: .7; letter-spacing: .04em; }
-.stage__link { opacity: .75; border-bottom: 1px solid rgba(232,238,247,.35); padding-bottom: 1px; }
-.stage__link:hover { opacity: 1; }
 
 /* --- scanner --- */
-.scanner { display: grid; gap: .6rem; position: relative; margin-bottom: .8rem; }
+.scanner { display: grid; gap: var(--sp-2); position: relative; margin-bottom: var(--sp-3); }
 .scanner__view {
   width: 100%; aspect-ratio: 1; object-fit: cover;
   border-radius: 14px; background: #000;
@@ -265,148 +355,112 @@ body { display: block; padding: 0; }
   border: 2px solid var(--brass); border-radius: 12px; pointer-events: none;
 }
 
-.screen__subtitle { font-size: .9rem; margin: 1.4rem 0 .2rem; }
 .confirm {
   border: 1px solid var(--brass); border-radius: 14px;
-  padding: .9rem; margin: .8rem 0; background: var(--panel);
+  padding: var(--sp-3); margin: var(--sp-3) 0; background: var(--surface);
 }
-.confirm p { margin: 0 0 .4rem; font-size: .9rem; }
-.confirm__row { display: flex; gap: .5rem; align-items: center; margin-top: .6rem; }
+.confirm p { margin: 0 0 var(--sp-2); font-size: var(--step-0); }
+.confirm__row { display: flex; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2); }
 .confirm__row .primary, .confirm__row .ghost { flex: 1; }
 
 /* --- the escrow ledger: every line visible, including ours --- */
-.ledger { display: grid; gap: .35rem; font-size: .85rem; padding: .2rem 0; }
-.ledger div { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); }
-.ledger__total { color: var(--text); font-weight: 650; border-top: 1px solid var(--border); padding-top: .35rem; }
+.ledger { display: grid; gap: var(--sp-1); font-size: var(--step--1); padding: var(--sp-1) 0; }
+.ledger div { display: flex; justify-content: space-between; gap: var(--sp-4); color: var(--text-muted); }
+.ledger div span:last-child {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.ledger__total {
+  color: var(--text); font-weight: 600;
+  border-top: 1px solid var(--border); padding-top: var(--sp-1);
+}
 
 .pill {
-  display: inline-block; font-size: .72rem; padding: .15rem .5rem;
-  border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
-  margin-top: .4rem;
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted);
+  margin-top: var(--sp-2);
 }
 .pill--in_progress { border-color: var(--brass); color: var(--brass); }
-.pill--released { border-color: #0d7a4a; color: #0d7a4a; }
-.pill--disputed, .pill--refunded { border-color: #b02a25; color: #b02a25; }
-@media (prefers-color-scheme: dark) { /* system */
-  :root:not([data-theme="light"]) .pill--released { border-color: #6fbfa5; color: #6fbfa5; }
-  .pill--disputed, .pill--refunded { border-color: #e88; color: #e88; }
-}
+.pill--released { border-color: var(--ok); color: var(--ok); }
+.pill--disputed, .pill--refunded { border-color: var(--bad); color: var(--bad); }
 
-.modes { display: flex; gap: .5rem; margin: .4rem 0 .2rem; }
+.modes { display: flex; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-1); }
 .modes button { flex: 1; }
 .phrase {
-  font-size: .95rem; line-height: 1.7; text-align: start;
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: 10px; padding: .7rem;
+  font-family: var(--font-mono); font-size: var(--step-0); line-height: 1.9;
+  text-align: start;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: var(--sp-3);
+  word-spacing: 0.3em;
 }
 
-
-/* --- an explicit dark choice, which wins over the phone --- */
-:root[data-theme="dark"] {
-    --bg: var(--ink);
-    --panel: var(--navy);
-    --text: #e8eef7;
-    --muted: #8fa4c4;
-    --border: #24405f;
-    --accent: #8fa4c4;
-  --on-accent: var(--ink);
-    --brass: #d2a65e;
-  }
-
-.primary:disabled { opacity: .6; cursor: default; }
-
-.linkish {
-  background: none; border: 0; font: inherit; color: var(--accent);
-  cursor: pointer; padding: .3rem; text-decoration: underline;
-}
-
-.empty { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
-
-/* --- done --- */
-.done { display: grid; gap: .7rem; place-items: center; text-align: center; padding-top: 3rem; }
-.done__tick {
-  width: 62px; height: 62px; border-radius: 50%;
-  background: var(--brass); color: #fff;
-  display: grid; place-items: center; font-size: 1.8rem;
-}
-
-/* --- money arriving --- */
-.topping {
-  display: flex; align-items: center; gap: .6rem;
-  font-size: .85rem; color: var(--muted);
-  padding: .7rem .9rem; margin-bottom: .7rem;
-  border: 1px dashed var(--border); border-radius: 12px;
-}
-
-.available { font-size: .78rem; text-align: start; padding: 0; }
-
-/* Status colours need a darker ground in dark mode than the light tints give.
-   Stated for both the explicit choice and the phone's setting, or a reader who
-   never opened the theme switch gets the light values on a dark page. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .notice--bad { background: #3a1c1b; color: #f0a9a5; }
-  :root:not([data-theme="light"]) .notice--good { background: #17271f; color: #6fbfa5; }
-  :root:not([data-theme="light"]) .pill--released { border-color: #6fbfa5; color: #6fbfa5; }
-  :root:not([data-theme="light"]) .pill--disputed,
-  :root:not([data-theme="light"]) .pill--refunded { border-color: #e88; color: #e88; }
-}
-:root[data-theme="dark"] .notice--bad { background: #3a1c1b; color: #f0a9a5; }
-:root[data-theme="dark"] .notice--good { background: #17271f; color: #6fbfa5; }
-:root[data-theme="dark"] .pill--released { border-color: #6fbfa5; color: #6fbfa5; }
-:root[data-theme="dark"] .pill--disputed,
-:root[data-theme="dark"] .pill--refunded { border-color: #e88; color: #e88; }
-
+.impact--high { color: var(--bad); }
 
 /* --- money, as a bank account --- */
 .acct-hero {
-  background: var(--accent); color: var(--on-accent);
-  border-radius: 18px; padding: 1.3rem 1.1rem 1.1rem;
-  margin-bottom: 1.2rem;
+  background: var(--accent); color: var(--accent-ink);
+  border-radius: 18px; padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  margin-bottom: var(--sp-5);
+  box-shadow: var(--shadow-2);
 }
-.acct-hero__label { font-size: .72rem; opacity: .75; letter-spacing: .04em; }
-.acct-hero__amount { font-size: 2rem; font-weight: 680; line-height: 1.15; margin: .3rem 0 .1rem; }
-.acct-hero__name { font-size: .8rem; opacity: .8; }
+.acct-hero__label {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; opacity: 0.75;
+}
+.acct-hero__amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-5); font-weight: 500; line-height: 1.1;
+  margin: var(--sp-1) 0 0.1rem;
+}
+.acct-hero__name { font-size: var(--step--1); opacity: 0.8; }
+.acct-hero--tap { cursor: pointer; }
 
-.accts { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .1rem; }
+.accts { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: 0.1rem; }
+/* One currency, one line. The name is the only part that can be any length, so
+   it is the only part allowed to shrink — the code and the amount keep their
+   space, because a truncated balance is worse than a truncated word. */
 .acct-row {
-  display: grid; grid-template-columns: auto 1fr auto;
-  align-items: center; gap: .7rem;
-  padding: .75rem .2rem;
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: nowrap;
+  padding: var(--sp-3) var(--sp-1);
   border-bottom: 1px solid var(--border);
 }
 .acct-row:last-child { border-bottom: 0; }
 .acct-row__mark {
   width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--panel); border: 1px solid var(--border);
-  font-size: .62rem; font-weight: 650; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.62rem; font-weight: 500; color: var(--text-muted);
+  flex: 0 0 auto;
 }
-.acct-row__name { font-size: .88rem; }
-.acct-row__amount { font-size: .92rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-
-.acct-hero--tap, .acct-row--tap { cursor: pointer; }
-.acct-row--tap:active { opacity: .7; }
-.months { display: flex; gap: .35rem; flex-wrap: wrap; margin: .2rem 0 .8rem; }
-.months .amounts__btn--on { border-color: var(--brass); color: var(--brass); }
-.movement__date { display: block; font-size: .7rem; }
-.acct-row__mark.in { color: #0d7a4a; border-color: #0d7a4a; }
-.acct-row__mark.out { color: var(--muted); }
+.acct-row__mark.in { color: var(--ok); border-color: var(--ok); }
+.acct-row__mark.out { color: var(--text-muted); }
+.acct-row__name {
+  flex: 1; min-width: 0; font-size: var(--step-0);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.acct-row__amount {
+  flex: 0 0 auto; white-space: nowrap;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-0); font-weight: 500;
+}
+.acct-row--tap { cursor: pointer; }
+.acct-row--tap:hover { background: var(--accent-soft); }
+.acct-row--tap:active { opacity: 0.7; }
+.movement__date {
+  display: block; font-family: var(--font-mono);
+  font-size: 0.7rem; color: var(--text-faint);
+}
 
 /* --- how much of what I have ---------------------------------------------
-   One control, four stops. Equal widths so no option looks like the
-   recommended one, hairline dividers instead of gaps so it reads as a single
-   object, and the balance sitting above as the figure being divided. */
-.amounts { display: grid; gap: .4rem; margin: -.2rem 0 .2rem; }
-.amounts__seg {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: .4rem;
-}
-/* Carries the accent the amount field above it uses, at a weight that reads as
-   a control rather than as four filled buttons competing with the primary
-   action. The panel-grey version looked like disabled chrome. */
+   One control, four stops. Equal widths so no option looks like the recommended
+   one, and the balance sitting above as the figure being divided. */
+.amounts { display: grid; gap: var(--sp-2); margin: calc(var(--sp-1) * -1) 0 var(--sp-1); }
+.amounts__seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
 .amounts__btn {
-  font: inherit; font-size: .78rem; font-weight: 600;
-  padding: .5rem .2rem;
+  font: inherit; font-size: var(--step--1); font-weight: 600;
+  padding: var(--sp-2) var(--sp-1);
   background: var(--accent-soft);
   color: var(--accent);
   border: 1px solid transparent;
@@ -415,34 +469,26 @@ body { display: block; padding: 0; }
   transition: background .12s ease, border-color .12s ease;
 }
 .amounts__btn:hover { border-color: var(--accent); }
-.amounts__btn:active { background: var(--accent); color: var(--on-accent); }
-.amounts__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.amounts__btn:active { background: var(--accent); color: var(--accent-ink); }
 
 /* The month picker is the same shape of decision, so it gets the same shape. */
-.months { display: flex; gap: .3rem; flex-wrap: wrap; margin: .2rem 0 .9rem; }
+.months { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin: var(--sp-1) 0 var(--sp-4); }
 .months button {
-  font: inherit; font-size: .72rem;
-  padding: .3rem .6rem; border-radius: 999px;
+  font: inherit; font-family: var(--font-mono); font-size: 0.72rem;
+  padding: var(--sp-1) var(--sp-2); border-radius: 999px;
   border: 1px solid var(--border); background: transparent;
-  color: var(--muted); cursor: pointer;
+  color: var(--text-muted); cursor: pointer;
 }
 .months button:hover { color: var(--text); }
-
-.months__on { border-color: var(--brass) !important; color: var(--brass) !important; }
-.impact--high { color: #b02a25; }
-@media (prefers-color-scheme: dark) { .impact--high { color: #e88; } }
-:root[data-theme="dark"] .impact--high { color: #e88; }
-
-.months .amounts__btn { background: transparent; border-color: var(--border); }
-.months .amounts__btn--on, .months__on {
+.months__on, .months .amounts__btn--on {
   background: var(--accent-soft); border-color: var(--accent); color: var(--accent);
 }
 
 /* One line, tappable in full — the code and the icon are one target. */
 .copyrow {
-  display: flex; align-items: center; gap: .6rem;
-  width: 100%; margin: .1rem 0 .4rem;
-  padding: .6rem .8rem;
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: 100%; margin: 0.1rem 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
   font: inherit;
   background: var(--accent-soft); color: var(--accent);
   border: 1px solid transparent; border-radius: 10px;
@@ -450,73 +496,71 @@ body { display: block; padding: 0; }
   transition: border-color .12s ease;
 }
 .copyrow:hover { border-color: var(--accent); }
-.copyrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .copyrow__code {
   flex: 1; min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .86rem; letter-spacing: .02em;
+  font-family: var(--font-mono); font-size: var(--step-0); letter-spacing: 0.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .copyrow__icon { display: inline-flex; flex: 0 0 auto; }
+.btn-ico { display: inline-flex; vertical-align: -2px; margin-inline-end: var(--sp-2); }
+
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-.acct-row--tap, .acct-hero--tap { cursor: pointer; }
-.acct-row--tap:hover { background: var(--accent-soft); }
-
 /* A sheet rather than a page: the QR is a momentary thing. */
 .sheet {
   position: fixed; inset: 0; z-index: 50;
-  display: grid; place-items: center; padding: 1rem;
-  background: rgba(8, 15, 26, .62);
+  display: grid; place-items: center; padding: var(--sp-4);
+  background: rgba(8, 15, 26, 0.62);
 }
 .sheet__panel {
   width: min(320px, 100%);
-  display: grid; gap: .7rem;
-  background: var(--panel); color: var(--text);
+  display: grid; gap: var(--sp-3);
+  background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: 16px;
-  padding: 1rem;
+  padding: var(--sp-4);
+  box-shadow: var(--shadow-2);
 }
-.btn-ico { display: inline-flex; vertical-align: -2px; margin-inline-end: .4rem; }
-.center { text-align: center; }
 
 /* --- finding people --- */
 .search {
-  display: flex; align-items: center; gap: .5rem;
-  margin: .2rem 0 .6rem; padding: .1rem .7rem;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: var(--sp-1) 0 var(--sp-2); padding: 0.1rem var(--sp-3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
 }
-.search__ico { color: var(--muted); display: inline-flex; flex: 0 0 auto; }
+.search__ico { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
 .search input {
   flex: 1; min-width: 0; border: 0; background: none;
-  padding: .6rem 0; font: inherit; color: var(--text);
+  padding: var(--sp-2) 0; font: inherit; color: var(--text);
 }
 .search input:focus { outline: none; }
 .search:focus-within { border-color: var(--accent); }
 .search__clear {
-  border: 0; background: none; color: var(--muted);
-  font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 .2rem;
+  border: 0; background: none; color: var(--text-muted);
+  font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 var(--sp-1);
 }
-.row-actions { display: flex; gap: .5rem; margin-bottom: .6rem; }
+.row-actions { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .row-actions button { flex: 1; }
 .tag {
-  display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .03em;
-  padding: .1rem .45rem; border-radius: 999px; margin-inline-start: .4rem;
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.45rem; border-radius: 999px; margin-inline-start: var(--sp-2);
   background: var(--accent-soft); color: var(--accent); vertical-align: 2px;
 }
 
 /* --- folders within a screen --- */
 .folders {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: .3rem; margin: 0 0 1rem;
-  padding: .25rem; border-radius: 12px;
+  gap: var(--sp-1); margin: 0 0 var(--sp-4);
+  padding: var(--sp-1); border-radius: 12px;
   background: var(--accent-soft);
 }
 .folders__tab {
-  font: inherit; font-size: .82rem; font-weight: 600;
-  padding: .5rem .3rem;
+  font: inherit; font-size: var(--step-0); font-weight: 600;
+  padding: var(--sp-2) var(--sp-1);
   background: transparent; color: var(--accent);
   border: 0; border-radius: 9px; cursor: pointer;
   transition: background .12s ease, color .12s ease;
@@ -524,30 +568,12 @@ body { display: block; padding: 0; }
 /* The selected folder is the one lifted onto the panel, so it reads as the
    sheet in front rather than as a button that happens to be darker. */
 .folders__tab--on {
-  background: var(--panel); color: var(--text);
-  box-shadow: 0 1px 2px rgba(8, 15, 26, .12);
+  background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow-1);
 }
-.folders__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-/* One currency, one line.
-   The name is the only part that can be any length, so it is the only part
-   allowed to shrink — the code and the amount keep their space, because a
-   truncated balance is worse than a truncated word. */
-.acct-row {
-  display: flex; align-items: center; gap: .6rem;
-  flex-wrap: nowrap;
-}
-.acct-row__name {
-  flex: 1; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.acct-row__mark, .acct-row__amount { flex: 0 0 auto; white-space: nowrap; }
+.folders__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* --- signing out --- */
-:root { --danger: #b02a25; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --danger: #ef8a85; } }
-:root[data-theme="dark"] { --danger: #ef8a85; }
-
 .signout {
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; padding: 0;
@@ -556,20 +582,30 @@ body { display: block; padding: 0; }
   transition: background .12s ease, border-color .12s ease;
 }
 .signout:hover { border-color: var(--danger); }
-.signout:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; }
 
 /* --- closing an account --- */
-.qr-actions { display: flex; gap: .4rem; margin: .5rem 0 .2rem; }
-.qr-actions button { flex: 1; font-size: .78rem; padding: .45rem .3rem; }
-
 .danger { color: var(--danger); border-color: var(--danger); }
 .danger-solid {
-  font: inherit; font-weight: 600; padding: .7rem 1rem;
+  font: inherit; font-weight: 600; padding: var(--sp-3) var(--sp-4);
   background: var(--danger); color: #fff;
   border: 0; border-radius: 11px; cursor: pointer; flex: 1;
 }
-.danger-solid:disabled { opacity: .55; cursor: default; }
-.card--danger { border: 1px solid var(--danger); }
+.danger-solid:disabled { opacity: 0.55; cursor: default; }
+
+/* An inline failure, next to the thing that failed.
+ *
+ * Not a toast: a toast disappears while the person is still reading it, and the
+ * failures here are ones somebody has to act on — a shop that could not be paid,
+ * an escrow that did not open. It stays until the state changes. */
+.error-note {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 10px;
+  font-size: var(--step-0);
+  border-inline-start: 3px solid var(--danger);
+  background: var(--wash-bad);
+  color: var(--text);
+}
 
 /* --- installed-app fit --------------------------------------------------
    In standalone mode there is no browser chrome, so the app owns the whole
@@ -577,27 +613,15 @@ body { display: block; padding: 0; }
    header sits under the status bar and the tab bar under the gesture bar. */
 @media (display-mode: standalone) {
   .appbar { padding-top: calc(2.2rem + env(safe-area-inset-top)); }
-  .tabbar { padding-bottom: calc(.5rem + env(safe-area-inset-bottom)); }
+  .tabbar { padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); }
   /* The phone frame is a desktop conceit; on an installed app the device *is*
      the frame, so it fills instead of floating in the middle of a page. */
-  body { padding: 0; display: block; }
+  body { padding: 0; display: block; background: var(--bg); }
+  .stage { padding: 0; }
+  .stage__bar { display: none; }
   .phone {
     width: 100%; height: 100vh; height: 100dvh; max-height: none;
     border: 0; border-radius: 0; box-shadow: none;
   }
   .phone__notch { display: none; }
-}
-
-/* An inline failure, next to the thing that failed.
-
-   Not a toast: a toast disappears while the person is still reading it, and the
-   failures here are ones somebody has to act on — a shop that could not be paid,
-   an escrow that did not open. It stays until the state changes. */
-.error-note {
-  margin: 0.6rem 0 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
-  font-size: 0.86rem;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  color: var(--danger);
 }

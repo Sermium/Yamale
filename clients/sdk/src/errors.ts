@@ -74,6 +74,24 @@ const RULES: Rule[] = [
     }),
   },
   {
+    // The state a brand-new account is in before anything has ever been sent to
+    // it. The chain has no record of it, so it has no sequence number, so
+    // nothing can be signed from it — and CosmJS reports that by *throwing*
+    // rather than returning a result, which means it reaches an interface
+    // through the catch path where the raw text is all there is. Left
+    // untranslated it reads as a fault in the app: "Account 'yml1…' does not
+    // exist on chain" tells somebody their account is missing, when what is
+    // missing is the first coin.
+    match: /does not exist on chain|account .* not found: key not found/i,
+    translate: () => ({
+      message: 'This account has never received anything',
+      reason:
+        'The chain has no record of it yet. An account comes into existence when money first arrives, so until then it cannot send.',
+      nextStep: 'Have somebody send it any amount, or claim test funds, and then try again.',
+      retryable: false,
+    }),
+  },
+  {
     match: /insufficient funds/i,
     translate: () => ({
       message: 'Not enough funds',
