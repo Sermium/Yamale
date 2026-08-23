@@ -189,15 +189,26 @@ func configFor(t *testing.T, office officeFixture, roles []string) countryConfig
 		Country:    fixtureCountry,
 		Foundation: fixtureFoundation(t),
 		Offices: []officeConfig{{
-			Name:  office.Params.Name,
-			Roles: roles,
-			Group: office.Path,
+			Name:    office.Params.Name,
+			Roles:   roles,
+			Group:   office.Path,
+			Minimum: fixtureMinimum(),
 		}},
 	}
 }
 
 func paymentsRoles() []string {
 	return []string{"ROLE_PAYMENTS_AUTHORITY", "ROLE_ENFORCEMENT_AUTHORITY"}
+}
+
+// fixtureMinimum is the required shape every fixture office exactly meets.
+//
+// Two-of-three, because that is what the fixtures generate. Exactly meeting it
+// rather than exceeding it is deliberate: a fixture whose office was larger than
+// its minimum would pass every test in this file even if the comparison were the
+// wrong way round.
+func fixtureMinimum() *officeMinimum {
+	return &officeMinimum{Signatures: 2, Members: 3}
 }
 
 // ---------------------------------------------------------------- the config
@@ -325,6 +336,107 @@ func TestAWaiverOfAnUnknownRuleIsRefused(t *testing.T) {
 	require.Contains(t, err.Error(), "not a rule")
 }
 
+// ------------------------------------------------------------ the minimum
+
+// The requirement is decided in advance, so a config that names none is refused.
+//
+// Not defaulted, and the difference matters: a default of "no minimum" would
+// silently reproduce the state this field exists to end, which is an office that
+// can vote itself to a single key and go on holding a national authority.
+func TestAnOfficeWithNoMinimumIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	office := payingOffice(t, dir)
+	config := configFor(t, office, paymentsRoles())
+	config.Offices[0].Minimum = nil
+
+	_, err := dossierFor(config, time.Now())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "has no minimum")
+	require.Contains(t, err.Error(), `"signatures": 3`,
+		"the refusal has to say what to write, or it is a puzzle rather than a message")
+}
+
+// A minimum that is not a workable M-of-N is refused before any key exists.
+func TestAMinimumThatIsNotAShapeIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		minimum officeMinimum
+		says    string
+	}{
+		{"one signature is a single key", officeMinimum{Signatures: 1, Members: 3}, "permits a single key"},
+		{"no signatures at all", officeMinimum{Signatures: 0, Members: 3}, "permits a single key"},
+		{"more signatures than members", officeMinimum{Signatures: 4, Members: 3}, "no office could satisfy"},
+		{"unanimity freezes on one loss", officeMinimum{Signatures: 3, Members: 3}, "is unanimity"},
+		{
+			"beyond what the chain can read",
+			officeMinimum{Signatures: 3, Members: aliastypes.MaxOfficeMembers + 1},
+			"members the chain can read",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			office := payingOffice(t, dir)
+			config := configFor(t, office, paymentsRoles())
+			config.Offices[0].Minimum = &tc.minimum
+
+			_, err := dossierFor(config, time.Now())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.says)
+		})
+	}
+}
+
+// The check the whole arrangement turns on: a group file that does not reach the
+// minimum the country agreed in advance.
+//
+// The fixture office is a two-of-three, generated and signed for by three people.
+// A config demanding more is a config whose signed record and whose chain state
+// would disagree about what the office is, and the cheapest moment to find that
+// out is here — before any group exists on the chain.
+func TestAnOfficeBelowItsMinimumIsRefusedBeforeAnyGroupIsCreated(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		minimum officeMinimum
+		says    string
+	}{
+		{"threshold short", officeMinimum{Signatures: 3, Members: 4}, "below the 3 signatures"},
+		{"members short", officeMinimum{Signatures: 2, Members: 5}, "below the 5 this enrolment requires"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			office := payingOffice(t, dir)
+			config := configFor(t, office, paymentsRoles())
+			config.Offices[0].Minimum = &tc.minimum
+
+			_, err := dossierFor(config, time.Now())
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.says)
+			require.Contains(t, err.Error(), "2-of-3",
+				"the refusal must name what the group file actually is")
+		})
+	}
+}
+
+// Note the unanimous minimum in the first case above is refused by validate()
+// before the group file is read, so this asserts the group-file comparison
+// separately — a minimum that is a legitimate shape and that the office does not
+// reach.
+func TestAnOfficeThatExceedsItsMinimumIsAccepted(t *testing.T) {
+	dir := t.TempDir()
+	// Three of five, generated for the same country and roles as the fixture.
+	office := newOffice(t, dir, "Senegal payments authority", fixtureChain, fixtureCountry,
+		paymentsRoles(),
+		[]string{"A. Diallo", "B. Sow", "C. Fall", "D. Ba", "E. Ndiaye"}, 3)
+	config := configFor(t, office, paymentsRoles())
+	config.Offices[0].Minimum = &officeMinimum{Signatures: 2, Members: 3}
+
+	dossier, err := dossierFor(config, time.Now())
+	require.NoError(t, err, "an office larger than its minimum is more agreement, not less")
+	require.Equal(t, 3, dossier.Offices[0].Threshold)
+	require.Equal(t, "2-of-3", dossier.Offices[0].Minimum.rule(),
+		"the dossier carries the agreed minimum, not the shape that turned up")
+}
+
 // ---------------------------------------------------------------- the dossier
 
 func TestTheDossierTakesMembersAndThresholdFromTheCeremonyNotTheConfig(t *testing.T) {
@@ -445,8 +557,8 @@ func TestASuperUserCannotSitInTwoOfficesOfOneCountry(t *testing.T) {
 		Country:    fixtureCountry,
 		Foundation: fixtureFoundation(t),
 		Offices: []officeConfig{
-			{Name: payments.Params.Name, Roles: paymentsRoles(), Group: payments.Path},
-			{Name: lands.Params.Name, Roles: []string{"ROLE_REGISTRY_AUTHORITY"}, Group: lands.Path},
+			{Name: payments.Params.Name, Roles: paymentsRoles(), Group: payments.Path, Minimum: fixtureMinimum()},
+			{Name: lands.Params.Name, Roles: []string{"ROLE_REGISTRY_AUTHORITY"}, Group: lands.Path, Minimum: fixtureMinimum()},
 		},
 	}, time.Now())
 	require.Error(t, err)
@@ -465,8 +577,8 @@ func TestASuperUserCannotSitInTwoOfficesOfOneCountry(t *testing.T) {
 		Country:    fixtureCountry,
 		Foundation: fixtureFoundation(t),
 		Offices: []officeConfig{
-			{Name: payments.Params.Name, Roles: paymentsRoles(), Group: payments.Path},
-			{Name: other.Params.Name, Roles: []string{"ROLE_SUPERVISOR"}, Group: other.Path},
+			{Name: payments.Params.Name, Roles: paymentsRoles(), Group: payments.Path, Minimum: fixtureMinimum()},
+			{Name: other.Params.Name, Roles: []string{"ROLE_SUPERVISOR"}, Group: other.Path, Minimum: fixtureMinimum()},
 		},
 	}, time.Now())
 	require.NoError(t, err)
@@ -1017,8 +1129,71 @@ func TestTheProposalCarriesAPlacementAndAGrantPerRole(t *testing.T) {
 	// The summary states every grant, because it is the part a custodian reads.
 	require.Contains(t, parsed.Summary, "ROLE_PAYMENTS_AUTHORITY")
 	require.Contains(t, parsed.Summary, "ROLE_ENFORCEMENT_AUTHORITY")
+	require.Contains(t, parsed.Summary, "required 2-of-3",
+		"a custodian who reads only the summary must see what the office is held to")
 	require.LessOrEqual(t, len(parsed.Summary), maxMetadataLen)
 	require.LessOrEqual(t, len(parsed.Title), maxMetadataLen)
+}
+
+// Every grant in the proposal carries the minimum the config agreed.
+//
+// Read as a claim about the whole chain of custody: the number in the config, the
+// number `country init` held the signed group file against, the number on the
+// record, and the number in required_shape are one number. A grant that reached
+// the chain without it would be a grant that constrains nothing while the record
+// says otherwise.
+func TestEveryGrantInTheProposalCarriesTheRequiredShape(t *testing.T) {
+	dossier, _ := confirmedDossier(t)
+	custodian, _ := officeKey(t, "Custodian", time.Unix(1780000000, 0).UTC())
+
+	document, err := enrolmentProposal(dossier, custodian.Address)
+	require.NoError(t, err)
+
+	var parsed struct {
+		Messages []json.RawMessage `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(document, &parsed))
+
+	grants := 0
+	for _, raw := range parsed.Messages {
+		var envelope struct {
+			Type string `json:"@type"`
+			// A uint32 is a JSON number in protobuf JSON, unlike the 64-bit fields
+			// beside it which are strings. Asserted as a number here so that this
+			// test would notice a field width change, and read through flexUint64 in
+			// the verifier, which accepts either.
+			RequiredShape *struct {
+				Signatures uint32 `json:"signatures"`
+				Members    uint32 `json:"members"`
+			} `json:"required_shape"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &envelope))
+		if envelope.Type != "/blockchain.alias.v1.MsgGrantRole" {
+			continue
+		}
+		grants++
+		require.NotNil(t, envelope.RequiredShape,
+			"a grant with no required shape leaves the office free to vote itself to one key")
+		require.Equal(t, uint32(2), envelope.RequiredShape.Signatures)
+		require.Equal(t, uint32(3), envelope.RequiredShape.Members)
+	}
+	require.Equal(t, 2, grants)
+}
+
+// A dossier with no minimum composes nothing.
+//
+// The state a dossier written before this field existed would be in. Refused
+// rather than composed with a zero, which the chain would refuse too — but only
+// after three custodians had voted for it.
+func TestADossierWithNoMinimumComposesNoGrant(t *testing.T) {
+	dossier, _ := confirmedDossier(t)
+	dossier.Offices[0].Minimum = nil
+	custodian, _ := officeKey(t, "Custodian", time.Unix(1780000000, 0).UTC())
+
+	_, err := enrolmentProposal(dossier, custodian.Address)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no minimum in this dossier")
+	require.Contains(t, err.Error(), "single key")
 }
 
 // The chain-wide backstop inside the proposal composer, reached the only way it
@@ -1043,7 +1218,7 @@ func TestTheProposalRefusesTheChainWideScopeEvenFromABrokenDossier(t *testing.T)
 	require.Error(t, countryConfig{
 		Ceremony: "x", ChainID: fixtureChain, Country: aliastypes.ChainWide,
 		Foundation: dossier.Foundation,
-		Offices:    []officeConfig{{Name: "x", Roles: paymentsRoles(), Group: "x"}},
+		Offices:    []officeConfig{{Name: "x", Roles: paymentsRoles(), Group: "x", Minimum: fixtureMinimum()}},
 	}.validate())
 
 	broken := dossier
@@ -1119,6 +1294,21 @@ func confirmedDossier(t *testing.T) (countryDossier, string) {
 
 func writeGrants(t *testing.T, dir string, grants ...map[string]any) string {
 	t.Helper()
+	// Every grant carries the fixture's required shape unless the case says
+	// otherwise, so that a test about some other property does not have to
+	// restate it. A case that wants the field ABSENT — the grant made before
+	// required_shape existed, or by a tool that dropped it — sets it to nil
+	// explicitly, which marshals to null and decodes to the nil pointer that
+	// means "no requirement".
+	// Numbers rather than strings, because that is what the chain emits: protobuf
+	// JSON renders a uint32 as a number and only the 64-bit fields beside it as
+	// strings. One case below hands strings in on purpose, to hold the reader to
+	// accepting both.
+	for _, grant := range grants {
+		if _, set := grant["required_shape"]; !set {
+			grant["required_shape"] = map[string]any{"signatures": 2, "members": 3}
+		}
+	}
 	path := filepath.Join(dir, "grants.json")
 	encoded, err := json.Marshal(map[string]any{"grants": grants})
 	require.NoError(t, err)
@@ -1254,6 +1444,81 @@ func TestVerifyReportsGrantsBeyondTheEnrolment(t *testing.T) {
 	require.Len(t, extra, 1)
 	require.Contains(t, extra[0], "ROLE_SUPERVISOR")
 	require.Contains(t, extra[0], aliastypes.ChainWide)
+}
+
+// A grant that landed without the required shape is refused, and the message says
+// what is wrong with it rather than that something is missing.
+//
+// This is the case a chain running an older build produces, and the case a
+// hand-edited proposal produces. Both leave an office holding a real authority
+// that nothing constrains, with a signed record claiming a two-of-three.
+func TestVerifyRefusesAGrantThatLandedWithNoRequiredShape(t *testing.T) {
+	dir := t.TempDir()
+	dossier, address := confirmedDossier(t)
+	office := &dossier.Offices[0]
+
+	path := writeGrants(t, dir,
+		map[string]any{
+			"holder": address, "role": "ROLE_PAYMENTS_AUTHORITY", "jurisdiction": fixtureCountry,
+			"granted_by": dossier.Foundation, "granted_at_height": "51",
+			"required_shape": nil,
+		})
+
+	_, _, err := verifyGrants(office, dossier.Country, dossier.Foundation, path, time.Now())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "records no required shape")
+	require.Contains(t, err.Error(), "2-of-3")
+	require.Contains(t, err.Error(), "down to a single key")
+}
+
+// A grant weaker than the record claims is refused; a stronger one is accepted and
+// recorded as what the chain actually said.
+func TestVerifyHoldsTheOnChainShapeAgainstTheAgreedMinimum(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		signatures string
+		members    string
+		refused    string
+		recorded   string
+	}{
+		{name: "as agreed", signatures: "2", members: "3", recorded: "2-of-3"},
+		{name: "stronger than agreed", signatures: "3", members: "5", recorded: "3-of-5"},
+		{name: "fewer signatures", signatures: "1", members: "3", refused: "1-of-3"},
+		{name: "fewer members", signatures: "2", members: "2", refused: "2-of-2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			dossier, address := confirmedDossier(t)
+			office := &dossier.Offices[0]
+
+			// Strings here, numbers everywhere else. A gateway that stringifies a
+			// uint32 and one that does not must both be readable, because refusing an
+			// honest grant over a JSON spelling would be a refusal an operator cannot
+			// act on.
+			path := writeGrants(t, dir,
+				map[string]any{
+					"holder": address, "role": "ROLE_PAYMENTS_AUTHORITY", "jurisdiction": fixtureCountry,
+					"granted_by": dossier.Foundation, "granted_at_height": "51",
+					"required_shape": map[string]any{"signatures": tc.signatures, "members": tc.members},
+				},
+				map[string]any{
+					"holder": address, "role": "ROLE_ENFORCEMENT_AUTHORITY", "jurisdiction": fixtureCountry,
+					"granted_by": dossier.Foundation, "granted_at_height": "51",
+					"required_shape": map[string]any{"signatures": tc.signatures, "members": tc.members},
+				})
+
+			verified, _, err := verifyGrants(office, dossier.Country, dossier.Foundation, path, time.Now())
+			if tc.refused != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.refused)
+				require.Contains(t, err.Error(), "weaker than the decision on the record")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.recorded, verified[0].RequiredShape,
+				"the record quotes the chain rather than restating its own intention")
+		})
+	}
 }
 
 // ---------------------------------------------------------------- placements
@@ -1806,6 +2071,14 @@ func TestTheRecordNamesTheAddressesAndTheGrants(t *testing.T) {
 	// And the record says how to check itself.
 	require.Contains(t, rendered, "blockchaind query alias role-grants")
 	require.Contains(t, rendered, "chain-wide-grants")
+
+	// Both shapes are on the record: what the office is, and what it may never
+	// fall below. A reader of an old record is usually asking whether the office
+	// can still act, and the second number is the only one that answers that.
+	require.Contains(t, rendered, "**Rule:** 2 of 3")
+	require.Contains(t, rendered, "**Required minimum:** 2-of-3")
+	require.Contains(t, rendered, "Required shape",
+		"the grants table names the shape the chain reported for each grant")
 
 	// It contains no phrase and no private material. The same claim the
 	// foundation's record makes, asserted rather than assumed.

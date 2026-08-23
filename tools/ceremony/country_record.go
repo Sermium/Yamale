@@ -179,6 +179,14 @@ func renderEnrolmentRecord(dossier countryDossier, config enrolmentRecordConfig)
 		fmt.Fprintf(&b, "**Group:** %d, created by `%s` at height %d  \n",
 			office.OnChain.GroupID, office.OnChain.TxHash, office.OnChain.Height)
 		fmt.Fprintf(&b, "**Rule:** %d of %d  \n", office.Threshold, len(office.Members))
+		// Both numbers on the record: what the office is, and what it may never
+		// fall below. A record that stated only the first would say nothing about
+		// whether the office can still act tomorrow, which is the question a reader
+		// of an old record is usually asking.
+		if office.Minimum != nil {
+			fmt.Fprintf(&b, "**Required minimum:** %s — the chain refuses an action by this office below it  \n",
+				office.Minimum.rule())
+		}
 		fmt.Fprintf(&b, "**Key ceremony:** `%s`, group fingerprint `%s`\n\n",
 			office.CeremonyID, office.GroupFingerprint)
 
@@ -188,9 +196,15 @@ func renderEnrolmentRecord(dossier countryDossier, config enrolmentRecordConfig)
 		}
 		b.WriteString("\n")
 
-		b.WriteString("| Role | Jurisdiction | Granted by | At height |\n| --- | --- | --- | --- |\n")
+		b.WriteString("| Role | Jurisdiction | Required shape | Granted by | At height |\n" +
+			"| --- | --- | --- | --- | --- |\n")
 		for _, g := range office.Granted {
-			fmt.Fprintf(&b, "| %s | `%s` | `%s` | %d |\n", g.Role, g.Jurisdiction, g.GrantedBy, g.GrantedAtHeight)
+			// The shape column is what the CHAIN said, read back by `verify`, not the
+			// minimum this record asked for. They agree or `verify` refused; printing
+			// the verified value means the record quotes the chain rather than
+			// restating its own intention.
+			fmt.Fprintf(&b, "| %s | `%s` | %s | `%s` | %d |\n",
+				g.Role, g.Jurisdiction, g.RequiredShape, g.GrantedBy, g.GrantedAtHeight)
 		}
 		b.WriteString("\n")
 
