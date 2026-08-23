@@ -71,8 +71,32 @@
   .vote.ok{border-color:var(--ok);color:var(--ok)}
   .vote.bad{border-color:var(--bad);color:var(--bad)}
   .vote:disabled{opacity:.6;cursor:default}
-  input{font:inherit;padding:.45rem .6rem;border-radius:9px;border:1px solid var(--border);
+  input,textarea,select{font:inherit;padding:.45rem .6rem;border-radius:9px;border:1px solid var(--border);
         background:var(--bg);color:var(--text)}
+  textarea{width:100%;min-height:4.5rem;resize:vertical}
+  label{display:block;font-size:.78rem;color:var(--muted);margin:.55rem 0 .2rem}
+  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.75rem;
+      background:rgba(92,110,136,.1);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
+      margin:.35rem 0;white-space:pre;border:1px solid var(--border)}
+  .warnbox{background:rgba(168,121,27,.12);border:1px solid var(--warn);color:var(--text);
+           padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
+  .badbox{background:rgba(176,42,37,.1);border:1px solid var(--bad);color:var(--text);
+          padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
+  /* The power this section grants is the heaviest on the page, so the panel that
+     changes it carries the same red edge as a seizure. */
+  .card--power{border-inline-start:3px solid var(--bad)}
+  /* The before/after table. Both columns always, every field, because
+     MsgUpdateParams replaces the whole object — "unchanged" is information. */
+  .diff{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;
+        border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:.5rem 0}
+  .diff>div{padding:.5rem .7rem;border-top:1px solid var(--border);min-width:0}
+  .diff>div:nth-child(1),.diff>div:nth-child(2){border-top:0;font-size:.72rem;
+        letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:rgba(92,110,136,.08)}
+  .diff .b{border-inline-end:1px solid var(--border)}
+  .a-added{color:var(--ok);font-weight:600}
+  .a-removed{color:var(--bad);text-decoration:line-through}
+  .a-kept{color:var(--muted)}
+  .adm{display:flex;align-items:baseline;gap:.5rem;padding:.2rem 0;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -88,6 +112,14 @@
 
   <h2>The rules in force</h2>
   <div class="grid" id="rules"></div>
+
+  <!-- Deliberately high on the page, above the proposal lists. This is the one
+       power on the chain that can move an account out from under the authority
+       investigating it, and until this section existed there was no interface
+       that composed the message appointing it — the list was empty on the live
+       chain and there was no way to appoint anybody. -->
+  <h2>Who may correct a recorded country</h2>
+  <div id="administrators"></div>
 
   <h2>Open for voting</h2>
   <p class="muted small">Each validator votes from its own node, where its key is.
@@ -113,6 +145,13 @@
 
 <script type="module">
 import { VALIDATORS, voteCommand } from '/validator/vote.js';
+import {
+  ALIAS_PARAMS_PATH, GOV_DEPOSIT_PARAMS_PATH, GOV_MODULE_ADDRESS_FALLBACK,
+  MAX_FOUNDATION_ADMINISTRATORS, MODULE_ACCOUNTS_PATH, ParamsUnreadable,
+  afterSubmitting, changeSummary, couldBeGroupAccount, groupPolicyPath, paramsDiff,
+  paramsDigest, planChange, proposalDocument, readAliasParams, readGovAuthority,
+  readMinDeposit, submitCommand, updateParamsMessage,
+} from './administrators.js';
 
 // A validator votes with its *account* address, not its valoper address.
 const VOTER_ADDR = {
@@ -187,6 +226,361 @@ function tally(t) {
       <span style="width:${pct(no+veto,total)}%;background:var(--bad);float:left"></span>
     </div>
     <p class="muted small">${fmt(yes)} yes · ${fmt(no)} no · ${fmt(veto)} veto · ${fmt(abs)} abstain</p>`;
+}
+
+// ------------------------------------------------- foundation administrators
+//
+// Everything below composes ONE governance proposal: the MsgUpdateParams on
+// x/alias that appoints or removes a foundation administrator. It is separate
+// from load() above and refreshes on its own, because the two fail
+// independently: an enforcement query that 401s must not blank the only
+// interface that can appoint an administrator, and vice versa.
+//
+// The trap being absorbed is that MsgUpdateParams sets the ENTIRE Params object
+// rather than one field. Composed by hand, "appoint one administrator" silently
+// drops the administrators already appointed or resets payload_length. So the
+// current parameters are read from the chain, exactly one thing is changed, and
+// the whole object is shown before and after. If the parameters cannot be read,
+// nothing is composed — see readAliasParams, which refuses rather than
+// defaulting.
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const adm = {
+  params: null,        // the last readable parameters
+  digest: null,        // paramsDigest of those, for noticing they moved
+  unreadable: null,    // the refusal, if they could not be read
+  authority: null,     // the gov module account the message must name
+  authoritySource: '', // whether that was read off the chain or fallen back to
+  deposit: null,       // the minimum deposit, from the chain
+  depositProblem: '',
+  composedAt: null,    // the digest the currently shown document was built from
+  shell: false,
+};
+
+/** A read that answers with the status rather than throwing, for the group lookup. */
+async function probe(url) {
+  try {
+    const r = await fetch(url);
+    if (r.ok) return { ok: true };
+    const body = await r.text().catch(() => '');
+    return { ok: false, status: r.status, body };
+  } catch (e) {
+    return { ok: false, status: 'unreachable', body: String(e.message || '') };
+  }
+}
+
+/**
+ * Whether x/group holds a policy at this address.
+ *
+ * 'group' and 'not-group' are answers; anything else is 'unknown' and stays
+ * unknown. A 401 from this chain's allowlisting proxy is NOT evidence that the
+ * address is a plain key, and treating it as such would turn a missing REST path
+ * into a warning telling somebody their group account is a single key.
+ */
+async function groupLookup(address) {
+  const seen = await probe(`${REST}${groupPolicyPath(address)}`);
+  if (seen.ok) return 'group';
+  if (seen.status === 404) return 'not-group';
+  // The gateway renders a keeper's NotFound as a 500 with the message in the
+  // body on some paths, so the body is checked before giving up.
+  if (seen.status === 500 && /not found|no group policy/i.test(seen.body)) return 'not-group';
+  return 'unknown';
+}
+
+function administratorRow(address, state) {
+  const cls = state === 'added' ? 'a-added' : state === 'removed' ? 'a-removed' : 'a-kept';
+  const note = state === 'added' ? 'appointed by this proposal'
+             : state === 'removed' ? 'removed by this proposal' : 'unchanged';
+  return `<div class="adm"><code class="${cls}">${esc(address)}</code>
+    <span class="muted small">${note}${couldBeGroupAccount(address) ? '' : ' · single key'}</span></div>`;
+}
+
+function renderDiff(before, after) {
+  const rows = paramsDiff(before, after);
+  const cells = ['<div>Now on chain</div>', '<div>If this passes</div>'];
+  for (const row of rows) {
+    if (row.field === 'payload_length') {
+      cells.push(`<div class="b"><div class="label">payload_length</div><code>${esc(row.before)}</code></div>`);
+      cells.push(`<div><div class="label">payload_length</div><code>${esc(row.after)}</code>${
+        row.changed ? '' : ' <span class="muted small">unchanged</span>'}</div>`);
+      continue;
+    }
+    const beforeList = (row.addresses || []).filter((a) => a.state !== 'added');
+    const afterList = (row.addresses || []).filter((a) => a.state !== 'removed');
+    cells.push(`<div class="b"><div class="label">foundation_administrators (${beforeList.length})</div>${
+      beforeList.length ? beforeList.map((a) => `<div class="adm"><code>${esc(a.address)}</code></div>`).join('')
+                        : '<p class="muted small">Empty — nobody may correct a recorded country.</p>'}</div>`);
+    cells.push(`<div><div class="label">foundation_administrators (${afterList.length})</div>${
+      (row.addresses || []).length
+        ? (row.addresses || []).map((a) => administratorRow(a.address, a.state)).join('')
+        : '<p class="muted small">Empty — nobody may correct a recorded country.</p>'}</div>`);
+  }
+  return `<div class="diff">${cells.join('')}</div>`;
+}
+
+/** The read-only half: who holds the power right now. */
+function renderCurrent() {
+  const box = document.getElementById('adm-current');
+  if (!box) return;
+
+  if (adm.unreadable) {
+    box.innerHTML = `<div class="card card--power">
+      <p class="badbox"><strong>x/alias's parameters cannot be read, so nothing can be composed here.</strong><br>
+        ${esc(adm.unreadable)}</p>
+      <p class="muted small">This is a refusal on purpose. <code>MsgUpdateParams</code> replaces the whole
+        <code>Params</code> object, so a proposal composed from a guess would set every parameter this page
+        could not read to its protobuf default — and it would pass, because a default is a valid value.</p>
+      <pre>blockchaind query alias params -o json</pre>
+    </div>`;
+    return;
+  }
+  if (!adm.params) { box.innerHTML = '<p class="empty">Reading x/alias\'s parameters…</p>'; return; }
+
+  const list = adm.params.administrators;
+  box.innerHTML = `<div class="card card--power">
+    <div class="row">
+      <strong>${list.length === 0 ? 'Nobody' : `${list.length} of ${MAX_FOUNDATION_ADMINISTRATORS}`}</strong>
+      <span class="pill ${list.length === 0 ? 'p-mute' : 'p-bad'}">${
+        list.length === 0 ? 'no administrator appointed' : 'may correct any country'}</span>
+    </div>
+    <p class="muted small">A foundation administrator may correct the country recorded against
+      <em>any</em> account. A correction moves that account out from under the authority investigating it,
+      and retires and reissues its identifier in the same message. They are also the only accounts allowed
+      to hold an identifier with no country, carrying the reserved <code>ZZ</code> code.</p>
+    ${list.length === 0 ? `<p class="muted small">The list is empty, which is the documented default and the
+        safe state: with nobody named, the exemption grants nothing at all. It also means no recorded country
+        can be corrected, and that a new country cannot be enrolled — the first institutions in one have no
+        participant to record their jurisdiction.${
+        adm.params.listAbsent ? ' (The node returned no list at all. For a repeated protobuf field absent and'
+          + ' empty are the same value, so this is genuinely empty — there is no third state.)' : ''}</p>`
+      : list.map((a) => `<div class="adm"><code>${esc(a)}</code>${
+          couldBeGroupAccount(a)
+            ? '<span class="pill p-ok">derived account</span>'
+            : '<span class="pill p-bad">a single key</span>'}</div>`).join('')}
+    <p class="muted small" style="margin-top:.6rem">payload_length is
+      <code>${esc(String(adm.params.payloadLength))}</code>. It is shown because any proposal composed here
+      has to resubmit it: <code>MsgUpdateParams</code> sets the whole object.</p>
+  </div>`;
+}
+
+/** The composing half, built once so it does not eat what somebody is typing. */
+function renderComposeShell() {
+  const box = document.getElementById('adm-compose');
+  if (!box || adm.shell) return;
+  adm.shell = true;
+  box.innerHTML = `<div class="card">
+    <h3 style="margin:.1rem 0 .4rem;font-size:.9rem">Appoint or remove one</h3>
+    <p class="muted small">Only an ordinary governance <code>MsgUpdateParams</code> on <code>x/alias</code>
+      can do this — the foundation's 3-of-5 cannot, because the message is authority-gated to the governance
+      module account and nothing else. So this composes a <code>proposal.json</code> and the command that
+      submits it. This page holds no key and signs nothing.</p>
+    <p class="muted small">One change per proposal. Two appointments on one vote is two decisions a voter can
+      only agree with together, and the ordinary outcome is that they agree with one of them.</p>
+    <label for="adm-add">Appoint — the address from the ceremony record</label>
+    <input id="adm-add" placeholder="yml1…" autocomplete="off" spellcheck="false" style="width:100%">
+    <label for="adm-remove">…or remove one of the current administrators</label>
+    <select id="adm-remove"><option value="">—</option></select>
+    <label for="adm-why">Why — this is the only explanation most voters will read</label>
+    <textarea id="adm-why" placeholder="Which ceremony produced this group, who verified its fingerprint, and what it is being appointed to do."></textarea>
+    <div style="margin-top:.6rem"><button class="vote bad" id="adm-go">compose the proposal</button></div>
+    <div id="adm-out" style="margin-top:.7rem"></div>
+  </div>`;
+
+  document.getElementById('adm-go').onclick = compose;
+  // Naming one clears the other, because they are alternatives and the plan
+  // refuses both at once. Doing it here rather than only in the check means the
+  // form never shows a state the composer would reject.
+  document.getElementById('adm-add').oninput = () => { document.getElementById('adm-remove').value = ''; };
+  document.getElementById('adm-remove').onchange = () => { document.getElementById('adm-add').value = ''; };
+}
+
+/** The removal dropdown, refreshed from the chain without clobbering a choice. */
+function refreshRemovalOptions() {
+  const select = document.getElementById('adm-remove');
+  if (!select || !adm.params) return;
+  const chosen = select.value;
+  const options = ['<option value="">—</option>',
+    ...adm.params.administrators.map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)];
+  select.innerHTML = options.join('');
+  // Only restored if it is still an administrator. Silently keeping a selection
+  // the chain no longer has would be a removal proposal for somebody already
+  // removed, which passes and does nothing.
+  if (chosen && adm.params.administrators.includes(chosen)) select.value = chosen;
+}
+
+function compose() {
+  const out = document.getElementById('adm-out');
+  if (adm.unreadable || !adm.params) {
+    out.innerHTML = `<div class="badbox">The current parameters could not be read, so nothing is composed.</div>`;
+    return;
+  }
+  const add = document.getElementById('adm-add').value.trim();
+  const remove = document.getElementById('adm-remove').value;
+  const why = document.getElementById('adm-why').value.trim();
+
+  out.innerHTML = '<p class="muted small">Checking the address against x/group…</p>';
+  // The group lookup is the only asynchronous part, and it is done before
+  // planning so that "this is a single key" is an answer from the chain rather
+  // than a guess from the address length.
+  (add ? groupLookup(add) : Promise.resolve('unknown')).then((lookup) => {
+    const plan = planChange({ params: adm.params, add, remove, groupLookup: lookup });
+    const notes = [];
+    if (!why) {
+      plan.problems.push('Say why. A voter asked to hand somebody the power to move any account out from '
+        + 'under its regulator should not have to guess what this is for.');
+    }
+    if (plan.problems.length > 0) {
+      out.innerHTML = plan.problems.map((p) => `<div class="badbox">${esc(p)}</div>`).join('');
+      return;
+    }
+    if (!adm.authority) {
+      out.innerHTML = `<div class="badbox">The governance module account could not be established, so the
+        message has no authority to name. A proposal naming the wrong one passes its vote and is then refused
+        at execution by x/alias.</div>`;
+      return;
+    }
+    if (adm.depositProblem) {
+      out.innerHTML = `<div class="badbox">${esc(adm.depositProblem)}</div>`;
+      return;
+    }
+
+    const summary = changeSummary({ ...plan, reason: why });
+    const title = plan.action === 'appoint'
+      ? `Appoint ${plan.subject.slice(0, 12)}… as a foundation administrator`
+      : `Remove ${plan.subject.slice(0, 12)}… as a foundation administrator`;
+    let doc;
+    try {
+      doc = proposalDocument({
+        messages: [updateParamsMessage({ authority: adm.authority, params: plan.after })],
+        title, summary, deposit: adm.deposit,
+      });
+    } catch (e) {
+      out.innerHTML = `<div class="badbox">${esc(e.message)}</div>`;
+      return;
+    }
+    adm.composedAt = adm.digest;
+
+    out.innerHTML = `
+      ${plan.warnings.map((w) => `<div class="warnbox">${esc(w)}</div>`).join('')}
+      <div class="card card--power" style="margin:.6rem 0 0">
+        <p class="lede" style="font-size:1rem;font-weight:600;margin:.1rem 0 .5rem">${esc(title)}</p>
+        <p class="muted small">Below is the <strong>whole</strong> <code>Params</code> object, before and
+          after. Both columns in full, including what does not move: this message replaces every parameter at
+          once, so "payload_length is unchanged" is something a voter needs told rather than assumed.</p>
+        ${renderDiff(plan.before, plan.after)}
+        <div id="adm-stale"></div>
+        <p class="muted small">Authority: <code>${esc(adm.authority)}</code>
+          — ${esc(adm.authoritySource)}. Deposit: <code>${esc(adm.deposit)}</code>, from the chain's own
+          gov parameters.</p>
+        <p class="label" style="margin-top:.7rem">Write this to proposal.json</p>
+        <pre id="adm-doc">${esc(doc)}</pre>
+        <button class="copy" data-copy="adm-doc">copy</button>
+        <p class="label" style="margin-top:.7rem">Then submit it</p>
+        <pre id="adm-cmd">${esc(submitCommand({ chainId: CHAIN_ID }))}</pre>
+        <button class="copy" data-copy="adm-cmd">copy</button>
+        <p class="label" style="margin-top:.7rem">Then — and this is the part that gets skipped</p>
+        <pre id="adm-after">${esc(afterSubmitting({ chainId: CHAIN_ID }))}</pre>
+        <button class="copy" data-copy="adm-after">copy</button>
+      </div>`;
+    wireAdmCopies();
+    renderStale();
+  });
+}
+
+/**
+ * The warning that a composed document has gone stale.
+ *
+ * The hazard is quiet: somebody composes a proposal and spends twenty minutes
+ * circulating it, and in that time another proposal passes and appoints
+ * somebody. The document they are holding now REMOVES that person, and it looks
+ * exactly as it did when it was correct — nothing in the JSON says which
+ * parameters it was built from.
+ */
+function renderStale() {
+  const box = document.getElementById('adm-stale');
+  if (!box) return;
+  if (!adm.composedAt || adm.composedAt === adm.digest) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="badbox"><strong>x/alias's parameters have changed since this was
+    composed.</strong><br>The document above was built from the parameters as they were, so it would now
+    undo whatever changed — silently, because it carries the full object and looks exactly as correct as it
+    did a minute ago. Compose it again.</div>`;
+}
+
+function wireAdmCopies() {
+  document.querySelectorAll('#adm-out [data-copy]').forEach((b) => {
+    b.onclick = async () => {
+      const text = document.getElementById(b.dataset.copy)?.textContent ?? '';
+      try {
+        await navigator.clipboard.writeText(text);
+        b.textContent = 'copied';
+      } catch {
+        // Clipboard access needs a secure context, which this console does not
+        // have over plain HTTP. Selecting the text is the honest fallback.
+        const node = document.getElementById(b.dataset.copy);
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        b.textContent = 'selected — copy it';
+      }
+      setTimeout(() => { b.textContent = 'copy'; }, 2500);
+    };
+  });
+}
+
+async function loadAdministrators() {
+  const box = document.getElementById('administrators');
+  if (!box.querySelector('#adm-current')) {
+    box.innerHTML = '<div id="adm-current"></div><div id="adm-compose"></div>';
+  }
+
+  // The authority and the deposit are read once. Both are governance-wide and
+  // neither changes on the timescale this page refreshes on.
+  if (!adm.authority) {
+    try {
+      adm.authority = readGovAuthority(await get(`${REST}${MODULE_ACCOUNTS_PATH}`));
+      adm.authoritySource = 'read from the chain\'s module accounts';
+    } catch {
+      // Named as a fallback, out loud. A console that quietly used a constant
+      // while implying it had read the chain would be worse than one that could
+      // not read it at all.
+      adm.authority = GOV_MODULE_ADDRESS_FALLBACK;
+      adm.authoritySource = 'NOT read from the chain — this is the standard derivation '
+        + 'sha256("gov")[:20], and you should check it';
+    }
+  }
+  if (!adm.deposit && !adm.depositProblem) {
+    try {
+      adm.deposit = readMinDeposit(await get(`${REST}${GOV_DEPOSIT_PARAMS_PATH}`));
+    } catch (e) {
+      adm.depositProblem = 'The minimum deposit could not be read from the chain '
+        + `(${e.message}). A proposal submitted with less than the minimum never enters a vote, and looks `
+        + 'from the outside exactly like one nobody got round to voting on. Read it with '
+        + '`blockchaind query gov params deposit` and compose this by hand.';
+    }
+  }
+
+  try {
+    const answer = await get(`${REST}${ALIAS_PARAMS_PATH}`);
+    adm.params = readAliasParams(answer);
+    adm.digest = paramsDigest(adm.params);
+    adm.unreadable = null;
+  } catch (e) {
+    adm.params = null;
+    adm.unreadable = e instanceof ParamsUnreadable
+      ? e.message
+      : `The node did not answer ${ALIAS_PARAMS_PATH} — ${e.message}. On this chain a 401 there means the `
+        + 'path is missing from the REST allowlist rather than that a password exists.';
+  }
+
+  renderCurrent();
+  if (!adm.unreadable) {
+    renderComposeShell();
+    refreshRemovalOptions();
+  }
+  renderStale();
 }
 
 async function load() {

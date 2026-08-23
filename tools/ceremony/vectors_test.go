@@ -108,6 +108,17 @@ type ceremonyVectors struct {
 	OfficeParamsCanonicalHx string         `json:"office_params_canonical_hex"`
 	OfficeParamsFingerprint string         `json:"office_params_fingerprint"`
 	OfficeGroup             groupVector    `json:"office_group"`
+
+	// The foundation-administrator ceremony, pinned for the same reason the office
+	// is and with one extra job. The administrators marker is appended to the
+	// canonical bytes ONLY when set, so these vectors are what prove two things at
+	// once: that the two languages agree on the marker, and that the FOUNDATION's
+	// bytes above did not move when it was added. The second is the one that
+	// matters to somebody holding a paper record from a ceremony already held.
+	AdminParams            ceremonyParams `json:"administrators_params"`
+	AdminParamsCanonicalHx string         `json:"administrators_params_canonical_hex"`
+	AdminParamsFingerprint string         `json:"administrators_params_fingerprint"`
+	AdminGroup             groupVector    `json:"administrators_group"`
 }
 
 type policyAddressVector struct {
@@ -337,6 +348,56 @@ func buildVectors(t *testing.T) ceremonyVectors {
 		"an office's assembled group must carry no constitutional invariants fragment")
 	v.OfficeGroup = groupVectorOf(office, v.OfficeParams)
 
+	// The foundation-administrator ceremony, over the first four phrases.
+	//
+	// A 3-of-4 rather than a 3-of-5, so the shape differs from the foundation's
+	// and a vector accidentally generated from the wrong parameters would not
+	// happen to match. Deliberately the same NAME prefix as the foundation's
+	// ceremony, because that is the case worth pinning: the label has to come out
+	// as "… (foundation administrators)" and not as the bare foundation constant,
+	// and the canonical bytes have to differ from an otherwise identical
+	// foundation ceremony's.
+	v.AdminParams = ceremonyParams{
+		ID:             "5NQ8HD-7XVBKR-2WCT0M-9JZFPA",
+		Name:           "Yamale foundation administrators",
+		ChainID:        "yamale-1",
+		Threshold:      3,
+		Custodians:     append([]string(nil), vectorNames[:4]...),
+		PolicySeq:      11,
+		VotingPeriod:   "168h0m0s",
+		Administrators: true,
+	}
+	require.NoError(t, v.AdminParams.validate())
+	v.AdminParamsCanonicalHx = hex.EncodeToString(v.AdminParams.canonical())
+	v.AdminParamsFingerprint = v.AdminParams.fingerprint()
+
+	adminSubmissions := make([]submission, 0, 4)
+	for i := range v.AdminParams.Custodians {
+		phrase := fixturePhrase(i)
+		s, err := secretFromInput(phrase)
+		require.NoError(t, err)
+		priv, path, err := s.derive(0)
+		require.NoError(t, err)
+		generated, err := time.Parse(time.RFC3339, vectorTimes[i])
+		require.NoError(t, err)
+		id, err := identityOf(vectorNames[i], roleCustodian, priv, path, generated)
+		require.NoError(t, err)
+		sub, err := signSubmission(v.AdminParams.ID, id, priv)
+		require.NoError(t, err)
+		adminSubmissions = append(adminSubmissions, sub)
+	}
+
+	admins, err := assembleGroup(v.AdminParams, adminSubmissions)
+	require.NoError(t, err)
+	// Asserted in the generator for the office's reason, and it matters more here.
+	// A constitutional fragment produced for this group would say "send every
+	// seized asset on this chain to the foundation administrators" — and the name
+	// in it already contains the word "foundation", so it is the one such document
+	// a person might splice into a genesis without blinking.
+	require.Nil(t, admins.Constitution,
+		"an administrator group's assembled group must carry no constitutional invariants fragment")
+	v.AdminGroup = groupVectorOf(admins, v.AdminParams)
+
 	for i, name := range vectorNames {
 		var own identity
 		for _, custodian := range a.Custodians {
@@ -409,7 +470,112 @@ func loadCeremonyVectors(t *testing.T) ceremonyVectors {
 	require.NotEmpty(t, v.RoleNames, "no role names: the browser's table would be pinned against nothing")
 	require.NotEmpty(t, v.OfficeGroup.Fingerprint, "no office group fingerprint: the country path would be unpinned")
 	require.NotNil(t, v.OfficeParams.Office, "the office ceremony in the fixture has no office block")
+	require.NotEmpty(t, v.AdminGroup.Fingerprint,
+		"no administrator group fingerprint: the appointment path would be unpinned")
+	require.True(t, v.AdminParams.Administrators,
+		"the administrator ceremony in the fixture is not marked as one, so it pins the foundation's bytes twice")
 	return v
+}
+
+// TestTheFoundationsCanonicalBytesDidNotMove is the compatibility claim, asserted.
+//
+// The administrators marker is appended to the params canonical encoding only
+// when it is set, and paramsDomain deliberately stayed at v2 rather than being
+// bumped to v3 the way adding the office block did. The whole justification for
+// that is this: the foundation's params fingerprint is on paper, in ink, in five
+// sealed envelopes from a ceremony that has already happened, and a bump would
+// leave anybody checking an old record unable to tell whether the parameters had
+// changed or the tool had.
+//
+// So the claim needs a test, and it needs to be a test of the recorded bytes
+// rather than of the current code agreeing with itself. The hex below is the
+// value committed in the fixture before the administrator path existed. If a
+// future change to the encoding moves it, this fails and names the reason —
+// which is the moment to bump the domain deliberately rather than to discover
+// later that every paper record has become uncheckable.
+func TestTheFoundationsCanonicalBytesDidNotMove(t *testing.T) {
+	configureAddresses()
+	v := loadCeremonyVectors(t)
+
+	const beforeAdministrators = "0000001979616d616c652d636572656d6f6e792d706172616d732d76320000001b4b345439524d2d3251" +
+		"5758565a2d38483050424e2d35434a4447460000002359616d616c6520666f756e646174696f6e2c20686f7374656420726568" +
+		"6561727361"
+	require.True(t, strings.HasPrefix(v.ParamsCanonicalHx, beforeAdministrators),
+		"the foundation's params canonical bytes have moved. Adding a field that always encodes does that, and "+
+			"it invalidates every params fingerprint written on paper at a ceremony already held. If the move is "+
+			"deliberate, bump paramsDomain so old values fail loudly instead of silently disagreeing")
+
+	// The tail, specifically: a foundation ceremony must still end with the empty
+	// office country and a zero role count and NOTHING after it. An eight-byte
+	// tail, not a marker.
+	require.True(t, strings.HasSuffix(v.ParamsCanonicalHx, "0000000000000000"),
+		"a foundation ceremony's canonical bytes must end with the empty office block and nothing else")
+
+	// And the administrator ceremony's must end with the marker, so the two are
+	// genuinely distinguishable rather than accidentally equal.
+	marker := hex.EncodeToString(canonField(nil, administratorsMarker))
+	require.True(t, strings.HasSuffix(v.AdminParamsCanonicalHx, marker),
+		"an administrator ceremony's canonical bytes must end with the administrators marker")
+	require.NotEqual(t, v.ParamsFingerprint, v.AdminParamsFingerprint)
+}
+
+// TestAnAdministratorCeremonyIsNotTheFoundation pins the two facts a custodian
+// could not otherwise check by looking at the page.
+//
+// The label, because it is recorded on chain permanently and is the one field a
+// human reads to find out what a group is — and on this chain the foundation
+// already exists, so two groups both called "Yamale foundation" would be
+// indistinguishable in exactly the place nobody thinks to look.
+//
+// And the absence of the genesis and constitution documents, because an
+// administrator group is created by a transaction on a running chain. A fragment
+// naming it the destination of every seized asset is the most dangerous file this
+// tool could produce, and its name already contains the word "foundation".
+func TestAnAdministratorCeremonyIsNotTheFoundation(t *testing.T) {
+	configureAddresses()
+	v := loadCeremonyVectors(t)
+
+	require.Equal(t, "Yamale foundation administrators (foundation administrators)", v.AdminGroup.Label)
+	require.NotEqual(t, foundationLabel, v.AdminGroup.Label)
+	require.Contains(t, v.AdminGroup.Metadata, "foundation administrators")
+	require.Empty(t, v.AdminGroup.ConstitutionJSON,
+		"an administrator group must carry no constitutional invariants fragment")
+
+	// Same parameters but for the marker: the fingerprint everybody reads aloud
+	// has to differ, or a coordinator could take keys generated for the foundation
+	// and stand up an administrator group with nothing any custodian saw saying so.
+	asFoundation := v.AdminParams
+	asFoundation.Administrators = false
+	require.NotEqual(t, v.AdminParams.fingerprint(), asFoundation.fingerprint())
+	require.Equal(t, foundationLabel, groupLabel(asFoundation))
+}
+
+// TestACeremonyCannotBeBothAnOfficeAndAnAdministrator is the contradiction.
+//
+// An administrator's authority is chain-wide and its identifier carries the code
+// that marks the ABSENCE of a national perimeter; an office holds authority inside
+// one. Refused rather than resolved, because resolving it would mean this tool
+// deciding which of the two a room full of people meant.
+func TestACeremonyCannotBeBothAnOfficeAndAnAdministrator(t *testing.T) {
+	configureAddresses()
+	p := ceremonyParams{
+		ID: "5NQ8HD-7XVBKR-2WCT0M-9JZFPA", Name: "Confused", ChainID: "yamale-1",
+		Threshold: 2, Custodians: []string{"A", "B", "C"}, PolicySeq: 1, VotingPeriod: "168h0m0s",
+		Office:         &officeParams{Country: "SN", Roles: []string{"ROLE_PAYMENTS_AUTHORITY"}},
+		Administrators: true,
+	}
+	err := p.validate()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "opposites")
+
+	// And each alone is fine, so the refusal is about the pair and not about
+	// either field.
+	office := p
+	office.Administrators = false
+	require.NoError(t, office.validate())
+	admin := p
+	admin.Office = nil
+	require.NoError(t, admin.validate())
 }
 
 // TestCeremonyVectors is both the generator and the check.
@@ -622,7 +788,7 @@ func TestOverLongGroupMetadataIsRefused(t *testing.T) {
 	people := custodians(t, 4)
 
 	long := strings.Repeat("Autorité nationale de régulation des paiements ", 8)
-	_, err := buildGroup(people, groupPurpose{Label: long, Office: true}, 2, time.Hour, 7, testTime())
+	_, err := buildGroup(people, groupPurpose{Label: long, OnChain: true}, 2, time.Hour, 7, testTime())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "x/group refuses anything over 255")
 	require.ErrorContains(t, err, "Shorten the office name")

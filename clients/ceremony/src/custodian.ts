@@ -288,6 +288,26 @@ function welcomeScreen(view: InviteView, next: () => void): HTMLElement {
 // long enough to say out loud on the call.
 function whatThisKeyIsFor(view: InviteView): HTMLElement {
   const office = view.params.office;
+  if (!office && view.params.foundation_administrators) {
+    // Said in as many words, because it is the most consequential thing anybody
+    // is asked to generate a key for on this chain and the parameter name gives
+    // no hint of it. "foundation_administrators" reads like a list of people with
+    // logins.
+    return el('div', {}, [
+      paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+      paragraph(
+        'This key becomes one share of a group intended to be appointed a FOUNDATION ADMINISTRATOR. ' +
+          "An administrator may correct the country recorded against any account on this chain — which moves " +
+          'that account out from under the authority investigating it, and retires and reissues its identifier ' +
+          '— and may hold an identifier with no country at all.',
+      ),
+      muted(
+        'The group holds none of that yet. It is a parameter of x/alias, and only an ordinary governance ' +
+          "proposal can add to it; the foundation's own 3-of-5 cannot. This is not the foundation account, and " +
+          'no seized assets are sent here.',
+      ),
+    ]);
+  }
   if (!office) {
     return el('div', {}, [
       paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),

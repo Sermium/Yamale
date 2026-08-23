@@ -155,12 +155,33 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
   const country = textInput('', 'blank for the foundation, e.g. SN');
   const roles = textInput('', 'ROLE_PAYMENTS_AUTHORITY, ROLE_ENFORCEMENT_AUTHORITY');
 
+  // A third kind of ceremony, and it needs a control of its own because it is
+  // the one case the country field cannot express. A foundation administrator
+  // has no perimeter — that is the whole of what it is — so "blank country"
+  // already means the foundation, and there is nothing left to type. The server
+  // refuses the checkbox and a country together rather than choosing between
+  // them.
+  const administrators = el('input', { type: 'checkbox' }) as HTMLInputElement;
+
   // Said as the coordinator types, because the consequence is not obvious from an
   // empty field: what changes is what the office is named on chain forever, and
   // what the super users are shown before they generate.
   const whose = muted('');
   const describe = () => {
     const code = country.value.trim().toUpperCase();
+    if (administrators.checked) {
+      whose.textContent = code === ''
+        ? 'FOUNDATION ADMINISTRATORS. The group will be recorded as ' +
+          `"${name.value.trim()} (foundation administrators)". Once a governance proposal has appointed it, ` +
+          'it may correct the country recorded against ANY account on this chain — which moves that account ' +
+          'out from under the authority investigating it and reissues its identifier — and it may hold an ' +
+          'identifier with no country at all. It is not the foundation: no genesis fragment and no ' +
+          'constitutional invariants are written, because this group is created by a transaction on a running ' +
+          'chain and appointed by a vote.'
+        : `A country and the administrator exemption cannot both apply. ${code} is a perimeter; an ` +
+          'administrator has none, and that is what it is. Clear one of the two — the server will refuse this.';
+      return;
+    }
     whose.textContent = code === ''
       ? 'No country: this is the foundation ceremony. The group will be recorded as "Yamale foundation" and the ' +
         'ceremony writes the constitutional invariants for genesis.'
@@ -171,6 +192,7 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
   describe();
   country.addEventListener('input', describe);
   name.addEventListener('input', describe);
+  administrators.addEventListener('change', describe);
 
   const roster = el('div', { class: 'roster' });
   const addRow = (value = '') => {
@@ -195,6 +217,13 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
     el('h3', {}, ['Whose keys these are']),
     field('Country (ISO 3166-1 alpha-2)', country),
     field('Roles this office will hold', roles),
+    field('These keys are for a foundation-administrator group', administrators),
+    muted(
+      'A foundation administrator is not an office and not the foundation. It is the account that may correct ' +
+        "any account's recorded country — the one power on this chain that can move a customer out from under " +
+        'the authority investigating them. It holds none of it until a governance proposal appoints it, and ' +
+        'the foundation\'s own 3-of-5 cannot do that: the parameter is authority-gated to governance.',
+    ),
     muted(
       'Both values go into the fingerprint every custodian reads aloud before generating. That is the whole ' +
         'point of them being here: without it, keys generated for one country could be used for an office ' +
@@ -230,6 +259,7 @@ function setupPanel(submit: (body: unknown) => Promise<void>): HTMLElement {
             .split(',')
             .map((role) => role.trim().toUpperCase())
             .filter((role) => role !== ''),
+          foundation_administrators: administrators.checked,
         });
       }),
     ),
@@ -256,6 +286,16 @@ function agreedPanel(state: HostState): HTMLElement {
       el('dd', { class: 'mono' }, [office.roles.join(', ')]),
       el('dt', {}, ['Recorded as']),
       el('dd', {}, [`${state.params.ceremony} (${office.country})`]),
+    );
+  } else if (state.params.foundation_administrators) {
+    facts.push(
+      el('dt', {}, ['Recorded as']),
+      el('dd', {}, [`${state.params.ceremony} (foundation administrators)`]),
+      el('dt', {}, ['Will be able to']),
+      el('dd', {}, [
+        "correct any account's recorded country, once a governance proposal has appointed it — and hold an " +
+          'identifier with no country, carrying the reserved ZZ code',
+      ]),
     );
   } else {
     facts.push(el('dt', {}, ['Recorded as']), el('dd', {}, ['Yamale foundation']));

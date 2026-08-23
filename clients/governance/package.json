@@ -1,0 +1,10 @@
+{
+  "name": "@yamale/governance",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The governance and enforcement console, including the proposal that appoints a foundation administrator — the accounts that may correct any account's recorded country.",
+  "scripts": {
+    "test": "node --test administrators.test.js"
+  }
+}

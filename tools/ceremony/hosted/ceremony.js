@@ -7365,6 +7365,7 @@ const VALID_ROLES = [
   "ROLE_REGISTRY_AUTHORITY",
   "ROLE_SUPERVISOR"
 ];
+const ADMINISTRATORS_MARKER = "foundation-administrators";
 function paramsCanonical(p) {
   const names = [...p.custodians].sort(compareGoStrings);
   const roles = [...p.office?.roles ?? []].sort(compareGoStrings);
@@ -7380,7 +7381,8 @@ function paramsCanonical(p) {
     ...names.map(canonField),
     canonField(p.office?.country ?? ""),
     canonCount(roles.length),
-    ...roles.map(canonField)
+    ...roles.map(canonField),
+    ...p.foundation_administrators ? [canonField(ADMINISTRATORS_MARKER)] : []
   );
 }
 function compareGoStrings(a, b) {
@@ -7519,8 +7521,9 @@ const FOUNDATION_LABEL = "Yamale foundation";
 const MAX_GROUP_METADATA = 255;
 const utf8Length = (value) => new TextEncoder().encode(value).length;
 function groupLabel(p) {
-  if (!p.office) return FOUNDATION_LABEL;
-  return `${p.ceremony} (${p.office.country})`;
+  if (p.office) return `${p.ceremony} (${p.office.country})`;
+  if (p.foundation_administrators) return `${p.ceremony} (foundation administrators)`;
+  return FOUNDATION_LABEL;
 }
 const utf8 = new TextEncoder();
 function addressHash(typ, key2) {
@@ -7576,6 +7579,11 @@ function validateParams(p) {
   if (!Number.isSafeInteger(p.policy_seq) || p.policy_seq < 0 || p.policy_seq > 2 ** 40) {
     throw new Error(
       `policy_seq ${p.policy_seq} is past anything a chain could have reached, or past the range this page holds exactly`
+    );
+  }
+  if (p.foundation_administrators && p.office) {
+    throw new Error(
+      `this ceremony claims both a country office in "${p.office.country}" and the foundation-administrator exemption, and those are opposites. An administrator's authority is chain-wide and its identifier carries the reserved code that marks the ABSENCE of a national perimeter; an office holds authority inside one. A group cannot be both, and a ceremony that said so would have every super user generating a key for something that does not exist`
     );
   }
   validateOffice(p.office);
@@ -7781,7 +7789,10 @@ function missingFrom(params, submissions) {
   return `Still missing: ${missing.join(", ")}.`;
 }
 function purposeFor(params) {
-  return { label: groupLabel(params), office: Boolean(params.office) };
+  return {
+    label: groupLabel(params),
+    onChain: Boolean(params.office) || Boolean(params.foundation_administrators)
+  };
 }
 function groupMetadata(label, custodians, threshold) {
   const names = custodians.map((c) => `${c.name} ${c.fingerprint}`);
@@ -7915,7 +7926,7 @@ function buildGroup(input, purpose, threshold, votingPeriod, seq, createdAt) {
     ["proposals", "[]"],
     ["votes", "[]"]
   ]);
-  const constitution = purpose.office ? "" : indentGoJSON([
+  const constitution = purpose.onChain ? "" : indentGoJSON([
     ["enforcement_recovery_destination", goJSONString(policyAddr)],
     ["foundation_custodian_count", String(custodians.length)],
     ["foundation_signature_threshold", String(threshold)]
@@ -8014,14 +8025,20 @@ function setupPanel(submit) {
   seq.value = "1";
   const country = textInput("", "blank for the foundation, e.g. SN");
   const roles = textInput("", "ROLE_PAYMENTS_AUTHORITY, ROLE_ENFORCEMENT_AUTHORITY");
+  const administrators = el("input", { type: "checkbox" });
   const whose = muted("");
   const describe = () => {
     const code = country.value.trim().toUpperCase();
+    if (administrators.checked) {
+      whose.textContent = code === "" ? `FOUNDATION ADMINISTRATORS. The group will be recorded as "${name.value.trim()} (foundation administrators)". Once a governance proposal has appointed it, it may correct the country recorded against ANY account on this chain — which moves that account out from under the authority investigating it and reissues its identifier — and it may hold an identifier with no country at all. It is not the foundation: no genesis fragment and no constitutional invariants are written, because this group is created by a transaction on a running chain and appointed by a vote.` : `A country and the administrator exemption cannot both apply. ${code} is a perimeter; an administrator has none, and that is what it is. Clear one of the two — the server will refuse this.`;
+      return;
+    }
     whose.textContent = code === "" ? 'No country: this is the foundation ceremony. The group will be recorded as "Yamale foundation" and the ceremony writes the constitutional invariants for genesis.' : `A country office for ${code}. The group will be recorded as "${name.value.trim()} (${code})", every super user sees the country and the roles before they generate, and no genesis fragment is written — the office's group is created by a transaction on a running chain.`;
   };
   describe();
   country.addEventListener("input", describe);
   name.addEventListener("input", describe);
+  administrators.addEventListener("change", describe);
   const roster = el("div", { class: "roster" });
   const addRow = (value = "") => {
     const input = textInput(value, "name, as it will appear in the record");
@@ -8042,6 +8059,10 @@ function setupPanel(submit) {
     el("h3", {}, ["Whose keys these are"]),
     field("Country (ISO 3166-1 alpha-2)", country),
     field("Roles this office will hold", roles),
+    field("These keys are for a foundation-administrator group", administrators),
+    muted(
+      "A foundation administrator is not an office and not the foundation. It is the account that may correct any account's recorded country — the one power on this chain that can move a customer out from under the authority investigating them. It holds none of it until a governance proposal appoints it, and the foundation's own 3-of-5 cannot do that: the parameter is authority-gated to governance."
+    ),
     muted(
       "Both values go into the fingerprint every custodian reads aloud before generating. That is the whole point of them being here: without it, keys generated for one country could be used for an office granted authority over another, and nothing anybody saw would have said so."
     ),
@@ -8069,7 +8090,8 @@ function setupPanel(submit) {
           // refuses anything its own normalisation would have had to change
           // beyond that, rather than rewriting a value nobody agreed to.
           country: country.value.trim().toUpperCase(),
-          roles: roles.value.split(",").map((role) => role.trim().toUpperCase()).filter((role) => role !== "")
+          roles: roles.value.split(",").map((role) => role.trim().toUpperCase()).filter((role) => role !== ""),
+          foundation_administrators: administrators.checked
         });
       })
     )
@@ -8095,6 +8117,15 @@ function agreedPanel(state) {
       el("dd", { class: "mono" }, [office.roles.join(", ")]),
       el("dt", {}, ["Recorded as"]),
       el("dd", {}, [`${state.params.ceremony} (${office.country})`])
+    );
+  } else if (state.params.foundation_administrators) {
+    facts.push(
+      el("dt", {}, ["Recorded as"]),
+      el("dd", {}, [`${state.params.ceremony} (foundation administrators)`]),
+      el("dt", {}, ["Will be able to"]),
+      el("dd", {}, [
+        "correct any account's recorded country, once a governance proposal has appointed it — and hold an identifier with no country, carrying the reserved ZZ code"
+      ])
     );
   } else {
     facts.push(el("dt", {}, ["Recorded as"]), el("dd", {}, ["Yamale foundation"]));
@@ -8534,6 +8565,17 @@ function welcomeScreen(view, next) {
 }
 function whatThisKeyIsFor(view) {
   const office = view.params.office;
+  if (!office && view.params.foundation_administrators) {
+    return el("div", {}, [
+      paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),
+      paragraph(
+        "This key becomes one share of a group intended to be appointed a FOUNDATION ADMINISTRATOR. An administrator may correct the country recorded against any account on this chain — which moves that account out from under the authority investigating it, and retires and reissues its identifier — and may hold an identifier with no country at all."
+      ),
+      muted(
+        "The group holds none of that yet. It is a parameter of x/alias, and only an ordinary governance proposal can add to it; the foundation's own 3-of-5 cannot. This is not the foundation account, and no seized assets are sent here."
+      )
+    ]);
+  }
   if (!office) {
     return el("div", {}, [
       paragraph(`Ceremony: ${view.params.ceremony} · chain ${view.params.chain_id}`),

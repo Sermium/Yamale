@@ -107,6 +107,8 @@ func main() {
 		err = runRecord(os.Args[2:])
 	case "country":
 		err = runCountry(os.Args[2:])
+	case "administrators":
+		err = runAdministrators(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -159,6 +161,10 @@ func usage() {
   record      render the ceremony record for signature
   country     enrol one country: its offices' groups, their role grants, their
               jurisdictions and the record — against a chain that is running
+  administrators
+              appoint a foundation administrator: the M-of-N group that may
+              correct any account's recorded country, and the GOVERNANCE proposal
+              that appoints it — the foundation's own 3-of-5 cannot
 
 Run "ceremony <command> --help" for the flags.
 

@@ -353,9 +353,71 @@ const thresholdDecisionPolicyType = "/cosmos.group.v1.ThresholdDecisionPolicy"
 //     rewrite its membership;
 //  5. the threshold or the policy type is not what the office attested to;
 //  6. the member set is not exactly the office's roster, at equal weight.
+// attestedGroup is the group a ceremony's custodians attested to, reduced to the
+// four things the chain's answer has to be checked against.
+//
+// It exists so that there is ONE implementation of "is the policy at this address
+// really the group these people generated". There were nearly two: the country
+// enrolment's, and a copy for foundation administrators. Both decide who holds a
+// power that cannot be taken back by the person who granted it — a national
+// authority in one case, the ability to move any account out from under its
+// regulator in the other — and a rule enforced in two places is a rule with two
+// ways to be wrong.
+type attestedGroup struct {
+	// Name is what to call it in a refusal. "Banque Centrale du Sénégal", or the
+	// administrator ceremony's name.
+	Name string
+	// Threshold is how many of Members must sign.
+	Threshold int
+	// Members are the member addresses, sorted, as the ceremony generated them.
+	Members []string
+}
+
+// forbiddenAddress is an address this group must not turn out to be, and why.
+//
+// Carried as a reason rather than a bare list because the reason is the whole
+// value of the check: for a country office, confirming at the foundation's own
+// address would be the foundation granting itself a national authority; for an
+// administrator group it would appoint the foundation, which on a live run is
+// exactly what a predicted address produced, both being policy sequence 1.
+type forbiddenAddress struct {
+	Address string
+	Reason  string
+}
+
 func confirmOffice(
 	office *officeRecord,
 	foundation string,
+	tx txResult,
+	policy policyInfo,
+	members groupMembers,
+	now time.Time,
+) (onChainGroup, error) {
+	return confirmGroup(
+		attestedGroup{
+			Name:      office.Name,
+			Threshold: office.Threshold,
+			Members:   office.memberAddresses(),
+		},
+		[]forbiddenAddress{{
+			Address: strings.TrimSpace(foundation),
+			Reason: "An office confirmed there would be the foundation granting itself a national " +
+				"authority",
+		}},
+		tx, policy, members, now,
+	)
+}
+
+// confirmGroup checks the chain's own answers against what a ceremony attested
+// to, and returns the address only if every one of them agrees.
+//
+// The membership check at the end is the one the whole two-phase design exists
+// for. An x/group policy address derives from the policy sequence number alone —
+// not from the members, not from the threshold, not from the admin — so an
+// address that looks right proves nothing at all about who controls it.
+func confirmGroup(
+	group attestedGroup,
+	forbidden []forbiddenAddress,
 	tx txResult,
 	policy policyInfo,
 	members groupMembers,
@@ -367,7 +429,7 @@ func confirmOffice(
 			"transaction %s created no group policy — there is no %s event in it with an address.\n"+
 				"That is the transaction that has to be queried here: the one that broadcast %s's "+
 				"create-group-with-policy message",
-			tx.TxHash, eventCreateGroupPolicy, office.Name)
+			tx.TxHash, eventCreateGroupPolicy, group.Name)
 	}
 	if _, err := decodeAccountAddress(address); err != nil {
 		return onChainGroup{}, fmt.Errorf(
@@ -375,13 +437,12 @@ func confirmOffice(
 			tx.TxHash, address, err)
 	}
 
-	// The foundation's own address is refused outright. Confirming an office at
-	// it would let the next phase compose a grant of a national role to the
-	// account that signs the grant.
-	if address == strings.TrimSpace(foundation) {
-		return onChainGroup{}, fmt.Errorf(
-			"the group policy at %s is the foundation's own address. An office confirmed there would be the "+
-				"foundation granting itself a national authority", address)
+	// Refused outright, with the caller's reason. See forbiddenAddress.
+	for _, banned := range forbidden {
+		if banned.Address != "" && address == banned.Address {
+			return onChainGroup{}, fmt.Errorf(
+				"the group policy at %s is the foundation's own address. %s", address, banned.Reason)
+		}
 	}
 
 	groupID, err := groupIDFrom(tx)
@@ -410,7 +471,7 @@ func confirmOffice(
 			"the group policy at %s is administered by %s rather than by itself. Whoever holds that address can "+
 				"rewrite this office's membership without any of its super users agreeing, so the %d-of-%d is not "+
 				"a %d-of-%d",
-			address, policy.Info.Admin, office.Threshold, len(office.Members), office.Threshold, len(office.Members))
+			address, policy.Info.Admin, group.Threshold, len(group.Members), group.Threshold, len(group.Members))
 	}
 
 	if policy.Info.DecisionPolicy.Type != thresholdDecisionPolicyType {
@@ -425,14 +486,14 @@ func confirmOffice(
 			"the group policy at %s has threshold %q, which is not a number",
 			address, policy.Info.DecisionPolicy.Threshold)
 	}
-	if threshold != office.Threshold {
+	if threshold != group.Threshold {
 		return onChainGroup{}, fmt.Errorf(
 			"the group policy at %s needs %d signatures and %s's super users attested to %d. The office on the "+
 				"chain is not the office they agreed to",
-			address, threshold, office.Name, office.Threshold)
+			address, threshold, group.Name, group.Threshold)
 	}
 
-	if err := confirmMembers(office, address, groupID, members); err != nil {
+	if err := confirmMembers(group, address, groupID, members); err != nil {
 		return onChainGroup{}, err
 	}
 
@@ -472,14 +533,14 @@ func groupIDFrom(tx txResult) (uint64, error) {
 // six members is a 3-of-6. Not "the group's members are among the office's" — a
 // group missing one is a 3-of-4, which is a different arrangement with more
 // authority concentrated in whoever remains.
-func confirmMembers(office *officeRecord, address string, groupID uint64, members groupMembers) error {
-	expected := office.memberAddresses()
+func confirmMembers(group attestedGroup, address string, groupID uint64, members groupMembers) error {
+	expected := group.Members
 
 	actual := make([]string, 0, len(members.Members))
 	for _, entry := range members.Members {
 		if uint64(entry.GroupID) != groupID {
 			return fmt.Errorf(
-				"the member list given is for group %d and the office's group is %d",
+				"the member list given is for group %d and this ceremony's group is %d",
 				uint64(entry.GroupID), groupID)
 		}
 		// Equal weight, because a member with two votes turns a 3-of-5 into
@@ -490,7 +551,7 @@ func confirmMembers(office *officeRecord, address string, groupID uint64, member
 			return fmt.Errorf(
 				"%s holds weight %q in the group at %s. Equal weight is what makes %d-of-%d mean what it says; a "+
 					"member with two votes is a threshold nobody agreed to",
-				entry.Member.Address, entry.Member.Weight, address, office.Threshold, len(office.Members))
+				entry.Member.Address, entry.Member.Weight, address, group.Threshold, len(group.Members))
 		}
 		actual = append(actual, entry.Member.Address)
 	}
@@ -504,7 +565,7 @@ func confirmMembers(office *officeRecord, address string, groupID uint64, member
 				"This is the check the two-phase design exists for. An x/group policy address derives from the "+
 				"policy sequence number alone, so an address that looks right proves nothing about who controls "+
 				"it — the membership is the only thing that does. Do not grant anything to this address.",
-			address, office.Name,
+			address, group.Name,
 			len(actual), strings.Join(actual, ", "),
 			len(expected), strings.Join(expected, ", "))
 	}
@@ -584,7 +645,17 @@ func requireFoundation(dossier countryDossier, path string) (int, error) {
 // aliasParamsResponse is the part of `query alias params` this reads.
 type aliasParamsResponse struct {
 	Params struct {
-		FoundationAdministrators []string `json:"foundation_administrators"`
+		// PayloadLength is read as well as the list, because the appointment
+		// ceremony has to RESUBMIT it: MsgUpdateParams carries a Params message
+		// rather than a field mask, so setting it replaces the whole object and a
+		// parameter this tool did not read is a parameter it would zero.
+		//
+		// flexUint64 because the two producers disagree: the CLI's JSON renders a
+		// uint32 as a number and the REST gateway has rendered it as a string. A
+		// type that accepted only one of them would read zero from the other, and
+		// zero is the value that means "unknown" here.
+		PayloadLength            flexUint64 `json:"payload_length"`
+		FoundationAdministrators []string   `json:"foundation_administrators"`
 	} `json:"params"`
 }
 

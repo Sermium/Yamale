@@ -11,7 +11,8 @@
     "wallet",
     "app",
     "ceremony",
-    "foundation"
+    "foundation",
+    "governance"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

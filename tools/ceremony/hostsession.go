@@ -414,6 +414,12 @@ type setupRequest struct {
 	VotingPeriod string   `json:"voting_period"`
 	Country      string   `json:"country"`
 	Roles        []string `json:"roles"`
+	// Administrators asks for a foundation-administrator group rather than the
+	// foundation itself or a country office. A separate flag rather than a
+	// sentinel country, because the two are opposites and validate() refuses them
+	// together: an administrator's identifier carries the code that marks the
+	// absence of a perimeter, and an office holds authority inside one.
+	Administrators bool `json:"foundation_administrators"`
 }
 
 func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -488,6 +494,11 @@ func (h *hostSession) handleSetup(w http.ResponseWriter, r *http.Request) {
 		PolicySeq:    body.PolicySeq,
 		VotingPeriod: strings.TrimSpace(body.VotingPeriod),
 		Office:       office,
+		// Passed through rather than reconciled with the country here. If the form
+		// somehow sends both, validate() refuses the pair with a sentence naming
+		// the contradiction — which is better than this handler silently deciding
+		// which one the coordinator meant.
+		Administrators: body.Administrators,
 	}
 	if err := params.validate(); err != nil {
 		fail(w, http.StatusBadRequest, err)
@@ -618,8 +629,21 @@ type exportedGroup struct {
 // `ceremony country confirm` reads the real address back. Said in the file
 // because a person reads the file.
 func policyAddressNote(params ceremonyParams) string {
-	if params.Office == nil {
+	if !params.onChain() {
 		return ""
+	}
+	if params.Administrators {
+		// Worth its own sentence rather than sharing the office's. On a live run of
+		// the country ceremony a predicted address came out as the FOUNDATION'S
+		// OWN, because both were policy sequence 1 — and an appointment proposal
+		// naming that address would have appointed the foundation, passed, and read
+		// as correct.
+		return fmt.Sprintf(
+			"predicted from policy_seq %d and almost certainly WRONG; an administrator group is created by a "+
+				"transaction on a running chain, so the chain decides the sequence. A prediction here has come "+
+				"out as the foundation's own address before now, because both were sequence 1. This is not the "+
+				"group's address until `ceremony administrators confirm` has read it back off the chain",
+			params.PolicySeq)
 	}
 	return fmt.Sprintf(
 		"predicted from policy_seq %d; for a country office the chain decides the sequence, so this is not the "+
@@ -676,7 +700,8 @@ func (h *hostSession) handleExport(w http.ResponseWriter, r *http.Request) {
 		// Carried so the record describes the thing that was actually made. For an
 		// office this suppresses the foundation paragraph, every sentence of which
 		// would be false about it.
-		Office: h.params.Office,
+		Office:         h.params.Office,
+		Administrators: h.params.Administrators,
 	}
 
 	files := map[string]string{}
@@ -723,7 +748,7 @@ func (h *hostSession) handleExport(w http.ResponseWriter, r *http.Request) {
 		// on this chain to this address", with the address being the office's.
 		// Nobody should have to know not to use a file sitting in the output
 		// directory.
-		if h.params.Office == nil {
+		if !h.params.onChain() {
 			genesisPath := filepath.Join(h.out, "group-genesis.json")
 			if err := writeRawFile(genesisPath, a.Genesis); err != nil {
 				fail(w, http.StatusInternalServerError, err)

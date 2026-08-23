@@ -119,9 +119,17 @@ type groupDocuments struct {
 // them in the wrong order or read as a mystery boolean.
 type groupPurpose struct {
 	Label string
-	// Office is true when this group belongs to a country office, in which case
-	// the constitutional fragment is withheld.
-	Office bool
+	// OnChain is true when this group is created by a transaction on a running
+	// chain rather than seeded at genesis — a country office, or a
+	// foundation-administrator group — in which case the constitutional fragment
+	// is withheld.
+	//
+	// Named for what it means rather than for the first case that needed it. It
+	// was `Office`, and the administrator path made that name a lie: a fragment
+	// declaring an administrator group the destination of every seized asset is
+	// exactly as dangerous as one declaring an office that, and a boolean called
+	// "Office" reads as though it would be emitted.
+	OnChain bool
 }
 
 // foundationPurpose is the foundation's 3-of-5.
@@ -135,7 +143,7 @@ func foundationPurpose() groupPurpose {
 
 // purposeFor reads the purpose out of a ceremony's parameters.
 func purposeFor(params ceremonyParams) groupPurpose {
-	return groupPurpose{Label: groupLabel(params), Office: params.Office != nil}
+	return groupPurpose{Label: groupLabel(params), OnChain: params.onChain()}
 }
 
 // maxGroupMetadata is x/group's limit, in bytes.
@@ -370,14 +378,16 @@ func buildGroup(custodians []identity, purpose groupPurpose, threshold int, voti
 		return groupDocuments{}, err
 	}
 
-	// Withheld for a country office, and left nil rather than emptied to a "{}"
+	// Withheld for any group created on a running chain — a country office or a
+	// foundation-administrator group — and left nil rather than emptied to a "{}"
 	// somebody could still splice. The three fields in it are the FOUNDATION's:
 	// where the chain sends every seizure, how many custodians the foundation
 	// has, and how many of them must sign. Produced for Senegal's payments
 	// office, it is a document that reads as an instruction to hand that office
 	// the whole chain's seized assets — and a genesis built from it would start
-	// perfectly happily.
-	if !purpose.Office {
+	// perfectly happily. Produced for an administrator group it is worse, because
+	// that group's name already contains the word "foundation".
+	if !purpose.OnChain {
 		documents.constitution, err = json.MarshalIndent(constitutionFragment{
 			EnforcementRecoveryDestination: policyAddr,
 			FoundationCustodianCount:       len(custodians),
