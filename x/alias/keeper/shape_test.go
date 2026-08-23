@@ -208,6 +208,70 @@ func TestAnOfficeThatCannotActAtAllIsRefusedAndNamedAsSuch(t *testing.T) {
 	require.ErrorContains(t, err, "no set of members can act at all")
 }
 
+// A threshold of zero is refused rather than read as "one signature".
+//
+// x/group's own ValidateBasic refuses it, so this is a state the chain should
+// never hold — which is exactly why it is a refusal here and not an arithmetic
+// case. A threshold of zero passes the first vote cast, so reading it as a
+// one-of-five would hand a five-member office to whichever member votes first,
+// and the shape check would report that as healthy. Found as a mutation survivor:
+// deleting the branch broke no test.
+func TestAThresholdOfZeroIsRefusedRatherThanCountedAsOne(t *testing.T) {
+	f := roleSetup(t)
+	_, office := f.env.Addr(t)
+	f.groups.addWeighted(office, "0", []string{"1", "1", "1", "1", "1"})
+
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.env.AuthorityString(t), Holder: office,
+		Role: types.ROLE_ENFORCEMENT_AUTHORITY, Jurisdiction: "GH",
+		RequiredShape: shape(1, 5),
+	})
+	require.ErrorIs(t, err, types.ErrOfficeShape)
+	require.ErrorContains(t, err, "any single member acts alone")
+}
+
+// The grant event carries the shape, so a history can be reconstructed from the
+// events rather than only from the store.
+//
+// Also found as a mutation survivor: removing the attribute broke no test, which
+// meant the audit trail of "when did this office stop being pinned to a
+// three-of-five" was unasserted.
+func TestTheGrantEventNamesTheRequiredShape(t *testing.T) {
+	f := roleSetup(t)
+	office := f.officeShaped(t, 3, 5)
+	f.grantRequiring(t, office, types.ROLE_PAYMENTS_AUTHORITY, "SN", shape(3, 5))
+
+	found := ""
+	for _, event := range f.env.Ctx.EventManager().Events() {
+		if event.Type != "role_granted" {
+			continue
+		}
+		for _, attr := range event.Attributes {
+			if attr.Key == "required_shape" {
+				found = attr.Value
+			}
+		}
+	}
+	require.Equal(t, "3-of-5", found, "the event must record what the office was pinned to")
+
+	// And a grant with no requirement says so in words rather than leaving a blank
+	// an indexer has to interpret.
+	other := f.officeShaped(t, 3, 5)
+	f.grant(t, other, types.ROLE_SUPERVISOR, "SN")
+	last := ""
+	for _, event := range f.env.Ctx.EventManager().Events() {
+		if event.Type != "role_granted" {
+			continue
+		}
+		for _, attr := range event.Attributes {
+			if attr.Key == "required_shape" {
+				last = attr.Value
+			}
+		}
+	}
+	require.Equal(t, "no required shape", last)
+}
+
 // A group too large to read a shape from is a refusal that names the cap.
 func TestAnOfficeLargerThanTheModuleCanPageIsRefusedRatherThanUndercounted(t *testing.T) {
 	f := roleSetup(t)

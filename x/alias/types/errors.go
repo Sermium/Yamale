@@ -86,15 +86,26 @@ var (
 	// silently removes, which is worse than one that is absent on purpose.
 	ErrNoScopeKeeper = sdkerrors.Register(ModuleName, 22,
 		"the jurisdictional perimeter cannot be checked because the registry is not wired in")
-	// Raised when the holder of a grant no longer keeps the M-of-N the grant was
-	// made under: the office reduced its own threshold, or lost members without
-	// replacing them, or is no longer a group at all.
+	// Raised whenever what an office IS and what its authority REQUIRES fail to
+	// agree. Three cases reach it, which is why the text is a statement about the
+	// disagreement rather than about any one of them:
+	//
+	//   - an office that reduced its own threshold, or lost members without
+	//     replacing them, and no longer meets the shape its grant records;
+	//   - a grant that would require more than the office it names can offer,
+	//     refused before it is written;
+	//   - a re-grant that would lower or drop a requirement already recorded.
+	//
+	// The first phrasing named only the first case — "this office no longer keeps
+	// the M-of-N its authority was granted under" — and a live devnet run showed
+	// it appended to the other two, where "no longer" describes a history that did
+	// not happen. A registered message is a summary of the code and is read in
+	// every context the code is raised in, so it has to be true in all of them.
 	//
 	// A code of its own rather than ErrOutOfScope, because the two send an
 	// operator to different places. Out of scope means this office never had that
-	// authority here; this means it had it and gave it up by changing its own
-	// shape — and the fix is to restore the shape, which nobody would think to do
-	// if the chain reported a missing grant.
+	// authority here; this is a question about the group behind an authority it
+	// does hold, and the fix is usually a proposal the office passes by itself.
 	ErrOfficeShape = sdkerrors.Register(ModuleName, 23,
-		"this office no longer keeps the M-of-N its authority was granted under")
+		"an office's M-of-N and the shape its authority requires do not agree")
 )

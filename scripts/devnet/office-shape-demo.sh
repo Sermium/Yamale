@@ -413,7 +413,7 @@ say ""
 say "=== 3. the same office, now one-of-five, admits the second bank ==="
 approval_proposal "$SECOND" second
 submit_and_vote "admit Second Bank" "$OFFICE" "$WORK/approve-second.json" 1 "${OFFICE_KEYS[0]}"
-expect_failure "the admission by a reduced office" "no longer keeps the M-of-N"
+expect_failure "the admission by a reduced office" "was granted its authority as 3-of-5 and is now 1-of-5"
 say "  paymsg participant $SECOND -> $(approved "$SECOND")"
 
 # ---------------------------------------------------------------------------

@@ -772,9 +772,13 @@ answer, and every action it attempts is refused:
 yml1dlszg2s… was granted its authority as 3-of-5 and is now 3-of-4. An office may
 grow; it may not fall below the shape it was granted under. Restore it with a
 MsgUpdateGroupMembers or a MsgUpdateGroupPolicyDecisionPolicy voted by the office
-itself, or have the grant re-made: this office no longer keeps the M-of-N its
-authority was granted under
+itself, or have the grant re-made: an office's M-of-N and the shape its authority
+requires do not agree
 ```
+
+Note the shapes in it: the threshold is **untouched** at three. One member left and
+was not replaced, and that alone is the refusal — which is the half of this rule
+that surprises people.
 
 An office acts through its own group, so that text arrives where nobody looks
 first. **The transaction's code is 0.** An `x/group` proposal that fails in

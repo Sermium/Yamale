@@ -516,7 +516,7 @@ Every way a transaction to this module can be rejected.
 | 20 | `ErrHolderNotGroup` | a role holder must be an x/group account, so that acting on it is M-of-N |
 | 21 | `ErrGrantNotFound` | no such grant: this account does not hold that role in that jurisdiction |
 | 22 | `ErrNoScopeKeeper` | the jurisdictional perimeter cannot be checked because the registry is not wired in |
-| 23 | `ErrOfficeShape` | this office no longer keeps the M-of-N its authority was granted under |
+| 23 | `ErrOfficeShape` | an office's M-of-N and the shape its authority requires do not agree |
 | 3 | `ErrNotRegistered` | this account holds no identifier |
 | 4 | `ErrNotFound` | no account holds that identifier |
 | 5 | `ErrMalformedID` | that is not a well-formed identifier |

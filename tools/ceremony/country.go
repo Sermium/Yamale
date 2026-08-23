@@ -199,8 +199,12 @@ type officeMinimum struct {
 	// unreachable member freezes the office permanently, and the chain will hold
 	// the office to the floor — so a unanimous minimum is a promise that the
 	// office may never recover from a lost key. Two-of-three and three-of-five are
-	// the shapes that work, which is the same rule the foundation's own ceremony
-	// applies to itself.
+	// the shapes that work.
+	//
+	// The foundation's own ceremony refuses unanimity for its actual threshold, for
+	// the same reason and one step earlier: see distributed.go, which will not
+	// agree a threshold equal to the number of custodians. This is the same
+	// reasoning applied to a floor rather than to a value.
 	Members int `json:"members"`
 }
 
@@ -213,6 +217,10 @@ func (m officeMinimum) rule() string {
 // Built here rather than assembled at each call site, so that the numbers on the
 // signed record, the numbers checked against the group file and the numbers
 // written into required_shape are one value that cannot drift into three.
+//
+// The conversion to uint32 is safe because every path to this method validates
+// first — see requireOfficeMinimum, which re-validates a dossier an operator may
+// have edited rather than trusting the config's validation of a different file.
 func (m officeMinimum) shape() *aliastypes.OfficeShape {
 	return &aliastypes.OfficeShape{
 		Signatures: uint32(m.Signatures),
