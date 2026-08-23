@@ -41,6 +41,17 @@
   shape of the failure this page is most likely to be the only witness to:
   everybody believes the money moved, and it is sitting still.
 
+  FOUR, and it arrived later than the other three: the foundation's second job is
+  not spending. It grants and revokes the country-scoped roles that make a country
+  operational, which is the power to decide who administers a perimeter — and that
+  had no interface at all, only hand-composed protobuf JSON. The consequence of
+  that was not caution. A live run of the country ceremony granted a role to the
+  foundation's own address instead of the office it meant, because an x/group
+  policy address comes from a sequence number alone and both were sequence 1. So
+  the grant form does not show an address and ask for a signature: it shows the
+  office's membership and threshold, read from the chain, and refuses a holder
+  that is not a group before anybody votes rather than after.
+
   Read-only against /api/rest and /api/rpc. One file, no build step, no
   dependencies — this page gets opened when something is wrong, often on a bad
   connection, and a console that needs npm install first is a console that will
@@ -183,6 +194,8 @@ import {
   carriedOut, parseExecutions, parseSubmissions,
   // building one
   auditMessages, parseMessages, swapPlan, toBaseUnits, tooLong,
+  // the country-scoped roles
+  ROLES, assignedCountries, checkAddress, classifyHolder, grantPlan, officeSummary, revokePlan,
   // formatting
   formatCoin, groupDigits, relativeTime, shellSafe, short, stalledAtHeight, timestampSeconds,
   // commands
@@ -308,8 +321,10 @@ function failureBanner(e) {
       This chain's REST surface is allowlisted per module path and denies by default, so a
       ${e.status} here means the path is missing from the allowlist rather than that the data is
       missing or that a password exists. The node's gateway does serve it; the proxy in front is
-      dropping it. This console needs two families allowed —
-      <code>/cosmos/group/v1/</code> and <code>/yamale/blockchain/constitution/v1/</code> — plus
+      dropping it. This console needs three families allowed —
+      <code>/cosmos/group/v1/</code>, <code>/yamale/blockchain/constitution/v1/</code> and
+      <code>/yamale/blockchain/alias/v1/</code>, the last of these because a role grant cannot be
+      composed without reading what the holder already holds — plus
       <code>/cosmos/bank/v1beta1/</code> and <code>/cosmos/tx/v1beta1/</code>.</p>`;
   }
   return `<p class="err"><strong>Could not read <code>${esc(e.url)}</code> — ${esc(String(e.status))}.</strong><br>
@@ -472,6 +487,80 @@ async function loadCarriedOut() {
   }
 }
 
+/**
+ * A read whose *refusal* is the answer, rather than an exception.
+ *
+ * `get` above throws a CallFailed and discards the body, which is right for every
+ * other read on this page — a failed balance query is a failed balance query. It
+ * is wrong for exactly one: the group-policy lookup that decides whether a role's
+ * holder is an office or one key answers "not a group" as an HTTP 500 carrying a
+ * gRPC status body, so throwing the body away would collapse "this is a plain
+ * key" and "the node is down" into the same failure. Those two must never lead to
+ * the same screen: the first is a refusal to compose, the second is an admission
+ * that the check did not run.
+ */
+async function probe(url) {
+  let res;
+  try {
+    res = await fetch(url, pinnedHeight
+      ? { headers: { 'x-cosmos-block-height': String(pinnedHeight) } }
+      : undefined);
+  } catch {
+    return { status: 'unreachable', body: '' };
+  }
+  const text = await res.text().catch(() => '');
+  let body = text;
+  try { body = JSON.parse(text); } catch { /* keep the text; classifyHolder reads either */ }
+  return { status: res.status, body };
+}
+
+/**
+ * Everything the chain says about an account a role is about to be granted to or
+ * taken from.
+ *
+ * Three reads, and each one answers a question the page must not guess at:
+ *
+ *  1. is it an x/group account — the chain's own check, mirrored so a plain key
+ *     is refused before three custodians sign rather than after;
+ *  2. if so, who is in it and on how many signatures does it decide — because a
+ *     policy address is derived from a sequence number and is therefore not
+ *     evidence of who controls the group;
+ *  3. what does it already hold — which is what a revocation is chosen from, and
+ *     what tells a grant apart from a re-grant.
+ *
+ * `grants` is null rather than empty when the third read fails. An empty list and
+ * a failed query render identically otherwise, and the difference is between "you
+ * have nothing to revoke" and "this page does not know what you hold".
+ */
+async function loadHolder(f, address) {
+  const lookup = await probe(
+    `${REST}/cosmos/group/v1/group_policy_info/${encodeURIComponent(address)}`,
+  );
+  const verdict = classifyHolder(lookup);
+
+  let office = null;
+  if (verdict.verdict === 'group') {
+    const members = await maybe(
+      get(`${REST}/cosmos/group/v1/group_members/${verdict.groupId}?pagination.limit=100`),
+      { members: [] },
+    );
+    office = officeSummary({
+      policy: lookup.body?.info,
+      members: members.members ?? [],
+      foundationAddress: f.policyAddress,
+    });
+  }
+
+  const held = await probe(
+    `${REST}/yamale/blockchain/alias/v1/role_grants/${encodeURIComponent(address)}`,
+  );
+  const grants = Number(held.status) === 200 && Array.isArray(held.body?.grants)
+    ? held.body.grants
+    : null;
+
+  return { address, verdict, office, grants, grantsStatus: held.status };
+}
+
 async function syncClock() {
   try {
     const s = await get(`${RPC}/status`);
@@ -494,6 +583,40 @@ function copyable(id, text, note) {
       <button class="copy" data-copy="${id}">copy</button>
     </div>
     <pre id="${id}">${esc(text)}</pre>`;
+}
+
+/**
+ * What `code: 0` does and does not mean, said wherever this page hands somebody a
+ * command to run.
+ *
+ * Four separate bugs in this repository came from believing a clean broadcast
+ * meant the thing happened. A broadcast reporting `code: 0` has been **accepted
+ * into a mempool** — it has not executed. Worse, `tx group exec` on a proposal
+ * that has not reached its threshold returns `code: 0` too: not an authorization
+ * error, not a failed transaction, a clean transaction that does nothing at all,
+ * whose only signal is an event attribute. And an executed proposal is pruned, so
+ * querying it afterwards and getting "not found" is success rather than a fault.
+ *
+ * So the page never lets a command go out without saying what to read instead.
+ */
+function executionNote() {
+  return `<details>
+      <summary>What to check after you run it — <code>code: 0</code> is not "it happened"</summary>
+      <p class="muted small">A broadcast that comes back <code>code: 0</code> has been accepted
+        into a mempool. It has not executed. Query the transaction by hash and read
+        <code>height</code> and <code>code</code> from the queried result, not from the broadcast
+        response — a <code>height</code> of 0 means it is still not in a block.</p>
+      <p class="muted small">The same trap has a worse version at execution.
+        <code>tx group exec</code> on a proposal that has <em>not</em> reached its threshold also
+        returns <code>code: 0</code> — a clean transaction that does nothing. The only signal
+        anywhere is an event attribute: <code>EventExec.result</code> is
+        <code>PROPOSAL_EXECUTOR_RESULT_NOT_RUN</code> on too few votes and
+        <code>PROPOSAL_EXECUTOR_RESULT_SUCCESS</code> when it ran. And an executed proposal is
+        deleted from state, so <code>q group proposal &lt;id&gt;</code> answering "not found"
+        afterwards is success and not a fault.</p>
+      <p class="muted small">Do not infer it from the transaction. Read the state the proposal was
+        supposed to change.</p>
+    </details>`;
 }
 
 function wireCopies() {
@@ -1249,14 +1372,69 @@ async function screenPropose() {
       <div id="sw-outbox" style="margin-top:.7rem"></div>
     </div>
 
+    <h2>Grant a role in a country</h2>
+    <div class="card">
+      <p class="muted small">This is how a country becomes operational: an office holds a role, and
+        the role is what some module refuses an action without. Admitting a country is the
+        foundation's act rather than a governance vote — three of five custodians from five
+        organisations, recorded on chain against this group — and what was given up for that is
+        publicity and delay. The validator set has no veto over who administers a perimeter.
+        So read the office below before you sign, because nobody else is going to.</p>
+      <label for="gr-holder">Which office — its <em>group policy</em> address, not an official's key</label>
+      <input id="gr-holder" placeholder="yml1…" autocomplete="off" spellcheck="false">
+      <div id="gr-office" style="margin-top:.6rem"></div>
+      <label for="gr-role">Which role</label>
+      <select id="gr-role">
+        <option value="">—</option>
+        ${ROLES.map((r) => `<option value="${esc(r.name)}">${esc(r.label)} — ${
+          esc(r.picker)}</option>`).join('')}
+      </select>
+      <label for="gr-country">Which country — an assigned ISO 3166-1 alpha-2 code</label>
+      <input id="gr-country" list="iso-codes" placeholder="ZA" autocomplete="off"
+             spellcheck="false" maxlength="2" style="max-width:9rem;text-transform:uppercase">
+      <datalist id="iso-codes">${assignedCountries().map((c) =>
+        `<option value="${c}"></option>`).join('')}</datalist>
+      <label for="gr-title">Title</label>
+      <input id="gr-title" placeholder="Grant … the … role in …" autocomplete="off">
+      <label for="gr-why">Why — the custodians will read this before signing</label>
+      <textarea id="gr-why" placeholder="Which office this is, who verified its membership against the ceremony record, and what it will be doing with the role."></textarea>
+      <div id="gr-out" style="margin-top:.7rem"></div>
+    </div>
+
+    <h2>Revoke a role</h2>
+    <div class="card">
+      <p class="muted small">Taking a role away is the act that has to be possible on a Sunday, so
+        it needs the same three signatures and nothing more — no governance cycle. The foundation
+        can remove a grant governance made, deliberately: a rule under which appointing a national
+        enforcement authority takes one 3-of-5 vote but removing one takes a full governance cycle
+        would make the emergency the expensive case. A grant is removed rather than marked, because
+        a capability either exists or it does not, and a revoked grant left in the store as a flag
+        is a row that one wrong read treats as live.</p>
+      <label for="rv-holder">Which office is losing a role</label>
+      <input id="rv-holder" placeholder="yml1…" autocomplete="off" spellcheck="false">
+      <div id="rv-held" style="margin-top:.6rem"></div>
+      <label for="rv-grant">Which grant</label>
+      <select id="rv-grant"><option value="">—</option></select>
+      <label for="rv-title">Title</label>
+      <input id="rv-title" placeholder="Revoke … from …" autocomplete="off">
+      <label for="rv-why">Why</label>
+      <textarea id="rv-why" placeholder="Whether this is a compromised key, an abuse of the authority, or an office being wound up — and who established that."></textarea>
+      <div id="rv-out" style="margin-top:.7rem"></div>
+    </div>
+
     <h2>Anything else</h2>
     <div class="card">
       <p class="muted small">The foundation is a multisig account, so it can do anything an
         account can do — delegate a stake, vote in a governance proposal, update a module it
-        holds authority over, send several payments at once. The two forms above are shortcuts
-        for the cases that recur, not the limit of what this account is.</p>
+        holds authority over, send several payments at once. The four forms above are shortcuts
+        for the cases that recur, not the limit of what this account is. A country enrolment is
+        the case that most often needs this one: it is several role grants <em>and</em> a
+        jurisdiction record per office, in one proposal, because x/group executes a proposal's
+        messages together or not at all — and a country with a payments authority and no
+        enforcement authority is money moving in a perimeter nobody can stop.</p>
       <div class="warnbox"><strong>This page cannot tell you what an arbitrary message does.</strong>
-        It has no protobuf decoder, so for anything other than a payment or a membership change it
+        It has no protobuf decoder, so for anything other than a payment, a membership change or a
+        role grant it
         can check the shape and not the meaning. Read it yourself, and have a second custodian read
         it independently, before three of you sign. What it <em>can</em> check is below, and those
         checks catch the failure that costs the most: a message the foundation is not the signer
@@ -1324,6 +1502,7 @@ async function screenPropose() {
           base units — check that against the amount you meant.</p>
         ${copyable('sp-doc', doc, 'Write this to proposal.json')}
         ${copyable('sp-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${executionNote()}
       </div>`;
     wireCopies();
   };
@@ -1371,6 +1550,270 @@ async function screenPropose() {
           never be executed — so carry out anything outstanding first.</div>
         ${copyable('sw-doc', doc, 'Write this to proposal.json')}
         ${copyable('sw-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${executionNote()}
+      </div>`;
+    wireCopies();
+  };
+
+  // ---- granting and revoking a country's roles ----
+  //
+  // Both forms depend on a chain read, which the two above do not, so both hold a
+  // little state: the holder the page last looked up and what it found. The read
+  // is keyed by address and the result is discarded if the field has moved on, so
+  // a slow answer for a half-typed address can never overwrite a fresh one for
+  // the address actually in the box.
+
+  /** Chain-verified facts about a holder, per form. Null until one is looked up. */
+  const holders = { grant: null, revoke: null };
+  const pending = { grant: null, revoke: null };
+  const timers = { grant: null, revoke: null };
+
+  const box = (kind, text) => `<div class="${kind}">${esc(text)}</div>`;
+
+  /**
+   * The office, as membership and threshold rather than as an address.
+   *
+   * An x/group policy address comes from the group's sequence number alone, so it
+   * is not evidence of who controls the group — two chains, or a chain and a dry
+   * run, produce the same address for the same sequence. A live run of the country
+   * ceremony predicted an office's address and got the foundation's own for
+   * exactly that reason. So this is not a disclosure the custodian can skip.
+   */
+  const officeCard = (h) => {
+    if (!h) return '<p class="muted small">Looking this address up on the chain…</p>';
+    if (h.verdict.verdict !== 'group') {
+      return `<div class="badbox"><strong>${esc(
+        h.verdict.verdict === 'plain-key' ? 'This is not an office.'
+          : h.verdict.verdict === 'malformed' ? 'This is not an address.'
+            : 'This page could not check the holder.')}</strong><br>${esc(h.verdict.problem)}</div>`;
+    }
+    const o = h.office;
+    const rows = o.members.map((m) => `<tr>
+        <td>${esc(m.name || '—')}</td>
+        <td class="fp">${esc(m.fingerprint || '—')}</td>
+        <td><code>${esc(short(m.address))}</code></td>
+        <td style="font-variant-numeric:tabular-nums">${esc(m.weight === null ? '?' : String(m.weight))}</td>
+      </tr>`).join('');
+    return `<div class="card card--ok" style="margin:0">
+        <div class="row">
+          <span class="lede">Group ${esc(o.groupId ?? '?')} —
+            ${esc(o.threshold === null ? '?' : String(o.threshold))} of
+            ${esc(String(o.totalWeight))}</span>
+          <span class="pill p-ok">an x/group account</span>
+        </div>
+        <p class="muted small">A policy address is derived from the group's sequence number and
+          from nothing else, so the address above is not evidence of who controls this office.
+          This is. Check it against the ceremony record before you grant it anything.</p>
+        <table><thead><tr><th>Member</th><th>Fingerprint</th><th>Address</th><th>Weight</th></tr></thead>
+          <tbody>${rows}</tbody></table>
+        ${o.concerns.map((c) => box('badbox', c)).join('')}
+      </div>`;
+  };
+
+  /** Look a holder up, once the address is worth a round trip. */
+  const lookUp = (which, address, onDone) => {
+    clearTimeout(timers[which]);
+    if (checkAddress(address).problem) {
+      holders[which] = null;
+      pending[which] = null;
+      onDone();
+      return;
+    }
+    if (holders[which]?.address === address || pending[which] === address) {
+      onDone();
+      return;
+    }
+    pending[which] = address;
+    holders[which] = null;
+    onDone();
+    // Debounced, because this fires on every keystroke and an address is 39
+    // characters. Three reads per character would be three reads too many.
+    timers[which] = setTimeout(async () => {
+      const found = await loadHolder(f, address);
+      // Discarded if the field moved on. A slow answer for a half-typed address
+      // overwriting a fresh one is how a custodian ends up reading the wrong
+      // office's membership beside the right office's address.
+      if (pending[which] !== address) return;
+      holders[which] = found;
+      onDone();
+    }, 350);
+  };
+
+  const grant = () => {
+    const holderAddr = document.getElementById('gr-holder').value.trim();
+    const role = document.getElementById('gr-role').value;
+    const country = document.getElementById('gr-country').value.trim();
+    const title = document.getElementById('gr-title').value.trim();
+    const why = document.getElementById('gr-why').value.trim();
+    const out = document.getElementById('gr-out');
+    const officeBox = document.getElementById('gr-office');
+
+    const h = holders.grant;
+    officeBox.innerHTML = holderAddr && !checkAddress(holderAddr).problem ? officeCard(h) : '';
+
+    const plan = grantPlan({
+      policyAddress: f.policyAddress,
+      holder: holderAddr,
+      role,
+      jurisdiction: country,
+      holderVerdict: h?.verdict ?? null,
+      office: h?.office ?? null,
+      existingGrants: h?.grants ?? null,
+    });
+
+    // Anything already stated against the office above is not restated here.
+    // Both the verdict on the holder and the findings about its membership are
+    // rendered beside the address they are about, which is where a custodian is
+    // looking; repeating them under the form would make one mistake read as two
+    // and bury the ones that are only said once.
+    const saidAbove = new Set([
+      ...(h?.office?.concerns ?? []),
+      ...(h?.verdict?.problem ? [h.verdict.problem] : []),
+    ]);
+
+    const problems = plan.problems.filter((p) => !saidAbove.has(p));
+    if (!title) problems.push('Give it a title — it is what the other custodians see first.');
+    if (!why) {
+      problems.push('Say why. Nobody should be handed a national authority on an undescribed ' +
+        'proposal.');
+    }
+    if (tooLong(title) || tooLong(why)) {
+      problems.push(`Titles and reasons are limited to ${MAX_METADATA_LEN} bytes.`);
+    }
+    const notes = plan.concerns.filter((c) => !saidAbove.has(c))
+      .map((c) => box('warnbox', c)).join('');
+
+    // `plan.ready` gates the composition, not the length of the list above. The
+    // filtering is presentation, and a presentation choice must never be the
+    // thing that decides whether a proposal gets composed — that is how a
+    // deduplication becomes a bypass.
+    if (!plan.ready || problems.length) {
+      out.innerHTML = problems.map((x) => box('warnbox', x)).join('') + notes;
+      return;
+    }
+
+    const doc = proposalDocument({
+      policyAddress: f.policyAddress, proposer: me.address, messages: plan.messages, title,
+      summary: why,
+    });
+
+    out.innerHTML = `${notes}
+      <div class="card card--waiting" style="margin:0">
+        <p class="lede">Grant ${esc(plan.role.label)} in ${esc(plan.scope)} to
+          ${esc(short(plan.holder))}</p>
+        <p class="muted small">${esc(plan.role.office)} What consults it:
+          ${esc(plan.role.consumer)} Once ${esc(f.threshold)} custodians have signed, this office
+          can act inside ${esc(plan.scope)} and nowhere else.</p>
+        ${copyable('gr-doc', doc, 'Write this to proposal.json')}
+        ${copyable('gr-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${executionNote()}
+      </div>`;
+    wireCopies();
+  };
+
+  const revoke = () => {
+    const holderAddr = document.getElementById('rv-holder').value.trim();
+    const title = document.getElementById('rv-title').value.trim();
+    const why = document.getElementById('rv-why').value.trim();
+    const out = document.getElementById('rv-out');
+    const heldBox = document.getElementById('rv-held');
+    const picker = document.getElementById('rv-grant');
+
+    const h = holders.revoke;
+    const wellFormed = holderAddr && !checkAddress(holderAddr).problem;
+
+    // The grants are listed from the chain and picked, not typed. A revocation
+    // names the whole triple — holder, role, country — because a holder may hold
+    // the same role in several countries, and "revoke their supervisor role"
+    // would be ambiguous between one perimeter and all of them.
+    let options = '<option value="">—</option>';
+    if (wellFormed && h) {
+      if (h.grants === null) {
+        heldBox.innerHTML = box('badbox',
+          `This page could not read what ${short(holderAddr)} holds (${h.grantsStatus}). An empty ` +
+          'list and a failed query look identical, so nothing is offered here rather than ' +
+          'offering you a choice from a list that may be short.');
+      } else if (!h.grants.length) {
+        heldBox.innerHTML = box('warnbox',
+          `${short(holderAddr)} holds no role grants, in any country. There is nothing to revoke.`);
+      } else {
+        heldBox.innerHTML = `<p class="muted small">${esc(String(h.grants.length))} grant${
+          h.grants.length === 1 ? '' : 's'}, read from the chain just now.</p>`;
+        options += h.grants.map((g) => {
+          const value = `${g.role}|${g.jurisdiction}`;
+          const by = g.granted_by === f.policyAddress ? 'this foundation' : short(g.granted_by ?? '');
+          return `<option value="${esc(value)}">${esc(g.role)} in ${esc(g.jurisdiction)} — granted by ${
+            esc(by)} at height ${esc(String(g.granted_at_height ?? '?'))}</option>`;
+        }).join('');
+      }
+    } else {
+      heldBox.innerHTML = wellFormed
+        ? '<p class="muted small">Reading what this account holds…</p>'
+        : '';
+    }
+
+    // Rebuilt only when the set of options actually changed, so re-rendering on
+    // every keystroke in the title field does not throw away the selection.
+    const chosen = picker.value;
+    if (picker.dataset.built !== options) {
+      picker.innerHTML = options;
+      picker.dataset.built = options;
+      if (options.includes(`value="${chosen}"`)) picker.value = chosen;
+    }
+
+    const [role = '', jurisdiction = ''] = (picker.value || '').split('|');
+    const plan = revokePlan({
+      policyAddress: f.policyAddress,
+      holder: holderAddr,
+      role,
+      jurisdiction,
+      existingGrants: h?.grants ?? null,
+    });
+
+    // The state of the grants lookup is reported against the address above, so
+    // the plan's own version of it is not repeated under the form.
+    const problems = plan.problems.filter(
+      (p) => !(wellFormed && /Waiting on this holder's grants/.test(p)),
+    );
+    if (!title) problems.push('Give it a title.');
+    if (!why) {
+      problems.push('Say why. Removing an authority is the act least likely to be questioned and ' +
+        'the one whose record matters most.');
+    }
+    if (tooLong(title) || tooLong(why)) {
+      problems.push(`Titles and reasons are limited to ${MAX_METADATA_LEN} bytes.`);
+    }
+
+    const notes = plan.concerns.map((c) => box('warnbox', c)).join('');
+    // Nothing to choose from is not a mistake the custodian can correct, and the
+    // box above has already said so. Asking them to choose a grant that does not
+    // exist would be the page arguing with itself.
+    if (wellFormed && h && Array.isArray(h.grants) && !h.grants.length) {
+      out.innerHTML = '';
+      return;
+    }
+    // As on the grant: `plan.ready` gates the composition, never the length of
+    // the displayed list.
+    if (!plan.ready || problems.length) {
+      out.innerHTML = problems.map((x) => box('warnbox', x)).join('') + notes;
+      return;
+    }
+
+    const doc = proposalDocument({
+      policyAddress: f.policyAddress, proposer: me.address, messages: plan.messages, title,
+      summary: why,
+    });
+
+    out.innerHTML = `${notes}
+      <div class="card card--waiting" style="margin:0">
+        <p class="lede">Revoke ${esc(plan.role.label)} in ${esc(plan.scope)} from
+          ${esc(short(plan.holder))}</p>
+        <p class="muted small">The grant is removed, not marked. Afterwards this office holds
+          nothing in ${esc(plan.scope)} for this role, and every action that consults it
+          — ${esc(plan.role.consumer)} — refuses them there.</p>
+        ${copyable('rv-doc', doc, 'Write this to proposal.json')}
+        ${copyable('rv-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${executionNote()}
       </div>`;
     wireCopies();
   };
@@ -1402,6 +1845,14 @@ async function screenPropose() {
     // What each message is, where the page can say — so pasting a payment or a
     // membership change still gets described in words rather than being treated
     // as unknowable just because it arrived through the general form.
+    // What each message is, and what is wrong with it. Both, and the second half
+    // was missing: this form used the headline and threw the concerns away, so a
+    // pasted grant of the chain-wide scope — which only governance may make, and
+    // which fails at execution after collecting three signatures — composed in
+    // silence. This is the form the other three point people at when they refuse
+    // something, so it is the last place that can afford to say less than it
+    // knows.
+    const decoded = [];
     const described = messages.map((m, i) => {
       // registry included, so an amount renders as 2.5 YML and not as
       // 2,500,000 uyml. Every other place on this page converts; a custodian
@@ -1411,6 +1862,7 @@ async function screenPropose() {
         policyAddress: f.policyAddress, names: f.names, registry: f.registry,
         currentMembers: f.memberAddresses,
       });
+      decoded.push(d);
       const label = `Message ${i + 1}`;
       if (d.understood) {
         return `<div class="row" style="padding:.3rem 0"><strong>${esc(label)}:</strong>
@@ -1421,10 +1873,23 @@ async function screenPropose() {
         <span class="muted small">— this page cannot say what this does.</span></div>`;
     }).join('');
 
+    // De-duplicated against the shape audit, which raises its own version of "the
+    // authority is not the foundation" for the same message, and against itself,
+    // because a proposal granting one office three roles would otherwise repeat
+    // the same caveat three times. One mistake, one sentence.
+    const seen = new Set(audit.flatMap((a) => [...a.problems, ...a.concerns]));
+    const decodedConcerns = [];
+    for (const concern of decoded.flatMap((d) => d.concerns)) {
+      if (seen.has(concern)) continue;
+      seen.add(concern);
+      decodedConcerns.push(concern);
+    }
+
     const notes = [
       ...problems.map((x) => `<div class="warnbox">${esc(x)}</div>`),
       ...fatal.map((x) => `<div class="badbox">${esc(x)}</div>`),
       ...audit.flatMap((a) => a.concerns).map((x) => `<div class="warnbox">${esc(x)}</div>`),
+      ...decodedConcerns.map((x) => `<div class="warnbox">${esc(x)}</div>`),
     ].join('');
 
     if (problems.length || fatal.length) {
@@ -1442,6 +1907,7 @@ async function screenPropose() {
         ${described}
         ${copyable('gp-doc', doc, 'Write this to proposal.json')}
         ${copyable('gp-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${executionNote()}
       </div>`;
     wireCopies();
   };
@@ -1461,6 +1927,24 @@ async function screenPropose() {
     el.addEventListener('input', swap);
     el.addEventListener('change', swap);
   });
+  ['gr-role', 'gr-country', 'gr-title', 'gr-why'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', grant);
+    el.addEventListener('change', grant);
+  });
+  ['rv-grant', 'rv-title', 'rv-why'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', revoke);
+    el.addEventListener('change', revoke);
+  });
+  // The two holder fields go through the lookup, which re-renders when the chain
+  // answers. Nothing about a role grant is composed from a typed address alone.
+  const grHolder = document.getElementById('gr-holder');
+  grHolder.addEventListener('input', () => lookUp('grant', grHolder.value.trim(), grant));
+  grHolder.addEventListener('change', () => lookUp('grant', grHolder.value.trim(), grant));
+  const rvHolder = document.getElementById('rv-holder');
+  rvHolder.addEventListener('input', () => lookUp('revoke', rvHolder.value.trim(), revoke));
+  rvHolder.addEventListener('change', () => lookUp('revoke', rvHolder.value.trim(), revoke));
 }
 
 // ------------------------------------------------------------------- router
