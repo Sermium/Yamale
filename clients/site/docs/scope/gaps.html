@@ -151,6 +151,19 @@ immediately; both are defensible and it is a settlement-policy call, not a
 coding one. Documented in <code>params.proto</code> and
 <a href="../guides/settlement.html">settlement.md</a>, deliberately not decided.</p>
 </li>
+</ol>
+<p><strong>Answered 2026-08-23.</strong> <strong>Every role is granted by the foundation</strong>, and
+chain-wide <code>*</code> scope remains governance&#39;s alone. A country authority may <em>not</em>
+grant roles inside its own country. That is what the code already enforces, so
+nothing changed — but it was a live question and the reasoning is worth keeping:
+delegating national appointment to a national office means one compromised
+office yields every power in that country, because the payments authority could
+appoint the enforcement authority that freezes accounts. The cost accepted in
+exchange is that three custodians sign every national appointment, which is a
+bottleneck and a rubber-stamping risk. Revisit by giving offices the power to
+<em>propose</em> rather than to grant, if the bottleneck turns out to be drafting
+rather than approval.</p>
+<ol start="3">
 <li><p><strong>Whether a bonded validator should still be able to freeze anything.</strong>
 <code>AssertScope</code> now gates <code>x/enforcement</code>&#39;s <code>OpenCase</code>, which changes the
 module&#39;s central property from <em>any bonded validator can freeze</em> to <em>any

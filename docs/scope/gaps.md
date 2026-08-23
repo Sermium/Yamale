@@ -99,6 +99,18 @@ compiled out and outside audit scope.
    coding one. Documented in `params.proto` and
    [settlement.md](../guides/settlement.md), deliberately not decided.
 
+**Answered 2026-08-23.** **Every role is granted by the foundation**, and
+chain-wide `*` scope remains governance's alone. A country authority may *not*
+grant roles inside its own country. That is what the code already enforces, so
+nothing changed — but it was a live question and the reasoning is worth keeping:
+delegating national appointment to a national office means one compromised
+office yields every power in that country, because the payments authority could
+appoint the enforcement authority that freezes accounts. The cost accepted in
+exchange is that three custodians sign every national appointment, which is a
+bottleneck and a rubber-stamping risk. Revisit by giving offices the power to
+*propose* rather than to grant, if the bottleneck turns out to be drafting
+rather than approval.
+
 3. **Whether a bonded validator should still be able to freeze anything.**
    `AssertScope` now gates `x/enforcement`'s `OpenCase`, which changes the
    module's central property from *any bonded validator can freeze* to *any
