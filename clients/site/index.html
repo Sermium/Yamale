@@ -8,6 +8,14 @@
 <link rel="icon" type="image/svg+xml" href="mark.svg">
 <!-- Not "styles.css": that filename is matched by content-blocker filter lists,
      and a visitor running one gets the page with no stylesheet at all. -->
+<!-- Typefaces before the stylesheet, so the request starts as early as the
+     parser can start it. Plex carries the interface and its Arabic companion
+     carries ar; Archivo carries the display line. Every stack in yamale.css
+     names real fallbacks, so a blocked font host degrades to something chosen. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="yamale.css">
 <link rel="stylesheet" href="site.css">
 </head>
 <body>

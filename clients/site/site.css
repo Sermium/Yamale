@@ -12,7 +12,10 @@
 :root {
   color-scheme: light dark;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Typefaces now come from yamale.css, which loads before this file. The
+     stack that was here resolved to whatever the reader's operating system
+     installed, so the headline of a payments network for central banks was
+     rendered in Segoe UI on Windows and Helvetica on a Mac. */
 
   /* Brand palette. Navy carries the weight and brass is the accent -- the
      institutional reading the earlier blue did not have. Token names are kept
@@ -146,10 +149,12 @@ a:focus-visible,
 
 h1 {
   margin: 0 0 1.25rem;
-  font-size: clamp(2rem, 5.5vw, 3.4rem);
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  font-weight: 660;
+  font-family: var(--font-display);
+  font-size: var(--step-6);
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  font-weight: 700;
+  text-wrap: balance;
   /* No cap: the heading was 547px inside a 906px section, which read as the
      hero being a different width from every band below it. */
 }
@@ -170,16 +175,34 @@ h1 {
 
 h2 {
   margin: 0 0 1.5rem;
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: var(--step-4);
+  line-height: 1.16;
   letter-spacing: -0.02em;
-  font-weight: 640;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+/* A band is a section, and it should read as one before it is read. The rule
+   is short and brass rather than full-width and grey: a hairline across the
+   whole column reads as a divider between equals, which is what the page had
+   and why every band looked like more of the same page. */
+.band > .wrap > h2::after,
+.band > .wrap > .band-head > h2::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 2px;
+  margin-top: 0.85rem;
+  background: var(--brass);
 }
 
 .prose h3 {
   margin: 2rem 0 0.5rem;
-  font-size: 1.12rem;
-  font-weight: 620;
+  font-family: var(--font-display);
+  font-size: var(--step-2);
+  font-weight: 600;
+  letter-spacing: -0.008em;
 }
 .prose p { margin: 0 0 1rem; }
 

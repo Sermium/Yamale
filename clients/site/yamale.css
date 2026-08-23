@@ -1,0 +1,282 @@
+/* Yamale — the shared visual system.
+ *
+ * One source of truth for the things every surface gets wrong independently:
+ * typefaces, the type scale, elevation, and the semantic colours. The palette
+ * itself (navy, ink, brass, paper, mist, slate) was already consistent across
+ * the clients; what was missing was everything around it.
+ *
+ * Three faces, and the choice is constrained rather than tasteful:
+ *
+ *   IBM Plex Sans        body and interface
+ *   IBM Plex Sans Arabic the same, for ar
+ *   Archivo              display
+ *   IBM Plex Mono        data — addresses, hashes, heights, amounts
+ *
+ * Plex is the load-bearing decision. This ships in Arabic and Swahili as well
+ * as English, French and Portuguese, and Plex Sans Arabic is a *designed*
+ * companion to Plex Sans rather than a fallback that happens to have the
+ * glyphs — so an Arabic page keeps the same voice instead of looking like a
+ * translation of somebody else's product. Plex was also drawn for technical
+ * documentation, which is the register this needs. Archivo carries the display
+ * line: a grotesque with signage lineage that tightens properly at large sizes
+ * and does not read as the default that ships with every dashboard.
+ *
+ * WHY THIS FILE EXISTS AT ALL: every surface here previously set
+ * `--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI"`, so the
+ * product's headline was rendered in whatever face the reader's operating
+ * system happened to install. That is the single largest reason it read as a
+ * draft rather than as infrastructure a central bank would run.
+ */
+
+/* --------------------------------------------------------------- typefaces */
+/* Google Fonts is loaded by each surface's HTML rather than @import here, so
+   the request starts before this stylesheet has parsed. The fallback stacks
+   below still name real faces: a blocked font host must degrade to something
+   chosen, not to Times. */
+
+:root {
+  --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* A scale, so a page cannot invent a size. Ratio ~1.25, clamped where a
+     heading has to survive a phone and a boardroom projector. */
+  --step--1: 0.8125rem;
+  --step-0: 0.9375rem;
+  --step-1: 1.0625rem;
+  --step-2: 1.25rem;
+  --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+  --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+  --step-5: clamp(2.1rem, 4.6vw, 3rem);
+  --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+  /* Spacing on a 4px grid. Layout uses gap, not stacked margins. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4.5rem;
+
+  --radius: 5px;
+  --radius-lg: 8px;
+  --measure: 68ch;
+
+  /* ------------------------------------------------------------- palette */
+  /* Brand, unchanged — it was already right and already consistent. */
+  --navy: #12253f;
+  --ink: #0b1523;
+  --brass: #a87b3c;
+  --paper: #f6f7f9;
+  --mist: #e3e7ee;
+  --slate: #5c6e88;
+
+  /* Light is the default so that the un-stamped, system-preference state
+     resolves without a media query having to fire first. */
+  --bg: var(--paper);
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --surface-3: #e9eef5;
+  --border: var(--mist);
+  --rule: #d3dae6;
+
+  --text: var(--ink);
+  --text-muted: var(--slate);
+  --text-faint: #8798af;
+  --accent: var(--navy);
+  --accent-ink: #ffffff;
+  --focus: #1f6feb;
+
+  --ok: #0d7a4a;
+  --warn: #a8791b;
+  --bad: #b02a25;
+  --wash-ok: rgba(13, 122, 74, .10);
+  --wash-warn: rgba(168, 121, 27, .12);
+  --wash-bad: rgba(176, 42, 37, .10);
+  --wash-mute: rgba(92, 110, 136, .10);
+  --wash-brass: rgba(168, 123, 60, .12);
+
+  /* Elevation the palette previously had none of: every panel was a 1px
+     border on flat white, which is why the surfaces read as wireframes. */
+  --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+  --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+}
+
+/* Dark, for the two states that reach it: the explicit choice below, and the
+   system preference here. Only tokens are redefined — never a component rule,
+   because a colour whose sole definition sits inside a media query never
+   applies in the un-stamped state. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: var(--ink);
+  --surface: #101f34;
+  --surface-2: #162943;
+  --surface-3: #1d3352;
+  --border: #24405f;
+  --rule: #2c4a6b;
+
+  --text: #e8eef7;
+  --text-muted: #8fa4c4;
+  --text-faint: #6b83a6;
+  --accent: #4d8fd6;
+  --accent-ink: #08111d;
+  --brass: #c49856;
+  --focus: #6ea8ff;
+
+  --ok: #6fbfa5;
+  --warn: #d2a65e;
+  --bad: #ef8a85;
+  --wash-ok: rgba(111, 191, 165, .12);
+  --wash-warn: rgba(210, 166, 94, .14);
+  --wash-bad: rgba(239, 138, 133, .13);
+  --wash-mute: rgba(143, 164, 196, .12);
+  --wash-brass: rgba(196, 152, 86, .16);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+}
+
+/* ------------------------------------------------------------------- base */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  /* Explicit, because the artifact and preview hosts paint their own ground
+     behind the page: a transparent body silently borrows the host's theme. */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+h1 { font-size: var(--step-6); }
+h2 { font-size: var(--step-4); }
+h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+p { margin: 0; max-width: var(--measure); }
+
+/* Data is never set in the body face. An address, a hash, a height or an
+   amount rendered in a proportional sans reads as prose, and the reader cannot
+   compare two of them by eye — which on a payments network is the operation
+   they perform most. */
+code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+  font-family: var(--font-mono);
+  font-feature-settings: 'zero' 1;
+}
+.y-num, .y-tabular, td.y-num, th.y-num {
+  font-variant-numeric: tabular-nums;
+}
+.y-addr { word-break: break-all; font-size: 0.88em; }
+
+/* --------------------------------------------------------------- utilities */
+
+.y-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.y-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.y-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+
+/* State carried in form as well as in words, so what needs attention reads at
+   a glance rather than on a second pass. */
+.y-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+.y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+.y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+.y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+.y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+/* Wide content scrolls inside its own box. The page body never scrolls
+   sideways — a horizontal scrollbar on the document is how a table takes a
+   whole layout with it. */
+.y-scroll { overflow-x: auto; }
+
+/* Keyboard focus is visible everywhere, once, from a token. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
