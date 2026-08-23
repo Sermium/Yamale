@@ -9,12 +9,30 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import {
+  ASSIGNED_COUNTRIES,
+  CHAIN_WIDE,
+  FOUNDATION_COUNTRY,
   MAX_EXECUTION_PERIOD_SECONDS,
+  ROLES,
+  assignedCountries,
+  checkAddress,
+  checkScope,
+  classifyHolder,
   displayLabel,
+  findGrant,
+  grantPlan,
+  grantRoleMessage,
+  normaliseScope,
+  officeSummary,
+  revokePlan,
+  revokeRoleMessage,
+  roleByName,
   carriedOut,
   execCommand,
   parseExecutions,
   parseSubmissions,
+  proposalDocument,
+  submitCommand,
   auditMessages,
   parseMessages,
   setChainId,
@@ -1049,4 +1067,697 @@ test('auditing without a policy address checks shape only', () => {
   const [a] = auditMessages([{ '@type': '/cosmos.bank.v1beta1.MsgSend', from_address: OUTSIDER }]);
   assert.deepEqual(a.problems, []);
   assert.deepEqual(a.concerns, []);
+});
+
+// -------------------------------------------------------- country-scoped roles
+//
+// Every refusal here has the same shape of consequence: a rule not enforced
+// before composing is a rule enforced after three custodians have signed, waited
+// out a voting period, and watched the execution fail. So the refusals are what
+// is tested hardest, and each one is tested for its *reason* being present in the
+// text, not just for a problem count — a page that refuses without saying why
+// sends a custodian to the wrong place.
+
+/** An office group, as the chain returns one. Its own admin, two of three. */
+const OFFICE = 'yml1lands0000000000000000000000000000000000000000000000000000000';
+const officePolicy = (over = {}) => ({
+  address: OFFICE,
+  group_id: '7',
+  admin: OFFICE,
+  decision_policy: { '@type': '/cosmos.group.v1.ThresholdDecisionPolicy', threshold: '2' },
+  ...over,
+});
+const officeMembers = () => [
+  { member: { address: A, weight: '1', metadata: 'Adaeze (AAAA-1111)' } },
+  { member: { address: B, weight: '1', metadata: 'Bola (BBBB-2222)' } },
+  { member: { address: C, weight: '1', metadata: 'Chidi (CCCC-3333)' } },
+];
+
+/** The verdict the page reaches after a successful group-policy lookup. */
+const IS_GROUP = { verdict: 'group', groupId: '7', problem: null };
+
+const grantArgs = (over = {}) => ({
+  policyAddress: POLICY,
+  holder: OFFICE,
+  role: 'ROLE_REGISTRY_AUTHORITY',
+  jurisdiction: 'ZA',
+  holderVerdict: IS_GROUP,
+  existingGrants: [],
+  ...over,
+});
+
+// --- the role table ---
+
+test('the five roles are the five the chain has, numbered as the proto numbers them', () => {
+  assert.deepEqual(
+    ROLES.map((r) => [r.number, r.name]),
+    [
+      [1, 'ROLE_REGISTRY_AUTHORITY'],
+      [2, 'ROLE_MONETARY_AUTHORITY'],
+      [3, 'ROLE_PAYMENTS_AUTHORITY'],
+      [4, 'ROLE_ENFORCEMENT_AUTHORITY'],
+      [5, 'ROLE_SUPERVISOR'],
+    ],
+  );
+  assert.equal(roleByName('ROLE_UNSPECIFIED'), null, 'the zero value is not a role on offer');
+});
+
+test('the two roles nothing can use are marked, and say what they do not switch on', () => {
+  const dead = ROLES.filter((r) => !r.live).map((r) => r.name);
+  assert.deepEqual(dead, ['ROLE_ENFORCEMENT_AUTHORITY', 'ROLE_SUPERVISOR']);
+
+  const enforcement = roleByName('ROLE_ENFORCEMENT_AUTHORITY');
+  assert.match(enforcement.caveat, /bonded validator/);
+  assert.match(enforcement.caveat, /emergency_authority/);
+
+  const supervisor = roleByName('ROLE_SUPERVISOR');
+  assert.match(supervisor.caveat, /Nothing on this chain consults this role/);
+
+  // And the three that work carry no caveat at all, so the warning means
+  // something when it appears.
+  for (const r of ROLES.filter((x) => x.live)) assert.equal(r.caveat, null);
+
+  // The picker label says a dead role is dead in words short enough to survive a
+  // <select> on a phone. A label clipped to "Enforcement authority — x/enforce…"
+  // would read as a working capability, which is the opposite of the truth.
+  for (const r of ROLES) {
+    assert.ok(r.picker.length <= 22, `${r.name} picker label is ${r.picker.length} chars`);
+    assert.equal(/nothing/.test(r.picker), !r.live, `${r.name} picker must match its liveness`);
+  }
+});
+
+// --- the scope ---
+
+test('an assigned country code is accepted, in either case', () => {
+  assert.deepEqual(checkScope('ZA'), { scope: 'ZA', problem: null });
+  assert.deepEqual(checkScope('za'), { scope: 'ZA', problem: null });
+  assert.deepEqual(checkScope('  sn  '), { scope: 'SN', problem: null });
+});
+
+test('the foundation may not grant the chain-wide scope, and is told why', () => {
+  const { scope, problem } = checkScope('*');
+  assert.equal(scope, CHAIN_WIDE, 'the marker is never folded into a country code');
+  assert.match(problem, /may not grant the chain-wide scope/);
+  assert.match(problem, /Only governance/);
+  // The consequence, not just the rule: this is the one refusal whose absence
+  // costs a whole voting period.
+  assert.match(problem, /collect three signatures.*then fail/s);
+});
+
+test('normalising can never invent the chain-wide marker', () => {
+  // The property is about every input, not only the assigned ones — a mutation
+  // pass found that a version asserting this over the country list alone let a
+  // fold of the reserved code through, and the reserved code is exactly what
+  // somebody reaching for chain-wide authority types.
+  assert.equal(normaliseScope('*'), CHAIN_WIDE, 'the marker itself passes through');
+  const inputs = [
+    ...assignedCountries(), ...assignedCountries().map((c) => c.toLowerCase()),
+    'zz', 'ZZ', 'Zz', '', ' ', 'star', 'all', 'any', 'ALL', '**', '*a', 'a*',
+    '%', '.', '-', 'xx', 'XX', 'null', 'undefined', '0',
+  ];
+  for (const input of inputs) {
+    assert.notEqual(normaliseScope(input), CHAIN_WIDE, `${JSON.stringify(input)} became "*"`);
+  }
+  assert.notEqual(normaliseScope(null), CHAIN_WIDE);
+  assert.notEqual(normaliseScope(undefined), CHAIN_WIDE);
+});
+
+test("the foundation's own reserved code is refused as a country an office sits in", () => {
+  const { problem } = checkScope(FOUNDATION_COUNTRY);
+  assert.match(problem, /reserved code/);
+  assert.match(problem, /absence\* of a national perimeter|absence of a national perimeter/);
+  // It must not be swallowed by the generic "not an assigned code" branch, whose
+  // wording would send the reader looking for a typo in a code they typed on
+  // purpose.
+  assert.doesNotMatch(problem, /ISO has assigned/);
+  assert.equal(ASSIGNED_COUNTRIES.has(FOUNDATION_COUNTRY), false);
+});
+
+test('two letters that are not a country are refused, and named', () => {
+  for (const code of ['NX', 'QK', 'ZX']) {
+    const { problem } = checkScope(code);
+    assert.match(problem, new RegExp(`"${code}" is not an ISO 3166-1`));
+  }
+  assert.match(checkScope('ZAA').problem, /not an ISO 3166-1/);
+  assert.match(checkScope('Z').problem, /not an ISO 3166-1/);
+});
+
+test('an empty jurisdiction is refused rather than defaulted', () => {
+  assert.match(checkScope('').problem, /Name the country/);
+  assert.match(checkScope(null).problem, /Name the country/);
+});
+
+test('the mirrored ISO table matches the chain on the codes this deployment uses', () => {
+  // The whole table is a duplicate of x/alias/types/iso3166.go, so this asserts
+  // the properties that would break a grant rather than re-listing it: the
+  // countries in the repository's own guides are present, the reserved code is
+  // absent, and nothing two-letter-shaped slipped in that is not two letters.
+  for (const code of ['ZA', 'SN', 'GH', 'NG', 'KE', 'GB', 'US', 'CH']) {
+    assert.ok(ASSIGNED_COUNTRIES.has(code), `${code} should be an assigned code`);
+  }
+  assert.equal(ASSIGNED_COUNTRIES.size, 249, 'the assigned list is 249 codes');
+  for (const code of ASSIGNED_COUNTRIES) assert.match(code, /^[A-Z]{2}$/);
+});
+
+// --- the holder ---
+
+test('a plain key is refused before composing, not after voting', () => {
+  // Verbatim from the live node: a group-policy lookup on a plain key answers
+  // HTTP 500 with this body.
+  const verdict = classifyHolder({
+    status: 500,
+    body: { code: 2, message: 'codespace sdk code 38: not found: group policy', details: [] },
+  });
+  assert.equal(verdict.verdict, 'plain-key');
+  assert.match(verdict.problem, /not an x\/group account/);
+  assert.match(verdict.problem, /one key is one bribe/);
+
+  const plan = grantPlan(grantArgs({ holderVerdict: verdict }));
+  assert.equal(plan.ready, false);
+  assert.deepEqual(plan.messages, [], 'nothing is composed for a plain-key holder');
+  assert.ok(plan.problems.some((p) => /not an x\/group account/.test(p)));
+});
+
+test('a group policy is accepted and its group id carried through', () => {
+  const verdict = classifyHolder({ status: 200, body: { info: officePolicy() } });
+  assert.deepEqual(verdict, { verdict: 'group', groupId: '7', problem: null });
+});
+
+test('an address the chain cannot decode is told apart from a plain key', () => {
+  // Both messages verbatim from yamale-devnet-2. The second is the one that
+  // matters in practice — a transposed pair of characters in a hand-retyped
+  // address — and an earlier version of the pattern here said "checksum failed",
+  // which matches neither.
+  for (const message of [
+    'decoding bech32 failed: invalid character not part of charset: 111',
+    'decoding bech32 failed: invalid checksum (expected 3xm8uj got 3xm8ju)',
+    'invalid checksum (expected 3xm8uj got 3xm8ju)',
+  ]) {
+    const verdict = classifyHolder({ status: 500, body: { code: 2, message } });
+    assert.equal(verdict.verdict, 'malformed', message);
+    assert.match(verdict.problem, /cannot read that as an address/);
+  }
+});
+
+test('a lookup that did not answer is unknown, and still blocks the grant', () => {
+  const verdict = classifyHolder({ status: 'unreachable', body: '' });
+  assert.equal(verdict.verdict, 'unknown');
+  // The distinction that matters: it must not read as a verdict about the
+  // address, because the custodian would go and check the address.
+  assert.match(verdict.problem, /lookup that failed, and not necessarily the address/);
+
+  const plan = grantPlan(grantArgs({ holderVerdict: verdict }));
+  assert.equal(plan.ready, false, 'an unchecked holder fails closed');
+});
+
+test('a 200 that names no group is unknown rather than accepted', () => {
+  const verdict = classifyHolder({ status: 200, body: { info: null } });
+  assert.equal(verdict.verdict, 'unknown');
+  assert.equal(grantPlan(grantArgs({ holderVerdict: verdict })).ready, false);
+});
+
+test('a grant is not composed while the holder lookup is still outstanding', () => {
+  const plan = grantPlan(grantArgs({ holderVerdict: null }));
+  assert.equal(plan.ready, false);
+  assert.ok(plan.problems.some((p) => /Waiting on the group-policy lookup/.test(p)));
+});
+
+test('a malformed holder address is refused without a chain lookup at all', () => {
+  const plan = grantPlan(grantArgs({ holder: 'not-an-address', holderVerdict: null }));
+  assert.equal(plan.ready, false);
+  assert.ok(plan.problems.some((p) => /not a Yamale account address/.test(p)));
+  // And it does not also nag about the lookup, which would be two complaints
+  // about one mistake.
+  assert.ok(!plan.problems.some((p) => /Waiting on the group-policy lookup/.test(p)));
+});
+
+test('an empty holder asks for one rather than reporting a bad address', () => {
+  assert.match(checkAddress('', 'address of the office').problem, /^Give the address of the office/);
+});
+
+test('an address that is only the prefix is refused, not accepted for starting right', () => {
+  // A mutation pass found the length floor was unguarded: "yml1" alone passed,
+  // which is the shape of a half-pasted address rather than a mistyped one — and
+  // a half-paste is what happens when a custodian copies out of a terminal.
+  for (const stub of ['yml1', 'yml1abc', POLICY.slice(0, 41), B.slice(0, 41)]) {
+    assert.match(checkAddress(stub).problem, /not a Yamale account address/, stub);
+  }
+  assert.match(checkAddress('ymlvaloper1cgguvt0hvdg2602flzan9shg0g56ruje62ug5j').problem,
+    /not a Yamale account address/, 'a validator operator address is not an account');
+  // The real ones, at both lengths this chain uses: 42 for a key account and 62
+  // for a group policy.
+  assert.equal(B.length, 42);
+  assert.equal(POLICY.length, 62);
+  assert.equal(checkAddress(B).problem, null);
+  assert.equal(checkAddress(POLICY).problem, null);
+  // And a grant is not composed from a truncated one.
+  assert.equal(grantPlan(grantArgs({ holder: 'yml1' })).ready, false);
+});
+
+// --- inspecting the office before signing ---
+
+test('the office a role goes to is shown as its membership and threshold', () => {
+  const office = officeSummary({
+    policy: officePolicy(),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  assert.equal(office.threshold, 2);
+  assert.equal(office.totalWeight, 3);
+  assert.equal(office.groupId, '7');
+  assert.deepEqual(office.members.map((m) => m.name), ['Adaeze', 'Bola', 'Chidi']);
+  assert.deepEqual(office.members.map((m) => m.fingerprint), ['AAAA-1111', 'BBBB-2222', 'CCCC-3333']);
+  assert.deepEqual(office.concerns, [], 'a two-of-three office administering itself is clean');
+});
+
+test('an office that is really the foundation is flagged, with the reason it happens', () => {
+  const office = officeSummary({
+    policy: officePolicy({ address: POLICY, admin: POLICY }),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  assert.ok(office.concerns.some((c) => /the foundation itself/.test(c)));
+  // The cause, not just the fact. This is the bug a live ceremony run actually
+  // hit, and the address looked correct.
+  assert.ok(office.concerns.some((c) => /sequence number/.test(c)));
+  assert.ok(office.concerns.some((c) => /policy sequence 1/.test(c)));
+
+  // It is a concern, not a refusal: the chain permits it on purpose.
+  const plan = grantPlan(grantArgs({ holder: POLICY, office }));
+  assert.equal(plan.ready, true);
+  assert.ok(plan.concerns.some((c) => /the foundation itself/.test(c)));
+});
+
+test('a group somebody else administers is flagged as a threshold that is advisory', () => {
+  const office = officeSummary({
+    policy: officePolicy({ admin: OUTSIDER }),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  assert.ok(office.concerns.some((c) => /admin is/.test(c) && /advisory/.test(c)));
+  assert.ok(office.concerns.some((c) => /granting it to that outsider/.test(c)));
+});
+
+test('an office that decides on one signature is flagged as not an office', () => {
+  const office = officeSummary({
+    policy: officePolicy({ decision_policy: { threshold: '1' } }),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  assert.ok(office.concerns.some((c) => /decides on 1 signature/.test(c)));
+  assert.ok(office.concerns.some((c) => /single member can act alone/.test(c)));
+});
+
+test('an office whose threshold exceeds its weight can never use what it is granted', () => {
+  const office = officeSummary({
+    policy: officePolicy({ decision_policy: { threshold: '4' } }),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  assert.ok(office.concerns.some((c) => /never reach its own threshold/.test(c)));
+});
+
+test('an unreadable member weight is reported, never counted as zero', () => {
+  const members = officeMembers();
+  members[0].member.weight = '1.5';
+  const office = officeSummary({ policy: officePolicy(), members, foundationAddress: POLICY });
+  assert.equal(office.members.find((m) => m.name === 'Adaeze').weight, null);
+  assert.equal(office.totalWeight, 2, 'the unreadable weight is excluded, not read as zero');
+  assert.ok(office.concerns.some((c) => /could not be read/.test(c)));
+});
+
+test('an unreadable threshold is null rather than zero', () => {
+  const office = officeSummary({
+    policy: officePolicy({ decision_policy: { threshold: '' } }),
+    members: officeMembers(),
+  });
+  assert.equal(office.threshold, null);
+  // A zero would have tripped the "decides on 0 signatures" branch and told a
+  // custodian something the chain never said.
+  assert.ok(!office.concerns.some((c) => /decides on/.test(c)));
+});
+
+test('an office with no members returned is not shown as an empty roster', () => {
+  const office = officeSummary({ policy: officePolicy(), members: [] });
+  assert.ok(office.concerns.some((c) => /returned no members/.test(c)));
+});
+
+test("the office's concerns reach the plan a custodian signs", () => {
+  const office = officeSummary({
+    policy: officePolicy({ admin: OUTSIDER }),
+    members: officeMembers(),
+    foundationAddress: POLICY,
+  });
+  const plan = grantPlan(grantArgs({ office }));
+  assert.ok(plan.concerns.some((c) => /advisory/.test(c)),
+    'inspecting the office is pointless if the finding does not travel');
+});
+
+// --- the composed grant ---
+
+test('a grant composes the message the chain registered, with the enum by name', () => {
+  const plan = grantPlan(grantArgs({ role: 'ROLE_PAYMENTS_AUTHORITY', jurisdiction: 'za' }));
+  assert.equal(plan.ready, true);
+  assert.deepEqual(plan.problems, []);
+  assert.deepEqual(plan.messages, [{
+    // Verified against cdc.MarshalInterfaceJSON on the chain's own types: the
+    // proto package is blockchain.alias.v1, NOT yamale.blockchain.alias.v1,
+    // which is only the prefix on the module's REST paths.
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY,
+    holder: OFFICE,
+    role: 'ROLE_PAYMENTS_AUTHORITY',
+    jurisdiction: 'ZA',
+  }]);
+});
+
+test('the authority on a composed grant is the foundation and nothing else', () => {
+  // x/group signs a proposal's messages as the policy account, so any other
+  // authority passes submission, collects three signatures, and fails at
+  // execution.
+  const m = grantRoleMessage({
+    policyAddress: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+  });
+  assert.equal(m.authority, POLICY);
+  const r = revokeRoleMessage({
+    policyAddress: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+  });
+  assert.equal(r.authority, POLICY);
+  assert.equal(r['@type'], '/blockchain.alias.v1.MsgRevokeRole');
+});
+
+test('the composed grant is normalised, so a lowercase code is not sent as typed', () => {
+  const plan = grantPlan(grantArgs({ jurisdiction: 'sn' }));
+  assert.equal(plan.messages[0].jurisdiction, 'SN');
+});
+
+test('a grant of a role nothing can use still composes, and says so', () => {
+  for (const role of ['ROLE_ENFORCEMENT_AUTHORITY', 'ROLE_SUPERVISOR']) {
+    const plan = grantPlan(grantArgs({ role }));
+    assert.equal(plan.ready, true, `${role} is still grantable`);
+    assert.ok(plan.concerns.includes(roleByName(role).caveat),
+      `${role} must carry its caveat to the point of signing`);
+  }
+});
+
+test('a grant of a working role carries no caveat', () => {
+  const plan = grantPlan(grantArgs({ role: 'ROLE_MONETARY_AUTHORITY' }));
+  assert.deepEqual(plan.concerns, []);
+});
+
+test('an unset role is refused with the proto3 reason', () => {
+  const unset = grantPlan(grantArgs({ role: 'ROLE_UNSPECIFIED' }));
+  assert.equal(unset.ready, false);
+  assert.ok(unset.problems.some((p) => /ROLE_UNSPECIFIED is refused/.test(p)));
+
+  const missing = grantPlan(grantArgs({ role: '' }));
+  assert.equal(missing.ready, false);
+  assert.ok(missing.problems.some((p) => /Choose the role/.test(p)));
+});
+
+test('a grant naming the chain-wide scope composes nothing', () => {
+  const plan = grantPlan(grantArgs({ jurisdiction: '*' }));
+  assert.equal(plan.ready, false);
+  assert.deepEqual(plan.messages, []);
+  assert.ok(plan.problems.some((p) => /may not grant the chain-wide scope/.test(p)));
+});
+
+test('re-granting an existing triple is allowed and described as a rewrite', () => {
+  const existing = [{
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+    granted_by: POLICY, granted_at_height: '27100',
+  }];
+  const plan = grantPlan(grantArgs({ existingGrants: existing }));
+  assert.equal(plan.ready, true, 'the chain accepts it; it rewrites attribution');
+  assert.ok(plan.concerns.some((c) => /already holds ROLE_REGISTRY_AUTHORITY in ZA/.test(c)));
+  assert.ok(plan.concerns.some((c) => /27100/.test(c)), 'the height it was first granted at');
+});
+
+test('a grant of a different role to the same office is not reported as a duplicate', () => {
+  const existing = [{
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY,
+  }];
+  const plan = grantPlan(grantArgs({ role: 'ROLE_MONETARY_AUTHORITY', existingGrants: existing }));
+  assert.deepEqual(plan.concerns, []);
+});
+
+test('a grant of the same role in a different country is not a duplicate either', () => {
+  const existing = [{
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY,
+  }];
+  const plan = grantPlan(grantArgs({ jurisdiction: 'SN', existingGrants: existing }));
+  assert.deepEqual(plan.concerns, []);
+  assert.equal(plan.messages[0].jurisdiction, 'SN');
+});
+
+// --- the composed revocation ---
+
+const HELD = [
+  {
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+    granted_by: POLICY, granted_at_height: '27100',
+  },
+  {
+    holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'SN',
+    granted_by: OUTSIDER, granted_at_height: '9',
+  },
+];
+
+const revokeArgs = (over = {}) => ({
+  policyAddress: POLICY,
+  holder: OFFICE,
+  role: 'ROLE_REGISTRY_AUTHORITY',
+  jurisdiction: 'ZA',
+  existingGrants: HELD,
+  ...over,
+});
+
+test('a revocation composes the message the chain registered', () => {
+  const plan = revokePlan(revokeArgs());
+  assert.equal(plan.ready, true);
+  assert.deepEqual(plan.messages, [{
+    '@type': '/blockchain.alias.v1.MsgRevokeRole',
+    authority: POLICY,
+    holder: OFFICE,
+    role: 'ROLE_REGISTRY_AUTHORITY',
+    jurisdiction: 'ZA',
+  }]);
+});
+
+test('revoking a grant that was never made is refused, and what is held is listed', () => {
+  const plan = revokePlan(revokeArgs({ role: 'ROLE_MONETARY_AUTHORITY' }));
+  assert.equal(plan.ready, false);
+  assert.deepEqual(plan.messages, []);
+  const [problem] = plan.problems;
+  assert.match(problem, /does not hold ROLE_MONETARY_AUTHORITY in ZA/);
+  assert.match(problem, /ROLE_REGISTRY_AUTHORITY in ZA/, 'what it does hold, so the typo is visible');
+  assert.match(problem, /ROLE_SUPERVISOR in SN/);
+});
+
+test('revoking the right role in the wrong country is refused', () => {
+  // The country is part of what is revoked rather than implied, so this is the
+  // mistake the chain refuses and the one a console has to catch: "revoke their
+  // supervisor role" is ambiguous between one perimeter and all of them.
+  const plan = revokePlan(revokeArgs({ role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA' }));
+  assert.equal(plan.ready, false);
+  assert.match(plan.problems[0], /does not hold ROLE_SUPERVISOR in ZA/);
+
+  const right = revokePlan(revokeArgs({ role: 'ROLE_SUPERVISOR', jurisdiction: 'SN' }));
+  assert.equal(right.ready, true);
+});
+
+test('a holder with no grants at all is told that, not shown an empty list', () => {
+  const plan = revokePlan(revokeArgs({ existingGrants: [] }));
+  assert.equal(plan.ready, false);
+  assert.match(plan.problems[0], /holds no role grants at all/);
+});
+
+test('a revocation is not composed while the grant list is still outstanding', () => {
+  const plan = revokePlan(revokeArgs({ existingGrants: null }));
+  assert.equal(plan.ready, false);
+  assert.ok(plan.problems.some((p) => /Waiting on this holder's grants/.test(p)));
+});
+
+test('a revocation does NOT require the holder to be a group', () => {
+  // Deliberate, and the opposite of the grant rule. A grant that somehow reached
+  // a plain key is precisely the grant that most needs removing, and demanding a
+  // group here would make the bad grant the one nobody could revoke.
+  const plan = revokePlan(revokeArgs({
+    holder: B,
+    existingGrants: [{ holder: B, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY }],
+  }));
+  assert.equal(plan.ready, true);
+  assert.equal(plan.messages[0].holder, B);
+});
+
+test('revoking a grant governance made is allowed and flagged as what it is', () => {
+  const plan = revokePlan(revokeArgs({ role: 'ROLE_SUPERVISOR', jurisdiction: 'SN' }));
+  assert.equal(plan.ready, true);
+  assert.ok(plan.concerns.some((c) => /not by the foundation/.test(c)));
+  assert.ok(plan.concerns.some((c) => /reduction of the validator set's power/.test(c)));
+});
+
+test("revoking the foundation's own grant carries no such flag", () => {
+  const plan = revokePlan(revokeArgs());
+  assert.deepEqual(plan.concerns, []);
+});
+
+test('a revocation naming the chain-wide scope composes nothing', () => {
+  const plan = revokePlan(revokeArgs({ jurisdiction: '*' }));
+  assert.equal(plan.ready, false);
+  assert.deepEqual(plan.messages, []);
+  assert.ok(plan.problems.some((p) => /may not grant the chain-wide scope/.test(p)));
+});
+
+test('an unpicked grant is one complaint, not two', () => {
+  // A revocation names a role and a country together, so an unset pair is one
+  // mistake. Two sentences here would ask a custodian to "name the country this
+  // role is being granted in" on the form that takes one away.
+  const plan = revokePlan(revokeArgs({ role: '', jurisdiction: '' }));
+  assert.equal(plan.ready, false);
+  assert.deepEqual(plan.problems, ['Choose which grant to remove.']);
+});
+
+test('a half-picked grant still gets both halves checked', () => {
+  // The pairing above must not become a way for one bad half to travel unchecked.
+  const noCountry = revokePlan(revokeArgs({ role: 'ROLE_SUPERVISOR', jurisdiction: '' }));
+  assert.ok(noCountry.problems.some((p) => /Name the country/.test(p)));
+
+  const noRole = revokePlan(revokeArgs({ role: '', jurisdiction: 'ZA' }));
+  assert.ok(noRole.problems.some((p) => /Choose which grant to remove/.test(p)));
+
+  const chainWide = revokePlan(revokeArgs({ role: '', jurisdiction: '*' }));
+  assert.ok(chainWide.problems.some((p) => /may not grant the chain-wide scope/.test(p)),
+    'an unset role must not hide a scope only governance may touch');
+});
+
+test('a revocation with an unset role is refused with the revocation reason', () => {
+  const plan = revokePlan(revokeArgs({ role: 'ROLE_UNSPECIFIED' }));
+  assert.equal(plan.ready, false);
+  assert.ok(plan.problems.some((p) => /Revoke whatever role was left unset/.test(p)));
+});
+
+test('a grant is found by role and country together, never by either alone', () => {
+  assert.equal(findGrant(HELD, 'ROLE_SUPERVISOR', 'SN').granted_by, OUTSIDER);
+  assert.equal(findGrant(HELD, 'ROLE_SUPERVISOR', 'ZA'), null);
+  assert.equal(findGrant(HELD, 'ROLE_REGISTRY_AUTHORITY', 'SN'), null);
+  assert.equal(findGrant(null, 'ROLE_SUPERVISOR', 'SN'), null);
+});
+
+// --- reading one on the voting screen ---
+
+test('a role grant in a proposal is described in words, not as a type URL', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY,
+    holder: OFFICE,
+    role: 'ROLE_REGISTRY_AUTHORITY',
+    jurisdiction: 'ZA',
+  }, { policyAddress: POLICY, names: { [OFFICE]: 'South Africa lands commission' } });
+
+  assert.equal(d.understood, true);
+  assert.match(d.headline, /Grant Registry authority in ZA to South Africa lands commission/);
+  assert.deepEqual(d.concerns, []);
+  assert.ok(d.detail.some((x) => x.label === 'What consults it' && /x\/land/.test(x.value)));
+});
+
+test('a revocation in a proposal reads as a removal, not as a grant', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgRevokeRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_PAYMENTS_AUTHORITY', jurisdiction: 'SN',
+  }, { policyAddress: POLICY });
+  assert.match(d.headline, /^Revoke Payments authority in SN from/);
+  assert.ok(d.detail.some((x) => x.label === 'Taken from'));
+});
+
+test('a grant of a role nothing can use is flagged on the voting screen too', () => {
+  // The custodian who votes is not the custodian who composed it, so the caveat
+  // has to be on the screen where the decision is taken.
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.equal(d.understood, true);
+  assert.ok(d.concerns.some((c) => /Nothing on this chain consults this role/.test(c)));
+});
+
+test('a revocation of a dead role is not flagged with the grant caveat', () => {
+  // Removing a role nothing consults has no such caveat: it takes away exactly
+  // what the grant conferred, which is nothing, and saying otherwise would be
+  // noise on the one action that should be easy.
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgRevokeRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.deepEqual(d.concerns, []);
+});
+
+test('a grant signed by anybody but the foundation is flagged on the voting screen', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: OUTSIDER, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /not the foundation account/.test(c)));
+  assert.ok(d.concerns.some((c) => /fail at execution/.test(c)));
+});
+
+test('a grant of the chain-wide scope is flagged as one that will fail', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: '*',
+  }, { policyAddress: POLICY });
+  assert.match(d.headline, /in \*/);
+  assert.ok(d.concerns.some((c) => /only governance may grant or revoke/.test(c)));
+});
+
+test('a grant naming a country that does not exist is flagged', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'NX',
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /"NX" is not an assigned ISO/.test(c)));
+});
+
+test('a grant with the role left unset is flagged rather than described as a role', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /The role is unset/.test(c)));
+  assert.ok(!d.detail.some((x) => x.label === 'What consults it'));
+});
+
+test('a grant to the foundation itself is flagged on the voting screen', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: POLICY, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /holder is the foundation itself/.test(c)));
+  assert.ok(d.concerns.some((c) => /sequence number alone/.test(c)));
+});
+
+test('the type URL a REST path would suggest is not understood', () => {
+  // /yamale/blockchain/alias/v1/… is the REST prefix; blockchain.alias.v1 is the
+  // proto package. Guessing the first as a type URL yields a message the
+  // interface registry cannot resolve, and this page must not describe it as
+  // though it would work.
+  const d = describeMessage({
+    '@type': '/yamale.blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+  assert.equal(d.understood, false);
+});
+
+test('a composed grant document carries no carriage return', () => {
+  // Every command on this page ends up in a shell, and a CR gives
+  // `$'\r': command not found` — an error naming neither the cause nor the file.
+  const plan = grantPlan(grantArgs());
+  const doc = proposalDocument({
+    policyAddress: POLICY, proposer: A, messages: plan.messages,
+    title: 'Grant the South Africa lands commission its registry role',
+    summary: 'Two of three, verified against the ceremony record.',
+  });
+  assert.equal(doc.indexOf('\r'), -1);
+  assert.equal(shellSafe(doc), doc);
+  assert.equal(shellSafe(submitCommand({ proposer: A })), submitCommand({ proposer: A }));
 });

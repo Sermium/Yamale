@@ -367,6 +367,84 @@ export function describeMessage(message, ctx = {}) {
     };
   }
 
+  // A role grant or a revocation, which is what admitting a country consists of.
+  //
+  // Decoded here rather than only in the form that composes them, because the
+  // form is not where the decision is taken. A country-enrolment proposal is
+  // raised by one custodian and read by the other four on the voting screen, and
+  // before this case existed it rendered there as "this console cannot say what
+  // this alias message does" — for the messages that hand a national office the
+  // power to freeze land or admit a bank.
+  if (
+    typeUrl === '/blockchain.alias.v1.MsgGrantRole' ||
+    typeUrl === '/blockchain.alias.v1.MsgRevokeRole'
+  ) {
+    const granting = typeUrl.endsWith('MsgGrantRole');
+    const known = roleByName(message.role);
+    const scope = String(message.jurisdiction ?? '');
+    const concerns = [];
+
+    if (ctx.policyAddress && message.authority !== ctx.policyAddress) {
+      concerns.push(
+        `This names ${short(message.authority)} as the authority, which is not the foundation ` +
+          'account. x/group signs every message in a proposal as the foundation, so this one is ' +
+          'not authorised by it and will fail at execution.',
+      );
+    }
+    if (!message.role || message.role === 'ROLE_UNSPECIFIED') {
+      concerns.push(
+        'The role is unset. The chain refuses ROLE_UNSPECIFIED everywhere, so this cannot ' +
+          'execute — and proto3 cannot tell an unset field from a role numbered zero, which is ' +
+          'why the enum starts at one.',
+      );
+    } else if (!known) {
+      concerns.push(`"${message.role}" is not a role this chain has, so this cannot execute.`);
+    }
+    if (scope === CHAIN_WIDE) {
+      concerns.push(
+        'This names the chain-wide scope "*", which only governance may grant or revoke. Signed ' +
+          'as the foundation it is refused before the constitution is even read, so this ' +
+          'proposal would collect its signatures and then fail.',
+      );
+    } else if (scope === FOUNDATION_COUNTRY) {
+      concerns.push(
+        `"${FOUNDATION_COUNTRY}" is the foundation's reserved code, not a country. The chain ` +
+          'refuses it as a grant scope: it would confer authority over nowhere while reading ' +
+          'like authority over everywhere.',
+      );
+    } else if (!ASSIGNED_COUNTRIES.has(scope)) {
+      concerns.push(
+        `"${scope}" is not an assigned ISO 3166-1 alpha-2 code, so the chain will refuse this.`,
+      );
+    }
+    if (granting && known && !known.live) concerns.push(known.caveat);
+    if (granting && ctx.policyAddress && message.holder === ctx.policyAddress) {
+      concerns.push(
+        'The holder is the foundation itself. That is permitted — a country admitted before its ' +
+          'offices exist needs an interim authority — and it is also what a mispredicted office ' +
+          'address looks like, because a policy address comes from a sequence number alone.',
+      );
+    }
+
+    const where = ASSIGNED_COUNTRIES.has(scope) ? scope : `${scope || '(none given)'}`;
+    return {
+      typeUrl,
+      understood: true,
+      headline: granting
+        ? `Grant ${known?.label ?? message.role ?? '(no role)'} in ${where} to ${name(message.holder)}`
+        : `Revoke ${known?.label ?? message.role ?? '(no role)'} in ${where} from ${name(message.holder)}`,
+      detail: [
+        { label: granting ? 'Granted to' : 'Taken from', value: message.holder ?? '', address: true },
+        { label: 'Role', value: message.role ?? '(none given)' },
+        { label: 'Country', value: scope || '(none given)' },
+        ...(known ? [{ label: 'What consults it', value: known.consumer }] : []),
+        { label: 'Signed by', value: message.authority ?? '', address: true },
+      ],
+      concerns,
+      raw: message,
+    };
+  }
+
   // Deliberately not a JSON dump dressed up as a description. The page shows
   // this as a refusal to advise, and the raw message only behind a disclosure
   // that says it has not been checked.
@@ -1243,4 +1321,694 @@ export function auditMessages(messages, { policyAddress } = {}) {
 /** A message the custodian typed, exactly as typed, for the proposal document. */
 export function customMessages(messages) {
   return Array.isArray(messages) ? messages : [];
+}
+
+// --- the country-scoped roles -------------------------------------------------
+//
+// The foundation's other job, and the one it had no interface for at all.
+//
+// A country becomes operational when its offices hold roles: a lands commission
+// that can register a parcel, a central bank that can admit an issuer, a payments
+// authority that can admit a participant. Those grants are the foundation's act —
+// three of five custodians from five organisations — and until this section
+// existed the only way to make one was to hand-assemble the protobuf JSON, which
+// is how a live run of the country ceremony granted a role to the foundation's
+// own address instead of to the office it meant.
+//
+// Everything below is a refusal or a description. Nothing here signs, and nothing
+// here talks to the chain: the two lookups these rules depend on — is the holder
+// a group, and does the grant already exist — are performed by the page and
+// passed in, so the rules themselves stay testable.
+
+/**
+ * The five roles, as role.proto declares them, and what each one actually
+ * switches on today.
+ *
+ * `live` is the field that stops this being a list of names. Two of the five are
+ * granted through the same registry as the rest and are consulted by nothing an
+ * office can reach, and a console that listed all five identically would be
+ * telling a custodian they had switched on an enforcement capability when they
+ * had not. Granting them is still right — appointing an office later is harder
+ * than granting a role that is waiting for its message — so they are offered,
+ * with the gap stated at the point of signing rather than in a document nobody
+ * opens.
+ *
+ * Kept in the proto's order, so the numbers a custodian sees here match the
+ * numbers in an event attribute or a store key.
+ *
+ * `picker` is the one-line form, short enough to survive a `<select>` at 375px.
+ * It is a separate field rather than a truncation of `consumer` because the half
+ * that must not be cut is the half that says the role does nothing — a label
+ * clipped to "Enforcement authority — x/enforce…" reads as a working capability.
+ */
+export const ROLES = [
+  {
+    name: 'ROLE_REGISTRY_AUTHORITY',
+    number: 1,
+    label: 'Registry authority',
+    office: 'A lands commission or cadastral office.',
+    consumer: 'x/land — registering a parcel, validating a transfer, freezing land.',
+    picker: 'x/land',
+    live: true,
+    caveat: null,
+  },
+  {
+    name: 'ROLE_MONETARY_AUTHORITY',
+    number: 2,
+    label: 'Monetary authority',
+    office: 'A central bank.',
+    consumer: 'x/stablecoin — approving the issuer of a currency inside this country.',
+    picker: 'x/stablecoin',
+    live: true,
+    caveat: null,
+  },
+  {
+    name: 'ROLE_PAYMENTS_AUTHORITY',
+    number: 3,
+    label: 'Payments authority',
+    office: 'The office that licenses payment service providers.',
+    consumer: 'x/paymsg — admitting the institutions that may appear on a payment instruction.',
+    picker: 'x/paymsg',
+    live: true,
+    caveat: null,
+  },
+  {
+    name: 'ROLE_ENFORCEMENT_AUTHORITY',
+    number: 4,
+    label: 'Enforcement authority',
+    office: 'The office that can stop an account.',
+    consumer: 'x/enforcement — but no message an office can send consults it yet.',
+    picker: 'nothing uses it yet',
+    live: false,
+    caveat:
+      'This role cannot be used by an office today. x/enforcement consults it in exactly two ' +
+      'places and both have a second gate a group account cannot pass: MsgOpenCase requires the ' +
+      'opener to be a bonded validator, which a group policy cannot be, and MsgEmergencyFreeze ' +
+      "requires the signer to be x/enforcement's emergency_authority parameter. So this grant is " +
+      'real, recorded and attributable, and it freezes nothing. Grant it if this is the office ' +
+      'that should hold it when the gate opens — appointing an office later is much harder than ' +
+      'granting a role that is waiting for its message — but do not tell anybody the country can ' +
+      'now stop an account.',
+  },
+  {
+    name: 'ROLE_SUPERVISOR',
+    number: 5,
+    label: 'Supervisor',
+    office: 'An auditor or a regulator watching a perimeter it does not administer.',
+    consumer: 'Nothing at all.',
+    picker: 'nothing uses it yet',
+    live: false,
+    caveat:
+      'Nothing on this chain consults this role. It is oversight without the power to act, and ' +
+      'today it is also oversight without a single message that reads it — which is exactly what ' +
+      "role.proto's own comment warns about: a role nothing consults is a name in a registry " +
+      'pretending to be a control. Granting it records who is watching this country and confers ' +
+      'no capability whatsoever. That is a defensible thing to want; it is not a control, and a ' +
+      'custodian signing it should not believe it is one.',
+  },
+];
+
+/** A role by its enum name, or null. Never a default — see ROLE_UNSPECIFIED. */
+export function roleByName(name) {
+  return ROLES.find((r) => r.name === name) ?? null;
+}
+
+/**
+ * The scope no border bounds, which the foundation may not grant.
+ *
+ * Offered nowhere on this page, and refused with the reason when somebody types
+ * it — because a custodian who reaches for it has understood the field correctly
+ * and misunderstood who they are.
+ */
+export const CHAIN_WIDE = '*';
+
+/**
+ * The foundation's own reserved code. Not a country, and not chain-wide.
+ *
+ * Refused as a grant scope by the chain, and worth refusing here with its own
+ * message rather than folding into "not a country": an operator who typed ZZ was
+ * reaching for something, and the something they were reaching for is "*".
+ */
+export const FOUNDATION_COUNTRY = 'ZZ';
+
+/**
+ * ISO 3166-1 alpha-2, the assigned list.
+ *
+ * A duplicate of the table in x/alias/types/iso3166.go, and the duplication is
+ * the cost of this page having no build step: it cannot read a Go table, and
+ * fetching the list is not an option because the chain publishes no endpoint for
+ * it. Kept in the same shape and the same order as the Go source so the two can
+ * be diffed by eye when ISO next changes the list, which is every few years.
+ *
+ * A shape check would not do. NX, QK and ZX are all two letters and none of them
+ * is a country, so a mistyped code composes a grant over a perimeter no authority
+ * holds and no authority can act on — and the chain refuses it, which means the
+ * mistake surfaces after three custodians have signed rather than before one has.
+ */
+const ASSIGNED = (
+  'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ ' +
+  'BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ ' +
+  'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ ' +
+  'DE DJ DK DM DO DZ EC EE EG EH ER ES ET ' +
+  'FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY ' +
+  'HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT ' +
+  'JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ ' +
+  'LA LB LC LI LK LR LS LT LU LV LY ' +
+  'MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ ' +
+  'NA NC NE NF NG NI NL NO NP NR NU NZ OM ' +
+  'PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA ' +
+  'RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ ' +
+  'TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ ' +
+  'UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'
+).split(' ');
+
+export const ASSIGNED_COUNTRIES = new Set(ASSIGNED);
+
+/** The list a picker offers, in code order. */
+export function assignedCountries() {
+  return [...ASSIGNED];
+}
+
+/**
+ * Uppercase a country code, and leave the chain-wide marker exactly alone.
+ *
+ * The marker is passed through rather than folded, matching NormaliseScope, so
+ * that normalisation cannot invent it: no case-folding of any two-letter code
+ * produces "*", and an operator must not be able to arrive at chain-wide
+ * authority by mistyping a country.
+ */
+export function normaliseScope(text) {
+  const s = String(text ?? '').trim();
+  if (s === CHAIN_WIDE) return CHAIN_WIDE;
+  return s.replace(/[a-z]/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Whether a typed jurisdiction is one the foundation may name, and why not.
+ *
+ * Four refusals, each with its own sentence, because they are four different
+ * mistakes:
+ *
+ *  1. nothing typed. A grant with no scope is not a narrower grant.
+ *  2. the chain-wide marker. Not a validation error — a correctly spelled value
+ *     that this account may not sign for, and saying so is the whole point.
+ *  3. the foundation's reserved code. What the person reaching for ZZ actually
+ *     wanted is "*", and they may not have that either.
+ *  4. two letters ISO never assigned.
+ */
+export function checkScope(text) {
+  const scope = normaliseScope(text);
+
+  if (!scope) {
+    return { scope: '', problem: 'Name the country this role is being granted in.' };
+  }
+
+  if (scope === CHAIN_WIDE) {
+    return {
+      scope,
+      problem:
+        'The foundation may not grant the chain-wide scope "*". Only governance can, and the ' +
+        'split is deliberate: the foundation admitting a country and the foundation ' +
+        'manufacturing authority over every country are different acts, and only the first one ' +
+        'was decided. An account that could grant itself the scope no border bounds could then ' +
+        'grant it to anybody, and the perimeter would be advisory. The chain refuses this from ' +
+        'the foundation before it even reads the constitution — so a proposal naming "*" would ' +
+        'collect three signatures, wait out the voting period, and then fail. Name a country. ' +
+        'If the chain-wide scope is genuinely what is wanted, it has to go through a governance ' +
+        'proposal.',
+    };
+  }
+
+  if (scope === FOUNDATION_COUNTRY) {
+    return {
+      scope,
+      problem:
+        `"${FOUNDATION_COUNTRY}" is the foundation's own reserved code, not a country an office ` +
+        'can be placed in. It marks the *absence* of a national perimeter, so a grant naming it ' +
+        'would confer authority over nowhere while reading to a human like authority over ' +
+        'everywhere — which is why the chain refuses it. Chain-wide is spelled "*", and the ' +
+        'foundation may not grant that either.',
+    };
+  }
+
+  if (!ASSIGNED_COUNTRIES.has(scope)) {
+    return {
+      scope,
+      problem:
+        `"${scope}" is not an ISO 3166-1 alpha-2 code ISO has assigned. Two letters is not ` +
+        'enough — NX, QK and ZX are all two letters and none of them is a country — so the chain ' +
+        'checks the code against the assigned list and refuses anything else. A mistyped code ' +
+        'would be a perimeter no authority holds and no authority can act on.',
+    };
+  }
+
+  return { scope, problem: null };
+}
+
+/**
+ * A Yamale account address, checked for shape only. Nothing here validates a
+ * checksum — the chain does that, and this page must not pretend to.
+ *
+ * The floor is 42 characters, which is what a bech32 account address on this
+ * chain actually is: a three-character prefix, a separator, and 38 characters of
+ * data for a 20-byte account. A group policy account is 32 bytes and comes out at
+ * 62, so both real forms pass and everything shorter than either does not.
+ *
+ * Deliberately tighter than the `length < 39` used inline by the payment and
+ * membership forms above, and the difference is worth stating rather than
+ * quietly diverging: 39 admits a string that cannot be an address on this chain,
+ * which is the shape of a half-pasted one. A mutation pass over this function
+ * found the looser floor guarded nothing, and the field it guards here is the
+ * office being handed authority over a country.
+ */
+export function checkAddress(text, what = 'address') {
+  const addr = String(text ?? '').trim();
+  if (!addr) return { address: '', problem: `Give the ${what}.` };
+  if (!addr.startsWith('yml1') || addr.length < 42) {
+    return {
+      address: addr,
+      problem: `That ${what} is not a Yamale account address. An account address is 42 ` +
+        'characters and a group policy account is 62; anything shorter is a partial paste.',
+    };
+  }
+  return { address: addr, problem: null };
+}
+
+/**
+ * What the group-policy lookup on a holder means.
+ *
+ * The chain's own check is one call — `GroupPolicyInfo(holder)` — and it refuses
+ * the holder if that call errors. This mirrors it against the REST surface, which
+ * returns the same refusal as an HTTP 500 carrying a gRPC status body, so the
+ * verdict has to come out of the message text rather than out of the status code:
+ *
+ *   {"code":2,"message":"codespace sdk code 38: not found: group policy"}
+ *
+ * Three verdicts and not two, because "this is not a group" and "this page could
+ * not find out" must never render the same way. A page that treated an
+ * unreachable node as a plain key would refuse a legitimate office; one that
+ * treated it as a group would compose the grant the chain is about to refuse.
+ */
+export function classifyHolder({ status, body } = {}) {
+  const text = typeof body === 'string' ? body : JSON.stringify(body ?? '');
+
+  // `decoding bech32 failed` is the SDK's own prefix and covers every case on its
+  // own; the rest are there for a gateway that reports the cause without it. The
+  // wording is taken from live responses rather than guessed — a first version of
+  // this said "checksum failed", which never matches, because the node says
+  // "invalid checksum (expected 3xm8uj got 3xm8ju)".
+  if (/decoding bech32 failed|invalid character|invalid separator|invalid checksum/i.test(text)) {
+    return {
+      verdict: 'malformed',
+      groupId: null,
+      problem:
+        'The chain cannot read that as an address at all. Check it against the ceremony record ' +
+        'character by character rather than retyping it.',
+    };
+  }
+
+  if (/not found: group policy|group policy.*not found/i.test(text)) {
+    return {
+      verdict: 'plain-key',
+      groupId: null,
+      problem:
+        'That address is not an x/group account, so the chain will refuse this grant. A role is ' +
+        'only worth the office that holds it, and an office that is one key is one bribe — ' +
+        'whatever the quorum downstream of it. Create the office as a group first, verify its ' +
+        'membership and threshold against the ceremony record, and grant the role to the group ' +
+        "policy address rather than to an official's own key.",
+    };
+  }
+
+  if (Number(status) === 200) {
+    const info = (typeof body === 'object' && body ? body.info : null) ?? null;
+    if (info?.group_id) {
+      return { verdict: 'group', groupId: String(info.group_id), problem: null };
+    }
+    return {
+      verdict: 'unknown',
+      groupId: null,
+      problem:
+        'The node answered the group-policy lookup and the answer named no group. Do not compose ' +
+        'a grant on this: the check that would have refused a plain key did not run.',
+    };
+  }
+
+  return {
+    verdict: 'unknown',
+    groupId: null,
+    problem:
+      `The group-policy lookup on this address did not answer (${status ?? 'no response'}), so ` +
+      'this page cannot tell whether the holder is an office or one key. That is the one check ' +
+      'that has to happen before three custodians sign, so nothing is composed until it does. ' +
+      'It is the lookup that failed, and not necessarily the address.',
+  };
+}
+
+/**
+ * A count read off the chain, exactly, or null.
+ *
+ * Null rather than NaN or zero. A weight that cannot be read is a group this page
+ * does not understand, and a zero would make it look like a member who had been
+ * removed — which is the difference between a two-of-three and a two-of-two.
+ */
+function exactCount(value) {
+  const s = String(value ?? '').trim();
+  if (!/^\d+$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+/**
+ * The office a role is about to be granted to, as a custodian has to see it.
+ *
+ * This exists because an x/group policy address is derived from the group's
+ * sequence number and from nothing else. It is therefore not evidence of who
+ * controls the group: two chains, or one chain and one dry run, produce the same
+ * address for the same sequence. A live run of the country ceremony predicted an
+ * office's address and got *the foundation's own* for exactly that reason — both
+ * were policy sequence 1 — and a console that showed only the address would have
+ * shown a correct-looking one.
+ *
+ * So the address is not the check. The membership and the threshold are, and they
+ * go in front of the custodian before the grant is composed rather than behind a
+ * disclosure.
+ */
+export function officeSummary({ policy, members, foundationAddress } = {}) {
+  const address = policy?.address ?? '';
+  const decision = policy?.decision_policy ?? {};
+  const threshold = exactCount(decision.threshold);
+  const roster = (Array.isArray(members) ? members : []).map((m) => {
+    const inner = m?.member ?? m ?? {};
+    const identity = custodianIdentity(inner.metadata);
+    return {
+      address: inner.address ?? '',
+      weight: exactCount(inner.weight),
+      name: identity.name,
+      fingerprint: identity.fingerprint,
+    };
+  });
+
+  const totalWeight = roster.reduce((s, m) => (m.weight === null ? s : s + m.weight), 0);
+  const unreadable = roster.filter((m) => m.weight === null);
+  const concerns = [];
+
+  if (address && foundationAddress && address === foundationAddress) {
+    concerns.push(
+      'This holder is the foundation itself. The chain permits that on purpose — a country ' +
+        'admitted before its offices exist needs an interim authority — but it is also exactly ' +
+        'what goes wrong by accident, because an x/group policy address is derived from the ' +
+        "group's sequence number and nothing else. A live run of the country ceremony predicted " +
+        "an office's address and got the foundation's own, because both were policy sequence 1. " +
+        'If this is meant to be a national office, the address is wrong.',
+    );
+  }
+  if (policy && policy.admin && address && policy.admin !== address) {
+    concerns.push(
+      `This group's admin is ${short(policy.admin)}, not the group itself. That account can ` +
+        'rewrite the membership without a vote, so the threshold below is advisory and the real ' +
+        'holder of this role is whoever controls that admin. Granting authority to a group ' +
+        'somebody outside can reconstitute is granting it to that outsider.',
+    );
+  }
+  if (threshold !== null && threshold < 2) {
+    concerns.push(
+      `This group decides on ${threshold} signature${threshold === 1 ? '' : 's'}. It is an ` +
+        'x/group account, so the chain will accept it, and it is not an office: a single member ' +
+        'can act alone. That is the failure the group requirement exists to prevent, wearing a ' +
+        "group's clothes.",
+    );
+  }
+  if (threshold !== null && totalWeight && threshold > totalWeight) {
+    concerns.push(
+      `This group needs ${threshold} of a total weight of ${totalWeight}, so it can never reach ` +
+        'its own threshold. Nothing it is granted can ever be used.',
+    );
+  }
+  if (unreadable.length) {
+    concerns.push(
+      `${unreadable.length} member weight${unreadable.length === 1 ? '' : 's'} could not be read, ` +
+        'so the threshold cannot be checked against them.',
+    );
+  }
+  if (!roster.length) {
+    concerns.push('The chain returned no members for this group, so there is nothing to inspect.');
+  }
+
+  return {
+    address,
+    groupId: policy?.group_id ? String(policy.group_id) : null,
+    threshold,
+    totalWeight,
+    // Sorted by name so two custodians comparing the same office over the phone
+    // read it in the same order, whatever order the chain returned it in.
+    members: roster.slice().sort((a, b) => (a.name ?? a.address).localeCompare(b.name ?? b.address)),
+    concerns,
+  };
+}
+
+/** The grant message, as it goes into the proposal document. */
+export function grantRoleMessage({ policyAddress, holder, role, jurisdiction }) {
+  return {
+    // The proto package is blockchain.alias.v1. Not yamale.blockchain.alias.v1,
+    // which is what the module's *REST* paths are prefixed with and what anybody
+    // reading those paths would reasonably guess — the two differ, and a type URL
+    // the interface registry cannot resolve fails at submission with a complaint
+    // about an unregistered type rather than about a typo.
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    // x/group signs every message in a proposal as the policy account, so this is
+    // the foundation and can be nothing else.
+    authority: policyAddress,
+    holder,
+    // The enum's name, not its number. Proto3 JSON accepts both, and the name is
+    // what the chain emits in its own events and what the reference documentation
+    // spells — so a custodian diffing this document against a query result is
+    // comparing like with like.
+    role,
+    jurisdiction,
+  };
+}
+
+/**
+ * The revocation message. The same four fields, and that is not an oversight.
+ *
+ * A revocation names the whole triple because a holder may hold the same role in
+ * several countries, and revoking "their enforcement role" would be ambiguous
+ * between removing one perimeter and removing all of them. The signer says which.
+ */
+export function revokeRoleMessage({ policyAddress, holder, role, jurisdiction }) {
+  return {
+    '@type': '/blockchain.alias.v1.MsgRevokeRole',
+    authority: policyAddress,
+    holder,
+    role,
+    jurisdiction,
+  };
+}
+
+/** One of a holder's grants, by role and jurisdiction, or null. */
+export function findGrant(grants, role, jurisdiction) {
+  const list = Array.isArray(grants) ? grants : [];
+  return list.find((g) => g?.role === role && g?.jurisdiction === jurisdiction) ?? null;
+}
+
+/**
+ * Everything that has to be true before a grant is composed.
+ *
+ * `problems` blocks; `concerns` is said and signed anyway. The line between them
+ * is whether the chain would refuse it, with exceptions in both directions that
+ * are deliberate and stated where they are raised:
+ *
+ *   - the chain-wide scope and a plain-key holder are refusals the chain makes,
+ *     mirrored here so they cost a form field rather than a voting period;
+ *   - a 1-of-N office, a group somebody else administers, and a holder that is
+ *     the foundation itself are all things the chain accepts and a room should
+ *     probably not. They are concerns rather than refusals, because this page
+ *     cannot know a deployment's intent, and a console that refused them would
+ *     be a console somebody routed around through the general form — where none
+ *     of this is checked at all.
+ */
+export function grantPlan({
+  policyAddress,
+  holder,
+  role,
+  jurisdiction,
+  holderVerdict = null,
+  office = null,
+  existingGrants = null,
+}) {
+  const problems = [];
+  const concerns = [];
+
+  const addr = checkAddress(holder, 'address of the office being granted this role');
+  if (addr.problem) problems.push(addr.problem);
+
+  const known = roleByName(role);
+  if (!role) {
+    problems.push('Choose the role being granted.');
+  } else if (!known) {
+    problems.push(
+      `"${role}" is not a role this chain has. ROLE_UNSPECIFIED is refused everywhere: proto3 ` +
+        'cannot tell a zero from a field nobody filled in, so a grant whose role was left unset ' +
+        'must never be honoured.',
+    );
+  }
+
+  const scope = checkScope(jurisdiction);
+  if (scope.problem) problems.push(scope.problem);
+
+  // The group check comes last of the blocking ones, because the three above are
+  // answerable without asking the chain anything and this one is not.
+  if (!addr.problem) {
+    if (!holderVerdict) {
+      problems.push(
+        'Waiting on the group-policy lookup for this address. Nothing is composed until the ' +
+          'chain has confirmed the holder is an office and not one key.',
+      );
+    } else if (holderVerdict.verdict !== 'group') {
+      problems.push(holderVerdict.problem);
+    }
+  }
+
+  if (known && !known.live) concerns.push(known.caveat);
+  for (const c of office?.concerns ?? []) concerns.push(c);
+
+  if (existingGrants && known && !scope.problem) {
+    const already = findGrant(existingGrants, role, scope.scope);
+    if (already) {
+      concerns.push(
+        `This holder already holds ${role} in ${scope.scope}, granted by ` +
+          `${short(already.granted_by ?? '')} at height ${already.granted_at_height ?? '?'}. ` +
+          'Granting it again is not an error and is not a second grant: it rewrites who granted ' +
+          'it and when, and changes nothing else. That is the right thing for a proposal ' +
+          'resubmitted after a timeout, and pointless otherwise.',
+      );
+    }
+  }
+
+  const ready = problems.length === 0;
+  return {
+    ready,
+    problems,
+    concerns,
+    role: known,
+    scope: scope.scope,
+    holder: addr.address,
+    messages: ready
+      ? [grantRoleMessage({
+          policyAddress,
+          holder: addr.address,
+          role,
+          jurisdiction: scope.scope,
+        })]
+      : [],
+  };
+}
+
+/**
+ * Everything that has to be true before a revocation is composed.
+ *
+ * Two differences from a grant, and both are why this is a separate function
+ * rather than a flag:
+ *
+ * **The holder is not checked against x/group.** The chain does not check it on a
+ * revocation either, and it must not: a grant that somehow reached a plain key —
+ * seeded at genesis, or written while the group keeper was not wired — is
+ * precisely the grant that most needs removing, and a console that demanded the
+ * holder be a group would make the bad grant the one grant nobody could revoke.
+ *
+ * **The grant has to exist.** The chain refuses a revocation naming one that was
+ * never made, deliberately, because "nothing to revoke" is how a proposal that
+ * named the wrong country succeeds while leaving the authority it meant to remove
+ * in place. Refusing here is that rule paid before the voting period instead of
+ * after it.
+ */
+export function revokePlan({
+  policyAddress,
+  holder,
+  role,
+  jurisdiction,
+  existingGrants = null,
+}) {
+  const problems = [];
+  const concerns = [];
+
+  const addr = checkAddress(holder, 'address of the office losing this role');
+  if (addr.problem) problems.push(addr.problem);
+
+  const known = roleByName(role);
+  const scope = checkScope(jurisdiction);
+
+  // A revocation names a grant, and a grant is a role and a country together — so
+  // an unset pair is one mistake and gets one sentence. Reporting both halves
+  // separately would ask a custodian to "name the country this role is being
+  // granted in" on the form that revokes one, which is two complaints about a
+  // choice they have simply not made yet.
+  if (!role && !scope.scope) {
+    problems.push('Choose which grant to remove.');
+  } else {
+    if (!role) {
+      problems.push('Choose which grant to remove.');
+    } else if (!known) {
+      problems.push(
+        `"${role}" is not a role this chain has. "Revoke whatever role was left unset" has no ` +
+          'meaning, and a message that resolved it to one would revoke something nobody named.',
+      );
+    }
+    if (scope.problem) problems.push(scope.problem);
+  }
+
+  let found = null;
+  if (existingGrants === null) {
+    if (!addr.problem) {
+      problems.push(
+        "Waiting on this holder's grants. A revocation naming a grant that was never made is " +
+          'refused by the chain, so nothing is composed until the chain has listed what there ' +
+          'is to remove.',
+      );
+    }
+  } else if (known && !scope.problem && !addr.problem) {
+    found = findGrant(existingGrants, role, scope.scope);
+    if (!found) {
+      const held = existingGrants.length
+        ? `What it does hold: ${existingGrants
+            .map((g) => `${g.role} in ${g.jurisdiction}`)
+            .join(', ')}.`
+        : 'This holder holds no role grants at all.';
+      problems.push(
+        `${short(addr.address)} does not hold ${role} in ${scope.scope}, so there is nothing ` +
+          `there to revoke and the chain will refuse this. ${held}`,
+      );
+    }
+  }
+
+  if (found && found.granted_by && policyAddress && found.granted_by !== policyAddress) {
+    concerns.push(
+      `This grant was made by ${short(found.granted_by)}, not by the foundation. The foundation ` +
+        "may still remove it — whoever may appoint a country's authority may also remove it, and " +
+        'that includes a grant governance made. It is a real reduction of the validator set\'s ' +
+        'power and it is kept on purpose, because the alternative makes an emergency the ' +
+        'expensive case. Be sure this is a compromised or abused office and not a disagreement ' +
+        'with a vote.',
+    );
+  }
+
+  const ready = problems.length === 0;
+  return {
+    ready,
+    problems,
+    concerns,
+    role: known,
+    scope: scope.scope,
+    holder: addr.address,
+    grant: found,
+    messages: ready
+      ? [revokeRoleMessage({
+          policyAddress,
+          holder: addr.address,
+          role,
+          jurisdiction: scope.scope,
+        })]
+      : [],
+  };
 }
