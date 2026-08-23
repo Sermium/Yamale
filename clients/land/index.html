@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yamale · Land title register</title>
+<!-- The typefaces, before the stylesheet, so the request starts as early as the
+     parser can start it. Every stack in the block below names real fallbacks, so
+     a blocked font host — or the one-bar connection this page is actually opened
+     on — degrades to something chosen rather than to Times. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
   The land title register: search a title, read its record, follow a transfer.
 
@@ -30,147 +37,598 @@
   safe.
 -->
 <style>
-  :root{
-    color-scheme:light dark;
-    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
-    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
-    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
-    --wash-ok:rgba(13,122,74,.10);--wash-warn:rgba(168,121,27,.12);
-    --wash-bad:rgba(176,42,37,.10);--wash-mute:rgba(92,110,136,.10);
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
+
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
   }
-  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
-    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;
-    --wash-ok:rgba(111,191,165,.12);--wash-warn:rgba(210,166,94,.14);
-    --wash-bad:rgba(239,138,133,.13);--wash-mute:rgba(143,164,196,.12);}}
-  *{box-sizing:border-box}
-  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       background:var(--bg);color:var(--text)}
-  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
-         border-bottom:1px solid var(--border);flex-wrap:wrap}
-  h1{font-size:1rem;margin:0;font-weight:650}
-  h1 a{color:inherit;text-decoration:none}
-  nav{display:flex;gap:.1rem;flex-wrap:wrap;margin-inline-start:auto}
-  nav a{font-size:.82rem;color:var(--muted);text-decoration:none;padding:.3rem .6rem;
-        border-radius:8px}
-  nav a:hover{color:var(--text);background:var(--wash-mute)}
-  nav a[aria-current]{color:var(--text);background:var(--wash-mute);font-weight:600}
-  .wrap{max-width:1100px;margin:0 auto;padding:1.2rem}
-  /* On a phone the header must not eat the screen before the verdict appears.
-     The verdict is the whole reason somebody opened this. */
-  @media (max-width:560px){
-    header{padding:.65rem .8rem;gap:.45rem}
-    nav{margin-inline-start:0;width:100%;gap:0}
-    nav a{padding:.22rem .45rem;font-size:.78rem}
-    #clock{font-size:.72rem}
-    .wrap{padding:.9rem .8rem}
-    .verdict{padding:.85rem .9rem}
-    .verdict__head{font-size:1.05rem}
+
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+    }
   }
-  h2{font-size:.95rem;margin:1.7rem 0 .6rem}
-  h2:first-child{margin-top:.2rem}
-  h3{font-size:.88rem;margin:0 0 .35rem}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
-        padding:1rem;margin-bottom:.8rem}
-  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
-  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline;flex-wrap:wrap}
-  .muted{color:var(--muted);font-size:.84rem}
-  .small{font-size:.78rem}
-  .pill{font-size:.7rem;font-weight:650;padding:.14rem .55rem;border-radius:999px;
-        letter-spacing:.03em;white-space:nowrap;display:inline-block}
-  .p-ok{background:var(--wash-ok);color:var(--ok)}
-  .p-warn{background:var(--wash-warn);color:var(--warn)}
-  .p-bad{background:var(--wash-bad);color:var(--bad)}
-  .p-mute{background:var(--wash-mute);color:var(--muted)}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
-  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.76rem;
-      background:var(--wash-mute);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
-      margin:.4rem 0;white-space:pre;line-height:1.45}
-  a{color:var(--brass)}
-  .err{background:var(--wash-bad);color:var(--bad);padding:.7rem .9rem;border-radius:10px;
-       font-size:.86rem;border:1px solid rgba(176,42,37,.25);margin-bottom:.8rem}
-  .err code{color:inherit}
-  .empty{color:var(--muted);font-size:.86rem;padding:.9rem 0}
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+  .y-scroll { overflow-x: auto; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ==========================================================================
+     THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
+     else: clients/foundation, clients/governance, clients/land,
+     clients/validator. Kept identical in all four for the same reason as the
+     block above, and kept OUT of clients/shared/yamale.css because the citizen
+     surfaces are not dense card stacks and should not inherit this density.
+
+     Everything here is expressed in the tokens above. No console defines a
+     colour of its own; a value that is not in a token is a value the next
+     surface will get slightly wrong.
+     ========================================================================== */
+
+  /* The shared reset zeroes paragraph margins, which is right for prose laid
+     out with `gap`. These consoles are card stacks with paragraphs in normal
+     flow, so the rhythm is restored here rather than by editing several
+     thousand lines of template literal. */
+  p { margin: 0 0 var(--sp-3); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--brass); }
+  a:hover { color: var(--text); }
+
+  /* --- chrome ------------------------------------------------------------ */
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600;
+  }
+  header h1 a { color: inherit; text-decoration: none; }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-2); margin: var(--sp-6) 0 var(--sp-3); }
+  h2:first-child { margin-top: var(--sp-1); }
+  h3 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  /* --- panels ------------------------------------------------------------ */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  /* The second elevation step is not decoration and is not spent on headings:
+     it marks the one card on a screen that is waiting for a person to act. */
+  .card--waiting { border-inline-start: 3px solid var(--brass); background: var(--wash-brass);
+                   box-shadow: var(--shadow-2); }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+
+  .grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  /* --- text ------------------------------------------------------------- */
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  /* Chips carry state in form as well as in colour: mono, uppercase, and always
+     beside a word. `.pill` and `.p-*` are the names the markup already uses. */
+  .pill, .y-chip { display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap; }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass); }
+
+  code { font-size: 0.86em; word-break: break-all; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2;
+  }
+
+  /* --- the three boxes that say something is wrong ---------------------- */
+  .err, .badbox, .warnbox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-2) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .err code, .badbox code, .warnbox code { color: inherit; }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn); }
+
+  /* --- controls --------------------------------------------------------- */
+  /* Anything interactive looks interactive: a border, a hover, a focus ring
+     from the token, and a cursor. */
+  button { font: inherit; }
+  .btn, .vote, button.primary, .primary {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+  }
+  .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
+  .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input, select, textarea {
+    font-family: var(--font-sans); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%;
+    /* Capped, because a field is as wide as what goes in it and nothing that
+       goes in these is a thousand pixels long. A full-bleed input in a wide
+       panel reads as an unfinished layout and makes a forty-character address
+       harder to check, not easier. */
+    max-width: 44rem;
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--text-faint); }
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+  textarea { min-height: 3.4rem; resize: vertical; }
+  /* An address, a hash or a reference typed into a field is compared character
+     by character against a document or a piece of paper, which is not something
+     a proportional face lets a person do. */
+  input[id$='-to'], input[id$='holder'], input[id$='-addr'], input[id$='-who'],
+  input[id$='-ev'], input[id$='-evh'], input[id='geom'], input[id='ref'],
+  input[id='sw-in'], input[id='adm-add'] { font-family: var(--font-mono); }
+  /* An amount is compared digit by digit and lines up under the last one. */
+  input[id$='-amt'], input[id$='-id'] {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+
+  /* The label-and-copy line above a composed command. */
+  .cmdhead {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap;
+  }
+  /* The commands are the product of these pages, so a block of them gets the
+     width of its panel rather than the measure of a paragraph. */
+  pre { max-width: none; }
+
+  details { margin-top: var(--sp-2); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  /* Digits that line up get tabular figures, and a table is where they line up.
+     Proportional numerals in a column are a column a reader cannot compare by
+     eye, which on these pages is the operation they perform most. */
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+  .vrow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+          padding: var(--sp-2) 0; border-top: 1px solid var(--border); }
+  .vrow:first-of-type { border-top: 0; }
+
+  /* A proportion is a length before it is a number. */
+  .bar { height: 8px; border-radius: 99px; background: var(--wash-mute);
+         overflow: hidden; margin: var(--sp-2) 0 var(--sp-1); display: flex; }
+  .bar span { display: block; height: 100%; }
+  .barwrap { position: relative; }
+  .thresh { position: absolute; top: -3px; bottom: -3px; width: 2px;
+            background: var(--text); opacity: .55; }
+
+  /* --- identifiers ------------------------------------------------------ */
+  /* Mono, truncated, click to reveal, copy beside it. Nobody should have to
+     read thirty-nine characters of bech32 to know they are looking at the right
+     account, and nobody should be unable to when they need to. */
+  .y-id { display: inline-flex; align-items: baseline; gap: var(--sp-1); max-width: 100%; }
+  .y-id__text {
+    font-family: var(--font-mono); font-feature-settings: 'zero' 1; font-size: 0.86em;
+    background: none; border: 0; padding: 0; margin: 0; color: inherit; cursor: pointer;
+    text-align: start; text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--text-faint); text-underline-offset: 3px;
+  }
+  .y-id__text:hover { text-decoration-color: var(--brass); }
+  .y-id--open .y-id__text { word-break: break-all; }
+  .y-id__copy {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0 var(--sp-1); border-radius: 2px;
+    border: 1px solid var(--rule); background: transparent; color: var(--text-muted);
+    cursor: pointer; flex: none;
+  }
+  .y-id__copy:hover { border-color: var(--brass); color: var(--text); }
+
+  /* --- a phone ---------------------------------------------------------- */
+  /* The verdict has to arrive before the chrome. */
+  @media (max-width: 560px) {
+    header { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+    nav { margin-inline-start: 0; width: 100%; gap: 0; }
+    nav a { padding: var(--sp-1) var(--sp-2); font-size: 0.76rem; }
+    .wrap { padding: var(--sp-3); }
+    .card { padding: var(--sp-3); }
+    h2 { margin: var(--sp-5) 0 var(--sp-2); }
+    pre { font-size: 0.7rem; padding: var(--sp-2); }
+  }
+
+  /* ==========================================================================
+     Land-register only, and nothing above this line is.
+     ========================================================================== */
+
+  :root { color-scheme: light dark; }
 
   /* The verdict. This is the whole page for a citizen: one sentence, one
      colour, at the top, before any detail. A title with a live mortgage or an
      open transfer must not be able to look like a clean one, so the banner
      carries the colour and the reason together and detail never gets to
-     contradict it quietly further down. */
-  .verdict{border-radius:14px;padding:1rem 1.1rem;margin-bottom:.9rem;
-           border:1px solid var(--border);border-inline-start-width:5px}
-  .verdict--ok{background:var(--wash-ok);border-inline-start-color:var(--ok)}
-  .verdict--warn{background:var(--wash-warn);border-inline-start-color:var(--warn)}
-  .verdict--bad{background:var(--wash-bad);border-inline-start-color:var(--bad)}
-  .verdict__head{font-size:1.15rem;font-weight:680;line-height:1.3}
-  .verdict--ok .verdict__head{color:var(--ok)}
-  .verdict--warn .verdict__head{color:var(--warn)}
-  .verdict--bad .verdict__head{color:var(--bad)}
-  .verdict__why{margin:.45rem 0 0;font-size:.9rem}
-  .verdict__why li{margin:.15rem 0}
+     contradict it quietly further down. The word carries the state as well as
+     the colour, because a reader who cannot see the difference between the
+     green and the amber is exactly the reader this page is for. */
+  .verdict {
+    border-radius: var(--radius); padding: var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-4); box-shadow: var(--shadow-1);
+    border: 1px solid var(--border); border-inline-start-width: 5px;
+  }
+  .verdict--ok { background: var(--wash-ok); border-inline-start-color: var(--ok); }
+  .verdict--warn { background: var(--wash-warn); border-inline-start-color: var(--warn);
+                   box-shadow: var(--shadow-2); }
+  .verdict--bad { background: var(--wash-bad); border-inline-start-color: var(--bad);
+                  box-shadow: var(--shadow-2); }
+  .verdict__head {
+    font-family: var(--font-display); font-size: var(--step-2); font-weight: 600;
+    line-height: 1.2; letter-spacing: -0.015em;
+  }
+  .verdict--ok .verdict__head { color: var(--ok); }
+  .verdict--warn .verdict__head { color: var(--warn); }
+  .verdict--bad .verdict__head { color: var(--bad); }
+  .verdict__why { margin: var(--sp-2) 0 0; font-size: var(--step-0); }
+  .verdict__why li { margin: var(--sp-1) 0; }
+  ul.verdict__why { padding-inline-start: var(--sp-5); }
 
-  .hit{display:block;text-decoration:none;color:inherit}
-  .hit:hover{border-color:var(--brass)}
-  .hit .ref{font-weight:660;font-size:1rem}
+  /* A search result is a link, so it looks like something you can press: the
+     whole card lifts under the cursor rather than a word inside it turning
+     brass. */
+  .hit { display: block; text-decoration: none; color: inherit; }
+  .hit:hover { border-color: var(--brass); box-shadow: var(--shadow-2); }
+  .hit .ref {
+    font-family: var(--font-mono); font-weight: 500; font-size: var(--step-1);
+    letter-spacing: -0.01em;
+  }
 
-  input,select,textarea{font:inherit;padding:.5rem .65rem;border-radius:9px;
-        border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%}
-  textarea{min-height:5rem;resize:vertical}
-  label{display:block;font-size:.78rem;color:var(--muted);margin:.6rem 0 .2rem}
-  button{font:inherit;font-size:.84rem;font-weight:600;padding:.5rem .9rem;border-radius:9px;
-         cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
-  button:hover{border-color:var(--brass)}
-  button.primary{border-color:var(--brass);color:var(--brass)}
-  .copy{font-size:.74rem;font-weight:500;padding:.25rem .55rem}
-  .searchbar{display:flex;gap:.5rem;flex-wrap:wrap}
-  .searchbar input{flex:1 1 22rem}
+  .searchbar { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+  .searchbar input { flex: 1 1 22rem; font-family: var(--font-mono); }
+  .searchbar button { flex: none; }
 
   /* The four steps. A stepper rather than a table because a transfer is a
      sequence with a place it has got to, and a table of booleans makes the
      reader compute that themselves. */
-  .steps{list-style:none;padding:0;margin:.4rem 0 0}
-  .step{display:flex;gap:.85rem;padding:.1rem 0 1rem;position:relative}
-  .step:last-child{padding-bottom:0}
-  .step__mark{flex:0 0 1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;
-              font-size:.78rem;font-weight:700;border:2px solid var(--border);
-              background:var(--panel);z-index:1}
-  .step--done .step__mark{border-color:var(--ok);color:var(--ok);background:var(--wash-ok)}
-  .step--now .step__mark{border-color:var(--warn);color:var(--warn);background:var(--wash-warn)}
-  .step--stop .step__mark{border-color:var(--bad);color:var(--bad);background:var(--wash-bad)}
-  .step:not(:last-child)::before{content:"";position:absolute;inset-inline-start:.8rem;
-       top:1.7rem;bottom:0;width:2px;background:var(--border)}
-  .step--done:not(:last-child)::before{background:var(--ok)}
-  .step__body{flex:1;min-width:0}
-  .step__title{font-weight:640;font-size:.92rem}
-  .step--now .step__title{color:var(--warn)}
-  .step--stop .step__title{color:var(--bad)}
+  .steps { list-style: none; padding: 0; margin: var(--sp-2) 0 0; }
+  .step { display: flex; gap: var(--sp-3); padding: 0 0 var(--sp-4); position: relative; }
+  .step:last-child { padding-bottom: 0; }
+  .step__mark {
+    flex: 0 0 1.7rem; height: 1.7rem; border-radius: 50%; display: grid;
+    place-items: center; font-size: var(--step--1); font-weight: 700;
+    border: 2px solid var(--border); background: var(--surface); z-index: 1;
+  }
+  .step--done .step__mark { border-color: var(--ok); color: var(--ok); background: var(--wash-ok); }
+  .step--now .step__mark { border-color: var(--warn); color: var(--warn); background: var(--wash-warn); }
+  .step--stop .step__mark { border-color: var(--bad); color: var(--bad); background: var(--wash-bad); }
+  .step:not(:last-child)::before {
+    content: ""; position: absolute; inset-inline-start: 0.8rem;
+    top: 1.7rem; bottom: 0; width: 2px; background: var(--border);
+  }
+  .step--done:not(:last-child)::before { background: var(--ok); }
+  .step__body { flex: 1; min-width: 0; }
+  .step__title { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1);
+                 letter-spacing: -0.005em; }
+  .step--now .step__title { color: var(--warn); }
+  .step--stop .step__title { color: var(--bad); }
 
   /* Chain of title. Same shape as the stepper, different job: this one is
      read backwards by somebody trying to find where a record was altered. */
-  .tl{list-style:none;padding:0;margin:0}
-  .tl li{position:relative;padding:0 0 1rem 1.4rem;border-inline-start:2px solid var(--border);
-         margin-inline-start:.35rem}
-  .tl li:last-child{border-inline-start-color:transparent;padding-bottom:0}
-  .tl li::before{content:"";position:absolute;inset-inline-start:-6px;top:.35rem;width:10px;
-       height:10px;border-radius:50%;background:var(--border)}
-  .tl li.is-ok::before{background:var(--ok)}
-  .tl li.is-warn::before{background:var(--warn)}
-  .tl li.is-bad::before{background:var(--bad)}
-  .tl__when{font-size:.74rem;color:var(--muted);letter-spacing:.02em}
-  .tl__what{font-weight:620;font-size:.9rem}
+  .tl { list-style: none; padding: 0; margin: 0; }
+  .tl li {
+    position: relative; padding: 0 0 var(--sp-4) var(--sp-5);
+    border-inline-start: 2px solid var(--border); margin-inline-start: var(--sp-1);
+  }
+  .tl li:last-child { border-inline-start-color: transparent; padding-bottom: 0; }
+  .tl li::before {
+    content: ""; position: absolute; inset-inline-start: -6px; top: 0.4rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--border);
+  }
+  .tl li.is-ok::before { background: var(--ok); }
+  .tl li.is-warn::before { background: var(--warn); }
+  .tl li.is-bad::before { background: var(--bad); }
+  .tl__when {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .tl__what { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1);
+              letter-spacing: -0.005em; }
 
-  details{margin-top:.5rem}
-  summary{cursor:pointer;font-size:.78rem;color:var(--muted)}
-  summary:hover{color:var(--text)}
-  dl{margin:.4rem 0 0;display:grid;grid-template-columns:max-content 1fr;gap:.25rem .9rem;
-     font-size:.84rem;align-items:baseline}
-  dt{color:var(--muted);font-size:.78rem}
-  dd{margin:0;min-width:0;word-break:break-word}
-  .claim{border-inline-start:3px solid var(--warn);padding:.5rem .8rem;border-radius:0 10px 10px 0;
-         background:var(--wash-warn);margin-bottom:.5rem}
-  .claim--gone{border-inline-start-color:var(--muted);background:var(--wash-mute);opacity:.75}
-  .claim--stop{border-inline-start-color:var(--bad);background:var(--wash-bad)}
-  .spin{color:var(--muted);font-size:.86rem;padding:1rem 0}
+  dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
+       gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
+  dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); }
+  dd { margin: 0; min-width: 0; word-break: break-word; }
+
+  .claim {
+    border-inline-start: 3px solid var(--warn); padding: var(--sp-3) var(--sp-4);
+    border-radius: 0 var(--radius) var(--radius) 0; background: var(--wash-warn);
+    margin-bottom: var(--sp-2);
+  }
+  .claim--gone { border-inline-start-color: var(--text-muted); background: var(--wash-mute); }
+  .claim--stop { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+
+  @media (max-width: 560px) {
+    .verdict { padding: var(--sp-3); }
+    .verdict__head { font-size: var(--step-1); }
+    /* Two columns of a definition list at this width is a column of eight
+       characters. One under the other, labelled, is readable. */
+    dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    dd { margin-bottom: var(--sp-2); }
+  }
 </style>
 </head>
 <body>
@@ -179,12 +637,23 @@
        onerror="this.style.display='none'">
   <h1><a href="#/">Land title register</a></h1>
   <nav id="nav"></nav>
-  <span class="muted small" id="clock"></span>
+  <!-- The honest signal that this is a live register rather than a screenshot of
+       one, which is the difference that matters when the answer is "no
+       objection". -->
+  <span class="label" id="clock"></span>
 </header>
 
 <div class="wrap">
   <div id="banner"></div>
-  <main id="view"><p class="spin">Reading the register…</p></main>
+  <!-- The pending state, drawn rather than left blank. "No objection against
+       this title" and "this page has not read the register yet" are opposite
+       facts that look identical on an empty screen, and somebody is standing in
+       front of a seller while it loads. -->
+  <main id="view">
+    <p class="y-eyebrow">Reading the register</p>
+    <div class="card"><p class="muted small">Nothing below is drawn until the register
+      answers. An empty page is not an answer.</p></div>
+  </main>
 </div>
 
 <script type="module">
@@ -492,10 +961,18 @@ function verdict(parcel, transfers) {
   return { tone, head, lead, why, open, claims, limits };
 }
 
+// The chip is not decoration and it is not the colour again. A reader who cannot
+// tell this page's green from its amber — one man in twelve — gets the verdict
+// from the heading and from this, and never from the border alone.
+const VERDICT_WORD = { ok: 'nothing against it', warn: 'read this before you pay', bad: 'stop' };
+
 const verdictHtml = (v) => `
   <div class="verdict verdict--${v.tone}">
-    <div class="verdict__head">${esc(v.head)}</div>
-    <p class="verdict__why" style="margin-top:.35rem">${esc(v.lead)}</p>
+    <div class="row" style="align-items:flex-start">
+      <div class="verdict__head">${esc(v.head)}</div>
+      <span class="pill p-${v.tone}">${esc(VERDICT_WORD[v.tone] ?? v.tone)}</span>
+    </div>
+    <p class="verdict__why">${esc(v.lead)}</p>
     ${v.why.length ? `<ul class="verdict__why">${v.why.map((w) => `<li>${w}</li>`).join('')}</ul>` : ''}
   </div>`;
 
@@ -645,13 +1122,61 @@ async function stepsHtml(transfer, parcel, p, st) {
 const COPY = new Map();
 let seq = 0;
 
+/**
+ * Anything a person copies into a shell goes through this.
+ *
+ * A carriage return inside a pasted command gives `$'\r': command not found`,
+ * an error that names neither the cause nor the file and appears only for the
+ * person whose machine served the page. `clients/land/**` is pinned to LF in
+ * .gitattributes for the same reason — this is the second line of defence, and
+ * it is here because this file is *deployed by copying the working tree*, so a
+ * checkout's line endings are the bytes a clerk's browser gets.
+ */
+const shellSafe = (s) => String(s ?? '').replace(/\r/g, '');
+
+/**
+ * An identifier: truncated, in mono, with the whole of it one click away and a
+ * copy button beside it.
+ *
+ * A survey hash is sixty-four characters and an account reference is
+ * thirty-nine, and printed in full in the middle of a sentence neither is read —
+ * they are skipped, which on this page means a buyer has not in fact checked
+ * that the hash on their surveyor's document is the hash the register holds.
+ * Truncated to head and tail they are read, because comparing ten characters
+ * against ten is something a person will actually do at a counter. The whole of
+ * it stays one click away, always: this is the page a court reads.
+ */
+function idHtml(value, label) {
+  const full = String(value ?? '');
+  if (!full) return '<span class="muted">—</span>';
+  const brief = full.length > 18 ? `${full.slice(0, 12)}…${full.slice(-6)}` : full;
+  const what = label ? `${label}: ` : '';
+  return `<span class="y-id"><button type="button" class="y-id__text"
+      data-full="${esc(full)}" data-brief="${esc(brief)}" title="${esc(full)}"
+      aria-label="${esc(what)}${esc(brief)} — show all of it"
+    >${esc(brief)}</button><button type="button" class="y-id__copy"
+      data-copy-text="${esc(full)}"
+      aria-label="Copy ${esc(what)}${esc(full)}">copy</button></span>`;
+}
+
 document.addEventListener('click', async (e) => {
-  const btn = e.target.closest?.('[data-copy]');
+  // Revealing an identifier in place, rather than in a tooltip nobody on a
+  // touch screen can open.
+  const reveal = e.target.closest?.('.y-id__text');
+  if (reveal) {
+    const open = reveal.closest('.y-id').classList.toggle('y-id--open');
+    reveal.textContent = open ? reveal.dataset.full : reveal.dataset.brief;
+    return;
+  }
+
+  const btn = e.target.closest?.('[data-copy], [data-copy-text]');
   if (!btn) return;
-  const text = COPY.get(btn.dataset.copy);
+  const text = btn.dataset.copyText !== undefined
+    ? btn.dataset.copyText
+    : COPY.get(btn.dataset.copy);
   if (text === undefined) return;
-  const was = btn.dataset.label;
-  try { await navigator.clipboard.writeText(text); btn.textContent = 'copied'; }
+  const was = btn.dataset.label ?? btn.textContent;
+  try { await navigator.clipboard.writeText(shellSafe(text)); btn.textContent = 'copied'; }
   catch { btn.textContent = 'select the text and copy it'; }
   setTimeout(() => { btn.textContent = was; }, 2500);
 });
@@ -693,9 +1218,29 @@ function action(title, note, spec, office = false) {
 
 const view = document.getElementById('view');
 const banner = document.getElementById('banner');
+/**
+ * The banner, and the one status code worth explaining.
+ *
+ * A 401 from this deployment does not mean a password exists. The node's REST
+ * surface is allowlisted per module path by the proxy in front of it and denies
+ * by default, so a 401 means x/land's paths are not in that list — and the
+ * symptom is a browser login box with no credentials to type into it, which
+ * reads as "you are not allowed to see the register" rather than as "this
+ * deployment has not published it yet". Those are opposite facts about a
+ * register whose whole design is that reading it is public.
+ */
 const setBanner = (e) => {
-  banner.innerHTML = e
-    ? `<p class="err">The register did not answer. <code>${esc(e.message)}</code></p>` : '';
+  if (!e) { banner.innerHTML = ''; return; }
+  const denied = e.status === 401 || e.status === 403;
+  banner.innerHTML = `<p class="err">
+    <strong>The register did not answer.</strong> <code>${esc(e.message)}</code>${
+    denied ? `<br>A ${esc(String(e.status))} here is not a password prompt: this deployment's
+      proxy allowlists the node's REST paths per module and denies everything else, and
+      <code>/yamale/blockchain/land/</code> is not on that list. The register is public by design
+      — x/land publishes no "list every owner" query precisely so that the rest of it can be open
+      — so this is a deployment that has not published it yet rather than a register you are
+      barred from. Nothing on this page is a statement about any title until it is fixed.` : ''}
+    </p>`;
 };
 
 const ROUTES = [
@@ -821,7 +1366,8 @@ async function runSearch(q) {
         <span class="ref">${esc(p.cadastral_ref)}</span>
         ${statusPill(p.status)}
       </div>
-      <div class="verdict__head" style="font-size:.98rem;margin:.35rem 0 .15rem">${esc(v.head)}</div>
+      <div class="verdict__head" style="font-size:var(--step-1);margin:.35rem 0 .15rem">${
+        esc(v.head)}</div>
       <p class="muted small" style="margin:0">${esc(v.lead)}</p>
       <p class="small" style="margin:.45rem 0 0">
         Held by ${esc(await personLabel(p.holder))} ·
@@ -920,8 +1466,11 @@ async function screenParcel(id) {
     <div class="card">
       <div class="row">
         <div>
-          <div class="muted small">CADASTRAL REFERENCE</div>
-          <div style="font-size:1.3rem;font-weight:680">${esc(p.cadastral_ref)}</div>
+          <div class="label">Cadastral reference</div>
+          <!-- The reference off somebody's paper file, in mono: it is compared
+               character by character against a document, which is not something
+               a proportional face lets a reader do. -->
+          <div class="stat y-mono" style="font-size:var(--step-2)">${esc(p.cadastral_ref)}</div>
         </div>
         ${statusPill(p.status)}
       </div>
@@ -935,9 +1484,9 @@ async function screenParcel(id) {
       <details>
         <summary>The evidence behind this record</summary>
         <dl style="margin-top:.5rem">
-          <dt>Survey hash</dt><dd><code>${esc(p.geometry_hash)}</code></dd>
-          <dt>Holder's account</dt><dd><code>${esc(p.holder)}</code></dd>
-          <dt>Office's account</dt><dd><code>${esc(p.authority)}</code></dd>
+          <dt>Survey hash</dt><dd>${idHtml(p.geometry_hash, 'the survey hash')}</dd>
+          <dt>Holder's account</dt><dd>${idHtml(p.holder, "the holder's account")}</dd>
+          <dt>Office's account</dt><dd>${idHtml(p.authority, "the office's account")}</dd>
         </dl>
         <p class="muted small" style="margin-top:.5rem">The survey itself is not on the chain —
           it is too large for a block and usually carries somebody's personal details. The hash
@@ -1062,7 +1611,8 @@ async function historyHtml(p, transfers, prm) {
       detail: `${d.reference ? `Registry reference ${esc(d.reference)}` : 'No registry reference'}`
             + `${d.issued_on ? `, issued ${esc(d.issued_on)}` : ''}. `
             + `${d.uri ? `The registry serves the document at <a href="${esc(d.uri)}" rel="noreferrer">${esc(d.uri)}</a>. ` : ''}`
-            + `<br><span class="muted">Document hash <code>${esc(d.document_hash)}</code></span>`,
+            + `<br><span class="muted">Document hash ${
+                 idHtml(d.document_hash, 'the document hash')}</span>`,
       raw: true });
   }
   for (const c of p.encumbrances || []) {
@@ -1152,8 +1702,13 @@ async function screenTransfer(id) {
 
   view.innerHTML = `
     <div class="verdict verdict--${st.tone}">
-      <div class="muted small">TRANSFER ${esc(t.id)} · ${p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</div>
-      <div class="verdict__head" style="margin-top:.2rem">What this is waiting for</div>
+      <div class="label">Transfer ${esc(t.id)} · ${
+        p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</div>
+      <div class="row" style="align-items:flex-start">
+        <div class="verdict__head" style="margin-top:.2rem">What this is waiting for</div>
+        <span class="pill p-${st.tone}">${esc(
+          st.key === 'done' ? 'complete' : st.key === 'objected' ? 'stopped' : st.key)}</span>
+      </div>
       <p class="verdict__why">${esc(st.waiting)}</p>
     </div>
     ${p ? `<p class="muted small" style="margin:-.3rem 0 1rem">
@@ -1647,13 +2202,23 @@ async function screenOffices() {
       attestations. Since the parcel's own office may not attest, no transfer can ever reach
       quorum. This is a governance problem — admit more offices, or lower the quorum knowing what
       that costs.</p>` : ''}
+    ${list.length ? '' : `<div class="card">
+      <p class="lede">No office has been admitted to the register.</p>
+      <p class="muted small">The register answered — this is an empty list, not a failed call.
+        Until governance admits an office nothing can be registered at all: a first registration
+        is an office's act, and a transfer needs ${esc(String(quorum))} more offices than that to
+        attest it. Offices are admitted by the chain's governance and never by each other, which
+        is why this list cannot be filled in from here.</p>
+      <p class="small"><a href="/governance/">Governance is where an office is admitted →</a></p>
+    </div>`}
     <div class="grid">${list.map((o) => `
       <div class="card">
         <strong style="display:block">${esc(o.name || 'unnamed office')}</strong>
         <p class="muted small" style="margin:.3rem 0 .45rem">${esc(o.jurisdiction || 'no jurisdiction recorded')}</p>
         <span class="pill ${o.active ? 'p-ok' : 'p-mute'}">${o.active ? 'active' : 'not active'}</span>
-        <details><summary>Account reference</summary><code>${esc(o.address)}</code></details>
-      </div>`).join('') || '<p class="empty">No office has been admitted. Nothing can be registered until governance admits one.</p>'}
+        <details><summary>Account reference</summary>
+          ${idHtml(o.address, "the office's account")}</details>
+      </div>`).join('')}
     </div>
     <div class="card" style="margin-top:.8rem">
       <h3>The rules currently in force</h3>

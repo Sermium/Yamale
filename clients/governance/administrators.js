@@ -845,3 +845,265 @@ export function afterSubmitting({ chainId }) {
     'blockchaind query alias params -o json',
   ].join('\n');
 }
+
+// ------------------------------------------------- reading a proposal for a person
+//
+// Everything below is display, and it is here rather than in the page because
+// every one of these is a place a console gets a number wrong in a way nobody
+// notices. Three in particular:
+//
+//   A TALLY IS NOT A COUNT OF VOTES. x/gov weighs a vote by the voter's staked
+//   tokens, in the staking denom's BASE units — so a proposal carried by one
+//   validator with 65,000 YML tallies as 65000000000, and printing that raw
+//   turns a governance page into a page nobody can read a number off. It is
+//   converted here, by string, using the exponent the chain itself publishes.
+//
+//   A TALLY WITHOUT THE BONDED TOTAL MEANS NOTHING. "65,000 YES" answers no
+//   question a voter has. Whether quorum was reached and whether the threshold
+//   was cleared are the two questions, and both need a denominator.
+//
+//   A TYPE URL IS NOT AN OUTCOME. "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade"
+//   is what the chain calls it; "upgrade the chain to netting-and-perimeter at
+//   block 13,415" is what it does. Where this cannot name a message it says so
+//   in those words rather than falling back to the URL and calling it a summary.
+
+/** Where the rest of what this section needs is read from. */
+export const GOV_TALLY_PARAMS_PATH = '/cosmos/gov/v1/params/tallying';
+export const STAKING_POOL_PATH = '/cosmos/staking/v1beta1/pool';
+export const STAKING_PARAMS_PATH = '/cosmos/staking/v1beta1/params';
+export const DENOMS_METADATA_PATH = '/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=200';
+
+/** Thousands separators, on a string, so a stake past 2^53 keeps its digits. */
+export function groupDigits(digits) {
+  return String(digits ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * Base units to display units, by string.
+ *
+ * Not `amount / 10 ** exponent`. A tally is a sum of stakes, and a stake on a
+ * chain with a billion tokens and six decimal places passes the point where a
+ * double holds consecutive integers — so the division is a decimal point moved
+ * through a string and nothing else. An amount that is not a plain integer is
+ * returned untouched rather than guessed at.
+ */
+export function displayAmount(amount, exponent) {
+  const text = String(amount ?? '0');
+  if (!/^\d+$/.test(text)) return text;
+  const places = Number(exponent) || 0;
+  if (!places) return groupDigits(text);
+  const padded = text.padStart(places + 1, '0');
+  const whole = padded.slice(0, padded.length - places);
+  const frac = padded.slice(padded.length - places).replace(/0+$/, '');
+  return `${groupDigits(whole)}${frac ? `.${frac}` : ''}`;
+}
+
+/** The same, rounded down to whole units, for a headline figure. */
+export function wholeAmount(amount, exponent) {
+  const text = String(amount ?? '0');
+  if (!/^\d+$/.test(text)) return text;
+  const places = Number(exponent) || 0;
+  if (!places) return groupDigits(text);
+  return groupDigits(text.length > places ? text.slice(0, text.length - places) : '0');
+}
+
+/**
+ * The staking denom and how to divide it, read from the chain.
+ *
+ * THREE outcomes, not two, and the difference between the last two is the whole
+ * reason this returns a source at all:
+ *
+ *   'chain'  — the chain publishes metadata for this denom and it was used.
+ *   'absent' — the metadata was read and has no entry for the staking denom.
+ *              This is not hypothetical: on yamale-devnet-2 all forty-two fiat
+ *              denoms carry metadata and `uyml` does not, so this is the live
+ *              case. Six places is then this module's own knowledge of YML and
+ *              not the chain's, and the page says which.
+ *   'unread' — the query failed. Nothing was learned, including whether an
+ *              entry exists.
+ *
+ * A page that collapsed the last two into "could not be read" would be telling
+ * an operator to go and look at a node that is answering perfectly.
+ */
+export function readStakingDenom({ stakingParams, metadata } = {}) {
+  const denom = stakingParams?.params?.bond_denom || 'uyml';
+  const meta = (metadata?.metadatas ?? []).find((m) => m.base === denom);
+  if (!meta) {
+    return {
+      denom,
+      symbol: denom === 'uyml' ? 'YML' : denom,
+      exponent: 6,
+      source: metadata ? 'absent' : 'unread',
+      fromChain: false,
+    };
+  }
+  const unit = (meta.denom_units ?? []).find((u) => u.denom === meta.display);
+  return {
+    denom,
+    symbol: meta.symbol || meta.display || denom,
+    exponent: Number(unit?.exponent ?? 0),
+    source: 'chain',
+    fromChain: true,
+  };
+}
+
+/**
+ * A cosmos decimal string to basis points, by string.
+ *
+ * "0.334000000000000000" is 3,340 basis points. Done on the digits rather than
+ * through a float, because these values are compared against a computed share
+ * to decide whether a proposal passed, and a comparison that is wrong in the
+ * last place is a page reporting the opposite outcome from the chain.
+ */
+export function decimalToBps(value) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  const [whole, frac = ''] = text.split('.');
+  const millionths = BigInt(whole) * 1000000n + BigInt(`${frac}000000`.slice(0, 6));
+  return Number((millionths + 50n) / 100n);
+}
+
+/**
+ * Quorum, threshold and veto threshold, as basis points.
+ *
+ * Both shapes are read: the SDK serves these under `tally_params` on the
+ * tallying path and repeats them inside `params`, and which one a node fills in
+ * has changed between versions. Null for anything missing, and the caller then
+ * says the bar cannot be drawn rather than drawing one at a default.
+ */
+export function readTallyParams(response) {
+  const source = response?.tally_params ?? response?.params ?? {};
+  return {
+    quorumBps: decimalToBps(source.quorum),
+    thresholdBps: decimalToBps(source.threshold),
+    vetoBps: decimalToBps(source.veto_threshold),
+  };
+}
+
+/**
+ * A tally, and what it means.
+ *
+ * The two questions are asked separately because x/gov answers them separately,
+ * and conflating them is how a page reports a proposal as passing that did not.
+ * Quorum is turnout — every vote, abstentions included — against the bonded
+ * total. The threshold is YES against the votes that took a side, where an
+ * abstention deliberately is not one.
+ */
+export function tallyOf({ tally, bondedTokens, params } = {}) {
+  const n = (x) => {
+    const text = String(x ?? '0');
+    return /^\d+$/.test(text) ? BigInt(text) : 0n;
+  };
+  const yes = n(tally?.yes_count);
+  const no = n(tally?.no_count);
+  const veto = n(tally?.no_with_veto_count);
+  const abstain = n(tally?.abstain_count);
+  const voted = yes + no + veto + abstain;
+  const decided = yes + no + veto;
+  const bonded = n(bondedTokens);
+
+  const bps = (part, whole) => (whole > 0n ? Number((part * 10000n) / whole) : null);
+  const turnoutBps = bps(voted, bonded);
+  const yesBps = bps(yes, decided);
+  const vetoShareBps = bps(veto, decided);
+  const met = (share, bar) => (share === null || bar === null ? null : share >= bar);
+
+  return {
+    yes: yes.toString(),
+    no: no.toString(),
+    veto: veto.toString(),
+    abstain: abstain.toString(),
+    voted: voted.toString(),
+    bonded: bonded.toString(),
+    anyVotes: voted > 0n,
+    turnoutBps,
+    quorumBps: params?.quorumBps ?? null,
+    quorumMet: met(turnoutBps, params?.quorumBps ?? null),
+    yesBps,
+    thresholdBps: params?.thresholdBps ?? null,
+    thresholdMet: met(yesBps, params?.thresholdBps ?? null),
+    vetoShareBps,
+    vetoThresholdBps: params?.vetoBps ?? null,
+    vetoed: met(vetoShareBps, params?.vetoBps ?? null),
+  };
+}
+
+/** Basis points as a percentage a person reads. 3340 becomes "33.4%". */
+export function asPercent(bps) {
+  if (bps === null || bps === undefined) return '—';
+  return `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
+}
+
+/**
+ * What a proposal's message would do, in a sentence.
+ *
+ * The named cases are the ones this chain actually proposes. Everything else
+ * gets a sentence built from the module and the verb in the type URL — "update
+ * params in alias" — and is marked as not understood, because a plausible
+ * sentence about a message nobody decoded is worse than an admission.
+ */
+const OUTCOMES = {
+  '/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade': (m) =>
+    `Upgrade the chain to "${m.plan?.name ?? 'an unnamed plan'}" at block `
+    + `${groupDigits(m.plan?.height ?? '?')} — every validator must be running the new `
+    + 'binary by then, and the old one halts there deliberately',
+  '/cosmos.upgrade.v1beta1.MsgCancelUpgrade': () => 'Cancel the scheduled upgrade',
+  '/blockchain.alias.v1.MsgUpdateParams': (m) => {
+    const admins = m.params?.foundation_administrators ?? [];
+    const who = admins.length === 0
+      ? 'nobody may correct a recorded country'
+      : `${admins.length} account${admins.length === 1 ? '' : 's'} may correct any recorded country`;
+    return `Replace x/alias's parameters — ${who}, and a user ID carries `
+      + `${m.params?.payload_length ?? '?'} characters`;
+  },
+  '/cosmos.bank.v1beta1.MsgSend': (m) => {
+    const coins = (m.amount ?? []).map((c) => `${groupDigits(c.amount)} ${c.denom}`).join(' and ');
+    return `Pay ${coins || 'nothing'} out of ${m.from_address ?? 'an unnamed account'}`;
+  },
+};
+
+export function outcomeOf(message) {
+  const type = String(message?.['@type'] ?? '');
+  const known = OUTCOMES[type];
+  if (known) return { understood: true, headline: known(message), type };
+
+  const shape = /^\/([\w.]+)\.Msg([A-Za-z0-9]+)$/.exec(type);
+  if (shape) {
+    const module = shape[1].split('.').filter((p) => !/^v\d/.test(p)).pop();
+    const verb = shape[2].replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+    return {
+      understood: false,
+      headline: `${verb} in ${module} — this page cannot say what this one does`,
+      type,
+    };
+  }
+  return { understood: false, headline: 'a message this page cannot name', type };
+}
+
+/**
+ * A deadline as a distance, never as a height and never only as a timestamp.
+ *
+ * "closes in 4 hours" is the fact a validator is deciding on; the timestamp is
+ * the audit trail beside it. Both are shown, in that order.
+ */
+export function timeLeft(seconds) {
+  const s = Math.abs(Math.round(seconds));
+  const say = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+  if (seconds < 0) {
+    if (s < 90) return 'just now';
+    if (s < 5400) return `${say(Math.round(s / 60), 'minute')} ago`;
+    if (s < 172800) return `${say(Math.round(s / 3600), 'hour')} ago`;
+    return `${say(Math.round(s / 86400), 'day')} ago`;
+  }
+  if (s < 90) return 'in under two minutes';
+  if (s < 5400) return `in ${say(Math.round(s / 60), 'minute')}`;
+  if (s < 172800) return `in ${say(Math.round(s / 3600), 'hour')}`;
+  return `in ${say(Math.round(s / 86400), 'day')}`;
+}
+
+/** Seconds since the epoch from an RFC 3339 timestamp, or null. */
+export function timestampSeconds(value) {
+  if (!value) return null;
+  const ms = Date.parse(String(value));
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
