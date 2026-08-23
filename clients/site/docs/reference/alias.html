@@ -107,6 +107,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>string</td>
 <td>jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or &quot;<em>&quot; for chain-wide. The reserved code the foundation&#39;s own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. This field also decides who may sign the message, so it is validated before the signer is checked. &quot;</em>&quot; narrows the acceptable authority to governance alone, and that narrowing happens before the constitution is read: a store failure while resolving the foundation must not be the thing that decides whether the chain-wide scope was allowed.</td>
 </tr>
+<tr>
+<td><code>required_shape</code></td>
+<td>OfficeShape</td>
+<td>required_shape is the M-of-N the holder&#39;s office must keep in order to keep this role. Omit it and no requirement is recorded, which is what every grant made before this field existed carries. Recorded on the grant and re-checked on every action the grant permits, so an office that reduces itself below the shape it was granted under loses the authority automatically rather than waiting for somebody to notice and revoke. See OfficeShape for why both numbers are floors and why the count of signatures is not the same thing as the policy&#39;s threshold. Checked here as well, when the group keeper is available: a grant requiring three-of-five is refused outright to a one-of-one office, rather than being written and then failing on first use. Recording a requirement the holder does not meet is how an office ends up holding a grant that reads correct in every query and permits nothing. The requirement is decided before the ceremony rather than read off whoever turned up to it. <code>ceremony country</code> takes it per office in the enrolment config and refuses to assemble an office whose signed group file does not meet it — see docs/guides/country-enrolment.md. A requirement captured from the group that happened to be created would be no requirement at all: it would ratify a one-of-one as readily as a three-of-five.</td>
+</tr>
 </tbody></table>
 <h3>MsgRegisterAlias</h3>
 <p><code>/blockchain.alias.v1.MsgRegisterAlias</code></p>
@@ -780,6 +785,29 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>recorded_at_height is when it was last written, so a change is visible as a change rather than as a fact that was always there.</td>
 </tr>
 </tbody></table>
+<h3>OfficeShape</h3>
+<p>OfficeShape is an M-of-N, written down before the ceremony and held to afterwards.</p>
+<p>Both numbers are FLOORS, not equalities, and the asymmetry is the design. Adding a member to an office is fine: a three-of-five that becomes a three-of-six is more people, not fewer, and refusing it would mean an office could never grow without the foundation re-granting its roles. Dropping below either number is not fine, and it is the same rule the constitution applies to the foundation&#39;s own group, for the same reason: three-of-five becoming three-of-four moves sixty per cent to seventy-five and walks towards unanimity, where one unreachable member freezes the office; and a threshold falling to one is the single key the whole arrangement exists to abolish.</p>
+<p>What it does NOT constrain is an office tightening itself. An office that votes three-of-five up to five-of-five satisfies both floors and can then be frozen by one absent member — which is self-harm rather than capture, and a rule that refused it would be a rule stopping an office from being more careful than it was asked to be.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>signatures</code></td>
+<td>uint32</td>
+<td>signatures is the fewest members that must sign for the office to act. Checked against how many members it would actually TAKE, which is not the same as the policy&#39;s threshold number. x/group votes are weighted, so a group with a threshold of 3 whose members weigh 3, 1, 1, 1 and 1 is a one-of-five wearing a three-of-five&#39;s clothes: one member reaches the threshold alone. The check therefore takes the members in descending weight and counts how few of them can reach the threshold. For the equal weights every ceremony produces that is exactly the threshold, and for anything else it is the honest answer to &quot;how many people does it take&quot;. Zero is refused rather than read as &quot;no requirement&quot;. A requirement that requires nothing reads on a record as though it covered something, and the way to say &quot;no requirement&quot; is to omit required_shape entirely.</td>
+</tr>
+<tr>
+<td><code>members</code></td>
+<td>uint32</td>
+<td>members is the fewest members the office must have. Counted over members holding a positive weight, because a member who cannot vote is a name on a list rather than a share of an office — and padding a group with weightless members is the obvious way to satisfy a count while shrinking the number of people who actually decide. Must be at least signatures: a requirement of three signatures from two members describes an office that could never act, and a requirement nothing can satisfy is a requirement that will be waived by whoever hits it.</td>
+</tr>
+</tbody></table>
 <h3>RegulatorAppointment</h3>
 <p>RegulatorAppointment names the authority that holds the third viewing key over every payment declaring one country as its settlement jurisdiction.</p>
 <p>One per country, deliberately. The settlement jurisdiction is the field that settles which authority may act on a cross-border payment, and a country with two appointed regulators would reintroduce exactly the contest over standing that the single declaration exists to end.</p>
@@ -847,6 +875,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td><code>granted_at_height</code></td>
 <td>int64</td>
 <td>granted_at_height is when it was written, so a widening of somebody&#39;s powers is visible as a change rather than as a fact that was always there.</td>
+</tr>
+<tr>
+<td><code>required_shape</code></td>
+<td>OfficeShape</td>
+<td>required_shape is the M-of-N the holder&#39;s group must keep in order to keep this authority. Absent means no requirement was recorded. Every check reads it: the perimeter functions resolve the holder&#39;s group policy and refuse when the office has fallen below what is written here. That is the whole reason the field exists rather than being a rule applied once at grant time. An office is a group that administers itself, so its members can vote to change their own threshold — a country can hold a proper ceremony, stand up a three-of-five enforcement authority, and that office can later vote itself to one-of-one while keeping the power to freeze accounts. Nothing was notified and nothing refused it, because the only thing the chain ever checked was that the holder <em>was</em> a group. A jurisdiction stamped once at account creation and never re-examined is an event; a perimeter is a state, and so is an office&#39;s shape. It is a message rather than two integers for one reason, and the reason is presence. A message field is either there or it is not, on the wire and in Go, so &quot;no requirement was recorded&quot; and &quot;a requirement of zero&quot; are different states that no reader can confuse. Two bare uint32 fields could not express that: proto3 cannot tell a zero from a field nobody filled in, which is the trap this repository has been caught by four times, and the permissive reading of an ambiguous zero is exactly the reading an attacker wants. Grants written before this field existed decode with it absent and are unchanged in effect — see OfficeShape for what that costs.</td>
 </tr>
 </tbody></table>
 <h3>ViewingKey</h3>
@@ -1007,6 +1040,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>22</td>
 <td><code>ErrNoScopeKeeper</code></td>
 <td>the jurisdictional perimeter cannot be checked because the registry is not wired in</td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>ErrOfficeShape</code></td>
+<td>this office no longer keeps the M-of-N its authority was granted under</td>
 </tr>
 <tr>
 <td>3</td>

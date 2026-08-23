@@ -8,7 +8,7 @@
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { Params } from "./params.ts";
-import { Role, roleFromJSON, roleToJSON } from "./role.ts";
+import { OfficeShape, Role, roleFromJSON, roleToJSON } from "./role.ts";
 
 export const protobufPackage = "blockchain.alias.v1";
 
@@ -316,6 +316,31 @@ export interface MsgGrantRole {
    * whether the chain-wide scope was allowed.
    */
   jurisdiction: string;
+  /**
+   * required_shape is the M-of-N the holder's office must keep in order to keep
+   * this role. Omit it and no requirement is recorded, which is what every grant
+   * made before this field existed carries.
+   *
+   * Recorded on the grant and re-checked on every action the grant permits, so
+   * an office that reduces itself below the shape it was granted under loses the
+   * authority automatically rather than waiting for somebody to notice and
+   * revoke. See OfficeShape for why both numbers are floors and why the count of
+   * signatures is not the same thing as the policy's threshold.
+   *
+   * Checked here as well, when the group keeper is available: a grant requiring
+   * three-of-five is refused outright to a one-of-one office, rather than being
+   * written and then failing on first use. Recording a requirement the holder
+   * does not meet is how an office ends up holding a grant that reads correct in
+   * every query and permits nothing.
+   *
+   * The requirement is decided before the ceremony rather than read off whoever
+   * turned up to it. `ceremony country` takes it per office in the enrolment
+   * config and refuses to assemble an office whose signed group file does not
+   * meet it — see docs/guides/country-enrolment.md. A requirement captured from
+   * the group that happened to be created would be no requirement at all: it
+   * would ratify a one-of-one as readily as a three-of-five.
+   */
+  requiredShape: OfficeShape | undefined;
 }
 
 /** MsgGrantRoleResponse is empty. */
@@ -1352,7 +1377,7 @@ export const MsgGrantAuditorResponse = {
 };
 
 function createBaseMsgGrantRole(): MsgGrantRole {
-  return { authority: "", holder: "", role: 0, jurisdiction: "" };
+  return { authority: "", holder: "", role: 0, jurisdiction: "", requiredShape: undefined };
 }
 
 export const MsgGrantRole = {
@@ -1368,6 +1393,9 @@ export const MsgGrantRole = {
     }
     if (message.jurisdiction !== "") {
       writer.uint32(34).string(message.jurisdiction);
+    }
+    if (message.requiredShape !== undefined) {
+      OfficeShape.encode(message.requiredShape, writer.uint32(42).fork()).ldelim();
     }
     return writer;
   },
@@ -1407,6 +1435,13 @@ export const MsgGrantRole = {
 
           message.jurisdiction = reader.string();
           continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.requiredShape = OfficeShape.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1422,6 +1457,7 @@ export const MsgGrantRole = {
       holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
       role: isSet(object.role) ? roleFromJSON(object.role) : 0,
       jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
+      requiredShape: isSet(object.requiredShape) ? OfficeShape.fromJSON(object.requiredShape) : undefined,
     };
   },
 
@@ -1439,6 +1475,9 @@ export const MsgGrantRole = {
     if (message.jurisdiction !== "") {
       obj.jurisdiction = message.jurisdiction;
     }
+    if (message.requiredShape !== undefined) {
+      obj.requiredShape = OfficeShape.toJSON(message.requiredShape);
+    }
     return obj;
   },
 
@@ -1451,6 +1490,9 @@ export const MsgGrantRole = {
     message.holder = object.holder ?? "";
     message.role = object.role ?? 0;
     message.jurisdiction = object.jurisdiction ?? "";
+    message.requiredShape = (object.requiredShape !== undefined && object.requiredShape !== null)
+      ? OfficeShape.fromPartial(object.requiredShape)
+      : undefined;
     return message;
   },
 };

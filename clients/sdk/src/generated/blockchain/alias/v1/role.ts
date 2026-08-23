@@ -166,10 +166,90 @@ export interface RoleGrant {
    * powers is visible as a change rather than as a fact that was always there.
    */
   grantedAtHeight: string;
+  /**
+   * required_shape is the M-of-N the holder's group must keep in order to keep
+   * this authority. Absent means no requirement was recorded.
+   *
+   * Every check reads it: the perimeter functions resolve the holder's group
+   * policy and refuse when the office has fallen below what is written here.
+   * That is the whole reason the field exists rather than being a rule applied
+   * once at grant time. An office is a group that administers itself, so its
+   * members can vote to change their own threshold — a country can hold a
+   * proper ceremony, stand up a three-of-five enforcement authority, and that
+   * office can later vote itself to one-of-one while keeping the power to
+   * freeze accounts. Nothing was notified and nothing refused it, because the
+   * only thing the chain ever checked was that the holder *was* a group. A
+   * jurisdiction stamped once at account creation and never re-examined is an
+   * event; a perimeter is a state, and so is an office's shape.
+   *
+   * It is a message rather than two integers for one reason, and the reason is
+   * presence. A message field is either there or it is not, on the wire and in
+   * Go, so "no requirement was recorded" and "a requirement of zero" are
+   * different states that no reader can confuse. Two bare uint32 fields could
+   * not express that: proto3 cannot tell a zero from a field nobody filled in,
+   * which is the trap this repository has been caught by four times, and the
+   * permissive reading of an ambiguous zero is exactly the reading an attacker
+   * wants. Grants written before this field existed decode with it absent and
+   * are unchanged in effect — see OfficeShape for what that costs.
+   */
+  requiredShape: OfficeShape | undefined;
+}
+
+/**
+ * OfficeShape is an M-of-N, written down before the ceremony and held to
+ * afterwards.
+ *
+ * Both numbers are FLOORS, not equalities, and the asymmetry is the design.
+ * Adding a member to an office is fine: a three-of-five that becomes a
+ * three-of-six is more people, not fewer, and refusing it would mean an office
+ * could never grow without the foundation re-granting its roles. Dropping below
+ * either number is not fine, and it is the same rule the constitution applies to
+ * the foundation's own group, for the same reason: three-of-five becoming
+ * three-of-four moves sixty per cent to seventy-five and walks towards
+ * unanimity, where one unreachable member freezes the office; and a threshold
+ * falling to one is the single key the whole arrangement exists to abolish.
+ *
+ * What it does NOT constrain is an office tightening itself. An office that
+ * votes three-of-five up to five-of-five satisfies both floors and can then be
+ * frozen by one absent member — which is self-harm rather than capture, and a
+ * rule that refused it would be a rule stopping an office from being more
+ * careful than it was asked to be.
+ */
+export interface OfficeShape {
+  /**
+   * signatures is the fewest members that must sign for the office to act.
+   *
+   * Checked against how many members it would actually TAKE, which is not the
+   * same as the policy's threshold number. x/group votes are weighted, so a
+   * group with a threshold of 3 whose members weigh 3, 1, 1, 1 and 1 is a
+   * one-of-five wearing a three-of-five's clothes: one member reaches the
+   * threshold alone. The check therefore takes the members in descending weight
+   * and counts how few of them can reach the threshold. For the equal weights
+   * every ceremony produces that is exactly the threshold, and for anything else
+   * it is the honest answer to "how many people does it take".
+   *
+   * Zero is refused rather than read as "no requirement". A requirement that
+   * requires nothing reads on a record as though it covered something, and the
+   * way to say "no requirement" is to omit required_shape entirely.
+   */
+  signatures: number;
+  /**
+   * members is the fewest members the office must have.
+   *
+   * Counted over members holding a positive weight, because a member who cannot
+   * vote is a name on a list rather than a share of an office — and padding a
+   * group with weightless members is the obvious way to satisfy a count while
+   * shrinking the number of people who actually decide.
+   *
+   * Must be at least signatures: a requirement of three signatures from two
+   * members describes an office that could never act, and a requirement nothing
+   * can satisfy is a requirement that will be waived by whoever hits it.
+   */
+  members: number;
 }
 
 function createBaseRoleGrant(): RoleGrant {
-  return { holder: "", role: 0, jurisdiction: "", grantedBy: "", grantedAtHeight: "0" };
+  return { holder: "", role: 0, jurisdiction: "", grantedBy: "", grantedAtHeight: "0", requiredShape: undefined };
 }
 
 export const RoleGrant = {
@@ -188,6 +268,9 @@ export const RoleGrant = {
     }
     if (message.grantedAtHeight !== "0") {
       writer.uint32(40).int64(message.grantedAtHeight);
+    }
+    if (message.requiredShape !== undefined) {
+      OfficeShape.encode(message.requiredShape, writer.uint32(50).fork()).ldelim();
     }
     return writer;
   },
@@ -234,6 +317,13 @@ export const RoleGrant = {
 
           message.grantedAtHeight = longToString(reader.int64() as Long);
           continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.requiredShape = OfficeShape.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -250,6 +340,7 @@ export const RoleGrant = {
       jurisdiction: isSet(object.jurisdiction) ? globalThis.String(object.jurisdiction) : "",
       grantedBy: isSet(object.grantedBy) ? globalThis.String(object.grantedBy) : "",
       grantedAtHeight: isSet(object.grantedAtHeight) ? globalThis.String(object.grantedAtHeight) : "0",
+      requiredShape: isSet(object.requiredShape) ? OfficeShape.fromJSON(object.requiredShape) : undefined,
     };
   },
 
@@ -270,6 +361,9 @@ export const RoleGrant = {
     if (message.grantedAtHeight !== "0") {
       obj.grantedAtHeight = message.grantedAtHeight;
     }
+    if (message.requiredShape !== undefined) {
+      obj.requiredShape = OfficeShape.toJSON(message.requiredShape);
+    }
     return obj;
   },
 
@@ -283,6 +377,83 @@ export const RoleGrant = {
     message.jurisdiction = object.jurisdiction ?? "";
     message.grantedBy = object.grantedBy ?? "";
     message.grantedAtHeight = object.grantedAtHeight ?? "0";
+    message.requiredShape = (object.requiredShape !== undefined && object.requiredShape !== null)
+      ? OfficeShape.fromPartial(object.requiredShape)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseOfficeShape(): OfficeShape {
+  return { signatures: 0, members: 0 };
+}
+
+export const OfficeShape = {
+  encode(message: OfficeShape, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.signatures !== 0) {
+      writer.uint32(8).uint32(message.signatures);
+    }
+    if (message.members !== 0) {
+      writer.uint32(16).uint32(message.members);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): OfficeShape {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseOfficeShape();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.signatures = reader.uint32();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.members = reader.uint32();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): OfficeShape {
+    return {
+      signatures: isSet(object.signatures) ? globalThis.Number(object.signatures) : 0,
+      members: isSet(object.members) ? globalThis.Number(object.members) : 0,
+    };
+  },
+
+  toJSON(message: OfficeShape): unknown {
+    const obj: any = {};
+    if (message.signatures !== 0) {
+      obj.signatures = Math.round(message.signatures);
+    }
+    if (message.members !== 0) {
+      obj.members = Math.round(message.members);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<OfficeShape>): OfficeShape {
+    return OfficeShape.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<OfficeShape>): OfficeShape {
+    const message = createBaseOfficeShape();
+    message.signatures = object.signatures ?? 0;
+    message.members = object.members ?? 0;
     return message;
   },
 };

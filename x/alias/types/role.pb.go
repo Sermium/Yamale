@@ -139,9 +139,8 @@ type RoleGrant struct {
 	// jurisdiction stamped once at account creation and never re-examined is an
 	// event; a perimeter is a state, and so is an office's shape.
 	//
-	// # Why a message and not two integers
-	//
-	// Presence. A message field is either there or it is not, on the wire and in
+	// It is a message rather than two integers for one reason, and the reason is
+	// presence. A message field is either there or it is not, on the wire and in
 	// Go, so "no requirement was recorded" and "a requirement of zero" are
 	// different states that no reader can confuse. Two bare uint32 fields could
 	// not express that: proto3 cannot tell a zero from a field nobody filled in,

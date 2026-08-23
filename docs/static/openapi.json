@@ -4828,6 +4828,19 @@
         }
       }
     },
+    "OfficeShape": {
+      "type": "object",
+      "properties": {
+        "signatures": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "members": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "OperatorRotation": {
       "type": "object",
       "properties": {
@@ -6325,6 +6338,9 @@
         "granted_at_height": {
           "type": "string",
           "format": "int64"
+        },
+        "required_shape": {
+          "$ref": "#/definitions/OfficeShape"
         }
       }
     },
