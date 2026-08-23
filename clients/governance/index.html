@@ -22,7 +22,19 @@
   who has voted. Acting is done by validators from their own nodes, with their
   own keys, which is where an irreversible decision belongs.
 
-  Read-only, single file, no build step, no keys.
+  Single file, no build step, no keys. It reads the chain and it composes
+  documents; the only thing it POSTs is a validator's own action to that
+  validator's own signing service.
+
+  EVERY STRING THAT COMES OFF THE CHAIN IS ESCAPED BEFORE IT REACHES innerHTML.
+  That is not hygiene, it is a privilege boundary. A governance proposal's title
+  and summary are written by whoever submitted it — on this chain that costs a
+  deposit and nothing else — and they are rendered here on a page that a
+  validator opens as ?as=pi, where act() can POST to /api/ops/freeze and
+  /api/ops/case. Interpolated raw, a proposal title would have turned "can pay a
+  deposit" into "can freeze wallets and open seizure cases on somebody else's
+  node". The same applies to a freeze reason and an evidence URI, both of which
+  are written by whoever opened the case.
 -->
 <style>
   :root{
@@ -653,7 +665,7 @@ async function load() {
       <div class="card">
         <div class="muted small">RECOVERED FUNDS GO TO</div>
         <div style="font-size:.95rem;font-weight:600;margin-top:.35rem">${
-          p.recovery_destination ? `<code>${p.recovery_destination}</code>`
+          p.recovery_destination ? `<code>${esc(p.recovery_destination)}</code>`
                                  : '<span class="p-bad pill">not set</span>'}</div>
         <div class="muted small">${p.recovery_destination ? 'the foundation, which holds recovered assets for restitution' : 'this chain should not have started — seizures have nowhere to send what they take'}</div>
       </div>`;
@@ -677,22 +689,22 @@ async function load() {
         const cast = votes.find(x => (x.voter || '') === (VOTER_ADDR[v.moniker] || ''));
         const opt = cast ? (cast.options?.[0]?.option || '').replace('VOTE_OPTION_', '').toLowerCase() : null;
         return `<div class="vrow">
-            <strong>${v.moniker}</strong>
-            <span class="muted small">on ${v.host}</span>
+            <strong>${esc(v.moniker)}</strong>
+            <span class="muted small">on ${esc(v.host)}</span>
             ${opt ? `<span class="pill ${opt==='yes'?'p-ok':'p-bad'}">voted ${opt}</span>`
                   : '<span class="pill p-warn">not voted</span>'}
             ${opt ? '' : (ME === v.moniker ? `
               <div class="cmds">
-                <button class="vote ok" data-v="${v.moniker}" data-p="${pr.id}" data-o="yes">vote yes</button>
-                <button class="vote bad" data-v="${v.moniker}" data-p="${pr.id}" data-o="no">vote no</button>
+                <button class="vote ok" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="yes">vote yes</button>
+                <button class="vote bad" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="no">vote no</button>
               </div>` : `
               <div class="cmds"><span class="muted small">open
-                <a href="?as=${v.moniker}">this page as ${v.moniker}</a> to vote</span></div>`)}
+                <a href="?as=${encodeURIComponent(v.moniker)}">this page as ${esc(v.moniker)}</a> to vote</span></div>`)}
           </div>`;
       }).join('');
       return `<div class="card">
-          <div class="row"><strong>#${pr.id} ${pr.title || ''}</strong>${statusPill(pr.status)}</div>
-          <p class="muted small">${pr.summary || ''}</p>
+          <div class="row"><strong>#${esc(pr.id)} ${esc(pr.title)}</strong>${statusPill(pr.status)}</div>
+          <p class="muted small">${esc(pr.summary)}</p>
           ${rows}
           ${tally(pr.final_tally_result)}
         </div>`;
@@ -754,7 +766,7 @@ async function load() {
     document.getElementById('proposals').innerHTML = proposals.filter(p => !isOpen(p)).map(pr => `
       <div class="card">
         <div class="row">
-          <strong>#${pr.id} ${pr.title || pr.summary || ''}</strong>
+          <strong>#${esc(pr.id)} ${esc(pr.title || pr.summary)}</strong>
           ${statusPill(pr.status)}
         </div>
         <p class="muted small">${(pr.messages||[]).map(m => m['@type']).join(', ') || '—'}</p>
@@ -764,20 +776,20 @@ async function load() {
     const fr = freezes.freeze || [];
     document.getElementById('freezes').innerHTML = fr.length ? fr.map(f => `
       <div class="card card--freeze">
-        <div class="row"><code>${f.address || f.account || ''}</code>
+        <div class="row"><code>${esc(f.address || f.account)}</code>
           <span class="pill p-warn">frozen</span></div>
-        <p class="muted small">${f.reason || ''}</p>
+        <p class="muted small">${esc(f.reason)}</p>
       </div>`).join('') : '<p class="empty">No wallet is frozen.</p>';
 
     const cs = cases.case || [];
     document.getElementById('cases').innerHTML = cs.length ? cs.map(c => `
       <div class="card card--seize">
-        <div class="row"><code>${c.target || c.address || ''}</code>
+        <div class="row"><code>${esc(c.target || c.address)}</code>
           <span class="pill ${String(c.status||'').includes('EXECUTED') ? 'p-bad' : 'p-warn'}">${
             String(c.status||'open').replace(/^CASE_STATUS_/,'').toLowerCase()}</span></div>
-        <p class="muted small">${c.reason || ''}</p>
-        ${c.evidence_uri ? `<p class="small">Evidence: <code>${c.evidence_uri}</code></p>` : ''}
-        ${c.evidence_hash ? `<p class="muted small">SHA-256 <code>${c.evidence_hash}</code> — check the document against this before voting.</p>` : ''}
+        <p class="muted small">${esc(c.reason)}</p>
+        ${c.evidence_uri ? `<p class="small">Evidence: <code>${esc(c.evidence_uri)}</code></p>` : ''}
+        ${c.evidence_hash ? `<p class="muted small">SHA-256 <code>${esc(c.evidence_hash)}</code> — check the document against this before voting.</p>` : ''}
       </div>`).join('') : '<p class="empty">No recovery case has been opened.</p>';
 
     document.getElementById('clock').textContent = 'updated ' + new Date().toLocaleTimeString();
