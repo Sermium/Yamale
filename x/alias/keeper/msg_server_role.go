@@ -111,12 +111,43 @@ func (k msgServer) GrantRole(ctx context.Context, msg *types.MsgGrantRole) (*typ
 		return nil, err
 	}
 
+	// The M-of-N the office must keep, if this grant records one. Two separate
+	// checks and they answer different questions:
+	//
+	//   - Validate: is the requirement itself coherent? Refuses a present
+	//     requirement of zero signatures, and one asking for more signatures than
+	//     members. It runs whether or not x/group is wired, because it is a fact
+	//     about the message.
+	//   - assertShapeAvailable: does the holder meet it TODAY? Refuses a grant
+	//     requiring three-of-five to a one-of-one office. Without this the grant
+	//     would be written, read correct in every query, and permit nothing — an
+	//     office that believes it holds an authority and does not is worse off than
+	//     one that was told no.
+	//
+	// It refuses when no group keeper is wired, so a requirement can only be
+	// recorded on a chain that can check it. That is the closed direction and it is
+	// the same rule the perimeter path applies: a requirement nobody could verify
+	// is not a requirement.
+	if err := msg.RequiredShape.Validate(); err != nil {
+		return nil, errorsmod.Wrap(types.ErrInvalidRole, err.Error())
+	}
+	if err := k.assertShapeAvailable(ctx, msg.Holder, msg.RequiredShape); err != nil {
+		return nil, err
+	}
+	// And a re-grant may not quietly lower the bar a previous one set. See
+	// assertShapeNotReduced: the idempotence of re-granting a triple is worth
+	// keeping, and an omitted field is not an amendment.
+	if err := k.assertShapeNotReduced(ctx, msg.Holder, msg.Role, scope, msg.RequiredShape); err != nil {
+		return nil, err
+	}
+
 	grant := types.RoleGrant{
 		Holder:          msg.Holder,
 		Role:            msg.Role,
 		Jurisdiction:    scope,
 		GrantedBy:       msg.Authority,
 		GrantedAtHeight: sdk.UnwrapSDKContext(ctx).BlockHeight(),
+		RequiredShape:   msg.RequiredShape,
 	}
 	// Validate again over the assembled record rather than trusting the checks
 	// above. It is the same function genesis uses, so a grant made by proposal
@@ -141,6 +172,13 @@ func (k msgServer) GrantRole(ctx context.Context, msg *types.MsgGrantRole) (*typ
 		sdk.NewAttribute("role", types.RoleName(grant.Role)),
 		sdk.NewAttribute("jurisdiction", grant.Jurisdiction),
 		sdk.NewAttribute("granted_by", grant.GrantedBy),
+		// The shape belongs in the event as much as in the store. The store holds
+		// what is true now; the events are what a reader reconstructs a history
+		// from, and "when did this office stop being pinned to a three-of-five" is a
+		// question only the history can answer. Rendered by Rule(), so a grant with
+		// no requirement reads as "no required shape" rather than as a blank an
+		// indexer has to guess at.
+		sdk.NewAttribute("required_shape", grant.RequiredShape.Rule()),
 	))
 	return &types.MsgGrantRoleResponse{}, nil
 }
@@ -312,6 +350,12 @@ func (k Keeper) foundationAddress(ctx context.Context) (string, error) {
 // that actually checks a perimeter fails closed instead — see AssertScope, and
 // the consumers, which refuse outright when the registry is missing rather than
 // waving the action through.
+//
+// Note the deliberate asymmetry with assertShape, which refuses on the same nil.
+// The question is what a missing keeper can cause. Here it can only cause a grant
+// to a plain key, which the perimeter path will then refuse to act on. There it
+// would cause an ACTION by an office whose shape nobody read, which is the thing
+// itself.
 func (k Keeper) assertGroupAccount(ctx context.Context, addr string) error {
 	if k.groups == nil {
 		return nil

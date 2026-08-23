@@ -237,12 +237,22 @@ func enrolmentProposal(dossier countryDossier, proposer string) ([]byte, error) 
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", office.Name, err)
 		}
+		// The minimum the config demanded and `country init` checked the signed
+		// group file against, carried onto the chain. From the dossier rather than
+		// recomputed from anything: the number on the signed record and the number
+		// in required_shape have to be the same number, and the way to guarantee
+		// that is for there to be one of them.
+		minimum, err := requireOfficeMinimum(office)
+		if err != nil {
+			return nil, err
+		}
 		for _, role := range roles {
 			grant := &aliastypes.MsgGrantRole{
-				Authority:    dossier.Foundation,
-				Holder:       address,
-				Role:         role,
-				Jurisdiction: dossier.Country,
+				Authority:     dossier.Foundation,
+				Holder:        address,
+				Role:          role,
+				Jurisdiction:  dossier.Country,
+				RequiredShape: minimum.shape(),
 			}
 			// The scope this grant names is dossier.Country, and
 			// requireEnrolmentCountry refused every unacceptable value of it at the
@@ -255,7 +265,13 @@ func enrolmentProposal(dossier countryDossier, proposer string) ([]byte, error) 
 				return nil, err
 			}
 			messages = append(messages, encoded)
-			granted = append(granted, fmt.Sprintf("%s to %s", aliastypes.RoleName(role), office.Name))
+			// The required shape is in the summary, not only in the messages. A
+			// custodian who reads only the summary has to be able to see what the
+			// office is being held to, because the summary is the part they will
+			// actually read and the shape is the part that decides whether the
+			// authority survives the office rearranging itself.
+			granted = append(granted, fmt.Sprintf("%s to %s, required %s",
+				aliastypes.RoleName(role), office.Name, minimum.rule()))
 		}
 	}
 

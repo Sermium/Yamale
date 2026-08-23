@@ -28,6 +28,7 @@ Last verified 2026-08-21, against `yamale-devnet-2`.
 | Tiered netting | `x/netting`: collateral posted first, hold-and-retry, no recompute path |
 | Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
 | Roles and the perimeter | `x/alias` role grants, and `AssertScope` consulted by four modules |
+| An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action |
 
 ## Designed, documented, not built
 
@@ -129,6 +130,25 @@ rather than approval.
    would be checked in `GrantRole` and `InitGenesis` the way the
    foundation-administrator cap already is. Not added, because the invariant set
    is customer-visible.
+
+**Answered 2026-08-23.** **An office's shape is pinned on its grant and checked
+on every action**, not stamped once at grant time. `assertGroupAccount` refused a
+role holder that was not an `x/group` policy and asked nothing about the
+arrangement inside, so a one-of-one satisfied it and a proper three-of-five could
+vote itself down to one afterwards with nothing notified. `RoleGrant` now carries
+an optional `required_shape` and both perimeter functions refuse an office that
+has fallen below it. Two decisions inside that are worth recording because they
+could reasonably have gone the other way:
+
+- **Absent means no requirement**, so grants made before the field existed are
+  unchanged in effect and their holders can still shrink to a single key. The
+  alternative — treating absence as "must be at least something" — would disable
+  every existing authority on the upgrade block. Closing it is one foundation
+  proposal per grant, and the runbook says how.
+- **A missing `x/group` keeper refuses**, unlike `assertGroupAccount`, which
+  skips. The asymmetry is which way the bypass runs: there a missing keeper can
+  only produce a grant the perimeter will refuse to act on, here it would produce
+  an action by an office whose shape nobody read.
 
 5. **Whether a netting reserve is seizable.** `x/enforcement` seizes
    `SpendableCoins` from a bank account; the uncommitted part of a posted

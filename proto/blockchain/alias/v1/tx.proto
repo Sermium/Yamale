@@ -370,6 +370,30 @@ message MsgGrantRole {
   // failure while resolving the foundation must not be the thing that decides
   // whether the chain-wide scope was allowed.
   string jurisdiction = 4;
+
+  // required_shape is the M-of-N the holder's office must keep in order to keep
+  // this role. Omit it and no requirement is recorded, which is what every grant
+  // made before this field existed carries.
+  //
+  // Recorded on the grant and re-checked on every action the grant permits, so
+  // an office that reduces itself below the shape it was granted under loses the
+  // authority automatically rather than waiting for somebody to notice and
+  // revoke. See OfficeShape for why both numbers are floors and why the count of
+  // signatures is not the same thing as the policy's threshold.
+  //
+  // Checked here as well, when the group keeper is available: a grant requiring
+  // three-of-five is refused outright to a one-of-one office, rather than being
+  // written and then failing on first use. Recording a requirement the holder
+  // does not meet is how an office ends up holding a grant that reads correct in
+  // every query and permits nothing.
+  //
+  // The requirement is decided before the ceremony rather than read off whoever
+  // turned up to it. `ceremony country` takes it per office in the enrolment
+  // config and refuses to assemble an office whose signed group file does not
+  // meet it — see docs/guides/country-enrolment.md. A requirement captured from
+  // the group that happened to be created would be no requirement at all: it
+  // would ratify a one-of-one as readily as a three-of-five.
+  OfficeShape required_shape = 5;
 }
 
 // MsgGrantRoleResponse is empty.

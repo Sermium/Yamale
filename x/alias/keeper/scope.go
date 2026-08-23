@@ -134,6 +134,14 @@ func (k Keeper) AssertScopeIn(ctx context.Context, actor string, role types.Role
 // tell a random account that its victim has no recorded jurisdiction, which
 // sends the reader looking for the wrong bug. AssertScope still runs afterwards
 // and is still the only thing that permits anything.
+//
+// It deliberately does not consult the holder's shape. An office that has fallen
+// below the M-of-N it was granted under is still an authority of that kind — it
+// is one that cannot act — and that is the right answer to the question this
+// function asks. Reading the shape here would cost two x/group queries on a path
+// that only chooses an error message, and it would turn the fallen office's
+// refusal back into "you are not a payments authority", which is the wrong bug
+// to send somebody looking for. AssertScope says the true thing.
 func (k Keeper) HoldsRole(ctx context.Context, actor string, role types.Role) (bool, error) {
 	if !types.ValidRole(role) {
 		return false, errorsmod.Wrapf(types.ErrInvalidRole, "%s", types.RoleName(role))
@@ -160,15 +168,49 @@ func (k Keeper) HoldsRole(ctx context.Context, actor string, role types.Role) (b
 // foundation action. Neither read can match by accident: the country grant is
 // looked up under the country the registry gave, and the chain-wide grant under
 // a marker that no country code folds to.
+//
+// # A grant is not a fact, it is a fact plus a condition
+//
+// Finding the grant is no longer the end of the question. A grant may record the
+// M-of-N its holder must keep — see types.OfficeShape — and an office that has
+// fallen below it does not hold the authority any more, whatever the store says.
+// So each grant found is checked against the office's shape right now, and only a
+// grant that is both present AND still satisfied permits anything.
+//
+// The loop continues past a grant whose shape has fallen rather than refusing on
+// the spot, because the two grants are separate authorities with separate
+// requirements: an actor whose chain-wide grant demanded five-of-nine and whose
+// country grant demanded two-of-three legitimately still holds the second. What
+// is remembered is the FIRST shape failure, so that an actor who holds nothing
+// usable is told why — "your office fell below three-of-five" rather than "you
+// hold no grant", which would send an operator to the wrong module entirely.
+//
+// Both reads are for the same holder, so the two shape checks would ask x/group
+// the same two questions twice. That is the worst case and it happens only for an
+// actor holding both a chain-wide and a country grant of one role, both carrying
+// requirements, with the chain-wide one no longer met. The ordinary case is one
+// grant, one policy read and one member read; a grant with no recorded
+// requirement reads x/group not at all.
 func (k Keeper) assertGranted(ctx context.Context, actor string, role types.Role, country string) error {
+	var fallen error
 	for _, scope := range [...]string{types.ChainWide, country} {
-		granted, err := k.RoleGrants.Has(ctx, collections.Join3(actor, int32(role), scope))
+		grant, err := k.RoleGrants.Get(ctx, collections.Join3(actor, int32(role), scope))
+		if errors.Is(err, collections.ErrNotFound) {
+			continue
+		}
 		if err != nil {
 			return err
 		}
-		if granted {
-			return nil
+		if err := k.assertShape(ctx, actor, grant.RequiredShape); err != nil {
+			if fallen == nil {
+				fallen = err
+			}
+			continue
 		}
+		return nil
+	}
+	if fallen != nil {
+		return fallen
 	}
 	return errorsmod.Wrapf(types.ErrOutOfScope,
 		"%s holds no grant of %s covering %s", actor, types.RoleName(role), country)

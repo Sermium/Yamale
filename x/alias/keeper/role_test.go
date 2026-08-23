@@ -3,10 +3,14 @@ package keeper_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"cosmossdk.io/log"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/x/group"
+	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
@@ -25,24 +29,153 @@ import (
 // That is the only property that matters here, because the failure mode of a
 // perimeter is never that it is too strict.
 
-// stubGroups answers x/group's one question for a fixed set of addresses.
+// stubGroups answers x/group's questions for a fixed set of addresses.
 //
 // A stub rather than a real x/group keeper, and this is the one place in these
-// files where that is the right call: the question is a plain fact about another
-// module's state ("is this address a group policy"), and what is under test is
-// that *this* module asks it and refuses on a no. Standing up x/group would
-// exercise x/group.
-type stubGroups struct{ policies map[string]bool }
+// files where that is the right call: the questions are plain facts about another
+// module's state ("is this address a group policy", "what is its threshold", "who
+// are its members"), and what is under test is that *this* module asks them and
+// refuses on the wrong answer. Standing up x/group would exercise x/group.
+//
+// What the stub does NOT fake is the encoding. The decision policy is a real
+// ThresholdDecisionPolicy inside a real Any, because reading the threshold out of
+// that Any is a step the module can get wrong and a stub that handed over the
+// number directly would test nothing. groupmodule.AppModuleBasic is registered on
+// the test codec for the same reason: the unpack is the chain's unpack.
+//
+// A pointer, so a test can reshape an office mid-run — which is the whole failure
+// under test. An office that could only be created and never changed would be an
+// office whose threshold nobody can vote down, and that is precisely the state
+// this module used to assume.
+type stubGroups struct {
+	policies map[string]*stubOffice
+	byID     map[uint64]*stubOffice
+	next     uint64
 
-func (s stubGroups) GroupPolicyInfo(
+	// policyCalls and memberCalls count what the module asked for. They are here
+	// so a test can assert the COST of the shape check rather than describing it
+	// in a comment — in particular that a grant carrying no requirement asks
+	// x/group nothing at all, which is the claim that keeps this change from being
+	// a tax on every authority action on the chain.
+	policyCalls int
+	memberCalls int
+}
+
+// stubOffice is one group and its policy: a threshold, and one weight per member.
+//
+// Weights are strings because x/group's are, and a test that passed integers
+// would not be able to construct the case that matters most — the group whose
+// first member weighs three, which reads as a three-of-five and acts as a
+// one-of-five.
+type stubOffice struct {
+	id        uint64
+	threshold string
+	weights   []string
+
+	// percentage installs a PercentageDecisionPolicy instead of a threshold one,
+	// which is the policy this module refuses to hold a recorded shape against.
+	percentage string
+}
+
+func newStubGroups() *stubGroups {
+	return &stubGroups{policies: map[string]*stubOffice{}, byID: map[uint64]*stubOffice{}}
+}
+
+// add registers an address as a group policy of m-of-n with equal weights, which
+// is what every ceremony in this repository produces.
+func (s *stubGroups) add(addr string, threshold, members int) *stubOffice {
+	weights := make([]string, members)
+	for i := range weights {
+		weights[i] = "1"
+	}
+	return s.addWeighted(addr, fmt.Sprintf("%d", threshold), weights)
+}
+
+func (s *stubGroups) addWeighted(addr, threshold string, weights []string) *stubOffice {
+	s.next++
+	office := &stubOffice{id: s.next, threshold: threshold, weights: weights}
+	s.policies[addr] = office
+	s.byID[office.id] = office
+	return office
+}
+
+// reshape is the office voting on itself: a new threshold, a new membership, the
+// same policy address. Nothing about it is unusual — an office administers itself,
+// which is what makes this possible and what makes the check necessary.
+func (s *stubGroups) reshape(t *testing.T, addr string, threshold, members int) {
+	t.Helper()
+	office, ok := s.policies[addr]
+	require.True(t, ok, "no such office")
+	weights := make([]string, members)
+	for i := range weights {
+		weights[i] = "1"
+	}
+	office.threshold = fmt.Sprintf("%d", threshold)
+	office.weights = weights
+}
+
+func (s *stubGroups) GroupPolicyInfo(
 	_ context.Context, req *group.QueryGroupPolicyInfoRequest,
 ) (*group.QueryGroupPolicyInfoResponse, error) {
-	if s.policies[req.Address] {
-		return &group.QueryGroupPolicyInfoResponse{}, nil
+	s.policyCalls++
+	office, ok := s.policies[req.Address]
+	if !ok {
+		// The shape of a real miss: x/group's query returns an error for an address
+		// that has no policy, and that error is all this module looks at.
+		return nil, errors.New("no group policy for " + req.Address)
 	}
-	// The shape of a real miss: x/group's query returns an error for an address
-	// that has no policy, and that error is all this module looks at.
-	return nil, errors.New("no group policy for " + req.Address)
+	var decision group.DecisionPolicy = &group.ThresholdDecisionPolicy{
+		Threshold: office.threshold,
+		Windows:   &group.DecisionPolicyWindows{VotingPeriod: time.Hour},
+	}
+	if office.percentage != "" {
+		decision = &group.PercentageDecisionPolicy{
+			Percentage: office.percentage,
+			Windows:    &group.DecisionPolicyWindows{VotingPeriod: time.Hour},
+		}
+	}
+	policy, err := codectypes.NewAnyWithValue(decision)
+	if err != nil {
+		return nil, err
+	}
+	return &group.QueryGroupPolicyInfoResponse{Info: &group.GroupPolicyInfo{
+		Address:        req.Address,
+		GroupId:        office.id,
+		Admin:          req.Address,
+		DecisionPolicy: policy,
+	}}, nil
+}
+
+func (s *stubGroups) GroupMembers(
+	_ context.Context, req *group.QueryGroupMembersRequest,
+) (*group.QueryGroupMembersResponse, error) {
+	s.memberCalls++
+	office, ok := s.byID[req.GroupId]
+	if !ok {
+		return nil, errors.New("no such group")
+	}
+	// Refused rather than answered, and this is the assertion that a comment could
+	// not make. x/group's member query pages and defaults to a hundred, so a caller
+	// that forgets the limit gets a short answer for a large group and no
+	// indication that it was short. Failing here means a change that drops the
+	// limit fails the shape tests instead of quietly undercounting a big office.
+	if req.Pagination == nil || req.Pagination.Limit == 0 {
+		return nil, errors.New("asked for a group's members with no page limit")
+	}
+	members := make([]*group.GroupMember, 0, len(office.weights))
+	for i, weight := range office.weights {
+		members = append(members, &group.GroupMember{
+			GroupId: office.id,
+			Member: &group.Member{
+				Address: fmt.Sprintf("member-%d-of-group-%d", i, office.id),
+				Weight:  weight,
+			},
+		})
+	}
+	if uint64(len(members)) > req.Pagination.Limit {
+		members = members[:req.Pagination.Limit]
+	}
+	return &group.QueryGroupMembersResponse{Members: members}, nil
 }
 
 // stubConstitution answers the one question x/alias asks x/constitution: which
@@ -70,7 +203,7 @@ type roleFixture struct {
 	k      keeper.Keeper
 	ms     types.MsgServer
 	qs     types.QueryServer
-	groups stubGroups
+	groups *stubGroups
 	consti *stubConstitution
 
 	// admin holds the foundation exemption: no jurisdiction, and the reserved
@@ -88,8 +221,8 @@ type roleFixture struct {
 func roleSetup(t *testing.T) *roleFixture {
 	t.Helper()
 
-	env := integration.New(t, types.ModuleName, module.AppModule{})
-	groups := stubGroups{policies: map[string]bool{}}
+	env := integration.New(t, types.ModuleName, module.AppModule{}, groupmodule.AppModuleBasic{})
+	groups := newStubGroups()
 	consti := &stubConstitution{}
 
 	k := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
@@ -105,7 +238,8 @@ func roleSetup(t *testing.T) *roleFixture {
 	}
 
 	_, f.foundation = env.Addr(t)
-	groups.policies[f.foundation] = true
+	// Three of five, like the real one, because the constitution fixes it there.
+	groups.add(f.foundation, 3, 5)
 	consti.invariants = constitutiontypes.DefaultInvariants()
 	consti.invariants.EnforcementRecoveryDestination = f.foundation
 
@@ -118,11 +252,25 @@ func roleSetup(t *testing.T) *roleFixture {
 
 // office returns a fresh address that the group keeper will vouch for, so it can
 // legitimately hold a role.
+//
+// Three of five, because that is what a ceremony produces and because a fixture
+// whose default office was a one-of-one would let a test pass that the chain
+// refuses. Tests that care about the shape say so with officeShaped.
 func (f *roleFixture) office(t *testing.T) string {
+	return f.officeShaped(t, 3, 5)
+}
+
+// officeShaped returns a fresh group policy of exactly the given m-of-n.
+func (f *roleFixture) officeShaped(t *testing.T, threshold, members int) string {
 	t.Helper()
 	_, addr := f.env.Addr(t)
-	f.groups.policies[addr] = true
+	f.groups.add(addr, threshold, members)
 	return addr
+}
+
+// shape is the requirement a grant records, spelled the way a test reads.
+func shape(signatures, members uint32) *types.OfficeShape {
+	return &types.OfficeShape{Signatures: signatures, Members: members}
 }
 
 // placed returns a fresh account recorded in a country, by governance.
@@ -140,6 +288,18 @@ func (f *roleFixture) grant(t *testing.T, holder string, role types.Role, scope 
 	t.Helper()
 	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
 		Authority: f.env.AuthorityString(t), Holder: holder, Role: role, Jurisdiction: scope,
+	})
+	require.NoError(t, err)
+}
+
+// grantRequiring grants with a recorded shape requirement.
+func (f *roleFixture) grantRequiring(
+	t *testing.T, holder string, role types.Role, scope string, required *types.OfficeShape,
+) {
+	t.Helper()
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority: f.env.AuthorityString(t), Holder: holder, Role: role,
+		Jurisdiction: scope, RequiredShape: required,
 	})
 	require.NoError(t, err)
 }
@@ -512,15 +672,15 @@ func TestAnUnreadableConstitutionRefusesTheFoundation(t *testing.T) {
 // have been refused, and a missing constitution keeper that resolved to the empty
 // string would make every signer the foundation.
 func TestWithoutAConstitutionKeeperOnlyGovernanceMayGrant(t *testing.T) {
-	env := integration.New(t, types.ModuleName, module.AppModule{})
-	groups := stubGroups{policies: map[string]bool{}}
+	env := integration.New(t, types.ModuleName, module.AppModule{}, groupmodule.AppModuleBasic{})
+	groups := newStubGroups()
 	k := keeper.NewKeeper(env.Codec, env.AddressCodec, env.StoreService,
 		log.NewNopLogger(), env.AuthorityString(t), nil, groups, nil)
 	require.NoError(t, k.InitGenesis(env.Ctx, *types.DefaultGenesis()))
 	ms := keeper.NewMsgServerImpl(k)
 
 	_, office := env.Addr(t)
-	groups.policies[office] = true
+	groups.add(office, 3, 5)
 	_, stranger := env.Addr(t)
 
 	_, err := ms.GrantRole(env.Ctx, &types.MsgGrantRole{
