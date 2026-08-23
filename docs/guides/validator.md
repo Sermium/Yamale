@@ -95,7 +95,7 @@ module account may sign:
 {
   "messages": [{
     "@type": "/blockchain.validatorgov.v1.MsgApproveValidator",
-    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur",
+    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jz5s386",
     "candidate": "yml1yu77rjnwumn4kr9jhezshhddujj2cugzy5ffwp",
     "approve": true
   }],

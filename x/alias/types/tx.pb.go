@@ -1136,9 +1136,51 @@ func (m *MsgRevokeRoleResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MsgRevokeRoleResponse proto.InternalMessageInfo
 
 // MsgUpdateParams sets the module parameters. Governance only.
+//
+// This is also the only way a foundation administrator is appointed or removed,
+// which makes it the most consequential message in this module: an administrator
+// may correct the country recorded against any account, and a correction moves
+// that account out from under the authority investigating it. The foundation's own
+// M-of-N group cannot send this message. Nothing can, but governance.
+//
+// # It replaces the whole Params object
+//
+// `params` is a message, not a field mask, and there is no partial update. So
+// "appoint one administrator" is really "read the current parameters, add one
+// address, and resubmit every parameter" — and the failure mode is not an error.
+// A proposal composed without reading the current values passes, and silently
+// drops the administrators already appointed or resets payload_length to its
+// default. Nothing here catches that: Params.Validate() bounds the list and
+// refuses duplicates, and a shorter list than before is a perfectly valid list.
+//
+// Two consequences worth knowing before composing one by hand:
+//
+//   - Read `Query/Params` first and carry every field across. A field left out of
+//     the message is a field set to its protobuf default, not a field left alone.
+//   - A `payload_length` that reads back as 0 means the value is UNKNOWN, not
+//     zero: proto3 cannot tell a zero from a field nobody filled in. Resubmitting
+//     a guess would re-parameterise the chain while reading as an appointment.
+//     Validate() refuses a zero, so a chain never actually holds one.
+//
+// clients/governance composes this message with the whole object shown before and
+// after, and refuses rather than defaulting when the current parameters cannot be
+// read. `ceremony administrators propose` does the same from the command line.
+//
+// # What is not checked here
+//
+// Validate() does not check that an entry in `foundation_administrators` is an
+// address. It refuses an empty string, a duplicate and a ninth entry, and nothing
+// else — so a mistyped address passes a governance vote, occupies one of the
+// eight places, and grants the exemption to nobody. Both interfaces above verify
+// the bech32 checksum before composing, because the chain will not.
 type MsgUpdateParams struct {
+	// authority is the governance module account. Any other signer is refused, so a
+	// proposal naming the wrong address passes its vote and is then refused when it
+	// executes — reported in a transaction log nobody is watching.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
-	Params    Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
+	// params is the COMPLETE parameter set, replacing whatever is there. See above:
+	// every field omitted is a field reset, not a field preserved.
+	Params Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
 }
 
 func (m *MsgUpdateParams) Reset()         { *m = MsgUpdateParams{} }
@@ -1347,7 +1389,26 @@ type MsgClient interface {
 	GrantRole(ctx context.Context, in *MsgGrantRole, opts ...grpc.CallOption) (*MsgGrantRoleResponse, error)
 	// RevokeRole removes one such grant. The same signers as GrantRole.
 	RevokeRole(ctx context.Context, in *MsgRevokeRole, opts ...grpc.CallOption) (*MsgRevokeRoleResponse, error)
-	// UpdateParams sets the module parameters. Governance only.
+	// UpdateParams sets the module parameters. Governance only, and it is the only
+	// way a foundation administrator is appointed or removed — the foundation's own
+	// M-of-N group cannot do it, and nothing else can either.
+	//
+	// It REPLACES THE WHOLE Params OBJECT. `params` is a message, not a field mask,
+	// and there is no partial update, so "appoint one administrator" means reading
+	// the current parameters, adding one address, and resubmitting every parameter.
+	// A proposal composed without reading them first passes and silently drops the
+	// administrators already appointed, or resets payload_length. Nothing catches
+	// that: a list shorter than the one before it is a valid list.
+	//
+	// A payload_length that reads back as 0 means the value is UNKNOWN, not zero —
+	// proto3 cannot tell a zero from a field nobody filled in, and Validate()
+	// refuses a zero, so no chain holds one. Resubmitting a guess would
+	// re-parameterise the chain while reading as an appointment.
+	//
+	// Note also what Validate() does NOT check: that an entry in
+	// foundation_administrators is an address. A mistyped one passes a governance
+	// vote, occupies one of the eight capped places, and grants the exemption to
+	// nobody. Verify the bech32 checksum before composing; the chain will not.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
 
@@ -1470,7 +1531,26 @@ type MsgServer interface {
 	GrantRole(context.Context, *MsgGrantRole) (*MsgGrantRoleResponse, error)
 	// RevokeRole removes one such grant. The same signers as GrantRole.
 	RevokeRole(context.Context, *MsgRevokeRole) (*MsgRevokeRoleResponse, error)
-	// UpdateParams sets the module parameters. Governance only.
+	// UpdateParams sets the module parameters. Governance only, and it is the only
+	// way a foundation administrator is appointed or removed — the foundation's own
+	// M-of-N group cannot do it, and nothing else can either.
+	//
+	// It REPLACES THE WHOLE Params OBJECT. `params` is a message, not a field mask,
+	// and there is no partial update, so "appoint one administrator" means reading
+	// the current parameters, adding one address, and resubmitting every parameter.
+	// A proposal composed without reading them first passes and silently drops the
+	// administrators already appointed, or resets payload_length. Nothing catches
+	// that: a list shorter than the one before it is a valid list.
+	//
+	// A payload_length that reads back as 0 means the value is UNKNOWN, not zero —
+	// proto3 cannot tell a zero from a field nobody filled in, and Validate()
+	// refuses a zero, so no chain holds one. Resubmitting a guess would
+	// re-parameterise the chain while reading as an appointment.
+	//
+	// Note also what Validate() does NOT check: that an entry in
+	// foundation_administrators is an address. A mistyped one passes a governance
+	// vote, occupies one of the eight capped places, and grants the exemption to
+	// nobody. Verify the bech32 checksum before composing; the chain will not.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 }
 

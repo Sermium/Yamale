@@ -52,7 +52,7 @@ goes through a proposal — one per institution:
 {
   "messages": [{
     "@type": "/blockchain.paymsg.v1.MsgApproveParticipant",
-    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur",
+    "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jz5s386",
     "participant": "yml1rhd9xfc0a6nhetjqqdep0u2r3p30qj8c9cuk0v",
     "approve": true
   }],
