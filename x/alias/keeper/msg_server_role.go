@@ -118,20 +118,20 @@ func (k msgServer) GrantRole(ctx context.Context, msg *types.MsgGrantRole) (*typ
 	//     requirement of zero signatures, and one asking for more signatures than
 	//     members. It runs whether or not x/group is wired, because it is a fact
 	//     about the message.
-	//   - assertShape: does the holder meet it TODAY? Refuses a grant requiring
-	//     three-of-five to a one-of-one office. Without this the grant would be
-	//     written, read correct in every query, and permit nothing — an office
-	//     that believes it holds an authority and does not is worse than one that
-	//     was told no.
+	//   - assertShapeAvailable: does the holder meet it TODAY? Refuses a grant
+	//     requiring three-of-five to a one-of-one office. Without this the grant
+	//     would be written, read correct in every query, and permit nothing — an
+	//     office that believes it holds an authority and does not is worse off than
+	//     one that was told no.
 	//
-	// assertShape refuses when no group keeper is wired, so a requirement can only
-	// be recorded on a chain that can check it. That is the closed direction and it
-	// is the same rule the perimeter path applies: a requirement nobody could
-	// verify is not a requirement.
+	// It refuses when no group keeper is wired, so a requirement can only be
+	// recorded on a chain that can check it. That is the closed direction and it is
+	// the same rule the perimeter path applies: a requirement nobody could verify
+	// is not a requirement.
 	if err := msg.RequiredShape.Validate(); err != nil {
 		return nil, errorsmod.Wrap(types.ErrInvalidRole, err.Error())
 	}
-	if err := k.assertShape(ctx, msg.Holder, msg.RequiredShape); err != nil {
+	if err := k.assertShapeAvailable(ctx, msg.Holder, msg.RequiredShape); err != nil {
 		return nil, err
 	}
 	// And a re-grant may not quietly lower the bar a previous one set. See
@@ -172,6 +172,13 @@ func (k msgServer) GrantRole(ctx context.Context, msg *types.MsgGrantRole) (*typ
 		sdk.NewAttribute("role", types.RoleName(grant.Role)),
 		sdk.NewAttribute("jurisdiction", grant.Jurisdiction),
 		sdk.NewAttribute("granted_by", grant.GrantedBy),
+		// The shape belongs in the event as much as in the store. The store holds
+		// what is true now; the events are what a reader reconstructs a history
+		// from, and "when did this office stop being pinned to a three-of-five" is a
+		// question only the history can answer. Rendered by Rule(), so a grant with
+		// no requirement reads as "no required shape" rather than as a blank an
+		// indexer has to guess at.
+		sdk.NewAttribute("required_shape", grant.RequiredShape.Rule()),
 	))
 	return &types.MsgGrantRoleResponse{}, nil
 }

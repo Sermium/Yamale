@@ -169,6 +169,11 @@ func (s *OfficeShape) Rule() string {
 // recorded". It is written here rather than left to each caller for the reason
 // Validate is: the permissive branch of a rule belongs in one place, where it can
 // be read and tested, not in every caller's nil check.
+//
+// It is also asked requirement-against-requirement, by the keeper's ratchet on a
+// re-grant: "does this new requirement meet the floor the old one set". The
+// arithmetic is the same >= on both numbers, and reusing it means the ratchet and
+// the perimeter cannot come to disagree about which way the comparison runs.
 func (s *OfficeShape) Satisfies(signatures, members uint32) bool {
 	if s == nil {
 		return true

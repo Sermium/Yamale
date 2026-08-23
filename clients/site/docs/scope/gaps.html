@@ -91,6 +91,10 @@ list is not evidence.</p>
 <td>Roles and the perimeter</td>
 <td><code>x/alias</code> role grants, and <code>AssertScope</code> consulted by four modules</td>
 </tr>
+<tr>
+<td>An office&#39;s M-of-N</td>
+<td>recorded on the grant as <code>required_shape</code>, re-checked on every authority action</td>
+</tr>
 </tbody></table>
 <h2>Designed, documented, not built</h2>
 <p><strong>Browser signing for the foundation.</strong> The console at <code>/foundation/</code> reads the
@@ -183,12 +187,32 @@ would be checked in <code>GrantRole</code> and <code>InitGenesis</code> the way 
 foundation-administrator cap already is. Not added, because the invariant set
 is customer-visible.</p>
 </li>
-<li><p><strong>Whether a netting reserve is seizable.</strong> <code>x/enforcement</code> seizes
+</ol>
+<p><strong>Answered 2026-08-23.</strong> <strong>An office&#39;s shape is pinned on its grant and checked
+on every action</strong>, not stamped once at grant time. <code>assertGroupAccount</code> refused a
+role holder that was not an <code>x/group</code> policy and asked nothing about the
+arrangement inside, so a one-of-one satisfied it and a proper three-of-five could
+vote itself down to one afterwards with nothing notified. <code>RoleGrant</code> now carries
+an optional <code>required_shape</code> and both perimeter functions refuse an office that
+has fallen below it. Two decisions inside that are worth recording because they
+could reasonably have gone the other way:</p>
+<ul>
+<li><strong>Absent means no requirement</strong>, so grants made before the field existed are
+unchanged in effect and their holders can still shrink to a single key. The
+alternative — treating absence as &quot;must be at least something&quot; — would disable
+every existing authority on the upgrade block. Closing it is one foundation
+proposal per grant, and the runbook says how.</li>
+<li><strong>A missing <code>x/group</code> keeper refuses</strong>, unlike <code>assertGroupAccount</code>, which
+skips. The asymmetry is which way the bypass runs: there a missing keeper can
+only produce a grant the perimeter will refuse to act on, here it would produce
+an action by an office whose shape nobody read.</li>
+</ul>
+<ol start="5">
+<li><strong>Whether a netting reserve is seizable.</strong> <code>x/enforcement</code> seizes
 <code>SpendableCoins</code> from a bank account; the uncommitted part of a posted
 reserve is plainly the participant&#39;s own money and sits in the netting module
 account, out of reach. A freeze blocks posting and withdrawing, so value
-cannot escape — but a seizure cannot reach it either.</p>
-</li>
+cannot escape — but a seizure cannot reach it either.</li>
 </ol>
 <h2>Known defects</h2>
 <ul>

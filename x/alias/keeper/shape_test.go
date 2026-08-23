@@ -43,6 +43,10 @@ func TestAnOfficeThatVotesItselfSmallerLosesItsAuthority(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrOfficeShape)
 	require.ErrorContains(t, err, "3-of-5", "the refusal must name the shape that was required")
 	require.ErrorContains(t, err, "1-of-5", "and the shape the office actually is")
+	// The office can fix this itself, so the refusal says how. A message that
+	// only refused would send somebody to the foundation for a proposal the
+	// office can pass on its own.
+	require.ErrorContains(t, err, "voted by the office itself")
 
 	// Nothing was revoked. The grant is still in the store, still correct in every
 	// query, and permits nothing — which is the point: the authority went away
@@ -103,6 +107,13 @@ func TestAOneOfOneOfficeIsRefusedAGrantRequiringMore(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrOfficeShape,
 		"a grant requiring three-of-five must not be written against a one-of-one")
 	require.ErrorContains(t, err, "1-of-1")
+	require.ErrorContains(t, err, "cannot be made to")
+	// And it must not describe a grant that was never made. A live devnet run
+	// found the version of this message that said the office "was granted its
+	// authority as 3-of-5 and is now 1-of-1", which is a sentence about history
+	// that did not happen and sends the reader looking for a grant to repair.
+	require.NotContains(t, err.Error(), "was granted its authority",
+		"a refusal to MAKE a grant must not read as a report about one that exists")
 
 	// And nothing was written. A refused grant that left a row behind would be an
 	// authority nobody granted.

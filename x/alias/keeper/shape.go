@@ -65,9 +65,20 @@ func (s officeShape) rule() string {
 	return fmt.Sprintf("%d-of-%d", s.signatures, s.members)
 }
 
-// assertShape refuses when the holder no longer keeps the shape a grant records.
+// meetsShape resolves whether a holder satisfies a requirement, and is the only
+// place that decides it.
 //
-// Read the nil branches first, because they are the decisions rather than the
+// One rule, two callers, two messages — assertShape for an office acting on a
+// grant it already holds, and assertShapeAvailable for a grant about to be made.
+// The messages have to differ because they send an operator to different places:
+// one says an office has fallen and can restore itself, the other says a grant
+// cannot be made to the office as it stands. The RULE must not differ, which is
+// why the comparison lives here and not in either of them. A live devnet run
+// caught the version where it did not: a grant refused to a one-of-one reported
+// that the office "was granted its authority as 3-of-5 and is now 1-of-1", which
+// is a sentence about a grant that had never been made.
+//
+// Read the nil branches, because they are the decisions rather than the
 // arithmetic:
 //
 //   - want == nil: no requirement was recorded, so there is nothing to hold the
@@ -76,36 +87,78 @@ func (s officeShape) rule() string {
 //     unrequirement-carrying chain exactly nothing.
 //
 //   - k.groups == nil: no group keeper is wired, so the shape cannot be
-//     established — and this REFUSES rather than skipping. assertGroupAccount
-//     does the opposite for its own check, deliberately, and the difference is
-//     which way the bypass runs. A missing group keeper there can only produce a
-//     grant that should have been refused; here it would produce an ACTION that
-//     should have been refused, on the path that freezes accounts and admits
-//     issuers. A threshold check that waved the action through when its
-//     dependency was absent would be a threshold check any wiring mistake
-//     silently removes, and the one-of-one office it was meant to stop is the one
-//     that benefits. Unit tests that grant with a requirement therefore have to
-//     supply a group keeper; that is the intended cost.
-func (k Keeper) assertShape(ctx context.Context, holder string, want *types.OfficeShape) error {
+//     established — and every caller REFUSES rather than skipping.
+//     assertGroupAccount does the opposite for its own check, deliberately, and
+//     the difference is which way the bypass runs. A missing group keeper there
+//     can only produce a grant that should have been refused; here it would
+//     produce an ACTION that should have been refused, on the path that freezes
+//     accounts and admits issuers. A threshold check that waved the action
+//     through when its dependency was absent would be a threshold check any
+//     wiring mistake silently removes, and the one-of-one office it was meant to
+//     stop is the one that benefits. Unit tests that grant with a requirement
+//     therefore have to supply a group keeper; that is the intended cost.
+func (k Keeper) meetsShape(
+	ctx context.Context, holder string, want *types.OfficeShape,
+) (have officeShape, met bool, err error) {
 	if want == nil {
-		return nil
+		return officeShape{}, true, nil
 	}
 	if k.groups == nil {
-		return errorsmod.Wrapf(types.ErrOfficeShape,
-			"%s holds a grant requiring %s and x/group is not wired in, so the office's shape cannot be read; "+
-				"refusing rather than assuming it still holds", holder, want.Rule())
+		return officeShape{}, false, errorsmod.Wrapf(types.ErrOfficeShape,
+			"a required shape of %s cannot be checked against %s because x/group is not wired in; "+
+				"refusing rather than assuming it holds", want.Rule(), holder)
 	}
+	have, err = k.officeShapeOf(ctx, holder)
+	if err != nil {
+		return officeShape{}, false, err
+	}
+	return have, want.Satisfies(have.signatures, have.members), nil
+}
 
-	have, err := k.officeShapeOf(ctx, holder)
+// assertShape refuses when the holder no longer keeps the shape its grant
+// records.
+//
+// The message names both shapes and the way back, because the way back is
+// something the office can do by itself: it proposes to itself and votes with its
+// own threshold, and the authority returns on the next block with no re-grant and
+// no foundation involvement. An error that said only "refused" would send
+// somebody to the foundation for something they can fix in one proposal.
+func (k Keeper) assertShape(ctx context.Context, holder string, want *types.OfficeShape) error {
+	have, met, err := k.meetsShape(ctx, holder, want)
 	if err != nil {
 		return err
 	}
-	if !want.Satisfies(have.signatures, have.members) {
+	if !met {
 		return errorsmod.Wrapf(types.ErrOfficeShape,
 			"%s was granted its authority as %s and is now %s. An office may grow; it may not fall below the "+
 				"shape it was granted under. Restore it with a MsgUpdateGroupMembers or a "+
 				"MsgUpdateGroupPolicyDecisionPolicy voted by the office itself, or have the grant re-made",
 			holder, want.Rule(), have.rule())
+	}
+	return nil
+}
+
+// assertShapeAvailable refuses to record a requirement the holder does not meet
+// today.
+//
+// Without it the grant would be written, read correct in every query, and permit
+// nothing — an office that believes it holds an authority and does not is worse
+// off than one that was told no, because the discovery happens at the moment it
+// tries to act.
+//
+// Note that this is a check on the GRANT and not on the office: nothing here
+// obliges an office to be any particular shape. It says that this grant, with
+// this requirement, cannot be made to that office as it stands.
+func (k Keeper) assertShapeAvailable(ctx context.Context, holder string, want *types.OfficeShape) error {
+	have, met, err := k.meetsShape(ctx, holder, want)
+	if err != nil {
+		return err
+	}
+	if !met {
+		return errorsmod.Wrapf(types.ErrOfficeShape,
+			"a grant requiring %s cannot be made to %s, which is %s. Either the office is not the one this grant "+
+				"was meant for, or it has to be brought up to %s before it can hold the authority",
+			want.Rule(), holder, have.rule(), want.Rule())
 	}
 	return nil
 }
@@ -189,8 +242,16 @@ func (k Keeper) officeShapeOf(ctx context.Context, holder string) (officeShape, 
 	}
 
 	// One more than the cap, so a group at or past it is an explicit refusal
-	// naming the cap rather than a count that stopped at a page boundary and read
-	// as a small office. See types.MaxOfficeMembers.
+	// naming the cap rather than a count that stopped at a page boundary. See
+	// types.MaxOfficeMembers.
+	//
+	// A truncated page cannot be worked with, and the reason is specifically the
+	// SIGNATURE count rather than the member count. Truncating understates the
+	// members, which is the safe direction for a floor. It does the opposite to
+	// fewestSigners: the heaviest member might be the one off the page, so a group
+	// of [10, 1, 1, …] at a threshold of 10 computes as "ten signers needed" from
+	// a page that excludes the first member, and reads as a healthy ten-of-fifty
+	// while one member acts alone. So a full page is a refusal, not an estimate.
 	const limit = types.MaxOfficeMembers + 1
 	members, err := k.groups.GroupMembers(ctx, &group.QueryGroupMembersRequest{
 		GroupId:    info.Info.GroupId,
