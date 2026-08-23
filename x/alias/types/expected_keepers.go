@@ -39,21 +39,49 @@ type ParticipantKeeper interface {
 	ParticipantOf(ctx context.Context, account string) (participant string, found bool, err error)
 }
 
-// GroupKeeper is the slice of x/group this module needs to grant a role.
+// GroupKeeper is the slice of x/group this module needs to grant a role and to
+// keep holding an office to the shape it was granted under.
 //
-// One question, asked once, at the moment a role is granted: *is this address a
-// group policy?* That is what turns "the central bank signed" into "several
-// people inside the central bank signed", and it is the difference between a
-// perimeter where one bribe moves an authority and one where it does not.
+// It used to be one question, asked once, at the moment a role was granted: *is
+// this address a group policy?* That is what turns "the central bank signed" into
+// "several people inside the central bank signed", and it is the difference
+// between a perimeter where one bribe moves an authority and one where it does
+// not.
 //
-// The same interface x/land already keeps for admitting a registry office, and
-// for the same reason. The alternative — trusting governance to only ever grant
-// roles to group addresses — puts the whole intra-office protection in a human
-// review step that will eventually be rushed. Checking costs one lookup, once.
+// It was not enough, and the reason is worth stating rather than discovering. The
+// question has a yes for a one-of-one group, so multisig was guaranteed in form
+// and not in substance; and it was asked once, at grant time, while an office is
+// a group that administers itself and can therefore vote to change its own
+// threshold afterwards. A country could hold a proper ceremony, stand up a
+// three-of-five enforcement authority, and that office could later reduce itself
+// to one-of-one while keeping the power to freeze accounts, with nothing notified
+// and nothing refused.
+//
+// So there are three questions now, and the second and third are asked on every
+// action a grant with a recorded shape permits:
+//
+//   - is this address a group policy, and what is its decision policy? That is
+//     where the threshold lives.
+//   - who are the group's members, and what weight does each hold? That is where
+//     the count lives, and it is also the only way to tell a three-of-five from a
+//     one-of-five whose first member weighs three.
+//
+// Read-only, and still narrow: no message this module sends can change a group,
+// and nothing here lets it. The same interface x/land keeps for admitting a
+// registry office, widened by the two queries the shape check needs.
 type GroupKeeper interface {
 	GroupPolicyInfo(
 		ctx context.Context, req *group.QueryGroupPolicyInfoRequest,
 	) (*group.QueryGroupPolicyInfoResponse, error)
+
+	// GroupMembers lists a group's members and their weights.
+	//
+	// Paged, and this module always passes a limit — see types.MaxOfficeMembers
+	// for why a page boundary has to be an explicit refusal rather than a count
+	// that happens to be short.
+	GroupMembers(
+		ctx context.Context, req *group.QueryGroupMembersRequest,
+	) (*group.QueryGroupMembersResponse, error)
 }
 
 // ConstitutionKeeper is the slice of x/constitution this module needs in order

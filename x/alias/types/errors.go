@@ -86,4 +86,15 @@ var (
 	// silently removes, which is worse than one that is absent on purpose.
 	ErrNoScopeKeeper = sdkerrors.Register(ModuleName, 22,
 		"the jurisdictional perimeter cannot be checked because the registry is not wired in")
+	// Raised when the holder of a grant no longer keeps the M-of-N the grant was
+	// made under: the office reduced its own threshold, or lost members without
+	// replacing them, or is no longer a group at all.
+	//
+	// A code of its own rather than ErrOutOfScope, because the two send an
+	// operator to different places. Out of scope means this office never had that
+	// authority here; this means it had it and gave it up by changing its own
+	// shape — and the fix is to restore the shape, which nobody would think to do
+	// if the chain reported a missing grant.
+	ErrOfficeShape = sdkerrors.Register(ModuleName, 23,
+		"this office no longer keeps the M-of-N its authority was granted under")
 )
