@@ -225,11 +225,21 @@ the threshold, or who administers the group afterwards.</p>
 <p>An <code>x/group</code> policy address derives from the group policy sequence number alone —
 not from the members, not from the threshold, not from the admin. So an address
 computed offline commits to nothing whatever about who controls it.</p>
-<p>On a live run of the country ceremony, a predicted address came out as <strong>the
-foundation&#39;s own</strong>, because both were policy sequence 1. Carried into an
-appointment proposal, that would have been a governance vote appointing the
-foundation a foundation administrator: passing, executing, and reading as correct
-at every step, with the group the ceremony was actually held for holding nothing.</p>
+<p>This is not hypothetical, and it happened again while this guide was being
+written. A rehearsal appointment on <code>yamale-devnet-2</code> printed a predicted address
+of:</p>
+<pre><code>yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj
+</code></pre>
+<p>which is byte-for-byte the value of <code>enforcement_recovery_destination</code> in that
+chain&#39;s constitution — <strong>the foundation&#39;s own account</strong> — because both were policy
+sequence 1. The chain gave the group sequence 2, and a completely different
+address. Carried into an appointment proposal, the prediction would have been a
+governance vote appointing the foundation a foundation administrator: passing,
+executing, and reading as correct at every step, with the group the ceremony was
+actually held for holding nothing.</p>
+<p>So <code>confirm</code> takes a <code>--foundation</code> flag and refuses that address outright. Pass
+it. Without it the step says so rather than staying quiet, because a check
+somebody skipped silently is not a check.</p>
 <pre><code class="language-bash">blockchaind query tx &lt;hash&gt; -o json &gt; tx.json
 # the address is in the EventCreateGroupPolicy in that file
 blockchaind query group group-policy-info &lt;address&gt; -o json &gt; policy.json
@@ -244,9 +254,9 @@ ceremony administrators confirm --dossier appointment-*.json \
 code that matters is in the queried result.</p>
 <p><code>confirm</code> checks that the policy at that address really is this group: the same
 members both ways as a set, equal weight, the same threshold, administering
-itself. Pass <code>--foundation</code> and it also refuses the foundation&#39;s own address
-outright. Without it, it says so rather than staying quiet, because a check
-somebody skipped silently is not a check.</p>
+itself. Set equality both ways, not &quot;the ceremony&#39;s members are among the
+group&#39;s&quot; — a group with an extra member has an extra vote, and a 3-of-4 with five
+members is a 3-of-5.</p>
 <h3>5. The governance proposal</h3>
 <pre><code class="language-bash">blockchaind query alias params -o json &gt; alias-params.json
 blockchaind query auth module-account gov -o json &gt; gov-account.json
@@ -353,6 +363,74 @@ can be corrected until governance appoints somebody again, no account can hold a
 <code>ZZ</code> identifier, and a new country cannot be enrolled. Governance can appoint
 again by another proposal exactly like this one, so it is recoverable — it is just
 not reversible by the people who did it.</p>
+<h2>What a run of this actually looked like</h2>
+<p>A rehearsal on <code>yamale-devnet-2</code>, 2026-08-23, so the numbers above are checkable
+rather than illustrative. The list was empty before it and nobody on the chain
+could correct a recorded country.</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happened</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ceremony</td>
+<td>3-of-4, params fingerprint <code>E1TH-KP2X-GWM6-X594</code>, group fingerprint <code>RVA4-6W1S-RX0V-GNDK</code></td>
+</tr>
+<tr>
+<td>Predicted address</td>
+<td><code>yml1afk9zr2…3xm8uj</code> — <strong>the foundation&#39;s own</strong>, sequence 1</td>
+</tr>
+<tr>
+<td>Real address</td>
+<td><code>yml1dlszg2s…rmuayr</code>, group 2, created at height 28480</td>
+</tr>
+<tr>
+<td>Proposal</td>
+<td>gov #2, deposit 1 YML, 30-minute vote, passed 65,000,000,000 yes / 0 no</td>
+</tr>
+<tr>
+<td>After</td>
+<td><code>foundation_administrators</code> had one entry; <code>payload_length</code> still 8</td>
+</tr>
+</tbody></table>
+<p>Then, as the appointed group, three of the four custodians voting:</p>
+<table>
+<thead>
+<tr>
+<th>Act</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Record alice in <code>NG</code></td>
+<td><code>jurisdiction_recorded</code>, <code>recorded_by</code> the group, height 28854</td>
+</tr>
+<tr>
+<td>alice registers</td>
+<td>identifier <code>NGH8QTHP2B4</code></td>
+</tr>
+<tr>
+<td><strong>bob</strong> tries to correct her to <code>KE</code></td>
+<td>refused, <code>code 12</code> in codespace <code>alias</code>: <em>&quot;is recorded in NG: this account&#39;s jurisdiction is already recorded; only a foundation administrator may correct it&quot;</em></td>
+</tr>
+<tr>
+<td><strong>alice</strong> tries to correct herself</td>
+<td>refused, identically</td>
+</tr>
+<tr>
+<td>The <strong>group</strong> corrects her to <code>KE</code></td>
+<td><code>retired: NGH8QTHP2B4</code>, <code>id: KEM1BMZ66YP</code>, height 28873</td>
+</tr>
+<tr>
+<td><code>query alias retired NGH8QTHP2B4</code></td>
+<td><code>true</code> — and it resolves to no account, permanently</td>
+</tr>
+</tbody></table>
+<p>That last row is the point of the whole feature. The prefix followed the country,
+the old identifier was tombstoned rather than repointed, and the correction is on
+the record with the group that made it named in it.</p>
 <h2>Checking somebody else&#39;s appointment</h2>
 <pre><code class="language-bash"># who holds the exemption, and how many places are left
 blockchaind query alias params -o json

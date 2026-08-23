@@ -70,6 +70,22 @@ export const MAX_PAYLOAD_LENGTH = 16;
 export const ALIAS_PARAMS_PATH = '/yamale/blockchain/alias/v1/params';
 
 /**
+ * What x/gov accepts in a proposal's title and summary — two different numbers.
+ *
+ * `assertMetadataLength` caps the title and the metadata at `MaxMetadataLen`,
+ * which this chain leaves at the SDK default of 255. `assertSummaryLength` caps
+ * the summary at forty times that. Both are in the gov keeper.
+ *
+ * They are here because the alternative is finding out on submission, and the
+ * rejection names a byte length rather than the field that was too long. Worse,
+ * they are worth having as two constants rather than one: this repository's
+ * ceremony tool used 255 for both, which truncated the field that states in words
+ * what a proposal does — with a marker — for no reason at all.
+ */
+export const MAX_TITLE_LENGTH = 255;
+export const MAX_SUMMARY_LENGTH = 40 * MAX_TITLE_LENGTH;
+
+/**
  * The message type URL, from the proto package `blockchain.alias.v1`.
  *
  * Note it is not `/yamale.blockchain.alias.v1.…`: the REST path carries the
@@ -686,6 +702,34 @@ export function updateParamsMessage({ authority, params }) {
 }
 
 /**
+ * The length of a string as the chain measures it: UTF-8 bytes, not characters.
+ *
+ * The distinction matters here. The chain's checks are `len(string)` in Go, which
+ * is bytes, and every em dash in the summary below costs three of them. A page
+ * counting `String.length` would let a summary through that the chain refuses,
+ * and the refusal would name a number the page could not reproduce.
+ */
+function byteLength(s) {
+  return new TextEncoder().encode(s).length;
+}
+
+/**
+ * Cut a string to a byte budget without splitting a character in half.
+ *
+ * A naive slice at a byte offset can land inside a multi-byte sequence, and the
+ * result is a string with a replacement character in it — which then travels into
+ * a governance proposal and sits there permanently.
+ */
+function truncateToBytes(s, budget) {
+  const encoded = new TextEncoder().encode(s);
+  if (encoded.length <= budget) return s;
+  // TextDecoder with fatal:false replaces a broken tail with U+FFFD; dropping any
+  // trailing replacement character removes exactly the partial sequence.
+  const cut = new TextDecoder('utf-8').decode(encoded.subarray(0, budget));
+  return cut.replace(/�+$/, '');
+}
+
+/**
  * The document `blockchaind tx gov submit-proposal` reads.
  *
  * A governance proposal, not an x/group one, and that difference is the reason
@@ -702,7 +746,27 @@ export function proposalDocument({ messages, title, summary, deposit, metadata =
   if (!title) throw new Error('Give the proposal a title — it is what a voter sees first.');
   if (!summary) throw new Error('Give the proposal a summary. It is the only explanation most voters will read.');
   if (!deposit) throw new Error('A governance proposal needs a deposit, or it never enters the voting period.');
-  return JSON.stringify({ messages, metadata, deposit, title, summary }, null, 2);
+
+  // Refused rather than shortened. The title is a sentence built around an
+  // address, so if it is too long something is wrong with the address rather than
+  // with the prose, and silently trimming it would hide that.
+  if (byteLength(title) > MAX_TITLE_LENGTH) {
+    throw new Error(
+      `The title is ${byteLength(title)} bytes and x/gov accepts ${MAX_TITLE_LENGTH}. ` +
+      'A proposal whose title is too long is refused on submission, and the rejection names a byte length ' +
+      'rather than the field.',
+    );
+  }
+  // The summary is truncated, because the part of it a person wrote has no bound
+  // and refusing would mean an appointment nobody can propose. What is dropped is
+  // the tail of the reason, never the description of the power: changeSummary puts
+  // the reason last for exactly that purpose.
+  let body = summary;
+  if (byteLength(body) > MAX_SUMMARY_LENGTH) {
+    const marker = ' […truncated]';
+    body = truncateToBytes(body, MAX_SUMMARY_LENGTH - marker.length) + marker;
+  }
+  return JSON.stringify({ messages, metadata, deposit, title, summary: body }, null, 2);
 }
 
 /**

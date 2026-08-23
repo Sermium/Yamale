@@ -255,6 +255,11 @@ const adm = {
   authoritySource: '', // whether that was read off the chain or fallen back to
   deposit: null,       // the minimum deposit, from the chain
   depositProblem: '',
+  // Read off the node rather than compiled in. A console with the chain id
+  // hardcoded prints a command that is right until somebody opens it against a
+  // different network, and the transaction it produces is then refused for a
+  // reason that has nothing to do with the proposal.
+  chainId: null,
   composedAt: null,    // the digest the currently shown document was built from
   shell: false,
 };
@@ -384,7 +389,13 @@ function renderComposeShell() {
     <select id="adm-remove"><option value="">—</option></select>
     <label for="adm-why">Why — this is the only explanation most voters will read</label>
     <textarea id="adm-why" placeholder="Which ceremony produced this group, who verified its fingerprint, and what it is being appointed to do."></textarea>
-    <div style="margin-top:.6rem"><button class="vote bad" id="adm-go">compose the proposal</button></div>
+    <!-- Its own class as well as the scoped selector above. The failure mode of
+         sharing the "vote" class here is a button that silently stops working on
+         the next refresh, which is the kind of thing that gets diagnosed as "the
+         chain is down". Two independent reasons it cannot happen is the right
+         number. (No backticks in this comment: it lives inside a template
+         literal, and a stray one ends the string and takes the page with it.) -->
+    <div style="margin-top:.6rem"><button class="vote bad adm-act" id="adm-go">compose the proposal</button></div>
     <div id="adm-out" style="margin-top:.7rem"></div>
   </div>`;
 
@@ -420,10 +431,24 @@ function compose() {
   const remove = document.getElementById('adm-remove').value;
   const why = document.getElementById('adm-why').value.trim();
 
+  if (!adm.chainId) {
+    out.innerHTML = `<div class="badbox">This page has not been able to read the chain id from the node, so it
+      cannot print a command that names the right network. A proposal submitted against the wrong chain is
+      refused for a reason that has nothing to do with the proposal.</div>`;
+    return;
+  }
+
   out.innerHTML = '<p class="muted small">Checking the address against x/group…</p>';
   // The group lookup is the only asynchronous part, and it is done before
   // planning so that "this is a single key" is an answer from the chain rather
   // than a guess from the address length.
+  //
+  // The .catch() at the end is not decoration. Without it a throw inside this
+  // callback is an unhandled rejection: the panel sits on "Checking the address
+  // against x/group…" for ever, nothing is logged where anybody looks, and the
+  // button appears to do nothing. That is exactly how a missing constant hid in
+  // here, and a console whose failures are invisible is worse than one that
+  // cannot start.
   (add ? groupLookup(add) : Promise.resolve('unknown')).then((lookup) => {
     const plan = planChange({ params: adm.params, add, remove, groupLookup: lookup });
     const notes = [];
@@ -478,14 +503,19 @@ function compose() {
         <pre id="adm-doc">${esc(doc)}</pre>
         <button class="copy" data-copy="adm-doc">copy</button>
         <p class="label" style="margin-top:.7rem">Then submit it</p>
-        <pre id="adm-cmd">${esc(submitCommand({ chainId: CHAIN_ID }))}</pre>
+        <pre id="adm-cmd">${esc(submitCommand({ chainId: adm.chainId }))}</pre>
         <button class="copy" data-copy="adm-cmd">copy</button>
         <p class="label" style="margin-top:.7rem">Then — and this is the part that gets skipped</p>
-        <pre id="adm-after">${esc(afterSubmitting({ chainId: CHAIN_ID }))}</pre>
+        <pre id="adm-after">${esc(afterSubmitting({ chainId: adm.chainId }))}</pre>
         <button class="copy" data-copy="adm-after">copy</button>
       </div>`;
     wireAdmCopies();
     renderStale();
+  }).catch((e) => {
+    out.innerHTML = `<div class="badbox"><strong>This page failed while composing the proposal, so nothing
+      above is a document you should use.</strong><br>${esc(e.message)}<br>
+      That is a bug in this console rather than a fact about the chain. Compose the proposal by hand from
+      <code>blockchaind query alias params</code>, carrying every field across.</div>`;
   });
 }
 
@@ -536,8 +566,16 @@ async function loadAdministrators() {
     box.innerHTML = '<div id="adm-current"></div><div id="adm-compose"></div>';
   }
 
-  // The authority and the deposit are read once. Both are governance-wide and
-  // neither changes on the timescale this page refreshes on.
+  // The chain id, the authority and the deposit are read once. All three are
+  // network-wide and none changes on the timescale this page refreshes on.
+  if (!adm.chainId) {
+    try {
+      const info = await get(`${REST}/cosmos/base/tendermint/v1beta1/node_info`);
+      adm.chainId = info?.default_node_info?.network || null;
+    } catch {
+      adm.chainId = null;
+    }
+  }
   if (!adm.authority) {
     try {
       adm.authority = readGovAuthority(await get(`${REST}${MODULE_ACCOUNTS_PATH}`));
@@ -662,8 +700,16 @@ async function load() {
     document.getElementById('open').innerHTML = openHtml.join('') ||
       '<p class="empty">Nothing is open for voting. Proposals appear here during their voting period.</p>';
 
-    // Wire the copy buttons.
-    document.querySelectorAll('.vote').forEach(b => b.onclick = () =>
+    // Wire the vote buttons — scoped to #open, which is where they are.
+    //
+    // It used to be every `.vote` on the page, and that was a bug waiting for a
+    // second button to exist. This function re-runs every fifteen seconds, so an
+    // unscoped selector silently REPLACES the handler on any other element that
+    // happens to share the class, and then calls act() with an undefined
+    // validator. It caught the appointment panel's button the first time it was
+    // clicked: nothing appeared, no error was logged, and the only symptom was a
+    // button that did nothing every other time you pressed it.
+    document.querySelectorAll('#open .vote').forEach(b => b.onclick = () =>
       act(b.dataset.v, 'vote', { proposal: b.dataset.p, option: b.dataset.o }, b));
 
     // Emergency actions, only on the page of the validator that would sign.
@@ -742,6 +788,17 @@ async function load() {
 document.getElementById('acting').textContent = ME ? 'acting as ' + ME : 'read only';
 load();
 setInterval(load, 15000);
+
+// Called separately from load(), and on its own timer, because the two fail
+// independently: an enforcement query that 401s must not blank the only interface
+// that can appoint an administrator, and a chain whose alias parameters cannot be
+// read must not blank the proposal list.
+//
+// Every 30 seconds rather than 15: the only reason to re-read is to notice that
+// the parameters moved under a composed proposal, and the read is what would
+// otherwise clobber a half-typed address.
+loadAdministrators();
+setInterval(loadAdministrators, 30000);
 </script>
 </body>
 </html>

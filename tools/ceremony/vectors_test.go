@@ -535,8 +535,15 @@ func TestAnAdministratorCeremonyIsNotTheFoundation(t *testing.T) {
 	configureAddresses()
 	v := loadCeremonyVectors(t)
 
+	// Recomputed from the parameters, not just read out of the fixture. Reading it
+	// only proves the fixture says what it says; a mutation that made groupLabel
+	// fall back to the foundation constant survived exactly that assertion.
+	require.Equal(t, v.AdminGroup.Label, groupLabel(v.AdminParams),
+		"groupLabel no longer produces the label recorded in the fixture")
 	require.Equal(t, "Yamale foundation administrators (foundation administrators)", v.AdminGroup.Label)
 	require.NotEqual(t, foundationLabel, v.AdminGroup.Label)
+	require.NotEqual(t, foundationLabel, groupLabel(v.AdminParams),
+		"an administrator group must not be recorded on chain as the foundation")
 	require.Contains(t, v.AdminGroup.Metadata, "foundation administrators")
 	require.Empty(t, v.AdminGroup.ConstitutionJSON,
 		"an administrator group must carry no constitutional invariants fragment")
@@ -629,6 +636,23 @@ func TestCeremonyVectors(t *testing.T) {
 	require.Equal(t, want.OfficeParamsFingerprint, built.OfficeParamsFingerprint)
 	require.Equal(t, want.OfficeGroup, built.OfficeGroup,
 		"the office group has drifted; a country's super users and their coordinator would compute different fingerprints from the same submissions")
+
+	// The administrator vectors, compared as well as generated.
+	//
+	// A mutation pass is why these four lines exist. The fields and the generator
+	// went in and the comparison did not, so the fixture was being WRITTEN and
+	// never CHECKED — and the mutation that made groupLabel fall back to the bare
+	// foundation constant for an administrator ceremony survived the whole suite.
+	// That is the exact failure the label exists to prevent: a group recorded on
+	// chain as "Yamale foundation" when it is not, in the one field a human reads
+	// to find out what a group is, on a chain where the real foundation already
+	// exists.
+	require.Equal(t, want.AdminParams, built.AdminParams)
+	require.Equal(t, want.AdminParamsCanonicalHx, built.AdminParamsCanonicalHx,
+		"the administrator params canonical encoding has moved, so the fingerprint the custodians read aloud before generating is not the one in the fixture — and the foundation's own bytes may have moved with it")
+	require.Equal(t, want.AdminParamsFingerprint, built.AdminParamsFingerprint)
+	require.Equal(t, want.AdminGroup, built.AdminGroup,
+		"the administrator group has drifted; its label, metadata and fingerprint are what distinguish it from the foundation's own group")
 }
 
 // TestTheTwoPathsAreDistinguishable is the check that the office block actually

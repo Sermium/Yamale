@@ -19,6 +19,8 @@ import {
   KNOWN_PARAM_FIELDS,
   MAX_FOUNDATION_ADMINISTRATORS,
   MAX_PAYLOAD_LENGTH,
+  MAX_SUMMARY_LENGTH,
+  MAX_TITLE_LENGTH,
   MIN_PAYLOAD_LENGTH,
   ParamsUnreadable,
   UPDATE_PARAMS_TYPE,
@@ -140,18 +142,51 @@ test('a payload_length of zero is refused, never defaulted', () => {
   // nobody filled in, so a zero means the value is UNKNOWN — and defaulting it
   // to 8 would compose a proposal that reset the identifier length of a chain
   // that had raised it, showing no change in the diff.
+  //
+  // The MESSAGE is asserted, not just the throw, and a mutation pass is why. With
+  // the unreadable-value branch deleted, every one of these still threw — because
+  // the bounds check below it coerces null to 0 and refuses that too — so the
+  // test passed while the explanation had become "payload_length reads as null,
+  // and the chain accepts 8 to 16". That is a real regression in the one thing
+  // this module produces. An operator told their node sent a value out of range
+  // will go looking for a chain misconfiguration; an operator told the value is
+  // unknown and must not be guessed will re-read the parameters. And the first
+  // message positively invites somebody to "fix" it by supplying a default.
   for (const value of [0, '0', undefined, null, 'eight', 8.5, {}, []]) {
-    assert.throws(
-      () => readAliasParams({ params: { payload_length: value, foundation_administrators: [] } }),
-      ParamsUnreadable,
+    let err = null;
+    try {
+      readAliasParams({ params: { payload_length: value, foundation_administrators: [] } });
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(
+      err instanceof ParamsUnreadable,
       `payload_length ${JSON.stringify(value)} should have been refused`,
     );
+    assert.match(
+      err.message,
+      /proto3 cannot tell a zero from a field nobody filled in/,
+      `payload_length ${JSON.stringify(value)} was refused for the wrong reason: ${err.message}`,
+    );
+    assert.match(err.message, /not defaulted here on purpose/);
   }
 });
 
 test('a payload_length outside the chain\'s bounds is refused rather than corrected', () => {
+  // The other branch, pinned by its own message so the two are distinguishable.
+  // A value the chain would refuse and a value this page could not read are
+  // different problems with different responses, and a single "it threw"
+  // assertion cannot tell them apart.
   for (const value of [MIN_PAYLOAD_LENGTH - 1, MAX_PAYLOAD_LENGTH + 1, 1, 99]) {
-    assert.throws(() => readAliasParams({ params: { payload_length: value } }), ParamsUnreadable);
+    let err = null;
+    try {
+      readAliasParams({ params: { payload_length: value } });
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err instanceof ParamsUnreadable, `payload_length ${value} should have been refused`);
+    assert.match(err.message, /and the chain accepts 8 to 16/);
+    assert.doesNotMatch(err.message, /proto3/);
   }
   assert.equal(readAliasParams({ params: { payload_length: MIN_PAYLOAD_LENGTH } }).payloadLength, MIN_PAYLOAD_LENGTH);
   assert.equal(readAliasParams({ params: { payload_length: MAX_PAYLOAD_LENGTH } }).payloadLength, MAX_PAYLOAD_LENGTH);
@@ -457,6 +492,47 @@ test('the summary of a single-key appointment says it is a single key', () => {
 test('the summary of the last removal says nobody can correct a country afterwards', () => {
   const plan = planChange({ params: params(8, [KEY_A]), remove: KEY_A });
   assert.match(changeSummary(plan), /No administrator remains/);
+});
+
+test("the title and summary limits are the chain's, and they are not the same number", () => {
+  // x/gov caps the title at MaxMetadataLen and the summary at forty times that.
+  // Conflating them is what made this repository's ceremony tool truncate a
+  // summary — with a marker — to a fortieth of the space it actually had, in the
+  // one field that states in words what a proposal does.
+  assert.equal(MAX_TITLE_LENGTH, 255);
+  assert.equal(MAX_SUMMARY_LENGTH, 10200);
+
+  const base = { messages: [{ '@type': UPDATE_PARAMS_TYPE }], deposit: '1uyml' };
+  // A summary well over the title limit and well under its own must come through
+  // whole, with no truncation marker.
+  const long = 'x'.repeat(2000);
+  const doc = JSON.parse(proposalDocument({ ...base, title: 'fine', summary: long }));
+  assert.equal(doc.summary, long);
+
+  // A title over its limit is refused, not shortened.
+  assert.throws(() => proposalDocument({ ...base, title: 'y'.repeat(256), summary: 's' }), /255/);
+
+  // A summary over its limit is truncated, not refused.
+  const huge = JSON.parse(proposalDocument({ ...base, title: 't', summary: 'z'.repeat(20000) }));
+  assert.ok(huge.summary.length <= MAX_SUMMARY_LENGTH);
+  assert.match(huge.summary, /truncated/);
+});
+
+test('lengths are counted in bytes, and a truncation does not split a character', () => {
+  // The chain measures len(string) in Go, which is UTF-8 bytes. An em dash costs
+  // three of them, and the summary this module composes is full of them — a page
+  // counting characters would let through a summary the chain refuses.
+  const base = { messages: [{ '@type': UPDATE_PARAMS_TYPE }], deposit: '1uyml', title: 't' };
+  // 3400 em dashes is 10,200 bytes exactly: at the limit, so untouched.
+  const exact = '—'.repeat(3400);
+  assert.equal(JSON.parse(proposalDocument({ ...base, summary: exact })).summary, exact);
+
+  // One more is over, so it truncates — and the result must contain no U+FFFD,
+  // which is what a naive byte slice through a multi-byte character produces.
+  const over = '—'.repeat(3401);
+  const cut = JSON.parse(proposalDocument({ ...base, summary: over })).summary;
+  assert.ok(!cut.includes('�'), 'truncation split a multi-byte character');
+  assert.match(cut, /truncated/);
 });
 
 test('the submit command names the chain, and refuses to be printed without one', () => {

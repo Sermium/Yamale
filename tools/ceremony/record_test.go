@@ -177,3 +177,103 @@ func TestRenderRecordContainsNoKeyMaterial(t *testing.T) {
 		t.Fatal("the published record contains an armored private key")
 	}
 }
+
+// TestRenderRecordDoesNotCallAnAdministratorGroupTheFoundation.
+//
+// A mutation pass found the administrator branch of renderRecord untested: with it
+// deleted, every existing case still passed and an administrator group's record
+// silently became the FOUNDATION's record. That document states that the address
+// is the constitution's recovery destination and the place every seized asset on
+// the chain is sent — false in the most consequential way a signed record can be
+// false, and somebody would act on it.
+func TestRenderRecordDoesNotCallAnAdministratorGroupTheFoundation(t *testing.T) {
+	people := custodians(t, 4)
+	config := testRecordConfig()
+	config.Ceremony = "Yamale foundation administrators"
+	config.Administrators = true
+	// No address, deliberately: at the moment these keys are made the chain has not
+	// created the group, so the record must not print one.
+	config.PolicyAddress = ""
+
+	rendered, err := renderRecord(config, people)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Substrings short enough to survive the record's hard line wrapping — it is
+	// Markdown wrapped at about 80 columns, so "correct the country recorded
+	// against" straddles a newline and would never match.
+	for _, want := range []string{
+		"may correct the country", // what the power actually is
+		"reissues the",            // that a correction reissues the identifier
+		"`ZZ`",                    // the reserved code
+		"MsgUpdateParams",         // who can appoint it
+		"cannot do it",            // and who cannot
+		"has no address yet",      // the two-phase warning
+		"foundation's own",        // the address a prediction produced on a live run
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("the administrator record does not say %q", want)
+		}
+	}
+
+	// And none of the foundation's claims, every one of which would be false of it.
+	for _, forbidden := range []string{
+		"## The foundation account",
+		"enforcement_recovery_destination",
+		"ever seizes is sent",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Errorf("the administrator record makes the foundation's claim %q", forbidden)
+		}
+	}
+}
+
+// TestAConfirmedAdministratorRecordPrintsTheAddressItReadBack.
+//
+// The record rendered before `confirm` says the group has no address, which is
+// true. Rendered after, it must print the real one — this is the document somebody
+// acts on, and "this group has no address" would be false in the field they came
+// to read. The first version of this got it wrong in exactly that direction.
+func TestAConfirmedAdministratorRecordPrintsTheAddressItReadBack(t *testing.T) {
+	people := custodians(t, 4)
+	config := testRecordConfig()
+	config.Ceremony = "Yamale foundation administrators"
+	config.Administrators = true
+	config.PolicyAddress = "yml1dlszg2sst9r69my4f84l3mj66zxcf3umcgujys30t84srg95dgvsrmuayr"
+
+	rendered, err := renderRecord(config, people)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered, config.PolicyAddress) {
+		t.Error("a confirmed administrator record does not print the address it read back")
+	}
+	if strings.Contains(rendered, "has no address yet") {
+		t.Error("a confirmed administrator record still claims the group has no address")
+	}
+	if !strings.Contains(rendered, "read back off the chain") {
+		t.Error("the record does not say where the address came from")
+	}
+	// The hazard stays on the record either way: it is the reason the address is
+	// read rather than derived, and a reader years later needs the reason.
+	if !strings.Contains(rendered, "foundation's own") {
+		t.Error("the record drops the reason the address is read rather than predicted")
+	}
+}
+
+// TestRenderRecordStillRequiresAnAddressForTheFoundation.
+//
+// The administrator and office branches may have no address, because the chain has
+// not chosen one yet. The foundation's may not: its address is fixed by the genesis
+// file it is going into, and a record with a blank where that belongs is the whole
+// reason the document exists, missing.
+func TestRenderRecordStillRequiresAnAddressForTheFoundation(t *testing.T) {
+	people := custodians(t, 5)
+	config := testRecordConfig()
+	config.PolicyAddress = ""
+
+	if _, err := renderRecord(config, people); err == nil {
+		t.Fatal("a foundation record with no policy address should have been refused")
+	}
+}

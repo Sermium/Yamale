@@ -168,9 +168,25 @@ func TestAnUnconfirmedDossierProposesNothing(t *testing.T) {
 
 	// And a confirmation record with a blank address is refused too, rather than
 	// producing a message naming the empty string.
+	//
+	// The MESSAGE is asserted, and a mutation pass is why: with the blank check
+	// removed, requireAccountAddress downstream still refused it, so the test
+	// passed while the explanation had become a bech32 decoding error. That matters
+	// because the two say different things about where to look. "This should be
+	// impossible; do not proceed" points at the dossier; a decoding error points at
+	// an address somebody typed.
 	dossier.OnChain = &onChainGroup{PolicyAddress: "   "}
 	_, err = appointmentProposal(dossier, liveParams(), "1000000uyml")
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "should be impossible")
+
+	// And on the verification path, where without the guard the failure would read
+	// as "the group is not in the administrator list" — which is true of the empty
+	// string and tells nobody anything.
+	path := writeAdminJSON(t, "p.json", `{"params":{"payload_length":8}}`)
+	_, err = verifyAppointment(dossier, path, adminTestTime())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "should be impossible")
 }
 
 func TestAPayloadLengthOfZeroIsRefusedNotDefaulted(t *testing.T) {
@@ -189,11 +205,21 @@ func TestAPayloadLengthOfZeroIsRefusedNotDefaulted(t *testing.T) {
 
 func TestAPayloadLengthTheChainWouldRefuseIsNotQuietlyCorrected(t *testing.T) {
 	configureAddresses()
+	// The message is asserted, and a mutation pass is why. With this bounds check
+	// removed the chain's own Params.Validate() further down still refused every
+	// one of these, so the test passed — but the message had become "the parameters
+	// this proposal would set are ones the chain refuses", which points at the
+	// proposal. The value came off the chain. If the chain reports a
+	// payload_length the chain would reject, the problem is upstream of anything
+	// this tool is composing, and the refusal has to say so or somebody will go on
+	// editing the proposal.
 	for _, length := range []uint32{1, aliastypes.MinPayloadLen - 1, aliastypes.MaxPayloadLen + 1, 99} {
 		params := liveParams()
 		params.PayloadLength = length
 		_, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
 		require.Error(t, err, "payload_length %d should be refused", length)
+		require.Contains(t, err.Error(), "will not quietly correct it",
+			"payload_length %d was refused for the wrong reason", length)
 	}
 	// And the boundaries themselves are accepted, so the rule is the chain's and
 	// not one narrower.
@@ -469,16 +495,43 @@ func TestTheSummaryStatesThePowerAndTheCounts(t *testing.T) {
 	// with logins and gives no hint of what it confers. This is the assertion that
 	// found the bug: composed as one sentence with the address and the ceremony
 	// name first, this was the part that fell off the end of the 255-byte cap.
-	require.Contains(t, doc.Summary, "correct ANY account's country")
-	require.Contains(t, doc.Summary, "reissuing its identifier")
+	require.Contains(t, doc.Summary, "correct the country recorded against ANY account")
+	require.Contains(t, doc.Summary, "reissues its identifier")
+	require.Contains(t, doc.Summary, aliastypes.FoundationCountry)
 	// The counts, because a list that SHRANK is the only visible evidence of a
 	// proposal composed from a stale read of the parameters.
-	require.Contains(t, doc.Summary, "list 1 -> 2")
-	// Enough of the address to tell two proposals apart.
-	require.Contains(t, doc.Summary, adminGroupAddr[:14])
-	require.LessOrEqual(t, len(doc.Summary), maxMetadataLen)
+	require.Contains(t, doc.Summary, "from 1 to 2")
+	require.Contains(t, doc.Summary, adminGroupAddr)
+	// The chain's two limits, which are NOT the same number: the title is capped at
+	// MaxMetadataLen and the summary at forty times that. Asserted separately
+	// because conflating them is what made an earlier version of this cut the
+	// description of the power out of the summary to fit a limit that did not exist.
+	require.LessOrEqual(t, len(doc.Summary), maxSummaryLen)
 	require.NotEmpty(t, doc.Title)
 	require.LessOrEqual(t, len(doc.Title), maxMetadataLen)
+}
+
+// TestTheSummaryLimitIsTheChainsAndNotFortyTimesStricter.
+//
+// x/gov and x/group both check a proposal's summary against 40*MaxMetadataLen and
+// its title against MaxMetadataLen. This tool used 255 for both, which is forty
+// times stricter than the chain in the one field that states in words what a
+// proposal does — so a summary was being truncated, with a marker, for no reason
+// at all.
+func TestTheSummaryLimitIsTheChainsAndNotFortyTimesStricter(t *testing.T) {
+	require.Equal(t, 255, maxMetadataLen)
+	require.Equal(t, 40*maxMetadataLen, maxSummaryLen)
+
+	configureAddresses()
+	// A summary comfortably over the old 255 and well under the real limit must
+	// come through whole, with no truncation marker.
+	blob, err := appointmentProposal(confirmedAppointment(), liveParams(adminFoundAddr), "1uyml")
+	require.NoError(t, err)
+	doc, _ := decodeProposal(t, blob)
+	require.Greater(t, len(doc.Summary), maxMetadataLen,
+		"this summary should be longer than the old cap, or the test proves nothing")
+	require.NotContains(t, doc.Summary, "see the appointment record")
+	require.Contains(t, doc.Summary, confirmedAppointment().Reason)
 }
 
 // TestThePowerSurvivesTheCapWhateverElseDoesNot is the regression test for that.
@@ -496,9 +549,9 @@ func TestThePowerSurvivesTheCapWhateverElseDoesNot(t *testing.T) {
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
 
-	require.LessOrEqual(t, len(doc.Summary), maxMetadataLen)
-	require.Contains(t, doc.Summary, "correct ANY account's country")
-	require.Contains(t, doc.Summary, "list 2 -> 3")
+	require.LessOrEqual(t, len(doc.Summary), maxSummaryLen)
+	require.Contains(t, doc.Summary, "correct the country recorded against ANY account")
+	require.Contains(t, doc.Summary, "from 2 to 3")
 }
 
 // TestALongCeremonyNameIsRefusedWithSomethingToDoAboutIt.
@@ -521,12 +574,19 @@ func TestALongCeremonyNameIsRefusedWithSomethingToDoAboutIt(t *testing.T) {
 func TestAnOverlongSummaryIsTruncatedRatherThanRefused(t *testing.T) {
 	configureAddresses()
 	dossier := confirmedAppointment()
-	dossier.Reason = strings.Repeat("The ceremony lead wrote a very long explanation. ", 20)
+	// Past the REAL limit, which takes a genuinely enormous reason — 10,200 bytes.
+	// Refusing would mean an appointment that cannot be proposed at all because
+	// somebody pasted a document into the reason field.
+	dossier.Reason = strings.Repeat("The ceremony lead wrote a very long explanation. ", 300)
+	require.Greater(t, len(dossier.Reason), maxSummaryLen)
 	blob, err := appointmentProposal(dossier, liveParams(), "1000000uyml")
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
-	require.LessOrEqual(t, len(doc.Summary), maxMetadataLen)
-	require.Contains(t, doc.Summary, "see the record")
+	require.LessOrEqual(t, len(doc.Summary), maxSummaryLen)
+	require.Contains(t, doc.Summary, "see the appointment record")
+	// And the description of the power is still there, which is the whole point of
+	// the priority ordering.
+	require.Contains(t, doc.Summary, "correct the country recorded against ANY account")
 }
 
 // -------------------------------------------------------- the proposal is gov

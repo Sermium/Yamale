@@ -252,11 +252,25 @@ An `x/group` policy address derives from the group policy sequence number alone 
 not from the members, not from the threshold, not from the admin. So an address
 computed offline commits to nothing whatever about who controls it.
 
-On a live run of the country ceremony, a predicted address came out as **the
-foundation's own**, because both were policy sequence 1. Carried into an
-appointment proposal, that would have been a governance vote appointing the
-foundation a foundation administrator: passing, executing, and reading as correct
-at every step, with the group the ceremony was actually held for holding nothing.
+This is not hypothetical, and it happened again while this guide was being
+written. A rehearsal appointment on `yamale-devnet-2` printed a predicted address
+of:
+
+```
+yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj
+```
+
+which is byte-for-byte the value of `enforcement_recovery_destination` in that
+chain's constitution — **the foundation's own account** — because both were policy
+sequence 1. The chain gave the group sequence 2, and a completely different
+address. Carried into an appointment proposal, the prediction would have been a
+governance vote appointing the foundation a foundation administrator: passing,
+executing, and reading as correct at every step, with the group the ceremony was
+actually held for holding nothing.
+
+So `confirm` takes a `--foundation` flag and refuses that address outright. Pass
+it. Without it the step says so rather than staying quiet, because a check
+somebody skipped silently is not a check.
 
 ```bash
 blockchaind query tx <hash> -o json > tx.json
@@ -275,9 +289,9 @@ code that matters is in the queried result.
 
 `confirm` checks that the policy at that address really is this group: the same
 members both ways as a set, equal weight, the same threshold, administering
-itself. Pass `--foundation` and it also refuses the foundation's own address
-outright. Without it, it says so rather than staying quiet, because a check
-somebody skipped silently is not a check.
+itself. Set equality both ways, not "the ceremony's members are among the
+group's" — a group with an extra member has an extra vote, and a 3-of-4 with five
+members is a 3-of-5.
 
 ### 5. The governance proposal
 
@@ -421,6 +435,35 @@ can be corrected until governance appoints somebody again, no account can hold a
 `ZZ` identifier, and a new country cannot be enrolled. Governance can appoint
 again by another proposal exactly like this one, so it is recoverable — it is just
 not reversible by the people who did it.
+
+## What a run of this actually looked like
+
+A rehearsal on `yamale-devnet-2`, 2026-08-23, so the numbers above are checkable
+rather than illustrative. The list was empty before it and nobody on the chain
+could correct a recorded country.
+
+| Step | What happened |
+| --- | --- |
+| Ceremony | 3-of-4, params fingerprint `E1TH-KP2X-GWM6-X594`, group fingerprint `RVA4-6W1S-RX0V-GNDK` |
+| Predicted address | `yml1afk9zr2…3xm8uj` — **the foundation's own**, sequence 1 |
+| Real address | `yml1dlszg2s…rmuayr`, group 2, created at height 28480 |
+| Proposal | gov #2, deposit 1 YML, 30-minute vote, passed 65,000,000,000 yes / 0 no |
+| After | `foundation_administrators` had one entry; `payload_length` still 8 |
+
+Then, as the appointed group, three of the four custodians voting:
+
+| Act | Result |
+| --- | --- |
+| Record alice in `NG` | `jurisdiction_recorded`, `recorded_by` the group, height 28854 |
+| alice registers | identifier `NGH8QTHP2B4` |
+| **bob** tries to correct her to `KE` | refused, `code 12` in codespace `alias`: *"is recorded in NG: this account's jurisdiction is already recorded; only a foundation administrator may correct it"* |
+| **alice** tries to correct herself | refused, identically |
+| The **group** corrects her to `KE` | `retired: NGH8QTHP2B4`, `id: KEM1BMZ66YP`, height 28873 |
+| `query alias retired NGH8QTHP2B4` | `true` — and it resolves to no account, permanently |
+
+That last row is the point of the whole feature. The prefix followed the country,
+the old identifier was tombstoned rather than repointed, and the correction is on
+the record with the group that made it named in it.
 
 ## Checking somebody else's appointment
 

@@ -58,8 +58,8 @@ type recordConfig struct {
 	// country. What the record has to say instead is what the group is FOR: the
 	// power to correct any account's recorded country, which the group does not
 	// hold until a governance proposal has appointed it.
-	Administrators bool `json:"foundation_administrators,omitempty"`
-	BinaryHash       string   `json:"binary_hash,omitempty"`
+	Administrators bool   `json:"foundation_administrators,omitempty"`
+	BinaryHash     string `json:"binary_hash,omitempty"`
 	// Notes is where an exposure, an interruption, a destroyed key or a
 	// regenerated one is written down. An empty list is a claim that nothing
 	// happened, which is itself worth signing.
@@ -218,13 +218,33 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 		b.WriteString("change it is an ordinary governance `MsgUpdateParams` — authority-gated to the\n")
 		b.WriteString("governance module account. The foundation's own 3-of-5 cannot do it. So this\n")
 		b.WriteString("ceremony ends at a proposal, not at a power.\n\n")
-		b.WriteString("**This group has no address yet.** An `x/group` policy address is derived from\n")
-		b.WriteString("the group policy sequence number alone — not from these members, not from the\n")
-		b.WriteString("threshold — so it cannot be known until the group has been created on the chain.\n")
-		b.WriteString("An address computed in advance commits to nothing about who controls it, and on\n")
-		b.WriteString("a live run of the country ceremony a predicted address came out as the\n")
-		b.WriteString("*foundation's own*, because both were policy sequence 1. Any address printed\n")
-		b.WriteString("elsewhere in this ceremony's output is a prediction and is not this group.\n\n")
+		// Two versions of the same paragraph, and which one appears depends on
+		// whether the group has been read back off the chain yet. A record rendered
+		// before `confirm` genuinely has no address; one rendered after has a real
+		// one and must print it, because this is the document somebody acts on and
+		// "this group has no address" would be false in the field they came to
+		// read. Getting this wrong in the other direction is worse: a record that
+		// printed a PREDICTED address would be handing somebody the foundation's.
+		if address := strings.TrimSpace(config.PolicyAddress); address != "" {
+			b.WriteString("**The group's address, read back off the chain.** Not derived, not\n")
+			b.WriteString("predicted:\n\n")
+			fmt.Fprintf(&b, "```\n%s\n```\n\n", address)
+			b.WriteString("An `x/group` policy address comes from the group policy sequence number alone —\n")
+			b.WriteString("not from these members, not from the threshold — so an address computed in\n")
+			b.WriteString("advance commits to nothing about who controls it. On a live run a predicted\n")
+			b.WriteString("address came out as the *foundation's own*, because both were policy sequence\n")
+			b.WriteString("1. The address above was read out of the chain's own answer and checked against\n")
+			fmt.Fprintf(&b, "the %d members below: the same set, equal weight, the same threshold,\n", len(custodians))
+			b.WriteString("administering itself.\n\n")
+		} else {
+			b.WriteString("**This group has no address yet.** An `x/group` policy address is derived from\n")
+			b.WriteString("the group policy sequence number alone — not from these members, not from the\n")
+			b.WriteString("threshold — so it cannot be known until the group has been created on the chain.\n")
+			b.WriteString("An address computed in advance commits to nothing about who controls it, and on\n")
+			b.WriteString("a live run of the country ceremony a predicted address came out as the\n")
+			b.WriteString("*foundation's own*, because both were policy sequence 1. Any address printed\n")
+			b.WriteString("elsewhere in this ceremony's output is a prediction and is not this group.\n\n")
+		}
 		fmt.Fprintf(&b, "What this record fixes is **which %d keys** the group is, and their\n", len(custodians))
 		b.WriteString("fingerprints. That is what the appointment checks the chain's answer against.\n\n")
 	} else {

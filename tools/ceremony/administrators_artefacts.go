@@ -118,6 +118,17 @@ func appointmentProposal(
 	// Checked against the chain's own validator before anybody votes. It is the
 	// same function the keeper runs, so a proposal that gets past this is a
 	// proposal that fails at execution only for reasons this tool cannot see.
+	//
+	// A mutation pass found this line to be an EQUIVALENT MUTANT: deleting it
+	// changes no test result, because aliasParams.validate() and
+	// requireAppointableCount above already enforce every rule Params.Validate()
+	// enforces today — the bounds, the duplicates, the cap, the empty entry. That
+	// is not a reason to delete it. It is here for the rule the chain adds NEXT,
+	// which this tool will not know about: the alternative to calling the chain's
+	// own validator is a list of rules maintained in two places, and the failure of
+	// that is a proposal this tool blessed and the keeper rejected after a vote.
+	// No test can distinguish it until such a rule exists, and pretending
+	// otherwise would mean writing a test that asserts nothing.
 	if err := params.Validate(); err != nil {
 		return nil, fmt.Errorf(
 			"the parameters this proposal would set are ones the chain refuses: %w.\n"+
@@ -191,53 +202,37 @@ func appointmentSummary(dossier administratorsDossier, address string, before, a
 	// name gives no hint of it; the counts, because a list that SHRANK is the only
 	// visible evidence of a proposal composed from a stale read.
 	//
-	// Written this tight because 255 bytes is genuinely the binding constraint and
-	// it is worth naming what was given up for it. The first draft said the same
-	// thing in 281 bytes — the em dashes cost three bytes each — and the version
-	// that named the reserved ZZ code as well came to 231, leaving nineteen for an
-	// address and a reason. So the ZZ sentence went: it is on the signed record,
-	// in the governance console's before/after, and in the proto comment the
-	// reference documentation is generated from. What could not go is "may correct
-	// ANY account's country", because that is the sentence a voter cannot
-	// reconstruct from anything else in the proposal.
+	// The full description, because there is room for it. This was first written
+	// against a 255-byte cap and had to have the sentence about the reserved code
+	// cut out to fit — and the cap was wrong: both x/gov and x/group check the
+	// summary against 40*MaxMetadataLen, so it is 10,200 bytes. See maxSummaryLen.
+	//
+	// The priority ordering below survives that correction rather than being made
+	// redundant by it. The lead's reason is written by a person and nothing bounds
+	// it, so something can still have to be dropped — and the thing dropped must
+	// not be the description of the power.
 	core := fmt.Sprintf(
-		"Appoints a %d-of-%d group a foundation administrator on x/alias; list %d -> %d. It may correct ANY "+
-			"account's country, moving it out from under its regulator and reissuing its identifier.",
-		dossier.Threshold, len(dossier.Members), len(before), len(after))
+		"Appoints %s, a %d-of-%d x/group policy, a foundation administrator on x/alias, taking the list from "+
+			"%d to %d. It may then correct the country recorded against ANY account — which moves that account "+
+			"out from under the authority investigating it, and retires and reissues its identifier — and may "+
+			"hold an identifier with no country at all, carrying the reserved %s code. payload_length is "+
+			"unchanged by this proposal.",
+		address, dossier.Threshold, len(dossier.Members), len(before), len(after),
+		aliastypes.FoundationCountry)
 
 	summary := core
-	// Then the address, shortened. The full one is in the message the chain
-	// decodes, so this is an aid to recognition rather than the authoritative
-	// value — and a voter who cannot tell which of two proposals they are looking
-	// at is a voter who cannot vote.
-	if candidate := summary + " " + shortAddress(address); len(candidate) <= maxMetadataLen {
-		summary = candidate
-	}
-	// Then as much of the lead's reason as is left.
 	if reason := strings.TrimSpace(dossier.Reason); reason != "" {
-		if candidate := summary + " " + reason; len(candidate) <= maxMetadataLen {
+		if candidate := summary + " " + reason; len(candidate) <= maxSummaryLen {
 			summary = candidate
 		} else {
-			const marker = " […see the record]"
-			room := maxMetadataLen - len(summary) - 1 - len(marker)
+			const marker = " […see the appointment record]"
+			room := maxSummaryLen - len(summary) - 1 - len(marker)
 			if room > 16 {
 				summary = summary + " " + reason[:room] + marker
 			}
 		}
 	}
 	return summary
-}
-
-// shortAddress is enough of an address to recognise and not enough to act on.
-//
-// Both ends, because a bech32 address's first characters are largely fixed by the
-// prefix and the length: two policy addresses on this chain share their first
-// five, so a prefix alone distinguishes nothing.
-func shortAddress(address string) string {
-	if len(address) <= 24 {
-		return address
-	}
-	return address[:14] + "…" + address[len(address)-6:]
 }
 
 // aliasParams is x/alias's parameters as this tool needs them, plus the authority.
