@@ -8,8 +8,11 @@ import {
   resolveDenom,
   saveContact,
   send,
+  toBaseUnitsOf,
+  translateError,
   truncateAddress,
   t,
+  type TranslatedError,
 } from '@yamale/chain';
 
 import { client } from '../chain.ts';
@@ -69,8 +72,9 @@ function SendDirect() {
   const [balances, setBalances] = useState<{ denom: string; amount: string }[]>([]);
   const [stage, setStage] = useState<Stage>('compose');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslatedError | null>(null);
   const [txHash, setTxHash] = useState('');
+  const [height, setHeight] = useState(0);
   const [remember, setRemember] = useState('');
 
   useEffect(() => {
@@ -131,9 +135,17 @@ function SendDirect() {
   const held = balances.filter((b) => !b.denom.startsWith('amm/pool/'));
   const chosen = held.find((b) => b.denom === denom);
   const info = resolveDenom(denom);
-  const base = amount ? String(Math.round(Number(amount) * 10 ** (info.exponent ?? 6))) : '';
-  const enough = chosen && base && BigInt(base) <= BigInt(chosen.amount);
-  const ready = resolved.address && base && BigInt(base) > 0n && enough;
+
+  // By string, with the exponent from the chain's own denom metadata. It used
+  // to be `Math.round(Number(amount) * 10 ** exponent)`, which is exact only
+  // below 2^53 and turns 0.07 into 70000.00000000001 on the way — so whether
+  // the amount that moves is the amount that was typed depended on which
+  // decimal the sender happened to choose.
+  const parsed = amount.trim() === '' ? null : toBaseUnitsOf(amount, denom);
+  const unreadable = amount.trim() !== '' && parsed === null;
+  const base = parsed?.base ?? '';
+  const enough = Boolean(chosen) && base !== '' && BigInt(base) <= BigInt(chosen!.amount);
+  const ready = Boolean(resolved.address) && base !== '' && BigInt(base) > 0n && enough;
 
   async function confirmAndSend() {
     setError(null);
@@ -150,9 +162,18 @@ function SendDirect() {
       const result = await signer.submit([
         send(account!.address, resolved.address!, [{ denom, amount: base }]),
       ]);
-      if (!result.succeeded) throw new Error(result.error?.message ?? `Rejected with code ${result.code}`);
+      // `submit` waits for the block and reports execution, not acceptance. A
+      // transaction can broadcast cleanly and then fail inside the block — a
+      // frozen account, a fee allowance that has run out — so the success
+      // screen is only reached when the chain actually did it.
+      if (!result.succeeded) {
+        setError(result.error ?? translateError(`the chain refused it with code ${result.code}`));
+        setStage('confirm');
+        return;
+      }
 
       setTxHash(result.hash);
+      setHeight(result.height);
       if (remember.trim()) {
         saveContact({
           address: resolved.address!,
@@ -162,7 +183,10 @@ function SendDirect() {
       }
       setStage('sent');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The transfer failed.');
+      // Anything reaching here is a fault rather than a chain refusal: a wrong
+      // password, an unreachable node. translateError keeps the raw text
+      // available either way, because "it failed" is not a bug report.
+      setError(translateError(err instanceof Error ? err.message : String(err)));
       setStage('confirm');
     }
   }
@@ -172,12 +196,14 @@ function SendDirect() {
       <>
         <h1>{t('send.sent')}</h1>
         <section className="card">
-          <p>
-            <strong>{formatAmount(base, denom)}</strong> is on its way to{' '}
-            {resolved.label ?? <Named address={resolved.address!} />}.
-          </p>
+          {/* The outcome, in the past tense, because it has happened. "On its
+              way" was wrong: submit() waits for the block, so by the time this
+              renders the recipient's balance has already changed. */}
+          <p className="sign__amount">{formatAmount(base, denom)}</p>
+          <p>arrived with {resolved.label ?? <Named address={resolved.address!} />}.</p>
           <p className="small muted">
-            Transaction <code>{txHash}</code>
+            Settled in block {height.toLocaleString()} · transaction{' '}
+            <code className="y-addr">{txHash}</code>
           </p>
           <p>
             <Link to={`/a/${account.address}`}>{t('send.backToAccount')} →</Link>
@@ -251,11 +277,15 @@ function SendDirect() {
             );
           })}
         </div>
-        <label className="field">
+        <label className="field amount-field">
           <span>Amount in {info.symbol}</span>
           <input
             value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+            /* A decimal comma is kept, not stripped. A French or Portuguese
+               reader types 1250,50, and a filter allowing only [0-9.] silently
+               turned that into 125050 — a hundred times the payment they meant
+               to make. Parsing decides what it means; the field does not. */
+            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,\s  ]/g, ''))}
             placeholder="0.00"
             inputMode="decimal"
             disabled={stage !== 'compose'}
@@ -263,12 +293,34 @@ function SendDirect() {
         </label>
         {chosen && (
           <p className="small muted">
-            You hold {formatAmount(chosen.amount, denom)}.
+            You hold {formatAmount(chosen.amount, denom)}.{' '}
+            {/* Prevention rather than error handling: the whole balance is one
+                tap, so nobody has to transcribe it and get it wrong. */}
+            <button
+              type="button"
+              className="linkish"
+              disabled={stage !== 'compose'}
+              onClick={() =>
+                setAmount(formatAmount(chosen.amount, denom, { withSymbol: false, group: false }))
+              }
+            >
+              Send all of it
+            </button>
           </p>
         )}
-        {base && !enough && (
-          <p className="notice notice--bad">{t('send.tooMuch')}</p>
+        {unreadable && (
+          <p className="field-note field-note--bad">
+            That is not an amount. Digits and one decimal separator — a group separator is fine,
+            both separators at once is ambiguous.
+          </p>
         )}
+        {parsed?.truncated && (
+          <p className="field-note field-note--warn">
+            {info.symbol} is held to {info.exponent} decimal places, so the digits past that are
+            not in the amount that will move: {formatAmount(parsed.base, denom)}.
+          </p>
+        )}
+        {base !== '' && !enough && <p className="notice notice--bad">{t('send.tooMuch')}</p>}
       </section>
 
       {stage === 'compose' ? (
@@ -314,7 +366,23 @@ function SendDirect() {
             </label>
           )}
 
-          {error && <div className="notice notice--bad">{error}</div>}
+          {/* What happened, why, and the one thing to do next — with the raw
+              chain text behind a disclosure for whoever has to debug it. This
+              used to render error.message alone, throwing away the reason and
+              the next step that translateError had already worked out. */}
+          {error && (
+            <div className="notice notice--bad">
+              <strong>{error.message}</strong>
+              {error.reason ? <> {error.reason}</> : null}
+              {error.nextStep ? <p className="error__next">{error.nextStep}</p> : null}
+              {error.raw && error.raw !== error.message ? (
+                <details className="payload">
+                  <summary>What the chain said</summary>
+                  <pre className="payload__pre">{error.raw}</pre>
+                </details>
+              ) : null}
+            </div>
+          )}
 
           <div className="actions__row">
             <button

@@ -1,265 +1,451 @@
-/* Yamale Safe.
-   Quieter than the explorer on purpose: this is a tool people use to move
-   money, not a site they browse. Numbers are the loudest thing on the page. */
+/* Yamale Wallet.
+ *
+ * Two things kept apart on purpose: watching an address, which is harmless, and
+ * holding a key, which is not. The stylesheet follows that split — the phrase
+ * and the approval screen are the two places given real weight, because they
+ * are the two places where a misread costs money.
+ *
+ * Colour, type and space all come from yamale.css now. This file used to carry
+ * its own copy of the palette plus a dark block written as a bare
+ * `@media (prefers-color-scheme: dark) { :root { … } }`, which has no escape
+ * hatch: a reader who chose light explicitly still got the dark accent.
+ */
+
 :root {
-  --bg: #f6f7f9;
-  --panel: #ffffff;
-  --text: #0b1523;
-  --text-muted: #5c6e88;
-  --border: #e3e7ee;
-  --accent: #12253f;
-  --negative: #8a2020;
-  --negative-bg: #fbeaea;
-  --positive-bg: #eaf3ef;
-  --warning-bg: #f7efd9;
-  --warning-fg: #6b4e00;
+  /* Local aliases onto the shared tokens, so the component rules below read
+     the way they always did. */
+  --panel: var(--surface);
+  --negative: var(--bad);
+  --negative-bg: var(--wash-bad);
+  --positive-bg: var(--wash-ok);
+  --warning-bg: var(--wash-warn);
+  --warning-fg: var(--warn);
+
+  /* Form controls, scrollbars and the native select popup follow the theme.
+     Without it a dark page gets a white dropdown. */
+  color-scheme: light dark;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1523; --panel: #12253f; --text: #e8eef7; --text-muted: #8fa4c4;
-    --border: #24405f; --accent: #8fa4c4; --negative: #e88; --negative-bg: #2e1c1c;
-    --positive-bg: #17271f; --warning-bg: #2b2413; --warning-fg: #e5c877;
-  }
+
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--sp-5); }
+
+.masthead { border-bottom: 1px solid var(--border); background: var(--surface); }
+.masthead__inner {
+  display: flex; align-items: center; gap: var(--sp-6);
+  min-height: 3.5rem; flex-wrap: wrap; padding: var(--sp-2) 0;
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 16px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
-.masthead { border-bottom: 1px solid var(--border); background: var(--panel); }
-.masthead__inner { display: flex; align-items: center; gap: 2rem; height: 3.5rem; }
-.brand { font-weight: 650; text-decoration: none; color: var(--text); }
-.brand span { color: var(--accent); }
-/* The links had no layout of their own — only their colour was styled — so they
-   ran together with nothing but collapsed whitespace between them. Flex with a
-   real gap, and allowed to wrap so a narrow screen breaks the row cleanly
-   instead of overflowing it. */
-.nav { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; }
-.nav a { color: var(--text-muted); text-decoration: none; font-size: 0.92rem; white-space: nowrap; }
-.nav a.active { color: var(--text); }
-main.wrap { padding-top: 2rem; padding-bottom: 3rem; }
-h1 { font-size: 1.6rem; margin: 0 0 0.35rem; }
-h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
-.lede { color: var(--text-muted); max-width: 44rem; margin: 0 0 1.5rem; }
+
+.brand {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-display); font-weight: 600; font-size: var(--step-1);
+  letter-spacing: -0.01em; text-decoration: none; color: var(--text);
+}
+.brand span { color: var(--brass); }
+.brand__mark { width: 1.4rem; height: 1.4rem; flex: none; border-radius: 5px; color: var(--accent); }
+
+.nav { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-5); }
+.nav a {
+  color: var(--text-muted); text-decoration: none;
+  font-size: var(--step-0); white-space: nowrap; padding: var(--sp-1) 0;
+}
+.nav a:hover { color: var(--text); }
+.nav a.active, .nav a[aria-current='page'] {
+  color: var(--text); box-shadow: inset 0 -2px 0 var(--brass);
+}
+
+main.wrap { padding-top: var(--sp-6); padding-bottom: var(--sp-7); }
+
+h1 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
+h2 { font-size: var(--step-2); margin: 0 0 var(--sp-3); }
+
+.lede { color: var(--text-muted); max-width: var(--measure); margin: 0 0 var(--sp-5); }
 .muted, .small.muted { color: var(--text-muted); }
-.small { font-size: 0.86rem; }
-.crumb { font-size: 0.86rem; color: var(--text-muted); margin: 0 0 0.5rem; }
+.small { font-size: var(--step--1); }
+.crumb { font-size: var(--step--1); color: var(--text-muted); margin: 0 0 var(--sp-2); }
 .crumb a { color: var(--text-muted); }
-.page-head { display: flex; align-items: center; gap: 0.75rem; }
+.page-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.row { display: flex; align-items: baseline; gap: var(--sp-3); justify-content: space-between; }
 
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-5);
+}
 .card--link { display: block; text-decoration: none; color: inherit; }
-.card--link:hover { border-color: var(--accent); }
-.card__head { display: flex; align-items: center; gap: 0.6rem; }
-.card__foot { margin: 0.9rem 0 0; }
-.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); }
+.card--link:hover { border-color: var(--accent); box-shadow: var(--shadow-2); }
+.card__head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.card__foot { margin: var(--sp-4) 0 0; }
+.grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); }
 
-.figures { display: flex; gap: 2rem; margin: 0.9rem 0 0.6rem; }
-.figures dt { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.15rem; }
+.figures { display: flex; gap: var(--sp-6); margin: var(--sp-4) 0 var(--sp-2); flex-wrap: wrap; }
+.figures dt {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: var(--sp-1);
+}
 .figures dd { margin: 0; }
-.figure { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.figure--muted { color: var(--text-muted); font-weight: 500; }
-
-.tabs { display: flex; gap: 0.25rem; margin: 1.5rem 0 1rem; border-bottom: 1px solid var(--border); }
-.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0.5rem 0.85rem;
-  font: inherit; font-size: 0.94rem; color: var(--text-muted); cursor: pointer; }
-.tab--on { color: var(--text); border-bottom-color: var(--accent); }
-
-.table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.table th { text-align: start; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--text-muted); font-weight: 600; padding: 0 0.6rem 0.5rem 0; }
-.table td { padding: 0.5rem 0.6rem 0.5rem 0; border-top: 1px solid var(--border); }
-.table .num { text-align: end; }
-.table .strong { font-weight: 600; }
-.row--off { opacity: 0.5; text-decoration: line-through; }
-
-.field { display: block; margin-bottom: 0.9rem; }
-.field span { display: block; font-size: 0.84rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-.field input, .field select { width: 100%; padding: 0.55rem 0.7rem; font: inherit;
-  border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
-.field-row { display: grid; gap: 0.9rem; grid-template-columns: 2fr 1fr; }
-
-.notice { padding: 0.7rem 0.9rem; border-radius: 7px; background: var(--warning-bg);
-  color: var(--warning-fg); font-size: 0.9rem; margin: 0.9rem 0; }
-.notice--bad { background: var(--negative-bg); color: var(--negative); }
-.notice--ok { background: var(--positive-bg); color: var(--accent); }
-
-.badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px;
-  background: var(--border); color: var(--text-muted); }
-.badge-paused { background: var(--warning-bg); color: var(--warning-fg); }
-
-.payload { margin-top: 1rem; }
-.payload summary { cursor: pointer; font-size: 0.9rem; color: var(--text-muted); }
-.payload pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 7px; padding: 0.8rem; font-size: 0.82rem; }
-
-.foot { border-top: 1px solid var(--border); padding-top: 1rem; }
-.foot p { color: var(--text-muted); font-size: 0.85rem; max-width: 44rem; }
-code { font-size: 0.88em; background: var(--border); padding: 0.1rem 0.3rem; border-radius: 4px; }
-
-/* Wallet-specific.
-   The phrase is the most dangerous thing this app puts on screen, so it is
-   given room and a border rather than being tucked into a paragraph. */
-.address { font-size: 0.95rem; word-break: break-all; font-family: ui-monospace, monospace; }
-h1.address { font-weight: 500; }
-.watch button, .card button {
-  font: inherit; padding: 0.55rem 1.1rem; border-radius: 7px; border: 1px solid var(--accent);
-  background: var(--accent); color: var(--panel); cursor: pointer;
+.figure {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-2); font-weight: 500;
 }
-.card button:disabled { opacity: 0.45; cursor: not-allowed; }
+.figure--muted { color: var(--text-muted); }
 
-/* The claim-all action. It sat outside .card, so it inherited nothing and
-   rendered as a default browser button — invisible next to four styled ones.
-   It is also the primary action on that screen, so it is sized to read that
-   way rather than merely matching the others. */
-.claim-all {
-  display: flex; flex-direction: column; gap: 0.4rem;
-  align-items: flex-start; margin: 0 0 1.25rem;
+.tabs {
+  display: flex; gap: var(--sp-1); margin: var(--sp-5) 0 var(--sp-4);
+  border-bottom: 1px solid var(--rule); overflow-x: auto;
 }
+.tab {
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: var(--sp-2) var(--sp-3); font: inherit; font-size: var(--step-0);
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+}
+.tab--on { color: var(--text); border-bottom-color: var(--brass); }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  text-align: start; font-family: var(--font-mono); font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.11em;
+  color: var(--text-muted); font-weight: 500;
+  padding: 0 var(--sp-3) var(--sp-2) 0; white-space: nowrap;
+}
+.table td { padding: var(--sp-2) var(--sp-3) var(--sp-2) 0; border-top: 1px solid var(--rule); }
+.table .num {
+  text-align: end; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table .strong { font-weight: 500; }
+.row--off { opacity: 0.55; text-decoration: line-through; }
+
+.field { display: block; margin-bottom: var(--sp-4); }
+.field span {
+  display: block; font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: var(--sp-1);
+}
+.field input, .field select {
+  width: 100%; padding: var(--sp-2) var(--sp-3); font: inherit;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text);
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field-row { display: grid; gap: var(--sp-4); grid-template-columns: 2fr 1fr; }
+@media (max-width: 30rem) { .field-row { grid-template-columns: 1fr; } }
+
+/* A notice carries its state in a border and a word as well as in a wash.
+   Colour alone would leave a colour-blind reader unable to tell a confirmation
+   from a refusal, and this app's refusals are about money. */
+.notice {
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+  border-inline-start: 3px solid var(--warn);
+  background: var(--wash-warn); color: var(--text);
+  font-size: var(--step-0); margin: var(--sp-4) 0;
+}
+.notice--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+.notice--ok { border-inline-start-color: var(--ok); background: var(--wash-ok); }
+/* The one next action, on its own line. Buried at the end of a paragraph of
+   explanation it is the part people miss. */
+.error__next { margin: var(--sp-2) 0 0; font-weight: 500; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.2rem 0.45rem; border-radius: 3px; white-space: nowrap;
+  background: var(--wash-mute); color: var(--text-muted);
+}
+.badge-paused { background: var(--wash-warn); color: var(--warn); }
+
+.payload { margin-top: var(--sp-4); }
+.payload summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+.payload summary:hover { color: var(--text); }
+.payload pre, .payload__pre {
+  overflow-x: auto; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--sp-3); font-size: var(--step--1); line-height: 1.55;
+  margin: var(--sp-3) 0 0;
+}
+pre { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--sp-3); font-size: var(--step--1); }
+
+.foot { border-top: 1px solid var(--rule); padding-top: var(--sp-4); margin-top: var(--sp-6); }
+.foot p { color: var(--text-muted); font-size: var(--step--1); max-width: var(--measure); }
+
+code { font-size: 0.88em; background: var(--surface-3); padding: 0.1rem 0.3rem; border-radius: 3px; }
+.address { font-family: var(--font-mono); font-size: 0.88em; word-break: break-all; }
+h1.address { font-weight: 400; font-size: var(--step-2); background: none; padding: 0; }
+
+/* Buttons. Named rather than `.card button`, which used to catch the tabs and
+   the disclosure toggles too. */
+.watch button,
+.card > button,
+.card > p > button,
+.actions__row > button,
+.button {
+  font: inherit; font-weight: 500;
+  padding: var(--sp-2) var(--sp-5); border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  cursor: pointer; text-decoration: none; display: inline-block;
+}
+.card > button:disabled, .actions__row > button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.claim-all { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; margin: 0 0 var(--sp-5); }
 .claim-all button {
-  font: inherit; font-weight: 600; font-size: 1.02rem;
-  padding: 0.75rem 1.5rem; border-radius: 8px;
-  border: 1px solid var(--accent); background: var(--accent); color: var(--panel);
+  font: inherit; font-weight: 600; font-size: var(--step-1);
+  padding: var(--sp-3) var(--sp-5); border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
   cursor: pointer; width: 100%;
 }
 .claim-all button:disabled { opacity: 0.45; cursor: not-allowed; }
-.plain { padding-inline-start: 1.1rem; margin: 0 0 1rem; }
-.plain li { margin-bottom: 0.35rem; }
 
-.phrase { background: var(--bg); }
-.words { list-style: none; padding: 0; margin: 0; columns: 3; column-gap: 1.5rem; }
-@media (max-width: 640px) { .words { columns: 2; } }
+.plain { padding-inline-start: 1.1rem; margin: 0 0 var(--sp-4); }
+.plain li { margin-bottom: var(--sp-1); }
+.steps { margin: var(--sp-2) 0 var(--sp-3); padding-inline-start: 1.2rem; line-height: 1.7; }
+
+/* The recovery phrase — the most dangerous thing this app puts on screen, so
+   it gets room, a border and the mono face that makes a transcription
+   checkable word by word. */
+.phrase { background: var(--surface-2); }
+.words { list-style: none; padding: 0; margin: 0; columns: 3; column-gap: var(--sp-5); }
+@media (max-width: 40rem) { .words { columns: 2; } }
 .words li {
-  break-inside: avoid; padding: 0.3rem 0; font-family: ui-monospace, monospace;
-  font-size: 0.95rem;
+  break-inside: avoid; padding: var(--sp-1) 0;
+  font-family: var(--font-mono); font-size: var(--step-1);
 }
 .words__n {
-  display: inline-block; width: 1.9rem; color: var(--text-muted); font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
+  display: inline-block; width: 1.9rem; color: var(--text-faint);
+  font-size: var(--step--1); font-variant-numeric: tabular-nums;
 }
 .words__w { margin-inline-start: 0.15rem; }
-.confirm { display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 1rem; }
+.confirm { display: flex; gap: var(--sp-3); align-items: flex-start; margin-bottom: var(--sp-4); }
 .confirm input { margin-top: 0.25rem; }
-.denom { padding-inline-end: 1.5rem; }
+.denom { padding-inline-end: var(--sp-5); }
 
-/* The connected account, pushed to the far right of the masthead. */
+/* The connected account, pushed to the far end of the masthead. */
 .acct { position: relative; margin-inline-start: auto; }
 .acct-connect {
-  margin-inline-start: auto; font-size: 0.9rem; padding: 0.4rem 0.9rem; border-radius: 7px;
+  margin-inline-start: auto; font-size: var(--step-0);
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--radius);
   border: 1px solid var(--accent); color: var(--accent); text-decoration: none;
 }
 .acct__button {
-  display: inline-flex; align-items: center; gap: 0.5rem; font: inherit; font-size: 0.9rem;
-  padding: 0.4rem 0.8rem; border-radius: 7px; border: 1px solid var(--border);
-  background: var(--bg); color: var(--text); cursor: pointer; max-width: 15rem;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font: inherit; font-size: var(--step-0);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  cursor: pointer; max-width: 15rem;
 }
 .acct__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acct__dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #35c07a; flex: none; }
+.acct__dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ok); flex: none; }
 .acct__panel {
-  position: absolute; right: 0; top: calc(100% + 0.5rem); z-index: 20; width: min(24rem, 90vw);
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  padding: 1rem; box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
+  position: absolute; inset-inline-end: 0; top: calc(100% + var(--sp-2)); z-index: 20;
+  width: min(24rem, 90vw);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--sp-4); box-shadow: var(--shadow-2);
 }
-.acct__tier { margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--text-muted); }
-.acct__row { margin: 0 0 0.6rem; display: flex; flex-direction: column; gap: 0.15rem; }
-.acct__row code { font-size: 0.8rem; word-break: break-all; }
-.acct__label { font-size: 0.78rem; color: var(--text-muted); }
-.acct__links { margin: 0.9rem 0 0; font-size: 0.85rem; }
-
-/* A button that reads as a link: used for the "send somewhere else" toggle,
-   which is a change of mode rather than an action worth an accent-filled
-   button next to the primary one. */
-.linkish {
-  background: none; border: 0; padding: 0; font: inherit; font-size: 0.88rem;
-  color: var(--accent); cursor: pointer; text-decoration: underline;
+.acct__tier { margin: 0 0 var(--sp-3); font-size: var(--step--1); color: var(--text-muted); }
+.acct__row { margin: 0 0 var(--sp-3); display: flex; flex-direction: column; gap: 0.15rem; }
+.acct__row code { font-size: var(--step--1); word-break: break-all; }
+.acct__label {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
 }
-
-/* The mark sits on the text baseline in the masthead. currentColor means it
-   picks up the brand link's colour in both themes without a second file. */
-.brand { display: inline-flex; align-items: center; gap: 0.5rem; }
-.brand__mark { width: 1.25rem; height: 1.25rem; flex: none; color: var(--accent); }
+.acct__links { margin: var(--sp-4) 0 0; font-size: var(--step--1); }
+.acct-anon { display: flex; align-items: center; gap: var(--sp-3); }
+.acct__lang { margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--rule); }
+.acct__lang .lang { width: 100%; }
 
 /* Removing an account lives behind a disclosure, not beside Disconnect.
    A destructive action next to an everyday one gets pressed by accident. */
-.acct__danger { margin-top: 0.9rem; }
+.acct__danger { margin-top: var(--sp-4); }
 .acct__danger > summary {
-  cursor: pointer; font-size: 0.82rem; color: var(--text-muted); list-style: none;
+  cursor: pointer; font-size: var(--step--1); color: var(--text-muted); list-style: none;
 }
 .acct__danger > summary::-webkit-details-marker { display: none; }
-.acct__danger > summary::before { content: "▸ "; }
-.acct__danger[open] > summary::before { content: "▾ "; }
+.acct__danger > summary::before { content: '▸ '; }
+.acct__danger[open] > summary::before { content: '▾ '; }
 
-/* Language picker. A native <select> on purpose: it inherits the platform's
-   own font stack, so Ge'ez and Arabic endonyms render with whatever the device
-   actually has rather than a webfont we would have to ship for twenty scripts. */
+.linkish {
+  background: none; border: 0; padding: 0; font: inherit; font-size: var(--step-0);
+  color: var(--accent); cursor: pointer; text-decoration: underline;
+}
+
+/* Language picker. A native <select> on purpose, so endonyms render in whatever
+   the device actually has rather than a webfont we would ship for twenty
+   scripts. */
 .lang {
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  /* Not transparent: the native popup is painted by the OS, and a transparent
-     control renders white-on-white in dark mode. An explicit surface plus
-     color-scheme is what makes the dropdown itself follow the theme. */
-  background: var(--surface, var(--panel));
-  color-scheme: light dark;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.25rem 0.4rem;
-  cursor: pointer;
-  max-width: 9rem;
+  font: inherit; font-size: var(--step--1); color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--sp-1) var(--sp-2); cursor: pointer; max-width: 9rem;
 }
-.lang option {
-  background: var(--surface, var(--panel));
-  color: var(--text);
-}
-.lang:hover { color: var(--text); border-color: var(--border-strong, var(--text-muted)); }
-.lang:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lang option { background: var(--surface); color: var(--text); }
+.lang:hover { color: var(--text); border-color: var(--text-muted); }
 
-/* Brass earns its place as the identity's second colour rather than sitting
-   unused in a token. The mark's descender is brass, so the same stroke reappears
-   as the active-state marker and the eyebrow -- sparing, and always structural
-   rather than decorative. Never body text: it fails contrast at small sizes. */
-.eyebrow { color: var(--brass); letter-spacing: .06em; }
-.nav a[aria-current="page"],
-.nav a.active { box-shadow: inset 0 -2px 0 var(--brass); }
-.brand__mark { border-radius: 6px; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: var(--step--1);
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass);
+}
 
 /* --- faucet, grouped by region ------------------------------------------ */
-.claim-group { margin: 1.6rem 0 0; }
+.claim-group { margin: var(--sp-6) 0 0; }
 .claim-group__title {
-  display: flex; align-items: center; gap: .55rem;
-  font-size: .95rem; margin: 0 0 .7rem;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--step-1); margin: 0 0 var(--sp-3);
 }
-/* The count earns its place: it tells you how far the section runs before you
+/* The count earns its place: it says how far the section runs before you
    scroll into it. */
 .claim-group__count {
-  font-size: .7rem; font-weight: 600;
-  padding: .05rem .4rem; border-radius: 999px;
-  background: rgba(168, 123, 60, .16); color: #a87b3c;
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem; border-radius: 999px;
+  background: var(--wash-brass); color: var(--brass);
 }
-
-.acct-anon { display: flex; align-items: center; gap: .6rem; }
-/* The language row sits above the destructive actions, separated, so nobody
-   reaches for Disconnect while aiming for a dropdown. */
-.acct__lang { margin-bottom: .8rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border, #24405f); }
-.acct__lang .lang { width: 100%; }
 
 /* --- folders within a page (send: direct / escrow / demand) -------------- */
 .folders {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: .3rem; margin: 0 0 1.2rem;
-  padding: .25rem; border-radius: 12px;
-  background: rgba(143, 164, 196, .12);
+  gap: var(--sp-1); margin: 0 0 var(--sp-5);
+  padding: var(--sp-1); border-radius: var(--radius-lg);
+  background: var(--surface-3);
 }
 .folders__tab {
-  font: inherit; font-size: .85rem; font-weight: 600;
-  padding: .55rem .3rem;
-  background: transparent; color: inherit; opacity: .7;
-  border: 0; border-radius: 9px; cursor: pointer;
+  font: inherit; font-size: var(--step-0); font-weight: 500;
+  padding: var(--sp-2) var(--sp-1);
+  background: transparent; color: var(--text-muted);
+  border: 0; border-radius: var(--radius); cursor: pointer;
 }
+.folders__tab:hover { color: var(--text); }
 /* The selected folder lifts onto the panel, so it reads as the sheet in front
    rather than a button that happens to be lighter. */
 .folders__tab--on {
-  background: var(--panel, #12253f); opacity: 1;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-1);
 }
-.steps { margin: .4rem 0 .8rem; padding-inline-start: 1.2rem; line-height: 1.7; }
+
+.actions__row { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+.chip {
+  font: inherit; font-size: var(--step-0);
+  padding: var(--sp-2) var(--sp-4); border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-muted); cursor: pointer;
+}
+.chip:hover { color: var(--text); border-color: var(--text-muted); }
+.chip--on { border-color: var(--accent); color: var(--text); background: var(--surface); font-weight: 500; }
+.ghost {
+  font: inherit; padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+
+.amount-field input {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-2);
+}
+.field-note { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); font-size: var(--step--1); }
+.field-note--bad { color: var(--bad); }
+.field-note--warn { color: var(--warn); }
+
+.empty {
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  padding: var(--sp-6) var(--sp-5); text-align: center; background: var(--surface-2);
+}
+.empty h2 { margin-bottom: var(--sp-2); }
+.empty p { margin: 0 auto; color: var(--text-muted); max-width: 44ch; }
+
+/* --- the approval screen ---------------------------------------------------
+ *
+ * The highest-stakes screen in the product, and until now the one with the
+ * least design: a bulleted list of proto type URLs. What a signer needs, in
+ * this order, is the sentence, the figure, the counterparty, and then the raw
+ * bytes for anybody who wants to audit them. The hierarchy below is that
+ * order. */
+.sign__headline {
+  font-size: var(--step-2); font-family: var(--font-display);
+  font-weight: 600; letter-spacing: -0.01em; line-height: 1.25;
+  margin: 0 0 var(--sp-4); max-width: var(--measure);
+}
+.sign__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+.sign__row {
+  border: 1px solid var(--border); border-inline-start: 3px solid var(--brass);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface-2); padding: var(--sp-3) var(--sp-4);
+}
+/* A message that could not be decoded is not a quieter row, it is a louder
+   one. The old screen listed the unknown alongside the known in the same grey. */
+.sign__row--bad {
+  border-inline-start-color: var(--bad); background: var(--wash-bad);
+}
+.sign__title {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+.sign__summary { margin: 0 0 var(--sp-2); }
+/* The figure on its own line, in mono. It is already in the sentence, but a
+   number inside prose is not a number anybody double-checks. */
+.sign__amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-3); line-height: 1.1;
+  margin: 0 0 var(--sp-2);
+}
+.sign__details {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-4);
+  margin: var(--sp-3) 0 0; font-size: var(--step--1);
+}
+.sign__details > div { display: grid; grid-template-columns: subgrid; grid-column: span 2; }
+.sign__details dt {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+}
+.sign__details dd { margin: 0; }
+.sign__contains { display: block; margin: var(--sp-3) 0 var(--sp-2); }
+.sign__fee {
+  margin: var(--sp-4) 0 0; font-family: var(--font-mono);
+  font-size: var(--step--1); color: var(--text-muted);
+}
+.sign__who { margin-top: var(--sp-4); }
+
+/* --- the country an account belongs to ------------------------------------
+ *
+ * The step that makes a new account payable at all, and the one a key
+ * generator cannot perform. It was unstyled: two inputs and two <pre> blocks
+ * with no relationship between them, on the screen where somebody has just
+ * been handed 24 words and is least able to absorb a new idea. */
+.placement__country { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
+.placement__country .field { max-width: 7rem; margin-bottom: 0; }
+.placement__country input {
+  font-family: var(--font-mono); font-size: var(--step-2);
+  letter-spacing: 0.14em; text-align: center; text-transform: uppercase;
+}
+.placement__name { font-size: var(--step-1); }
+.placement__name .y-mono { color: var(--text-muted); }
+
+.handoff { margin: var(--sp-4) 0 0; }
+.handoff__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--sp-3); margin-bottom: var(--sp-2);
+}
+.handoff pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+/* The command an institution runs is a command, so it does not wrap into
+   prose — it scrolls, and stays copy-pasteable. */
+.handoff pre.handoff__cmd { white-space: pre; word-break: normal; }
+
+/* Waiting. Bars the size of the content that is coming, so the page does not
+   jump when the answer arrives. */
+.skeleton { display: grid; gap: var(--sp-2); }
+.skeleton i {
+  display: block; height: 1rem; border-radius: 3px;
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
+  background-size: 200% 100%;
+  animation: y-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton i:nth-child(2) { width: 78%; }
+.skeleton i:nth-child(3) { width: 54%; }
+@keyframes y-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton i { animation: none; background: var(--surface-2); }
+}

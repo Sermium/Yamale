@@ -194,6 +194,21 @@ test('locked treasury funds get their own explanation', () => {
   assert.match(t.reason ?? '', /cannot be spent by anyone/);
 });
 
+test('an account the chain has never seen is explained, not reported as missing', () => {
+  // The exact text CosmJS throws, verbatim from a live devnet: a freshly
+  // generated key with nothing sent to it yet. It arrives through the catch
+  // path rather than as a transaction result, so if it is not translated the
+  // raw sentence is the whole of what a user sees.
+  const t = translateError(
+    "Account 'yml198crxyyhnk9d563dke4et5jw294rurkdle5kzn' does not exist on chain. Send some tokens there before trying to query sequence.",
+  );
+  assert.equal(t.message, 'This account has never received anything');
+  assert.match(t.reason ?? '', /money first arrives/);
+  assert.match(t.nextStep ?? '', /send it any amount|test funds/i);
+  // Not conflated with having a balance that is too small: the remedy differs.
+  assert.notEqual(t.message, 'Not enough funds');
+});
+
 test('an unrecognised error is surfaced verbatim, not hidden', () => {
   const raw = 'some entirely novel failure from a future module';
   const t = translateError(raw);

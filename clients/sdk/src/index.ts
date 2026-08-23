@@ -17,11 +17,28 @@ export {
   parseCoin,
   poolIdFromDenom,
   resolveDenom,
+  toBaseUnits,
+  toBaseUnitsOf,
   toDisplayAmount,
+  type BaseUnits,
   type Coin,
   type DenomInfo,
   type FormatAmountOptions,
 } from './denom.ts';
+
+/**
+ * Reading a signing request out of the bytes about to be signed, rather than
+ * out of what the requesting application said about them.
+ */
+export {
+  describe as describeRequestMessage,
+  describeFee,
+  headline,
+  summariseSigningRequest,
+  type RequestFee,
+  type RequestMessage,
+  type SigningRequestSummary,
+} from './signrequest.ts';
 
 /**
  * User IDs. The chain's own algorithm, ported once — see alias.ts for what went
@@ -163,6 +180,7 @@ export {
   type ChainStatus,
   type Commitment,
   type Transaction,
+  type TreasuryLock,
 } from './client.ts';
 
 export { CHAIN_MESSAGE_TYPES, chainRegistry } from './registry.ts';

@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { registerAll, AVAILABLE, setLocale, resolveLocale } from '@yamale/chain';
 
 import { App } from './App.tsx';
+// The shared visual system first, then this surface's own rules on top of it.
+import '../../shared/yamale.css';
 import './styles.css';
 
 // Language before first paint: setLocale writes documentElement.dir, and every

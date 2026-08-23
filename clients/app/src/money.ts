@@ -9,7 +9,7 @@
  * Eastern Arabic numerals and a French reader sees a comma — the same figure,
  * written the way each of them writes figures.
  */
-import { formatMoney, getLocale } from '@yamale/chain';
+import { formatMoney, getLocale, toBaseUnits as parseBaseUnits, type BaseUnits } from '@yamale/chain';
 
 export interface Currency {
   /** What the chain calls it. Never rendered. */
@@ -85,14 +85,36 @@ export function display(amount: string, denom: string): string {
   return formatMoney(amount, c.exponent) + ' ' + c.code;
 }
 
-/** What a person typed to what the chain needs. */
-export function toBaseUnits(input: string, denom: string): string {
+/**
+ * What a person typed, as the chain's base units — or null when it is not an
+ * amount at all.
+ *
+ * Delegated to the SDK rather than reimplemented, because there is one correct
+ * answer to "what does this text mean in base units" and three places in these
+ * clients used to have three different ones. The SDK version is BigInt
+ * throughout and reports when it had to drop decimal places the denom cannot
+ * hold, which is the difference between a payment that is nearly right and one
+ * that says so.
+ *
+ * Null rather than a silent zero: a screen can then disable its own button and
+ * state the precondition, where a zero would have submitted a payment of
+ * nothing on the strength of a typo.
+ */
+export function parseAmount(input: string, denom: string): BaseUnits | null {
   const c = currencyOf(denom);
-  if (!c) return '0';
-  const cleaned = input.replace(/[^0-9.,]/g, '').replace(',', '.');
-  const [whole, frac = ''] = cleaned.split('.');
-  const padded = (frac + '0'.repeat(c.exponent)).slice(0, c.exponent);
-  return (BigInt(whole || '0') * BigInt(10 ** c.exponent) + BigInt(padded || '0')).toString();
+  if (!c) return null;
+  return parseBaseUnits(input, c.exponent);
+}
+
+/**
+ * The same, for callers that cannot act on the difference between "zero" and
+ * "not a number" — a statement footer, a display round-trip.
+ *
+ * Kept because several screens read it, but it is the weaker of the two and a
+ * new caller should prefer `parseAmount`.
+ */
+export function toBaseUnits(input: string, denom: string): string {
+  return parseAmount(input, denom)?.base ?? '0';
 }
 
 /** Locale-aware, for the amount keypad. */

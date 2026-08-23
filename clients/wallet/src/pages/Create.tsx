@@ -196,28 +196,37 @@ export function CreatePage() {
           <p className="lede">{t('placement.lede')}</p>
           <p className="notice">{t('placement.cannotSelf')}</p>
 
-          <label className="field">
-            <span>{t('placement.country')}</span>
-            <input
-              value={country}
-              onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
-              placeholder="SN"
-              autoCapitalize="characters"
-              autoComplete="off"
-              size={4}
-            />
-          </label>
-          {/* The name in the reader's own language, beside the code the chain
-              stores. Somebody choosing their country needs the name; somebody
-              confirming it to their institution over the phone needs the two
-              letters. */}
-          {country.length === 2 && !countryProblem(country) && (
-            <p className="small muted">
-              {countryName(country)} — {country}
-            </p>
-          )}
+          {/* Two letters, so the field is two letters wide. A full-width input
+              for a two-character value tells somebody to type a sentence, and
+              the mono face at display size makes the pair legible enough to
+              read back down a telephone — which is exactly what happens next. */}
+          <div className="placement__country">
+            <label className="field">
+              <span>{t('placement.country')}</span>
+              <input
+                value={country}
+                onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+                placeholder="SN"
+                autoCapitalize="characters"
+                autoComplete="off"
+                inputMode="text"
+                size={4}
+                aria-describedby="placement-country-help"
+              />
+            </label>
+            {/* The name in the reader's own language, beside the code the chain
+                stores. Somebody choosing their country needs the name; somebody
+                confirming it to their institution needs the two letters. */}
+            {country.length === 2 && !countryProblem(country) && (
+              <p className="placement__name" id="placement-country-help">
+                {countryName(country)} <span className="y-mono">{country}</span>
+              </p>
+            )}
+          </div>
           {country !== '' && countryProblem(country) !== null && (
-            <p className="notice notice--bad">{countryProblem(country)}</p>
+            <p className="notice notice--bad" id="placement-country-help">
+              {countryProblem(country)}
+            </p>
           )}
 
           <label className="field">
@@ -272,25 +281,28 @@ function PlacementRequest({
   const request = placementRequest({ address, country, institution });
   if ('problem' in request) return null;
 
-  const blocks: { id: string; label: string; text: string }[] = [
+  const blocks: { id: string; label: string; text: string; command?: boolean }[] = [
     { id: 'doc', label: t('placement.give'), text: request.document },
-    { id: 'cmd', label: t('placement.theyRun'), text: request.command },
+    { id: 'cmd', label: t('placement.theyRun'), text: request.command, command: true },
   ];
 
   return (
     <>
-      {blocks.map(({ id, label, text }) => (
-        <div key={id}>
-          <div className="row">
-            <span className="small muted">{label}</span>
+      {blocks.map(({ id, label, text, command }) => (
+        <div className="handoff" key={id}>
+          <div className="handoff__head">
+            <span className="y-label">{label}</span>
             <button
               type="button"
-              className="ghost"
+              className="chip"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(text);
                   onCopy(id);
                 } catch {
+                  // Refused on an insecure origin or in an in-app browser. The
+                  // text is on screen and selectable, so saying nothing is
+                  // better than a false confirmation.
                   onCopy(null);
                 }
               }}
@@ -298,7 +310,10 @@ function PlacementRequest({
               {copied === id ? t('placement.copied') : t('placement.copy')}
             </button>
           </div>
-          <pre>{text}</pre>
+          {/* The document wraps — it is prose somebody reads. The command does
+              not — it is a line somebody pastes, and a soft wrap in the middle
+              of a bech32 address is how a copy-paste goes wrong. */}
+          <pre className={command ? 'handoff__cmd' : undefined}>{text}</pre>
         </div>
       ))}
     </>

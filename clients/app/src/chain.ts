@@ -6,7 +6,7 @@
  * cannot be undone. Keeping them in one file means the list of things this
  * application can do to somebody's money is a list you can read in a minute.
  */
-import { ChainSigner } from '@yamale/chain';
+import { ChainSigner, translateError, type TranslatedError } from '@yamale/chain';
 import type { Signer } from './account.ts';
 
 const RPC = `${window.location.origin}/api/rpc/`;
@@ -50,6 +50,101 @@ export interface Result {
   /** Chain error code, for mapping to a translated message. Never rendered raw. */
   code?: number;
   lockId?: string;
+}
+
+/**
+ * What actually happened to a payment, as opposed to what was attempted.
+ *
+ * `ok` is set from execution and not from broadcast. Four separate bugs on this
+ * project came from believing that a `code: 0` reply to a broadcast meant the
+ * transaction had run: it means the node put it in its mempool. `submit()`
+ * waits for the block for exactly this reason.
+ */
+export interface PaymentOutcome {
+  ok: boolean;
+  /** Empty when the transaction never reached a block. */
+  hash: string;
+  height: number;
+  error?: TranslatedError;
+  /**
+   * Which rails carried it, so a receipt can say so rather than implying more
+   * than happened. See `pay` for why this is only ever `transfer` today.
+   */
+  rails: 'transfer';
+  /** Where the reference ended up, for a receipt that has to be honest. */
+  reference: { value: string; on: 'memo' | 'none' };
+}
+
+/**
+ * Pay somebody.
+ *
+ * **This sends a bank transfer, not an ISO 20022 payment instruction, and the
+ * distinction is not cosmetic.** The chain has a message for the second thing —
+ * `MsgSendPayment` in x/paymsg, which writes a queryable PaymentRecord with an
+ * end-to-end id, a purpose code and both participants' identities — and it is
+ * unreachable from this app today, for a reason that is not a client bug:
+ *
+ *   - `MsgSendPayment` requires that both the instructing and the instructed
+ *     participant be governance-approved participants
+ *     (`ErrNotApprovedParticipant`), and that the debtor have been *registered
+ *     as a customer* by the participant it names (`ErrNotACustomer`). See
+ *     x/paymsg/keeper/msg_server_send_payment.go.
+ *   - `yamale-devnet-2` currently has **zero** approved participants, so there
+ *     is no pair of institutions any account here could legitimately name.
+ *   - The app cannot even discover its own standing: the whole
+ *     `/api/rest/yamale/blockchain/paymsg/` prefix sits behind supervisor
+ *     credentials under the split-visibility policy, so a browser gets a 401
+ *     asking whether it is anybody's customer.
+ *
+ * Given that, the choice was between a receipt for a payment that never
+ * happened — which is what this screen used to show — and a real transfer that
+ * says what it is. The reference travels in the transaction memo: a real field,
+ * on the ledger, queryable, and enough to reconcile against. It is not a
+ * PaymentRecord and the receipt does not pretend it is.
+ */
+export async function pay(
+  account: Signer,
+  toAddress: string,
+  amount: string,
+  denom: string,
+  reference: string,
+): Promise<PaymentOutcome> {
+  const signer = signerFor(account);
+  const from = await signer.address();
+
+  const memo = reference.trim();
+  const reported = { value: memo, on: memo === '' ? ('none' as const) : ('memo' as const) };
+
+  try {
+    const res = await signer.submit(
+      [{
+        typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+        value: { fromAddress: from, toAddress, amount: [{ denom, amount }] },
+      }],
+      memo,
+      200_000,
+    );
+
+    return {
+      ok: res.succeeded,
+      hash: res.hash,
+      height: res.height,
+      error: res.error,
+      rails: 'transfer',
+      reference: reported,
+    };
+  } catch (err) {
+    // Reached when the node is unreachable rather than when it refuses — a
+    // refusal comes back through `submit` as a translated error.
+    return {
+      ok: false,
+      hash: '',
+      height: 0,
+      error: translateError(err instanceof Error ? err.message : String(err)),
+      rails: 'transfer',
+      reference: reported,
+    };
+  }
 }
 
 /** Commit money to an escrow. The funds leave the buyer and reach the module
