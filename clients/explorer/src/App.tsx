@@ -4,12 +4,12 @@ import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-ro
 import {
   VIEW_MODE_STORAGE_KEY,
   ViewModeContext,
-  classifySearch,
   initialViewMode,
-  useViewMode,
   type ViewMode,
 } from './chain.ts';
 import { HomePage } from './pages/Home.tsx';
+import { SearchPage } from './pages/Search.tsx';
+import { StatusStrip } from './StatusStrip.tsx';
 import { TransactionPage } from './pages/Transaction.tsx';
 import { AccountPage } from './pages/Account.tsx';
 import { BlockPage } from './pages/Block.tsx';
@@ -22,6 +22,7 @@ import { CapabilitiesPage } from './pages/Capabilities.tsx';
 import { EnforcementPage } from './pages/Enforcement.tsx';
 import { WalletProviderScope } from './wallet.tsx';
 import { AccountBadge } from './AccountBadge.tsx';
+import { CopyAnnouncer } from './Identifier.tsx';
 import { LanguagePicker, t} from '@yamale/chain';
 
 export function App() {
@@ -46,9 +47,17 @@ export function App() {
       <WalletProviderScope>
       <div className="shell">
         <Masthead />
+        {/* Liveness is furniture, not a footnote: it sits above every route
+            rather than in the corner of one card on the front page. "Is the
+            chain healthy" is the first question this audience asks, and it
+            stops being the first question the moment somebody navigates. */}
+        <StatusStrip />
+        {/* One live region for every copy affordance on the page. */}
+        <CopyAnnouncer />
         <main className="page">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/tx/:hash" element={<TransactionPage />} />
             <Route path="/account/:address" element={<AccountPage />} />
             <Route path="/block/:height" element={<BlockPage />} />
@@ -68,37 +77,25 @@ export function App() {
 }
 
 function Masthead() {
-  const { mode, setMode } = useViewMode();
   const navigate = useNavigate();
   const [term, setTerm] = useState('');
-  const [problem, setProblem] = useState<string | null>(null);
 
   /**
    * Search accepts whatever somebody has in their clipboard and works out what
    * it is. Asking a person to pick "address / transaction / block" from a
    * dropdown before searching is asking them to already know the answer.
+   *
+   * Everything goes to one route, which classifies it and either redirects or
+   * shows what it found. The header used to do the classifying, which is why it
+   * could only ever accept the three kinds decidable without a round trip — and
+   * why a Yamale user ID, the identifier a citizen actually holds, came back
+   * "that does not look like an account, a transaction or a block number".
    */
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const value = term.trim();
     if (!value) return;
-
-    switch (classifySearch(value)) {
-      case 'address':
-        setProblem(null);
-        navigate(`/account/${value}`);
-        break;
-      case 'tx':
-        setProblem(null);
-        navigate(`/tx/${value.toUpperCase()}`);
-        break;
-      case 'height':
-        setProblem(null);
-        navigate(`/block/${value}`);
-        break;
-      default:
-        setProblem('That does not look like an account, a transaction or a block number.');
-    }
+    navigate(`/search?q=${encodeURIComponent(value)}`);
   }
 
   return (
@@ -125,21 +122,16 @@ function Masthead() {
         </nav>
 
         <form className="search" onSubmit={onSubmit} role="search">
-          <label htmlFor="search-input" style={{ position: 'absolute', left: -9999 }}>
-            Search by account, transaction or block
+          <label htmlFor="search-input" className="visually-hidden">
+            {t('xp.search.label')}
           </label>
           <input
             id="search-input"
             value={term}
-            onChange={(e) => {
-              setTerm(e.target.value);
-              if (problem) setProblem(null);
-            }}
-            placeholder="Search an account, transaction or block number"
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder={t('xp.search.placeholder')}
             spellCheck={false}
             autoComplete="off"
-            aria-invalid={problem ? true : undefined}
-            aria-describedby={problem ? 'search-problem' : undefined}
           />
         </form>
 
@@ -150,13 +142,6 @@ function Masthead() {
         <AccountBadge />
       </div>
 
-      {problem ? (
-        <div className="masthead__inner" style={{ paddingTop: 0 }}>
-          <p id="search-problem" className="small muted" style={{ margin: 0 }} role="alert">
-            {problem}
-          </p>
-        </div>
-      ) : null}
     </header>
   );
 }

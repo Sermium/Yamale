@@ -1,0 +1,359 @@
+/*
+ * The pieces this redesign added: the liveness strip, identifiers, and the feed.
+ *
+ * A second file rather than six hundred more lines in styles.css, because these
+ * three are one coherent change and reviewing them next to the components they
+ * style is worth more than alphabetical tidiness.
+ *
+ * Everything here reads shared tokens and defines none. Nothing declares a
+ * colour whose only definition sits inside a media query or a [data-theme]
+ * block: a colour declared only there does not apply in the default, un-stamped
+ * state, which is the state most readers are in.
+ */
+
+/* ==========================================================================
+   The liveness strip
+   ==========================================================================
+   State is carried three ways and never in colour alone: a word, a distinct
+   glyph per state, and the weight of the strip's own bottom rule. Roughly one
+   man in twelve cannot separate the green from the red reliably, and "has the
+   payments network halted" is not a question to answer in hue. */
+
+.strip {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+
+.strip__inner {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: var(--sp-3) var(--sp-5);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex-wrap: wrap;
+}
+
+.strip__state {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+
+.strip__glyph { font-size: 0.7rem; line-height: 1; color: var(--text-muted); }
+
+.strip__word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-1);
+  letter-spacing: -0.01em;
+}
+
+.strip__chain {
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  padding-inline-start: var(--sp-2);
+  border-inline-start: 1px solid var(--border);
+}
+
+/* The four figures. A grid rather than a flex row, so the labels stay aligned at
+   every width, and tabular figures so two readings compare by eye. */
+.strip__figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--sp-2) var(--sp-6);
+  margin: 0;
+  flex: 1 1 30rem;
+  min-width: 0;
+}
+
+.figure dd { margin: 0; }
+
+.figure__value {
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.figure__note { font-size: var(--step--1); color: var(--text-muted); }
+/* Measured at 3.88:1 when this was --warn on the panel — below AA for text at
+   13px. The words already say what is wrong, so the hue moves to a glyph, where
+   3:1 is the bar it has to clear, and the sentence takes full-contrast ink. */
+.figure--warn .figure__note { color: var(--text); font-weight: 500; }
+.figure--warn .figure__note::before { content: '\25B2\00A0'; color: var(--warn); }
+
+/* Per-state trim: the rule thickens as the news worsens, so the strip reads as
+   wrong from across a room and before any word is legible. */
+.strip--live { border-bottom-color: var(--ok); }
+.strip--slow,
+.strip--catching-up { border-bottom: 2px solid var(--warn); }
+.strip--stopped,
+.strip--unreachable { border-bottom: 3px solid var(--bad); }
+
+.strip--live .strip__glyph { color: var(--ok); }
+.strip--slow .strip__glyph,
+.strip--catching-up .strip__glyph { color: var(--warn); }
+.strip--stopped .strip__glyph,
+.strip--unreachable .strip__glyph { color: var(--bad); }
+
+/* One quiet pulse on a live chain, so a running chain is distinguishable from a
+   screenshot of one. Behind a reduced-motion guard, and the state is completely
+   readable without it. */
+@media (prefers-reduced-motion: no-preference) {
+  .strip--live .strip__glyph { animation: strip-pulse 3.2s ease-in-out infinite; }
+}
+@keyframes strip-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.strip__banner {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+.strip__banner p { margin: 0; max-width: 90ch; font-size: var(--step--1); }
+.strip__banner-glyph { flex: none; line-height: 1.6; font-size: 0.7rem; }
+.strip__banner--bad { background: var(--wash-bad); }
+.strip__banner--bad .strip__banner-glyph { color: var(--bad); }
+.strip__banner--warn { background: var(--wash-warn); }
+.strip__banner--warn .strip__banner-glyph { color: var(--warn); }
+
+/* ==========================================================================
+   Identifiers
+   ==========================================================================
+   Mono, truncated, copyable, revealable. An address set in a proportional sans
+   cannot be compared to another one by eye, and comparing two addresses is what
+   somebody confirming a payment does more than anything else. */
+
+.ident,
+.ident-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ident__value {
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+a.ident__value { color: var(--accent); }
+span.ident__value { color: var(--text-muted); }
+
+.ident__name { font-weight: 500; }
+
+.ident__swatch {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  flex: none;
+}
+
+.ident__btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85em;
+  line-height: 1;
+  padding: 0.15rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.ident__btn:hover { color: var(--text); background: var(--surface-2); }
+
+.ident__copied {
+  font-size: var(--step--1);
+  color: var(--ok);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   The feed
+   ==========================================================================
+   Three weights, following the tier. The old feed gave every row the same size,
+   the same colour and the same icon — which is a JSON array with a stylesheet on
+   it. An interface that weights everything equally has made no interpretation. */
+
+.feed { list-style: none; margin: 0; padding: 0; }
+
+.feed__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: start;
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  /* The rail is the tier, read down the left edge before any word is. */
+  border-inline-start: 3px solid transparent;
+}
+.feed__row:last-child { border-bottom: 0; }
+
+.feed__marker {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+
+.feed__headline {
+  margin: 0;
+  max-width: 74ch;
+  text-wrap: pretty;
+}
+
+.feed__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin-top: var(--sp-1);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+.feed__fact { white-space: nowrap; }
+.feed__arrow { color: var(--text-faint); }
+
+.feed__amount { text-align: end; padding-inline-start: var(--sp-3); }
+.feed__figure {
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Done: the row somebody came for. Headline above body size, the amount beside
+   it at display size, a filled marker and the brass rail. */
+.feed__row--outcome { border-inline-start-color: var(--brass); }
+.feed__row--outcome .feed__headline { font-size: var(--step-1); font-weight: 500; }
+.feed__row--outcome .feed__figure { font-size: var(--step-2); }
+.feed__row--outcome .feed__marker { background: var(--wash-brass); color: var(--brass); }
+
+/* In progress: body size, quieter, a hollow marker. */
+.feed__row--step .feed__headline { font-size: var(--step-0); color: var(--text-muted); }
+.feed__row--step .feed__marker { background: transparent; border-color: var(--border); }
+.feed__row--step .feed__figure { font-size: var(--step-0); font-weight: 500; }
+
+/* Housekeeping: present, findable, never competing. */
+.feed__row--routine { padding-block: var(--sp-2); }
+.feed__row--routine .feed__headline { font-size: var(--step--1); color: var(--text-muted); }
+.feed__row--routine .feed__marker {
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.7rem;
+  background: transparent;
+  color: var(--text-muted);
+}
+.feed__row--routine .feed__figure { font-size: var(--step--1); font-weight: 400; }
+
+/* Refused: its own treatment rather than a tint on a completed row, because
+   "the payment was made" and "the payment was refused" must not be one
+   character apart. */
+.feed__row--refused {
+  border-inline-start-color: var(--bad);
+  background: var(--wash-bad);
+}
+.feed__row--refused .feed__headline { font-size: var(--step-0); }
+.feed__row--refused .feed__marker { background: var(--wash-bad); color: var(--bad); }
+
+.feed__raw { border: 0; margin-top: var(--sp-2); padding-top: 0; }
+/* --text-faint measures 2.94:1 on the panel — below AA. Fine behind a
+   decorative mark, not for a control somebody has to find and click. */
+.feed__raw > summary {
+  cursor: pointer;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+.feed__raw > summary:hover { color: var(--text); }
+.feed__raw > *:not(summary) { margin-top: var(--sp-2); }
+.feed__actions { margin: 0; padding-inline-start: 1.2rem; font-size: var(--step--1); }
+
+/* Three columns on a desk, two stacked blocks on a phone: the amount belongs
+   under the sentence rather than squeezed beside it. */
+/* Below the width where the state and four figures fit on one line, the state
+   takes its own row rather than sitting vertically centred beside a two-row
+   grid. */
+@media (max-width: 1000px) {
+  .strip__state { flex: 1 1 100%; }
+}
+
+@media (max-width: 640px) {
+  .feed__row { grid-template-columns: auto minmax(0, 1fr); padding-inline: var(--sp-4); }
+  .feed__amount { grid-column: 2; text-align: start; padding-inline-start: 0; }
+  /* Two columns rather than one, so the strip is four figures and not four
+     screenfuls. */
+  .strip__figures { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+  .strip__inner { gap: var(--sp-3); padding-inline: var(--sp-4); }
+  .strip__banner { padding-inline: var(--sp-4); }
+  .figure__value { font-size: var(--step-2); }
+}
+
+/* ==========================================================================
+   Search results, and small shared pieces
+   ========================================================================== */
+
+.search-kinds {
+  list-style: none;
+  margin: var(--sp-4) auto 0;
+  padding: 0;
+  max-width: 40ch;
+  text-align: start;
+  font-size: var(--step--1);
+  display: grid;
+  gap: var(--sp-1);
+}
+.search-kinds li { padding-inline-start: 1rem; position: relative; }
+.search-kinds li::before {
+  content: '·';
+  position: absolute;
+  inset-inline-start: 0.25rem;
+  color: var(--brass);
+}
+
+/* A button that reads as a link: the housekeeping toggle in a card header. */
+.linkbutton {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.linkbutton:hover { color: var(--text); }
+
+/* The display face, where it earns its place: the wordmark and card titles. */
+.wordmark { font-family: var(--font-display); font-weight: 600; }
+.card__title { font-family: var(--font-display); font-size: var(--step-1); }
+
+/* ==========================================================================
+   Links in prose
+   ==========================================================================
+   The stylesheet's default is `text-decoration: none` with the accent colour,
+   and in the light theme the accent is navy — so a link inside a sentence was
+   distinguishable from the text around it by a few percent of lightness and
+   nothing else. That is not a distinction anybody with reduced colour vision or
+   a dim screen can make, and colour alone is never allowed to be the signal.
+   Scoped to prose so the navigation, the table cells and the chips keep their
+   own treatment. */
+.card__body p a,
+.defs dd a,
+.state a,
+.lede a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
