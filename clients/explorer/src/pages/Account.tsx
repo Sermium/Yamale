@@ -11,10 +11,10 @@ import {
 } from '@yamale/chain';
 
 import { client, useViewMode } from '../chain.ts';
+import { AccountHeading } from '../Identifier.tsx';
 import {
   Amount,
   Card,
-  Copyable,
   Empty,
   ErrorState,
   Loading,
@@ -59,8 +59,8 @@ export function AccountPage() {
   return (
     <>
       <h1>{mode === 'simple' ? 'Account' : 'Account detail'}</h1>
-      <p className="lede mono" style={{ overflowWrap: 'anywhere' }}>
-        <Copyable value={address} />
+      <p className="lede">
+        <AccountHeading address={address} />
       </p>
 
       <Card title={mode === 'simple' ? 'Balance' : 'Balances'}>

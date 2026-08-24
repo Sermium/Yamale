@@ -5,12 +5,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { App } from './App.tsx';
 import { registerAll, AVAILABLE, setLocale, resolveLocale } from '@yamale/chain';
+import { registerExplorerStrings } from './strings.ts';
+// The shared visual system first: typefaces, the type scale, elevation and the
+// semantic colours. Imported from clients/shared rather than copied, so this
+// surface cannot drift from the others — a copy is a copy somebody forgets.
+// styles.css layers the explorer's own components on top and defines nothing
+// the shared file already defines.
+import '../../shared/yamale.css';
 import './styles.css';
+import './explorer-ui.css';
 
 // Language before first paint: setLocale writes documentElement.dir, and every
 // logical property in the stylesheet reads it. Doing this after render means a
 // visible left-to-right flash for Arabic readers.
 registerAll();
+registerExplorerStrings();
 setLocale(resolveLocale(AVAILABLE));
 
 

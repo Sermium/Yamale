@@ -1,112 +1,163 @@
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { formatCoins, formatNumber, timeAgo, type Transaction, t} from '@yamale/chain';
+import { displayName, formatNumber, t, timeAgo, type Transaction } from '@yamale/chain';
 
 import { client, useViewMode } from '../chain.ts';
-import {
-  Amount,
-  Card,
-  Empty,
-  ErrorState,
-  Loading,
-  MessageIcon,
-  RelativeTime,
-  Stat,
-  StatusBadge,
-  TxLink,
-} from '../components.tsx';
+import { buildFeed, everydayFeed } from '../feed.ts';
+import { FeedList, useDenomRegistry } from '../Feed.tsx';
+import { Card, ErrorState, Loading } from '../components.tsx';
+import { Hash } from '../Identifier.tsx';
 
 /**
- * The front page answers a different question in each mode.
+ * The front page.
  *
- * Simple: "is anything happening, and can I find my payment?" — recent activity
- * as sentences, nothing else.
+ * Liveness is no longer here — it is the strip above every route, which is where
+ * "is the chain healthy" belongs. What is left is the other question this
+ * audience opens an explorer to answer: what happened, and to whose money.
  *
- * Detailed: "is the chain healthy?" — height, block times, supply, validator
- * count, and the block stream alongside the transactions.
+ * One feed, not two. The old page showed a different card in each view mode with
+ * different copy and a different filter, which meant the simple and detailed
+ * explorers could disagree about what had happened. There is now one list, and
+ * the mode decides how much of it is shown and how much of each row is
+ * unfolded — so a link shared from one lands somebody on the same events in the
+ * other, which is the hand-off where an explorer earns its keep.
  */
 export function HomePage() {
   const { mode } = useViewMode();
+  const expert = mode === 'expert';
+  const [showRoutine, setShowRoutine] = useState(false);
 
-  const status = useQuery({ queryKey: ['status'], queryFn: () => client.status() });
-  const names = useQuery({ queryKey: ['validatorNames'], queryFn: () => client.validatorNames(), refetchInterval: 60_000 });
-  const supply = useQuery({ queryKey: ['supply'], queryFn: () => client.totalSupply(), refetchInterval: 30_000 });
-  const blocks = useQuery({ queryKey: ['recentBlocks'], queryFn: () => client.recentBlocks(10) });
+  const registry = useDenomRegistry();
+
+  // Validator monikers, so a sentence can say "pi-2" instead of a bech32
+  // operator address. Slow-moving, so it is fetched once a minute rather than
+  // once a block.
+  const names = useQuery({
+    queryKey: ['validatorNames'],
+    queryFn: () => client.validatorNames(),
+    refetchInterval: 60_000,
+  });
 
   const activity = useQuery({
     queryKey: ['recentActivity', names.data],
-    queryFn: () => client.searchTransactions('tx.height>0', 25, { names: names.data }),
+    queryFn: () => client.searchTransactions('tx.height>0', 40, { names: names.data }),
   });
+
+  const blocks = useQuery({
+    queryKey: ['recentBlocks'],
+    queryFn: () => client.recentBlocks(12),
+    enabled: expert,
+  });
+
+  // Every account named in the window, so the sentences can use the chain's own
+  // identifier for a person instead of a bech32 prefix. `x/alias` issues one per
+  // placed account and the binding is permanent, so this is cached for the
+  // session and costs nothing on the poll.
+  const parties = useMemo(() => addressesIn(activity.data ?? []), [activity.data]);
+
+  const ids = useQuery({
+    queryKey: ['partyNames', parties.join(',')],
+    queryFn: async () => {
+      const resolved: Record<string, string> = {};
+      await Promise.all(
+        parties.map(async (address) => {
+          const id = await client.userIdOf(address).catch(() => null);
+          // displayName ranks the four sources: the reader's own address-book
+          // name first, then the chain's user ID, then the bare address. Only a
+          // real answer goes in the map — a truncation is what the decoder falls
+          // back to anyway.
+          const name = displayName(address, () => id ?? undefined);
+          if (name.kind !== 'address') resolved[address] = name.label;
+        }),
+      );
+      return resolved;
+    },
+    enabled: parties.length > 0,
+    staleTime: Infinity,
+  });
+
+  const feed = useMemo(
+    () =>
+      buildFeed(activity.data ?? [], {
+        names: { ...names.data, ...ids.data },
+        registry,
+      }),
+    [activity.data, names.data, ids.data, registry],
+  );
+
+  // The everyday view drops housekeeping and collapses a finished procedure to
+  // its outcome. The detailed view keeps every message, in order.
+  const rows = expert || showRoutine ? feed : everydayFeed(feed);
+  const hidden = feed.length - rows.length;
 
   return (
     <>
-      {mode === 'simple' ? (
-        <>
-          <h1>{t('exp.whatHappening')}</h1>
-          <p className="lede">
-            Recent payments and transfers on the Yamale network. Search above for an account or a payment
-            reference to find a specific one.
-          </p>
-        </>
-      ) : (
-        <>
-          <h1>{status.data?.chainId ?? 'Yamale'}</h1>
-          <p className="lede">
-            Chain overview, recent blocks and the full transaction stream.
-          </p>
-        </>
-      )}
+      <h1>{t('xp.feed.title')}</h1>
+      <p className="lede">{expert ? t('xp.feed.ledeExpert') : t('xp.feed.ledeSimple')}</p>
 
-      {mode === 'expert' ? <ChainStats status={status} supply={supply} /> : null}
-
+      {/* No card title: it would repeat the h1 immediately above it. The header
+          carries only the control. */}
       <Card
-        title={mode === 'simple' ? 'Recent activity' : 'Transactions'}
         actions={
-          status.data ? (
-            <span className="small faint">
-              block {formatNumber(status.data.latestHeight)} · <RelativeTime value={status.data.latestTime} />
-            </span>
+          hidden > 0 || showRoutine ? (
+            <button
+              type="button"
+              className="linkbutton"
+              onClick={() => setShowRoutine((s) => !s)}
+              aria-pressed={showRoutine}
+            >
+              {showRoutine ? t('xp.feed.showEveryday') : `${t('xp.feed.showAll')} (${hidden})`}
+            </button>
           ) : null
         }
         flush
       >
         {activity.isPending ? (
-          <Loading label="Fetching recent activity" />
+          <Loading label={t('xp.feed.loadingActivity')} />
         ) : activity.isError ? (
           <ErrorState error={activity.error} what="recent activity" />
         ) : (
-          <ActivityList transactions={activity.data ?? []} mode={mode} />
+          <FeedList entries={rows} expert={expert} />
         )}
       </Card>
 
-      {mode === 'expert' ? (
-        <Card title="Recent blocks" flush>
+      {expert ? (
+        <Card title={t('xp.feed.blocks')} flush>
           {blocks.isPending ? (
-            <Loading label="Fetching blocks" />
+            <Loading label={t('xp.feed.loadingBlocks')} />
           ) : blocks.isError ? (
             <ErrorState error={blocks.error} what="blocks" />
           ) : (
-            <div className="scroll-x">
+            <div className="y-scroll">
               <table className="grid">
                 <thead>
                   <tr>
-                    <th>{t('col.height')}</th>
+                    <th className="y-num">{t('col.height')}</th>
                     <th>{t('col.time')}</th>
-                    <th>{t('col.transactions')}</th>
+                    <th className="y-num">{t('col.transactions')}</th>
                     <th>{t('col.hash')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(blocks.data ?? []).map((b) => (
                     <tr key={b.height}>
-                      <td>
-                        <Link to={`/block/${b.height}`} className="mono">
+                      <td className="y-num">
+                        <Link to={`/block/${b.height}`} className="y-mono">
                           {formatNumber(b.height)}
                         </Link>
                       </td>
                       <td className="muted">{timeAgo(b.timestamp)}</td>
-                      <td>{b.txCount === 0 ? <span className="faint">empty</span> : b.txCount}</td>
-                      <td className="mono faint small">{b.hash.slice(0, 16)}…</td>
+                      <td className="y-num">
+                        {b.txCount === 0 ? (
+                          <span className="faint">{t('xp.feed.emptyBlock')}</span>
+                        ) : (
+                          b.txCount
+                        )}
+                      </td>
+                      <td>
+                        <Hash value={b.hash} label="Block hash" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -119,97 +170,20 @@ export function HomePage() {
   );
 }
 
-function ChainStats({
-  status,
-  supply,
-}: {
-  status: ReturnType<typeof useQuery<any>>;
-  supply: ReturnType<typeof useQuery<any>>;
-}) {
-  return (
-    <div className="stats" style={{ marginBottom: '1rem' }}>
-      <Stat
-        label="Block height"
-        value={status.data ? formatNumber(status.data.latestHeight) : '—'}
-        note={status.data ? <RelativeTime value={status.data.latestTime} /> : null}
-      />
-      <Stat label="Chain" value={status.data?.chainId ?? '—'} note={status.data ? `node ${status.data.nodeVersion}` : null} />
-      <Stat
-        label="Total supply"
-        value={supply.data ? formatCoins(supply.data, { maxDecimals: 0 }) : '—'}
-        note="minted since genesis"
-      />
-      <Stat
-        label="Sync"
-        value={status.data ? (status.data.catchingUp ? 'Catching up' : 'In sync') : '—'}
-        note={status.data?.catchingUp ? 'data may be behind' : 'live'}
-      />
-    </div>
-  );
-}
-
 /**
- * The activity list is where the two explorers most obviously diverge.
+ * Distinct accounts named anywhere in a window of transactions.
  *
- * In simple mode it shows only what the SDK marks as everyday — transfers,
- * payments, staking, treasury movements — because somebody checking whether
- * their rent arrived should not have to scroll past parameter changes and
- * authorisation grants to find it.
+ * Sorted so the query key is stable across polls: the transaction list is a new
+ * array every five seconds, and an unsorted derivation would re-key the name
+ * lookup on every tick.
  */
-function ActivityList({ transactions, mode }: { transactions: Transaction[]; mode: 'simple' | 'expert' }) {
-  const rows =
-    mode === 'simple'
-      ? transactions
-          .filter((tx) => tx.succeeded && tx.messages.some((m) => m.everyday))
-          .map((tx) => ({ tx, messages: tx.messages.filter((m) => m.everyday) }))
-      : transactions.map((tx) => ({ tx, messages: tx.messages }));
-
-  if (rows.length === 0) {
-    return (
-      <Empty
-        title={mode === 'simple' ? 'Nothing has happened yet' : 'No transactions yet'}
-        hint={
-          mode === 'simple'
-            ? 'When money moves on this network, it will show up here.'
-            : 'The chain is producing blocks, but no transactions have been included.'
-        }
-      />
-    );
+function addressesIn(transactions: Transaction[]): string[] {
+  const found = new Set<string>();
+  for (const tx of transactions) {
+    for (const message of tx.messages) {
+      if (message.actor) found.add(message.actor);
+      if (message.counterparty) found.add(message.counterparty);
+    }
   }
-
-  return (
-    <ul className="rows">
-      {rows.map(({ tx, messages }) =>
-        messages.map((message, i) => (
-          <li className="row" key={`${tx.hash}-${i}`}>
-            <MessageIcon message={message} failed={!tx.succeeded} />
-            <div className="row__main">
-              <p className="row__summary">{message.summary}</p>
-              <div className="row__meta">
-                <RelativeTime value={tx.timestamp} />
-                {mode === 'expert' ? (
-                  <>
-                    {' · '}
-                    <TxLink hash={tx.hash} />
-                    {' · block '}
-                    <Link to={`/block/${tx.height}`}>{formatNumber(tx.height)}</Link>
-                    {' · '}
-                    {message.typeUrl}
-                  </>
-                ) : (
-                  <>
-                    {' · '}
-                    <TxLink hash={tx.hash}>details</TxLink>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="row__side">
-              {tx.succeeded ? <Amount coins={message.coins} /> : <StatusBadge ok={false} />}
-            </div>
-          </li>
-        )),
-      )}
-    </ul>
-  );
+  return [...found].sort();
 }

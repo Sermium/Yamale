@@ -4,8 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yamale Explorer</title>
-    <meta name="description" content="Look up payments, accounts and activity on the Yamale chain." />
+    <meta name="description" content="Is the chain healthy, and what happened to this money? Blocks, payments, accounts and prices on the Yamale network." />
     <link rel="icon" type="image/svg+xml" href="/mark.svg" />
+    <!--
+      Typefaces before the bundle, so the request starts as early as the parser
+      can start it rather than after a JavaScript module graph has resolved.
+      Plex carries the interface and its Arabic companion carries ar; Archivo
+      carries the display line; Plex Mono carries every address, hash, height
+      and amount. Every stack in yamale.css names real fallbacks, so a blocked
+      font host degrades to something chosen rather than to Times.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
 </head>
   <body>
     <div id="root"></div>

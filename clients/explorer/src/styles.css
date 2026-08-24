@@ -1,100 +1,68 @@
 /*
- * Design tokens and base styles.
+ * The explorer's own components, layered on clients/shared/yamale.css.
  *
- * Light and dark are both first-class from the start rather than retrofitted:
- * an explorer gets looked at in the middle of the night by somebody debugging a
- * payment, and a wall of white is a real cost to them.
+ * Everything above this file — the three typefaces, the type scale, the spacing
+ * grid, elevation, the semantic colours, .y-chip, .y-mono, .y-num, .y-scroll —
+ * now comes from the shared system, which main.tsx imports first. This file used
+ * to define its own parallel set, including
  *
- * Colour is never the only signal. Success and failure carry an icon and a
- * word as well as a hue, because roughly one in twelve men cannot reliably
- * separate the two, and "did my money arrive?" is not a question to answer
- * ambiguously.
+ *     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI"
+ *
+ * which meant the product's headline was rendered in whatever face the reader's
+ * operating system happened to install, and an address was set in the same
+ * proportional sans as the prose around it. Both are gone.
+ *
+ * Two rules for anything added below:
+ *
+ *   Never redefine a shared token, and never define a colour whose only
+ *   definition sits inside a media query or a [data-theme] block — a colour
+ *   declared only there does not apply in the default, un-stamped state, which
+ *   is the state most readers are in.
+ *
+ *   Wide content scrolls inside its own box (.y-scroll). The page body never
+ *   scrolls sideways: a horizontal scrollbar on the document is how one table
+ *   takes a whole layout with it.
  */
 
 :root {
+  /* Native controls — the language <select>, the scrollbars — follow the theme
+     only if this is declared. */
   color-scheme: light dark;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* Names this stylesheet's components already used, pointed at the shared
+     tokens rather than given second definitions. Aliases rather than a
+     find-and-replace across six hundred lines, so the light/dark pair stays in
+     exactly one place. */
+  --border-strong: var(--rule);
+  --accent-soft: var(--surface-3);
+  --positive: var(--ok);
+  --positive-soft: var(--wash-ok);
+  --negative: var(--bad);
+  --negative-soft: var(--wash-bad);
+  --warning: var(--warn);
+  --warning-soft: var(--wash-warn);
+  --radius-sm: 3px;
+  --shadow: var(--shadow-1);
 
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f1f4f8;
-  --border: #e3e7ee;
-  --border-strong: #c9d4e4;
-
-  --text: #0b1523;
-  --text-muted: #5c6e88;
-  --text-faint: #8fa4c4;
-
-  --accent: #12253f;
-  --brass: #a87b3c;
-  --accent-soft: #e8eef7;
-  --positive: #0d7a4a;
-  --positive-soft: #e2f5ec;
-  --negative: #b02a25;
-  --negative-soft: #fbe9e8;
-  --warning: #96610a;
-  --warning-soft: #fdf0d9;
-
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(16, 20, 30, 0.06), 0 4px 12px rgba(16, 20, 30, 0.04);
-
-  --measure: 68ch;
+  /* The one measurement this file adds. 1080px left a quarter of a 1600px
+     screen empty on either side while the feed's own rows were cramped, and a
+     layout that only ever gets checked below its container's max-width measures
+     identical whether it is right or broken. */
+  --wrap: 1240px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1523;
-    --surface: #12253f;
-    --surface-2: #18304f;
-    --border: #24405f;
-    --border-strong: #35577d;
-
-    --text: #e8eef7;
-    --text-muted: #8fa4c4;
-    --text-faint: #767f8f;
-
-    --accent: #8fa4c4;
-    --accent-soft: #18304f;
-    --positive: #4cc38a;
-    --positive-soft: #12281f;
-    --negative: #f2777a;
-    --negative-soft: #2c1618;
-    --warning: #e0b25c;
-    --warning-soft: #2b2114;
-
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
-  }
-}
+/* The document's own ground, so an overscroll or a short page does not reveal
+   the browser's default white under a dark theme. */
+html { background: var(--bg); }
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-}
+/* Face, size, colour and smoothing all come from the shared file. */
+body { padding: 0; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-a:focus-visible,
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
-}
+/* Focus and reduced-motion are handled once, from tokens, in the shared file. */
 
 /* ---------------------------------------------------------------- layout */
 
@@ -102,9 +70,9 @@ input:focus-visible {
 
 .page {
   width: 100%;
-  max-width: 1080px;
+  max-width: var(--wrap);
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 4rem;
+  padding: var(--sp-5) var(--sp-5) var(--sp-8);
 }
 
 .masthead {
@@ -116,9 +84,9 @@ input:focus-visible {
 }
 
 .masthead__inner {
-  max-width: 1080px;
+  max-width: var(--wrap);
   margin: 0 auto;
-  padding: 0.75rem 1.25rem;
+  padding: var(--sp-3) var(--sp-5);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -303,7 +271,9 @@ input:focus-visible {
   .defs dd { padding-top: 0; padding-bottom: 0.6rem; }
 }
 
-.mono { font-family: var(--font-mono); font-size: 0.88em; }
+/* Kept for the pages still using it; .y-mono from the shared file is the one
+   to reach for in anything new. */
+.mono { font-family: var(--font-mono); font-size: 0.88em; font-feature-settings: 'zero' 1; }
 
 /* ------------------------------------------------------------------- misc */
 
@@ -314,8 +284,11 @@ input:focus-visible {
 .inline { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 
-h1 { font-size: 1.45rem; letter-spacing: -0.02em; margin: 0 0 0.25rem; }
-h2 { font-size: 1.1rem; letter-spacing: -0.01em; margin: 1.6rem 0 0.6rem; }
+/* Sizes from the shared scale rather than invented here. A page title on an
+   explorer is a label, not a billboard, so it takes step-4 rather than the
+   step-6 the shared file gives h1 on a marketing page. */
+h1 { font-size: var(--step-4); margin: 0 0 var(--sp-1); }
+h2 { font-size: var(--step-2); margin: var(--sp-6) 0 var(--sp-3); }
 
 .lede { color: var(--text-muted); max-width: var(--measure); margin: 0 0 1.25rem; }
 
@@ -459,13 +432,13 @@ table.grid tr:last-child td { border-bottom: 0; }
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  /* A token, not a hard-coded pair. The old rule set #fff here and overrode it
+     inside a prefers-color-scheme block, which left the explicitly-light and
+     explicitly-dark states reading from the wrong one. */
+  color: var(--accent-ink);
   cursor: pointer;
 }
 .button-primary[disabled] { opacity: 0.6; cursor: default; }
-@media (prefers-color-scheme: dark) {
-  .button-primary { color: #0e1014; }
-}
 
 /* Visible to screen readers only — a column whose header would otherwise be
    blank still needs a name. */
