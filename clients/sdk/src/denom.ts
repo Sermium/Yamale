@@ -9,6 +9,8 @@
  * mistake could live.
  */
 
+import { t } from './i18n.ts';
+
 export interface DenomInfo {
   /** The base denom the chain stores, e.g. `uyml`. */
   base: string;
@@ -301,21 +303,43 @@ export function formatAmount(
   return withSymbol ? `${display} ${info.symbol}` : display;
 }
 
+/**
+ * What a zero or absent balance renders as.
+ *
+ * An en dash, not a zero: `0 YML` claims the account holds that denomination
+ * and has none of it, which is a different fact from holding nothing at all,
+ * and on this chain the difference matters — an account with no balance in a
+ * currency has never been paid in it.
+ */
+export const EMPTY_AMOUNT = '–';
+
 /** A `{denom, amount}` pair as the chain's REST API returns it. */
 export interface Coin {
   denom: string;
   amount: string;
 }
 
-/** Formats a list of coins as `12.5 YML and 40 USD`, or `nothing` when empty. */
+/**
+ * Formats a list of coins as `12.5 YML and 40 USD`.
+ *
+ * The empty case returns an em dash rather than a word, and the joiner is a
+ * translated conjunction. It previously returned the literal English "nothing",
+ * which on a treasury console set to French rendered
+ * `DISPONIBLE À DÉPENSER  nothing` — a figure a supervisor is reading, in the
+ * wrong language, using a word that is not what a zero balance is called in any
+ * of them. A dash is the same in all five locales and reads as a figure rather
+ * than as prose.
+ */
 export function formatCoins(
   coins: Coin[] | undefined | null,
   options: FormatAmountOptions = {},
 ): string {
-  if (!coins || coins.length === 0) return 'nothing';
+  if (!coins || coins.length === 0) return EMPTY_AMOUNT;
   const parts = coins.map((c) => formatAmount(c.amount, c.denom, options));
   if (parts.length === 1) return parts[0];
-  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  // The conjunction is translated; joining with a hardcoded "and" put an
+  // English word between two Arabic amounts.
+  return `${parts.slice(0, -1).join(', ')} ${t('amount.and')} ${parts[parts.length - 1]}`;
 }
 
 /** Parses `500uyml` into its parts; returns null when it is not a coin string. */
