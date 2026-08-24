@@ -49,6 +49,18 @@ clients/site/docs/**  text eol=lf
 # only for the person whose machine served the page.
 clients/foundation/**  text eol=lf
 
+# The other three operator consoles, for exactly the same reason. Every one of
+# them composes shell commands for somebody to paste — the land registry prints
+# `blockchaind tx land …` for an office, the governance console prints the
+# `submit-proposal` and the follow-up queries, and the validator console prints
+# a vote — and every one of them is deployed by copying the working tree to the
+# host rather than by exporting from git, so the bytes a Windows checkout holds
+# are the bytes the browser gets. These were unpinned while the foundation was
+# pinned, which is not a distinction any of them earns.
+clients/governance/**  text eol=lf
+clients/land/**        text eol=lf
+clients/validator/**   text eol=lf
+
 # The hosted ceremony's HTML shell. Vite copies this file into
 # tools/ceremony/hosted/ almost verbatim, and that output is the bundle whose
 # bytes the host hashes so a custodian's page can verify itself against a digest

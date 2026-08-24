@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yamale · Governance and enforcement</title>
+<!-- The typefaces, before the stylesheet, so the request starts as early as the
+     parser can start it. Every stack in the block below names real fallbacks, so
+     a blocked font host degrades to something chosen rather than to Times. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
   Governance proposals, and the two emergency powers, on one page.
 
@@ -34,93 +40,602 @@
   /api/ops/case. Interpolated raw, a proposal title would have turned "can pay a
   deposit" into "can freeze wallets and open seizure cases on somebody else's
   node". The same applies to a freeze reason and an evidence URI, both of which
-  are written by whoever opened the case.
+  are written by whoever opened the case — and to a proposal's failure reason, to
+  an upgrade plan's name, and to every string this page renders through
+  outcomeOf, all of which arrive from the same place.
+
+  Three things about the numbers, all of them in administrators.js with tests:
+
+    A TALLY IS A SUM OF STAKES IN BASE UNITS, not a count of votes. It is
+    converted at the display boundary using the exponent the chain publishes.
+
+    A TALLY IS MEANINGLESS WITHOUT ITS DENOMINATOR. Quorum and threshold are
+    drawn as progress toward the bar the chain actually applies, read from the
+    chain's own gov parameters, and where either cannot be read the bar is
+    omitted rather than drawn at a plausible default.
+
+    A DEADLINE IS A DISTANCE. "closes in 4 hours" is what a validator is
+    deciding on; the timestamp is the audit trail beside it.
 -->
 <style>
-  :root{
-    color-scheme:light dark;
-    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
-    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
-    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
+
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
   }
-  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
-    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;}}
-  *{box-sizing:border-box}
-  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       background:var(--bg);color:var(--text)}
-  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;border-bottom:1px solid var(--border)}
-  h1{font-size:1rem;margin:0;font-weight:650}
-  .wrap{max-width:1000px;margin:0 auto;padding:1.2rem}
-  h2{font-size:.95rem;margin:1.7rem 0 .5rem}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:1rem;margin-bottom:.8rem}
-  /* The seizure panel carries a red edge wherever it appears. Colour is the
-     fastest signal that this is the dangerous one. */
-  .card--seize{border-inline-start:3px solid var(--bad)}
-  .card--freeze{border-inline-start:3px solid var(--warn)}
-  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline}
-  .pill{font-size:.7rem;font-weight:650;padding:.12rem .5rem;border-radius:999px;letter-spacing:.03em}
-  .p-ok{background:rgba(13,122,74,.14);color:var(--ok)}
-  .p-warn{background:rgba(168,121,27,.16);color:var(--warn)}
-  .p-bad{background:rgba(176,42,37,.14);color:var(--bad)}
-  .p-mute{background:rgba(92,110,136,.16);color:var(--muted)}
-  .muted{color:var(--muted);font-size:.84rem}
-  .small{font-size:.78rem}
-  .bar{height:7px;border-radius:99px;background:rgba(92,110,136,.2);overflow:hidden;margin:.5rem 0 .3rem}
-  .bar span{display:block;height:100%}
-  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
-  .err{background:#fbe9e8;color:#b02a25;padding:.7rem .9rem;border-radius:10px;font-size:.86rem}
-  @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .err{background:#3a1c1b;color:#f0a9a5}}
-  .empty{color:var(--muted);font-size:.86rem;padding:.6rem 0}
-  .vrow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid var(--border)}
-  .cmds{display:flex;gap:.4rem;flex-wrap:wrap;margin-inline-start:auto}
-  .copy{font:inherit;font-size:.76rem;padding:.3rem .6rem;border-radius:8px;cursor:pointer;
-        background:transparent;color:var(--text);border:1px solid var(--border)}
-  .copy:hover{border-color:var(--brass)}
-  .vote{font:inherit;font-size:.8rem;font-weight:600;padding:.4rem .8rem;border-radius:9px;
-        cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--text)}
-  .vote.ok{border-color:var(--ok);color:var(--ok)}
-  .vote.bad{border-color:var(--bad);color:var(--bad)}
-  .vote:disabled{opacity:.6;cursor:default}
-  input,textarea,select{font:inherit;padding:.45rem .6rem;border-radius:9px;border:1px solid var(--border);
-        background:var(--bg);color:var(--text)}
-  textarea{width:100%;min-height:4.5rem;resize:vertical}
-  label{display:block;font-size:.78rem;color:var(--muted);margin:.55rem 0 .2rem}
-  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.75rem;
-      background:rgba(92,110,136,.1);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
-      margin:.35rem 0;white-space:pre;border:1px solid var(--border)}
-  .warnbox{background:rgba(168,121,27,.12);border:1px solid var(--warn);color:var(--text);
-           padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
-  .badbox{background:rgba(176,42,37,.1);border:1px solid var(--bad);color:var(--text);
-          padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
-  /* The power this section grants is the heaviest on the page, so the panel that
-     changes it carries the same red edge as a seizure. */
-  .card--power{border-inline-start:3px solid var(--bad)}
+
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+  .y-scroll { overflow-x: auto; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ==========================================================================
+     THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
+     else: clients/foundation, clients/governance, clients/land,
+     clients/validator. Kept identical in all four for the same reason as the
+     block above, and kept OUT of clients/shared/yamale.css because the citizen
+     surfaces are not dense card stacks and should not inherit this density.
+
+     Everything here is expressed in the tokens above. No console defines a
+     colour of its own; a value that is not in a token is a value the next
+     surface will get slightly wrong.
+     ========================================================================== */
+
+  /* The shared reset zeroes paragraph margins, which is right for prose laid
+     out with `gap`. These consoles are card stacks with paragraphs in normal
+     flow, so the rhythm is restored here rather than by editing several
+     thousand lines of template literal. */
+  p { margin: 0 0 var(--sp-3); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--brass); }
+  a:hover { color: var(--text); }
+
+  /* --- chrome ------------------------------------------------------------ */
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600;
+  }
+  header h1 a { color: inherit; text-decoration: none; }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-2); margin: var(--sp-6) 0 var(--sp-3); }
+  h2:first-child { margin-top: var(--sp-1); }
+  h3 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  /* --- panels ------------------------------------------------------------ */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  /* The second elevation step is not decoration and is not spent on headings:
+     it marks the one card on a screen that is waiting for a person to act. */
+  .card--waiting { border-inline-start: 3px solid var(--brass); background: var(--wash-brass);
+                   box-shadow: var(--shadow-2); }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+
+  .grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  /* --- text ------------------------------------------------------------- */
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  /* Chips carry state in form as well as in colour: mono, uppercase, and always
+     beside a word. `.pill` and `.p-*` are the names the markup already uses. */
+  .pill, .y-chip { display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap; }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass); }
+
+  code { font-size: 0.86em; word-break: break-all; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2;
+  }
+
+  /* --- the three boxes that say something is wrong ---------------------- */
+  .err, .badbox, .warnbox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-2) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .err code, .badbox code, .warnbox code { color: inherit; }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn); }
+
+  /* --- controls --------------------------------------------------------- */
+  /* Anything interactive looks interactive: a border, a hover, a focus ring
+     from the token, and a cursor. */
+  button { font: inherit; }
+  .btn, .vote, button.primary, .primary {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+  }
+  .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
+  .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input, select, textarea {
+    font-family: var(--font-sans); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%;
+    /* Capped, because a field is as wide as what goes in it and nothing that
+       goes in these is a thousand pixels long. A full-bleed input in a wide
+       panel reads as an unfinished layout and makes a forty-character address
+       harder to check, not easier. */
+    max-width: 44rem;
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--text-faint); }
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+  textarea { min-height: 3.4rem; resize: vertical; }
+  /* An address, a hash or a reference typed into a field is compared character
+     by character against a document or a piece of paper, which is not something
+     a proportional face lets a person do. */
+  input[id$='-to'], input[id$='holder'], input[id$='-addr'], input[id$='-who'],
+  input[id$='-ev'], input[id$='-evh'], input[id='geom'], input[id='ref'],
+  input[id='sw-in'], input[id='adm-add'] { font-family: var(--font-mono); }
+  /* An amount is compared digit by digit and lines up under the last one. */
+  input[id$='-amt'], input[id$='-id'] {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+
+  /* The label-and-copy line above a composed command. */
+  .cmdhead {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap;
+  }
+  /* The commands are the product of these pages, so a block of them gets the
+     width of its panel rather than the measure of a paragraph. */
+  pre { max-width: none; }
+
+  details { margin-top: var(--sp-2); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  /* Digits that line up get tabular figures, and a table is where they line up.
+     Proportional numerals in a column are a column a reader cannot compare by
+     eye, which on these pages is the operation they perform most. */
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+  .vrow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+          padding: var(--sp-2) 0; border-top: 1px solid var(--border); }
+  .vrow:first-of-type { border-top: 0; }
+
+  /* A proportion is a length before it is a number. */
+  .bar { height: 8px; border-radius: 99px; background: var(--wash-mute);
+         overflow: hidden; margin: var(--sp-2) 0 var(--sp-1); display: flex; }
+  .bar span { display: block; height: 100%; }
+  .barwrap { position: relative; }
+  .thresh { position: absolute; top: -3px; bottom: -3px; width: 2px;
+            background: var(--text); opacity: .55; }
+
+  /* --- identifiers ------------------------------------------------------ */
+  /* Mono, truncated, click to reveal, copy beside it. Nobody should have to
+     read thirty-nine characters of bech32 to know they are looking at the right
+     account, and nobody should be unable to when they need to. */
+  .y-id { display: inline-flex; align-items: baseline; gap: var(--sp-1); max-width: 100%; }
+  .y-id__text {
+    font-family: var(--font-mono); font-feature-settings: 'zero' 1; font-size: 0.86em;
+    background: none; border: 0; padding: 0; margin: 0; color: inherit; cursor: pointer;
+    text-align: start; text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--text-faint); text-underline-offset: 3px;
+  }
+  .y-id__text:hover { text-decoration-color: var(--brass); }
+  .y-id--open .y-id__text { word-break: break-all; }
+  .y-id__copy {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0 var(--sp-1); border-radius: 2px;
+    border: 1px solid var(--rule); background: transparent; color: var(--text-muted);
+    cursor: pointer; flex: none;
+  }
+  .y-id__copy:hover { border-color: var(--brass); color: var(--text); }
+
+  /* --- a phone ---------------------------------------------------------- */
+  /* The verdict has to arrive before the chrome. */
+  @media (max-width: 560px) {
+    header { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+    nav { margin-inline-start: 0; width: 100%; gap: 0; }
+    nav a { padding: var(--sp-1) var(--sp-2); font-size: 0.76rem; }
+    .wrap { padding: var(--sp-3); }
+    .card { padding: var(--sp-3); }
+    h2 { margin: var(--sp-5) 0 var(--sp-2); }
+    pre { font-size: 0.7rem; padding: var(--sp-2); }
+  }
+
+  /* ==========================================================================
+     Governance-console only, and nothing above this line is.
+     ========================================================================== */
+
+  :root { color-scheme: light dark; }
+
+  /* Freezing and seizing are handled by the same module and sit next to each
+     other, and they are not the same kind of thing at all: one validator and
+     reversible against two thirds and permanent. A UI that renders them as two
+     similar buttons is a UI that will eventually take somebody's money by
+     accident, so the edge colour is carried wherever either appears — and it is
+     never the only signal, because every one of these panels also says in words
+     what it needs and whether it can be undone. */
+  .card--freeze { border-inline-start: 3px solid var(--warn); }
+  .card--seize { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  /* The power this panel grants is the heaviest on the page — an account moved
+     out from under the authority investigating it — so it carries a seizure's
+     weight. */
+  .card--power { border-inline-start: 3px solid var(--bad); }
+
+  /* The one-line answer to "is anything happening", above the detail. */
+  .summary {
+    display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5);
+    align-items: baseline; padding: var(--sp-3) var(--sp-4);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    margin-bottom: var(--sp-4);
+  }
+  .summary__item { display: flex; align-items: baseline; gap: var(--sp-2); }
+
+  /* Quorum and threshold as progress toward a bar, with the bar drawn on it.
+     A percentage beside a percentage is arithmetic the reader has to do. */
+  .meter { position: relative; height: 10px; border-radius: 99px;
+           background: var(--wash-mute); overflow: hidden; margin: var(--sp-2) 0 var(--sp-1); }
+  .meter__fill { display: block; height: 100%; background: var(--accent); }
+  .meter__fill--ok { background: var(--ok); }
+  .meter__fill--bad { background: var(--bad); }
+  .meter__mark { position: absolute; top: -3px; bottom: -3px; width: 2px;
+                 background: var(--text); opacity: .6; }
+  .meterwrap { position: relative; margin: var(--sp-3) 0; }
+
   /* The before/after table. Both columns always, every field, because
      MsgUpdateParams replaces the whole object — "unchanged" is information. */
-  .diff{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;
-        border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:.5rem 0}
-  .diff>div{padding:.5rem .7rem;border-top:1px solid var(--border);min-width:0}
-  .diff>div:nth-child(1),.diff>div:nth-child(2){border-top:0;font-size:.72rem;
-        letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:rgba(92,110,136,.08)}
-  .diff .b{border-inline-end:1px solid var(--border)}
-  .a-added{color:var(--ok);font-weight:600}
-  .a-removed{color:var(--bad);text-decoration:line-through}
-  .a-kept{color:var(--muted)}
-  .adm{display:flex;align-items:baseline;gap:.5rem;padding:.2rem 0;flex-wrap:wrap}
+  .diff {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; margin: var(--sp-3) 0;
+  }
+  .diff > div { padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--border);
+                min-width: 0; }
+  .diff > div:nth-child(1), .diff > div:nth-child(2) {
+    border-top: 0; font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+    background: var(--surface-2);
+  }
+  .diff .b { border-inline-end: 1px solid var(--border); }
+  .a-added { color: var(--ok); font-weight: 600; }
+  /* The strike has to be put on the identifier itself: .y-id__text carries a
+     dotted underline of its own, and a text-decoration on the parent loses to
+     it — so a removed administrator would read as an unchanged one. */
+  .a-removed, .a-removed .y-id__text { color: var(--bad); text-decoration: line-through; }
+  .a-kept { color: var(--text-muted); }
+  .adm { display: flex; align-items: baseline; gap: var(--sp-2);
+         padding: var(--sp-1) 0; flex-wrap: wrap; }
+
+  @media (max-width: 560px) {
+    /* Below this width the two columns are 18 characters wide each and the
+       addresses in them wrap to five lines. One under the other is the same
+       information a reader can actually compare — but stacked, a column heading
+       at the top no longer says which side a cell is on, and on this panel that
+       is the difference between "these are the administrators now" and "these
+       are the administrators if you vote for this". So the headings are dropped
+       and every cell carries its own. */
+    .diff { grid-template-columns: minmax(0, 1fr); }
+    .diff .b { border-inline-end: 0; }
+    .diff > div:nth-child(1), .diff > div:nth-child(2) { display: none; }
+    .diff > div::before {
+      content: "If this passes";
+      display: block; font-family: var(--font-mono); font-size: 0.68rem;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--brass);
+      margin-bottom: var(--sp-1);
+    }
+    .diff > div.b::before { content: "Now on chain"; color: var(--text-muted); }
+  }
 </style>
 </head>
 <body>
 <header>
-  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px"
+       onerror="this.style.display='none'">
   <h1>Governance and enforcement</h1>
-  <span class="pill p-warn" id="acting" style="margin-inline-start:auto"></span>
-  <span class="muted" id="clock"></span>
+  <span id="acting" style="margin-inline-start:auto"></span>
+  <span class="label" id="clock"></span>
 </header>
 
 <div class="wrap">
   <div id="error"></div>
+
+  <!-- The answer to "is anything happening", before any of the detail. Every
+       one of the four sections below spends most of its life empty, and four
+       "nothing here" lines under four headings reads as a page that failed to
+       load rather than as a quiet week. -->
+  <div id="summary"></div>
 
   <h2>The rules in force</h2>
   <div class="grid" id="rules"></div>
@@ -135,7 +650,7 @@
 
   <h2>Open for voting</h2>
   <p class="muted small">Each validator votes from its own node, where its key is.
-     Copy the command for your validator and run it there.</p>
+     Press the button if this page is open as you, or copy the command and run it there.</p>
   <div id="open"></div>
 
   <h2>Decided</h2>
@@ -156,13 +671,16 @@
 </div>
 
 <script type="module">
-import { VALIDATORS, voteCommand } from '/validator/vote.js';
+import { VALIDATORS, voteCommand } from './validators.js';
 import {
-  ALIAS_PARAMS_PATH, GOV_DEPOSIT_PARAMS_PATH, GOV_MODULE_ADDRESS_FALLBACK,
-  MAX_FOUNDATION_ADMINISTRATORS, MODULE_ACCOUNTS_PATH, ParamsUnreadable,
-  afterSubmitting, changeSummary, couldBeGroupAccount, groupPolicyPath, paramsDiff,
-  paramsDigest, planChange, proposalDocument, readAliasParams, readGovAuthority,
-  readMinDeposit, submitCommand, updateParamsMessage,
+  ALIAS_PARAMS_PATH, DENOMS_METADATA_PATH, GOV_DEPOSIT_PARAMS_PATH,
+  GOV_MODULE_ADDRESS_FALLBACK, GOV_TALLY_PARAMS_PATH, MAX_FOUNDATION_ADMINISTRATORS,
+  MODULE_ACCOUNTS_PATH, ParamsUnreadable, STAKING_PARAMS_PATH, STAKING_POOL_PATH,
+  afterSubmitting, asPercent, changeSummary, couldBeGroupAccount, displayAmount,
+  groupDigits, groupPolicyPath, outcomeOf, paramsDiff, paramsDigest, planChange,
+  proposalDocument, readAliasParams, readGovAuthority, readMinDeposit, readStakingDenom,
+  readTallyParams, submitCommand, tallyOf, timeLeft, timestampSeconds, updateParamsMessage,
+  wholeAmount,
 } from './administrators.js';
 
 // A validator votes with its *account* address, not its valoper address.
@@ -176,6 +694,12 @@ const VOTER_ADDR = {
 // unambiguously theirs. Without it the page is read-only.
 const ME = new URLSearchParams(location.search).get('as');
 const REST = '/api/rest';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Anything a person copies into a shell goes through this. See .gitattributes. */
+const shellSafe = (s) => String(s ?? '').replace(/\r/g, '');
 
 // pi signs on the VM; pi-2's key lives on the Pi, so its requests are proxied
 // there. The path differs per validator because the signer does.
@@ -207,37 +731,200 @@ async function act(validator, action, body, btn) {
   }
   setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 6000);
 }
-const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(u.split('?')[0]+' → '+r.status); return r.json(); };
 
-const pct = (n, d) => d > 0 ? (100 * n / d) : 0;
-const fmt = (n) => Number(n || 0).toLocaleString();
+/** A failed call, carrying the URL and the status. Both, always. */
+class CallFailed extends Error {
+  constructor(url, status) {
+    super(`${url} → ${status}`);
+    this.url = url;
+    this.status = status;
+  }
+}
+
+const get = async (u) => {
+  let r;
+  try {
+    r = await fetch(u);
+  } catch {
+    throw new CallFailed(u.split('?')[0], 'unreachable');
+  }
+  if (!r.ok) throw new CallFailed(u.split('?')[0], r.status);
+  return r.json();
+};
+
+/** Optional reads: a missing extra must not blank a page that has the essentials. */
+const maybe = (p, fallback) => p.catch(() => fallback);
+
+const fmt = (n) => groupDigits(String(n ?? 0));
 
 // Blocks are the chain's unit but nobody thinks in them. ~5s blocks here.
+//
+// The pluralisation is not fussiness: this figure is read out loud in a room
+// deciding how long an account stays frozen, and "1 hours" is the detail that
+// makes a reader wonder what else on the page was not looked at.
 const asTime = (blocks) => {
   const s = Number(blocks) * 5;
-  if (s >= 86400) return (s / 86400).toFixed(1).replace(/\.0$/, '') + ' days';
-  if (s >= 3600)  return (s / 3600).toFixed(1).replace(/\.0$/, '') + ' hours';
-  return Math.round(s / 60) + ' min';
+  const say = (n, unit) => `${n} ${unit}${Number(n) === 1 ? '' : 's'}`;
+  if (s >= 86400) return say((s / 86400).toFixed(1).replace(/\.0$/, ''), 'day');
+  if (s >= 3600) return say((s / 3600).toFixed(1).replace(/\.0$/, ''), 'hour');
+  return `${Math.round(s / 60)} min`;
 };
 
+/**
+ * An identifier: truncated, in mono, with the whole of it one click away and a
+ * copy button beside it.
+ *
+ * Every address on this page is one somebody is about to freeze, seize from, or
+ * hand a national power to. A frozen account's reference printed in full in the
+ * middle of a sentence is not read; truncated to head and tail it is, because
+ * comparing ten characters against ten characters is something a person will
+ * actually do. The whole of it stays one click away, always.
+ */
+function idHtml(value, label) {
+  const full = String(value ?? '');
+  if (!full) return '<span class="muted">—</span>';
+  const brief = full.length > 18 ? `${full.slice(0, 12)}…${full.slice(-6)}` : full;
+  const what = label ? `${label}: ` : '';
+  return `<span class="y-id"><button type="button" class="y-id__text"
+      data-full="${esc(full)}" data-brief="${esc(brief)}" title="${esc(full)}"
+      aria-label="${esc(what)}${esc(brief)} — show all of it"
+    >${esc(brief)}</button><button type="button" class="y-id__copy"
+      data-copy-text="${esc(full)}"
+      aria-label="Copy ${esc(what)}${esc(full)}">copy</button></span>`;
+}
+
+// One listener for the whole page's identifiers and copy buttons, installed
+// once. Delegated rather than wired per render: load() re-runs every fifteen
+// seconds, and a copy button that silently does nothing is worse than none —
+// the operator believes they have the command.
+document.addEventListener('click', async (e) => {
+  const reveal = e.target.closest?.('.y-id__text');
+  if (reveal) {
+    const open = reveal.closest('.y-id').classList.toggle('y-id--open');
+    reveal.textContent = open ? reveal.dataset.full : reveal.dataset.brief;
+    return;
+  }
+  const copy = e.target.closest?.('[data-copy-text], [data-copy]');
+  if (!copy) return;
+  const text = copy.dataset.copyText !== undefined
+    ? copy.dataset.copyText
+    : (document.getElementById(copy.dataset.copy)?.textContent ?? '');
+  const was = copy.textContent;
+  try {
+    await navigator.clipboard.writeText(shellSafe(text));
+    copy.textContent = 'copied';
+  } catch {
+    // Clipboard access needs a secure context, which this console does not have
+    // over plain HTTP. Selecting the text is the honest fallback.
+    const node = copy.dataset.copy ? document.getElementById(copy.dataset.copy) : null;
+    if (node) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      copy.textContent = 'selected — copy it';
+    } else {
+      copy.textContent = 'no clipboard';
+    }
+  }
+  setTimeout(() => { copy.textContent = was; }, 2500);
+});
+
+/**
+ * A proposal's status, named as an outcome rather than as an enum.
+ *
+ * FAILED is the one worth spelling out. In x/gov it does not mean the vote was
+ * lost — it means the vote was WON and the messages then failed to execute,
+ * which leaves the chain unchanged and is reported nowhere anybody is watching.
+ * "failed" beside a green tally would read as a contradiction; "passed, then
+ * failed to execute" reads as what happened.
+ */
+const STATUS = {
+  PROPOSAL_STATUS_PASSED: ['passed', 'p-ok'],
+  PROPOSAL_STATUS_REJECTED: ['rejected', 'p-bad'],
+  PROPOSAL_STATUS_FAILED: ['passed, then failed to execute', 'p-bad'],
+  PROPOSAL_STATUS_VOTING_PERIOD: ['open for voting', 'p-warn'],
+  PROPOSAL_STATUS_DEPOSIT_PERIOD: ['awaiting its deposit', 'p-mute'],
+};
 const statusPill = (s) => {
-  const t = String(s).replace('PROPOSAL_STATUS_', '').toLowerCase();
-  const cls = t === 'passed' ? 'p-ok'
-            : t === 'rejected' || t === 'failed' ? 'p-bad'
-            : t.includes('voting') ? 'p-warn' : 'p-mute';
-  return `<span class="pill ${cls}">${t.replace(/_/g, ' ')}</span>`;
+  const [word, cls] = STATUS[String(s)]
+    ?? [String(s).replace('PROPOSAL_STATUS_', '').toLowerCase().replace(/_/g, ' '), 'p-mute'];
+  return `<span class="pill ${cls}">${esc(word)}</span>`;
 };
 
-function tally(t) {
-  const yes = Number(t?.yes_count || 0), no = Number(t?.no_count || 0);
-  const veto = Number(t?.no_with_veto_count || 0), abs = Number(t?.abstain_count || 0);
-  const total = yes + no + veto + abs;
-  if (!total) return '<p class="muted small">No votes recorded.</p>';
-  return `<div class="bar">
-      <span style="width:${pct(yes,total)}%;background:var(--ok);float:left"></span>
-      <span style="width:${pct(no+veto,total)}%;background:var(--bad);float:left"></span>
-    </div>
-    <p class="muted small">${fmt(yes)} yes · ${fmt(no)} no · ${fmt(veto)} veto · ${fmt(abs)} abstain</p>`;
+/**
+ * The chain's own rules for deciding a proposal, and where a tally stands
+ * against them.
+ *
+ * Two bars, because x/gov asks two questions and merging them is how a page
+ * reports a proposal as passing that did not: turnout against quorum, counting
+ * abstentions, and then YES against the votes that took a side, where an
+ * abstention deliberately is not one. Where the chain's parameters could not be
+ * read the bars are not drawn — a bar at a plausible default is a bar that
+ * lies.
+ */
+function tallyHtml(finalTally, chain) {
+  const t = tallyOf({ tally: finalTally, bondedTokens: chain.bondedTokens, params: chain.tally });
+  if (!t.anyVotes) {
+    return `<p class="muted small">No vote has been cast. Nothing is decided by silence:
+      a proposal that ends its voting period below quorum is rejected and its deposit is
+      burned.</p>`;
+  }
+
+  const amount = (base) => `${displayAmount(base, chain.exponent)} ${esc(chain.symbol)}`;
+  const bar = (share, mark, met, label, detail) => {
+    if (share === null) {
+      return `<p class="muted small">${esc(label)} cannot be shown — ${esc(detail)}</p>`;
+    }
+    return `<div class="meterwrap">
+        <div class="row">
+          <span class="small"><strong>${esc(label)}</strong> ${esc(asPercent(share))}${
+            mark === null ? '' : ` of the ${esc(asPercent(mark))} needed`}</span>
+          ${met === null ? '' : `<span class="pill ${met ? 'p-ok' : 'p-bad'}">${
+            met ? 'reached' : 'not reached'}</span>`}
+        </div>
+        <div class="meter">
+          <span class="meter__fill${met === null ? '' : met ? ' meter__fill--ok' : ' meter__fill--bad'}"
+                style="width:${Math.min(100, share / 100)}%"></span>
+          ${mark === null ? '' : `<span class="meter__mark" style="left:${
+            Math.min(100, mark / 100)}%" title="the bar the chain applies"></span>`}
+        </div>
+        <p class="muted small">${detail}</p>
+      </div>`;
+  };
+
+  return `
+    ${bar(t.turnoutBps, t.quorumBps, t.quorumMet, 'Turnout',
+      `${amount(t.voted)} voted of ${amount(t.bonded)} bonded. Abstentions count toward
+       quorum, which is why abstaining is not the same as staying away.`)}
+    ${bar(t.yesBps, t.thresholdBps, t.thresholdMet, 'In favour',
+      `${amount(t.yes)} for, ${amount(t.no)} against, ${amount(t.veto)} vetoing,
+       ${amount(t.abstain)} abstaining. The share is of the votes that took a side.`)}
+    ${t.vetoed
+      ? `<div class="badbox"><strong>Vetoed.</strong> ${esc(asPercent(t.vetoShareBps))} of the
+          votes that took a side were cast with veto, past the
+          ${esc(asPercent(t.vetoThresholdBps))} that rejects a proposal outright and burns its
+          deposit whatever the rest of the tally says.</div>`
+      : ''}`;
+}
+
+/** What a proposal would do, in sentences rather than in type URLs. */
+function outcomesHtml(messages) {
+  const list = messages ?? [];
+  if (!list.length) {
+    return `<div class="badbox"><strong>This proposal carries no messages.</strong>
+      Passing it would change nothing.</div>`;
+  }
+  return list.map((m) => {
+    const o = outcomeOf(m);
+    return `<div class="row" style="align-items:baseline;padding:.15rem 0">
+        <span class="small">${o.understood ? '' : '⚠ '}${esc(o.headline)}</span>
+        ${o.understood ? '' : '<span class="pill p-warn">not decoded</span>'}
+      </div>
+      <details><summary>The message as the chain holds it${
+        o.understood ? '' : ' — read this one yourself'}</summary>
+        <pre>${esc(JSON.stringify(m, null, 2))}</pre></details>`;
+  }).join('');
 }
 
 // ------------------------------------------------- foundation administrators
@@ -256,9 +943,6 @@ function tally(t) {
 // nothing is composed — see readAliasParams, which refuses rather than
 // defaulting.
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
 const adm = {
   params: null,        // the last readable parameters
   digest: null,        // paramsDigest of those, for noticing they moved
@@ -275,6 +959,27 @@ const adm = {
   composedAt: null,    // the digest the currently shown document was built from
   shell: false,
 };
+
+/**
+ * The administrators chip in the summary strip.
+ *
+ * Written by both loops, because the summary is drawn by load() and the
+ * administrators are read by loadAdministrators() — which are deliberately
+ * separate and deliberately on different timers. Without this the strip said
+ * "not read" for the first fifteen seconds of every visit while the panel below
+ * it showed the answer, which reads as the page contradicting itself.
+ */
+function adminSummaryChip() {
+  if (adm.unreadable) return '<span class="pill p-warn">could not be read</span>';
+  if (!adm.params) return '<span class="pill p-mute">reading…</span>';
+  const n = adm.params.administrators.length;
+  return `<span class="pill ${n ? 'p-bad' : 'p-mute'}">${n || 'nobody'}</span>`;
+}
+
+function renderAdminSummary() {
+  const box = document.getElementById('sum-adm');
+  if (box) box.innerHTML = adminSummaryChip();
+}
 
 /** A read that answers with the status rather than throwing, for the group lookup. */
 async function probe(url) {
@@ -310,7 +1015,7 @@ function administratorRow(address, state) {
   const cls = state === 'added' ? 'a-added' : state === 'removed' ? 'a-removed' : 'a-kept';
   const note = state === 'added' ? 'appointed by this proposal'
              : state === 'removed' ? 'removed by this proposal' : 'unchanged';
-  return `<div class="adm"><code class="${cls}">${esc(address)}</code>
+  return `<div class="adm"><span class="${cls}">${idHtml(address, 'administrator')}</span>
     <span class="muted small">${note}${couldBeGroupAccount(address) ? '' : ' · single key'}</span></div>`;
 }
 
@@ -327,7 +1032,7 @@ function renderDiff(before, after) {
     const beforeList = (row.addresses || []).filter((a) => a.state !== 'added');
     const afterList = (row.addresses || []).filter((a) => a.state !== 'removed');
     cells.push(`<div class="b"><div class="label">foundation_administrators (${beforeList.length})</div>${
-      beforeList.length ? beforeList.map((a) => `<div class="adm"><code>${esc(a.address)}</code></div>`).join('')
+      beforeList.length ? beforeList.map((a) => `<div class="adm">${idHtml(a.address, 'administrator')}</div>`).join('')
                         : '<p class="muted small">Empty — nobody may correct a recorded country.</p>'}</div>`);
     cells.push(`<div><div class="label">foundation_administrators (${afterList.length})</div>${
       (row.addresses || []).length
@@ -353,7 +1058,13 @@ function renderCurrent() {
     </div>`;
     return;
   }
-  if (!adm.params) { box.innerHTML = '<p class="empty">Reading x/alias\'s parameters…</p>'; return; }
+  if (!adm.params) {
+    box.innerHTML = `<div class="card"><p class="y-eyebrow">Reading x/alias's parameters</p>
+      <p class="muted small">Nothing is drawn until they answer: an empty list of administrators
+        and an unread one look identical, and one of them means anybody's recorded country can be
+        changed by somebody.</p></div>`;
+    return;
+  }
 
   const list = adm.params.administrators;
   box.innerHTML = `<div class="card card--power">
@@ -372,7 +1083,7 @@ function renderCurrent() {
         participant to record their jurisdiction.${
         adm.params.listAbsent ? ' (The node returned no list at all. For a repeated protobuf field absent and'
           + ' empty are the same value, so this is genuinely empty — there is no third state.)' : ''}</p>`
-      : list.map((a) => `<div class="adm"><code>${esc(a)}</code>${
+      : list.map((a) => `<div class="adm">${idHtml(a, 'administrator')}${
           couldBeGroupAccount(a)
             ? '<span class="pill p-ok">derived account</span>'
             : '<span class="pill p-bad">a single key</span>'}</div>`).join('')}
@@ -388,7 +1099,7 @@ function renderComposeShell() {
   if (!box || adm.shell) return;
   adm.shell = true;
   box.innerHTML = `<div class="card">
-    <h3 style="margin:.1rem 0 .4rem;font-size:.9rem">Appoint or remove one</h3>
+    <h3>Appoint or remove one</h3>
     <p class="muted small">Only an ordinary governance <code>MsgUpdateParams</code> on <code>x/alias</code>
       can do this — the foundation's 3-of-5 cannot, because the message is authority-gated to the governance
       module account and nothing else. So this composes a <code>proposal.json</code> and the command that
@@ -396,12 +1107,12 @@ function renderComposeShell() {
     <p class="muted small">One change per proposal. Two appointments on one vote is two decisions a voter can
       only agree with together, and the ordinary outcome is that they agree with one of them.</p>
     <label for="adm-add">Appoint — the address from the ceremony record</label>
-    <input id="adm-add" placeholder="yml1…" autocomplete="off" spellcheck="false" style="width:100%">
+    <input id="adm-add" placeholder="yml1…" autocomplete="off" spellcheck="false">
     <label for="adm-remove">…or remove one of the current administrators</label>
     <select id="adm-remove"><option value="">—</option></select>
     <label for="adm-why">Why — this is the only explanation most voters will read</label>
     <textarea id="adm-why" placeholder="Which ceremony produced this group, who verified its fingerprint, and what it is being appointed to do."></textarea>
-    <!-- Its own class as well as the scoped selector above. The failure mode of
+    <!-- Its own class as well as the scoped selector below. The failure mode of
          sharing the "vote" class here is a button that silently stops working on
          the next refresh, which is the kind of thing that gets diagnosed as "the
          chain is down". Two independent reasons it cannot happen is the right
@@ -463,7 +1174,6 @@ function compose() {
   // cannot start.
   (add ? groupLookup(add) : Promise.resolve('unknown')).then((lookup) => {
     const plan = planChange({ params: adm.params, add, remove, groupLookup: lookup });
-    const notes = [];
     if (!why) {
       plan.problems.push('Say why. A voter asked to hand somebody the power to move any account out from '
         + 'under its regulator should not have to guess what this is for.');
@@ -501,14 +1211,14 @@ function compose() {
 
     out.innerHTML = `
       ${plan.warnings.map((w) => `<div class="warnbox">${esc(w)}</div>`).join('')}
-      <div class="card card--power" style="margin:.6rem 0 0">
-        <p class="lede" style="font-size:1rem;font-weight:600;margin:.1rem 0 .5rem">${esc(title)}</p>
+      <div class="card card--waiting" style="margin:.6rem 0 0">
+        <p class="lede">${esc(title)}</p>
         <p class="muted small">Below is the <strong>whole</strong> <code>Params</code> object, before and
           after. Both columns in full, including what does not move: this message replaces every parameter at
           once, so "payload_length is unchanged" is something a voter needs told rather than assumed.</p>
         ${renderDiff(plan.before, plan.after)}
         <div id="adm-stale"></div>
-        <p class="muted small">Authority: <code>${esc(adm.authority)}</code>
+        <p class="muted small">Authority: ${idHtml(adm.authority, 'the gov module account')}
           — ${esc(adm.authoritySource)}. Deposit: <code>${esc(adm.deposit)}</code>, from the chain's own
           gov parameters.</p>
         <p class="label" style="margin-top:.7rem">Write this to proposal.json</p>
@@ -521,7 +1231,6 @@ function compose() {
         <pre id="adm-after">${esc(afterSubmitting({ chainId: adm.chainId }))}</pre>
         <button class="copy" data-copy="adm-after">copy</button>
       </div>`;
-    wireAdmCopies();
     renderStale();
   }).catch((e) => {
     out.innerHTML = `<div class="badbox"><strong>This page failed while composing the proposal, so nothing
@@ -548,28 +1257,6 @@ function renderStale() {
     composed.</strong><br>The document above was built from the parameters as they were, so it would now
     undo whatever changed — silently, because it carries the full object and looks exactly as correct as it
     did a minute ago. Compose it again.</div>`;
-}
-
-function wireAdmCopies() {
-  document.querySelectorAll('#adm-out [data-copy]').forEach((b) => {
-    b.onclick = async () => {
-      const text = document.getElementById(b.dataset.copy)?.textContent ?? '';
-      try {
-        await navigator.clipboard.writeText(text);
-        b.textContent = 'copied';
-      } catch {
-        // Clipboard access needs a secure context, which this console does not
-        // have over plain HTTP. Selecting the text is the honest fallback.
-        const node = document.getElementById(b.dataset.copy);
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        getSelection().removeAllRanges();
-        getSelection().addRange(range);
-        b.textContent = 'selected — copy it';
-      }
-      setTimeout(() => { b.textContent = 'copy'; }, 2500);
-    };
-  });
 }
 
 async function loadAdministrators() {
@@ -626,6 +1313,7 @@ async function loadAdministrators() {
   }
 
   renderCurrent();
+  renderAdminSummary();
   if (!adm.unreadable) {
     renderComposeShell();
     refreshRemovalOptions();
@@ -633,9 +1321,65 @@ async function loadAdministrators() {
   renderStale();
 }
 
+// ---------------------------------------------------------------- everything else
+
+/**
+ * How to read a tally, read once: the staking denom, its exponent, the bonded
+ * total and the chain's quorum and threshold.
+ *
+ * Cached because none of it changes on the fifteen seconds this page refreshes
+ * on, except the bonded total — which is re-read, because a tally shown against
+ * a stale denominator is a quorum bar that is quietly wrong.
+ */
+const chainRules = { exponent: 6, symbol: 'YML', denom: 'uyml', source: 'unread', fromChain: false,
+                     tally: { quorumBps: null, thresholdBps: null, vetoBps: null },
+                     bondedTokens: '0' };
+let rulesRead = false;
+
+/**
+ * A share of the bonded total, in base units, as a string.
+ *
+ * BigInt rather than a multiplication: the bonded total is in base units and a
+ * chain with a billion tokens at six places multiplied by a basis-point figure
+ * is past what a double holds exactly. It is also the number a validator would
+ * read to decide whether a seizure is reachable, so being out in the last
+ * places is not cosmetic.
+ */
+function shareOfBonded(bps) {
+  const bonded = /^\d+$/.test(String(chainRules.bondedTokens)) ? BigInt(chainRules.bondedTokens) : 0n;
+  const share = /^\d+$/.test(String(bps ?? '')) ? BigInt(bps) : 0n;
+  return ((bonded * share) / 10000n).toString();
+}
+
+async function readChainRules() {
+  // The chain id, off the node rather than compiled in, because every command
+  // this page prints names it and a command naming the wrong network is refused
+  // for a reason that has nothing to do with the vote. Read here as well as in
+  // loadAdministrators so the vote commands are correct on the first paint
+  // rather than on the second.
+  if (!adm.chainId) {
+    const info = await maybe(get(`${REST}/cosmos/base/tendermint/v1beta1/node_info`), null);
+    adm.chainId = info?.default_node_info?.network || null;
+  }
+  if (!rulesRead) {
+    const [stakingParams, metadata, tallying] = await Promise.all([
+      maybe(get(`${REST}${STAKING_PARAMS_PATH}`), null),
+      maybe(get(`${REST}${DENOMS_METADATA_PATH}`), null),
+      maybe(get(`${REST}${GOV_TALLY_PARAMS_PATH}`), null),
+    ]);
+    Object.assign(chainRules, readStakingDenom({ stakingParams, metadata }));
+    chainRules.tally = tallying ? readTallyParams(tallying)
+      : { quorumBps: null, thresholdBps: null, vetoBps: null };
+    rulesRead = true;
+  }
+  const pool = await maybe(get(`${REST}${STAKING_POOL_PATH}`), null);
+  chainRules.bondedTokens = pool?.pool?.bonded_tokens ?? '0';
+}
+
 async function load() {
   try {
     document.getElementById('error').innerHTML = '';
+    await readChainRules();
     const [gov, params, freezes, cases] = await Promise.all([
       get(`${REST}/cosmos/gov/v1/proposals?pagination.limit=30`),
       get(`${REST}/yamale/blockchain/enforcement/v1/params`),
@@ -648,30 +1392,35 @@ async function load() {
     // what stops a minority of validators seizing funds.
     document.getElementById('rules').innerHTML = `
       <div class="card card--seize">
-        <div class="muted small">TO SEIZE FUNDS</div>
-        <div style="font-size:1.4rem;font-weight:680">${(Number(p.threshold_bps||0)/100).toFixed(2)}%</div>
-        <div class="muted small">of voting power must agree${p.seize_requires_evidence ? ', with evidence' : ''}</div>
+        <div class="label">To seize funds</div>
+        <div class="stat">${(Number(p.threshold_bps||0)/100).toFixed(2)}%</div>
+        <div class="muted small">of voting power must agree${p.seize_requires_evidence ? ', with evidence' : ''}
+          — ${wholeAmount(shareOfBonded(p.threshold_bps), chainRules.exponent)}
+          ${esc(chainRules.symbol)} of the ${wholeAmount(chainRules.bondedTokens, chainRules.exponent)}
+          ${esc(chainRules.symbol)} bonded today</div>
       </div>
       <div class="card card--freeze">
-        <div class="muted small">PROVISIONAL FREEZE LASTS</div>
-        <div style="font-size:1.4rem;font-weight:680">${asTime(p.provisional_freeze_blocks)}</div>
-        <div class="muted small">then lapses unless a case is opened</div>
+        <div class="label">A provisional freeze lasts</div>
+        <div class="stat">${esc(asTime(p.provisional_freeze_blocks))}</div>
+        <div class="muted small">then lapses unless a case is opened. Reversible, which is why one
+          validator is enough to impose it</div>
       </div>
       <div class="card">
-        <div class="muted small">VOTING PERIOD</div>
-        <div style="font-size:1.4rem;font-weight:680">${asTime(p.voting_period_blocks)}</div>
-        <div class="muted small">${fmt(p.voting_period_blocks)} blocks</div>
+        <div class="label">Voting period</div>
+        <div class="stat">${esc(asTime(p.voting_period_blocks))}</div>
+        <div class="muted small">${fmt(p.voting_period_blocks)} blocks, at about five seconds each</div>
       </div>
       <div class="card">
-        <div class="muted small">RECOVERED FUNDS GO TO</div>
-        <div style="font-size:.95rem;font-weight:600;margin-top:.35rem">${
-          p.recovery_destination ? `<code>${esc(p.recovery_destination)}</code>`
-                                 : '<span class="p-bad pill">not set</span>'}</div>
+        <div class="label">Recovered funds go to</div>
+        <div class="stat stat--words">${
+          p.recovery_destination ? idHtml(p.recovery_destination, 'the recovery destination')
+                                 : '<span class="pill p-bad">not set</span>'}</div>
         <div class="muted small">${p.recovery_destination ? 'the foundation, which holds recovered assets for restitution' : 'this chain should not have started — seizures have nowhere to send what they take'}</div>
       </div>`;
 
     const proposals = gov.proposals || [];
     const isOpen = (pr) => String(pr.status).includes('VOTING_PERIOD');
+    const now = Math.floor(Date.now() / 1000);
 
     // Who has already voted, so an operator can see at a glance whether their
     // own validator still needs to act.
@@ -688,29 +1437,59 @@ async function load() {
       const rows = VALIDATORS.map(v => {
         const cast = votes.find(x => (x.voter || '') === (VOTER_ADDR[v.moniker] || ''));
         const opt = cast ? (cast.options?.[0]?.option || '').replace('VOTE_OPTION_', '').toLowerCase() : null;
+        // The command is composed for every validator, voted or not, because the
+        // button only exists for the one this page is open as — and an operator
+        // reading somebody else's row is usually the person who needs to run it.
+        let cmd = null;
+        try {
+          cmd = adm.chainId ? voteCommand({
+            validator: v, proposalId: pr.id, option: 'yes', chainId: adm.chainId,
+          }) : null;
+        } catch { cmd = null; }
         return `<div class="vrow">
             <strong>${esc(v.moniker)}</strong>
             <span class="muted small">on ${esc(v.host)}</span>
-            ${opt ? `<span class="pill ${opt==='yes'?'p-ok':'p-bad'}">voted ${opt}</span>`
-                  : '<span class="pill p-warn">not voted</span>'}
+            ${opt ? `<span class="pill ${opt==='yes'?'p-ok':'p-bad'}">voted ${esc(opt)}</span>`
+                  : '<span class="pill p-warn">has not voted</span>'}
             ${opt ? '' : (ME === v.moniker ? `
-              <div class="cmds">
+              <div class="cmds" style="margin-inline-start:auto;display:flex;gap:.4rem;flex-wrap:wrap">
                 <button class="vote ok" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="yes">vote yes</button>
                 <button class="vote bad" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="no">vote no</button>
               </div>` : `
-              <div class="cmds"><span class="muted small">open
-                <a href="?as=${encodeURIComponent(v.moniker)}">this page as ${esc(v.moniker)}</a> to vote</span></div>`)}
+              <span class="muted small" style="margin-inline-start:auto">open
+                <a href="?as=${encodeURIComponent(v.moniker)}">this page as ${esc(v.moniker)}</a>
+                to vote from here</span>`)}
+            ${opt || !cmd ? '' : `<details style="flex-basis:100%">
+              <summary>…or run it on ${esc(v.host)} yourself</summary>
+              <div class="cmdhead"><span class="muted small">on ${esc(v.host)}, where the key
+                is — change <code>yes</code> for <code>no</code>, <code>abstain</code> or
+                <code>no_with_veto</code></span>
+                <button class="copy" data-copy-text="${esc(cmd)}">copy</button></div>
+              <pre>${esc(cmd)}</pre></details>`}
           </div>`;
       }).join('');
-      return `<div class="card">
+
+      const closes = timestampSeconds(pr.voting_end_time);
+      return `<div class="card card--waiting">
           <div class="row"><strong>#${esc(pr.id)} ${esc(pr.title)}</strong>${statusPill(pr.status)}</div>
           <p class="muted small">${esc(pr.summary)}</p>
+          ${outcomesHtml(pr.messages)}
+          ${closes === null ? '' : `<p class="small"><strong>Voting closes ${
+            esc(timeLeft(closes - now))}</strong> <span class="muted">— ${
+            esc(new Date(closes * 1000).toUTCString().replace('GMT', 'UTC'))}</span></p>`}
           ${rows}
-          ${tally(pr.final_tally_result)}
+          ${tallyHtml(pr.final_tally_result, chainRules)}
         </div>`;
     }));
-    document.getElementById('open').innerHTML = openHtml.join('') ||
-      '<p class="empty">Nothing is open for voting. Proposals appear here during their voting period.</p>';
+    document.getElementById('open').innerHTML = openHtml.join('') || `
+      <div class="card">
+        <p class="lede">Nothing is open for voting.</p>
+        <p class="muted small">Which is the ordinary state of this list rather than a failed read:
+          the chain answered, and no proposal is in its voting period. A proposal appears here once
+          its deposit is met and leaves the moment the period closes, whether or not anybody
+          voted — a proposal below quorum at that moment is rejected and its deposit burned, so an
+          empty list here is not the same as nothing being at stake.</p>
+      </div>`;
 
     // Wire the vote buttons — scoped to #open, which is where they are.
     //
@@ -727,28 +1506,46 @@ async function load() {
     // Emergency actions, only on the page of the validator that would sign.
     document.getElementById('emergency').innerHTML = ME ? `
       <div class="card card--freeze">
-        <h3 style="margin:.1rem 0 .3rem;font-size:.9rem">Freeze a wallet</h3>
-        <p class="muted small">Takes effect in one block on ${ME}'s signature alone.
-           Reversible — that is why one validator is enough.</p>
-        <input id="fz-addr" placeholder="yml1…" style="width:100%;margin:.3rem 0">
-        <input id="fz-why" placeholder="why (required, on the record)" style="width:100%;margin:.3rem 0">
-        <button class="vote" id="fz-go">freeze this wallet</button>
+        <h3>Freeze a wallet</h3>
+        <p class="muted small">Takes effect in one block on ${esc(ME)}'s signature alone.
+           <strong>Reversible</strong> — that is why one validator is enough, and why it is worth
+           being wrong about.</p>
+        <label for="fz-addr">The account to stop</label>
+        <input id="fz-addr" placeholder="yml1…" spellcheck="false">
+        <label for="fz-why">Why — required, and on the permanent record</label>
+        <input id="fz-why" placeholder="What you believe is happening, and on whose information">
+        <p style="margin-top:.7rem"><button class="vote" id="fz-go">freeze this wallet</button></p>
+        <p class="muted small">This POSTs to ${esc(ME)}'s own signing service, which waits for the
+          block before it answers — so the reply below the button is what happened, not what was
+          accepted. A failure names whether it was refused before broadcast or failed executing.</p>
       </div>
       <div class="card card--seize">
-        <h3 style="margin:.1rem 0 .3rem;font-size:.9rem">Open an asset-recovery case</h3>
+        <h3>Open an asset-recovery case</h3>
         <p class="muted small">Starts a vote to <strong>take</strong> the funds. Needs
            ${(Number(p.threshold_bps||0)/100).toFixed(2)}% of voting power${p.seize_requires_evidence ? ' and evidence' : ''},
-           and cannot be undone once executed.</p>
-        <input id="cs-addr" placeholder="yml1…" style="width:100%;margin:.3rem 0">
-        <input id="cs-why" placeholder="why (required)" style="width:100%;margin:.3rem 0">
-        <input id="cs-ev" placeholder="evidence URI" style="width:100%;margin:.3rem 0">
+           and <strong>cannot be undone once executed</strong>.</p>
+        <label for="cs-addr">Whose funds</label>
+        <input id="cs-addr" placeholder="yml1…" spellcheck="false">
+        <label for="cs-why">Why — required</label>
+        <input id="cs-why" placeholder="The grounds, and the authority they come from">
+        <label for="cs-ev">Where the evidence is</label>
+        <input id="cs-ev" placeholder="https://… or ipfs://…" spellcheck="false">
         <!-- Both halves, because the chain refuses a seizure without them when
              seize_requires_evidence is set. The hash is of the document, not of
              the link: it is what shows that the evidence somebody read on the
              day of the vote is the evidence still sitting at that URI. -->
-        <input id="cs-evh" placeholder="SHA-256 of that evidence" style="width:100%;margin:.3rem 0">
-        <button class="vote bad" id="cs-go">open recovery case</button>
-      </div>` : '<p class="muted small">Open this page as a validator to act: <a href="?as=pi">as pi</a> · <a href="?as=pi-2">as pi-2</a></p>';
+        <label for="cs-evh">SHA-256 of that document</label>
+        <input id="cs-evh" placeholder="64 hexadecimal characters" spellcheck="false">
+        <p style="margin-top:.7rem"><button class="vote bad" id="cs-go">open recovery case</button></p>
+        <p class="muted small">The hash is of the document and not of the link, so that the evidence
+          read on the day of the vote can be shown to be the evidence still at that address.</p>
+      </div>` : `<div class="card">
+        <p class="lede">This page is read-only.</p>
+        <p class="muted small">Freezing and seizing are done by a validator, from its own node,
+          with its own key — so the page has to know which validator is reading it before it will
+          offer either. Nothing else on this page changes.</p>
+        <p class="small">Open it as <a href="?as=pi">pi</a> · <a href="?as=pi-2">pi-2</a></p>
+      </div>`;
 
     const freezeBtn = document.getElementById('fz-go');
     if (freezeBtn) freezeBtn.onclick = () => act(ME, 'freeze', {
@@ -763,41 +1560,127 @@ async function load() {
       evidence_hash: document.getElementById('cs-evh').value.trim(),
     }, caseBtn);
 
-    document.getElementById('proposals').innerHTML = proposals.filter(p => !isOpen(p)).map(pr => `
-      <div class="card">
+    const decided = proposals.filter(pr => !isOpen(pr));
+    document.getElementById('proposals').innerHTML = decided.map(pr => {
+      const failed = String(pr.status) === 'PROPOSAL_STATUS_FAILED';
+      const closed = timestampSeconds(pr.voting_end_time);
+      return `
+      <div class="card${failed ? ' card--bad' : ''}">
         <div class="row">
           <strong>#${esc(pr.id)} ${esc(pr.title || pr.summary)}</strong>
           ${statusPill(pr.status)}
         </div>
-        <p class="muted small">${(pr.messages||[]).map(m => m['@type']).join(', ') || '—'}</p>
-        ${tally(pr.final_tally_result)}
-      </div>`).join('') || '<p class="empty">No decided proposals yet.</p>';
+        ${closed === null ? '' : `<p class="muted small">Voting closed ${
+          esc(timeLeft(closed - now))}, on ${
+          esc(new Date(closed * 1000).toUTCString().replace('GMT', 'UTC'))}</p>`}
+        ${outcomesHtml(pr.messages)}
+        ${failed ? `<div class="badbox"><strong>This proposal won its vote and then failed to
+          execute, so nothing it describes happened.</strong> The chain reports that nowhere anybody
+          is watching, which is why it is stated here in those words rather than as "failed".${
+          pr.failed_reason ? `<br>The chain's reason: <code>${esc(pr.failed_reason)}</code>` : ''}</div>` : ''}
+        ${tallyHtml(pr.final_tally_result, chainRules)}
+      </div>`;
+    }).join('') || `<div class="card">
+        <p class="lede">No proposal has been decided yet.</p>
+        <p class="muted small">The chain answered — its proposal list is empty. Everything this
+          chain's governance has ever done would appear here, oldest last.</p>
+      </div>`;
 
     const fr = freezes.freeze || [];
     document.getElementById('freezes').innerHTML = fr.length ? fr.map(f => `
       <div class="card card--freeze">
-        <div class="row"><code>${esc(f.address || f.account)}</code>
+        <div class="row">${idHtml(f.address || f.account, 'the frozen account')}
           <span class="pill p-warn">frozen</span></div>
-        <p class="muted small">${esc(f.reason)}</p>
-      </div>`).join('') : '<p class="empty">No wallet is frozen.</p>';
+        <p class="small">${esc(f.reason)}</p>
+        ${f.imposed_by ? `<p class="muted small">Imposed by ${
+          idHtml(f.imposed_by, 'the validator that froze it')}</p>` : ''}
+      </div>`).join('') : `<div class="card card--ok">
+        <p class="lede">No wallet is frozen.</p>
+        <p class="muted small">The register answered and holds no freeze order — this is an empty
+          list rather than a failed call, and on this page that distinction is the whole point: a
+          frozen account this page failed to read looks exactly like an account nobody has
+          stopped.</p>
+      </div>`;
 
     const cs = cases.case || [];
     document.getElementById('cases').innerHTML = cs.length ? cs.map(c => `
       <div class="card card--seize">
-        <div class="row"><code>${esc(c.target || c.address)}</code>
+        <div class="row">${idHtml(c.target || c.address, 'the account in the case')}
           <span class="pill ${String(c.status||'').includes('EXECUTED') ? 'p-bad' : 'p-warn'}">${
-            String(c.status||'open').replace(/^CASE_STATUS_/,'').toLowerCase()}</span></div>
-        <p class="muted small">${esc(c.reason)}</p>
+            esc(String(c.status||'open').replace(/^CASE_STATUS_/,'').toLowerCase())}</span></div>
+        <p class="small">${esc(c.reason)}</p>
         ${c.evidence_uri ? `<p class="small">Evidence: <code>${esc(c.evidence_uri)}</code></p>` : ''}
-        ${c.evidence_hash ? `<p class="muted small">SHA-256 <code>${esc(c.evidence_hash)}</code> — check the document against this before voting.</p>` : ''}
-      </div>`).join('') : '<p class="empty">No recovery case has been opened.</p>';
+        ${c.evidence_hash ? `<p class="muted small">SHA-256 ${idHtml(c.evidence_hash, 'the evidence hash')}
+          — check the document against this before voting.</p>` : ''}
+      </div>`).join('') : `<div class="card card--ok">
+        <p class="lede">No recovery case has been opened.</p>
+        <p class="muted small">Nobody's funds are being voted on. This is the state the page should
+          be in almost all of the time; a case appearing here is the chain's most consequential
+          event, and it is meant to look like one.</p>
+      </div>`;
 
-    document.getElementById('clock').textContent = 'updated ' + new Date().toLocaleTimeString();
+    // The summary strip, last, because it counts what the sections above found.
+    const openCount = open.length;
+    document.getElementById('summary').innerHTML = `
+      <div class="summary">
+        <span class="summary__item"><span class="label">Open for voting</span>
+          <span class="pill ${openCount ? 'p-warn' : 'p-mute'}">${openCount || 'none'}</span></span>
+        <span class="summary__item"><span class="label">Frozen wallets</span>
+          <span class="pill ${fr.length ? 'p-warn' : 'p-mute'}">${fr.length || 'none'}</span></span>
+        <span class="summary__item"><span class="label">Recovery cases</span>
+          <span class="pill ${cs.length ? 'p-bad' : 'p-mute'}">${cs.length || 'none'}</span></span>
+        <span class="summary__item"><span class="label">May correct a country</span>
+          <span id="sum-adm">${adminSummaryChip()}</span></span>
+        <span class="summary__item" style="margin-inline-start:auto"><span class="label">Bonded</span>
+          <span class="small y-num">${wholeAmount(chainRules.bondedTokens, chainRules.exponent)}
+            ${esc(chainRules.symbol)}</span></span>
+      </div>
+      ${chainRules.source === 'chain' ? '' : `<p class="warnbox">${
+        chainRules.source === 'absent'
+          ? `This chain publishes bank metadata for its forty-odd currency denoms and
+             <strong>none for <code>${esc(chainRules.denom)}</code></strong>, the denom every tally
+             on this page is counted in. So the six decimal places used below are this console's
+             own knowledge of ${esc(chainRules.symbol)} rather than the chain's. Every amount here
+             inherits that, and the fix is a denom-metadata entry for the staking denom.`
+          : `The denom metadata could not be read at all, so nothing is known about
+             <code>${esc(chainRules.denom)}</code> — including whether the chain publishes an entry
+             for it. Six decimal places are being assumed below.`}</p>`}`;
+
+    document.getElementById('clock').textContent = 'read ' + new Date().toLocaleTimeString();
   } catch (e) {
-    document.getElementById('error').innerHTML = `<p class="err">Could not read the chain — ${e.message}</p>`;
+    // Which call failed, and what a 401 means here. "Could not read the chain"
+    // at three in the morning is worse than useless. Escaped like everything
+    // else: the message carries a URL this page built, and the habit is the
+    // point.
+    const named = e instanceof CallFailed
+      ? `<strong>Could not read <code>${esc(e.url)}</code> — ${esc(String(e.status))}.</strong>`
+      : `<strong>${esc(e.message)}</strong>`;
+    document.getElementById('error').innerHTML = `<p class="err">${named}<br>
+      That is the exact call that failed, and nothing after it was attempted — so treat every
+      section below as unknown rather than as empty.
+      ${e.status === 401 || e.status === 403
+        ? ' A 401 here is this chain\'s REST allowlist, which denies by default: the path is '
+          + 'missing from the proxy in front of the node rather than from the node itself, and no '
+          + 'password was ever issued for it.'
+        : ''}</p>`;
+    document.getElementById('clock').textContent = 'not reading the chain';
   }
 }
-document.getElementById('acting').textContent = ME ? 'acting as ' + ME : 'read only';
+
+document.getElementById('acting').innerHTML = ME
+  // ME comes out of the query string, so it is escaped even though it is only
+  // ever a moniker: the value is whatever was in the link somebody was sent.
+  ? `<span class="pill p-brass">acting as ${esc(ME)}</span>`
+  : '<span class="pill p-mute">read only</span>';
+
+// The pending state, drawn rather than left blank. Every section on this page
+// spends most of its life empty, so a blank page and a quiet chain look
+// identical — and only one of them is a reason to go and look at a node.
+document.getElementById('summary').innerHTML = `
+  <div class="summary"><span class="y-eyebrow">Reading the chain</span>
+    <span class="muted small">Proposals, the enforcement parameters, the freeze register and the
+      recovery cases. Nothing below is drawn from a partial answer.</span></div>`;
+
 load();
 setInterval(load, 15000);
 

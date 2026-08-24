@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yamale · Foundation custodians</title>
+<!-- The typefaces, before the stylesheet, so the request starts as early as the
+     parser can start it. Every stack in the block below names real fallbacks, so
+     a blocked font host — or an air-gapped machine, which is where some of these
+     custodians read this — degrades to something chosen rather than to Times. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
   The console for the foundation: the 3-of-5 x/group account that is the
   recovery destination for every seizure on this chain.
@@ -58,114 +65,512 @@
   not be open when it matters.
 -->
 <style>
-  :root{
-    color-scheme:light dark;
-    --navy:#12253f;--ink:#0b1523;--brass:#a87b3c;--paper:#f6f7f9;
-    --bg:var(--paper);--panel:#fff;--text:var(--ink);--muted:#5c6e88;
-    --border:#e3e7ee;--ok:#0d7a4a;--warn:#a8791b;--bad:#b02a25;
-    --wash-ok:rgba(13,122,74,.10);--wash-warn:rgba(168,121,27,.12);
-    --wash-bad:rgba(176,42,37,.10);--wash-mute:rgba(92,110,136,.10);
-    --wash-brass:rgba(168,123,60,.12);
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
+
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
   }
-  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-    --bg:var(--ink);--panel:var(--navy);--text:#e8eef7;--muted:#8fa4c4;
-    --border:#24405f;--ok:#6fbfa5;--warn:#d2a65e;--bad:#ef8a85;
-    --wash-ok:rgba(111,191,165,.12);--wash-warn:rgba(210,166,94,.14);
-    --wash-bad:rgba(239,138,133,.13);--wash-mute:rgba(143,164,196,.12);
-    --wash-brass:rgba(196,152,86,.16);}}
-  *{box-sizing:border-box}
-  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       background:var(--bg);color:var(--text)}
-  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
-         border-bottom:1px solid var(--border);flex-wrap:wrap}
-  h1{font-size:1rem;margin:0;font-weight:650}
-  h1 a{color:inherit;text-decoration:none}
-  nav{display:flex;gap:.1rem;flex-wrap:wrap;margin-inline-start:auto}
-  nav a{font-size:.82rem;color:var(--muted);text-decoration:none;padding:.3rem .6rem;
-        border-radius:8px}
-  nav a:hover{color:var(--text);background:var(--wash-mute)}
-  nav a[aria-current]{color:var(--text);background:var(--wash-mute);font-weight:600}
-  .wrap{max-width:1000px;margin:0 auto;padding:1.2rem}
-  h2{font-size:.95rem;margin:1.7rem 0 .6rem}
-  h2:first-child{margin-top:.2rem}
-  h3{font-size:.88rem;margin:0 0 .35rem}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
-        padding:1rem;margin-bottom:.8rem}
-  /* The one state that costs money by looking finished. A passed proposal
-     nobody has executed gets a brass edge everywhere it appears. */
-  .card--waiting{border-inline-start:3px solid var(--brass);background:var(--wash-brass)}
-  .card--bad{border-inline-start:3px solid var(--bad)}
-  .card--ok{border-inline-start:3px solid var(--ok)}
-  .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
-  .row{display:flex;justify-content:space-between;gap:1rem;align-items:baseline;flex-wrap:wrap}
-  .muted{color:var(--muted);font-size:.84rem}
-  .small{font-size:.78rem}
-  .lede{font-size:1.02rem;font-weight:600;margin:.1rem 0 .35rem}
-  .stat{font-size:1.5rem;font-weight:680;line-height:1.2;font-variant-numeric:tabular-nums}
-  .label{font-size:.72rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-  .pill{font-size:.7rem;font-weight:650;padding:.14rem .55rem;border-radius:999px;
-        letter-spacing:.03em;white-space:nowrap;display:inline-block}
-  .p-ok{background:var(--wash-ok);color:var(--ok)}
-  .p-warn{background:var(--wash-warn);color:var(--warn)}
-  .p-bad{background:var(--wash-bad);color:var(--bad)}
-  .p-mute{background:var(--wash-mute);color:var(--muted)}
-  .p-brass{background:var(--wash-brass);color:var(--brass)}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;word-break:break-all}
-  pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.76rem;
-      background:var(--wash-mute);padding:.7rem .8rem;border-radius:10px;overflow-x:auto;
-      margin:.4rem 0;white-space:pre;border:1px solid var(--border)}
-  .err{background:var(--wash-bad);color:var(--bad);padding:.7rem .9rem;border-radius:10px;
-       font-size:.86rem;border:1px solid var(--bad);margin-bottom:.8rem}
-  .warnbox{background:var(--wash-warn);border:1px solid var(--warn);color:var(--text);
-           padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
-  .badbox{background:var(--wash-bad);border:1px solid var(--bad);color:var(--text);
-          padding:.7rem .9rem;border-radius:10px;font-size:.85rem;margin:.5rem 0}
-  .empty{color:var(--muted);font-size:.86rem;padding:.6rem 0}
-  .vrow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem 0;
-        border-top:1px solid var(--border)}
-  .vrow:first-of-type{border-top:0}
-  .bar{height:8px;border-radius:99px;background:var(--wash-mute);overflow:hidden;margin:.55rem 0 .3rem;
-       display:flex}
-  .bar span{display:block;height:100%}
-  /* The threshold is a line on the bar, not a number beside it. Three of five is
-     a position you can see; "3" is a number you have to compare. */
-  .barwrap{position:relative}
-  .thresh{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55}
-  button{font:inherit}
-  .btn{font-size:.8rem;font-weight:600;padding:.4rem .8rem;border-radius:9px;cursor:pointer;
-       border:1px solid var(--border);background:var(--panel);color:var(--text)}
-  .btn:hover{border-color:var(--brass)}
-  .btn.ok{border-color:var(--ok);color:var(--ok)}
-  .btn.bad{border-color:var(--bad);color:var(--bad)}
-  .btn.primary{border-color:var(--brass);background:var(--wash-brass);color:var(--text)}
-  .copy{font-size:.74rem;padding:.28rem .6rem;border-radius:8px;cursor:pointer;
-        background:transparent;color:var(--muted);border:1px solid var(--border)}
-  .copy:hover{border-color:var(--brass);color:var(--text)}
-  label{display:block;font-size:.8rem;margin:.6rem 0 .2rem;color:var(--muted)}
-  input,select,textarea{font:inherit;font-size:.88rem;padding:.5rem .6rem;border-radius:9px;
-        border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%}
-  textarea{min-height:3.4rem;resize:vertical}
-  .cmdhead{display:flex;justify-content:space-between;align-items:center;gap:.6rem;
-           margin-top:.7rem;flex-wrap:wrap}
-  details{margin-top:.5rem}
-  summary{cursor:pointer;font-size:.79rem;color:var(--muted)}
-  summary:hover{color:var(--text)}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:.45rem .5rem;text-align:left;border-bottom:1px solid var(--border);font-size:.84rem}
-  th{font-size:.71rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-  tr:last-child td{border-bottom:0}
-  .fp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:650;
-      letter-spacing:.06em;font-size:.84rem}
-  /* On a phone the verdict must arrive before the chrome. */
-  @media (max-width:560px){
-    header{padding:.65rem .8rem;gap:.45rem}
-    nav{margin-inline-start:0;width:100%;gap:0}
-    nav a{padding:.22rem .45rem;font-size:.78rem}
-    .wrap{padding:.9rem .8rem}
-    .stat{font-size:1.3rem}
-    pre{font-size:.7rem}
+
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+    }
   }
-  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+  .y-scroll { overflow-x: auto; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ==========================================================================
+     THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
+     else: clients/foundation, clients/governance, clients/land,
+     clients/validator. Kept identical in all four for the same reason as the
+     block above, and kept OUT of clients/shared/yamale.css because the citizen
+     surfaces are not dense card stacks and should not inherit this density.
+
+     Everything here is expressed in the tokens above. No console defines a
+     colour of its own; a value that is not in a token is a value the next
+     surface will get slightly wrong.
+     ========================================================================== */
+
+  /* The shared reset zeroes paragraph margins, which is right for prose laid
+     out with `gap`. These consoles are card stacks with paragraphs in normal
+     flow, so the rhythm is restored here rather than by editing several
+     thousand lines of template literal. */
+  p { margin: 0 0 var(--sp-3); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--brass); }
+  a:hover { color: var(--text); }
+
+  /* --- chrome ------------------------------------------------------------ */
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600;
+  }
+  header h1 a { color: inherit; text-decoration: none; }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-2); margin: var(--sp-6) 0 var(--sp-3); }
+  h2:first-child { margin-top: var(--sp-1); }
+  h3 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  /* --- panels ------------------------------------------------------------ */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  /* The second elevation step is not decoration and is not spent on headings:
+     it marks the one card on a screen that is waiting for a person to act. */
+  .card--waiting { border-inline-start: 3px solid var(--brass); background: var(--wash-brass);
+                   box-shadow: var(--shadow-2); }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+
+  .grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  /* --- text ------------------------------------------------------------- */
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  /* Chips carry state in form as well as in colour: mono, uppercase, and always
+     beside a word. `.pill` and `.p-*` are the names the markup already uses. */
+  .pill, .y-chip { display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap; }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass); }
+
+  code { font-size: 0.86em; word-break: break-all; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2;
+  }
+
+  /* --- the three boxes that say something is wrong ---------------------- */
+  .err, .badbox, .warnbox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-2) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .err code, .badbox code, .warnbox code { color: inherit; }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn); }
+
+  /* --- controls --------------------------------------------------------- */
+  /* Anything interactive looks interactive: a border, a hover, a focus ring
+     from the token, and a cursor. */
+  button { font: inherit; }
+  .btn, .vote, button.primary, .primary {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+  }
+  .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
+  .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input, select, textarea {
+    font-family: var(--font-sans); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%;
+    /* Capped, because a field is as wide as what goes in it and nothing that
+       goes in these is a thousand pixels long. A full-bleed input in a wide
+       panel reads as an unfinished layout and makes a forty-character address
+       harder to check, not easier. */
+    max-width: 44rem;
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--text-faint); }
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+  textarea { min-height: 3.4rem; resize: vertical; }
+  /* An address, a hash or a reference typed into a field is compared character
+     by character against a document or a piece of paper, which is not something
+     a proportional face lets a person do. */
+  input[id$='-to'], input[id$='holder'], input[id$='-addr'], input[id$='-who'],
+  input[id$='-ev'], input[id$='-evh'], input[id='geom'], input[id='ref'],
+  input[id='sw-in'], input[id='adm-add'] { font-family: var(--font-mono); }
+  /* An amount is compared digit by digit and lines up under the last one. */
+  input[id$='-amt'], input[id$='-id'] {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+
+  /* The label-and-copy line above a composed command. */
+  .cmdhead {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap;
+  }
+  /* The commands are the product of these pages, so a block of them gets the
+     width of its panel rather than the measure of a paragraph. */
+  pre { max-width: none; }
+
+  details { margin-top: var(--sp-2); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  /* Digits that line up get tabular figures, and a table is where they line up.
+     Proportional numerals in a column are a column a reader cannot compare by
+     eye, which on these pages is the operation they perform most. */
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+  .vrow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+          padding: var(--sp-2) 0; border-top: 1px solid var(--border); }
+  .vrow:first-of-type { border-top: 0; }
+
+  /* A proportion is a length before it is a number. */
+  .bar { height: 8px; border-radius: 99px; background: var(--wash-mute);
+         overflow: hidden; margin: var(--sp-2) 0 var(--sp-1); display: flex; }
+  .bar span { display: block; height: 100%; }
+  .barwrap { position: relative; }
+  .thresh { position: absolute; top: -3px; bottom: -3px; width: 2px;
+            background: var(--text); opacity: .55; }
+
+  /* --- identifiers ------------------------------------------------------ */
+  /* Mono, truncated, click to reveal, copy beside it. Nobody should have to
+     read thirty-nine characters of bech32 to know they are looking at the right
+     account, and nobody should be unable to when they need to. */
+  .y-id { display: inline-flex; align-items: baseline; gap: var(--sp-1); max-width: 100%; }
+  .y-id__text {
+    font-family: var(--font-mono); font-feature-settings: 'zero' 1; font-size: 0.86em;
+    background: none; border: 0; padding: 0; margin: 0; color: inherit; cursor: pointer;
+    text-align: start; text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--text-faint); text-underline-offset: 3px;
+  }
+  .y-id__text:hover { text-decoration-color: var(--brass); }
+  .y-id--open .y-id__text { word-break: break-all; }
+  .y-id__copy {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0 var(--sp-1); border-radius: 2px;
+    border: 1px solid var(--rule); background: transparent; color: var(--text-muted);
+    cursor: pointer; flex: none;
+  }
+  .y-id__copy:hover { border-color: var(--brass); color: var(--text); }
+
+  /* --- a phone ---------------------------------------------------------- */
+  /* The verdict has to arrive before the chrome. */
+  @media (max-width: 560px) {
+    header { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+    nav { margin-inline-start: 0; width: 100%; gap: 0; }
+    nav a { padding: var(--sp-1) var(--sp-2); font-size: 0.76rem; }
+    .wrap { padding: var(--sp-3); }
+    .card { padding: var(--sp-3); }
+    h2 { margin: var(--sp-5) 0 var(--sp-2); }
+    pre { font-size: 0.7rem; padding: var(--sp-2); }
+  }
+
+  /* ==========================================================================
+     Foundation-console only, and nothing above this line is.
+     ========================================================================== */
+
+  /* Not in the shared file because it belongs to the page, not to the palette:
+     it makes the browser's own furniture — scrollbars, the file picker, a date
+     control — follow the theme the tokens above are already following. */
+  :root { color-scheme: light dark; }
+
+  /* A checkbox is a control beside its words, not a block label above it — and
+     its words are a sentence rather than a mono field name, because what it says
+     is a decision and not a label. */
+  .check {
+    display: flex; align-items: flex-start; gap: var(--sp-2);
+    font-family: var(--font-sans); font-size: var(--step--1); letter-spacing: 0;
+    text-transform: none; color: var(--text); margin-top: var(--sp-3); cursor: pointer;
+  }
+  .check input { width: auto; max-width: none; margin: 0.25rem 0 0; flex: none; }
+
+  /* Two small numbers side by side: an M and an N are read as one thing. */
+  .shape { display: flex; gap: var(--sp-4); flex-wrap: wrap; align-items: flex-end; }
+  .shape > div { flex: 0 0 8rem; }
+  .shape label { margin-top: 0; }
+
+  /* A fingerprint exists to be compared against a piece of paper from the
+     ceremony, character by character, so it is tracked wider than ordinary
+     data and never set in the body face. */
+  .fp {
+    font-family: var(--font-mono); font-feature-settings: 'zero' 1;
+    font-weight: 500; letter-spacing: 0.08em; font-size: var(--step--1);
+  }
 </style>
 </head>
 <body>
@@ -173,8 +578,11 @@
   <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
   <h1><a href="#/">Foundation custodians</a></h1>
   <nav id="nav"></nav>
-  <span class="muted small" id="who"></span>
-  <span class="muted small" id="clock"></span>
+  <!-- Who this page thinks you are, and what time the *chain* thinks it is.
+       Both in the chrome rather than in a screen, because both are true of
+       every screen and both change what the page below them means. -->
+  <span id="who"></span>
+  <span class="label" id="clock"></span>
 </header>
 
 <div class="wrap">
@@ -196,6 +604,8 @@ import {
   auditMessages, parseMessages, swapPlan, toBaseUnits, tooLong,
   // the country-scoped roles
   ROLES, assignedCountries, checkAddress, classifyHolder, grantPlan, officeSummary, revokePlan,
+  // the M-of-N a grant pins its office at
+  shapeOfGrant, shapeRule,
   // formatting
   formatCoin, groupDigits, relativeTime, shellSafe, short, stalledAtHeight, timestampSeconds,
   // commands
@@ -619,6 +1029,86 @@ function executionNote() {
     </details>`;
 }
 
+/**
+ * An identifier: truncated, in mono, with the whole of it one click away and a
+ * copy button beside it.
+ *
+ * A full bech32 address printed in the middle of a sentence is not read — it is
+ * skipped, and a custodian who skips it is a custodian who has not checked the
+ * recipient. Truncated to head and tail it *is* read, because comparing ten
+ * characters against ten characters is something a person will actually do. The
+ * whole of it stays reachable, because a custodian who cannot audit what they
+ * are approving is a custodian who has to trust this page, and this page has not
+ * earned that.
+ *
+ * Two controls rather than one, both keyboard-reachable: the dotted underline
+ * reveals, the button copies. One control doing both would mean every reveal
+ * silently overwrote somebody's clipboard.
+ */
+function idHtml(value, opts = {}) {
+  const full = String(value ?? '');
+  if (!full) return '<span class="muted">—</span>';
+  const brief = opts.short ?? short(full);
+  const what = opts.label ? `${opts.label}: ` : '';
+  return `<span class="y-id"><button type="button" class="y-id__text"
+      data-full="${esc(full)}" data-brief="${esc(brief)}"
+      title="${esc(full)}"
+      aria-label="${esc(what)}${esc(brief)} — show all of it"
+    >${esc(brief)}</button><button type="button" class="y-id__copy"
+      data-copy-text="${esc(full)}"
+      aria-label="Copy ${esc(what)}${esc(full)}">copy</button></span>`;
+}
+
+/**
+ * One listener for every identifier on the page, installed once.
+ *
+ * Delegated rather than wired per render, because these are composed into
+ * strings and inserted by the caller: anything reaching for the element while
+ * composing finds nothing there, and a copy button that silently does nothing is
+ * worse than none — the custodian believes they have the address.
+ */
+document.addEventListener('click', async (e) => {
+  const reveal = e.target.closest?.('.y-id__text');
+  if (reveal) {
+    const box = reveal.closest('.y-id');
+    const open = box.classList.toggle('y-id--open');
+    reveal.textContent = open ? reveal.dataset.full : reveal.dataset.brief;
+    reveal.setAttribute('aria-label', open
+      ? `${reveal.dataset.full} — shorten it`
+      : `${reveal.dataset.brief} — show all of it`);
+    return;
+  }
+  const copy = e.target.closest?.('[data-copy-text]');
+  if (!copy) return;
+  // Through shellSafe like everything else this page hands over: an address
+  // pasted into a command is as ruined by a carriage return as the command is.
+  const text = shellSafe(copy.dataset.copyText);
+  const was = copy.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    copy.textContent = 'copied';
+  } catch {
+    copy.textContent = 'no clipboard';
+  }
+  setTimeout(() => { copy.textContent = was; }, 2000);
+});
+
+/**
+ * A detail row whose value is an address, sometimes with a qualifier after it.
+ *
+ * `describeMessage` reports a joining custodian as "yml1… (weight 1)", and the
+ * identifier is the part somebody compares and copies while the rest is prose —
+ * so the two are separated here rather than by changing the shape the described
+ * message has been asserted on for a hundred and forty-five tests.
+ */
+function idCell(value) {
+  const text = String(value ?? '');
+  const gap = text.indexOf(' ');
+  if (gap < 0) return idHtml(text);
+  return `${idHtml(text.slice(0, gap))}
+    <span class="muted">${esc(text.slice(gap + 1))}</span>`;
+}
+
 function wireCopies() {
   document.querySelectorAll('[data-copy]').forEach((b) => {
     b.onclick = async () => {
@@ -708,7 +1198,7 @@ function custodianVotes(counted, f, proposalId, state) {
         on this proposal came from ${counted.stale.length === 1 ? 'an address' : 'addresses'} that
         ${counted.stale.length === 1 ? 'is' : 'are'} no longer a custodian, so
         ${counted.stale.length === 1 ? 'it does' : 'they do'} not count toward the threshold:
-        ${counted.stale.map((v) => `<code>${esc(short(v.voter))}</code>`).join(', ')}.</div>`
+        ${counted.stale.map((v) => idHtml(v.voter, { label: 'former custodian' })).join(', ')}.</div>`
     : '';
 
   return rows + stale;
@@ -733,7 +1223,7 @@ function effect(described) {
       <p class="lede">${m.understood ? esc(m.headline) : `⚠ ${esc(m.headline)}`}</p>
       ${m.understood ? `<table>${m.detail.map((d) => `<tr>
           <th style="width:11rem">${esc(d.label)}</th>
-          <td>${d.address ? `<code>${esc(d.value)}</code>` : esc(d.value)}</td>
+          <td>${d.address ? idCell(d.value) : esc(d.value)}</td>
         </tr>`).join('')}</table>` : ''}
       ${m.concerns.map((c) => `<div class="badbox">${esc(c)}</div>`).join('')}
       <details>
@@ -780,7 +1270,7 @@ async function screenFoundation() {
         : '<span class="pill p-warn">no fingerprint recorded</span>'}
       ${c.weight === 1 ? '' : `<span class="pill p-warn">weight ${esc(c.weight)}</span>`}
       ${ME === c.name ? '<span class="pill p-brass">you</span>' : ''}
-      <code style="margin-inline-start:auto">${esc(c.address)}</code>
+      <span style="margin-inline-start:auto">${idHtml(c.address, { label: 'custodian' })}</span>
     </div>`).join('');
 
   // Said out loud, because a single row and a truncated list look identical,
@@ -796,8 +1286,9 @@ async function screenFoundation() {
 
   const holdings = f.balances.length
     ? holdingsNote + f.balances.map((b) => `<div class="row" style="padding:.2rem 0">
-        <strong>${esc(formatCoin(b, { registry: f.registry }))}</strong>
-        <span class="muted small"><code>${esc(b.amount)}</code> ${esc(b.denom)}</span>
+        <strong class="y-num">${esc(formatCoin(b, { registry: f.registry }))}</strong>
+        <span class="muted small y-num">${esc(groupDigits(b.amount))} ${esc(b.denom)}
+          <span class="label">base units</span></span>
       </div>`).join('')
     : `<p class="muted small">Nothing. The foundation holds no balance — which for the
         destination of every seizure on this chain means either that nothing has been
@@ -836,7 +1327,7 @@ async function screenFoundation() {
       </div>
       <div class="card">
         <div class="label">Administered by</div>
-        <div class="stat" style="font-size:.95rem">itself</div>
+        <div class="stat stat--words">itself</div>
         <div class="muted small">${
           f.policy?.admin === f.policyAddress
             ? 'The group is its own admin, so membership can only change by a vote of the ' +
@@ -853,7 +1344,7 @@ async function screenFoundation() {
     <h2>What it holds</h2>
     <div class="card">${holdings}
       <p class="muted small" style="margin-top:.6rem">Account
-        <code>${esc(f.policyAddress)}</code></p>
+        ${idHtml(f.policyAddress, { label: 'the foundation account' })}</p>
     </div>
 
     <h2>The rules that pin this</h2>
@@ -864,7 +1355,8 @@ async function screenFoundation() {
         <tr><th>Custodians</th><td>exactly ${esc(audit.expectedCount)}</td></tr>
         <tr><th>Signatures</th><td>${esc(audit.expectedThreshold)} of them</td></tr>
         <tr><th>Seized funds go to</th>
-            <td><code>${esc(f.invariants.enforcement_recovery_destination)}</code>
+            <td>${idHtml(f.invariants.enforcement_recovery_destination,
+                  { label: 'the recovery destination' })}
               ${f.invariants.enforcement_recovery_destination === f.policyAddress
                 ? '<span class="pill p-ok">this account</span>'
                 : '<span class="pill p-bad">not this account</span>'}</td></tr>
@@ -919,6 +1411,34 @@ async function screenProposals() {
   const waiting = decorated.filter((d) => d.exec.can);
   const open = decorated.filter((d) => !d.exec.can && d.state.phase === 'open');
   const settled = decorated.filter((d) => !d.exec.can && d.state.phase !== 'open');
+
+  // The screen this console spends most of its life on, and the one nobody
+  // draws. Four "nothing here" lines under four headings reads as a page that
+  // failed to load; one statement that the chain answered and there is nothing
+  // does not — and the difference matters most on the account every seizure on
+  // the chain is paid into.
+  if (!decorated.length && !done.history.length && !done.failed) {
+    view.innerHTML = `
+      <h2>Proposals</h2>
+      <div class="card card--ok">
+        <p class="lede">Nothing has ever been proposed on this account.</p>
+        <p class="muted small">Which is the ordinary state of a custody account rather than a
+          sign of trouble: the foundation exists to receive what is seized and to pay
+          restitution, and neither happens weekly. Both reads behind this screen
+          succeeded — the proposal list and the transaction log — so this is the chain
+          answering "none", not this page failing to ask.</p>
+        <p class="small" style="margin-top:.7rem"><a href="#/propose">Raise the first one →</a></p>
+      </div>
+      <div class="card">
+        <p class="label">What appears here, and in which order</p>
+        <p class="muted small"><strong>Waiting to be carried out</strong> first, because a
+          proposal that has the signatures it needs and has not been executed has moved
+          nothing while looking finished. Then open for voting, then what was carried out,
+          then what was refused.</p>
+      </div>`;
+    wireCopies();
+    return;
+  }
 
   view.innerHTML = `
     ${waiting.length ? `
@@ -982,7 +1502,7 @@ function carriedOutList(history, f) {
           } · executed at block ${esc(h.height)}${
             h.time ? ` on ${esc(new Date(h.time).toUTCString().replace('GMT', 'UTC'))}` : ''
           }</p>
-        <p class="muted small">Transaction <code>${esc(h.hash)}</code></p>
+        <p class="muted small">Transaction ${idHtml(h.hash, { label: 'transaction hash' })}</p>
       </div>`;
   }).join('');
 }
@@ -1115,8 +1635,10 @@ async function screenProposal(id) {
       </div>
       ${p.summary ? `<p class="muted small">${esc(p.summary)}</p>` : ''}
       <p class="muted small">Proposed by
-        ${(p.proposers ?? []).map((a) =>
-          esc(f.names[a] ? `${f.names[a]} (${short(a)})` : short(a))).join(', ') || 'nobody'}
+        ${(p.proposers ?? []).map((a) => f.names[a]
+          ? `${esc(f.names[a])} ${idHtml(a, { label: 'proposer' })}`
+          : idHtml(a, { label: 'proposer' })).join(', ') || 'nobody'}
+        ${esc(relativeTime(timestampSeconds(p.submit_time) - chainNow))},
         on ${esc(new Date(p.submit_time).toUTCString().replace('GMT', 'UTC'))}</p>
       ${state.note ? `<p class="muted small">${esc(state.note)}</p>` : ''}
     </div>
@@ -1249,6 +1771,7 @@ function voteSection(f, p, state, counted, me, myVote, described, stale) {
             ${copyable(`vote-${option}`, cmd, `${label} proposal #${p.id} as ${me.name}`)}
           </details>`;
       }).join('')}
+      ${executionNote()}
       ${offlineNote(me)}
     </div>`;
 }
@@ -1266,6 +1789,7 @@ function execSection(f, p, state, exec, me) {
         ? `<p>${deadline(state.expiresAt, 'Stops being executable')}</p>` : ''}
       ${copyable('exec-cmd', execCommand({ proposalId: p.id, executor }),
         `Carry out proposal #${p.id}${me ? ` as ${me.name}` : ''}`)}
+      ${executionNote()}
     </div>`;
 }
 
@@ -1389,6 +1913,42 @@ async function screenPropose() {
         ${ROLES.map((r) => `<option value="${esc(r.name)}">${esc(r.label)} — ${
           esc(r.picker)}</option>`).join('')}
       </select>
+      <!--
+        The shape the office has to keep, which is the field that decides whether
+        this grant survives the office changing its own mind.
+
+        An office administers itself — that is what makes its membership
+        changeable by its members and not by a stranger — so it can vote its own
+        threshold down at any time after the grant. Without a recorded shape a
+        country can hold a proper ceremony, stand up a three-of-five enforcement
+        authority, and that office can later become one key and go on freezing
+        accounts, with nothing refusing it and nobody notified.
+
+        It is prefilled from what the office IS, because the chain refuses a
+        requirement the office does not already meet — but it is prefilled into
+        two visible numbers a custodian reads and changes rather than into a
+        hidden default, because a requirement captured from whoever turned up to
+        a ceremony would ratify a one-of-one as readily as a three-of-five. The
+        numbers are floors: the office may grow past them and may not fall below.
+      -->
+      <div class="shape">
+        <div>
+          <label for="gr-shape-sig">Signatures it must keep</label>
+          <input id="gr-shape-sig" inputmode="numeric" autocomplete="off" placeholder="3">
+        </div>
+        <div>
+          <label for="gr-shape-mem">Members it must keep</label>
+          <input id="gr-shape-mem" inputmode="numeric" autocomplete="off" placeholder="5">
+        </div>
+      </div>
+      <label class="check" for="gr-shape-none">
+        <input type="checkbox" id="gr-shape-none">
+        <span>Record no required shape. The office may reduce itself to a single key afterwards
+          and keep this authority — which is the state of every grant made before the chain had
+          this field.</span>
+      </label>
+      <div id="gr-shape-note"></div>
+
       <label for="gr-country">Which country — an assigned ISO 3166-1 alpha-2 code</label>
       <input id="gr-country" list="iso-codes" placeholder="ZA" autocomplete="off"
              spellcheck="false" maxlength="2" style="max-width:9rem;text-transform:uppercase">
@@ -1591,38 +2151,69 @@ async function screenPropose() {
     const rows = o.members.map((m) => `<tr>
         <td>${esc(m.name || '—')}</td>
         <td class="fp">${esc(m.fingerprint || '—')}</td>
-        <td><code>${esc(short(m.address))}</code></td>
-        <td style="font-variant-numeric:tabular-nums">${esc(m.weight === null ? '?' : String(m.weight))}</td>
+        <td>${idHtml(m.address, { label: 'member' })}</td>
+        <td class="num y-num">${esc(m.weight === null ? '?' : String(m.weight))}</td>
       </tr>`).join('');
     return `<div class="card card--ok" style="margin:0">
         <div class="row">
           <span class="lede">Group ${esc(o.groupId ?? '?')} —
             ${esc(o.threshold === null ? '?' : String(o.threshold))} of
-            ${esc(String(o.totalWeight))}</span>
+            ${esc(String(o.totalWeight))} in weight</span>
           <span class="pill p-ok">an x/group account</span>
+        </div>
+        <!-- The shape, said in people rather than in weight, because that is
+             what the chain measures a pinned grant against. A threshold of three
+             over weights of 3,1,1,1,1 is a one-of-five. -->
+        <div class="row">
+          <span class="small"><strong>As people: ${esc(o.rule ?? shapeRule(o.shape))}</strong>
+            — ${o.shape?.signatures === null
+              ? 'how many members it takes to act cannot be established'
+              : `${esc(String(o.shape.signatures))} of its
+                 ${esc(String(o.shape.members))} members can act together`}</span>
+          <span class="pill ${o.shape?.signatures === null ? 'p-warn'
+            : o.shape.signatures < 2 ? 'p-bad' : 'p-ok'}">${
+            o.shape?.signatures === null ? 'shape unknown'
+              : o.shape.signatures < 2 ? 'one key can act' : 'an office'}</span>
         </div>
         <p class="muted small">A policy address is derived from the group's sequence number and
           from nothing else, so the address above is not evidence of who controls this office.
           This is. Check it against the ceremony record before you grant it anything.</p>
-        <table><thead><tr><th>Member</th><th>Fingerprint</th><th>Address</th><th>Weight</th></tr></thead>
-          <tbody>${rows}</tbody></table>
+        <!-- Four columns of data, one of them a bech32 address, on a phone: this
+             scrolls inside its own box rather than clipping the weight column,
+             which is the column that says whether the threshold means anything. -->
+        <div class="y-scroll">
+          <table><thead><tr><th>Member</th><th>Fingerprint</th><th>Address</th><th class="num">Weight</th></tr></thead>
+            <tbody>${rows}</tbody></table>
+        </div>
         ${o.concerns.map((c) => box('badbox', c)).join('')}
       </div>`;
   };
 
   /** Look a holder up, once the address is worth a round trip. */
   const lookUp = (which, address, onDone) => {
-    clearTimeout(timers[which]);
     if (checkAddress(address).problem) {
+      clearTimeout(timers[which]);
       holders[which] = null;
       pending[which] = null;
       onDone();
       return;
     }
+    // A second call for an address already in flight leaves the armed timer
+    // alone. It used to clear the timer FIRST and then return here, which meant
+    // any repeat call inside the debounce window destroyed the pending lookup and
+    // never rearmed it — and the page then sat on "Looking this address up on the
+    // chain…" for ever while grantPlan refused to compose anything, because
+    // pending was set and nothing was going to resolve it.
+    //
+    // The repeat call is not hypothetical: both handlers are wired, to `input`
+    // and to `change`, so pasting an address and then leaving the field fires
+    // both within a few milliseconds. Typing it character by character worked,
+    // pasting it did not, and the difference was invisible.
     if (holders[which]?.address === address || pending[which] === address) {
       onDone();
       return;
     }
+    clearTimeout(timers[which]);
     pending[which] = address;
     holders[which] = null;
     onDone();
@@ -1639,6 +2230,15 @@ async function screenPropose() {
     }, 350);
   };
 
+  /**
+   * Whether the custodian has touched the shape fields.
+   *
+   * The prefill has to stop the moment somebody types, or a slow chain read would
+   * overwrite the number they just entered with the office's own — silently, on
+   * the field that decides whether the office can vote itself down to one key.
+   */
+  let shapeTouched = false;
+
   const grant = () => {
     const holderAddr = document.getElementById('gr-holder').value.trim();
     const role = document.getElementById('gr-role').value;
@@ -1647,9 +2247,49 @@ async function screenPropose() {
     const why = document.getElementById('gr-why').value.trim();
     const out = document.getElementById('gr-out');
     const officeBox = document.getElementById('gr-office');
+    const sigField = document.getElementById('gr-shape-sig');
+    const memField = document.getElementById('gr-shape-mem');
+    const noneField = document.getElementById('gr-shape-none');
+    const shapeNote = document.getElementById('gr-shape-note');
 
     const h = holders.grant;
     officeBox.innerHTML = holderAddr && !checkAddress(holderAddr).problem ? officeCard(h) : '';
+
+    // Prefilled from what the office IS, once and only until somebody types. The
+    // chain refuses a requirement the office does not already meet, so its own
+    // shape is the only value that is certain to compose — and it is put in front
+    // of the custodian as two numbers rather than applied behind them.
+    const known = h?.office?.shape;
+    if (!shapeTouched && known && known.signatures !== null) {
+      sigField.value = String(known.signatures);
+      memField.value = String(known.members);
+    }
+    sigField.disabled = noneField.checked;
+    memField.disabled = noneField.checked;
+
+    const sig = sigField.value.trim();
+    const mem = memField.value.trim();
+    let requiredShape = null;
+    let shapeProblem = null;
+    if (!noneField.checked) {
+      if (!/^\d+$/.test(sig) || !/^\d+$/.test(mem)) {
+        shapeProblem = 'Say what shape this office has to keep — two whole numbers — or tick the '
+          + 'box to record none. A grant with no recorded shape is one the office can keep after '
+          + 'voting itself down to a single key, and that has to be a decision rather than an '
+          + 'empty field.';
+      } else {
+        requiredShape = { signatures: Number(sig), members: Number(mem) };
+      }
+    }
+    shapeNote.innerHTML = noneField.checked
+      ? box('warnbox', 'Nothing will hold this office to its membership. Every action this role '
+        + 'permits will keep working however few people are left in the office.')
+      : (requiredShape && known && known.signatures !== null
+        && (requiredShape.signatures > known.signatures || requiredShape.members > known.members)
+        ? box('badbox', `This office is ${shapeRule(known)} today, so a requirement of `
+          + `${shapeRule(requiredShape)} is one it does not meet. The chain refuses the grant `
+          + 'outright rather than writing one that permits nothing.')
+        : '');
 
     const plan = grantPlan({
       policyAddress: f.policyAddress,
@@ -1659,6 +2299,7 @@ async function screenPropose() {
       holderVerdict: h?.verdict ?? null,
       office: h?.office ?? null,
       existingGrants: h?.grants ?? null,
+      requiredShape,
     });
 
     // Anything already stated against the office above is not restated here.
@@ -1672,6 +2313,7 @@ async function screenPropose() {
     ]);
 
     const problems = plan.problems.filter((p) => !saidAbove.has(p));
+    if (shapeProblem) problems.push(shapeProblem);
     if (!title) problems.push('Give it a title — it is what the other custodians see first.');
     if (!why) {
       problems.push('Say why. Nobody should be handed a national authority on an undescribed ' +
@@ -1680,7 +2322,14 @@ async function screenPropose() {
     if (tooLong(title) || tooLong(why)) {
       problems.push(`Titles and reasons are limited to ${MAX_METADATA_LEN} bytes.`);
     }
-    const notes = plan.concerns.filter((c) => !saidAbove.has(c))
+    // While the shape fields are empty nothing has been chosen yet, so the plan's
+    // warning about a grant that records no shape would be telling a custodian
+    // off for not having finished typing. The demand to choose is already in
+    // `problems`; this is the same deduplication as `saidAbove` and, like it, it
+    // is presentation only — `plan.ready` still gates the composition.
+    const notes = plan.concerns
+      .filter((c) => !saidAbove.has(c))
+      .filter((c) => !(shapeProblem && /records NO required shape/.test(c)))
       .map((c) => box('warnbox', c)).join('');
 
     // `plan.ready` gates the composition, not the length of the list above. The
@@ -1700,12 +2349,30 @@ async function screenPropose() {
     out.innerHTML = `${notes}
       <div class="card card--waiting" style="margin:0">
         <p class="lede">Grant ${esc(plan.role.label)} in ${esc(plan.scope)} to
-          ${esc(short(plan.holder))}</p>
+          ${esc(short(plan.holder))}${plan.requiredShape
+            ? `, pinned at ${esc(shapeRule(plan.requiredShape))}` : ', unpinned'}</p>
         <p class="muted small">${esc(plan.role.office)} What consults it:
           ${esc(plan.role.consumer)} Once ${esc(f.threshold)} custodians have signed, this office
           can act inside ${esc(plan.scope)} and nowhere else.</p>
+        <p class="muted small">${plan.requiredShape
+          ? `The grant records ${esc(shapeRule(plan.requiredShape))}, and the chain re-checks it on
+             every action the role permits: if this office later falls below
+             ${esc(String(plan.requiredShape.signatures))} signatures or
+             ${esc(String(plan.requiredShape.members))} members it loses the authority until it
+             restores itself, which it can do by its own vote and without the foundation.`
+          : 'The grant records <strong>no required shape</strong>. This office can vote itself down '
+            + 'to a single key afterwards and keep the authority.'}</p>
         ${copyable('gr-doc', doc, 'Write this to proposal.json')}
         ${copyable('gr-cmd', submitCommand({ proposer: me.address }), 'Then submit it')}
+        ${plan.requiredShape ? `<details>
+          <summary>If the command answers <code>unknown field "required_shape"</code></summary>
+          <p class="muted small">Then the binary you are running it against predates this field, and
+            it is refusing to parse the document rather than refusing the proposal. Nothing was
+            submitted and nothing was signed. The fix is the node, not the document: a chain whose
+            <code>x/alias</code> does not know <code>required_shape</code> also cannot enforce one,
+            so a grant made from that binary is unpinned however it is composed. Upgrade the node,
+            or tick "record no required shape" above and accept what that means.</p>
+        </details>` : ''}
         ${executionNote()}
       </div>`;
     wireCopies();
@@ -1742,7 +2409,13 @@ async function screenPropose() {
         options += h.grants.map((g) => {
           const value = `${g.role}|${g.jurisdiction}`;
           const by = g.granted_by === f.policyAddress ? 'this foundation' : short(g.granted_by ?? '');
-          return `<option value="${esc(value)}">${esc(g.role)} in ${esc(g.jurisdiction)} — granted by ${
+          // The pin each grant records, in the picker, because it is part of what
+          // is being removed and because it is the only place a custodian can see
+          // which of an office's grants hold it to its membership and which do
+          // not.
+          const pinned = shapeOfGrant(g);
+          return `<option value="${esc(value)}">${esc(g.role)} in ${esc(g.jurisdiction)} — ${
+            pinned ? `pinned at ${esc(shapeRule(pinned))}` : 'no required shape'}, granted by ${
             esc(by)} at height ${esc(String(g.granted_at_height ?? '?'))}</option>`;
         }).join('');
       }
@@ -1927,10 +2600,19 @@ async function screenPropose() {
     el.addEventListener('input', swap);
     el.addEventListener('change', swap);
   });
-  ['gr-role', 'gr-country', 'gr-title', 'gr-why'].forEach((id) => {
+  ['gr-role', 'gr-country', 'gr-title', 'gr-why', 'gr-shape-none'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('input', grant);
     el.addEventListener('change', grant);
+  });
+  // The two shape fields also stop the prefill, permanently. A chain read
+  // arriving after somebody typed must not overwrite what they typed on the
+  // field that decides whether the office can reduce itself to one key.
+  ['gr-shape-sig', 'gr-shape-mem'].forEach((id) => {
+    const el = document.getElementById(id);
+    const typed = () => { shapeTouched = true; grant(); };
+    el.addEventListener('input', typed);
+    el.addEventListener('change', typed);
   });
   ['rv-grant', 'rv-title', 'rv-why'].forEach((id) => {
     const el = document.getElementById(id);
@@ -1958,10 +2640,25 @@ async function route() {
   // down, which is the cheapest possible way to keep this honest.
   pinnedHeight = null;
   window.scrollTo(0, 0);
-  view.innerHTML = '<p class="empty">Reading the chain…</p>';
+  // The pending state, drawn rather than left as a word. Nothing on this page
+  // resolves in one read — the constitution names the account, the account names
+  // the group, the group names its members — and on the connection this gets
+  // opened on that is several seconds of a screen that must not look empty,
+  // because an empty custody account and an unread one look identical.
+  view.innerHTML = `
+    <p class="y-eyebrow">Reading the chain</p>
+    <div class="card">
+      <p class="muted small">Asking <code>x/constitution</code> which account the foundation is,
+        then asking that account who its custodians are. Nothing below is drawn until both
+        answer, so that a blank screen never gets to mean "empty".</p>
+    </div>`;
 
   await syncClock();
-  document.getElementById('who').textContent = ME ? `acting as ${ME}` : 'read only';
+  // `ME` is a query parameter, so it is escaped even though it is only ever a
+  // custodian's name: the value is whatever was in the link somebody was sent.
+  document.getElementById('who').innerHTML = ME
+    ? `<span class="pill p-brass">acting as ${esc(ME)}</span>`
+    : '<span class="pill p-mute">read only</span>';
 
   try {
     if (path.startsWith('#/proposal/')) await screenProposal(path.slice(11));

@@ -426,18 +426,63 @@ export function describeMessage(message, ctx = {}) {
       );
     }
 
+    // The shape the grant pins the office at. Read from the message rather than
+    // from anything this page looked up, because what a custodian is voting on is
+    // the message — and an absent requirement has to read as a sentence rather
+    // than as an empty row. Silence here is the failure: an unpinned grant looks
+    // exactly like a pinned one, and it lets the office vote itself to one key
+    // afterwards and keep the authority.
+    const pinned = granting ? shapeOfGrant(message) : null;
+    if (granting) {
+      if (!message.required_shape) {
+        concerns.push(
+          'This grant records no required shape, so nothing holds the office to the membership '
+            + 'you are looking at. An office administers itself: it can vote its own threshold '
+            + 'down to one signature after this passes and keep the authority, with nothing on '
+            + 'the chain refusing it and nobody notified. Every grant made before the field '
+            + 'existed is in that state; a new one does not have to be.',
+        );
+      } else if (!pinned) {
+        concerns.push(
+          'This grant carries a required shape this page cannot read as two whole numbers, so '
+            + 'what it pins the office at is unknown. Do not vote on it here.',
+        );
+      } else {
+        const invalid = validateShape(pinned);
+        if (invalid) concerns.push(`${invalid} The chain refuses this grant.`);
+      }
+    }
+
     const where = ASSIGNED_COUNTRIES.has(scope) ? scope : `${scope || '(none given)'}`;
     return {
       typeUrl,
       understood: true,
       headline: granting
         ? `Grant ${known?.label ?? message.role ?? '(no role)'} in ${where} to ${name(message.holder)}`
+          + `${pinned ? `, pinned at ${shapeRule(pinned)}` : ', with no required shape'}`
         : `Revoke ${known?.label ?? message.role ?? '(no role)'} in ${where} from ${name(message.holder)}`,
       detail: [
         { label: granting ? 'Granted to' : 'Taken from', value: message.holder ?? '', address: true },
         { label: 'Role', value: message.role ?? '(none given)' },
         { label: 'Country', value: scope || '(none given)' },
         ...(known ? [{ label: 'What consults it', value: known.consumer }] : []),
+        granting
+          ? {
+              label: 'Office must keep',
+              value: pinned
+                ? `${shapeRule(pinned)} — ${pinned.signatures} of its people must sign, and it must `
+                  + `keep at least ${pinned.members} member${pinned.members === 1 ? '' : 's'}. `
+                  + 'Fall below either and every action this role permits is refused until the '
+                  + 'office restores itself, which it can do by its own vote.'
+                : 'nothing — the office may reduce itself to a single key afterwards and keep this '
+                  + 'authority',
+            }
+          : {
+              label: 'Shape removed with it',
+              value: 'whatever the grant recorded. A revocation names only the triple, so what is '
+                + 'being removed is the grant and its requirement together — read the grant to see '
+                + 'what that was.',
+            },
         { label: 'Signed by', value: message.authority ?? '', address: true },
       ],
       concerns,
@@ -1713,6 +1758,15 @@ export function officeSummary({ policy, members, foundationAddress } = {}) {
   const unreadable = roster.filter((m) => m.weight === null);
   const concerns = [];
 
+  // What the office IS, in the two numbers a grant's requirement is written in.
+  // Computed the way the chain computes it, which is not the threshold — see the
+  // note above MAX_OFFICE_MEMBERS.
+  const shape = officeShapeOf({
+    threshold,
+    members: roster,
+    decisionType: decision['@type'],
+  });
+
   if (address && foundationAddress && address === foundationAddress) {
     concerns.push(
       'This holder is the foundation itself. The chain permits that on purpose — a country ' +
@@ -1754,12 +1808,35 @@ export function officeSummary({ policy, members, foundationAddress } = {}) {
   if (!roster.length) {
     concerns.push('The chain returned no members for this group, so there is nothing to inspect.');
   }
+  // The weighted case, which the threshold check above cannot see. A threshold of
+  // three over weights of 3, 1, 1, 1, 1 is a one-of-five: the heaviest member
+  // reaches it alone. This is the sentence that stops a custodian reading "3 of
+  // 5" off the panel and pinning a grant at a shape one person satisfies.
+  if (shape.signatures !== null && threshold !== null && threshold >= 2 && shape.signatures < 2) {
+    concerns.push(
+      `This group's threshold is ${threshold}, but its member weights are not equal: `
+        + `${shape.signatures === 1 ? 'one member' : `${shape.signatures} members`} can reach that `
+        + 'threshold alone. It is a one-of-many wearing the clothes of a larger office, and it is '
+        + 'what the chain will measure this grant against — not the threshold.',
+    );
+  }
+  if (shape.problem) {
+    concerns.push(
+      `The shape of this office cannot be established: ${shape.problem}. A grant to it cannot be `
+        + 'pinned, and an unpinned grant is one the office can keep after voting itself down to a '
+        + 'single key.',
+    );
+  }
 
   return {
     address,
     groupId: policy?.group_id ? String(policy.group_id) : null,
     threshold,
     totalWeight,
+    // The two numbers a required shape is written in, and the rule as it is said
+    // out loud: "3-of-5".
+    shape,
+    rule: shapeRule(shape),
     // Sorted by name so two custodians comparing the same office over the phone
     // read it in the same order, whatever order the chain returned it in.
     members: roster.slice().sort((a, b) => (a.name ?? a.address).localeCompare(b.name ?? b.address)),
@@ -1767,8 +1844,188 @@ export function officeSummary({ policy, members, foundationAddress } = {}) {
   };
 }
 
-/** The grant message, as it goes into the proposal document. */
-export function grantRoleMessage({ policyAddress, holder, role, jurisdiction }) {
+// --- the shape an office has to keep -----------------------------------------
+//
+// A role grant can pin the M-of-N of the office that holds it, and the chain
+// re-checks that pin on every action the grant permits — so an office that votes
+// itself down to one key loses the authority automatically instead of keeping the
+// power to freeze accounts. The field is `required_shape` on MsgGrantRole and on
+// the stored RoleGrant.
+//
+// Three things about it are load-bearing enough to be encoded here rather than
+// left to whoever fills in the form.
+//
+// SIGNATURES ARE PEOPLE, NOT THE THRESHOLD. x/group counts weight, so a policy
+// with a threshold of 3 over members weighing 3, 1, 1, 1 and 1 is a one-of-five:
+// the first member reaches the threshold alone. The chain takes the members in
+// descending weight and counts how few can reach the threshold, and this file
+// does the same arithmetic — because a console that displayed the threshold as
+// "3 signatures" would show a 3-of-5 for what is one key, on the screen whose
+// entire job is to stop that.
+//
+// ABSENT IS NOT ZERO. The field is a message so that "no requirement" and "a
+// requirement of nothing" can never be confused: no requirement is the field
+// omitted entirely, and a shape of zero signatures is refused by the chain. Every
+// grant made before the field existed carries no requirement, and this page says
+// so in words rather than rendering silence.
+//
+// A REQUIREMENT ONLY RATCHETS. Re-granting the same triple with a lower
+// requirement, or with none, is refused: the obvious resubmission is composed
+// from a summary rather than from the stored grant, leaves the field out, and
+// silently removes the pin under a proposal whose stated purpose was to change
+// nothing. Relaxing one deliberately is a revoke and a grant in the same
+// proposal.
+
+/** The largest office whose shape the chain will read. Mirrors types.MaxOfficeMembers. */
+export const MAX_OFFICE_MEMBERS = 50;
+
+/**
+ * How few members can reach the threshold between them.
+ *
+ * The greedy answer is the exact one: for any k, the largest sum k members can
+ * reach is the sum of the k largest weights, so sorting descending and
+ * accumulating finds the minimum count rather than an estimate. Same reasoning,
+ * and the same result, as the keeper's `fewestSigners`.
+ *
+ * A group whose threshold exceeds its total weight is frozen rather than weak,
+ * and that is a different sentence: it can take no action at all, so nothing
+ * turns on whether its shape is adequate.
+ */
+export function fewestSigners(weights, threshold) {
+  const usable = (Array.isArray(weights) ? weights : []).filter((w) => Number.isFinite(w) && w > 0);
+  if (!Number.isFinite(threshold) || threshold <= 0) {
+    return { signatures: null, problem: 'this group records no usable threshold' };
+  }
+  const sorted = usable.slice().sort((a, b) => b - a);
+  let total = 0;
+  for (let i = 0; i < sorted.length; i += 1) {
+    total += sorted[i];
+    if (total >= threshold) return { signatures: i + 1, problem: null };
+  }
+  return {
+    signatures: null,
+    problem: `its ${sorted.length} members hold ${total} of voting weight between them and its `
+      + `threshold is ${threshold}, so no set of members can act at all`,
+  };
+}
+
+/**
+ * What an office is, right now, in the two numbers a requirement is written in.
+ *
+ * `members` counts only members holding a positive weight: a member who cannot
+ * vote is a name on a list, and padding a group with weightless members is the
+ * obvious way to satisfy a count while shrinking the number of people who decide.
+ *
+ * A percentage decision policy is refused rather than converted, exactly as the
+ * keeper refuses one. The arithmetic is possible and the meaning is not: a
+ * percentage makes the threshold FOLLOW the membership, so an office could drop
+ * from five members to two, still satisfy its percentage, and the number of
+ * people who decide would have gone from three to two.
+ */
+export function officeShapeOf({ threshold, members, decisionType } = {}) {
+  const roster = Array.isArray(members) ? members : [];
+  const positive = roster.filter((m) => m && Number.isFinite(m.weight) && m.weight > 0);
+  const unreadable = roster.filter((m) => m && m.weight === null);
+
+  if (decisionType && !String(decisionType).includes('ThresholdDecisionPolicy')) {
+    return {
+      signatures: null,
+      members: positive.length,
+      problem: 'this group uses a percentage decision policy, and a shape cannot be held against '
+        + 'one: the threshold moves with the membership, so the office could shed members and '
+        + 'satisfy it forever',
+    };
+  }
+  if (unreadable.length) {
+    return {
+      signatures: null,
+      members: positive.length,
+      problem: `${unreadable.length} member weight${unreadable.length === 1 ? '' : 's'} could not `
+        + 'be read, so how many people it takes to act cannot be established',
+    };
+  }
+  if (roster.length > MAX_OFFICE_MEMBERS) {
+    return {
+      signatures: null,
+      members: positive.length,
+      problem: `this group has ${roster.length} members, more than the ${MAX_OFFICE_MEMBERS} the `
+        + 'chain will read a shape from, so it cannot hold a pinned grant at all',
+    };
+  }
+
+  const fewest = fewestSigners(positive.map((m) => m.weight), threshold);
+  return { signatures: fewest.signatures, members: positive.length, problem: fewest.problem };
+}
+
+/**
+ * A shape as the people who agreed it say it out loud.
+ *
+ * "3-of-5", because that is what is on the ceremony record and said in the room.
+ * Null renders as words rather than as "0-of-0": a grant with no requirement is a
+ * different thing from one requiring nothing, and the whole point of the field
+ * being a message is that those two never read the same.
+ */
+export function shapeRule(shape) {
+  if (!shape || shape.signatures === null || shape.signatures === undefined) {
+    return 'no required shape';
+  }
+  return `${shape.signatures}-of-${shape.members}`;
+}
+
+/** Floors on both numbers: an office may grow, and may not fall below its grant. */
+export function shapeSatisfies(want, have) {
+  if (!want) return true;
+  if (!have || have.signatures === null || have.members === null) return false;
+  return have.signatures >= want.signatures && have.members >= want.members;
+}
+
+/**
+ * Whether a requirement is one the chain will accept at all.
+ *
+ * The zero case is the one worth stating: a requirement of no signatures reads on
+ * a record as though it covered something, so the chain refuses it and the way to
+ * record no requirement is to omit the field.
+ */
+export function validateShape(shape) {
+  if (!shape) return null;
+  const { signatures, members } = shape;
+  if (!Number.isInteger(signatures) || !Number.isInteger(members)) {
+    return 'A required shape has to be two whole numbers.';
+  }
+  if (signatures === 0) {
+    return `A required shape of ${shapeRule(shape)} asks for no signatures. The chain refuses that: `
+      + 'to record no requirement, choose "record no required shape" instead of asking for zero.';
+  }
+  if (signatures < 0 || members < 0) return 'A required shape cannot be negative.';
+  if (members < signatures) {
+    return `A required shape of ${shapeRule(shape)} asks for more signatures than members, which no `
+      + 'office could ever satisfy.';
+  }
+  if (members > MAX_OFFICE_MEMBERS) {
+    return `A required shape of ${shapeRule(shape)} asks for more than the ${MAX_OFFICE_MEMBERS} `
+      + "members the chain can read a group's shape from.";
+  }
+  return null;
+}
+
+/** The shape a stored grant records, or null where it records none. */
+export function shapeOfGrant(grant) {
+  const raw = grant?.required_shape;
+  if (!raw) return null;
+  const signatures = exactCount(raw.signatures);
+  const members = exactCount(raw.members);
+  if (signatures === null || members === null) return null;
+  return { signatures, members };
+}
+
+/**
+ * The grant message, as it goes into the proposal document.
+ *
+ * `requiredShape` is omitted from the message entirely when it is null, and that
+ * is the difference between "no requirement" and "a requirement of nothing" — see
+ * the note above `MAX_OFFICE_MEMBERS`. Never send zeros.
+ */
+export function grantRoleMessage({ policyAddress, holder, role, jurisdiction, requiredShape = null }) {
   return {
     // The proto package is blockchain.alias.v1. Not yamale.blockchain.alias.v1,
     // which is what the module's *REST* paths are prefixed with and what anybody
@@ -1786,6 +2043,13 @@ export function grantRoleMessage({ policyAddress, holder, role, jurisdiction }) 
     // comparing like with like.
     role,
     jurisdiction,
+    // Spread rather than set, so the key is absent and not null. A JSON null in
+    // this position is decoded by the chain as an unset message field today, and
+    // relying on that would be relying on a coincidence: the whole reason the
+    // field is a message is that presence carries meaning.
+    ...(requiredShape
+      ? { required_shape: { signatures: requiredShape.signatures, members: requiredShape.members } }
+      : {}),
   };
 }
 
@@ -1836,6 +2100,11 @@ export function grantPlan({
   holderVerdict = null,
   office = null,
   existingGrants = null,
+  // The M-of-N the office must keep to keep the role, or null for no
+  // requirement. Null is a real choice here rather than a default: a grant with
+  // no requirement is one the office can keep after voting itself to one key,
+  // and the form has to say so out loud rather than omit a field quietly.
+  requiredShape = null,
 }) {
   const problems = [];
   const concerns = [];
@@ -1883,7 +2152,71 @@ export function grantPlan({
           'it and when, and changes nothing else. That is the right thing for a proposal ' +
           'resubmitted after a timeout, and pointless otherwise.',
       );
+      // The ratchet, mirrored from the keeper. Re-granting the same triple with a
+      // weaker requirement — or with none — is refused there, and the reason it
+      // has to be refused here too is that the omission is the natural mistake: a
+      // resubmission composed from a summary rather than from the stored grant
+      // leaves the field out, and a proposal whose stated purpose was to change
+      // nothing silently unpins an office.
+      const pinned = shapeOfGrant(already);
+      if (pinned && !requiredShape) {
+        problems.push(
+          `${short(addr.address)} already holds ${role} in ${scope.scope} pinned at `
+            + `${shapeRule(pinned)}, and this grant would record no requirement. The chain refuses `
+            + 'that: omitting the shape on a re-grant would remove the pin. To relax it '
+            + 'deliberately, revoke the grant and make a new one in the same proposal — two '
+            + 'messages, so that unpinning an office is a thing somebody wrote down.',
+        );
+      } else if (pinned && requiredShape && !shapeSatisfies(pinned, requiredShape)) {
+        problems.push(
+          `${short(addr.address)} already holds ${role} in ${scope.scope} pinned at `
+            + `${shapeRule(pinned)}, and this would reduce it to ${shapeRule(requiredShape)}. A `
+            + 'requirement only ratchets upward; to lower it, revoke the grant and make a new one '
+            + 'in the same proposal.',
+        );
+      }
     }
+  }
+
+  // The requirement itself: shaped so the chain will accept it, and reachable by
+  // the office as it stands today. The chain checks the second at grant time as
+  // well as on every action, so a requirement the office does not meet is a
+  // proposal that collects three signatures and then fails at execution.
+  const shapeProblem = validateShape(requiredShape);
+  if (shapeProblem) {
+    problems.push(shapeProblem);
+  } else if (requiredShape && office) {
+    if (office.shape?.problem) {
+      problems.push(
+        `This grant would be pinned at ${shapeRule(requiredShape)}, and the office's own shape `
+          + `cannot be established: ${office.shape.problem}. The chain checks the requirement `
+          + 'against the office before it writes the grant, so it would refuse this — and a pin '
+          + 'that cannot be checked is not a pin.',
+      );
+    } else if (!shapeSatisfies(requiredShape, office.shape)) {
+      problems.push(
+        `A grant pinned at ${shapeRule(requiredShape)} cannot be made to this office, which is `
+          + `${shapeRule(office.shape)} today. Either the address is not the office this grant was `
+          + `meant for, or the office has to be brought up to ${shapeRule(requiredShape)} before it `
+          + 'can hold the authority. The chain refuses this at grant time, not at first use.',
+      );
+    }
+  }
+  if (!requiredShape && !shapeProblem) {
+    concerns.push(
+      'This grant records NO required shape, so nothing holds the office to its membership. An '
+        + 'office administers itself: the members below can vote their own threshold down to one '
+        + 'signature at any time afterwards and keep this authority, and nothing on the chain '
+        + 'would refuse it or notify anybody. That is the state every grant made before the field '
+        + 'existed is in. Pin it unless you mean that.',
+    );
+  }
+  if (requiredShape && requiredShape.signatures === 1) {
+    concerns.push(
+      `A requirement of ${shapeRule(requiredShape)} is satisfied by one person signing, so it pins `
+        + 'the office at something a single key already meets. It is better than no requirement '
+        + 'only in that it stops the office shedding members.',
+    );
   }
 
   const ready = problems.length === 0;
@@ -1894,12 +2227,14 @@ export function grantPlan({
     role: known,
     scope: scope.scope,
     holder: addr.address,
+    requiredShape: requiredShape ?? null,
     messages: ready
       ? [grantRoleMessage({
           policyAddress,
           holder: addr.address,
           role,
           jurisdiction: scope.scope,
+          requiredShape: requiredShape ?? null,
         })]
       : [],
   };

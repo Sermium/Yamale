@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yamale · Validator console</title>
+<!-- The typefaces, before the stylesheet, so the request starts as early as the
+     parser can start it. Every stack in the block below names real fallbacks, so
+     a blocked font host degrades to something chosen rather than to Times. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!--
   The operator's view of the validator set.
 
@@ -16,63 +22,565 @@
   Everything here is read from the public REST/RPC surface. No key, no account,
   no signing — an operations view that could move funds is a view nobody will
   leave open on a shared screen.
+
+  Two things shape the design.
+
+  ONE. The question this page is opened with is "is the chain all right", and a
+  row of numbers does not answer it — it asks it. So the answer is a sentence at
+  the top, in the words an operator would use, and the numbers are underneath it
+  as the evidence. A margin above two thirds is the number that matters and it
+  is stated as a number of tokens and as a sentence about what losing a node
+  would do.
+
+  TWO. Nothing here is estimated. Voting power is converted out of base units
+  using the staking denom's own exponent read from the chain, by string, because
+  a validator's stake exceeds what a double can hold exactly and a guessed
+  exponent is a factor of a million. Missed blocks are attributed by joining the
+  slashing module's records to the staking module's through the consensus public
+  key — the two endpoints share no address — and where that join cannot be made
+  the column is left blank rather than guessed, because a missed-block count
+  against the wrong operator is worse than no count at all.
 -->
 <style>
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
+
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
+     ========================================================================== */
+
   :root {
-    color-scheme: light dark;
-    --navy:#12253f; --ink:#0b1523; --brass:#a87b3c; --paper:#f6f7f9;
-    --bg:var(--paper); --panel:#fff; --text:var(--ink); --muted:#5c6e88;
-    --border:#e3e7ee; --ok:#0d7a4a; --warn:#a8791b; --bad:#b02a25;
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
   }
+
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme=light]) {
-      --bg:var(--ink); --panel:var(--navy); --text:#e8eef7; --muted:#8fa4c4;
-      --border:#24405f; --ok:#6fbfa5; --warn:#d2a65e; --bad:#ef8a85;
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
     }
   }
-  *{box-sizing:border-box}
-  body{margin:0;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       background:var(--bg);color:var(--text)}
-  header{display:flex;align-items:center;gap:.7rem;padding:1.1rem 1.2rem;
-         border-bottom:1px solid var(--border)}
-  h1{font-size:1rem;margin:0;font-weight:650}
-  .wrap{max-width:1100px;margin:0 auto;padding:1.2rem}
-  .grid{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:1.4rem}
-  .stat{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:.9rem 1rem}
-  .stat__label{font-size:.74rem;color:var(--muted);letter-spacing:.03em}
-  .stat__value{font-size:1.5rem;font-weight:680;line-height:1.2;margin-top:.15rem;
-               font-variant-numeric:tabular-nums}
-  .stat__note{font-size:.76rem;color:var(--muted)}
-  table{width:100%;border-collapse:collapse;background:var(--panel);
-        border:1px solid var(--border);border-radius:14px;overflow:hidden}
-  th,td{padding:.6rem .8rem;text-align:left;border-bottom:1px solid var(--border);font-size:.87rem}
-  th{font-size:.72rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-  tr:last-child td{border-bottom:0}
-  td.num{text-align:right;font-variant-numeric:tabular-nums}
-  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:.45rem}
-  .ok{background:var(--ok)} .warn{background:var(--warn)} .bad{background:var(--bad)}
-  .t-ok{color:var(--ok)} .t-warn{color:var(--warn)} .t-bad{color:var(--bad)}
-  h2{font-size:.95rem;margin:1.6rem 0 .6rem}
-  .muted{color:var(--muted);font-size:.82rem}
-  .err{background:#fbe9e8;color:#b02a25;padding:.7rem .9rem;border-radius:10px;font-size:.86rem}
-  @media (prefers-color-scheme: dark){:root:not([data-theme=light]) .err{background:#3a1c1b;color:#f0a9a5}}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+  .y-scroll { overflow-x: auto; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ==========================================================================
+     THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
+     else: clients/foundation, clients/governance, clients/land,
+     clients/validator. Kept identical in all four for the same reason as the
+     block above, and kept OUT of clients/shared/yamale.css because the citizen
+     surfaces are not dense card stacks and should not inherit this density.
+
+     Everything here is expressed in the tokens above. No console defines a
+     colour of its own; a value that is not in a token is a value the next
+     surface will get slightly wrong.
+     ========================================================================== */
+
+  /* The shared reset zeroes paragraph margins, which is right for prose laid
+     out with `gap`. These consoles are card stacks with paragraphs in normal
+     flow, so the rhythm is restored here rather than by editing several
+     thousand lines of template literal. */
+  p { margin: 0 0 var(--sp-3); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--brass); }
+  a:hover { color: var(--text); }
+
+  /* --- chrome ------------------------------------------------------------ */
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600;
+  }
+  header h1 a { color: inherit; text-decoration: none; }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-2); margin: var(--sp-6) 0 var(--sp-3); }
+  h2:first-child { margin-top: var(--sp-1); }
+  h3 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  /* --- panels ------------------------------------------------------------ */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  /* The second elevation step is not decoration and is not spent on headings:
+     it marks the one card on a screen that is waiting for a person to act. */
+  .card--waiting { border-inline-start: 3px solid var(--brass); background: var(--wash-brass);
+                   box-shadow: var(--shadow-2); }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+
+  .grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  /* --- text ------------------------------------------------------------- */
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  /* Chips carry state in form as well as in colour: mono, uppercase, and always
+     beside a word. `.pill` and `.p-*` are the names the markup already uses. */
+  .pill, .y-chip { display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap; }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass); }
+
+  code { font-size: 0.86em; word-break: break-all; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2;
+  }
+
+  /* --- the three boxes that say something is wrong ---------------------- */
+  .err, .badbox, .warnbox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-2) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .err code, .badbox code, .warnbox code { color: inherit; }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn); }
+
+  /* --- controls --------------------------------------------------------- */
+  /* Anything interactive looks interactive: a border, a hover, a focus ring
+     from the token, and a cursor. */
+  button { font: inherit; }
+  .btn, .vote, button.primary, .primary {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+  }
+  .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
+  .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input, select, textarea {
+    font-family: var(--font-sans); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%;
+    /* Capped, because a field is as wide as what goes in it and nothing that
+       goes in these is a thousand pixels long. A full-bleed input in a wide
+       panel reads as an unfinished layout and makes a forty-character address
+       harder to check, not easier. */
+    max-width: 44rem;
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--text-faint); }
+  input::placeholder, textarea::placeholder { color: var(--text-faint); }
+  textarea { min-height: 3.4rem; resize: vertical; }
+  /* An address, a hash or a reference typed into a field is compared character
+     by character against a document or a piece of paper, which is not something
+     a proportional face lets a person do. */
+  input[id$='-to'], input[id$='holder'], input[id$='-addr'], input[id$='-who'],
+  input[id$='-ev'], input[id$='-evh'], input[id='geom'], input[id='ref'],
+  input[id='sw-in'], input[id='adm-add'] { font-family: var(--font-mono); }
+  /* An amount is compared digit by digit and lines up under the last one. */
+  input[id$='-amt'], input[id$='-id'] {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+
+  /* The label-and-copy line above a composed command. */
+  .cmdhead {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap;
+  }
+  /* The commands are the product of these pages, so a block of them gets the
+     width of its panel rather than the measure of a paragraph. */
+  pre { max-width: none; }
+
+  details { margin-top: var(--sp-2); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  /* Digits that line up get tabular figures, and a table is where they line up.
+     Proportional numerals in a column are a column a reader cannot compare by
+     eye, which on these pages is the operation they perform most. */
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+  .vrow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+          padding: var(--sp-2) 0; border-top: 1px solid var(--border); }
+  .vrow:first-of-type { border-top: 0; }
+
+  /* A proportion is a length before it is a number. */
+  .bar { height: 8px; border-radius: 99px; background: var(--wash-mute);
+         overflow: hidden; margin: var(--sp-2) 0 var(--sp-1); display: flex; }
+  .bar span { display: block; height: 100%; }
+  .barwrap { position: relative; }
+  .thresh { position: absolute; top: -3px; bottom: -3px; width: 2px;
+            background: var(--text); opacity: .55; }
+
+  /* --- identifiers ------------------------------------------------------ */
+  /* Mono, truncated, click to reveal, copy beside it. Nobody should have to
+     read thirty-nine characters of bech32 to know they are looking at the right
+     account, and nobody should be unable to when they need to. */
+  .y-id { display: inline-flex; align-items: baseline; gap: var(--sp-1); max-width: 100%; }
+  .y-id__text {
+    font-family: var(--font-mono); font-feature-settings: 'zero' 1; font-size: 0.86em;
+    background: none; border: 0; padding: 0; margin: 0; color: inherit; cursor: pointer;
+    text-align: start; text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--text-faint); text-underline-offset: 3px;
+  }
+  .y-id__text:hover { text-decoration-color: var(--brass); }
+  .y-id--open .y-id__text { word-break: break-all; }
+  .y-id__copy {
+    font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0 var(--sp-1); border-radius: 2px;
+    border: 1px solid var(--rule); background: transparent; color: var(--text-muted);
+    cursor: pointer; flex: none;
+  }
+  .y-id__copy:hover { border-color: var(--brass); color: var(--text); }
+
+  /* --- a phone ---------------------------------------------------------- */
+  /* The verdict has to arrive before the chrome. */
+  @media (max-width: 560px) {
+    header { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+    nav { margin-inline-start: 0; width: 100%; gap: 0; }
+    nav a { padding: var(--sp-1) var(--sp-2); font-size: 0.76rem; }
+    .wrap { padding: var(--sp-3); }
+    .card { padding: var(--sp-3); }
+    h2 { margin: var(--sp-5) 0 var(--sp-2); }
+    pre { font-size: 0.7rem; padding: var(--sp-2); }
+  }
+
+  /* ==========================================================================
+     Validator-console only, and nothing above this line is.
+     ========================================================================== */
+
+  :root { color-scheme: light dark; }
+
+  /* The verdict. This is the whole page for an operator: one sentence, at the
+     top, before any figure — because the question they opened it with is "is the
+     chain all right", and four stat tiles do not answer that, they ask it. */
+  .verdict {
+    border: 1px solid var(--border); border-inline-start-width: 5px;
+    border-radius: var(--radius); padding: var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-4); box-shadow: var(--shadow-1);
+  }
+  .verdict--ok { background: var(--wash-ok); border-inline-start-color: var(--ok); }
+  .verdict--warn { background: var(--wash-warn); border-inline-start-color: var(--warn);
+                   box-shadow: var(--shadow-2); }
+  .verdict--bad { background: var(--wash-bad); border-inline-start-color: var(--bad);
+                  box-shadow: var(--shadow-2); }
+  .verdict__head {
+    font-family: var(--font-display); font-size: var(--step-2); font-weight: 600;
+    line-height: 1.2; letter-spacing: -0.015em;
+  }
+  .verdict--ok .verdict__head { color: var(--ok); }
+  .verdict--warn .verdict__head { color: var(--warn); }
+  .verdict--bad .verdict__head { color: var(--bad); }
+  .verdict p { margin: var(--sp-2) 0 0; }
+
+  /* A share of voting power is a length before it is a percentage. Two
+     validators at 50% each and one at 95% are the same table of numbers and
+     visibly different rows. */
+  .share { display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end; }
+  .share__bar { width: 4.5rem; height: 6px; border-radius: 99px;
+                background: var(--wash-mute); overflow: hidden; flex: none; }
+  .share__fill { display: block; height: 100%; background: var(--accent); }
+  .share--big .share__fill { background: var(--warn); }
+
+  /* State is a word in a chip, never a colour on its own — a dot beside a
+     colour-blind reader's screen says nothing at all. */
+  tbody tr:hover { background: var(--surface-2); }
+  td .moniker { font-weight: 600; }
 </style>
 </head>
 <body>
 <header>
-  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px">
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px"
+       onerror="this.style.display='none'">
   <h1>Validator console</h1>
-  <span class="muted" id="clock" style="margin-inline-start:auto"></span>
+  <span id="chain" style="margin-inline-start:auto"></span>
+  <span class="label" id="clock"></span>
 </header>
 
 <div class="wrap">
   <div id="error"></div>
+  <div id="verdict"></div>
 
   <div class="grid" id="stats"></div>
+  <!-- Caveats about the figures go under the figures, not above the verdict. An
+       operator opening this page at three in the morning must not have to read
+       past a note about denom metadata to find out whether the chain is up. -->
+  <div id="caveat"></div>
 
   <h2>The validator set</h2>
-  <div id="vals"></div>
+  <div id="vals"><p class="spin">Reading the validator set…</p></div>
 
   <p class="muted" id="foot"></p>
 </div>
@@ -81,121 +589,434 @@
 const REST = '/api/rest';
 const RPC  = '/api/rpc';
 
+/** A failed call, carrying the URL and the status. Both, always. */
+class CallFailed extends Error {
+  constructor(url, status) {
+    super(`${url} → ${status}`);
+    this.url = url;
+    this.status = status;
+  }
+}
+
 const get = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(url.split('?')[0] + ' → ' + res.status);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new CallFailed(url.split('?')[0], 'unreachable');
+  }
+  if (!res.ok) throw new CallFailed(url.split('?')[0], res.status);
   return res.json();
 };
 
-// A validator's health is not one number. Bonded says it is in the set;
-// jailed says the chain removed it; missed blocks say it is failing right now
-// but has not been punished yet. The last is the one an operator can still act
-// on, so it gets the prominence.
-function health(v, signing) {
-  if (v.jailed) return { cls:'bad', word:'jailed' };
-  if (v.status !== 'BOND_STATUS_BONDED') return { cls:'warn', word:'not bonded' };
-  const missed = Number(signing?.missed_blocks_counter ?? 0);
-  if (missed > 100) return { cls:'bad', word:'missing blocks' };
-  if (missed > 0)   return { cls:'warn', word:'some misses' };
-  return { cls:'ok', word:'signing' };
+/** Optional reads: a missing extra must not blank a page that has the essentials. */
+const maybe = (p, fallback) => p.catch(() => fallback);
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Anything a person copies into a shell goes through this. See .gitattributes. */
+const shellSafe = (s) => String(s ?? '').replace(/\r/g, '');
+
+// ---------------------------------------------------------------------------
+// Numbers.
+//
+// Voting power is held in the staking denom's base units, and it is a string in
+// the JSON for a reason: a chain with a supply of a billion tokens and six
+// decimal places has stakes past 2^53, where a JavaScript number stops being
+// able to hold consecutive integers. So the arithmetic is BigInt and the
+// division into display units is done by moving a decimal point through a
+// string — never by dividing by 1e6, and never by an exponent this page
+// guessed. The exponent comes from the chain's own denom metadata.
+// ---------------------------------------------------------------------------
+
+const groupDigits = (digits) => String(digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/**
+ * Base units to display units, by string.
+ *
+ * `12300000` at exponent 6 is `12.3`, and it gets there by cutting the string
+ * rather than by a float multiplication — which is how 12.30 becomes 12.299999.
+ */
+function fromBase(amount, exponent) {
+  const text = String(amount ?? '0');
+  if (!/^\d+$/.test(text)) return text;
+  if (!exponent) return groupDigits(text);
+  const padded = text.padStart(exponent + 1, '0');
+  const whole = padded.slice(0, padded.length - exponent);
+  const frac = padded.slice(padded.length - exponent).replace(/0+$/, '');
+  return `${groupDigits(whole)}${frac ? `.${frac}` : ''}`;
 }
 
-const fmt = (n) => Number(n).toLocaleString();
-// Voting power is stored in the staking denom's base units.
-const power = (tokens) => Math.floor(Number(tokens) / 1e6);
+/** A whole number of display units, for a headline figure. */
+function wholeUnits(amount, exponent) {
+  const text = String(amount ?? '0');
+  if (!/^\d+$/.test(text)) return text;
+  if (!exponent) return groupDigits(text);
+  const whole = text.length > exponent ? text.slice(0, text.length - exponent) : '0';
+  return groupDigits(whole);
+}
+
+/** Human durations. An operator wants "four minutes ago", not a timestamp. */
+function ago(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 2) return 'just now';
+  if (s < 90) return `${s} seconds ago`;
+  if (s < 5400) return `${Math.round(s / 60)} minutes ago`;
+  if (s < 172800) return `${Math.round(s / 3600)} hours ago`;
+  return `${Math.round(s / 86400)} days ago`;
+}
+
+/**
+ * An identifier: truncated, in mono, with the whole of it one click away and a
+ * copy button beside it.
+ *
+ * A valoper address is what an operator pastes into a delegation or a jail
+ * query, and it is thirty-nine characters of which six matter to a reader. Both
+ * needs are served rather than one: the dotted underline reveals, the button
+ * copies, and both are reachable from a keyboard.
+ */
+function idHtml(value, label) {
+  const full = String(value ?? '');
+  if (!full) return '<span class="muted">—</span>';
+  const brief = full.length > 18 ? `${full.slice(0, 12)}…${full.slice(-6)}` : full;
+  const what = label ? `${label}: ` : '';
+  return `<span class="y-id"><button type="button" class="y-id__text"
+      data-full="${esc(full)}" data-brief="${esc(brief)}" title="${esc(full)}"
+      aria-label="${esc(what)}${esc(brief)} — show all of it"
+    >${esc(brief)}</button><button type="button" class="y-id__copy"
+      data-copy-text="${esc(full)}"
+      aria-label="Copy ${esc(what)}${esc(full)}">copy</button></span>`;
+}
+
+// One listener for every identifier on the page, installed once rather than
+// wired per render — this page redraws itself every ten seconds.
+document.addEventListener('click', async (e) => {
+  const reveal = e.target.closest?.('.y-id__text');
+  if (reveal) {
+    const open = reveal.closest('.y-id').classList.toggle('y-id--open');
+    reveal.textContent = open ? reveal.dataset.full : reveal.dataset.brief;
+    return;
+  }
+  const copy = e.target.closest?.('[data-copy-text]');
+  if (!copy) return;
+  const was = copy.textContent;
+  try {
+    await navigator.clipboard.writeText(shellSafe(copy.dataset.copyText));
+    copy.textContent = 'copied';
+  } catch {
+    // The clipboard needs a secure context, and this console is served over
+    // plain HTTP on a tailnet. Saying so beats claiming a copy that did not
+    // happen.
+    copy.textContent = 'no clipboard';
+  }
+  setTimeout(() => { copy.textContent = was; }, 2000);
+});
+
+// ---------------------------------------------------------------------------
+// A validator's health is not one number. Bonded says it is in the set; jailed
+// says the chain removed it; missed blocks say it is failing right now but has
+// not been punished yet. The last is the one an operator can still act on, so
+// it gets the prominence — and every state is a word as well as a colour.
+// ---------------------------------------------------------------------------
+
+function health(v, signing) {
+  if (v.jailed) return { cls: 'bad', word: 'jailed', why: 'removed from the set by the chain' };
+  if (v.status !== 'BOND_STATUS_BONDED') {
+    return { cls: 'warn', word: 'not bonded', why: 'in the register, not in the set' };
+  }
+  if (!signing) return { cls: 'ok', word: 'signing', why: 'bonded; misses not attributable' };
+  const missed = Number(signing.missed_blocks_counter ?? 0);
+  if (signing.tombstoned) return { cls: 'bad', word: 'tombstoned', why: 'permanently removed' };
+  if (missed > 100) return { cls: 'bad', word: 'missing blocks', why: `${missed} missed` };
+  if (missed > 0) return { cls: 'warn', word: 'some misses', why: `${missed} missed` };
+  return { cls: 'ok', word: 'signing', why: 'no missed blocks recorded' };
+}
+
+/**
+ * The one sentence this page exists to say.
+ *
+ * Ordered by what an operator can still do something about, and a halted chain
+ * comes first because every figure under it is historical and none of them look
+ * it.
+ */
+function verdict({ stopped, sinceLastBlock, bonded, validators, marginBase, exponent, symbol, failing }) {
+  if (!validators.length) {
+    return { tone: 'bad', head: 'This chain has no validators.',
+      body: 'The staking module answered and its validator set is empty, which is not a state a '
+        + 'running chain can be in. Either this node is not synced to the chain you meant, or the '
+        + 'chain never finished its genesis.' };
+  }
+  if (!bonded.length) {
+    return { tone: 'bad', head: 'No validator is bonded, so no block can be produced.',
+      body: 'Every validator in the register is jailed or unbonded. The chain is stopped and will '
+        + 'stay stopped until one of them is unjailed — nothing below this line is going to change '
+        + 'on its own.' };
+  }
+  if (stopped) {
+    return { tone: 'bad', head: `This chain has stopped producing blocks — the last one was ${sinceLastBlock}.`,
+      body: 'Everything below is the state as of that block. It is accurate and it is not current. '
+        + 'Two thirds of voting power has to be signing for a block to commit, so start with which '
+        + 'of the operators below is not.' };
+  }
+  if (bonded.length < 2) {
+    return { tone: 'warn', head: 'One validator is producing every block, so any outage stops the chain.',
+      body: 'A single bonded validator holds all the voting power, which means there is no margin '
+        + 'at all: rebooting that node halts the network. This is the ordinary state of a devnet '
+        + 'and it is not a state to launch from.' };
+  }
+  if (failing.length) {
+    return { tone: 'warn',
+      head: `${failing.length} of ${bonded.length} validators are not signing as they should.`,
+      body: 'They are still bonded, so their power still counts toward the two thirds a block '
+        + 'needs — which is exactly why this is worth acting on before the chain notices and '
+        + 'jails them.' };
+  }
+  return { tone: 'ok', head: 'The chain is producing blocks, and every bonded validator is signing.',
+    body: `Losing ${wholeUnits(marginBase, exponent)} ${symbol} of voting power would stop it. `
+      + 'That is the margin above the two thirds a block needs — not the number of validators, '
+      + 'because one large operator going down can halt a chain that has ten small ones.' };
+}
+
+// ---------------------------------------------------------------------------
+
+let lastHeight = null;
+let lastHeightAt = null;
 
 async function load() {
   try {
-    document.getElementById('error').innerHTML = '';
-
-    const [vals, infos, status, block] = await Promise.all([
-      get(`${REST}/cosmos/staking/v1beta1/validators?pagination.limit=100`),
-      get(`${REST}/cosmos/slashing/v1beta1/signing_infos?pagination.limit=100`),
-      get(`${RPC}/status`),
-      get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/latest`),
+    // The staking denom and its exponent, so nothing on this page is divided by
+    // a number this page invented. Read once per refresh and cheap; a chain that
+    // renames its bond denom mid-flight is a chain this page should follow.
+    const [vals, infos, status, stakingParams, metadata, consensus] = await Promise.all([
+      get(`${REST}/cosmos/staking/v1beta1/validators?pagination.limit=200`),
+      maybe(get(`${REST}/cosmos/slashing/v1beta1/signing_infos?pagination.limit=200`), null),
+      maybe(get(`${RPC}/status`), null),
+      maybe(get(`${REST}/cosmos/staking/v1beta1/params`), null),
+      maybe(get(`${REST}/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=200`), null),
+      // The join between the two modules. See consensusIndex below.
+      maybe(get(`${REST}/cosmos/base/tendermint/v1beta1/validatorsets/latest?pagination.limit=200`), null),
     ]);
 
+    document.getElementById('error').innerHTML = '';
+
+    const denom = stakingParams?.params?.bond_denom ?? 'uyml';
+    const meta = (metadata?.metadatas ?? []).find((m) => m.base === denom);
+    const unit = (meta?.denom_units ?? []).find((u) => u.denom === meta?.display);
+    // Three outcomes, not two. On yamale-devnet-2 the metadata query answers
+    // perfectly and carries no entry for uyml — every fiat denom has one and the
+    // staking denom does not — so "absent" is the live case, and reporting it as
+    // "could not be read" would send an operator to look at a node that is
+    // working. Six places is then this console's own knowledge of YML, which is
+    // a different claim from the chain's and is labelled as one.
+    const exponent = meta ? Number(unit?.exponent ?? 0) : 6;
+    const symbol = meta?.symbol || meta?.display || (denom === 'uyml' ? 'YML' : denom);
+    const denomSource = meta ? 'chain' : (metadata ? 'absent' : 'unread');
+
     const validators = vals.validators ?? [];
-    const bonded = validators.filter(v => v.status === 'BOND_STATUS_BONDED' && !v.jailed);
-    const total  = bonded.reduce((s, v) => s + power(v.tokens), 0);
+    const bonded = validators.filter((v) => v.status === 'BOND_STATUS_BONDED' && !v.jailed);
+    const total = bonded.reduce((s, v) => s + BigInt(v.tokens || '0'), 0n);
 
-    // Signing info is keyed by the consensus address, which does not appear on
-    // the validator record — so it is matched by position in the shared order
-    // the two endpoints return. Imperfect, and flagged rather than hidden: if
-    // the counts differ, the misses column is left blank instead of guessing.
-    const signing = infos.info ?? [];
-    const alignable = signing.length === validators.length;
+    /**
+     * Missed blocks, attributed correctly or not at all.
+     *
+     * x/slashing keys its records by the *consensus* address, which does not
+     * appear anywhere on a staking validator's record — so the two lists used to
+     * be matched by position, which is a guess that silently attributes one
+     * operator's failures to another. They are joined here through the consensus
+     * public key, which both endpoints do carry: the tendermint validator set
+     * gives key → consensus address, and x/slashing gives consensus address →
+     * missed blocks. Where either endpoint is unavailable the column is blank.
+     */
+    const consAddressOf = new Map(
+      (consensus?.validators ?? []).map((c) => [c.pub_key?.key, c.address]),
+    );
+    const signingByCons = new Map((infos?.info ?? []).map((i) => [i.address, i]));
+    const signingOf = (v) => {
+      const cons = consAddressOf.get(v.consensus_pubkey?.key);
+      return cons ? signingByCons.get(cons) ?? null : null;
+    };
+    const attributable = Boolean(consensus && infos)
+      && validators.some((v) => signingOf(v));
 
-    const h = Number(status?.result?.sync_info?.latest_block_height
-                     ?? block?.block?.header?.height ?? 0);
-    const signatures = block?.block?.last_commit?.signatures ?? [];
-    const signed = signatures.filter(s => s.signature).length;
+    const height = Number(status?.result?.sync_info?.latest_block_height ?? 0);
+    const blockTime = status?.result?.sync_info?.latest_block_time
+      ? new Date(status.result.sync_info.latest_block_time).getTime() / 1000
+      : null;
+    const chainId = status?.result?.node_info?.network ?? '';
+    const now = Date.now() / 1000;
 
-    // 2/3 of voting power is what the chain actually needs. Showing the margin
-    // above it is more useful than showing the count, because losing one large
-    // validator can halt a chain that has ten small ones.
-    const quorum = Math.ceil(total * 2 / 3);
-    const margin = total - quorum;
+    // Two independent signals that the chain has stopped, because either alone
+    // is wrong sometimes: a block older than a minute on a five-second chain,
+    // and a height this page has watched not move. The second catches a node
+    // reporting a fresh time for a block it is not advancing past.
+    if (height && height !== lastHeight) { lastHeight = height; lastHeightAt = now; }
+    const stalled = blockTime !== null && now - blockTime > 60;
+    const notAdvancing = lastHeightAt !== null && now - lastHeightAt > 90;
+    const stopped = Boolean(height) && (stalled || notAdvancing);
+    const sinceLastBlock = blockTime === null ? 'not reported by the node' : ago(now - blockTime);
+
+    // Two thirds of voting power is what the chain actually needs, and the
+    // margin above it is more useful than the count.
+    const quorum = (total * 2n + 2n) / 3n;
+    const margin = total > quorum ? total - quorum : 0n;
+
+    const failing = bonded.filter((v) => {
+      const st = health(v, signingOf(v));
+      return st.cls !== 'ok';
+    });
+
+    const v = verdict({ stopped, sinceLastBlock, bonded, validators,
+      marginBase: margin.toString(), exponent, symbol, failing });
+    document.getElementById('verdict').innerHTML = `
+      <div class="verdict verdict--${v.tone}">
+        <div class="row" style="align-items:flex-start">
+          <div class="verdict__head">${esc(v.head)}</div>
+          <span class="pill p-${v.tone}">${esc(
+            v.tone === 'ok' ? 'healthy' : v.tone === 'warn' ? 'needs attention' : 'stopped')}</span>
+        </div>
+        <p class="small">${esc(v.body)}</p>
+      </div>`;
 
     document.getElementById('stats').innerHTML = `
-      <div class="stat">
-        <div class="stat__label">HEIGHT</div>
-        <div class="stat__value">${fmt(h)}</div>
-        <div class="stat__note">last block signed by ${signed} of ${signatures.length}</div>
+      <div class="card">
+        <div class="label">Height</div>
+        <div class="stat">${groupDigits(height || 0)}</div>
+        <div class="muted small">last block ${esc(sinceLastBlock)}</div>
       </div>
-      <div class="stat">
-        <div class="stat__label">ACTIVE VALIDATORS</div>
-        <div class="stat__value">${bonded.length}</div>
-        <div class="stat__note">${validators.length - bonded.length} inactive or jailed</div>
+      <div class="card">
+        <div class="label">Validators signing</div>
+        <div class="stat">${bonded.length - failing.length} of ${bonded.length}</div>
+        <div class="muted small">${validators.length - bonded.length} more in the register,
+          jailed or unbonded</div>
       </div>
-      <div class="stat">
-        <div class="stat__label">VOTING POWER</div>
-        <div class="stat__value">${fmt(total)}</div>
-        <div class="stat__note">needs ${fmt(quorum)} to produce blocks</div>
+      <div class="card">
+        <div class="label">Voting power</div>
+        <div class="stat">${wholeUnits(total.toString(), exponent)}
+          <span class="label" style="font-size:.72rem">${esc(symbol)}</span></div>
+        <div class="muted small">${wholeUnits(quorum.toString(), exponent)} ${esc(symbol)}
+          of it has to be signing for a block to commit</div>
       </div>
-      <div class="stat">
-        <div class="stat__label">MARGIN ABOVE ⅔</div>
-        <div class="stat__value ${margin <= 0 ? 't-bad' : 't-ok'}">${fmt(margin)}</div>
-        <div class="stat__note">${
+      <div class="card${margin === 0n ? ' card--bad' : ''}">
+        <div class="label">Margin above two thirds</div>
+        <div class="stat">${wholeUnits(margin.toString(), exponent)}
+          <span class="label" style="font-size:.72rem">${esc(symbol)}</span></div>
+        <div class="muted small">${
           bonded.length < 2
-            ? 'single validator — any outage halts the chain'
-            : 'power that can drop before blocks stop'
+            ? 'a single validator, so there is no margin: any outage halts the chain'
+            : 'power that can go offline before blocks stop'
         }</div>
       </div>`;
 
-    const rows = validators.map((v, i) => {
-      const info = alignable ? signing[i] : null;
-      const st = health(v, info);
-      const share = total ? (100 * power(v.tokens) / total) : 0;
-      return `<tr>
-        <td><span class="dot ${st.cls}"></span>${v.description?.moniker || '—'}</td>
-        <td class="t-${st.cls}">${st.word}</td>
-        <td class="num">${fmt(power(v.tokens))}</td>
-        <td class="num">${share.toFixed(1)}%</td>
-        <td class="num">${info ? fmt(info.missed_blocks_counter ?? 0) : '—'}</td>
+    if (!validators.length) {
+      document.getElementById('vals').innerHTML = `<div class="card">
+        <p class="lede">The register holds no validators.</p>
+        <p class="muted small">This is the staking module answering, not a failed call — so either
+          this node is following a chain that never completed its genesis, or it is not the chain
+          you meant. Check the chain id in the corner above.</p></div>`;
+      document.getElementById('foot').textContent = '';
+      finish(chainId, denomSource, denom, symbol);
+      return;
+    }
+
+    // Sorted by power, because the question the table answers is "who could
+    // halt this", and that is the top of the list.
+    const rows = [...validators]
+      .sort((a, b) => (BigInt(b.tokens || 0) > BigInt(a.tokens || 0) ? 1 : -1))
+      .map((v) => {
+        const info = signingOf(v);
+        const st = health(v, info);
+        const power = BigInt(v.tokens || '0');
+        const share = total > 0n ? Number((power * 10000n) / total) / 100 : 0;
+        return `<tr>
+        <td>
+          <div class="moniker">${esc(v.description?.moniker || 'no moniker set')}</div>
+          <div class="muted small">${idHtml(v.operator_address, 'operator address')}</div>
+        </td>
+        <td><span class="pill p-${st.cls}">${esc(st.word)}</span>
+          <div class="muted small" style="margin-top:.2rem">${esc(st.why)}</div></td>
+        <td class="num">${fromBase(power.toString(), exponent)}
+          <span class="muted">${esc(symbol)}</span></td>
+        <td class="num">
+          <div class="share ${share > 50 ? 'share--big' : ''}">
+            <span>${share.toFixed(1)}%</span>
+            <span class="share__bar" role="img"
+                  aria-label="${share.toFixed(1)} per cent of voting power"><span
+              class="share__fill" style="width:${Math.min(100, share)}%"></span></span>
+          </div>
+        </td>
+        <td class="num">${info ? groupDigits(info.missed_blocks_counter ?? 0) : '—'}</td>
         <td class="num">${(Number(v.commission?.commission_rates?.rate ?? 0) * 100).toFixed(0)}%</td>
       </tr>`;
-    }).join('');
+      }).join('');
 
-    document.getElementById('vals').innerHTML = `<table>
-      <thead><tr>
-        <th>Validator</th><th>State</th><th style="text-align:right">Power</th>
-        <th style="text-align:right">Share</th><th style="text-align:right">Missed</th>
-        <th style="text-align:right">Commission</th>
-      </tr></thead><tbody>${rows}</tbody></table>`;
+    // The table is wide, so it scrolls inside its own box. A horizontal
+    // scrollbar on the document is how one table takes a whole layout with it.
+    document.getElementById('vals').innerHTML = `<div class="card y-scroll" style="padding:0">
+      <table>
+        <thead><tr>
+          <th>Validator</th><th>State</th><th class="num">Power</th>
+          <th class="num">Share</th><th class="num">Missed</th><th class="num">Commission</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table></div>`;
 
-    document.getElementById('foot').textContent = alignable
-      ? 'Missed-block counts are cumulative since each validator joined.'
-      : 'Missed-block counts hidden: the signing-info list does not line up with the validator list, and a guessed alignment would attribute failures to the wrong operator.';
+    document.getElementById('foot').innerHTML = attributable
+      ? 'Missed-block counts are cumulative since each validator joined, and are attributed by '
+        + 'joining x/slashing to x/staking through the consensus public key rather than by '
+        + 'position in two lists.'
+      : '<span class="warnbox" style="display:block">Missed-block counts are blank because the '
+        + 'join between x/slashing and x/staking could not be made — one of the two endpoints did '
+        + 'not answer. A guessed alignment would attribute one operator\'s failures to another, '
+        + 'which is worse than a blank column.</span>';
 
-    document.getElementById('clock').textContent =
-      'updated ' + new Date().toLocaleTimeString();
+    finish(chainId, denomSource, denom, symbol);
   } catch (e) {
-    // Say which call failed. "Something went wrong" at 3am is worse than useless.
-    document.getElementById('error').innerHTML =
-      `<p class="err">Could not read the chain — ${e.message}</p>`;
+    // Say which call failed, and say what the figures on screen now are. "Could
+    // not read the chain" at three in the morning is worse than useless.
+    const named = e instanceof CallFailed
+      ? `<strong>Could not read <code>${esc(e.url)}</code> — ${esc(String(e.status))}.</strong>`
+      : `<strong>${esc(e.message)}</strong>`;
+    document.getElementById('error').innerHTML = `<p class="err">${named}<br>
+      That is the exact call that failed, and nothing after it was attempted. Anything still on
+      screen below is from the last successful read and is not current${
+        lastHeightAt ? ` — it is ${esc(ago(Date.now() / 1000 - lastHeightAt))}` : ''}.
+      ${e.status === 401 || e.status === 403
+        ? 'A 401 here is this chain\'s REST allowlist, which denies by default: the path is missing '
+          + 'from the proxy in front of the node rather than from the node.'
+        : ''}</p>`;
+    document.getElementById('clock').textContent = 'not reading the chain';
   }
 }
+
+/** The chrome: which chain this is, and when the page last managed to read it. */
+function finish(chainId, denomSource, denom, symbol) {
+  document.getElementById('chain').innerHTML = chainId
+    ? `<span class="pill p-mute">${esc(chainId)}</span>`
+    : '<span class="pill p-warn">chain id unknown</span>';
+  document.getElementById('clock').textContent = `read ${new Date().toLocaleTimeString()}`;
+  const caveat = document.getElementById('caveat');
+  if (denomSource === 'chain') { caveat.innerHTML = ''; return; }
+  caveat.innerHTML = `<p class="warnbox">${
+    denomSource === 'absent'
+      ? `This chain publishes bank metadata for its forty-odd currency denoms and
+         <strong>none for <code>${esc(denom)}</code></strong>, which is the denom voting power is
+         measured in. So the six decimal places used below are this console's own knowledge of
+         ${esc(symbol)} rather than the chain's, and every figure in ${esc(symbol)} inherits that.
+         The query answered — there is nothing wrong with the node.`
+      : `The denom metadata could not be read at all, so nothing is known about
+         <code>${esc(denom)}</code> — including whether the chain publishes an entry for it. Six
+         decimal places are being assumed below.`}</p>`;
+}
+
+// The pending state, drawn rather than left blank: an empty validator table and
+// an unread one look identical, and only one of them is a reason to get up.
+document.getElementById('verdict').innerHTML = `
+  <div class="verdict" style="border-inline-start-color:var(--brass)">
+    <div class="verdict__head" style="color:var(--brass)">Reading the chain…</div>
+    <p class="small">Six reads: the validator set, the slashing records, the node's own status,
+      the staking parameters, the denom metadata and the consensus set. Nothing is drawn from a
+      partial answer.</p>
+  </div>`;
 
 load();
 setInterval(load, 10000);

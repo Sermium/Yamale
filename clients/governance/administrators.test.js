@@ -549,3 +549,259 @@ test('the follow-up says code 0 is acceptance and not execution', () => {
   assert.match(after, /query tx/);
   assert.match(after, /query alias params/);
 });
+
+// ---------------------------------------------------------------------------
+// What the console shows a person, as opposed to what it composes.
+//
+// These are the arithmetic and the wording, and they are tested for the same
+// reason as the refusals above: every one of them is a place where being
+// plausibly wrong is worse than being obviously broken. A tally divided by a
+// guessed exponent is off by a factor of a million and looks entirely
+// reasonable; a quorum bar drawn at a default reports the opposite outcome from
+// the chain; "failed" beside a green tally reads as a lost vote when it means a
+// won one that never executed.
+// ---------------------------------------------------------------------------
+
+import {
+  asPercent,
+  decimalToBps,
+  displayAmount,
+  groupDigits,
+  outcomeOf,
+  readStakingDenom,
+  readTallyParams,
+  tallyOf,
+  timeLeft,
+  timestampSeconds,
+  wholeAmount,
+} from './administrators.js';
+import { VALIDATORS, voteCommand } from './validators.js';
+
+test('an amount is divided by moving a decimal point through a string', () => {
+  // The float version of this is 12.299999999999999, and this figure is a
+  // number of somebody's tokens.
+  assert.equal(displayAmount('12300000', 6), '12.3');
+  assert.equal(displayAmount('65000000000', 6), '65,000');
+  assert.equal(displayAmount('1', 6), '0.000001');
+  assert.equal(displayAmount('0', 6), '0');
+  // Past 2^53, where a double stops holding consecutive integers.
+  assert.equal(displayAmount('9007199254740993000000', 6), '9,007,199,254,740,993');
+  assert.equal(wholeAmount('174900000000', 6), '174,900');
+  assert.equal(wholeAmount('999999', 6), '0');
+  // No exponent means no division, not a division by one million.
+  assert.equal(displayAmount('4200', 0), '4,200');
+});
+
+test('an amount that is not a plain integer is returned untouched, never guessed at', () => {
+  assert.equal(displayAmount('not a number', 6), 'not a number');
+  assert.equal(displayAmount(undefined, 6), '0');
+  assert.equal(groupDigits('1234567'), '1,234,567');
+});
+
+test('the staking denom comes from the chain, and says when it did not', () => {
+  const fromChain = readStakingDenom({
+    stakingParams: { params: { bond_denom: 'uyml' } },
+    metadata: { metadatas: [{
+      base: 'uyml', display: 'yml', symbol: 'YML',
+      denom_units: [{ denom: 'uyml', exponent: 0 }, { denom: 'yml', exponent: 6 }],
+    }] },
+  });
+  assert.deepEqual(fromChain,
+    { denom: 'uyml', symbol: 'YML', exponent: 6, source: 'chain', fromChain: true });
+
+  // The live case on yamale-devnet-2: the metadata answers, with an entry for
+  // every fiat denom and none for the staking denom. "Absent" and "unread" must
+  // not collapse into one message — one of them sends somebody to look at a node
+  // that is answering perfectly.
+  const absent = readStakingDenom({
+    stakingParams: { params: { bond_denom: 'uyml' } },
+    metadata: { metadatas: [{ base: 'uzar', display: 'zar', symbol: 'ZAR', denom_units: [] }] },
+  });
+  assert.equal(absent.source, 'absent');
+  assert.equal(absent.exponent, 6);
+  assert.equal(absent.symbol, 'YML');
+
+  // The fallback is flagged rather than silent: a page that assumed six places
+  // on a chain that uses eight would be out by a factor of a hundred, and would
+  // look exactly as confident.
+  const guessed = readStakingDenom({ stakingParams: null, metadata: null });
+  assert.equal(guessed.source, 'unread');
+  assert.equal(guessed.fromChain, false);
+  assert.equal(guessed.exponent, 6);
+});
+
+test('a cosmos decimal becomes basis points without going through a float', () => {
+  assert.equal(decimalToBps('0.334000000000000000'), 3340);
+  assert.equal(decimalToBps('0.500000000000000000'), 5000);
+  assert.equal(decimalToBps('0.667000000000000000'), 6670);
+  assert.equal(decimalToBps('1.000000000000000000'), 10000);
+  assert.equal(decimalToBps('0'), 0);
+  assert.equal(decimalToBps(''), null);
+  assert.equal(decimalToBps(undefined), null);
+});
+
+test('quorum, threshold and veto are read from either shape the SDK serves', () => {
+  const nested = readTallyParams({ tally_params: {
+    quorum: '0.334', threshold: '0.5', veto_threshold: '0.334' } });
+  assert.deepEqual(nested, { quorumBps: 3340, thresholdBps: 5000, vetoBps: 3340 });
+
+  const flat = readTallyParams({ params: {
+    quorum: '0.4', threshold: '0.6', veto_threshold: '0.3' } });
+  assert.deepEqual(flat, { quorumBps: 4000, thresholdBps: 6000, vetoBps: 3000 });
+
+  // Missing means null, so the caller omits the bar rather than drawing one at
+  // a plausible default.
+  assert.deepEqual(readTallyParams({}), { quorumBps: null, thresholdBps: null, vetoBps: null });
+});
+
+test('quorum counts abstentions and the threshold does not', () => {
+  const params = { quorumBps: 3340, thresholdBps: 5000, vetoBps: 3340 };
+  // 60 for, 40 abstaining, out of 200 bonded: turnout is half, so quorum is
+  // met — and the threshold is 100%, because an abstention took no side.
+  const t = tallyOf({
+    tally: { yes_count: '60', no_count: '0', no_with_veto_count: '0', abstain_count: '40' },
+    bondedTokens: '200',
+    params,
+  });
+  assert.equal(t.turnoutBps, 5000);
+  assert.equal(t.quorumMet, true);
+  assert.equal(t.yesBps, 10000);
+  assert.equal(t.thresholdMet, true);
+  assert.equal(t.vetoed, false);
+});
+
+test('a tally below quorum is not reported as passing on its threshold alone', () => {
+  const t = tallyOf({
+    tally: { yes_count: '10', no_count: '0', no_with_veto_count: '0', abstain_count: '0' },
+    bondedTokens: '1000',
+    params: { quorumBps: 3340, thresholdBps: 5000, vetoBps: 3340 },
+  });
+  assert.equal(t.turnoutBps, 100);
+  assert.equal(t.quorumMet, false);
+  // Unanimous among those who voted, and it still fails. Both facts are
+  // reported, separately, because the page draws two bars.
+  assert.equal(t.yesBps, 10000);
+  assert.equal(t.thresholdMet, true);
+});
+
+test('a veto past its threshold is reported however the rest of the tally reads', () => {
+  const t = tallyOf({
+    tally: { yes_count: '60', no_count: '0', no_with_veto_count: '40', abstain_count: '0' },
+    bondedTokens: '100',
+    params: { quorumBps: 3340, thresholdBps: 5000, vetoBps: 3340 },
+  });
+  assert.equal(t.thresholdMet, true);
+  assert.equal(t.vetoShareBps, 4000);
+  assert.equal(t.vetoed, true);
+});
+
+test('a tally with nothing in it is not a tally of zeroes', () => {
+  const t = tallyOf({ tally: {}, bondedTokens: '100', params: {} });
+  assert.equal(t.anyVotes, false);
+  // No bonded total means no share, and null means "cannot be shown" rather
+  // than zero — which would render as a bar sitting at the far left.
+  const noBond = tallyOf({ tally: { yes_count: '5' }, bondedTokens: '0', params: {} });
+  assert.equal(noBond.turnoutBps, null);
+  assert.equal(noBond.quorumMet, null);
+});
+
+test('a tally is summed as BigInt, so a stake past 2^53 keeps its value', () => {
+  const t = tallyOf({
+    tally: { yes_count: '9007199254740993', no_count: '1' },
+    bondedTokens: '9007199254740994',
+    params: { quorumBps: 3340, thresholdBps: 5000, vetoBps: 3340 },
+  });
+  assert.equal(t.voted, '9007199254740994');
+  assert.equal(t.turnoutBps, 10000);
+});
+
+test('percentages are rendered without inventing precision', () => {
+  assert.equal(asPercent(3340), '33.4%');
+  assert.equal(asPercent(5000), '50%');
+  assert.equal(asPercent(10000), '100%');
+  assert.equal(asPercent(null), '—');
+});
+
+test('a message is named by what it does, not by its type URL', () => {
+  const upgrade = outcomeOf({
+    '@type': '/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade',
+    plan: { name: 'netting-and-perimeter', height: '13415' },
+  });
+  assert.equal(upgrade.understood, true);
+  assert.match(upgrade.headline, /netting-and-perimeter/);
+  assert.match(upgrade.headline, /13,415/);
+
+  const appoint = outcomeOf({
+    '@type': '/blockchain.alias.v1.MsgUpdateParams',
+    params: { payload_length: 8, foundation_administrators: ['yml1abc'] },
+  });
+  assert.equal(appoint.understood, true);
+  assert.match(appoint.headline, /1 account may correct any recorded country/);
+
+  const empty = outcomeOf({
+    '@type': '/blockchain.alias.v1.MsgUpdateParams',
+    params: { payload_length: 8, foundation_administrators: [] },
+  });
+  assert.match(empty.headline, /nobody may correct/);
+});
+
+test('a message this page cannot decode says so rather than showing a type URL', () => {
+  const unknown = outcomeOf({ '@type': '/blockchain.enforcement.v1.MsgOpenCase' });
+  assert.equal(unknown.understood, false);
+  // Still better than the URL: the module and the verb, in words, and an
+  // admission attached to them.
+  assert.match(unknown.headline, /open case in enforcement/);
+  assert.match(unknown.headline, /cannot say what this one does/);
+
+  const nonsense = outcomeOf({ '@type': 'not a type url' });
+  assert.equal(nonsense.understood, false);
+  assert.match(nonsense.headline, /cannot name/);
+
+  // No type at all is the shape a hand-edited proposal document arrives in.
+  assert.equal(outcomeOf({}).understood, false);
+});
+
+test('a deadline is a distance in both directions', () => {
+  assert.equal(timeLeft(4 * 3600), 'in 4 hours');
+  assert.equal(timeLeft(-4 * 3600), '4 hours ago');
+  assert.equal(timeLeft(60), 'in under two minutes');
+  assert.equal(timeLeft(-30), 'just now');
+  assert.equal(timeLeft(3 * 86400), 'in 3 days');
+  // The minute band runs to ninety minutes on purpose. A vote closing in
+  // seventy-five minutes is a thing somebody can still act on, and "in 1 hour"
+  // rounds away the fifteen minutes that decide whether they do.
+  assert.equal(timeLeft(3600), 'in 60 minutes');
+  assert.equal(timeLeft(75 * 60), 'in 75 minutes');
+});
+
+test('a timestamp that cannot be parsed is null rather than 1970', () => {
+  assert.equal(timestampSeconds('2026-08-22T09:53:16.745831123Z'), 1787392396);
+  assert.equal(timestampSeconds(''), null);
+  assert.equal(timestampSeconds('not a date'), null);
+  assert.equal(timestampSeconds(undefined), null);
+});
+
+test('a vote command names the chain, and refuses to be printed without one', () => {
+  const [pi] = VALIDATORS;
+  const cmd = voteCommand({
+    validator: pi, proposalId: '7', option: 'yes', chainId: 'yamale-devnet-2',
+  });
+  assert.match(cmd, /tx gov vote 7 yes/);
+  assert.match(cmd, /--from alice/);
+  assert.match(cmd, /--chain-id yamale-devnet-2/);
+  assert.match(cmd, /--home \/opt\/yamale\/node/);
+  // Same rule as submitCommand: a command printed without a chain id is a
+  // command somebody completes from memory.
+  assert.throws(() => voteCommand({
+    validator: pi, proposalId: '7', option: 'yes', chainId: '',
+  }), /chain id/);
+});
+
+test('a composed vote command carries no carriage return', () => {
+  // These are pasted into a shell, where a CR gives "$'\r': command not found",
+  // an error that names neither the cause nor the file.
+  const cmd = voteCommand({
+    validator: VALIDATORS[1], proposalId: '1', option: 'no_with_veto', chainId: 'x',
+  });
+  assert.equal(cmd.includes('\r'), false);
+});
