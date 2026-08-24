@@ -600,10 +600,22 @@
 
   @media (max-width: 560px) {
     /* Below this width the two columns are 18 characters wide each and the
-       addresses in them wrap to five lines. One under the other, labelled, is
-       the same information a reader can actually compare. */
+       addresses in them wrap to five lines. One under the other is the same
+       information a reader can actually compare — but stacked, a column heading
+       at the top no longer says which side a cell is on, and on this panel that
+       is the difference between "these are the administrators now" and "these
+       are the administrators if you vote for this". So the headings are dropped
+       and every cell carries its own. */
     .diff { grid-template-columns: minmax(0, 1fr); }
     .diff .b { border-inline-end: 0; }
+    .diff > div:nth-child(1), .diff > div:nth-child(2) { display: none; }
+    .diff > div::before {
+      content: "If this passes";
+      display: block; font-family: var(--font-mono); font-size: 0.68rem;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--brass);
+      margin-bottom: var(--sp-1);
+    }
+    .diff > div.b::before { content: "Now on chain"; color: var(--text-muted); }
   }
 </style>
 </head>
@@ -746,11 +758,16 @@ const maybe = (p, fallback) => p.catch(() => fallback);
 const fmt = (n) => groupDigits(String(n ?? 0));
 
 // Blocks are the chain's unit but nobody thinks in them. ~5s blocks here.
+//
+// The pluralisation is not fussiness: this figure is read out loud in a room
+// deciding how long an account stays frozen, and "1 hours" is the detail that
+// makes a reader wonder what else on the page was not looked at.
 const asTime = (blocks) => {
   const s = Number(blocks) * 5;
-  if (s >= 86400) return (s / 86400).toFixed(1).replace(/\.0$/, '') + ' days';
-  if (s >= 3600)  return (s / 3600).toFixed(1).replace(/\.0$/, '') + ' hours';
-  return Math.round(s / 60) + ' min';
+  const say = (n, unit) => `${n} ${unit}${Number(n) === 1 ? '' : 's'}`;
+  if (s >= 86400) return say((s / 86400).toFixed(1).replace(/\.0$/, ''), 'day');
+  if (s >= 3600) return say((s / 3600).toFixed(1).replace(/\.0$/, ''), 'hour');
+  return `${Math.round(s / 60)} min`;
 };
 
 /**
