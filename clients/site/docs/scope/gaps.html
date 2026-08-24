@@ -17,7 +17,7 @@
 <p>Checked against the tree and the running chain rather than against a task list —
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.</p>
-<p>Last verified 2026-08-21, against <code>yamale-devnet-2</code>.</p>
+<p>Last verified 2026-08-24, against <code>yamale-devnet-2</code> at block 52,356.</p>
 <hr>
 <h2>Built, merged, and live on the chain</h2>
 <table>
@@ -95,17 +95,41 @@ list is not evidence.</p>
 <td>An office&#39;s M-of-N</td>
 <td>recorded on the grant as <code>required_shape</code>, re-checked on every authority action</td>
 </tr>
+<tr>
+<td>Country enrolment</td>
+<td><code>ceremony country</code> — offices, grants and jurisdictions, approved by the foundation</td>
+</tr>
+<tr>
+<td>Administrator appointment</td>
+<td><code>ceremony administrators</code> plus a governance console that composes it</td>
+</tr>
+<tr>
+<td>Coordinated upgrade</td>
+<td>proposed, voted, halted at height, binaries swapped, applied — on the live chain</td>
+</tr>
+<tr>
+<td>Signing-request decoding</td>
+<td>the wallet reads a <code>TxBody</code> and says what it does, instead of naming a type URL</td>
+</tr>
+<tr>
+<td>Visual system</td>
+<td><code>clients/shared/yamale.css</code> — real typefaces, a scale, elevation, semantic colour</td>
+</tr>
 </tbody></table>
 <h2>Designed, documented, not built</h2>
 <p><strong>Browser signing for the foundation.</strong> The console at <code>/foundation/</code> reads the
-chain and composes the commands, and a custodian runs them. It cannot sign,
-because <code>clients/wallet</code> decodes a signing request only as far as each message&#39;s
-type URL — so an in-browser vote would mean hand-rolled protobuf that nothing
-checks, on the account that receives every seizure. The page would say &quot;pay
-5,000 to Amara&quot; and the wallet would say <code>MsgSubmitProposal</code> whether the encoding
-was right, wrong or hostile. Decoding message contents in the wallet is the
-prerequisite; after that, the three actions a custodian signs personally —
-<code>MsgVote</code>, <code>MsgExec</code>, <code>MsgSubmitProposal</code> — are worth revisiting.</p>
+chain and composes commands a custodian runs; it still cannot sign.</p>
+<p><strong>Its stated prerequisite has since shipped.</strong> The wallet no longer stops at a
+message&#39;s type URL — <code>clients/sdk/src/signrequest.ts</code> decodes a <code>TxBody</code> through
+the generated encoders and describes what it does, following nested <code>Any</code>
+payloads so a proposal describes the act rather than the envelope, and refusing
+to describe a type it does not recognise. So the argument against in-browser
+signing is now weaker than the argument for it, and the three actions a custodian
+signs personally — <code>MsgVote</code>, <code>MsgExec</code>, <code>MsgSubmitProposal</code> — are the ones to
+revisit first.</p>
+<p>What has not changed is why it matters: on the account that receives every
+seizure, a page that said &quot;pay 5,000 to Amara&quot; while the wallet said
+<code>MsgSubmitProposal</code> would be worse than a command line.</p>
 <p><strong>Confidential amounts.</strong> Deliberately deferred, with the measurements recorded
 in <a href="confidentiality.html">confidentiality.md</a>: no audited Go library, ~6
 transactions per second with the only credible Bulletproofs implementation
@@ -216,17 +240,44 @@ cannot escape — but a seizure cannot reach it either.</li>
 </ol>
 <h2>Known defects</h2>
 <ul>
-<li><strong><code>clients/app</code>&#39;s Pay screen renders a success receipt without broadcasting</strong>,
-and neither the app nor the wallet ever constructs <code>MsgSendPayment</code>. So
-<code>x/paymsg</code> — and with it every confidentiality field — is unreachable from any
-user interface.</li>
-<li><strong><code>x/tokenisation</code> served under <code>/blockchain/</code> for a while</strong> and is now on
-<code>/yamale/</code>; the nginx visibility allowlist names it under neither, so it falls
-through to deny-by-default. Correct today, a trap when somebody opens it up.</li>
+<li><strong>Two of the five roles do nothing an office can use.</strong>
+<code>ROLE_SUPERVISOR</code> has no consumer anywhere in the tree, and
+<code>ROLE_ENFORCEMENT_AUTHORITY</code> cannot be exercised by an office because
+<code>OpenCase</code> additionally requires a bonded validator and <code>EmergencyFreeze</code>
+requires being the emergency-authority parameter. Enrolment grants both
+anyway — appointing an office later is harder than granting a role that is
+waiting for its message — and the runbook says plainly not to expect them to
+work. This is a gap between the design and the modules rather than a bug in
+either.</li>
+<li><strong>Role grants made before <code>required_shape</code> are unpinned</strong>, so their holders
+can still reduce themselves to a single key. Absent means no requirement, by
+design: the alternative disabled every authority on the upgrade block. On a
+chain still in development the fix is to re-make the grants; on one holding
+value it would need a migration somebody decided on deliberately.</li>
+<li><strong><code>x/land</code>&#39;s own admin path has the same weakness <code>required_shape</code> closes.</strong>
+It asks whether a registry office is a group, once, and never again.</li>
+<li><strong><code>x/alias</code>&#39;s <code>Params.Validate()</code> accepts any non-empty string as a foundation
+administrator.</strong> It refuses duplicates and a ninth entry but never asks whether
+an entry is an address, so a typo passes a vote, consumes one of the eight
+places and grants the power to nobody. The governance console checks the
+bech32 checksum itself precisely because the chain does not.</li>
+<li><strong>No payment has been pushed through the Pay screen end to end.</strong> The screen no
+longer forges a receipt — it signs, waits for the block, and reports from
+execution rather than acceptance — but that path is verified by reading and by
+tests, not by moving money.</li>
+<li><strong><code>clients/app</code> sends <code>MsgSend</code>, not <code>MsgSendPayment</code>.</strong> <code>x/paymsg</code> requires
+both named participants to be governance-approved and the debtor to be a
+registered customer of the one it names, and this chain has <strong>zero</strong> approved
+participants. So the app sends a real transfer with the reference in the memo
+and says which rails carried it. The ISO message stays unreachable from any
+interface until a country is enrolled.</li>
 <li><strong>The OpenAPI merge collapses every module&#39;s <code>Params</code> into one definition</strong>,
 currently holding only <code>x/validatorgov</code>&#39;s fields.</li>
 <li><strong><code>TestGenesisRoundTrips</code> in <code>x/alias</code> still has a vacuous <code>Owners</code> check</strong> —
 the same shape as three others that were fixed.</li>
+<li><strong><code>x/tokenisation</code> is served under <code>/yamale/</code> and the nginx allowlist names it
+under neither prefix</strong>, so it falls through to deny-by-default. Correct today,
+a trap when somebody opens it up.</li>
 </ul>
 <h2>Operational loose ends</h2>
 <ul>
@@ -245,8 +296,21 @@ properties.</li>
 always a devnet crutch; the plan is client-side signing through
 <code>@yamale/connect</code>, then delete <code>/api/ops/</code>, both credential files and both
 copies of <code>opsd.py</code>, and move the consoles onto the tailnet.</li>
-<li><strong>The hosted ceremony process is still up</strong> on the VM. Its work is finished
-and it holds a coordinator token that can issue invites. Stop it.</li>
+<li><strong>The hosted ceremony process is gone</strong>, killed by the VM&#39;s reboot on
+2026-08-21. It had been holding a coordinator token that could still issue
+invites. Do not restart it between ceremonies.</li>
+<li><strong>There were two faucet units and only one could ever work.</strong> A faucet needs a
+funded key, and duplicating it duplicates custody of that key for no benefit.
+The Pi&#39;s copy was inactive and still configured for <code>yamale-devnet-1</code>, so the
+public funnel answered 502 while the real faucet answered fine on the other
+hostname — which reads as &quot;the faucet is broken&quot; rather than as &quot;you are asking
+the wrong host&quot;. The funnel now proxies to the one real faucet over the tailnet
+and the stale unit is disabled.</li>
+<li><strong>A deploy used to be invisible.</strong> nginx sent no <code>Cache-Control</code> at all, so
+browsers applied heuristic freshness and an old page after a deploy looked
+identical to a fix that did not work. That is the diagnosis that burns hours,
+not the wait. Now <code>no-cache</code> with ETag revalidation for HTML, CSS and JS, and
+<code>immutable</code> for the content-hashed bundles under <code>/assets/</code>.</li>
 <li><strong>The Pi&#39;s operator key lives on the Pi.</strong> Correct while rehearsing; the
 validator guide says to take it off the node once genesis is done, because a
 node needs only its consensus key to produce blocks.</li>
@@ -271,28 +335,49 @@ one weak one; it buys one validator and one node being punished.</p>
 25%, any three hold 75%. That is also exactly what the equal-seats decision
 produces, so this is an argument for seating four rather than for weighting
 three.</p>
-<h2>The one test nothing had run</h2>
-<p><strong>Three of the five custodian keys moving something, and two failing to.</strong></p>
-<p>Now exercised, though not yet on the staging chain. Against a 3-of-5 built by the
-real <code>ceremony group</code> tool on a local chain:</p>
+<h2>The test that had never run, and has now</h2>
+<p><strong>Three of five custodian keys moving something, and two failing to.</strong></p>
+<p>Exercised repeatedly, on local chains built by the real <code>ceremony group</code> tool:</p>
 <ul>
-<li><strong>Three signatures executed, twice.</strong> A restitution paid out, with the
-<code>MsgExec</code> sent by a custodian who had never voted — which is the property
-worth having, since the third signature and the person who presses the button
-need not be the same. And a custodian swap, run from the console&#39;s own
-composed command with <code>--exec 1</code>: one member out, one in, count still five,
-atomically.</li>
-<li><strong>Two signatures did not execute, twice.</strong> <code>EventExec NOT_RUN</code>, status still
-SUBMITTED, balance unchanged. A third proposal took three refusals and was
-rejected.</li>
-<li><strong>The constitution refused what it should.</strong> A bare removal is rejected at
-submission — &quot;would leave the foundation group with 4 custodians; the
-constitution fixes it at 5&quot; — and so is <code>MsgLeaveGroup</code>.</li>
+<li><strong>Three signatures executed.</strong> A restitution paid out with the <code>MsgExec</code> sent
+by a custodian who had never voted — the property worth having, since the third
+signature and the person who presses the button need not be the same. And a
+custodian swap: one out, one in, count still five, atomically.</li>
+<li><strong>Two signatures did not.</strong> <code>EventExec NOT_RUN</code>, status still SUBMITTED,
+balance unchanged.</li>
+<li><strong>The constitution refused what it should</strong> — a bare removal rejected at
+submission, and <code>MsgLeaveGroup</code> likewise.</li>
+<li><strong>A country was enrolled end to end</strong>: the foundation granted an office
+<code>PAYMENTS_AUTHORITY</code> in SN on three signatures, the office admitted a bank
+inside SN and was refused outside it, a non-foundation group granting was
+refused, and the foundation granting itself <code>*</code> was refused with chain-wide
+grants still empty.</li>
+<li><strong>An office that shrank lost its authority.</strong> Granted as 3-of-5, it voted
+itself to 1-of-5 and the same action was refused; it restored itself on one
+signature and worked again with no re-grant.</li>
 </ul>
-<p>What remains is doing it on <code>yamale-devnet-2</code>, with its seven-day voting period,
-through the console at <code>/foundation/</code>. That is a test of the <em>process</em> rather
-than of the mechanism: five people in five countries, a deadline a week out, and
-an interface instead of a command line.</p>
+<p><strong>What remains is doing it on <code>yamale-devnet-2</code></strong>, with its seven-day voting
+period, through the console at <code>/foundation/</code>. That is a test of the <em>process</em>
+rather than of the mechanism: five people in five countries, a deadline a week
+out, and an interface instead of a command line.</p>
+<h2>The measurement that keeps being worth repeating</h2>
+<p>Every claim in this document that reads as a fact was measured. The ones that
+cost the most to learn, in the order they bit:</p>
+<ol>
+<li><strong>Broadcast <code>code: 0</code> means accepted, not executed.</strong> Five separate bugs.
+The fifth was subtler than the rest: an office acts through its own group, so
+an <code>x/group</code> proposal that fails in execution still produces a transaction
+with code 0, and the refusal is inside <code>EventExec</code>&#39;s logs.</li>
+<li><strong>proto3 cannot distinguish 0 from unset.</strong> Four separate bugs. <code>OfficeShape</code>
+is a nullable message rather than two integers for exactly this reason.</li>
+<li><strong>A policy address derives from the group&#39;s sequence number alone.</strong> A live
+ceremony predicted an office address and got <em>the foundation&#39;s own</em>, because
+both were policy sequence 1. Never predict one; read it back.</li>
+<li><strong>x/group counts weight, not heads.</strong> A threshold of 3 over member weights
+3,1,1,1,1 is a 1-of-5. Any interface displaying an office&#39;s shape must
+compute the fewest members who can reach the threshold, or it will show
+3-of-5 for what is actually a single key.</li>
+</ol>
 
 </main>
 </body>

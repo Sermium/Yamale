@@ -4,7 +4,7 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-Last verified 2026-08-21, against `yamale-devnet-2`.
+Last verified 2026-08-24, against `yamale-devnet-2` at block 52,356.
 
 ---
 
@@ -29,18 +29,29 @@ Last verified 2026-08-21, against `yamale-devnet-2`.
 | Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
 | Roles and the perimeter | `x/alias` role grants, and `AssertScope` consulted by four modules |
 | An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action |
+| Country enrolment | `ceremony country` — offices, grants and jurisdictions, approved by the foundation |
+| Administrator appointment | `ceremony administrators` plus a governance console that composes it |
+| Coordinated upgrade | proposed, voted, halted at height, binaries swapped, applied — on the live chain |
+| Signing-request decoding | the wallet reads a `TxBody` and says what it does, instead of naming a type URL |
+| Visual system | `clients/shared/yamale.css` — real typefaces, a scale, elevation, semantic colour |
 
 ## Designed, documented, not built
 
 **Browser signing for the foundation.** The console at `/foundation/` reads the
-chain and composes the commands, and a custodian runs them. It cannot sign,
-because `clients/wallet` decodes a signing request only as far as each message's
-type URL — so an in-browser vote would mean hand-rolled protobuf that nothing
-checks, on the account that receives every seizure. The page would say "pay
-5,000 to Amara" and the wallet would say `MsgSubmitProposal` whether the encoding
-was right, wrong or hostile. Decoding message contents in the wallet is the
-prerequisite; after that, the three actions a custodian signs personally —
-`MsgVote`, `MsgExec`, `MsgSubmitProposal` — are worth revisiting.
+chain and composes commands a custodian runs; it still cannot sign.
+
+**Its stated prerequisite has since shipped.** The wallet no longer stops at a
+message's type URL — `clients/sdk/src/signrequest.ts` decodes a `TxBody` through
+the generated encoders and describes what it does, following nested `Any`
+payloads so a proposal describes the act rather than the envelope, and refusing
+to describe a type it does not recognise. So the argument against in-browser
+signing is now weaker than the argument for it, and the three actions a custodian
+signs personally — `MsgVote`, `MsgExec`, `MsgSubmitProposal` — are the ones to
+revisit first.
+
+What has not changed is why it matters: on the account that receives every
+seizure, a page that said "pay 5,000 to Amara" while the wallet said
+`MsgSubmitProposal` would be worse than a command line.
 
 **Confidential amounts.** Deliberately deferred, with the measurements recorded
 in [confidentiality.md](confidentiality.md): no audited Go library, ~6
@@ -158,17 +169,44 @@ could reasonably have gone the other way:
 
 ## Known defects
 
-- **`clients/app`'s Pay screen renders a success receipt without broadcasting**,
-  and neither the app nor the wallet ever constructs `MsgSendPayment`. So
-  `x/paymsg` — and with it every confidentiality field — is unreachable from any
-  user interface.
-- **`x/tokenisation` served under `/blockchain/` for a while** and is now on
-  `/yamale/`; the nginx visibility allowlist names it under neither, so it falls
-  through to deny-by-default. Correct today, a trap when somebody opens it up.
+- **Two of the five roles do nothing an office can use.**
+  `ROLE_SUPERVISOR` has no consumer anywhere in the tree, and
+  `ROLE_ENFORCEMENT_AUTHORITY` cannot be exercised by an office because
+  `OpenCase` additionally requires a bonded validator and `EmergencyFreeze`
+  requires being the emergency-authority parameter. Enrolment grants both
+  anyway — appointing an office later is harder than granting a role that is
+  waiting for its message — and the runbook says plainly not to expect them to
+  work. This is a gap between the design and the modules rather than a bug in
+  either.
+- **Role grants made before `required_shape` are unpinned**, so their holders
+  can still reduce themselves to a single key. Absent means no requirement, by
+  design: the alternative disabled every authority on the upgrade block. On a
+  chain still in development the fix is to re-make the grants; on one holding
+  value it would need a migration somebody decided on deliberately.
+- **`x/land`'s own admin path has the same weakness `required_shape` closes.**
+  It asks whether a registry office is a group, once, and never again.
+- **`x/alias`'s `Params.Validate()` accepts any non-empty string as a foundation
+  administrator.** It refuses duplicates and a ninth entry but never asks whether
+  an entry is an address, so a typo passes a vote, consumes one of the eight
+  places and grants the power to nobody. The governance console checks the
+  bech32 checksum itself precisely because the chain does not.
+- **No payment has been pushed through the Pay screen end to end.** The screen no
+  longer forges a receipt — it signs, waits for the block, and reports from
+  execution rather than acceptance — but that path is verified by reading and by
+  tests, not by moving money.
+- **`clients/app` sends `MsgSend`, not `MsgSendPayment`.** `x/paymsg` requires
+  both named participants to be governance-approved and the debtor to be a
+  registered customer of the one it names, and this chain has **zero** approved
+  participants. So the app sends a real transfer with the reference in the memo
+  and says which rails carried it. The ISO message stays unreachable from any
+  interface until a country is enrolled.
 - **The OpenAPI merge collapses every module's `Params` into one definition**,
   currently holding only `x/validatorgov`'s fields.
 - **`TestGenesisRoundTrips` in `x/alias` still has a vacuous `Owners` check** —
   the same shape as three others that were fixed.
+- **`x/tokenisation` is served under `/yamale/` and the nginx allowlist names it
+  under neither prefix**, so it falls through to deny-by-default. Correct today,
+  a trap when somebody opens it up.
 
 ## Operational loose ends
 
@@ -187,8 +225,21 @@ could reasonably have gone the other way:
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both
   copies of `opsd.py`, and move the consoles onto the tailnet.
-- **The hosted ceremony process is still up** on the VM. Its work is finished
-  and it holds a coordinator token that can issue invites. Stop it.
+- **The hosted ceremony process is gone**, killed by the VM's reboot on
+  2026-08-21. It had been holding a coordinator token that could still issue
+  invites. Do not restart it between ceremonies.
+- **There were two faucet units and only one could ever work.** A faucet needs a
+  funded key, and duplicating it duplicates custody of that key for no benefit.
+  The Pi's copy was inactive and still configured for `yamale-devnet-1`, so the
+  public funnel answered 502 while the real faucet answered fine on the other
+  hostname — which reads as "the faucet is broken" rather than as "you are asking
+  the wrong host". The funnel now proxies to the one real faucet over the tailnet
+  and the stale unit is disabled.
+- **A deploy used to be invisible.** nginx sent no `Cache-Control` at all, so
+  browsers applied heuristic freshness and an old page after a deploy looked
+  identical to a fix that did not work. That is the diagnosis that burns hours,
+  not the wait. Now `no-cache` with ETag revalidation for HTML, CSS and JS, and
+  `immutable` for the content-hashed bundles under `/assets/`.
 - **The Pi's operator key lives on the Pi.** Correct while rehearsing; the
   validator guide says to take it off the node once genesis is done, because a
   node needs only its consensus key to produce blocks.
@@ -217,27 +268,49 @@ one weak one; it buys one validator and one node being punished.
 produces, so this is an argument for seating four rather than for weighting
 three.
 
-## The one test nothing had run
+## The test that had never run, and has now
 
-**Three of the five custodian keys moving something, and two failing to.**
+**Three of five custodian keys moving something, and two failing to.**
 
-Now exercised, though not yet on the staging chain. Against a 3-of-5 built by the
-real `ceremony group` tool on a local chain:
+Exercised repeatedly, on local chains built by the real `ceremony group` tool:
 
-- **Three signatures executed, twice.** A restitution paid out, with the
-  `MsgExec` sent by a custodian who had never voted — which is the property
-  worth having, since the third signature and the person who presses the button
-  need not be the same. And a custodian swap, run from the console's own
-  composed command with `--exec 1`: one member out, one in, count still five,
-  atomically.
-- **Two signatures did not execute, twice.** `EventExec NOT_RUN`, status still
-  SUBMITTED, balance unchanged. A third proposal took three refusals and was
-  rejected.
-- **The constitution refused what it should.** A bare removal is rejected at
-  submission — "would leave the foundation group with 4 custodians; the
-  constitution fixes it at 5" — and so is `MsgLeaveGroup`.
+- **Three signatures executed.** A restitution paid out with the `MsgExec` sent
+  by a custodian who had never voted — the property worth having, since the third
+  signature and the person who presses the button need not be the same. And a
+  custodian swap: one out, one in, count still five, atomically.
+- **Two signatures did not.** `EventExec NOT_RUN`, status still SUBMITTED,
+  balance unchanged.
+- **The constitution refused what it should** — a bare removal rejected at
+  submission, and `MsgLeaveGroup` likewise.
+- **A country was enrolled end to end**: the foundation granted an office
+  `PAYMENTS_AUTHORITY` in SN on three signatures, the office admitted a bank
+  inside SN and was refused outside it, a non-foundation group granting was
+  refused, and the foundation granting itself `*` was refused with chain-wide
+  grants still empty.
+- **An office that shrank lost its authority.** Granted as 3-of-5, it voted
+  itself to 1-of-5 and the same action was refused; it restored itself on one
+  signature and worked again with no re-grant.
 
-What remains is doing it on `yamale-devnet-2`, with its seven-day voting period,
-through the console at `/foundation/`. That is a test of the *process* rather
-than of the mechanism: five people in five countries, a deadline a week out, and
-an interface instead of a command line.
+**What remains is doing it on `yamale-devnet-2`**, with its seven-day voting
+period, through the console at `/foundation/`. That is a test of the *process*
+rather than of the mechanism: five people in five countries, a deadline a week
+out, and an interface instead of a command line.
+
+## The measurement that keeps being worth repeating
+
+Every claim in this document that reads as a fact was measured. The ones that
+cost the most to learn, in the order they bit:
+
+1. **Broadcast `code: 0` means accepted, not executed.** Five separate bugs.
+   The fifth was subtler than the rest: an office acts through its own group, so
+   an `x/group` proposal that fails in execution still produces a transaction
+   with code 0, and the refusal is inside `EventExec`'s logs.
+2. **proto3 cannot distinguish 0 from unset.** Four separate bugs. `OfficeShape`
+   is a nullable message rather than two integers for exactly this reason.
+3. **A policy address derives from the group's sequence number alone.** A live
+   ceremony predicted an office address and got *the foundation's own*, because
+   both were policy sequence 1. Never predict one; read it back.
+4. **x/group counts weight, not heads.** A threshold of 3 over member weights
+   3,1,1,1,1 is a 1-of-5. Any interface displaying an office's shape must
+   compute the fewest members who can reach the threshold, or it will show
+   3-of-5 for what is actually a single key.
