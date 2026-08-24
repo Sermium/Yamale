@@ -1460,9 +1460,16 @@ test('a grant of a role nothing can use still composes, and says so', () => {
   }
 });
 
+// A grant with no required shape now says so, on every screen, so the three
+// tests below filter that one sentence out to go on asserting what they were
+// written to assert. The sentence itself is asserted in its own tests further
+// down — it is the whole point of the field.
+const aboutShape = (c) => /required shape|pinned at|ratchet/i.test(c);
+const otherThan = (concerns) => concerns.filter((c) => !aboutShape(c));
+
 test('a grant of a working role carries no caveat', () => {
   const plan = grantPlan(grantArgs({ role: 'ROLE_MONETARY_AUTHORITY' }));
-  assert.deepEqual(plan.concerns, []);
+  assert.deepEqual(otherThan(plan.concerns), []);
 });
 
 test('an unset role is refused with the proto3 reason', () => {
@@ -1498,7 +1505,7 @@ test('a grant of a different role to the same office is not reported as a duplic
     holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY,
   }];
   const plan = grantPlan(grantArgs({ role: 'ROLE_MONETARY_AUTHORITY', existingGrants: existing }));
-  assert.deepEqual(plan.concerns, []);
+  assert.deepEqual(otherThan(plan.concerns), []);
 });
 
 test('a grant of the same role in a different country is not a duplicate either', () => {
@@ -1506,7 +1513,7 @@ test('a grant of the same role in a different country is not a duplicate either'
     holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY,
   }];
   const plan = grantPlan(grantArgs({ jurisdiction: 'SN', existingGrants: existing }));
-  assert.deepEqual(plan.concerns, []);
+  assert.deepEqual(otherThan(plan.concerns), []);
   assert.equal(plan.messages[0].jurisdiction, 'SN');
 });
 
@@ -1657,8 +1664,12 @@ test('a role grant in a proposal is described in words, not as a type URL', () =
 
   assert.equal(d.understood, true);
   assert.match(d.headline, /Grant Registry authority in ZA to South Africa lands commission/);
-  assert.deepEqual(d.concerns, []);
   assert.ok(d.detail.some((x) => x.label === 'What consults it' && /x\/land/.test(x.value)));
+  // This message carries no required_shape, and that is not silence: the
+  // headline says so and a concern says what it costs.
+  assert.match(d.headline, /with no required shape/);
+  assert.equal(d.concerns.length, 1);
+  assert.match(d.concerns[0], /records no required shape/);
 });
 
 test('a revocation in a proposal reads as a removal, not as a grant', () => {
@@ -1760,4 +1771,341 @@ test('a composed grant document carries no carriage return', () => {
   assert.equal(doc.indexOf('\r'), -1);
   assert.equal(shellSafe(doc), doc);
   assert.equal(shellSafe(submitCommand({ proposer: A })), submitCommand({ proposer: A }));
+});
+
+// --- the shape an office has to keep -----------------------------------------
+//
+// A grant can pin the M-of-N of the office that holds it, and the chain
+// re-checks that pin on every action the grant permits. What is tested here is
+// mostly the arithmetic that a page can get plausibly wrong: how many PEOPLE it
+// takes to reach a weighted threshold, and the difference between a requirement
+// that is absent and one that is zero. Both are cases where being wrong looks
+// entirely reasonable on screen.
+
+import {
+  MAX_OFFICE_MEMBERS,
+  fewestSigners,
+  officeShapeOf,
+  shapeOfGrant,
+  shapeRule,
+  shapeSatisfies,
+  validateShape,
+} from './foundation.js';
+
+const member = (address, weight) => ({ address, weight, name: null, fingerprint: null });
+
+test('how many people it takes is not the threshold when the weights are unequal', () => {
+  // The failure this exists to stop. A threshold of 3 over weights 3,1,1,1,1 is
+  // a ONE-of-five: the heaviest member reaches it alone. A console that read the
+  // threshold as "3 signatures" would offer to pin a grant at 3-of-5 against an
+  // office one person controls.
+  assert.deepEqual(fewestSigners([3, 1, 1, 1, 1], 3), { signatures: 1, problem: null });
+  // Equal weights, which is what every ceremony produces, and then it is the
+  // threshold exactly.
+  assert.deepEqual(fewestSigners([1, 1, 1, 1, 1], 3), { signatures: 3, problem: null });
+  // Order must not matter: the greedy answer sorts first.
+  assert.deepEqual(fewestSigners([1, 1, 5], 3), { signatures: 1, problem: null });
+  assert.deepEqual(fewestSigners([2, 2, 2], 5), { signatures: 3, problem: null });
+});
+
+test('an office whose threshold exceeds its weight is frozen, which is a different sentence', () => {
+  const out = fewestSigners([1, 1], 5);
+  assert.equal(out.signatures, null);
+  // "Frozen" sends an operator to the group; "shape too small" would send them
+  // to the grant. It can take no action at all, so nothing turns on whether its
+  // shape is adequate.
+  assert.match(out.problem, /no set of members can act at all/);
+});
+
+test('a shape counts only members who can actually vote', () => {
+  const shape = officeShapeOf({
+    threshold: 2,
+    members: [member('a', 1), member('b', 1), member('c', 0), member('d', 1)],
+    decisionType: '/cosmos.group.v1.ThresholdDecisionPolicy',
+  });
+  // Three members with a positive weight, and two of them reach the threshold.
+  // Padding a group with weightless members is the obvious way to satisfy a
+  // count while shrinking the number of people who decide.
+  assert.deepEqual(shape, { signatures: 2, members: 3, problem: null });
+});
+
+test('a percentage decision policy has no shape, and is refused rather than converted', () => {
+  const shape = officeShapeOf({
+    threshold: null,
+    members: [member('a', 1), member('b', 1)],
+    decisionType: '/cosmos.group.v1.PercentageDecisionPolicy',
+  });
+  assert.equal(shape.signatures, null);
+  // The arithmetic is possible and the meaning is not: a percentage makes the
+  // threshold follow the membership, so the office could shed members and
+  // satisfy it forever.
+  assert.match(shape.problem, /percentage/);
+});
+
+test('an unreadable member weight is a refusal, not a guess in either direction', () => {
+  const shape = officeShapeOf({
+    threshold: 2,
+    members: [member('a', 1), { address: 'b', weight: null }],
+    decisionType: '/cosmos.group.v1.ThresholdDecisionPolicy',
+  });
+  assert.equal(shape.signatures, null);
+  assert.match(shape.problem, /could not be read/);
+});
+
+test('a group larger than the chain will read cannot hold a pinned grant', () => {
+  const many = Array.from({ length: MAX_OFFICE_MEMBERS + 1 }, (_, i) => member(`m${i}`, 1));
+  const shape = officeShapeOf({
+    threshold: 3, members: many, decisionType: '/cosmos.group.v1.ThresholdDecisionPolicy',
+  });
+  assert.equal(shape.signatures, null);
+  assert.match(shape.problem, new RegExp(String(MAX_OFFICE_MEMBERS)));
+});
+
+test('a shape reads as a rule, and an absent one reads as words rather than as zeroes', () => {
+  assert.equal(shapeRule({ signatures: 3, members: 5 }), '3-of-5');
+  // Not "0-of-0". A grant with no requirement is a different thing from one
+  // requiring nothing, and the whole point of the field being a message is that
+  // those two never read the same.
+  assert.equal(shapeRule(null), 'no required shape');
+  assert.equal(shapeRule({ signatures: null, members: 4 }), 'no required shape');
+});
+
+test('a shape is two floors: an office may grow and may not fall', () => {
+  const want = { signatures: 3, members: 5 };
+  assert.equal(shapeSatisfies(want, { signatures: 3, members: 5 }), true);
+  assert.equal(shapeSatisfies(want, { signatures: 3, members: 6 }), true, 'more people is fine');
+  assert.equal(shapeSatisfies(want, { signatures: 4, members: 5 }), true, 'tighter is fine');
+  assert.equal(shapeSatisfies(want, { signatures: 3, members: 4 }), false,
+    'three of four is a walk towards unanimity');
+  assert.equal(shapeSatisfies(want, { signatures: 1, members: 5 }), false, 'one key is the point');
+  // No requirement is satisfied by anything, including by an office whose shape
+  // could not be read — that is the same statement as "nothing was recorded".
+  assert.equal(shapeSatisfies(null, { signatures: null, members: null }), true);
+  // A requirement against an unreadable shape is NOT satisfied. Refusing is the
+  // only safe direction: the permissive reading of an unknown is the reading an
+  // attacker wants.
+  assert.equal(shapeSatisfies(want, { signatures: null, members: null }), false);
+});
+
+test('a requirement of zero signatures is refused, because absent is how you say none', () => {
+  assert.match(validateShape({ signatures: 0, members: 5 }), /omit|record no required shape/i);
+  assert.match(validateShape({ signatures: 3, members: 2 }), /more signatures than members/);
+  assert.match(validateShape({ signatures: 3, members: MAX_OFFICE_MEMBERS + 1 }),
+    new RegExp(String(MAX_OFFICE_MEMBERS)));
+  assert.equal(validateShape({ signatures: 3, members: 5 }), null);
+  // Null is valid and means no requirement, which is the state of every grant
+  // made before the field existed.
+  assert.equal(validateShape(null), null);
+});
+
+test('a stored grant with no shape is null, and a zero one is not read as a shape', () => {
+  assert.deepEqual(shapeOfGrant({ required_shape: { signatures: 3, members: 5 } }),
+    { signatures: 3, members: 5 });
+  assert.equal(shapeOfGrant({}), null);
+  assert.equal(shapeOfGrant({ required_shape: null }), null);
+  // Numbers arrive as JSON numbers over REST and as strings from some encoders.
+  assert.deepEqual(shapeOfGrant({ required_shape: { signatures: '2', members: '3' } }),
+    { signatures: 2, members: 3 });
+  assert.equal(shapeOfGrant({ required_shape: { signatures: 'x', members: 3 } }), null);
+});
+
+test('an office summary carries the shape, and names the weighted trap in words', () => {
+  const weighted = officeSummary({
+    policy: {
+      address: OFFICE, group_id: '4', admin: OFFICE,
+      decision_policy: { '@type': '/cosmos.group.v1.ThresholdDecisionPolicy', threshold: '3' },
+    },
+    members: [
+      { member: { address: A, weight: '3' } },
+      { member: { address: B, weight: '1' } },
+      { member: { address: C, weight: '1' } },
+    ],
+  });
+  assert.deepEqual(weighted.shape, { signatures: 1, members: 3, problem: null });
+  assert.equal(weighted.rule, '1-of-3');
+  // The threshold says three and one member can act. A custodian reading "3" off
+  // this panel and pinning the grant at three would pin it at something one key
+  // already satisfies.
+  assert.ok(weighted.concerns.some((c) => /can reach that threshold alone/.test(c)),
+    'the weighted trap has to be said, not implied by a number');
+});
+
+// --- composing a grant with a requirement ---
+
+const SHAPED_OFFICE = {
+  shape: { signatures: 3, members: 5, problem: null },
+  rule: '3-of-5',
+  concerns: [],
+};
+
+test('a composed grant carries the required shape, with the field absent when there is none', () => {
+  const pinned = grantRoleMessage({
+    policyAddress: POLICY, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY',
+    jurisdiction: 'ZA', requiredShape: { signatures: 3, members: 5 },
+  });
+  assert.deepEqual(pinned.required_shape, { signatures: 3, members: 5 });
+
+  const unpinned = grantRoleMessage({
+    policyAddress: POLICY, holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+  });
+  // ABSENT, not null and not zeroes. The field is a message so that "nobody
+  // asked for a shape" and "somebody asked for a shape of zero" are different
+  // states no reader can confuse, and a null in the JSON would be relying on a
+  // decoder's kindness.
+  assert.equal('required_shape' in unpinned, false);
+  assert.equal(JSON.stringify(unpinned).includes('required_shape'), false);
+});
+
+test('a grant is pinned at the office as it stands, and a bigger requirement is refused', () => {
+  const ok = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, requiredShape: { signatures: 3, members: 5 },
+  }));
+  assert.equal(ok.ready, true);
+  assert.deepEqual(ok.messages[0].required_shape, { signatures: 3, members: 5 });
+
+  // The chain refuses a requirement the office does not meet TODAY, at grant
+  // time — otherwise the grant is written, reads correct in every query, and
+  // permits nothing, which is discovered at the moment the office tries to act.
+  const tooBig = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, requiredShape: { signatures: 4, members: 7 },
+  }));
+  assert.equal(tooBig.ready, false);
+  assert.ok(tooBig.problems.some((p) => /cannot be made to this office, which is 3-of-5/.test(p)));
+});
+
+test('a grant records no shape only deliberately, and says what that costs', () => {
+  const unpinned = grantPlan(grantArgs({ office: SHAPED_OFFICE }));
+  assert.equal(unpinned.ready, true, 'an unpinned grant is still composable');
+  assert.equal('required_shape' in unpinned.messages[0], false);
+  assert.ok(unpinned.concerns.some((c) => /vote their own threshold down to one signature/.test(c)),
+    'the cost of no requirement is the sentence, not the empty field');
+});
+
+test('a requirement one person satisfies is composed and named for what it is', () => {
+  const plan = grantPlan(grantArgs({
+    office: { shape: { signatures: 1, members: 3, problem: null }, rule: '1-of-3', concerns: [] },
+    requiredShape: { signatures: 1, members: 3 },
+  }));
+  assert.equal(plan.ready, true);
+  assert.ok(plan.concerns.some((c) => /satisfied by one person signing/.test(c)));
+});
+
+test('a requirement is refused when the office has no readable shape to check it against', () => {
+  const plan = grantPlan(grantArgs({
+    office: { shape: { signatures: null, members: 2, problem: 'a percentage policy' }, concerns: [] },
+    requiredShape: { signatures: 2, members: 2 },
+  }));
+  assert.equal(plan.ready, false);
+  // A pin that cannot be checked is not a pin, and the chain refuses to write
+  // one rather than writing it and failing on first use.
+  assert.ok(plan.problems.some((p) => /cannot be established/.test(p)));
+});
+
+test('a requirement only ratchets: a re-grant may not weaken or drop one', () => {
+  const existing = [{
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA',
+    granted_by: POLICY, granted_at_height: '27100',
+    required_shape: { signatures: 3, members: 5 },
+  }];
+
+  // The natural mistake, and the one the keeper's ratchet exists for: a
+  // resubmission composed from a summary leaves the field out, and a proposal
+  // whose stated purpose was to change nothing removes the pin.
+  const dropped = grantPlan(grantArgs({ office: SHAPED_OFFICE, existingGrants: existing }));
+  assert.equal(dropped.ready, false);
+  assert.ok(dropped.problems.some((p) => /would remove the pin/.test(p)));
+
+  const weakened = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, existingGrants: existing, requiredShape: { signatures: 2, members: 5 },
+  }));
+  assert.equal(weakened.ready, false);
+  assert.ok(weakened.problems.some((p) => /only ratchets upward/.test(p)));
+
+  // Equal is fine and higher is fine, which is what makes a resubmission after a
+  // timeout work.
+  const same = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, existingGrants: existing, requiredShape: { signatures: 3, members: 5 },
+  }));
+  assert.equal(same.ready, true);
+});
+
+test('a grant that had no pin can be given one by an ordinary re-grant', () => {
+  const existing = [{
+    holder: OFFICE, role: 'ROLE_REGISTRY_AUTHORITY', jurisdiction: 'ZA', granted_by: POLICY,
+  }];
+  const plan = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, existingGrants: existing, requiredShape: { signatures: 3, members: 5 },
+  }));
+  assert.equal(plan.ready, true, 'nothing was pinned, so nothing is being reduced');
+});
+
+test('a zero requirement is refused before it reaches a proposal', () => {
+  const plan = grantPlan(grantArgs({
+    office: SHAPED_OFFICE, requiredShape: { signatures: 0, members: 0 },
+  }));
+  assert.equal(plan.ready, false);
+  assert.ok(plan.problems.some((p) => /asks for no signatures/.test(p)));
+  assert.deepEqual(plan.messages, []);
+});
+
+// --- what a custodian voting on one sees ---
+
+test('a pinned grant says what the office must keep, in the headline and in the detail', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_ENFORCEMENT_AUTHORITY', jurisdiction: 'ZA',
+    required_shape: { signatures: 3, members: 5 },
+  }, { policyAddress: POLICY });
+
+  assert.match(d.headline, /pinned at 3-of-5/);
+  const row = d.detail.find((x) => x.label === 'Office must keep');
+  assert.ok(row, 'the requirement is a row a custodian reads, not a field they have to know about');
+  assert.match(row.value, /3-of-5/);
+  assert.match(row.value, /refused until the office restores itself/);
+  // The role's own caveat is still raised; the shape does not displace it.
+  assert.ok(d.concerns.some((c) => /required shape/i.test(c)) === false,
+    'a pinned grant raises no concern about the pin');
+});
+
+test('an unpinned grant is a sentence, never an empty row', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_ENFORCEMENT_AUTHORITY', jurisdiction: 'ZA',
+  }, { policyAddress: POLICY });
+
+  assert.match(d.headline, /with no required shape/);
+  const row = d.detail.find((x) => x.label === 'Office must keep');
+  assert.match(row.value, /reduce itself to a single key/);
+  assert.ok(d.concerns.some((c) => /records no required shape/.test(c)),
+    'silence about an absent requirement is the failure this field exists to fix');
+});
+
+test('a grant whose requirement cannot be read is not described as though it could', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+    required_shape: { signatures: 'three', members: 5 },
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /cannot read as two whole numbers/.test(c)));
+});
+
+test('a grant pinned at a shape the chain refuses is flagged before anybody votes', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgGrantRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_SUPERVISOR', jurisdiction: 'ZA',
+    required_shape: { signatures: 4, members: 2 },
+  }, { policyAddress: POLICY });
+  assert.ok(d.concerns.some((c) => /more signatures than members/.test(c)));
+});
+
+test('a revocation says the shape goes with the grant, since the message carries none', () => {
+  const d = describeMessage({
+    '@type': '/blockchain.alias.v1.MsgRevokeRole',
+    authority: POLICY, holder: OFFICE, role: 'ROLE_PAYMENTS_AUTHORITY', jurisdiction: 'SN',
+  }, { policyAddress: POLICY });
+  const row = d.detail.find((x) => x.label === 'Shape removed with it');
+  assert.ok(row, 'a revocation must not simply be silent about the pin it removes');
+  assert.match(row.value, /whatever the grant recorded/);
+  // And it must not acquire a grant's warning: there is nothing to pin here.
+  assert.equal(d.concerns.some((c) => /records no required shape/.test(c)), false);
 });
