@@ -304,6 +304,21 @@ export function formatAmount(
 }
 
 /**
+ * The conjunction between two amounts, in the reader's language.
+ *
+ * `t()` returns the key itself when no catalogue has been registered, which is
+ * the case for any consumer importing this module without importing the
+ * catalogues — a library function cannot assume that ordering. Rendering
+ * `5 YML amount.and 2.5 USD` into a figure column would be worse than the
+ * hardcoded English word this replaced, so the fallback is explicit rather than
+ * left to whatever `t()` happens to do.
+ */
+function joiner(): string {
+  const translated = t('amount.and');
+  return translated === 'amount.and' ? 'and' : translated;
+}
+
+/**
  * What a zero or absent balance renders as.
  *
  * An en dash, not a zero: `0 YML` claims the account holds that denomination
@@ -339,7 +354,7 @@ export function formatCoins(
   if (parts.length === 1) return parts[0];
   // The conjunction is translated; joining with a hardcoded "and" put an
   // English word between two Arabic amounts.
-  return `${parts.slice(0, -1).join(', ')} ${t('amount.and')} ${parts[parts.length - 1]}`;
+  return `${parts.slice(0, -1).join(', ')} ${joiner()} ${parts[parts.length - 1]}`;
 }
 
 /** Parses `500uyml` into its parts; returns null when it is not a coin string. */

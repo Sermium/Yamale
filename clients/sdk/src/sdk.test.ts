@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { formatAmount, formatCoins, poolIdFromDenom, resolveDenom, toDisplayAmount } from './denom.ts';
+import { EMPTY_AMOUNT, formatAmount, formatCoins, poolIdFromDenom, resolveDenom, toDisplayAmount } from './denom.ts';
 import { describeThroughput, measure } from './performance.ts';
 import { decodeMessage, describeProposalAction, summariseTransaction } from './decode.ts';
 import { translateError } from './errors.ts';
@@ -43,7 +43,12 @@ test('pool share denoms are recognised and named', () => {
 });
 
 test('coin lists read as a phrase', () => {
-  assert.equal(formatCoins([]), 'nothing');
+  // An en dash, not the word "nothing": this renders into a figure column a
+  // supervisor is reading, and the word was English on every locale. The joiner
+  // below is translated for the same reason — it used to put an English "and"
+  // between two Arabic amounts.
+  assert.equal(formatCoins([]), EMPTY_AMOUNT);
+  assert.notEqual(EMPTY_AMOUNT, '0', 'a dash is not a zero: no balance and a zero balance differ');
   assert.equal(formatCoins([{ denom: 'uyml', amount: '5000000' }]), '5 YML');
   assert.equal(
     formatCoins([
@@ -52,6 +57,17 @@ test('coin lists read as a phrase', () => {
     ]),
     '5 YML and 2.5 USD',
   );
+});
+
+test('the conjunction survives a consumer that never registered a catalogue', () => {
+  // t() answers with the key when nothing is registered, and a library function
+  // cannot assume its consumer imported the catalogues first. The failure this
+  // guards is a figure column reading "5 YML amount.and 2.5 USD".
+  const phrase = formatCoins([
+    { denom: 'uyml', amount: '5000000' },
+    { denom: 'uusd', amount: '2500000' },
+  ]);
+  assert.doesNotMatch(phrase, /amount\.and/);
 });
 
 // ---------------------------------------------------------------- format
