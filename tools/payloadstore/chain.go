@@ -138,18 +138,33 @@ func (c *chainReader) entitled(account string, record paymentRecord) (bool, erro
 		return true, nil
 	}
 
+	// One question, not two. The chain resolves who may open a payload settling
+	// in a country — the appointed regulator, and every holder of
+	// ROLE_SUPERVISOR covering it, including chain-wide holders — and answers in
+	// a single call. This store previously asked only about the regulator, so a
+	// supervisor the chain named as entitled was refused by the service holding
+	// the ciphertext: the entitlement existed on chain and nowhere else.
+	//
+	// Asking the chain's own question also means the expiry and scope rules live
+	// in one place. Two implementations of "may this account read" eventually
+	// disagree, and the one that disagrees permissively is a supervisor reading a
+	// country it was never granted.
 	if record.SettlementJurisdiction != "" {
 		var out struct {
-			Appointment struct {
+			Readers []struct {
 				Address string `json:"address"`
-			} `json:"appointment"`
+			} `json:"readers"`
 		}
-		err := c.get("/yamale/blockchain/alias/v1/regulator/"+url.PathEscape(record.SettlementJurisdiction), &out)
-		// A country with no appointed regulator is not an error. The payment is
-		// simply readable by its two parties and any auditor, which is a real
-		// and expected state before an authority has been named.
-		if err == nil && out.Appointment.Address == account {
-			return true, nil
+		err := c.get("/yamale/blockchain/alias/v1/payload_readers/"+url.PathEscape(record.SettlementJurisdiction), &out)
+		// A country with nobody entitled is not an error. The payment is simply
+		// readable by its two parties and any auditor, which is a real and
+		// expected state before an authority has been named.
+		if err == nil {
+			for _, reader := range out.Readers {
+				if reader.Address == account {
+					return true, nil
+				}
+			}
 		}
 	}
 

@@ -33,8 +33,12 @@ type fakeChain struct {
 	debtor, creditor string
 	jurisdiction     string
 	regulator        string
-	auditors         []string
-	keys             map[string][]viewingKey
+	// supervisors hold ROLE_SUPERVISOR over the country and may read its
+	// payloads without being able to act on them. The chain returns them in the
+	// same list as the regulator, which is why the store asks one question.
+	supervisors []string
+	auditors    []string
+	keys        map[string][]viewingKey
 }
 
 type viewingKey struct {
@@ -77,13 +81,24 @@ func (f *fakeChain) server(t *testing.T) *httptest.Server {
 		writeTestJSON(w, map[string]any{"keys": out})
 	})
 
-	mux.HandleFunc("/yamale/blockchain/alias/v1/regulator/", func(w http.ResponseWriter, r *http.Request) {
-		country := strings.TrimPrefix(r.URL.Path, "/yamale/blockchain/alias/v1/regulator/")
-		if country != testCountry || f.regulator == "" {
-			http.Error(w, "not found", http.StatusNotFound)
+	// The chain resolves the whole entitled set for a country in one call: the
+	// appointed regulator, and every supervisor granted over it. An empty list
+	// is a real answer, not an error — a country with no authority named yet has
+	// payments readable only by their two parties and any auditor.
+	mux.HandleFunc("/yamale/blockchain/alias/v1/payload_readers/", func(w http.ResponseWriter, r *http.Request) {
+		country := strings.TrimPrefix(r.URL.Path, "/yamale/blockchain/alias/v1/payload_readers/")
+		if country != testCountry {
+			writeTestJSON(w, map[string]any{"readers": []map[string]any{}})
 			return
 		}
-		writeTestJSON(w, map[string]any{"appointment": map[string]any{"address": f.regulator}})
+		out := []map[string]any{}
+		if f.regulator != "" {
+			out = append(out, map[string]any{"address": f.regulator, "basis": "PAYLOAD_READER_BASIS_REGULATOR"})
+		}
+		for _, sup := range f.supervisors {
+			out = append(out, map[string]any{"address": sup, "basis": "PAYLOAD_READER_BASIS_SUPERVISOR"})
+		}
+		writeTestJSON(w, map[string]any{"readers": out})
 	})
 
 	mux.HandleFunc("/yamale/blockchain/alias/v1/auditors", func(w http.ResponseWriter, _ *http.Request) {
@@ -275,6 +290,46 @@ func (h *harness) openFetched(body response, p party) types.PaymentMetadata {
 
 // The three entitled parties fetch and decrypt; the fourth is refused. The
 // store never sees a private key and never sees the plaintext.
+// A supervisor granted over the settlement country may read the payload, and one
+// granted nowhere near it may not.
+//
+// This is the whole of what ROLE_SUPERVISOR buys. The chain publishes the
+// entitlement, but the entitlement is only real if the service holding the
+// ciphertext honours it — and until this test existed the store knew about
+// appointed regulators and nothing else, so a supervisor the chain named as
+// entitled was refused by the only thing that could have served it.
+func TestASupervisorOfTheCountryMayReadAndOthersMayNot(t *testing.T) {
+	h := newHarness(t)
+
+	supervisor := newParty(t, "yml1supervisor")
+	h.chain.supervisors = []string{supervisor.address}
+	h.chain.keys[supervisor.address] = []viewingKey{
+		{version: 1, publicKey: supervisor.priv.PublicKey().Bytes()},
+	}
+
+	if code, body := h.put(); code != http.StatusOK {
+		t.Fatalf("storing the envelope: %d %s", code, body.Detail)
+	}
+
+	code, got := h.fetch(supervisor, testE2E)
+	if code != http.StatusOK {
+		t.Fatalf("a supervisor of %s was refused its own country: %d %s",
+			testCountry, code, got.Reason)
+	}
+
+	// Refused, not merely unable to decrypt. An entitlement decided by whether
+	// the caller happens to hold a key would let anyone enumerate which payments
+	// exist, which is the fact the store exists to withhold.
+	outsider := newParty(t, "yml1othersupervisor")
+	h.chain.keys[outsider.address] = []viewingKey{
+		{version: 1, publicKey: outsider.priv.PublicKey().Bytes()},
+	}
+	if code, body := h.fetch(outsider, testE2E); code == http.StatusOK {
+		t.Fatalf("a supervisor granted nowhere near %s was served the payload: %s",
+			testCountry, body.Reason)
+	}
+}
+
 func TestEntitledPartiesFetchAndDecryptAndAStrangerCannot(t *testing.T) {
 	h := newHarness(t)
 	if code, body := h.put(); code != http.StatusOK {
