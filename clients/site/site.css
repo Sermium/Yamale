@@ -373,3 +373,98 @@ footer p { max-width: none; }
 .nav a[aria-current="page"],
 .nav a.active { box-shadow: inset 0 -2px 0 var(--brass); }
 .brand__mark { border-radius: 6px; }
+
+/* ------------------------------------------------------- the proof band ---
+ *
+ * Four figures read off the running chain, directly under the headline.
+ *
+ * The claim above them is that money moves in seconds between approved
+ * institutions. This is where a visitor checks it, and a page that asserts a
+ * settlement time without showing one is asking to be taken on faith by the
+ * audience least willing to grant it.
+ *
+ * Values are mono and tabular so the digits sit in columns and a changing
+ * height does not shift the layout under the reader's eye. */
+
+.proof {
+  margin: 2.25rem 0 2rem;
+  padding: 1.25rem 1.4rem 1.1rem;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--brass);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.proof__state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+/* The dot carries the state in shape as well as colour: a filled ring when the
+   chain answers, a hollow one when it does not. Colour alone would say nothing
+   to a reader who cannot distinguish these two greens. */
+.proof__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--text-faint);
+  background: transparent;
+}
+.proof.is-live .proof__dot { border-color: var(--ok); background: var(--ok); }
+.proof.is-live .proof__state { color: var(--ok); }
+.proof.is-down .proof__dot { border-color: var(--bad); background: transparent; }
+.proof.is-down .proof__state { color: var(--bad); }
+
+.proof__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .proof__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem; }
+}
+
+.proof__item { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.proof__item dt {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.proof__value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.35rem, 2.6vw, 1.7rem);
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.proof__note {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* The primary action should look like the thing to press. It was a pale panel
+   with a hairline border, indistinguishable from the secondary beside it. */
+.button--primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #12100c;
+  font-weight: 600;
+}
+.button--primary:hover { filter: brightness(1.06); }

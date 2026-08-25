@@ -89,6 +89,40 @@
         needs, on a network where every participant has been approved rather than merely
         allowed.
       </p>
+      <!-- The first question an institution asks is whether this is real, and
+           the honest way to answer it is to read the running chain in front of
+           them. Every figure here comes from the node this page is served
+           beside; none of it is written into the markup, and when the chain
+           cannot be reached the band says so rather than showing a zero. -->
+      <div class="proof" id="proof" aria-live="polite">
+        <div class="proof__state" id="proof-state">
+          <span class="proof__dot" aria-hidden="true"></span>
+          <span id="proof-chain">reading the chain…</span>
+        </div>
+        <dl class="proof__grid">
+          <div class="proof__item">
+            <dt>Block</dt>
+            <dd class="proof__value" id="p-height">—</dd>
+            <dd class="proof__note" id="p-age">&nbsp;</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Settled in</dt>
+            <dd class="proof__value" id="p-time">—</dd>
+            <dd class="proof__note">median of the last 20</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Validators</dt>
+            <dd class="proof__value" id="p-vals">—</dd>
+            <dd class="proof__note" id="p-vals-note">&nbsp;</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Currencies</dt>
+            <dd class="proof__value" id="p-denoms">—</dd>
+            <dd class="proof__note">issued on this chain</dd>
+          </div>
+        </dl>
+      </div>
+
       <div class="cta">
         <a class="button button--primary" href="docs/guides/local-devnet.html">Run a chain in two minutes</a>
         <a class="button" href="docs/guides/concepts.html">What it is, and why</a>
@@ -465,6 +499,120 @@
     nav.appendChild(sel);
   }
   apply(loc);
+})();
+</script>
+
+<script>
+/* The proof band: four figures read off the chain this page is served beside.
+ *
+ * Same-origin, so there is no CORS to arrange and no second hostname to keep in
+ * step — /api/rpc and /api/rest are the node, proxied by the same nginx that
+ * serves this file.
+ *
+ * Every failure is stated, never zeroed. A payments network claiming a
+ * settlement time while its own chain is unreachable is worse than one that
+ * admits it, and the audience for this page is exactly the audience that will
+ * check. */
+(function () {
+  var band = document.getElementById('proof');
+  if (!band) return;
+
+  function set(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function group(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function getJSON(path) {
+    return fetch(path, { headers: { accept: 'application/json' } }).then(function (r) {
+      if (!r.ok) throw new Error(path + ' -> ' + r.status);
+      return r.json();
+    });
+  }
+
+  /* The median rather than the mean, over twenty blocks. One slow block after a
+     restart drags a mean far enough to misreport the thing the headline claims,
+     and the median is what the explorer reports too — two numbers describing the
+     same chain should not be computed differently. */
+  function medianBlockTime(times) {
+    var deltas = [];
+    for (var i = 1; i < times.length; i++) {
+      var d = (times[i] - times[i - 1]) / 1000;
+      if (d > 0 && d < 600) deltas.push(d);
+    }
+    if (!deltas.length) return null;
+    deltas.sort(function (a, b) { return a - b; });
+    var mid = Math.floor(deltas.length / 2);
+    return deltas.length % 2 ? deltas[mid] : (deltas[mid - 1] + deltas[mid]) / 2;
+  }
+
+  function ago(iso) {
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 12) return 'just now';
+    if (s < 90) return Math.round(s) + 's ago';
+    if (s < 5400) return Math.round(s / 60) + ' min ago';
+    return Math.round(s / 3600) + ' h ago';
+  }
+
+  function down(why) {
+    band.classList.remove('is-live');
+    band.classList.add('is-down');
+    set('proof-chain', why);
+  }
+
+  getJSON('/api/rpc/status').then(function (status) {
+    var sync = status.result.sync_info;
+    var height = parseInt(sync.latest_block_height, 10);
+    var chain = status.result.node_info.network;
+
+    band.classList.add('is-live');
+    set('proof-chain', 'live · ' + chain);
+    set('p-height', group(height));
+    set('p-age', 'last block ' + ago(sync.latest_block_time));
+
+    /* A chain that has stopped still answers /status with its last height, so
+       "live" would be a lie told by a node that has not committed in an hour.
+       The age of the last block is the tell, and it is shown rather than
+       interpreted. */
+    if ((Date.now() - new Date(sync.latest_block_time).getTime()) / 1000 > 120) {
+      band.classList.remove('is-live');
+      band.classList.add('is-down');
+      set('proof-chain', 'not producing blocks · ' + chain);
+    }
+
+    var from = Math.max(1, height - 20);
+    return getJSON('/api/rpc/blockchain?minHeight=' + from + '&maxHeight=' + height)
+      .then(function (b) {
+        var times = b.result.block_metas
+          .map(function (m) { return new Date(m.header.time).getTime(); })
+          .sort(function (x, y) { return x - y; });
+        var med = medianBlockTime(times);
+        set('p-time', med === null ? 'unknown' : med.toFixed(1) + 's');
+      })
+      .catch(function () { set('p-time', 'unknown'); });
+  }).catch(function () {
+    down('the chain is not answering');
+    set('p-height', 'offline');
+    set('p-time', 'unknown');
+  });
+
+  getJSON('/api/rest/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=200')
+    .then(function (v) {
+      var n = (v.validators || []).length;
+      set('p-vals', String(n));
+      /* Said plainly, because it is true of this deployment and a visitor who
+         works it out later trusts the rest of the page less. A set this small
+         cannot survive losing a member. */
+      set('p-vals-note', n < 4 ? 'losing one halts the chain' : 'securing the network');
+    })
+    .catch(function () { set('p-vals', 'unknown'); });
+
+  getJSON('/api/rest/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=500')
+    .then(function (d) { set('p-denoms', String((d.metadatas || []).length)); })
+    .catch(function () { set('p-denoms', 'unknown'); });
 })();
 </script>
 </body>
