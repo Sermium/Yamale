@@ -12,10 +12,15 @@ export const protobufPackage = "blockchain.alias.v1";
 /**
  * Params defines the parameters for the alias module.
  *
- * Neither field grants a power to move money: the module assigns identifiers
- * and resolves them, and that is all it can do. What the second one grants is
- * an exemption from the rule that every account carries a country, which is why
- * it is bounded, deduplicated and governance-only.
+ * One field, and it grants no power to move money: the module assigns
+ * identifiers and resolves them, and that is all it can do.
+ *
+ * It used to carry a second — foundation_administrators, the accounts exempt
+ * from the rule that every account carries a country. That is now
+ * ROLE_FOUNDATION_ADMINISTRATOR in the grant registry, so the exemption and the
+ * perimeter it is an exception to are held in one place under one rule. See
+ * role.proto for why, and Migrate2to3 for how the addresses already named were
+ * carried across.
  */
 export interface Params {
   /**
@@ -35,41 +40,16 @@ export interface Params {
    * defeats the point of the module.
    */
   payloadLength: number;
-  /**
-   * foundation_administrators are the only accounts that may hold an identifier
-   * without a recorded country.
-   *
-   * The rule everywhere else is a refusal: no jurisdiction, no alias. These
-   * accounts are the exception because they are the chain-wide authority and
-   * belong to no national perimeter, so there is no country that would be true
-   * of them. Their identifiers carry ZZ, which ISO 3166-1 reserves permanently
-   * and will never assign to a country, so the marker cannot be mistaken for
-   * one.
-   *
-   * Matched by exact address equality — no prefix, no pattern, no module-account
-   * heuristic — because every one of those is a way for the exemption to cover
-   * an account nobody meant to exempt. Validate caps the list and refuses
-   * duplicates so that widening it is a visible governance act rather than an
-   * append nobody reads. Empty is the default and the safe state: with no
-   * administrators named, the exception grants nothing at all.
-   *
-   * An account here that also has a recorded country uses the country. The
-   * exemption covers the absence of a jurisdiction and nothing else.
-   */
-  foundationAdministrators: string[];
 }
 
 function createBaseParams(): Params {
-  return { payloadLength: 0, foundationAdministrators: [] };
+  return { payloadLength: 0 };
 }
 
 export const Params = {
   encode(message: Params, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     if (message.payloadLength !== 0) {
       writer.uint32(8).uint32(message.payloadLength);
-    }
-    for (const v of message.foundationAdministrators) {
-      writer.uint32(18).string(v!);
     }
     return writer;
   },
@@ -88,13 +68,6 @@ export const Params = {
 
           message.payloadLength = reader.uint32();
           continue;
-        case 2:
-          if (tag !== 18) {
-            break;
-          }
-
-          message.foundationAdministrators.push(reader.string());
-          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -105,21 +78,13 @@ export const Params = {
   },
 
   fromJSON(object: any): Params {
-    return {
-      payloadLength: isSet(object.payloadLength) ? globalThis.Number(object.payloadLength) : 0,
-      foundationAdministrators: globalThis.Array.isArray(object?.foundationAdministrators)
-        ? object.foundationAdministrators.map((e: any) => globalThis.String(e))
-        : [],
-    };
+    return { payloadLength: isSet(object.payloadLength) ? globalThis.Number(object.payloadLength) : 0 };
   },
 
   toJSON(message: Params): unknown {
     const obj: any = {};
     if (message.payloadLength !== 0) {
       obj.payloadLength = Math.round(message.payloadLength);
-    }
-    if (message.foundationAdministrators?.length) {
-      obj.foundationAdministrators = message.foundationAdministrators;
     }
     return obj;
   },
@@ -130,7 +95,6 @@ export const Params = {
   fromPartial(object: DeepPartial<Params>): Params {
     const message = createBaseParams();
     message.payloadLength = object.payloadLength ?? 0;
-    message.foundationAdministrators = object.foundationAdministrators?.map((e) => e) || [];
     return message;
   },
 };

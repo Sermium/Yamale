@@ -204,13 +204,14 @@ func TestRenderRecordDoesNotCallAnAdministratorGroupTheFoundation(t *testing.T) 
 	// Markdown wrapped at about 80 columns, so "correct the country recorded
 	// against" straddles a newline and would never match.
 	for _, want := range []string{
-		"may correct the country", // what the power actually is
-		"reissues the",            // that a correction reissues the identifier
-		"`ZZ`",                    // the reserved code
-		"MsgUpdateParams",         // who can appoint it
-		"cannot do it",            // and who cannot
-		"has no address yet",      // the two-phase warning
-		"foundation's own",        // the address a prediction produced on a live run
+		"may correct the country",         // what the power actually is
+		"reissues the",                    // that a correction reissues the identifier
+		"`ZZ`",                            // the reserved code
+		"`ROLE_FOUNDATION_ADMINISTRATOR`", // what the appointment actually is
+		"chain-wide `*` scope",            // and the scope that makes it governance's alone
+		"cannot do\n",                     // and who cannot
+		"has no address yet",              // the two-phase warning
+		"foundation's own",                // the address a prediction produced on a live run
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("the administrator record does not say %q", want)

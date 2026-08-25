@@ -1769,26 +1769,42 @@ func TestTheFoundationIsCheckedAgainstTheConstitution(t *testing.T) {
 	require.Contains(t, err.Error(), "no foundation to speak of")
 }
 
-// Placing an office's own account needs the foundation to be a foundation
-// administrator in x/alias's parameters — a different mechanism from the
-// constitutional invariant, with a different amendment cost, and an enrolment
-// needs both.
+// Placing an office's own account needs the foundation to hold
+// ROLE_FOUNDATION_ADMINISTRATOR at the chain-wide scope — a governance decision,
+// and a different mechanism from the constitutional invariant that lets it grant a
+// role inside a country. Two amendment costs, and an enrolment needs both.
 func TestTheFoundationMustAlsoBeAFoundationAdministrator(t *testing.T) {
 	dir := t.TempDir()
 	dossier, _ := confirmedDossier(t)
 
-	good := filepath.Join(dir, "params.json")
+	good := filepath.Join(dir, "chain-wide-grants.json")
 	require.NoError(t, os.WriteFile(good, []byte(fmt.Sprintf(
-		`{"params":{"payload_length":8,"foundation_administrators":[%q]}}`, dossier.Foundation)), 0o644))
+		`{"grants":[{"holder":%q,"role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"*"}]}`,
+		dossier.Foundation)), 0o644))
 	require.NoError(t, requireFoundationAdministrator(dossier, good))
 
-	bad := filepath.Join(dir, "empty-params.json")
-	require.NoError(t, os.WriteFile(bad,
-		[]byte(`{"params":{"payload_length":8,"foundation_administrators":[]}}`), 0o644))
+	bad := filepath.Join(dir, "no-grants.json")
+	require.NoError(t, os.WriteFile(bad, []byte(`{"grants":[]}`), 0o644))
 	err := requireFoundationAdministrator(dossier, bad)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "foundation_administrators")
+	require.Contains(t, err.Error(), "ROLE_FOUNDATION_ADMINISTRATOR")
 	require.Contains(t, err.Error(), "governance proposal")
+
+	// A grant of the role to somebody else is not the foundation's, and a
+	// chain-wide grant of another role to the foundation is not this one. Both are
+	// refused, because either would be read by a check matching on one field alone
+	// as an entitlement to place an office.
+	for name, body := range map[string]string{
+		"another holder": fmt.Sprintf(
+			`{"grants":[{"holder":%q,"role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"*"}]}`,
+			dossier.Offices[0].OnChain.PolicyAddress),
+		"another role": fmt.Sprintf(
+			`{"grants":[{"holder":%q,"role":"ROLE_SUPERVISOR","jurisdiction":"*"}]}`, dossier.Foundation),
+	} {
+		path := filepath.Join(dir, slug(name)+".json")
+		require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
+		require.Error(t, requireFoundationAdministrator(dossier, path), name)
+	}
 }
 
 // ---------------------------------------------------------------- validators

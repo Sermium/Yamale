@@ -104,11 +104,53 @@ func (k msgServer) GrantRole(ctx context.Context, msg *types.MsgGrantRole) (*typ
 		return nil, errorsmod.Wrapf(types.ErrInvalidRole, "%s", types.RoleName(msg.Role))
 	}
 
+	// One role is chain-wide or nothing, and this is where a country scope for it
+	// is refused. See types.ChainWideOnly.
+	//
+	// The check runs after the signer check rather than before it, and that is
+	// safe in a way worth stating because the ordering hazard next door is real.
+	// assertMayGrant is ordered the way it is because it must REFUSE "*" before
+	// reading the constitution — an acceptance must never depend on a store read
+	// that could fail. Here the outcome is a refusal on both sides: a country
+	// scope for this role is refused whichever order the two checks run in, and
+	// an unreadable constitution refuses too. There is no arrangement of these
+	// two that produces an acceptance.
+	if types.ChainWideOnly(msg.Role) && scope != types.ChainWide {
+		return nil, errorsmod.Wrapf(types.ErrInvalidScope,
+			"%s is granted %q or not at all, and %q is a country; what it exempts is the absence of a national perimeter, "+
+				"so an administrator of one country would be claiming an exemption from a rule it is already inside",
+			types.RoleName(msg.Role), types.ChainWide, scope)
+	}
+
 	// An office that is one key is one bribe, whatever the quorum downstream of
 	// it. Checked here because this is the only moment at which the chain has any
 	// say over who a role goes to.
 	if err := k.assertGroupAccount(ctx, msg.Holder); err != nil {
 		return nil, err
+	}
+
+	// The cap on foundation administrators, which moved here from
+	// Params.Validate along with the administrators themselves.
+	//
+	// Counted excluding this holder, so re-granting an existing administrator —
+	// a proposal resubmitted after a timeout, or one adding a required_shape to a
+	// grant that had none — is not refused by the place it already occupies.
+	// Without that the eighth administrator's grant could never be amended.
+	//
+	// It is checked here and in GenesisState.Validate, and it has to be both:
+	// nothing re-examines a grant seeded at height zero, and a module with no
+	// EndBlocker has nowhere else to hold an invariant on a count.
+	if types.ChainWideOnly(msg.Role) {
+		held, err := k.countFoundationAdministrators(ctx, msg.Holder)
+		if err != nil {
+			return nil, err
+		}
+		if held >= types.MaxFoundationAdministrators {
+			return nil, errorsmod.Wrapf(types.ErrInvalidRole,
+				"at most %d accounts may hold %s at once, and %d already do; "+
+					"this is the single exception to every account having a jurisdiction, and widening it has to be a visible act",
+				types.MaxFoundationAdministrators, types.RoleName(msg.Role), held)
+		}
 	}
 
 	// The M-of-N the office must keep, if this grant records one. Two separate

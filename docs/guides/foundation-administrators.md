@@ -7,9 +7,9 @@ investigating them comes into existence, and who gets to decide.
 each, about ninety minutes for the ceremony, and a governance voting period —
 which on this chain is thirty minutes and on a real one is days.
 
-**You will end with:** an M-of-N `x/group` account named in
-`alias.params.foundation_administrators`, a signed record, and a governance
-proposal in the chain's permanent history saying who agreed to it.
+**You will end with:** an M-of-N `x/group` account holding
+`ROLE_FOUNDATION_ADMINISTRATOR` at the chain-wide scope, a signed record, and a
+governance proposal in the chain's permanent history saying who agreed to it.
 
 ---
 
@@ -42,15 +42,49 @@ fact.
 
 And administrators are the only accounts permitted to hold an identifier with
 **no country at all**, carrying `ZZ`, which ISO 3166-1 reserves permanently and
-will never assign. That is the second half of what the parameter is for: an
-account that belongs to no national perimeter, because it is the chain-wide
-authority and there is no country that would be true of it.
+will never assign. That is the second half of what the role is for: an account
+that belongs to no national perimeter, because it is the chain-wide authority and
+there is no country that would be true of it.
+
+Two more powers come with it, and they are the same class of act — deciding who
+may see inside a perimeter rather than who may act in one. A foundation
+administrator may **appoint a country's regulator**, the account entitled to be
+sealed into the encrypted payload of every payment settling there, and may grant
+the time-boxed **auditor** role that reads across accounts. `x/alias` accepts
+governance or a foundation administrator for both, and nobody else.
+
+### Placement and authority are two questions
+
+The chain asks about the role in two different ways, and the split is worth
+knowing before you read a refusal.
+
+**Where is this account** is a fact. It is asked by the identifier issuer when it
+decides whether `ZZ` may be used, and by every perimeter check about a *target*.
+That question reads only whether the grant is present.
+
+**May this account act** is not a fact but an authority, and an office's shape
+bears on an authority where it does not bear on a fact. If the
+grant records a `required_shape`, an administrator that has fallen below its
+M-of-N is refused with `ErrOfficeShape` — naming the shape and the fix — rather
+than with "you are not an administrator".
+
+The two are deliberately not one function. If placement consulted the shape, an
+administrator that lost a custodian would stop having a country at all: its own
+identifier would become unissuable and every authority action against it would
+fail with "no recorded jurisdiction", which is a sentence about the wrong thing
+entirely.
 
 ## Who appoints them, and why it is not the foundation
 
-`alias.params.foundation_administrators` is a **module parameter**. The only
-message that can change it is `MsgUpdateParams`, whose authority is the
-governance module account and nothing else.
+An administrator is a **role grant**: `ROLE_FOUNDATION_ADMINISTRATOR`, held at
+the chain-wide scope `*`, written by `MsgGrantRole` on `x/alias`.
+
+The rule that decides the signer is the one that governs every grant on this
+chain. A grant naming a **country** may be made by governance or by the
+foundation; a grant naming the **chain-wide** scope is governance and nobody
+else. `GrantRole` refuses `*` from every other signer before it even reads the
+constitution to find out who the foundation is, because an acceptance must never
+depend on a store read that could fail.
 
 So the foundation's own M-of-N **cannot appoint an administrator**. Not "should
 not" — cannot. It is worth being clear about why that is right rather than an
@@ -60,89 +94,113 @@ oversight:
   seized asset. An account that could also decide who may rewrite a jurisdiction
   would be able to grant itself the ability to move any customer anywhere, and
   the perimeter would be advisory.
-- The list is the single exception to "every account carries a country". Widening
+- The role is the single exception to "every account carries a country". Widening
   it is the kind of act that should cost a public vote and a waiting period, not
   three signatures on a call.
 
-Compare [`GrantRole`](../reference/alias.md), where the foundation *can* act for
-a country but chain-wide scope stays governance-only, for the same argument by
-the same road.
+### Chain-wide or nothing, and why that is the load-bearing rule
 
-**Empty is the default and empty is safe.** With nobody named, the exemption
-grants nothing at all. What it costs is that no recorded country can ever be
-corrected, and that a new country cannot be enrolled — the first institutions in
-one have no participant to record their jurisdiction, so somebody with the
-exemption has to do it. That is the trade, and it is a real one in both
-directions.
+A grant of this role that names a country is **refused** — `ChainWideOnly` in
+`x/alias`, checked in `GrantRole` and again in genesis validation.
 
-## The one thing that will bite you
+That refusal is what keeps the appointment exactly as governance-only as the
+parameter list it replaced. A country-scoped grant is one the *foundation* may
+make; refusing the country form leaves the chain-wide form, and the chain-wide
+form is governance's alone. Without it, moving the administrators out of the
+parameters would have quietly handed the foundation the power to appoint the
+accounts that stand outside every country — a widening nobody voted for, arriving
+as a side effect of a refactor.
 
-`MsgUpdateParams` carries a `Params` **message**, not a field mask. Setting it
-**replaces the whole object**.
+It would also be meaningless rather than merely wrong. What the role exempts is
+the *absence* of a national perimeter, so an administrator of one country is an
+account claiming an exemption from a rule it is already inside.
 
-So "appoint one administrator" is really *read the current parameters, add one
-address, and resubmit every parameter*. Composed by hand, the proposal that
-appoints one administrator silently:
+**No grant is the default and no grant is safe.** With nobody holding the role,
+the exemption grants nothing at all. What it costs is that no recorded country
+can ever be corrected, that no country's regulator can be appointed, and that a
+new country cannot be enrolled — the first institutions in one have no
+participant to record their jurisdiction, so somebody with the exemption has to
+do it. That is the trade, and it is a real one in both directions.
 
-- drops the administrators already appointed, or
-- resets `payload_length` to its default on a chain that had raised it.
+## The trap that used to be here, and why it is gone
 
-**Nothing on the chain catches either.** `Params.Validate()` bounds the list and
-refuses duplicates; a list shorter than the one before it is a perfectly valid
-list. The proposal passes, executes, and reads as correct. The only evidence is
-a count that went down, in a field nobody was watching.
+This section used to be the longest in the guide, under the heading "the one
+thing that will bite you", and it is worth recording what it said rather than
+deleting it — because "the failure mode this used to have" is exactly what a
+reader coming back to this page will be looking for.
 
-Two tools absorb this, and both refuse rather than defaulting:
+The appointment used to be `alias.params.foundation_administrators`, a repeated
+field of up to eight addresses, set by `MsgUpdateParams`. `MsgUpdateParams`
+carries a `Params` **message**, not a field mask, so setting it replaced the
+whole object. "Appoint one administrator" was really *read the current
+parameters, add one address, and resubmit every parameter*. Composed by hand, the
+proposal that appointed one administrator silently dropped the administrators
+already appointed, or reset `payload_length` to its default on a chain that had
+raised it. Nothing on the chain caught either: `Params.Validate()` bounded the
+list and refused duplicates, and a list shorter than the one before it is a
+perfectly valid list. The proposal passed, executed, and read as correct. The
+only evidence was a count that went down, in a field nobody was watching.
 
-- **`clients/governance`** reads the current parameters, changes exactly one
-  thing, and shows you the **whole object before and after** — including what did
-  not move, because "payload_length is unchanged" is information when the message
-  replaces everything.
-- **`ceremony administrators propose`** requires `--alias-params` and will not
-  run without it.
+**That trap is gone, and it is the single best thing about the change.**
+`MsgGrantRole` names one holder and is additive. It cannot drop an administrator
+it does not mention, and it changes no parameter of `x/alias` at all, so it
+cannot re-parameterise the chain while reading as an appointment. A proposal
+composed from a view of the chain that went stale during the voting period is
+now merely out of date, where before it was destructive.
 
-A third trap sits inside that one. If `payload_length` reads back as **0**, both
-tools **refuse**. Proto3 cannot tell a zero from a field nobody filled in, so a
-zero means the value is *unknown* — and `Validate()` refuses a zero, so the chain
-never actually holds one. A tool that defaulted it to 8 would compose a proposal
-that re-parameterised the chain while reading as an appointment.
+What is left of the old machinery is one read, for one reason: the cap. See
+[the sequence](#5-the-governance-proposal), where `--chain-wide-grants` is
+required and the tool says in as many words that it is required for the cap and
+for nothing else.
 
-> `blockchaind query alias params -o json` on the live devnet returns
-> `{"params":{"payload_length":8}}` — the empty administrator list is **omitted
-> entirely**, because protobuf JSON drops an empty repeated field. That is fine:
-> for a repeated field, absent and empty are the same value, and there is no
-> third state to confuse them with. `payload_length` is the field where a zero is
-> ambiguous, which is why only that one is a refusal.
+The related trap is gone with it. `payload_length` reading back as `0` used to be
+a refusal in both interfaces, because proto3 cannot tell a zero from a field
+nobody filled in and a tool that defaulted it to 8 would compose a proposal that
+re-parameterised the chain while reading as an appointment. The appointment no
+longer carries `payload_length`, so it no longer has an opinion about it.
 
 ## What the chain does not check
 
-`Params.Validate()` refuses an empty string, a duplicate, and a ninth entry. It
-does **not** check that an entry is an address.
+Both of the things this section used to warn about are now checked, and one thing
+it never mentioned is not. It is worth being precise about which is which.
 
-A mistyped address therefore passes a governance vote, occupies one of the eight
-capped places, and grants the exemption to nobody. The list reads as five names
-and grants four, which is exactly the auditability the cap exists to protect.
-Both interfaces verify the bech32 checksum themselves before composing, because
-the chain will not. Six characters of checksum catch every single-character typo
-and every transposition, which is what somebody copying an address off a record
-actually does wrong.
+**An entry that is not an address.** `Params.Validate()` never checked this: a
+mistyped address passed a governance vote, occupied one of the eight capped
+places and granted the exemption to nobody. `GrantRole` decodes the holder, so
+that failure is now a refused message rather than a passed proposal.
 
-The chain also does not require an administrator to be a **group account**. It
-matches by exact address equality and does not care what kind of account it is —
-unlike `MsgGrantRole`, which refuses a holder that is not an M-of-N group. So the
-interfaces **warn** and proceed, and say plainly that the chain will accept a
-single key. Appoint a group anyway. An office that is one key is one bribe, and
-this particular office can move any customer on the chain.
+**A holder that is not a group account.** The parameter matched by exact address
+equality and did not care what kind of account it was, so the interfaces warned
+and proceeded and said plainly that the chain would accept a single key.
+`GrantRole` refuses a holder that is not an `x/group` account. An office that is
+one key is one bribe, and this particular office can move any customer on the
+chain — the chain now says so itself.
+
+**What is still not checked is the shape the office keeps afterwards.** A grant
+may record a `required_shape`, the M-of-N its holder must keep, and the chain
+then resolves the group policy on every authority action and refuses an office
+that has fallen below it. A grant that records **none** constrains nothing: its
+holder is a group account on the day it is appointed and can vote itself down to
+a one-of-one the next morning, with nothing notified and nothing refused. An
+office administers itself — that is what makes its membership changeable by its
+own members and nobody else — so this is not a hypothetical.
+
+The appointment ceremony deliberately records no shape, and
+[the section on the migration](#what-the-migration-did-to-the-administrator-you-already-have)
+has what to do about it. The short version: the only numbers to hand are read out
+of the group file the custodians signed, and a requirement captured from the
+group that turned up ratifies a one-of-one as readily as a three-of-five. A
+requirement has to be decided before the day or it is not a requirement.
 
 ## Before the day
 
 ### Who the custodians are
 
-Three at minimum, eight at most in the list overall, and **not people who report
-to each other**. The whole value of M-of-N is that some of them would have to
-agree against the interests of the others, and colleagues with a shared manager
-cannot do that. If separate organisations are not available, separate line
-managers and separate offices is the floor.
+Three at minimum in this group, at most eight accounts holding the role at once
+across the whole chain, and **not people who report to each other**. The whole value of M-of-N is that some
+of them would have to agree against the interests of the others, and colleagues
+with a shared manager cannot do that. If separate organisations are not
+available, separate line managers and separate offices is the floor.
 
 ### The threshold
 
@@ -153,10 +211,26 @@ the shapes that work.
 
 ### The cap
 
-Eight administrators, chain-wide, from `MaxFoundationAdministrators`. It is not
-about storage. It is there so that widening the one rule the whole perimeter
-rests on cannot happen by accident: a proposal that appends a hundred addresses
-fails outright rather than passing because nobody scrolled.
+Eight administrators, chain-wide, from `MaxFoundationAdministrators`. It kept its
+number and its reason when the administrators stopped being a parameter list, and
+the argument for it changed shape rather than going away.
+
+What it used to defend against was a proposal that appended a hundred addresses
+to a repeated field and passed because nobody scrolled. That exact failure is
+gone: a grant is one message naming one holder, with the holder decoded, the role
+named, an event emitted and a height recorded, so a hundred administrators is a
+hundred visible acts.
+
+What it still defends against is the two places where a set can grow without
+being read one entry at a time — a governance proposal carrying many messages,
+and a genesis file. Both are counted: `GrantRole` counts the chain-wide grants of
+the role before writing another, and `GenesisState.Validate` counts them in the
+file.
+
+The count **excludes the holder being granted**, so re-granting an existing
+administrator is never refused by a place it already occupies. That is what makes
+a proposal resubmitted after a timeout safe, and it is what makes it possible to
+add a `required_shape` to the eighth administrator's grant at all.
 
 At the cap, the tools refuse an appointment and tell you to remove somebody
 **first, in its own proposal**, so both decisions are voted on separately.
@@ -296,25 +370,36 @@ members is a 3-of-5.
 ### 5. The governance proposal
 
 ```bash
-blockchaind query alias params -o json > alias-params.json
+blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json
 blockchaind query auth module-account gov -o json > gov-account.json
 blockchaind query gov params deposit -o json      # for --deposit
 
 ceremony administrators propose --dossier appointment-*.json \
-  --alias-params alias-params.json --gov-account gov-account.json \
+  --chain-wide-grants chain-wide-grants.json --gov-account gov-account.json \
   --deposit 1000000uyml
 ```
 
-Both files are required and neither has a default. `--alias-params` because the
-message replaces every parameter, and `--gov-account` because the authority is
-read off the chain rather than compiled in — one that had gone stale would
-produce a proposal that passed its vote and was then refused when it executed.
+Both files are required and neither has a default, and the two reasons are not
+the same one.
 
-The tool prints the whole object, before and after, and every address it is
-re-submitting. **Read that list.** Every address in it is one this proposal
-carries; any that is missing is one it removes, silently, with a valid signature.
-If the count is lower than you believe it should be, the parameters were read
-before somebody else's proposal landed — re-read them and compose it again.
+`--chain-wide-grants` is required **for the cap and for nothing else**. At most
+eight accounts may hold the role at once, and `GrantRole` counts them when the
+proposal *executes* — so a ninth appointment composed without reading them costs a
+full voting period and then fails in a transaction log nobody is watching. It has
+to be that query and not `role-grants <holder>`, which renders the same shape for
+one account: a file from the second would report a chain with no administrators
+at all, and the count would read as seven places free on a chain that has none.
+
+`--gov-account` is required because the authority is read off the chain rather
+than compiled in. A chain-wide grant is refused from every signer but the
+governance module account, and an address that had gone stale would produce a
+proposal that passed its vote and was then refused when it executed.
+
+The tool prints the accounts that already hold the role, marked **untouched**,
+and the one this proposal adds. Read that list — not because anything in it is at
+risk, but because it is the only screen on which an operator sees the whole of
+the capped set before adding to it. A list that is out of date makes the count
+wrong and the proposal still correct, which is the difference this change bought.
 
 ```bash
 blockchaind tx gov submit-proposal appoint-...-proposal.json \
@@ -346,19 +431,24 @@ composes the command for each one.
 ### 7. Verify that it actually happened
 
 ```bash
-blockchaind query alias params -o json > alias-params.json
-ceremony administrators verify --dossier appointment-*.json --alias-params alias-params.json
+blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json
+ceremony administrators verify --dossier appointment-*.json \
+  --chain-wide-grants chain-wide-grants.json
 ```
 
 **A proposal that PASSED and a proposal that took effect are two different
 states.** A proposal can pass its vote and still fail when it executes, which
-leaves the parameters exactly as they were and reports it in a transaction log
-nobody is watching. `PROPOSAL_STATUS_PASSED` is not evidence.
+leaves the registry exactly as it was and reports it in a transaction log nobody
+is watching. `PROPOSAL_STATUS_PASSED` is not evidence. The two failures this step
+actually catches are a grant refused at execution by the cap, and a grant refused
+because the holder is not a group account.
 
-`verify` records the **whole** administrator list, not just this group. That is
-deliberate: the list is what a carelessly composed `MsgUpdateParams` destroys,
-and if it is shorter than it was before this proposal, the evidence is here and
-nowhere else.
+`verify` records the **whole** set of accounts holding the role, not just this
+group. That is deliberate, and the reason has changed with the mechanism: the set
+is no longer something a careless proposal can destroy, but it is still the
+single exception to every account on the chain having a jurisdiction, and how
+many accounts hold it belongs on a record somebody reads years later without a
+chain to query.
 
 ### 8. The record
 
@@ -425,22 +515,97 @@ signal is the `EventExec` attribute in the transaction, which reads
 
 ## Removing one
 
-The same message, with the address taken out instead of added — and it is the
-same trap, so use the governance console or compose it against a fresh read of
-the parameters.
+`MsgRevokeRole`, naming the holder, the role and the chain-wide scope exactly —
+and governance again, because only governance may touch a grant at that scope in
+either direction.
 
-Removing the **last** administrator leaves the list empty, which is a real state
-and the documented default. Nothing blocks it. What it means: no recorded country
-can be corrected until governance appoints somebody again, no account can hold a
-`ZZ` identifier, and a new country cannot be enrolled. Governance can appoint
-again by another proposal exactly like this one, so it is recoverable — it is just
-not reversible by the people who did it.
+Revoking a grant that was never made is an **error** rather than a quiet success,
+on purpose: "nothing to revoke" is how a proposal that named the wrong scope
+passes while leaving the authority it meant to remove in place.
+
+Removing the **last** administrator leaves nobody holding the role, which is a
+real state and the documented default. Nothing blocks it. What it means: no
+recorded country can be corrected until governance appoints somebody again, no
+account can hold a `ZZ` identifier, no country's regulator can be appointed, and
+a new country cannot be enrolled. Governance can appoint again by another
+proposal exactly like this one, so it is recoverable — it is just not reversible
+by the people who did it.
+
+## What the migration did to the administrator you already have
+
+A chain that ran under the parameter has an administrator in it, and the
+`x/alias` v2-to-v3 migration — which runs in the `roles-that-do-something`
+upgrade — is what carries that account across. Read this before deciding it did
+nothing.
+
+`Migrate2to3` reads the retired `foundation_administrators` field out of the
+**raw stored parameter bytes** — a reserved field is one the generated Go type no
+longer has, and unmarshalling with the current type would drop the addresses
+silently, with no error, because dropping an unknown field is what a protobuf
+decoder is supposed to do. Every address it finds becomes a chain-wide grant of
+`ROLE_FOUNDATION_ADMINISTRATOR`, attributed in `granted_by` to **governance** —
+because governance is what appointed them, the parameter having been set by
+`MsgUpdateParams` and nothing else. Attributing it to the upgrade would have lost
+the one fact `granted_by` exists to record. The parameters are then rewritten
+through the current type, which drops the dead field from the store rather than
+leaving it there until the next `MsgUpdateParams`.
+
+**What the migration deliberately does not do is apply today's rules.** The
+carried grants record no `required_shape`, and their holders are not required to
+be `x/group` accounts. Both are true of a grant made today and neither was true
+of the administrators a parameter list held, which were bare addresses. A
+migration that applied the new rule would not be carrying an authority across; it
+would be deleting one and calling the deletion a standard — and the account it
+deleted is the one that can correct a country. The cap is not enforced during the
+migration either, for the same reason: the parameter's own `Validate()` refused a
+ninth entry so a chain cannot be carrying more than eight, and halting every node
+on an upgrade is a worse answer than carrying the state that exists and letting
+the next grant be refused.
+
+### What to do afterwards
+
+Two things, both deliberate acts rather than cleanup.
+
+**Check that the holder is actually a group.** The parameter never required it and
+the migration did not impose it, so a chain that appointed a single key still has
+one.
+
+```bash
+blockchaind query alias chain-wide-grants -o json
+blockchaind query group group-policy-info <holder> -o json
+# a plain-account answer here means it is a single key
+```
+
+There is no in-place fix for that one: the authority has to be revoked and
+granted again to a group the chain will accept, which is two governance
+proposals, and in between the chain has no administrator.
+
+**Consider re-granting with a `required_shape`, and decide the numbers first.**
+Adding a requirement to a grant that had none is an ordinary re-grant and needs no
+revoke: `GrantRole` counts the cap excluding the holder precisely so that a grant
+can be amended. `assertShapeNotReduced` then stops any later re-grant lowering the
+bar or dropping it by omitting the field, so the pin is one-way once it is on.
+
+The numbers have to be agreed before anybody looks at the group, and this is why
+the appointment ceremony records none: the only numbers to hand at ceremony time
+are read out of the group file the custodians signed, and a requirement captured
+from the group that turned up ratifies a one-of-one as readily as a three-of-five.
+Writing 3-of-5 onto a grant because the group was a 3-of-5 puts a requirement on
+the chain that nobody decided, and it reads on the signed record as though
+somebody had.
+
+A grant requiring more than the office currently is will be refused before it is
+written, which is the other half of the same rule — so the office and the
+requirement have to agree on the day the proposal executes, not on the day it was
+composed.
 
 ## What a run of this actually looked like
 
-A rehearsal on `yamale-devnet-2`, 2026-08-23, so the numbers above are checkable
-rather than illustrative. The list was empty before it and nobody on the chain
-could correct a recorded country.
+A rehearsal on `yamale-devnet-2`, 2026-08-23, so the numbers below are checkable
+rather than illustrative. It predates this change and was composed as a
+`MsgUpdateParams`; the ceremony steps, the address hazard and everything the
+administrator then did are unchanged, and the row that named the parameter is
+marked. Nobody on the chain could correct a recorded country before it.
 
 | Step | What happened |
 | --- | --- |
@@ -448,7 +613,7 @@ could correct a recorded country.
 | Predicted address | `yml1afk9zr2…3xm8uj` — **the foundation's own**, sequence 1 |
 | Real address | `yml1dlszg2s…rmuayr`, group 2, created at height 28480 |
 | Proposal | gov #2, deposit 1 YML, 30-minute vote, passed 65,000,000,000 yes / 0 no |
-| After | `foundation_administrators` had one entry; `payload_length` still 8 |
+| After | the parameter had one entry; `payload_length` still 8. The v2-to-v3 migration has since carried that entry into a chain-wide grant of the role, attributed to governance |
 
 Then, as the appointed group, three of the four custodians voting:
 
@@ -468,38 +633,56 @@ the record with the group that made it named in it.
 ## Checking somebody else's appointment
 
 ```bash
-# who holds the exemption, and how many places are left
-blockchaind query alias params -o json
+# who holds the exemption, how many places are left, and who granted each one
+blockchaind query alias chain-wide-grants -o json
 
-# each one: is it a group, and who is in it?
+# one account's grants, from the other end
+blockchaind query alias role-grants <address> -o json
+
+# is it a group, and who is in it?
 blockchaind query group group-policy-info <address> -o json
 blockchaind query group group-members <group id> -o json
 
 # a plain-account answer here means it is a single key
 ```
 
-An address in that list that `group-policy-info` does not recognise is a single
-key holding the power to move any customer on the chain. That is not
-misconfiguration the chain will report; it is a thing you have to go and look at.
+`chain-wide-grants` is the query to start from and `role-grants <holder>` is the
+one to finish with. The first enumerates the exception; the second answers a
+question about one account and, asked first, would report a chain with no
+administrators at all to somebody who had guessed the wrong address.
+
+Two things the registry now tells you that the parameter could not. Every grant
+carries `granted_by` and `granted_at_height`, so "who says this account may
+rewrite a jurisdiction, and since when" has an answer on chain rather than in
+somebody's proposal archive. And it carries `required_shape`, which is the field
+worth reading: absent means the grant predates the rule or was made without one,
+and its holder can shrink to a single key without losing anything.
+
+An address holding the role that `group-policy-info` does not recognise is a
+single key holding the power to move any customer on the chain. Since the change
+that cannot arrive through `GrantRole` any more — it can only have been carried
+across by the migration, or seeded in genesis.
 
 ## When something goes wrong
 
-**The proposal passed and the parameters did not change.** It failed at
-execution. `blockchaind query gov proposal <id> -o json` and read the
-`failed_reason`. The usual causes are an authority that is not the gov module
-account, and a `Params` object the chain refuses.
+**The proposal passed and nobody holds the role.** It failed at execution.
+`blockchaind query gov proposal <id> -o json` and read the `failed_reason`. The
+three causes worth checking first are an authority that is not the gov module
+account, a holder that is not an `x/group` account, and the cap — eight accounts
+already holding the role means the ninth grant is refused after the vote rather
+than before it.
 
-**The list is shorter than it was.** Somebody composed a proposal from a stale
-read of the parameters. The administrators that vanished are in the chain's
-history — find the proposal, take the list from *before* it, and propose that plus
-whatever legitimate change has happened since. There is no undo.
+**The grant is there and the group cannot act.** Read `required_shape` on the
+grant against `group-members`. An office that has fallen below a recorded shape is
+refused with `ErrOfficeShape` — which is a statement about the group, not about
+the grant — and the office repairs it by its own vote, with no governance
+involved. Check `group-members` against the ceremony record while you are there:
+a membership that does not match means the group at that address is not the group
+the record describes, and the appointment went to whoever created that policy.
 
-**A group in the list cannot act.** Check `group-members` against the ceremony
-record. A membership that does not match means the group at that address is not
-the group the record describes, and the appointment went to whoever created that
-policy.
-
-**An entry in the list is not an address.** It grants nothing and occupies one of
-the eight places. Remove it with a proposal like any other. The chain accepted it
-because `Validate()` never checks — see [what the chain does not
-check](#what-the-chain-does-not-check).
+**A grant names an address nobody holds a key for.** It grants nothing and
+occupies one of the eight places. Remove it with `MsgRevokeRole` naming the
+holder, the role and `*` exactly. The chain accepted it only if it arrived through
+genesis or the migration; `GrantRole` decodes the holder and would have refused
+it — see [what the chain does not check](#what-the-chain-does-not-check) for which
+of the old omissions closed and which one did not.

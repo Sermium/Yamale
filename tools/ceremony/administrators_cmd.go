@@ -6,8 +6,8 @@ package main
 //	ceremony administrators init    --config administrators.json
 //	ceremony administrators group   --dossier appointment-<name>.json
 //	ceremony administrators confirm --dossier ... --tx ... --policy ... --members ...
-//	ceremony administrators propose --dossier ... --alias-params ... --gov-account ... --deposit ...
-//	ceremony administrators verify  --dossier ... --alias-params ...
+//	ceremony administrators propose --dossier ... --chain-wide-grants ... --gov-account ... --deposit ...
+//	ceremony administrators verify  --dossier ... --chain-wide-grants ...
 //	ceremony administrators record  --dossier ... --config record.json
 //
 // The order is enforced rather than documented, because every one of these steps
@@ -34,7 +34,7 @@ const administratorsUsage = `ceremony administrators — appoint a foundation ad
   group     the transaction that creates the M-of-N group account
   confirm   read the group's policy address back off the chain, and verify it
   propose   the GOVERNANCE proposal that appoints it
-  verify    read x/alias's parameters back and check the appointment took effect
+  verify    read the chain-wide grants back and check the appointment took effect
   record    render the appointment record for signature
 
 Run "ceremony administrators <step> --help" for the flags.
@@ -44,9 +44,11 @@ the chain — which moves that account out from under the authority investigatin
 and retires and reissues its identifier — and may hold an identifier with no
 country at all, carrying the reserved ZZ code.
 
-It is appointed by an ordinary governance MsgUpdateParams on x/alias and by nothing
-else. The foundation's own 3-of-5 cannot do it. So this ceremony ends at a
-governance proposal rather than at a foundation vote.
+It is appointed by a governance MsgGrantRole on x/alias, granting
+ROLE_FOUNDATION_ADMINISTRATOR at the chain-wide "*" scope, and by nothing else. A
+chain-wide grant is refused from every other signer, so the foundation's own 3-of-5
+cannot do it. This ceremony therefore ends at a governance proposal rather than at
+a foundation vote.
 
 The steps are in order and each one refuses until the previous one's evidence is in
 the dossier. Nothing here talks to a chain: where a step needs to know what the
@@ -333,16 +335,16 @@ func runAdministratorsConfirm(args []string) error {
 		c.println("  blockchaind query constitution invariants -o json")
 	}
 	c.println()
-	c.println("Now read x/alias's current parameters and the governance module account. Both")
-	c.println("are required: MsgUpdateParams replaces EVERY parameter at once, so a proposal")
-	c.println("composed without the current values would silently reset the ones it did not")
-	c.println("know:")
+	c.println("Now read the accounts that already hold the role and the governance module")
+	c.println("account. The first is for the cap — eight accounts may hold it at once, and a")
+	c.println("ninth grant is refused when it executes, after the vote. The second is the only")
+	c.println("authority the chain accepts for a chain-wide grant:")
 	c.println()
-	c.println("  blockchaind query alias params -o json > alias-params.json")
+	c.println("  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
 	c.println("  blockchaind query auth module-account gov -o json > gov-account.json")
 	c.println("  blockchaind query gov params deposit -o json   # for --deposit")
 	c.printf("  ceremony administrators propose --dossier %s \\\n", *dossierPath)
-	c.println("    --alias-params alias-params.json --gov-account gov-account.json \\")
+	c.println("    --chain-wide-grants chain-wide-grants.json --gov-account gov-account.json \\")
 	c.println("    --deposit 1000000uyml")
 	return nil
 }
@@ -352,7 +354,7 @@ func runAdministratorsConfirm(args []string) error {
 func runAdministratorsPropose(args []string) error {
 	flags := flag.NewFlagSet("administrators propose", flag.ExitOnError)
 	dossierPath := administratorsDossierFlag(flags)
-	aliasParamsPath := flags.String("alias-params", "", "`blockchaind query alias params -o json`")
+	grantsPath := flags.String("chain-wide-grants", "", "`blockchaind query alias chain-wide-grants -o json`")
 	govAccountPath := flags.String("gov-account", "", "`blockchaind query auth module-account gov -o json`")
 	deposit := flags.String("deposit", "", "the proposal deposit, e.g. 1000000uyml; see `query gov params deposit`")
 	out := flags.String("out", ".", "directory for the proposal")
@@ -363,25 +365,25 @@ func runAdministratorsPropose(args []string) error {
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(*aliasParamsPath) == "" {
+	if strings.TrimSpace(*grantsPath) == "" {
 		return errors.New(
-			"--alias-params is required, and it is the whole point of this step.\n" +
-				"MsgUpdateParams carries a Params message, not a field mask, so setting it REPLACES THE WHOLE " +
-				"OBJECT. Appointing one administrator means reading the current parameters, adding one address, " +
-				"and resubmitting everything — and a proposal composed without them would drop the " +
-				"administrators already appointed, or reset payload_length, and pass anyway. Nothing on the " +
-				"chain catches that: a shorter list than before is a perfectly valid list.\n" +
-				"  blockchaind query alias params -o json > alias-params.json")
+			"--chain-wide-grants is required, and it is required for the cap and for nothing else.\n" +
+				"At most eight accounts may hold ROLE_FOUNDATION_ADMINISTRATOR at once, and GrantRole counts " +
+				"them when the proposal EXECUTES — so a ninth appointment composed without reading them costs a " +
+				"full voting period and then fails in a transaction log nobody is watching.\n" +
+				"It has to be that query and not `role-grants <holder>`, which renders the same shape for one " +
+				"account: a file from the second would report a chain with no administrators at all.\n" +
+				"  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
 	}
 	if strings.TrimSpace(*govAccountPath) == "" {
 		return errors.New(
-			"--gov-account is required. x/alias's UpdateParams is authority-gated to the governance module " +
-				"account and to nothing else, and this tool will not compile that address in: one that had " +
-				"gone stale would produce a proposal that passed its vote and was then refused at execution.\n" +
+			"--gov-account is required. A grant at the chain-wide scope is refused from every signer but the " +
+				"governance module account, and this tool will not compile that address in: one that had gone " +
+				"stale would produce a proposal that passed its vote and was then refused at execution.\n" +
 				"  blockchaind query auth module-account gov -o json > gov-account.json")
 	}
 
-	current, err := readAliasParamsFiles(*aliasParamsPath, *govAccountPath)
+	current, err := readStandingGrants(*grantsPath, *govAccountPath)
 	if err != nil {
 		return err
 	}
@@ -403,25 +405,28 @@ func runAdministratorsPropose(args []string) error {
 	c.printf("=== %s: the appointment proposal ===\n\n", dossier.Ceremony)
 	c.printf("  appointing   %s\n", address)
 	c.printf("  authority    %s\n", current.Authority)
+	c.printf("  granting     %s at %q\n",
+		aliastypes.RoleName(aliastypes.ROLE_FOUNDATION_ADMINISTRATOR), aliastypes.ChainWide)
 	c.println()
-	// The before and after, in full, for the same reason the governance console
-	// shows it: this message replaces the whole object, so what is NOT changing is
-	// information.
-	c.println("  x/alias parameters, whole object, before and after:")
-	c.printf("    payload_length             %d  ->  %d\n", current.PayloadLength, current.PayloadLength)
-	c.printf("    foundation_administrators  %d  ->  %d\n",
-		len(current.FoundationAdministrators), len(current.FoundationAdministrators)+1)
-	for _, existing := range current.FoundationAdministrators {
-		c.printf("      kept   %s\n", existing)
+	// The accounts that already hold the role, listed rather than counted, because
+	// this is the set the cap bounds and the only screen on which an operator sees
+	// the whole of it before adding to it. They are shown as UNTOUCHED and the word
+	// matters: the message names one holder, so this list is context for the
+	// decision rather than anything the proposal acts on.
+	c.printf("  accounts holding the role: %d of %d, none of them touched by this proposal\n",
+		len(current.Administrators), aliastypes.MaxFoundationAdministrators)
+	for _, existing := range current.Administrators {
+		c.printf("      holds  %s\n", existing)
 	}
 	c.printf("      ADDED  %s\n", address)
 	c.println()
 	c.printf("Wrote %s.\n\n", path)
-	c.println("Check that list against what you expect. Every address in it is one this")
-	c.println("proposal RE-SUBMITS, and any that is missing is one it removes — silently, and")
-	c.println("with a valid signature, because a shorter list is a valid list. If the count")
-	c.println("above is lower than you believe it should be, the parameters were read before")
-	c.println("somebody else's proposal landed: re-read them and compose this again.")
+	c.println("This proposal carries ONE message naming ONE holder. It cannot drop an account")
+	c.println("it does not mention and it changes no parameter of x/alias, so a list above")
+	c.println("that is out of date makes the count wrong and the proposal still correct. The")
+	c.println("count is worth reading anyway: it is how close the chain is to the cap of")
+	c.printf("%d, past which a grant is refused when it executes rather than when it is cast.\n",
+		aliastypes.MaxFoundationAdministrators)
 	c.println()
 	c.printf("  blockchaind tx gov submit-proposal %s \\\n", path)
 	c.printf("    --from <your-key> --chain-id %s \\\n", dossier.ChainID)
@@ -439,10 +444,11 @@ func runAdministratorsPropose(args []string) error {
 	c.printf("  blockchaind tx gov vote <id> yes --from <key> --chain-id %s\n", dossier.ChainID)
 	c.println()
 	c.println("And when the voting period ends, verify it. A proposal can PASS and still fail")
-	c.println("when it executes, which leaves the parameters exactly as they were:")
+	c.println("when it executes, which leaves the chain exactly as it was:")
 	c.println()
-	c.println("  blockchaind query alias params -o json > alias-params.json")
-	c.printf("  ceremony administrators verify --dossier %s --alias-params alias-params.json\n", *dossierPath)
+	c.println("  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
+	c.printf("  ceremony administrators verify --dossier %s \\\n", *dossierPath)
+	c.println("    --chain-wide-grants chain-wide-grants.json")
 	return nil
 }
 
@@ -451,7 +457,7 @@ func runAdministratorsPropose(args []string) error {
 func runAdministratorsVerify(args []string) error {
 	flags := flag.NewFlagSet("administrators verify", flag.ExitOnError)
 	dossierPath := administratorsDossierFlag(flags)
-	aliasParamsPath := flags.String("alias-params", "", "`blockchaind query alias params -o json`")
+	grantsPath := flags.String("chain-wide-grants", "", "`blockchaind query alias chain-wide-grants -o json`")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -459,11 +465,13 @@ func runAdministratorsVerify(args []string) error {
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(*aliasParamsPath) == "" {
-		return errors.New("--alias-params is required: this step exists to read the chain's answer, not to assume it")
+	if strings.TrimSpace(*grantsPath) == "" {
+		return errors.New(
+			"--chain-wide-grants is required: this step exists to read the chain's answer, not to assume it.\n" +
+				"  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
 	}
 
-	verified, err := verifyAppointment(dossier, *aliasParamsPath, time.Now())
+	verified, err := verifyAppointment(dossier, *grantsPath, time.Now())
 	if err != nil {
 		return err
 	}
@@ -476,9 +484,10 @@ func runAdministratorsVerify(args []string) error {
 	c.printf("=== %s is a foundation administrator ===\n\n", dossier.Ceremony)
 	c.printf("  %s\n", verified.PolicyAddress)
 	c.printf("  read back at %s\n", verified.VerifiedAt)
+	c.printf("  granted by %s at height %d\n", verified.GrantedBy, verified.GrantedAtHeight)
 	c.println()
-	c.printf("  alias.params.payload_length             %d\n", verified.PayloadLength)
-	c.printf("  alias.params.foundation_administrators  %d of %d\n",
+	c.printf("  %s at %q: %d accounts of a maximum of %d\n",
+		aliastypes.RoleName(aliastypes.ROLE_FOUNDATION_ADMINISTRATOR), verified.Jurisdiction,
 		len(verified.Administrators), aliastypes.MaxFoundationAdministrators)
 	for _, administrator := range verified.Administrators {
 		marker := "  "
@@ -488,9 +497,9 @@ func runAdministratorsVerify(args []string) error {
 		c.printf("    %s %s\n", marker, administrator)
 	}
 	c.println()
-	c.println("The whole list is recorded, not just this group. That is deliberate: the list is")
-	c.println("what a carelessly composed MsgUpdateParams destroys, and if it is shorter than")
-	c.println("it was before this proposal, the evidence is here and nowhere else.")
+	c.println("The whole set is recorded, not just this group. This role is the one exception")
+	c.println("to every account on the chain having a jurisdiction, so how many accounts hold")
+	c.println("it belongs on a record somebody reads years later, without a chain to query.")
 	c.println()
 	c.printf("This group can now correct the country recorded against any account, %d of %d:\n",
 		dossier.Threshold, len(dossier.Members))

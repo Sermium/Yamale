@@ -213,11 +213,16 @@ func renderRecord(config recordConfig, custodians []identity) (string, error) {
 		b.WriteString("account's identifier in the same message. An administrator is also the only kind\n")
 		b.WriteString("of account permitted to hold an identifier with no country at all, carrying the\n")
 		b.WriteString("reserved `ZZ` code.\n\n")
-		b.WriteString("**This group holds none of that yet, and this record does not confer it.** The\n")
-		b.WriteString("list of administrators is a parameter of `x/alias`, and the only thing that can\n")
-		b.WriteString("change it is an ordinary governance `MsgUpdateParams` — authority-gated to the\n")
-		b.WriteString("governance module account. The foundation's own 3-of-5 cannot do it. So this\n")
-		b.WriteString("ceremony ends at a proposal, not at a power.\n\n")
+		b.WriteString("**This group holds none of that yet, and this record does not confer it.** A\n")
+		b.WriteString("foundation administrator is an account holding `ROLE_FOUNDATION_ADMINISTRATOR`\n")
+		b.WriteString("at the chain-wide `*` scope, and a grant at that scope is refused from every\n")
+		b.WriteString("signer but the governance module account. The foundation's own 3-of-5 cannot do\n")
+		b.WriteString("it. So this ceremony ends at a governance proposal, not at a power.\n\n")
+		b.WriteString("At most eight accounts may hold the role at once, and the chain counts them\n")
+		b.WriteString("when the proposal executes. That cap is the reason the whole set is written\n")
+		b.WriteString("onto this record when the appointment is verified: it is the single exception\n")
+		b.WriteString("to every account on this chain having a jurisdiction, and how many accounts\n")
+		b.WriteString("stand outside every perimeter should be legible here without a chain to query.\n\n")
 		// Two versions of the same paragraph, and which one appears depends on
 		// whether the group has been read back off the chain yet. A record rendered
 		// before `confirm` genuinely has no address; one rendered after has a real

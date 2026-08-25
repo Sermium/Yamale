@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	constitutiontypes "yamale/blockchain/x/constitution/types"
 	nettingtypes "yamale/blockchain/x/netting/types"
 )
@@ -155,6 +156,101 @@ var upgrades = []Upgrade{
 					"refuse until governance grants a role covering the target's country, and "+
 					"until each target account has a jurisdiction recorded",
 				"next", "MsgGrantRole by governance, and MsgSetJurisdiction per account",
+			)
+
+			return vm, nil
+		},
+	},
+	{
+		// Two roles that existed and conferred nothing now confer something, and
+		// two authorities that were parameters become grants. They ship as one
+		// upgrade because they are one halt and because the second half cannot be
+		// done without the first: the emergency authority's replacement is a grant
+		// of ROLE_ENFORCEMENT_AUTHORITY, and that role only became usable by an
+		// office in this same change.
+		//
+		// No store is added or removed. Both modules' migrations work inside their
+		// existing stores: x/alias 2-to-3 turns the foundation_administrators
+		// parameter into chain-wide grants, and x/enforcement 1-to-2 rewrites its
+		// parameters without the retired emergency_authority.
+		//
+		// The handler exists for the half x/enforcement cannot do for itself.
+		// Grants live in x/alias and x/enforcement has no edge into it —
+		// deliberately, so the perimeter cannot be widened from inside the module
+		// it constrains — so the address that held emergency_authority is read
+		// here, BEFORE the module migrations discard it, and written as a grant
+		// afterwards.
+		Name: "roles-that-do-something",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			// Read first. After RunMigrations the parameter is gone from the
+			// store, and the whole reason this is read as raw bytes rather than
+			// off the struct is that a reserved field decodes to nothing with no
+			// error at all — see x/internal/legacyparams.
+			emergencyAuthority, hadEmergencyAuthority, err := app.EnforcementKeeper.LegacyEmergencyAuthority(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the emergency authority this upgrade has to carry across: %w", err)
+			}
+
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			if hadEmergencyAuthority {
+				// Chain-wide, and that is the honest reading of what the
+				// parameter was rather than a preference. emergency_authority had
+				// no territorial limit: it could freeze any account on this
+				// chain. Granting a country scope here would be this upgrade
+				// deciding to narrow an authority nobody voted to narrow, and
+				// deciding which country on top of it. Governance can revoke this
+				// grant and issue country ones the moment it wants to; an upgrade
+				// that silently removed the emergency path is not something
+				// anybody can undo before they notice.
+				//
+				// It is worth being plain that this is a widening in one respect,
+				// because collapsing two mechanisms into one always is. Holding
+				// ROLE_ENFORCEMENT_AUTHORITY also lets this account open an
+				// ordinary case, including a seizure accusation, which
+				// emergency_authority could not do. What it does not let it do is
+				// decide one: a seizure still needs two thirds of bonded voting
+				// power, and this account has no vote unless it is also a
+				// validator.
+				grant := aliastypes.RoleGrant{
+					Holder:       emergencyAuthority,
+					Role:         aliastypes.ROLE_ENFORCEMENT_AUTHORITY,
+					Jurisdiction: aliastypes.ChainWide,
+					// Attributed to governance, because governance set the
+					// parameter. Attributing it to the upgrade would lose the one
+					// fact granted_by exists to record.
+					GrantedBy:       app.AliasKeeper.GetAuthority(),
+					GrantedAtHeight: ctx.BlockHeight(),
+				}
+				if err := app.AliasKeeper.GrantForUpgrade(ctx, grant); err != nil {
+					return nil, fmt.Errorf(
+						"carrying the emergency authority %s across as a role grant: %w", emergencyAuthority, err)
+				}
+				ctx.Logger().Info(
+					"the emergency authority is a role grant now",
+					"holder", emergencyAuthority,
+					"role", aliastypes.RoleName(grant.Role),
+					"jurisdiction", grant.Jurisdiction,
+					"note", "chain-wide because the parameter it replaces had no territorial limit; "+
+						"governance can revoke it and grant country scopes instead",
+				)
+			}
+
+			// Said out loud, in every validator's log, at the moment it becomes
+			// true. Both of these change who may send a message that already
+			// exists, which is the kind of change that gets diagnosed as a broken
+			// node three days later by somebody who was not in the room.
+			ctx.Logger().Info(
+				"two roles that conferred nothing now confer something",
+				"supervisor", "a holder of ROLE_SUPERVISOR covering a country is entitled to be a viewing-key "+
+					"recipient for payloads settling there, and a country's appointed regulator must now hold that role",
+				"enforcement", "a holder of ROLE_ENFORCEMENT_AUTHORITY may open a case and freeze in an emergency "+
+					"without being a bonded validator; the validator set still decides every case",
+				"administrators", "appointing a foundation administrator is MsgGrantRole with "+
+					"ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope, and the holder must be an x/group account",
 			)
 
 			return vm, nil

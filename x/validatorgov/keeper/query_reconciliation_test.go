@@ -221,9 +221,16 @@ func TestJurisdictionReconciliationFoundationCodeIsNotARecord(t *testing.T) {
 	f.env.Ctx = f.env.Ctx.WithBlockHeight(88)
 	qs := keeper.NewQueryServerImpl(f.keeper)
 
+	// The account is a foundation administrator, which is what makes x/alias
+	// answer ZZ for it. That used to be an entry in x/alias's parameters and is a
+	// chain-wide role grant now; GrantForUpgrade is the write with no signer,
+	// which is what a fixture wants.
 	_, addr := f.env.Addr(t)
-	require.NoError(t, f.perimeter.Keeper.Params.Set(f.env.Ctx,
-		aliastypes.NewParams(aliastypes.PayloadLength, addr)))
+	require.NoError(t, f.perimeter.Keeper.GrantForUpgrade(f.env.Ctx, aliastypes.RoleGrant{
+		Holder:       addr,
+		Role:         aliastypes.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: aliastypes.ChainWide,
+	}))
 	approveDeclaring(t, f, addr, "NG")
 
 	// x/alias's own reading of the same account.

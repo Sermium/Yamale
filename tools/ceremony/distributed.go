@@ -455,6 +455,21 @@ func (p ceremonyParams) validateOffice() error {
 				"%q is the unset default and is never a role. Proto3 cannot tell a zero from a field nobody "+
 					"filled in, which is why it is reserved", name)
 		}
+		// A role the chain grants chain-wide or not at all cannot be held by an
+		// office that administers one country, so it is refused here rather than
+		// discovered when the grant is proposed — which would be after five
+		// custodians had generated keys and read a fingerprint aloud for an
+		// authority the chain will never grant.
+		//
+		// Named separately from the "not a role this chain has" refusal above,
+		// because it is a different mistake with a different fix: the role is
+		// real, and what is wrong is the office asking for it.
+		if aliastypes.ChainWideOnly(aliastypes.Role(value)) {
+			return fmt.Errorf(
+				"%s is granted %q or not at all, so an office administering %s cannot hold it. "+
+					"It is appointed by `ceremony administrators`, whose group belongs to no national perimeter",
+				name, aliastypes.ChainWide, country)
+		}
 		if seen[name] {
 			return fmt.Errorf(
 				"%s is listed twice. The roles are a set, and a list that repeats one reads on the record as "+
@@ -481,14 +496,32 @@ func upperASCII(s string) bool {
 
 // ceremonyRoleNames is every role name a ceremony will accept, sorted.
 //
-// Built from the chain's own enum, filtered by the chain's own ValidRole, so the
-// set is exactly the set the chain has. It is also what the cross-language
+// Built from the chain's own enum and filtered by the chain's own predicates, so
+// the set is derived rather than maintained. It is also what the cross-language
 // fixture publishes as role_names for the browser, which cannot import a Go enum
 // — the same arrangement the two SDK constants in policy_derivation already use.
+//
+// Two filters, and the second one is not a tidying:
+//
+//   - ValidRole, which drops the reserved zero value. An office that named it
+//     would produce a grant the chain rejects AFTER three custodians voted.
+//   - ChainWideOnly, which drops ROLE_FOUNDATION_ADMINISTRATOR. Every role a
+//     ceremony assembles an office for is granted IN A COUNTRY, and that role is
+//     chain-wide or nothing — so offering it here would put a role on the
+//     coordinator's form, inside the fingerprint five super users read aloud,
+//     that the chain will refuse when the grant is proposed. A ceremony whose
+//     output cannot be granted is worse than one that refused the request: the
+//     refusal arrives after the keys exist and after the room has gone home.
+//
+// The foundation's own administrators are still appointed by a ceremony — see
+// administrators.go — and it is not this one. That ceremony assembles a group
+// and carries no office at all, which is exactly why the office's role list can
+// exclude the role without excluding the appointment.
 func ceremonyRoleNames() []string {
 	names := make([]string, 0, len(aliastypes.Role_name))
 	for value, name := range aliastypes.Role_name {
-		if aliastypes.ValidRole(aliastypes.Role(value)) {
+		role := aliastypes.Role(value)
+		if aliastypes.ValidRole(role) && !aliastypes.ChainWideOnly(role) {
 			names = append(names, name)
 		}
 	}

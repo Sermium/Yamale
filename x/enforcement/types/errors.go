@@ -22,11 +22,20 @@ var (
 	ErrNotPassed        = errors.Register(ModuleName, 1111, "case has not passed")
 	ErrProtectedAddress = errors.Register(ModuleName, 1112, "address cannot be frozen or seized")
 	ErrLimitReached     = errors.Register(ModuleName, 1113, "exceeds a configured maximum")
-	// ErrNoEmergencyAuthority is deliberately distinct from ErrInvalidSigner:
-	// "the founders' group did not sign this" and "this chain has no founders'
-	// group" are different facts, and telling somebody the first when the second
-	// is true sends them looking for a key that does not exist.
-	ErrNoEmergencyAuthority = errors.Register(ModuleName, 1114, "no emergency authority is configured")
+	// Code 1114 is retired and must never be reused.
+	//
+	// It was ErrNoEmergencyAuthority — "no emergency authority is configured" —
+	// raised when the emergency_authority parameter was empty, and deliberately
+	// distinct from ErrInvalidSigner because "the founders' group did not sign
+	// this" and "this chain has no founders' group" are different facts. The
+	// parameter is gone; the emergency path is a role grant, so an empty chain
+	// refuses with the perimeter's own ErrOutOfScope, which says which country
+	// the signer's grant did not reach and is the more useful of the two.
+	//
+	// Left as a comment rather than deleted, because an error code is part of
+	// this module's published interface. A client that special-cased 1114 should
+	// find out that it retired, and a future error given that number would tell
+	// every one of them something false.
 
 	// ErrLegalInstrumentRequired is separate from ErrEvidenceRequired because
 	// the two are different failures and telling somebody the wrong one sends

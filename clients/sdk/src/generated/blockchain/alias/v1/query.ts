@@ -15,6 +15,69 @@ import { AuditorGrant, RegulatorAppointment, ViewingKey } from "./viewing_key.ts
 
 export const protobufPackage = "blockchain.alias.v1";
 
+/** PayloadReaderBasis is why an account may read a country's payment payloads. */
+export const PayloadReaderBasis = {
+  /**
+   * PAYLOAD_READER_UNSPECIFIED - PAYLOAD_READER_UNSPECIFIED is never returned. The zero value is reserved
+   * for the same reason Role's is: proto3 cannot tell a zero from a field
+   * nobody filled in, and a reader whose basis defaulted to the first of the
+   * list would be indistinguishable from one whose basis nobody set.
+   */
+  PAYLOAD_READER_UNSPECIFIED: 0,
+  /**
+   * PAYLOAD_READER_REGULATOR - PAYLOAD_READER_REGULATOR is the authority appointed over the country by
+   * MsgAppointRegulator. One per country, and the one with standing to act.
+   */
+  PAYLOAD_READER_REGULATOR: 1,
+  /**
+   * PAYLOAD_READER_SUPERVISOR - PAYLOAD_READER_SUPERVISOR holds ROLE_SUPERVISOR covering the country —
+   * either granted in it or chain-wide. Oversight without the power to act.
+   */
+  PAYLOAD_READER_SUPERVISOR: 2,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type PayloadReaderBasis = typeof PayloadReaderBasis[keyof typeof PayloadReaderBasis];
+
+export namespace PayloadReaderBasis {
+  export type PAYLOAD_READER_UNSPECIFIED = typeof PayloadReaderBasis.PAYLOAD_READER_UNSPECIFIED;
+  export type PAYLOAD_READER_REGULATOR = typeof PayloadReaderBasis.PAYLOAD_READER_REGULATOR;
+  export type PAYLOAD_READER_SUPERVISOR = typeof PayloadReaderBasis.PAYLOAD_READER_SUPERVISOR;
+  export type UNRECOGNIZED = typeof PayloadReaderBasis.UNRECOGNIZED;
+}
+
+export function payloadReaderBasisFromJSON(object: any): PayloadReaderBasis {
+  switch (object) {
+    case 0:
+    case "PAYLOAD_READER_UNSPECIFIED":
+      return PayloadReaderBasis.PAYLOAD_READER_UNSPECIFIED;
+    case 1:
+    case "PAYLOAD_READER_REGULATOR":
+      return PayloadReaderBasis.PAYLOAD_READER_REGULATOR;
+    case 2:
+    case "PAYLOAD_READER_SUPERVISOR":
+      return PayloadReaderBasis.PAYLOAD_READER_SUPERVISOR;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return PayloadReaderBasis.UNRECOGNIZED;
+  }
+}
+
+export function payloadReaderBasisToJSON(object: PayloadReaderBasis): string {
+  switch (object) {
+    case PayloadReaderBasis.PAYLOAD_READER_UNSPECIFIED:
+      return "PAYLOAD_READER_UNSPECIFIED";
+    case PayloadReaderBasis.PAYLOAD_READER_REGULATOR:
+      return "PAYLOAD_READER_REGULATOR";
+    case PayloadReaderBasis.PAYLOAD_READER_SUPERVISOR:
+      return "PAYLOAD_READER_SUPERVISOR";
+    case PayloadReaderBasis.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 /** QueryParamsRequest is the request for the module parameters. */
 export interface QueryParamsRequest {
 }
@@ -121,6 +184,69 @@ export interface QueryRegulatorResponse {
    * sender has to be able to see, because wrapping to a key of thirty-two zero
    * bytes would produce an envelope that looks addressed to the regulator and
    * opens for nobody.
+   */
+  key: ViewingKey | undefined;
+}
+
+/**
+ * QueryPayloadReadersRequest asks who may be sealed into a payload settling in
+ * one country.
+ */
+export interface QueryPayloadReadersRequest {
+  /**
+   * country is an ISO 3166-1 alpha-2 code from the assigned list, in any case.
+   *
+   * The chain-wide marker and the foundation's reserved code are refused, for
+   * the same reason AssertScopeIn refuses them: no payment settles chain-wide,
+   * and a payment declaring the absence of a national perimeter would be one no
+   * authority is accountable for.
+   */
+  country: string;
+}
+
+/**
+ * QueryPayloadReadersResponse carries the entitled accounts and their keys.
+ *
+ * Unpaginated. The set is one appointed regulator plus that country's
+ * supervisors plus the chain-wide ones, which is an office count rather than a
+ * population, and a sender that received only the first page would build an
+ * envelope that looks complete and leaves an entitled reader out.
+ */
+export interface QueryPayloadReadersResponse {
+  readers: PayloadReader[];
+}
+
+/**
+ * PayloadReader is one account entitled to open a country's payment payloads,
+ * and the reason it is entitled.
+ */
+export interface PayloadReader {
+  /** address is the account whose viewing key the payload must be wrapped to. */
+  address: string;
+  /**
+   * basis says why this account is in the list, because the two reasons carry
+   * different consequences and a client showing the set to a person has to be
+   * able to say which is which. A regulator can also act on the payment; a
+   * supervisor can only read it.
+   */
+  basis: PayloadReaderBasis;
+  /**
+   * scope is the jurisdiction of the grant that entitles a supervisor: the
+   * country asked about, or "*" for a chain-wide grant. Empty for the appointed
+   * regulator, whose entitlement comes from the appointment rather than from a
+   * scope.
+   *
+   * It is here so that an operator reading the list can tell a supervisor this
+   * country granted from one that is chain-wide and appears in every country's
+   * list — which is exactly the distinction ChainWideGrants exists to keep
+   * visible, and it would be lost if the two rendered identically here.
+   */
+  scope: string;
+  /**
+   * key is the reader's current viewing key. Its public_key is empty when the
+   * account is entitled but has published none — a state a sender has to be
+   * able to see, because wrapping to a key of thirty-two zero bytes produces an
+   * envelope that looks addressed to them and opens for nobody.
    */
   key: ViewingKey | undefined;
 }
@@ -1161,6 +1287,228 @@ export const QueryRegulatorResponse = {
   },
 };
 
+function createBaseQueryPayloadReadersRequest(): QueryPayloadReadersRequest {
+  return { country: "" };
+}
+
+export const QueryPayloadReadersRequest = {
+  encode(message: QueryPayloadReadersRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.country !== "") {
+      writer.uint32(10).string(message.country);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryPayloadReadersRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryPayloadReadersRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.country = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryPayloadReadersRequest {
+    return { country: isSet(object.country) ? globalThis.String(object.country) : "" };
+  },
+
+  toJSON(message: QueryPayloadReadersRequest): unknown {
+    const obj: any = {};
+    if (message.country !== "") {
+      obj.country = message.country;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryPayloadReadersRequest>): QueryPayloadReadersRequest {
+    return QueryPayloadReadersRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryPayloadReadersRequest>): QueryPayloadReadersRequest {
+    const message = createBaseQueryPayloadReadersRequest();
+    message.country = object.country ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryPayloadReadersResponse(): QueryPayloadReadersResponse {
+  return { readers: [] };
+}
+
+export const QueryPayloadReadersResponse = {
+  encode(message: QueryPayloadReadersResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.readers) {
+      PayloadReader.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryPayloadReadersResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryPayloadReadersResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.readers.push(PayloadReader.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryPayloadReadersResponse {
+    return {
+      readers: globalThis.Array.isArray(object?.readers)
+        ? object.readers.map((e: any) => PayloadReader.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: QueryPayloadReadersResponse): unknown {
+    const obj: any = {};
+    if (message.readers?.length) {
+      obj.readers = message.readers.map((e) => PayloadReader.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryPayloadReadersResponse>): QueryPayloadReadersResponse {
+    return QueryPayloadReadersResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryPayloadReadersResponse>): QueryPayloadReadersResponse {
+    const message = createBaseQueryPayloadReadersResponse();
+    message.readers = object.readers?.map((e) => PayloadReader.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBasePayloadReader(): PayloadReader {
+  return { address: "", basis: 0, scope: "", key: undefined };
+}
+
+export const PayloadReader = {
+  encode(message: PayloadReader, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.address !== "") {
+      writer.uint32(10).string(message.address);
+    }
+    if (message.basis !== 0) {
+      writer.uint32(16).int32(message.basis);
+    }
+    if (message.scope !== "") {
+      writer.uint32(26).string(message.scope);
+    }
+    if (message.key !== undefined) {
+      ViewingKey.encode(message.key, writer.uint32(34).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): PayloadReader {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePayloadReader();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.address = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.basis = reader.int32() as any;
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.scope = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.key = ViewingKey.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PayloadReader {
+    return {
+      address: isSet(object.address) ? globalThis.String(object.address) : "",
+      basis: isSet(object.basis) ? payloadReaderBasisFromJSON(object.basis) : 0,
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
+      key: isSet(object.key) ? ViewingKey.fromJSON(object.key) : undefined,
+    };
+  },
+
+  toJSON(message: PayloadReader): unknown {
+    const obj: any = {};
+    if (message.address !== "") {
+      obj.address = message.address;
+    }
+    if (message.basis !== 0) {
+      obj.basis = payloadReaderBasisToJSON(message.basis);
+    }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
+    if (message.key !== undefined) {
+      obj.key = ViewingKey.toJSON(message.key);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<PayloadReader>): PayloadReader {
+    return PayloadReader.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<PayloadReader>): PayloadReader {
+    const message = createBasePayloadReader();
+    message.address = object.address ?? "";
+    message.basis = object.basis ?? 0;
+    message.scope = object.scope ?? "";
+    message.key = (object.key !== undefined && object.key !== null) ? ViewingKey.fromPartial(object.key) : undefined;
+    return message;
+  },
+};
+
 function createBaseQueryAuditorsRequest(): QueryAuditorsRequest {
   return {};
 }
@@ -1791,6 +2139,37 @@ export interface Query {
    */
   Regulator(request: QueryRegulatorRequest): Promise<QueryRegulatorResponse>;
   /**
+   * PayloadReaders lists every account entitled to be sealed into the encrypted
+   * payload of a payment that settles in one country, with the key each of them
+   * reads through.
+   *
+   * This is what makes ROLE_SUPERVISOR a role rather than a name in a registry.
+   * A grant of it covering a country is an entitlement to read that country's
+   * payment detail, and the entitlement is realised by a sender wrapping the
+   * content key to the holder — so the set has to be resolvable in one call, at
+   * the moment of sending, from the chain rather than from a list somebody
+   * maintains beside it.
+   *
+   * Two sources, one answer. The appointed regulator of the country is here
+   * because that is the authority with standing to act on the payment; every
+   * holder of ROLE_SUPERVISOR covering the country is here because oversight is
+   * what the role is. A chain-wide supervisor appears for every country, which
+   * is what a chain-wide grant means and why it is listed on its own endpoint
+   * for anyone auditing the exceptions.
+   *
+   * Deliberately NOT here: the auditors. They are time-boxed, chain-wide and
+   * unrelated to any settlement jurisdiction, and folding them in would put an
+   * expiry rule in two responses that could come to disagree — see Auditors,
+   * which a sender calls as well. A complete envelope is this set plus that one
+   * plus the payer and the payee.
+   *
+   * An empty response is a real answer: a country with no appointed regulator
+   * and no supervisor has nobody entitled to read, and the payment is readable
+   * by its two parties and any live auditor. It is not an error and a sender
+   * must not retry it.
+   */
+  PayloadReaders(request: QueryPayloadReadersRequest): Promise<QueryPayloadReadersResponse>;
+  /**
    * Auditors lists the grants that have not expired, with their current keys.
    *
    * A list endpoint in a module that avoids them, and it is the right call
@@ -1844,6 +2223,7 @@ export class QueryClientImpl implements Query {
     this.Perimeter = this.Perimeter.bind(this);
     this.ViewingKeys = this.ViewingKeys.bind(this);
     this.Regulator = this.Regulator.bind(this);
+    this.PayloadReaders = this.PayloadReaders.bind(this);
     this.Auditors = this.Auditors.bind(this);
     this.RoleGrants = this.RoleGrants.bind(this);
     this.RoleHolders = this.RoleHolders.bind(this);
@@ -1895,6 +2275,12 @@ export class QueryClientImpl implements Query {
     const data = QueryRegulatorRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Regulator", data);
     return promise.then((data) => QueryRegulatorResponse.decode(_m0.Reader.create(data)));
+  }
+
+  PayloadReaders(request: QueryPayloadReadersRequest): Promise<QueryPayloadReadersResponse> {
+    const data = QueryPayloadReadersRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "PayloadReaders", data);
+    return promise.then((data) => QueryPayloadReadersResponse.decode(_m0.Reader.create(data)));
   }
 
   Auditors(request: QueryAuditorsRequest): Promise<QueryAuditorsResponse> {

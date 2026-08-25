@@ -14,11 +14,11 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `authority` field.
 
-EmergencyFreeze lets the founders' group stop an account in one block, without waiting for a validator to open a case.
+EmergencyFreeze lets a country's enforcement authority stop an account in one block, without waiting for a validator to open a case.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `authority` | string | authority must equal the emergency_authority parameter. |
+| `authority` | string | authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the target account is recorded in. It used to be a single address named in the module's parameters, chain-wide, able to freeze anything. The perimeter is the difference: an authority that needs to stop an account outside its own country needs the authority of that country, urgently or otherwise. Skipping the jurisdiction check because the situation is urgent would make the one path that acts on a single signature also the one path with no territorial limit. |
 | `target` | string |  |
 | `reason` | string | reason is the grounds, in words the accused can read. Required, the same as for a validator's case: acting in an emergency is not a reason to leave the record blank, it is the reason the record matters. |
 | `evidence_uri` | string |  |
@@ -30,11 +30,11 @@ EmergencyFreeze lets the founders' group stop an account in one block, without w
 
 Signed by the `authority` field.
 
-EmergencyRelease lets them let it go again, just as fast.
+EmergencyRelease lets it let the account go again, just as fast.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `authority` | string |  |
+| `authority` | string | authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the case's target is recorded in. |
 | `case_id` | uint64 |  |
 | `reason` | string | reason is why it was released, kept beside the original accusation. The case is not deleted: a freeze that was lifted as a mistake is part of the record of how this power has been used. |
 
@@ -62,7 +62,7 @@ OpenCase accuses an address, and freezes it while the validators decide.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `opener` | string | opener is the account address of a bonded validator — the key it signs with, not its operator address. The chain derives the operator from it and records that on the case, so the accusation is attributed to the validator rather than to an address nobody recognises. |
+| `opener` | string | opener is the account that signs: either a bonded validator's account address — the key it signs with, not its operator address — or the account holding ROLE_ENFORCEMENT_AUTHORITY over the target's country. What gets recorded on the case differs, deliberately. A validator is recorded by its operator address, because that is the name the accusation is legible under; an office is recorded by the account itself, which is the group policy address a role-holders query can be read against. Both are identities somebody can look up, which is the property that matters: an accusation with no visible author is not an accusation. |
 | `target` | string |  |
 | `action` | CaseAction |  |
 | `reason` | string | reason is the grounds, in words the accused can read. |
@@ -134,7 +134,7 @@ WithdrawCase takes back a case before the vote ends, lifting its freeze.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `opener` | string | opener is the account address of the validator that opened the case. |
+| `opener` | string | opener is the account that opened the case: a validator's account address, or the enforcement authority's own address. It is resolved the same way it was when the case was opened, so whichever of the two forms was recorded is the one that matches. |
 | `case_id` | uint64 |  |
 
 ## Queries
@@ -571,7 +571,6 @@ Every way a transaction to this module can be rejected.
 | 1111 | `ErrNotPassed` | case has not passed |
 | 1112 | `ErrProtectedAddress` | address cannot be frozen or seized |
 | 1113 | `ErrLimitReached` | exceeds a configured maximum |
-| 1114 | `ErrNoEmergencyAuthority` | no emergency authority is configured |
 | 1115 | `ErrLegalInstrumentRequired` | a seizure case requires an external legal instrument |
 | 1116 | `ErrNoOmbudsman` | no ombudsman is appointed |
 | 1117 | `ErrOmbudsmanCannotInitiate` | the ombudsman may only stop cases, never open, vote on, or advance one |

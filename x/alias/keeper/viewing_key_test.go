@@ -178,7 +178,7 @@ func TestAnAccountWithNoViewingKeyReturnsAnEmptyList(t *testing.T) {
 }
 
 func TestAppointRegulatorIsAuthorityGated(t *testing.T) {
-	env, _, ms, qs := setup(t)
+	env, k, ms, qs := setup(t)
 	_, regulator := env.Addr(t)
 	_, outsider := env.Addr(t)
 
@@ -188,6 +188,23 @@ func TestAppointRegulatorIsAuthorityGated(t *testing.T) {
 	})
 	require.ErrorIs(t, err, types.ErrInvalidSigner)
 
+	// Governance signing is not enough on its own: the appointee has to hold
+	// ROLE_SUPERVISOR over the country. This is the check that stops the module
+	// holding two answers to "who is watching this country".
+	_, err = ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
+		Authority: env.AuthorityString(t), Country: country, Address: regulator,
+	})
+	require.ErrorIs(t, err, types.ErrOutOfScope)
+	require.ErrorContains(t, err, "cannot be appointed regulator of "+country)
+
+	// A supervisor of somewhere else does not qualify either.
+	supervise(t, k, env.Ctx, regulator, "GH")
+	_, err = ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
+		Authority: env.AuthorityString(t), Country: country, Address: regulator,
+	})
+	require.ErrorIs(t, err, types.ErrOutOfScope)
+
+	supervise(t, k, env.Ctx, regulator, country)
 	_, err = ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
 		Authority: env.AuthorityString(t), Country: country, Address: regulator,
 	})
@@ -217,8 +234,9 @@ func TestAppointRegulatorIsAuthorityGated(t *testing.T) {
 // empty public_key rather than thirty-two zero bytes, or a sender would seal an
 // envelope that looks addressed to the regulator and opens for nobody.
 func TestARegulatorWithNoKeyIsVisibleAsSuch(t *testing.T) {
-	env, _, ms, qs := setup(t)
+	env, k, ms, qs := setup(t)
 	_, regulator := env.Addr(t)
+	supervise(t, k, env.Ctx, regulator, country)
 
 	_, err := ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
 		Authority: env.AuthorityString(t), Country: country, Address: regulator,
@@ -240,11 +258,12 @@ func TestARegulatorWithNoKeyIsVisibleAsSuch(t *testing.T) {
 // One regulator per country. Two would reintroduce exactly the contest over
 // standing that the single settlement declaration exists to end.
 func TestAppointingAgainReplacesRatherThanAdds(t *testing.T) {
-	env, _, ms, qs := setup(t)
+	env, k, ms, qs := setup(t)
 	_, first := env.Addr(t)
 	_, second := env.Addr(t)
 
 	for _, addr := range []string{first, second} {
+		supervise(t, k, env.Ctx, addr, country)
 		_, err := ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
 			Authority: env.AuthorityString(t), Country: country, Address: addr,
 		})
@@ -356,6 +375,7 @@ func TestConfidentialityRegistriesRoundTripThroughGenesis(t *testing.T) {
 	require.NoError(t, err)
 
 	_, regulator := env.Addr(t)
+	supervise(t, k, env.Ctx, regulator, country)
 	_, err = ms.AppointRegulator(env.Ctx, &types.MsgAppointRegulator{
 		Authority: env.AuthorityString(t), Country: country, Address: regulator,
 	})

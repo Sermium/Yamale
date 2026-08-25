@@ -175,6 +175,26 @@ func (k Keeper) assertScope(ctx context.Context, actor, target string) error {
 	return k.scopeKeeper.AssertScope(ctx, actor, aliastypes.ROLE_ENFORCEMENT_AUTHORITY, target)
 }
 
+// holdsEnforcementRole reports whether an account is an enforcement authority
+// somewhere, which is a question about the account and not about any target.
+//
+// It permits nothing. Two callers use it and neither treats the answer as an
+// authorisation: OpenCase, to decide which refusal to report to a signer who is
+// neither a validator nor an office, and UpdateParams, to refuse an ombudsman
+// that already holds the role. assertScope still runs afterwards on every path
+// that acts, and is still the only thing that permits anything.
+//
+// Fails closed on a missing registry, like assertScope and for the same reason.
+// The two consequences of the alternative are not symmetrical but both are bad:
+// a wiring mistake would let an ordinary account be told the wrong refusal, and
+// it would let an ombudsman be appointed over a role nobody could check.
+func (k Keeper) holdsEnforcementRole(ctx context.Context, actor string) (bool, error) {
+	if k.scopeKeeper == nil {
+		return false, aliastypes.ErrNoScopeKeeper
+	}
+	return k.scopeKeeper.HoldsRole(ctx, actor, aliastypes.ROLE_ENFORCEMENT_AUTHORITY)
+}
+
 // IsFrozen reports whether an address may not send.
 //
 // This is the question the bank asks on every transfer, so it answers in one

@@ -6,22 +6,24 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/enforcement/types"
 )
 
-// withEmergencyAuthority names a founders' group and returns its address.
+// withEmergencyAuthority stands up an office that may use the emergency path and
+// returns its address.
+//
+// One step now where it used to be two. The authority was a parameter naming one
+// address AND a grant of the enforcement role, because the emergency path was
+// never an exception to the perimeter; the parameter is retired, so the grant is
+// the whole of it. Which is the shape the tests below were already written
+// against: every one of them freezes an account inside the country the grant
+// covers, and perimeter_test.go has the refusals outside it.
 func (f *fixture) withEmergencyAuthority(t *testing.T) string {
 	t.Helper()
 
 	_, founders := f.addr(t)
-	// Named in the parameters *and* granted the enforcement role. The emergency
-	// path is not an exception to the perimeter: acting on a single signature is
-	// exactly the power that must still stop at a border.
 	f.grantEnforcement(t, founders)
-	params, err := f.keeper.Params.Get(f.ctx)
-	require.NoError(t, err)
-	params.EmergencyAuthority = founders
-	require.NoError(t, f.keeper.Params.Set(f.ctx, params))
 	return founders
 }
 
@@ -197,9 +199,24 @@ func TestTheFoundersCannotSeize(t *testing.T) {
 	require.Equal(t, math.ZeroInt(), f.env.Balance(f.destination, "uyml"))
 }
 
-func TestOnlyTheNamedAuthorityMayUseTheEmergencyPath(t *testing.T) {
+// Only an account holding the enforcement role over the target's country may use
+// the emergency path.
+//
+// The rule this replaces was "only the address named in emergency_authority",
+// and the difference in both directions is worth pinning rather than letting a
+// reader infer it:
+//
+//   - narrower where it counts. The old parameter had no territorial limit, so
+//     the one path that acts on a single signature was also the one path no
+//     border bounded. The refusal outside the perimeter is in perimeter_test.go.
+//   - wider in a way that follows from collapsing two mechanisms into one. Any
+//     holder of the role may use it, including a bonded validator that has been
+//     granted it — where before, being a validator conferred nothing here. That
+//     is not a loophole: a validator granted the role is an account governance or
+//     the foundation deliberately made an enforcement authority, and what it can
+//     do with it is impose a provisional freeze the set can lift.
+func TestOnlyAGrantedAuthorityMayUseTheEmergencyPath(t *testing.T) {
 	f := initFixture(t)
-	validator := f.addValidator(t, 10)
 	founders := f.withEmergencyAuthority(t)
 	_, scammerStr := f.fundedAddr(t, coins(100_000))
 	_, stranger := f.addr(t)
@@ -207,28 +224,42 @@ func TestOnlyTheNamedAuthorityMayUseTheEmergencyPath(t *testing.T) {
 	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: stranger, Target: scammerStr, Reason: "I say so",
 	})
-	require.ErrorIs(t, err, types.ErrInvalidSigner)
-
-	// A validator's own account does not inherit it either.
-	_, err = f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
-		Authority: validator, Target: scammerStr, Reason: "I am a validator",
-	})
-	require.ErrorIs(t, err, types.ErrInvalidSigner)
+	require.ErrorIs(t, err, aliastypes.ErrOutOfScope)
 
 	opened, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: founders, Target: scammerStr, Reason: "reported stolen",
 	})
 	require.NoError(t, err)
 
+	// Release is scoped the same way, against the country of the CASE'S TARGET
+	// rather than anything named in the message — there is no country in a
+	// release, and taking one from the signer would let an actor name its own
+	// perimeter.
 	_, err = f.ms.EmergencyRelease(f.ctx, &types.MsgEmergencyRelease{
 		Authority: stranger, CaseId: opened.Id,
 	})
-	require.ErrorIs(t, err, types.ErrInvalidSigner)
+	require.ErrorIs(t, err, aliastypes.ErrOutOfScope)
+
+	_, err = f.ms.EmergencyRelease(f.ctx, &types.MsgEmergencyRelease{
+		Authority: founders, CaseId: opened.Id,
+	})
+	require.NoError(t, err)
+	require.False(t, f.keeper.IsFrozen(f.ctx, scammerStr))
 }
 
-// An unset authority must mean nobody, never anybody. A signer field that
-// happened to be empty must not match an empty parameter.
-func TestWithNoAuthoritySetThereIsNoEmergencyPath(t *testing.T) {
+// An unset authority must mean nobody, never anybody.
+//
+// This property used to belong to a parameter: emergency_authority was compared
+// against the signer, and the careful part was that an empty parameter must not
+// match an empty signer field. The parameter is gone and the property has to
+// survive the move, so the same two signers are asserted against a chain where
+// nobody holds the role — an empty string, and an ordinary account.
+//
+// The error changed and the change is an improvement worth pinning. It is the
+// perimeter's own ErrOutOfScope, which names the country the signer holds no
+// grant over, where ErrNoEmergencyAuthority could only say that the chain had
+// not configured one.
+func TestWithNoGrantThereIsNoEmergencyPath(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	_, scammerStr := f.fundedAddr(t, coins(100_000))
@@ -236,13 +267,14 @@ func TestWithNoAuthoritySetThereIsNoEmergencyPath(t *testing.T) {
 	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: "", Target: scammerStr, Reason: "nobody in particular",
 	})
-	require.ErrorIs(t, err, types.ErrNoEmergencyAuthority)
+	require.ErrorIs(t, err, aliastypes.ErrOutOfScope)
 
 	_, other := f.addr(t)
 	_, err = f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
 		Authority: other, Target: scammerStr, Reason: "still nobody",
 	})
-	require.ErrorIs(t, err, types.ErrNoEmergencyAuthority)
+	require.ErrorIs(t, err, aliastypes.ErrOutOfScope)
+	require.ErrorContains(t, err, "holds no grant of ROLE_ENFORCEMENT_AUTHORITY covering "+country)
 }
 
 func TestAnEmergencyFreezeStillRefusesModuleAccountsAndNeedsGrounds(t *testing.T) {

@@ -39,18 +39,42 @@ export interface MsgUpdateParamsResponse {
 /**
  * MsgOpenCase opens a case against an address and freezes it immediately.
  *
- * One bonded validator is enough to open one, which is the point: a scam is
- * drained in minutes and a vote takes hours, so the freeze cannot wait for the
- * vote. What stops that being an arbitrary power is that the freeze expires by
- * itself, the case is public from the first block, and taking anything needs
- * the supermajority.
+ * One signature is enough to open one, which is the point: a scam is drained in
+ * minutes and a vote takes hours, so the freeze cannot wait for the vote. What
+ * stops that being an arbitrary power is that the freeze expires by itself, the
+ * case is public from the first block, and taking anything needs the
+ * supermajority.
+ *
+ * Accusation and decision are separate offices, and this message is only the
+ * first of them. Two kinds of account may accuse:
+ *
+ *   - a bonded validator, exactly as before. This message has never narrowed
+ *     what a validator may do and does not now.
+ *   - a holder of ROLE_ENFORCEMENT_AUTHORITY covering the target's country — a
+ *     national enforcement office, which is an x/group account of two or more
+ *     people. Before this existed the role could be granted and no message let
+ *     it be used, so a country's enforcement authority held a grant that did
+ *     nothing.
+ *
+ * Either way the perimeter check runs against the target's recorded country, so
+ * widening who may accuse does not widen where anybody may accuse. And either
+ * way the DECISION is unchanged: two thirds of bonded voting power, cast by
+ * validators, on MsgVoteCase. The opener's own vote is not assumed from opening
+ * — an office that is not a validator has no vote at all, so a national
+ * authority can stop money for a day and cannot decide anything.
  */
 export interface MsgOpenCase {
   /**
-   * opener is the account address of a bonded validator — the key it signs
-   * with, not its operator address. The chain derives the operator from it and
-   * records that on the case, so the accusation is attributed to the validator
-   * rather than to an address nobody recognises.
+   * opener is the account that signs: either a bonded validator's account
+   * address — the key it signs with, not its operator address — or the account
+   * holding ROLE_ENFORCEMENT_AUTHORITY over the target's country.
+   *
+   * What gets recorded on the case differs, deliberately. A validator is
+   * recorded by its operator address, because that is the name the accusation
+   * is legible under; an office is recorded by the account itself, which is the
+   * group policy address a role-holders query can be read against. Both are
+   * identities somebody can look up, which is the property that matters: an
+   * accusation with no visible author is not an accusation.
    */
   opener: string;
   target: string;
@@ -93,9 +117,23 @@ export interface MsgVoteCase {
 export interface MsgVoteCaseResponse {
 }
 
-/** MsgWithdrawCase withdraws an open case. Only whoever opened it may. */
+/**
+ * MsgWithdrawCase withdraws an open case. Only whoever opened it may.
+ *
+ * It deliberately asks for nothing but identity. Whoever opened the case may
+ * take it back even if the grant that let them open it has since been revoked,
+ * or the validator has since unbonded: withdrawing lifts a freeze, and a rule
+ * that made de-escalation conditional on still holding a power would leave
+ * somebody's account frozen because the office that was wrong about them lost
+ * its authority afterwards.
+ */
 export interface MsgWithdrawCase {
-  /** opener is the account address of the validator that opened the case. */
+  /**
+   * opener is the account that opened the case: a validator's account address,
+   * or the enforcement authority's own address. It is resolved the same way it
+   * was when the case was opened, so whichever of the two forms was recorded is
+   * the one that matches.
+   */
   opener: string;
   caseId: string;
 }
@@ -175,7 +213,7 @@ export interface MsgReverseCaseResponse {
 }
 
 /**
- * MsgEmergencyFreeze freezes an account on the emergency authority's signature
+ * MsgEmergencyFreeze freezes an account on an enforcement authority's signature
  * alone.
  *
  * There is no matching emergency seizure, and that is the whole shape of this
@@ -185,10 +223,25 @@ export interface MsgReverseCaseResponse {
  *
  * The freeze this creates is provisional exactly like a validator's: it opens a
  * case, it lapses if nobody confirms it, and the validators can refuse it. The
- * founders are faster than the set; they are not above it.
+ * authority is faster than the set; it is not above it.
+ *
+ * What separates it from MsgOpenCase, now that both accept the same role, is
+ * what it does NOT require: no bonded validator anywhere in the picture, and no
+ * legal instrument, because it can only freeze. It is the same act with the
+ * validator step removed from the front, which is what an emergency is.
  */
 export interface MsgEmergencyFreeze {
-  /** authority must equal the emergency_authority parameter. */
+  /**
+   * authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the
+   * target account is recorded in.
+   *
+   * It used to be a single address named in the module's parameters, chain-wide,
+   * able to freeze anything. The perimeter is the difference: an authority that
+   * needs to stop an account outside its own country needs the authority of that
+   * country, urgently or otherwise. Skipping the jurisdiction check because the
+   * situation is urgent would make the one path that acts on a single signature
+   * also the one path with no territorial limit.
+   */
   authority: string;
   target: string;
   /**
@@ -213,8 +266,18 @@ export interface MsgEmergencyFreezeResponse {
  * opened on a misread transaction otherwise sits on somebody's account for the
  * whole voting period, and "wait a day, it expires by itself" is not an answer
  * anyone can give a customer whose payroll is stuck.
+ *
+ * Scoped like the freeze, against the country of the case's TARGET rather than
+ * of anything named in this message. Releasing is a smaller act than freezing
+ * and it would have been defensible to leave it chain-wide, but an office able
+ * to release anywhere could lift the freeze another country's authority had just
+ * imposed — which is interference in that perimeter, not mercy in its own.
  */
 export interface MsgEmergencyRelease {
+  /**
+   * authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the
+   * case's target is recorded in.
+   */
   authority: string;
   caseId: string;
   /**
@@ -1553,11 +1616,11 @@ export interface Msg {
    */
   Sweep(request: MsgSweep): Promise<MsgSweepResponse>;
   /**
-   * EmergencyFreeze lets the founders' group stop an account in one block,
-   * without waiting for a validator to open a case.
+   * EmergencyFreeze lets a country's enforcement authority stop an account in
+   * one block, without waiting for a validator to open a case.
    */
   EmergencyFreeze(request: MsgEmergencyFreeze): Promise<MsgEmergencyFreezeResponse>;
-  /** EmergencyRelease lets them let it go again, just as fast. */
+  /** EmergencyRelease lets it let the account go again, just as fast. */
   EmergencyRelease(request: MsgEmergencyRelease): Promise<MsgEmergencyReleaseResponse>;
   /**
    * OmbudsmanVeto stops a case that has not taken anything yet. The only

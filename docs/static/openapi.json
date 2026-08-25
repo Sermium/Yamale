@@ -173,6 +173,37 @@
         ]
       }
     },
+    "/yamale/blockchain/alias/v1/payload_readers/{country}": {
+      "get": {
+        "operationId": "Query_PayloadReaders",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPayloadReadersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "country",
+            "description": "country is an ISO 3166-1 alpha-2 code from the assigned list, in any case.\n\nThe chain-wide marker and the foundation's reserved code are refused, for\nthe same reason AssertScopeIn refuses them: no payment settles chain-wide,\nand a payment declaring the absence of a national perimeter would be one no\nauthority is accountable for.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/alias/v1/perimeter/{country}": {
       "get": {
         "operationId": "Query_Perimeter",
@@ -355,7 +386,7 @@
           },
           {
             "name": "role",
-            "description": " - ROLE_UNSPECIFIED: ROLE_UNSPECIFIED is the unset default and is never valid.\n\nThe zero value is reserved rather than given to a real role, and every\npath refuses it. Proto3 cannot tell a zero from an absent field, so a\ngrant whose role happened to be the first of the list would be\nindistinguishable from a grant whose role nobody filled in — and the\nsecond must never be honoured.\n - ROLE_REGISTRY_AUTHORITY: ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office:\nregistering a parcel, validating a transfer, freezing land.\n - ROLE_MONETARY_AUTHORITY: ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a\ncurrency inside its jurisdiction.\n - ROLE_PAYMENTS_AUTHORITY: ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a\npayment instruction. Separate from the monetary authority because\nlicensing a payment service provider and issuing money are different\noffices in most of the deployments this chain is built for, and collapsing\nthem here would force one key to hold both.\n - ROLE_ENFORCEMENT_AUTHORITY: ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it,\nor freezing it outright.\n - ROLE_SUPERVISOR: ROLE_SUPERVISOR is oversight without the power to act — the role held by\nan auditor or a regulator that watches a perimeter it does not administer.\nIt is granted through the same registry as the rest so that \"who is\nwatching this country\" has one answer in one place.",
+            "description": " - ROLE_UNSPECIFIED: ROLE_UNSPECIFIED is the unset default and is never valid.\n\nThe zero value is reserved rather than given to a real role, and every\npath refuses it. Proto3 cannot tell a zero from an absent field, so a\ngrant whose role happened to be the first of the list would be\nindistinguishable from a grant whose role nobody filled in — and the\nsecond must never be honoured.\n - ROLE_REGISTRY_AUTHORITY: ROLE_REGISTRY_AUTHORITY is a lands commission or cadastral office:\nregistering a parcel, validating a transfer, freezing land.\n - ROLE_MONETARY_AUTHORITY: ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a\ncurrency inside its jurisdiction.\n - ROLE_PAYMENTS_AUTHORITY: ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a\npayment instruction. Separate from the monetary authority because\nlicensing a payment service provider and issuing money are different\noffices in most of the deployments this chain is built for, and collapsing\nthem here would force one key to hold both.\n - ROLE_ENFORCEMENT_AUTHORITY: ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it,\nor freezing it outright.\n - ROLE_SUPERVISOR: ROLE_SUPERVISOR is oversight without the power to act — the role held by\nan auditor or a regulator that watches a perimeter it does not administer.\nIt is granted through the same registry as the rest so that \"who is\nwatching this country\" has one answer in one place.\n\nWhat it confers is a READING entitlement, and the shape of it is decided by\na fact about gRPC rather than by preference: a query carries no signer, so\nthe chain cannot gate a read by role and any design that pretended to would\nbe worse than an empty role. Ordinary read access on a deployment is\ncontrolled at the proxy.\n\nSo the entitlement is over the one body of data the chain does NOT serve to\nwhoever asks: the encrypted payload of a payment. A holder of this role in\ncountry X is entitled to be a viewing-key recipient of every payload whose\ndeclared settlement jurisdiction is X — the same declaration that decides\nwhich authority may act on a cross-border payment, which is what makes it\nthe right field. The set is published by Query/PayloadReaders, so a sender\nresolves \"who must this be sealed to\" from the grant registry rather than\nfrom a list somebody maintains.\n\nTwo consequences the chain can actually enforce, and one it cannot:\n\n  - a country's appointed regulator must hold this role covering that\n    country. AppointRegulator refuses otherwise, so the most powerful grant\n    the confidentiality design makes cannot be handed to an account that\n    holds nothing in the perimeter registry, and \"who is watching this\n    country\" really does have one answer in one place.\n  - a grant of it is made by governance or by the foundation like any\n    other, and revoking it removes the holder from every future payload's\n    recipient set.\n  - it cannot force a sender to seal to the holder. The envelope is built\n    off-chain and the chain only ever sees a hash of the plaintext, so a\n    sender that ignores the published set produces a payload the supervisor\n    can never open, and nothing on chain detects it. That is a limit of\n    where the ciphertext lives, not a gap in the registry.\n\nAnd it confers nothing else. A supervisor may not open an enforcement case,\nfreeze, seize, register or validate land, admit an issuer or a participant,\ngrant a role, correct a jurisdiction, or appoint a regulator. Oversight\nwithout the power to act, which is what the name says.\n - ROLE_FOUNDATION_ADMINISTRATOR: ROLE_FOUNDATION_ADMINISTRATOR is the chain-wide authority that places\naccounts: it may correct an account's recorded country, appoint a country's\nregulator, grant the time-boxed auditor role, and hold an identifier with no\ncountry behind it.\n\nIt replaces the alias module's foundation_administrators parameter, which\nwas a list of up to eight addresses appointed by MsgUpdateParams. Collapsing\nthe two mechanisms is the point. Enrolling a country needed BOTH the\nfoundation group (to grant roles) and a foundation administrator (to place\nthe offices' own accounts); they were unrelated lists that happened to share\na name, and holding one without the other produced a proposal that passed\nand an office that could not work.\n\nIt is CHAIN-WIDE OR NOTHING. A grant of it naming a country is refused, and\nthat refusal is what preserves today's authority exactly: by the rule in\nGrantRole, a chain-wide scope may be granted by governance and by nobody\nelse — which is the same body that could edit the parameter list. The\nfoundation's power to admit a country is untouched and is not widened into\nthe power to appoint the accounts that stand outside every country.\n\nA country scope would also be meaningless rather than merely wrong. What the\nrole exempts is the ABSENCE of a national perimeter, so an administrator of\none country is an account claiming an exemption from a rule it is already\ninside.\n\nThe cap the parameter carried survives the move — see\nMaxFoundationAdministrators — because the reason for it survives: this is\nthe single exception to \"every account has a jurisdiction\", and it must not\nbe possible to widen it without somebody seeing.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -365,7 +396,8 @@
               "ROLE_MONETARY_AUTHORITY",
               "ROLE_PAYMENTS_AUTHORITY",
               "ROLE_ENFORCEMENT_AUTHORITY",
-              "ROLE_SUPERVISOR"
+              "ROLE_SUPERVISOR",
+              "ROLE_FOUNDATION_ADMINISTRATOR"
             ],
             "default": "ROLE_UNSPECIFIED"
           },
@@ -4939,6 +4971,32 @@
         }
       }
     },
+    "PayloadReader": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "basis": {
+          "$ref": "#/definitions/PayloadReaderBasis"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "key": {
+          "$ref": "#/definitions/ViewingKey"
+        }
+      }
+    },
+    "PayloadReaderBasis": {
+      "type": "string",
+      "enum": [
+        "PAYLOAD_READER_UNSPECIFIED",
+        "PAYLOAD_READER_REGULATOR",
+        "PAYLOAD_READER_SUPERVISOR"
+      ],
+      "default": "PAYLOAD_READER_UNSPECIFIED"
+    },
     "PaymentRecord": {
       "type": "object",
       "properties": {
@@ -5958,6 +6016,18 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryPayloadReadersResponse": {
+      "type": "object",
+      "properties": {
+        "readers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PayloadReader"
+          }
         }
       }
     },

@@ -108,7 +108,6 @@ func NewParams(
 	recoveryDestination string,
 	maxReasonLength, maxEvidenceURILength uint64,
 	seizeRequiresEvidence bool,
-	emergencyAuthority string,
 	seizureDelayBlocks uint64,
 	seizureDelayTiers []SeizureDelayTier,
 	seizureWindowBlocks uint64,
@@ -124,7 +123,6 @@ func NewParams(
 		MaxReasonLength:         maxReasonLength,
 		MaxEvidenceUriLength:    maxEvidenceURILength,
 		SeizeRequiresEvidence:   seizeRequiresEvidence,
-		EmergencyAuthority:      emergencyAuthority,
 		SeizureDelayBlocks:      seizureDelayBlocks,
 		SeizureDelayTiers:       seizureDelayTiers,
 		SeizureWindowBlocks:     seizureWindowBlocks,
@@ -168,7 +166,6 @@ func DefaultParams() Params {
 		DefaultMaxReasonLength,
 		DefaultMaxEvidenceURILength,
 		true,
-		"",
 		DefaultSeizureDelayBlocks,
 		nil,
 		DefaultSeizureWindowBlocks,
@@ -225,11 +222,6 @@ func (p Params) Validate() error {
 	}
 	if p.MaxEvidenceUriLength == 0 {
 		return fmt.Errorf("max_evidence_uri_length must be positive")
-	}
-	if p.EmergencyAuthority != "" {
-		if _, err := sdk.AccAddressFromBech32(p.EmergencyAuthority); err != nil {
-			return fmt.Errorf("emergency_authority is not a valid address: %w", err)
-		}
 	}
 
 	if err := p.validateSeizureDelay(); err != nil {
@@ -343,24 +335,28 @@ func (p Params) validateSeizureWindow() error {
 // validateOmbudsman checks the office that can stop a case and never start one.
 //
 // The checks here are the ones that can be made without asking the chain
-// anything: an address, and the two roles that must not also be held by the
-// same key. Whether the ombudsman is a validator cannot be answered from a
-// parameter struct, so that one is enforced at the point of use in every
-// handler that could open or advance a case — which is the only place it
-// actually has to hold.
+// anything: an address, and the one other role in this struct that must not be
+// held by the same key.
+//
+// Two of the office's exclusions are NOT here, and both are enforced where the
+// state that answers them is:
+//
+//   - whether the ombudsman is a bonded validator. That is staking's answer, and
+//     it can change after the parameters were set, so it is checked in every
+//     handler that could open or advance a case.
+//   - whether the ombudsman holds ROLE_ENFORCEMENT_AUTHORITY, which is what the
+//     retired emergency_authority field became. That used to be a comparison of
+//     two strings in this struct and is now a grant in another module, so
+//     UpdateParams asks the perimeter keeper before writing, and the handlers
+//     refuse the ombudsman outright whichever order the two happened in. The
+//     handler check is the one that actually holds the property — a grant made
+//     after the parameters were set cannot be caught by the parameters.
 func (p Params) validateOmbudsman() error {
 	if p.Ombudsman == "" {
 		return nil
 	}
 	if _, err := sdk.AccAddressFromBech32(p.Ombudsman); err != nil {
 		return fmt.Errorf("ombudsman is not a valid address: %w", err)
-	}
-	// The emergency authority can open a case. An ombudsman holding that key
-	// would hold both halves, and the asymmetry that makes the office safe to
-	// appoint would be gone without anything in the parameters looking wrong.
-	if p.EmergencyAuthority != "" && p.Ombudsman == p.EmergencyAuthority {
-		return fmt.Errorf(
-			"ombudsman and emergency_authority are the same address; the ombudsman may only stop cases, and the emergency authority can open them")
 	}
 	// The recovery destination is where seized funds land. An ombudsman who is
 	// also the beneficiary of seizures is not outside the process it checks.

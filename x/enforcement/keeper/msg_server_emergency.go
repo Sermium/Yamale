@@ -11,7 +11,8 @@ import (
 	"yamale/blockchain/x/enforcement/types"
 )
 
-// EmergencyFreeze stops an account on the founders' signature alone.
+// EmergencyFreeze stops an account on an enforcement authority's signature
+// alone.
 //
 // Everything about it is the ordinary path with the validator step removed from
 // the front: it opens a real case, imposes the same provisional freeze, and
@@ -21,19 +22,36 @@ import (
 // It cannot seize, and there is deliberately no message that lets it. Stopping
 // money is recoverable — release the account and nothing was lost but time.
 // Taking it is not, so that stays with the supermajority whoever is asking.
+//
+// # From one address to a grant
+//
+// The signer used to be the emergency_authority parameter: one address,
+// chain-wide, able to freeze any account on this chain without a case. It is now
+// ROLE_ENFORCEMENT_AUTHORITY scoped to the target's country, which is the same
+// check every other authority action on the chain routes through.
+//
+// The old shape is worth naming because it is what the perimeter exists to
+// abolish. A single parameter with no territorial limit made the one path that
+// acts on one signature also the one path no border bounded — so the fastest
+// power in the module was also the widest, which is the shape of every abuse
+// this design refuses. What replaces it is not slower: an office signs, in one
+// block, exactly as before, inside a country.
 func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyFreeze) (*types.MsgEmergencyFreezeResponse, error) {
 	params, err := k.Params.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := k.assertEmergencyAuthority(params, msg.Authority); err != nil {
-		return nil, err
-	}
-	// Belt and braces over Params.Validate, which already refuses parameters in
-	// which the ombudsman and the emergency authority are the same address. If
-	// that check were ever relaxed or bypassed by a migration writing params
-	// directly, this is the one that still holds: opening a case is the power
-	// the ombudsman must not have, and this is where a case is opened.
+	// The ombudsman may not open a case, and this is where the exclusion is
+	// actually held.
+	//
+	// It used to be belt and braces over Params.Validate, which refused
+	// parameters naming the same address as ombudsman and emergency authority.
+	// That comparison is gone with the parameter, and it could not have been
+	// kept: the authority is a grant in another module now, so the parameters
+	// cannot see it. UpdateParams asks the perimeter keeper before writing an
+	// ombudsman, which catches the appointment order — and this check catches the
+	// other one, a grant made to a sitting ombudsman afterwards, which the
+	// parameters could never have caught even when the field existed.
 	if err := k.assertNotOmbudsman(params, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -45,12 +63,13 @@ func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyF
 	if err := k.assertTargetable(ctx, sdk.AccAddress(targetBz), msg.Target); err != nil {
 		return nil, err
 	}
-	// The perimeter, and the emergency is not an exception to it. Skipping the
-	// jurisdiction check because the situation is urgent would mean the one path
-	// that acts on a single signature is also the one path with no territorial
-	// limit — which is the shape of every abuse this design exists to make
-	// impossible. An authority that needs to stop an account outside its
-	// perimeter needs the authority of that perimeter, urgently or otherwise.
+	// The perimeter, and the emergency is not an exception to it. It is now the
+	// only thing that authorises this message at all, where it used to run after
+	// a comparison against a named address. Skipping the jurisdiction check
+	// because the situation is urgent would mean the one path that acts on a
+	// single signature is also the one path with no territorial limit. An
+	// authority that needs to stop an account outside its perimeter needs the
+	// authority of that perimeter, urgently or otherwise.
 	if err := k.assertScope(ctx, msg.Authority, msg.Target); err != nil {
 		return nil, err
 	}
@@ -137,18 +156,40 @@ func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyF
 // passed. What it does not do is undo a seizure: if the funds have already
 // moved, releasing the account gives back the ability to use it and nothing
 // else. Those funds are the recovery destination's to return.
+//
+// # Scoped to the case's target, not to anything the message names
+//
+// The authority has to hold ROLE_ENFORCEMENT_AUTHORITY covering the country the
+// TARGET is recorded in, which means the case has to be loaded before the signer
+// can be checked. That ordering is forced and it is worth being explicit about:
+// there is no country in this message, and taking one from the signer would be
+// letting an actor name its own perimeter, which is exactly the claim the
+// perimeter design refuses.
+//
+// Leaving release chain-wide was the defensible alternative — it is the smaller
+// act, and a wrong freeze is an emergency of its own. It was not taken because
+// an office able to release anywhere could lift the freeze another country's
+// authority had just imposed, which is interference in that perimeter rather
+// than mercy in its own.
+//
+// The cost of scoping it is real and should be stated rather than discovered: a
+// target whose jurisdiction the chain cannot resolve cannot be released by this
+// message at all, because AssertScope refuses an unplaceable target before any
+// grant is read. What is left for that account is the provisional freeze
+// lapsing by itself, and governance reversing a case that passed. Both are
+// slower and both exist.
 func (k msgServer) EmergencyRelease(ctx context.Context, msg *types.MsgEmergencyRelease) (*types.MsgEmergencyReleaseResponse, error) {
 	params, err := k.Params.Get(ctx)
 	if err != nil {
-		return nil, err
-	}
-	if err := k.assertEmergencyAuthority(params, msg.Authority); err != nil {
 		return nil, err
 	}
 
 	enforcementCase, err := k.Case.Get(ctx, msg.CaseId)
 	if err != nil {
 		return nil, types.ErrCaseNotFound.Wrapf("case %d", msg.CaseId)
+	}
+	if err := k.assertScope(ctx, msg.Authority, enforcementCase.Target); err != nil {
+		return nil, err
 	}
 	switch enforcementCase.Status {
 	// HELD belongs here beside VOTING and PASSED: a seizure waiting out its
@@ -209,20 +250,17 @@ func (k msgServer) EmergencyRelease(ctx context.Context, msg *types.MsgEmergency
 	return &types.MsgEmergencyReleaseResponse{}, nil
 }
 
-// assertEmergencyAuthority refuses anyone but the address named in the
-// parameters, and refuses everyone when no address is named.
+// There is deliberately no assertEmergencyAuthority any more.
 //
-// The empty case is the one worth being careful about: an unset authority must
-// mean "nobody", never "anybody". A comparison that let an empty message field
-// match an empty parameter would hand this power to whoever noticed first.
-func (k Keeper) assertEmergencyAuthority(params types.Params, signer string) error {
-	if strings.TrimSpace(params.EmergencyAuthority) == "" {
-		return types.ErrNoEmergencyAuthority.Wrap(
-			"no emergency authority is set, so there is no emergency path; governance must name one first")
-	}
-	if signer != params.EmergencyAuthority {
-		return errorsmod.Wrapf(types.ErrInvalidSigner,
-			"invalid emergency authority; expected %s, got %s", params.EmergencyAuthority, signer)
-	}
-	return nil
-}
+// It compared the signer against one address named in the parameters and refused
+// everyone when none was named, and the empty case was the careful part: an
+// unset authority had to mean "nobody", never "anybody". Both halves are now
+// carried by the perimeter check instead, and both are carried better — a
+// missing grant refuses, a store failure refuses, and the refusal names the
+// country the signer's grant did not reach rather than an address it is not.
+//
+// Written down rather than deleted silently because the empty-means-nobody
+// property is easy to lose when a check moves. The path that replaces it is
+// Keeper.assertScope, which fails closed on a missing registry and on a target
+// the chain cannot place, so there is no configuration of this module in which
+// the emergency path is open to whoever noticed first.

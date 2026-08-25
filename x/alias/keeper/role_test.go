@@ -245,7 +245,7 @@ func roleSetup(t *testing.T) *roleFixture {
 
 	_, f.admin = env.Addr(t)
 	gs := types.DefaultGenesis()
-	gs.Params = types.NewParams(types.PayloadLength, f.admin)
+	gs.RoleGrants = []types.RoleGrant{administratorGrant(f.admin)}
 	require.NoError(t, k.InitGenesis(env.Ctx, *gs))
 	return f
 }
@@ -967,9 +967,17 @@ func TestTheChainWideGrantsAreListedOnTheirOwn(t *testing.T) {
 
 	res, err := f.qs.ChainWideGrants(f.env.Ctx, &types.QueryChainWideGrantsRequest{})
 	require.NoError(t, err)
-	require.Len(t, res.Grants, 2)
+	// Three, not two: the fixture's foundation administrator is itself a
+	// chain-wide grant now, and it belongs on this page for exactly the reason
+	// the page exists. An account exempt from every national perimeter that could
+	// only be found by reading a parameter was an exception nobody audited.
+	require.Len(t, res.Grants, 3)
 	for _, g := range res.Grants {
 		require.Equal(t, types.ChainWide, g.Jurisdiction)
+		if g.Role == types.ROLE_FOUNDATION_ADMINISTRATOR {
+			require.Equal(t, f.admin, g.Holder)
+			continue
+		}
 		require.Equal(t, wide, g.Holder)
 		require.Equal(t, f.env.AuthorityString(t), g.GrantedBy,
 			"a grant nobody is recorded as having made cannot be accounted for")
@@ -1032,7 +1040,9 @@ func TestGenesisRoundTripsWithRoleGrants(t *testing.T) {
 	exported, err := f.k.ExportGenesis(f.env.Ctx)
 	require.NoError(t, err)
 	require.NoError(t, exported.Validate())
-	require.Len(t, exported.RoleGrants, 8)
+	// Nine: eight granted above plus the fixture's foundation administrator,
+	// which is a role grant like any other and has to survive an export like one.
+	require.Len(t, exported.RoleGrants, 9)
 
 	// A second environment, so the import lands in an empty store.
 	//
@@ -1075,7 +1085,9 @@ func TestGenesisRoundTripsWithRoleGrants(t *testing.T) {
 			"%s holds %s in %s but the rebuilt index does not list it",
 			g.Holder, types.RoleName(g.Role), g.Jurisdiction)
 	}
-	require.Equal(t, 2, wide, "the fixture stopped exercising the chain-wide scope")
+	// Three: the two the loop granted at the chain-wide scope, plus the fixture's
+	// foundation administrator, which is a chain-wide grant like any other.
+	require.Equal(t, 3, wide, "the fixture stopped exercising the chain-wide scope")
 
 	listed, err := freshQS.ChainWideGrants(other.Ctx, &types.QueryChainWideGrantsRequest{})
 	require.NoError(t, err)

@@ -101,28 +101,6 @@ export interface Params {
    */
   seizeRequiresEvidence: boolean;
   /**
-   * emergency_authority is an address that can freeze and release immediately,
-   * without waiting for the validator vote — in practice a founders' M-of-N
-   * group policy.
-   *
-   * It exists because the validator process has two failure modes that a
-   * permissioned network cannot simply wait out: a set too large or too spread
-   * out to reach two thirds within the voting period, and a freeze that was
-   * plainly wrong sitting on somebody's account until that period expires. The
-   * emergency path answers both, and is deliberately bounded to the two actions
-   * that cannot end with somebody's assets in a third party's hands: it can
-   * stop money and it can let it go again. It can never take any.
-   *
-   * A freeze it imposes is provisional like any other — it lapses unless the
-   * validators confirm it, and it is lifted if they refuse. Fast, then
-   * answerable.
-   *
-   * Empty disables the path entirely, which is the default: a chain that has
-   * not named a founders' group has no emergency authority rather than an
-   * implicit one.
-   */
-  emergencyAuthority: string;
-  /**
    * seizure_delay_blocks is the shortest a seizure can ever wait between the
    * validators deciding it and it being carried out. Every seizure waits at
    * least this long, whatever it is worth.
@@ -189,13 +167,26 @@ export interface Params {
    * adding a power — which is the only kind of oversight worth having over a
    * module like this one. It is enforced structurally rather than by trust:
    * there is no message in this service that the ombudsman may sign and that
-   * opens, votes on, sweeps or otherwise advances a case, and the parameters
-   * refuse an ombudsman that is also the emergency authority or the recovery
-   * destination, because either of those would hand the same office a way in.
+   * opens, votes on, sweeps or otherwise advances a case.
    *
-   * Empty means there is no ombudsman, which is the default for the same reason
-   * the emergency authority's is: no address compiled into a binary is anybody
-   * else's independent office, and an implicit one would be worse than none.
+   * Two addresses it must not be, and they are now checked in two different
+   * places because only one of them is still a fact about the parameters:
+   *
+   *   - the recovery destination, where seized funds land. An ombudsman that is
+   *     also the beneficiary of seizures is not outside the process it checks.
+   *     Both are fields here, so Validate refuses it.
+   *   - a holder of ROLE_ENFORCEMENT_AUTHORITY, which is what the old
+   *     emergency_authority field became. That office can open a case, and an
+   *     ombudsman holding it would hold both halves. It is a grant in another
+   *     module rather than a field here, so the check moved to where the state
+   *     is: UpdateParams refuses an ombudsman that already holds the role, and
+   *     every handler that opens or advances a case refuses the ombudsman
+   *     outright — which is the check that actually holds the property, because
+   *     a grant made after the parameters were set cannot be caught by them.
+   *
+   * Empty means there is no ombudsman, which is the default: no address compiled
+   * into a binary is anybody else's independent office, and an implicit one
+   * would be worse than none.
    */
   ombudsman: string;
 }
@@ -285,7 +276,6 @@ function createBaseParams(): Params {
     maxReasonLength: "0",
     maxEvidenceUriLength: "0",
     seizeRequiresEvidence: false,
-    emergencyAuthority: "",
     seizureDelayBlocks: "0",
     seizureDelayTiers: [],
     seizureWindowBlocks: "0",
@@ -317,9 +307,6 @@ export const Params = {
     }
     if (message.seizeRequiresEvidence !== false) {
       writer.uint32(56).bool(message.seizeRequiresEvidence);
-    }
-    if (message.emergencyAuthority !== "") {
-      writer.uint32(66).string(message.emergencyAuthority);
     }
     if (message.seizureDelayBlocks !== "0") {
       writer.uint32(72).uint64(message.seizureDelayBlocks);
@@ -398,13 +385,6 @@ export const Params = {
 
           message.seizeRequiresEvidence = reader.bool();
           continue;
-        case 8:
-          if (tag !== 66) {
-            break;
-          }
-
-          message.emergencyAuthority = reader.string();
-          continue;
         case 9:
           if (tag !== 72) {
             break;
@@ -469,7 +449,6 @@ export const Params = {
       seizeRequiresEvidence: isSet(object.seizeRequiresEvidence)
         ? globalThis.Boolean(object.seizeRequiresEvidence)
         : false,
-      emergencyAuthority: isSet(object.emergencyAuthority) ? globalThis.String(object.emergencyAuthority) : "",
       seizureDelayBlocks: isSet(object.seizureDelayBlocks) ? globalThis.String(object.seizureDelayBlocks) : "0",
       seizureDelayTiers: globalThis.Array.isArray(object?.seizureDelayTiers)
         ? object.seizureDelayTiers.map((e: any) => SeizureDelayTier.fromJSON(e))
@@ -506,9 +485,6 @@ export const Params = {
     if (message.seizeRequiresEvidence !== false) {
       obj.seizeRequiresEvidence = message.seizeRequiresEvidence;
     }
-    if (message.emergencyAuthority !== "") {
-      obj.emergencyAuthority = message.emergencyAuthority;
-    }
     if (message.seizureDelayBlocks !== "0") {
       obj.seizureDelayBlocks = message.seizureDelayBlocks;
     }
@@ -542,7 +518,6 @@ export const Params = {
     message.maxReasonLength = object.maxReasonLength ?? "0";
     message.maxEvidenceUriLength = object.maxEvidenceUriLength ?? "0";
     message.seizeRequiresEvidence = object.seizeRequiresEvidence ?? false;
-    message.emergencyAuthority = object.emergencyAuthority ?? "";
     message.seizureDelayBlocks = object.seizureDelayBlocks ?? "0";
     message.seizureDelayTiers = object.seizureDelayTiers?.map((e) => SeizureDelayTier.fromPartial(e)) || [];
     message.seizureWindowBlocks = object.seizureWindowBlocks ?? "0";

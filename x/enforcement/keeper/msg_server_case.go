@@ -11,16 +11,38 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	aliastypes "yamale/blockchain/x/alias/types"
 	"yamale/blockchain/x/enforcement/types"
 )
 
 // OpenCase accuses an address and freezes it on the spot.
 //
-// One bonded validator is enough, and that is the deliberate asymmetry at the
-// centre of this module: stopping the money has to be as fast as moving it,
-// while taking it has to be slower than noticing a mistake. What one validator
-// can do alone is stop transfers for a day, in public, under their own name.
+// One signature is enough, and that is the deliberate asymmetry at the centre of
+// this module: stopping the money has to be as fast as moving it, while taking
+// it has to be slower than noticing a mistake. What one signature can do alone
+// is stop transfers for a day, in public, under a name anybody can look up.
 // Everything past that needs the supermajority.
+//
+// # Who may accuse
+//
+// A bonded validator, or a holder of ROLE_ENFORCEMENT_AUTHORITY covering the
+// target's country. Two kinds of account, one message, and the widening is the
+// point: the role could be granted before this and no message let it be used, so
+// a country's enforcement office held a grant that did nothing — which
+// role.proto itself calls a name in a registry pretending to be a control.
+//
+// It is a widening and not a shift. A bonded validator may do exactly what it
+// could do before, and the perimeter check that was already here runs on both
+// paths, so who may accuse grew and where anybody may accuse did not.
+//
+// # Why an office may accuse and cannot decide
+//
+// Accusation and decision were already separate here — the opener's own vote has
+// never been assumed from opening — and that separation is what makes this safe
+// to widen. An office that is not a validator has no vote at all: it can freeze
+// an account provisionally, for as long as provisional_freeze_blocks, in public,
+// and the validator set then confirms or refuses it. A national authority can
+// stop money for a day; two thirds of bonded power decides whether it is taken.
 func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types.MsgOpenCaseResponse, error) {
 	params, err := k.Params.Get(ctx)
 	if err != nil {
@@ -34,10 +56,11 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 		return nil, err
 	}
 
-	// Only a bonded validator may accuse. The opener's own vote is not assumed
-	// from opening: they cast it like everyone else, so a tally never contains
-	// a vote nobody sent.
-	opener, _, err := k.bondedValidatorOf(ctx, msg.Opener)
+	// Who is accusing, and under what name it goes on the record. The opener's
+	// own vote is not assumed from opening: a validator casts it like everyone
+	// else, so a tally never contains a vote nobody sent, and an office has no
+	// vote to cast at all.
+	opener, err := k.openerOf(ctx, msg.Opener)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +72,16 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 	if err := k.assertTargetable(ctx, sdk.AccAddress(targetBz), msg.Target); err != nil {
 		return nil, err
 	}
-	// The perimeter. Being a bonded validator says you are trusted to secure this
-	// chain; it does not say which country's accounts you may stop. Those are
-	// different questions and this module used to answer only the first, which is
-	// how a validator in one jurisdiction could freeze an account in another.
+	// The perimeter, and it is the check that carries the whole of the widening
+	// above. Being a bonded validator says you are trusted to secure this chain;
+	// it does not say which country's accounts you may stop. Those are different
+	// questions and this module used to answer only the first, which is how a
+	// validator in one jurisdiction could freeze an account in another.
+	//
+	// It runs on both kinds of opener and it is the ONLY thing that permits
+	// either of them. openerOf above decides what the accusation is called, not
+	// whether it may be made — an office that holds the role somewhere and not
+	// here reaches this line and is refused by it.
 	//
 	// Checked against the signing account rather than the operator address,
 	// because a grant is made to an account and the operator address is derived
@@ -277,9 +306,19 @@ func (k msgServer) VoteCase(ctx context.Context, msg *types.MsgVoteCase) (*types
 	return &types.MsgVoteCaseResponse{}, nil
 }
 
-// WithdrawCase takes back an open case. Only the validator that opened it may,
-// and it lifts the freeze — the same person who was trusted to impose it alone
-// is trusted to admit they were wrong alone.
+// WithdrawCase takes back an open case. Only whoever opened it may, and it lifts
+// the freeze — the same party that was trusted to impose it alone is trusted to
+// admit they were wrong alone.
+//
+// It asks for identity and for nothing else. A validator that has since unbonded
+// and an office whose grant has since been revoked may both still withdraw the
+// case they opened, and that is deliberate rather than an oversight: withdrawing
+// is de-escalation, and a rule that made it conditional on still holding a power
+// would leave somebody's account frozen precisely because the party that was
+// wrong about them lost its authority afterwards.
+//
+// Which is why identity is resolved here without the authority check openerOf
+// makes. See openerIdentity.
 func (k msgServer) WithdrawCase(ctx context.Context, msg *types.MsgWithdrawCase) (*types.MsgWithdrawCaseResponse, error) {
 	enforcementCase, err := k.Case.Get(ctx, msg.CaseId)
 	if err != nil {
@@ -288,7 +327,7 @@ func (k msgServer) WithdrawCase(ctx context.Context, msg *types.MsgWithdrawCase)
 	if enforcementCase.Status != types.CASE_STATUS_VOTING {
 		return nil, types.ErrCaseClosed.Wrapf("case %d is %s", msg.CaseId, enforcementCase.Status)
 	}
-	opener, _, err := k.bondedValidatorOf(ctx, msg.Opener)
+	opener, err := k.openerIdentity(ctx, msg.Opener)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +404,85 @@ func (k msgServer) ReverseCase(ctx context.Context, msg *types.MsgReverseCase) (
 	}
 
 	return &types.MsgReverseCaseResponse{}, nil
+}
+
+// openerOf decides whether an account may accuse at all, and what name the
+// accusation goes on the record under.
+//
+// Two kinds of opener, and they are recorded differently on purpose. A bonded
+// validator is recorded by its OPERATOR address, because that is the name a
+// validator is legible under and an accusation attributed to an account address
+// nobody recognises is an accusation with no visible author. An office is
+// recorded by its own address, because a group policy has no operator address
+// and its own address is exactly what a role-holders query is read against.
+//
+// The validator branch is tried first, and the order is not arbitrary. It is the
+// path that existed before offices could open cases, so trying it first means
+// nothing a validator could do changed shape — including the error a validator
+// gets when it has unbonded, which stays ErrUnknownValidator as long as it holds
+// no grant.
+//
+// # What this function does not do
+//
+// It does not authorise anything. Holding ROLE_ENFORCEMENT_AUTHORITY *somewhere*
+// is enough to get past it, and the perimeter check in the caller is what
+// decides whether this office may act on this target. That split is deliberate:
+// HoldsRole answers an honest boolean about the actor, AssertScope answers the
+// question that permits, and collapsing them would mean deciding authority from
+// a call that cannot see the target.
+//
+// It also fails closed. A missing perimeter keeper makes holdsEnforcementRole an
+// error rather than a false, so a wiring mistake refuses an office rather than
+// quietly reporting that it is not one.
+func (k Keeper) openerOf(ctx context.Context, account string) (string, error) {
+	operator, _, err := k.bondedValidatorOf(ctx, account)
+	if err == nil {
+		return operator, nil
+	}
+	validatorErr := err
+
+	authority, roleErr := k.holdsEnforcementRole(ctx, account)
+	if roleErr != nil {
+		return "", roleErr
+	}
+	if authority {
+		return account, nil
+	}
+	// Neither. The validator refusal is what comes back, because it is the
+	// specific one — it distinguishes "not a validator" from "not bonded" — and
+	// the sentence appended says what the other road would have been. A signer
+	// told only "you hold no enforcement grant" when they meant to sign as a
+	// validator would go looking for a proposal they never needed.
+	return "", errorsmod.Wrapf(validatorErr,
+		"%s is not a bonded validator and holds no grant of %s, so it may not open a case",
+		account, aliastypes.RoleName(aliastypes.ROLE_ENFORCEMENT_AUTHORITY))
+}
+
+// openerIdentity renders an account the way a case records its opener, asking
+// nothing about whether it may open one.
+//
+// It is openerOf with the authority removed, and the two are separate functions
+// rather than one with a flag because they answer different questions and only
+// one of them decides anything. This one is "what would this account be called
+// on a case", and it is used to MATCH against a case that already exists — so
+// the only account it can ever match is the one that actually opened it. There
+// is no authority to check, because holding one is not what withdrawal turns on.
+//
+// A validator that has unbonded therefore renders as its own account address
+// rather than as its operator address, and so no longer matches a case it
+// opened. That is a real consequence and it is the honest one: the freeze it
+// imposed still lapses by itself, the validators can still resolve the case, and
+// governance can still reverse one that passed. What it does not get is a
+// message asserting a name it no longer answers to.
+func (k Keeper) openerIdentity(ctx context.Context, account string) (string, error) {
+	if _, err := k.addressCodec.StringToBytes(account); err != nil {
+		return "", errorsmod.Wrap(err, "invalid address")
+	}
+	operator, _, err := k.bondedValidatorOf(ctx, account)
+	if err == nil {
+		return operator, nil
+	}
+	return account, nil
 }
 
 // bondedValidatorOf resolves the account a validator signs with to that

@@ -49,7 +49,7 @@ GrantRole grants a role inside one jurisdiction. Governance, or the foundation f
 | `authority` | string | authority is the governance account, or the foundation — the address x/constitution pins as enforcement_recovery_destination. Any other signer is refused, and so is the foundation when the jurisdiction below is "*". |
 | `holder` | string | holder is the account being granted the role. |
 | `role` | Role | role is what they may do. ROLE_UNSPECIFIED is refused: a grant whose role was left unset must never be honoured, and proto3 cannot tell that from a role that happens to be numbered zero. |
-| `jurisdiction` | string | jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for chain-wide. The reserved code the foundation's own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. This field also decides who may sign the message, so it is validated before the signer is checked. "*" narrows the acceptable authority to governance alone, and that narrowing happens before the constitution is read: a store failure while resolving the foundation must not be the thing that decides whether the chain-wide scope was allowed. |
+| `jurisdiction` | string | jurisdiction is where: an assigned ISO 3166-1 alpha-2 code, or "*" for chain-wide. The reserved code the foundation's own identifiers carry is refused — it marks the absence of a perimeter, so a grant over it would confer nothing while reading like everything. One role refuses a country here: ROLE_FOUNDATION_ADMINISTRATOR is chain-wide or nothing. What it exempts is the ABSENCE of a national perimeter, so an administrator of one country would be an account claiming an exemption from a rule it is already inside — and, because chain-wide is governance-only, the refusal is also what keeps that appointment exactly as governance-only as the parameter list it replaced. This field also decides who may sign the message, so it is validated before the signer is checked. "*" narrows the acceptable authority to governance alone, and that narrowing happens before the constitution is read: a store failure while resolving the foundation must not be the thing that decides whether the chain-wide scope was allowed. |
 | `required_shape` | OfficeShape | required_shape is the M-of-N the holder's office must keep in order to keep this role. Omit it and no requirement is recorded, which is what every grant made before this field existed carries. Recorded on the grant and re-checked on every action the grant permits, so an office that reduces itself below the shape it was granted under loses the authority automatically rather than waiting for somebody to notice and revoke. See OfficeShape for why both numbers are floors and why the count of signatures is not the same thing as the policy's threshold. Checked here as well, when the group keeper is available: a grant requiring three-of-five is refused outright to a one-of-one office, rather than being written and then failing on first use. Recording a requirement the holder does not meet is how an office ends up holding a grant that reads correct in every query and permits nothing. The requirement is decided before the ceremony rather than read off whoever turned up to it. `ceremony country` takes it per office in the enrolment config and refuses to assemble an office whose signed group file does not meet it — see docs/guides/country-enrolment.md. A requirement captured from the group that happened to be created would be no requirement at all: it would ratify a one-of-one as readily as a three-of-five. |
 
 ### MsgRegisterAlias
@@ -137,13 +137,13 @@ SetJurisdiction records or corrects the country an account belongs to.
 
 Signed by the `authority` field.
 
-UpdateParams sets the module parameters. Governance only, and it is the only way a foundation administrator is appointed or removed — the foundation's own M-of-N group cannot do it, and nothing else can either.
+UpdateParams sets the module parameters. Governance only.
 
-It REPLACES THE WHOLE Params OBJECT. `params` is a message, not a field mask, and there is no partial update, so "appoint one administrator" means reading the current parameters, adding one address, and resubmitting every parameter. A proposal composed without reading them first passes and silently drops the administrators already appointed, or resets payload_length. Nothing catches that: a list shorter than the one before it is a valid list.
+It no longer appoints anybody. Appointing a foundation administrator is now MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope — which is still governance and nobody else, because a chain-wide grant is governance's alone, so the authority behind the act did not move. What moved is where it is recorded, and that is the point: the appointment and the role registry are one mechanism rather than two lists that happened to share a name.
 
-A payload_length that reads back as 0 means the value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody filled in, and Validate() refuses a zero, so no chain holds one. Resubmitting a guess would re-parameterise the chain while reading as an appointment.
+Three failure modes went with the parameter, and they are worth recording because they are what the move was for. This message REPLACES THE WHOLE Params OBJECT — it is a message, not a field mask — so a proposal composed without reading the current parameters first silently dropped every administrator already appointed, and nothing caught it, because a list shorter than the one before it is a valid list; a grant cannot be dropped by a message about something else. Validate() never checked that an entry was an address, so a mistyped one passed a vote, occupied one of the eight places and granted the exemption to nobody, where MsgGrantRole decodes the holder. And an administrator was a bare address, where a role holder must be an x/group account, so the exemption is now held M-of-N like every other authority.
 
-Note also what Validate() does NOT check: that an entry in foundation_administrators is an address. A mistyped one passes a governance vote, occupies one of the eight capped places, and grants the exemption to nobody. Verify the bech32 checksum before composing; the chain will not.
+What remains here is payload_length. A value that reads back as 0 means the value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody filled in, and Validate() refuses a zero, so no chain holds one. Resubmitting a guess would re-parameterise the chain.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -245,6 +245,32 @@ Response:
 | Field | Type | Description |
 | --- | --- | --- |
 | `params` | Params |  |
+
+### PayloadReaders
+
+`GET /yamale/blockchain/alias/v1/payload_readers/{country}`
+
+PayloadReaders lists every account entitled to be sealed into the encrypted payload of a payment that settles in one country, with the key each of them reads through.
+
+This is what makes ROLE_SUPERVISOR a role rather than a name in a registry. A grant of it covering a country is an entitlement to read that country's payment detail, and the entitlement is realised by a sender wrapping the content key to the holder — so the set has to be resolvable in one call, at the moment of sending, from the chain rather than from a list somebody maintains beside it.
+
+Two sources, one answer. The appointed regulator of the country is here because that is the authority with standing to act on the payment; every holder of ROLE_SUPERVISOR covering the country is here because oversight is what the role is. A chain-wide supervisor appears for every country, which is what a chain-wide grant means and why it is listed on its own endpoint for anyone auditing the exceptions.
+
+Deliberately NOT here: the auditors. They are time-boxed, chain-wide and unrelated to any settlement jurisdiction, and folding them in would put an expiry rule in two responses that could come to disagree — see Auditors, which a sender calls as well. A complete envelope is this set plus that one plus the payer and the payee.
+
+An empty response is a real answer: a country with no appointed regulator and no supervisor has nobody entitled to read, and the payment is readable by its two parties and any live auditor. It is not an error and a sender must not retry it.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `country` | string | country is an ISO 3166-1 alpha-2 code from the assigned list, in any case. The chain-wide marker and the foundation's reserved code are refused, for the same reason AssertScopeIn refuses them: no payment settles chain-wide, and a payment declaring the absence of a national perimeter would be one no authority is accountable for. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `readers` | repeated PayloadReader |  |
 
 ### Perimeter
 
@@ -434,6 +460,17 @@ What it does NOT constrain is an office tightening itself. An office that votes 
 | `signatures` | uint32 | signatures is the fewest members that must sign for the office to act. Checked against how many members it would actually TAKE, which is not the same as the policy's threshold number. x/group votes are weighted, so a group with a threshold of 3 whose members weigh 3, 1, 1, 1 and 1 is a one-of-five wearing a three-of-five's clothes: one member reaches the threshold alone. The check therefore takes the members in descending weight and counts how few of them can reach the threshold. For the equal weights every ceremony produces that is exactly the threshold, and for anything else it is the honest answer to "how many people does it take". Zero is refused rather than read as "no requirement". A requirement that requires nothing reads on a record as though it covered something, and the way to say "no requirement" is to omit required_shape entirely. |
 | `members` | uint32 | members is the fewest members the office must have. Counted over members holding a positive weight, because a member who cannot vote is a name on a list rather than a share of an office — and padding a group with weightless members is the obvious way to satisfy a count while shrinking the number of people who actually decide. Must be at least signatures: a requirement of three signatures from two members describes an office that could never act, and a requirement nothing can satisfy is a requirement that will be waived by whoever hits it. |
 
+### PayloadReader
+
+PayloadReader is one account entitled to open a country's payment payloads, and the reason it is entitled.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string | address is the account whose viewing key the payload must be wrapped to. |
+| `basis` | PayloadReaderBasis | basis says why this account is in the list, because the two reasons carry different consequences and a client showing the set to a person has to be able to say which is which. A regulator can also act on the payment; a supervisor can only read it. |
+| `scope` | string | scope is the jurisdiction of the grant that entitles a supervisor: the country asked about, or "*" for a chain-wide grant. Empty for the appointed regulator, whose entitlement comes from the appointment rather than from a scope. It is here so that an operator reading the list can tell a supervisor this country granted from one that is chain-wide and appears in every country's list — which is exactly the distinction ChainWideGrants exists to keep visible, and it would be lost if the two rendered identically here. |
+| `key` | ViewingKey | key is the reader's current viewing key. Its public_key is empty when the account is entitled but has published none — a state a sender has to be able to see, because wrapping to a key of thirty-two zero bytes produces an envelope that looks addressed to them and opens for nobody. |
+
 ### RegulatorAppointment
 
 RegulatorAppointment names the authority that holds the third viewing key over every payment declaring one country as its settlement jurisdiction.
@@ -481,6 +518,16 @@ Only the public half is ever recorded. That is not a convention that could be re
 
 ## Value types
 
+### PayloadReaderBasis
+
+PayloadReaderBasis is why an account may read a country's payment payloads.
+
+| Value | Meaning |
+| --- | --- |
+| `PAYLOAD_READER_UNSPECIFIED` | PAYLOAD_READER_UNSPECIFIED is never returned. The zero value is reserved for the same reason Role's is: proto3 cannot tell a zero from a field nobody filled in, and a reader whose basis defaulted to the first of the list would be indistinguishable from one whose basis nobody set. |
+| `PAYLOAD_READER_REGULATOR` | PAYLOAD_READER_REGULATOR is the authority appointed over the country by MsgAppointRegulator. One per country, and the one with standing to act. |
+| `PAYLOAD_READER_SUPERVISOR` | PAYLOAD_READER_SUPERVISOR holds ROLE_SUPERVISOR covering the country — either granted in it or chain-wide. Oversight without the power to act. |
+
 ### Role
 
 Role is a power an account may be granted inside a perimeter.
@@ -494,7 +541,8 @@ The list is short and closed on purpose. A role is only worth having if some mod
 | `ROLE_MONETARY_AUTHORITY` | ROLE_MONETARY_AUTHORITY is a central bank: admitting the issuer of a currency inside its jurisdiction. |
 | `ROLE_PAYMENTS_AUTHORITY` | ROLE_PAYMENTS_AUTHORITY admits the institutions that may appear on a payment instruction. Separate from the monetary authority because licensing a payment service provider and issuing money are different offices in most of the deployments this chain is built for, and collapsing them here would force one key to hold both. |
 | `ROLE_ENFORCEMENT_AUTHORITY` | ROLE_ENFORCEMENT_AUTHORITY may stop an account: opening a case against it, or freezing it outright. |
-| `ROLE_SUPERVISOR` | ROLE_SUPERVISOR is oversight without the power to act — the role held by an auditor or a regulator that watches a perimeter it does not administer. It is granted through the same registry as the rest so that "who is watching this country" has one answer in one place. |
+| `ROLE_SUPERVISOR` | ROLE_SUPERVISOR is oversight without the power to act — the role held by an auditor or a regulator that watches a perimeter it does not administer. It is granted through the same registry as the rest so that "who is watching this country" has one answer in one place. What it confers is a READING entitlement, and the shape of it is decided by a fact about gRPC rather than by preference: a query carries no signer, so the chain cannot gate a read by role and any design that pretended to would be worse than an empty role. Ordinary read access on a deployment is controlled at the proxy. So the entitlement is over the one body of data the chain does NOT serve to whoever asks: the encrypted payload of a payment. A holder of this role in country X is entitled to be a viewing-key recipient of every payload whose declared settlement jurisdiction is X — the same declaration that decides which authority may act on a cross-border payment, which is what makes it the right field. The set is published by Query/PayloadReaders, so a sender resolves "who must this be sealed to" from the grant registry rather than from a list somebody maintains. Two consequences the chain can actually enforce, and one it cannot: - a country's appointed regulator must hold this role covering that country. AppointRegulator refuses otherwise, so the most powerful grant the confidentiality design makes cannot be handed to an account that holds nothing in the perimeter registry, and "who is watching this country" really does have one answer in one place. - a grant of it is made by governance or by the foundation like any other, and revoking it removes the holder from every future payload's recipient set. - it cannot force a sender to seal to the holder. The envelope is built off-chain and the chain only ever sees a hash of the plaintext, so a sender that ignores the published set produces a payload the supervisor can never open, and nothing on chain detects it. That is a limit of where the ciphertext lives, not a gap in the registry. And it confers nothing else. A supervisor may not open an enforcement case, freeze, seize, register or validate land, admit an issuer or a participant, grant a role, correct a jurisdiction, or appoint a regulator. Oversight without the power to act, which is what the name says. |
+| `ROLE_FOUNDATION_ADMINISTRATOR` | ROLE_FOUNDATION_ADMINISTRATOR is the chain-wide authority that places accounts: it may correct an account's recorded country, appoint a country's regulator, grant the time-boxed auditor role, and hold an identifier with no country behind it. It replaces the alias module's foundation_administrators parameter, which was a list of up to eight addresses appointed by MsgUpdateParams. Collapsing the two mechanisms is the point. Enrolling a country needed BOTH the foundation group (to grant roles) and a foundation administrator (to place the offices' own accounts); they were unrelated lists that happened to share a name, and holding one without the other produced a proposal that passed and an office that could not work. It is CHAIN-WIDE OR NOTHING. A grant of it naming a country is refused, and that refusal is what preserves today's authority exactly: by the rule in GrantRole, a chain-wide scope may be granted by governance and by nobody else — which is the same body that could edit the parameter list. The foundation's power to admit a country is untouched and is not widened into the power to appoint the accounts that stand outside every country. A country scope would also be meaningless rather than merely wrong. What the role exempts is the ABSENCE of a national perimeter, so an administrator of one country is an account claiming an exemption from a rule it is already inside. The cap the parameter carried survives the move — see MaxFoundationAdministrators — because the reason for it survives: this is the single exception to "every account has a jurisdiction", and it must not be possible to widen it without somebody seeing. |
 
 ## Errors
 

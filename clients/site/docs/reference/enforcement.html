@@ -22,7 +22,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <h3>MsgEmergencyFreeze</h3>
 <p><code>/blockchain.enforcement.v1.MsgEmergencyFreeze</code></p>
 <p>Signed by the <code>authority</code> field.</p>
-<p>EmergencyFreeze lets the founders&#39; group stop an account in one block, without waiting for a validator to open a case.</p>
+<p>EmergencyFreeze lets a country&#39;s enforcement authority stop an account in one block, without waiting for a validator to open a case.</p>
 <table>
 <thead>
 <tr>
@@ -34,7 +34,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>authority</code></td>
 <td>string</td>
-<td>authority must equal the emergency_authority parameter.</td>
+<td>authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the target account is recorded in. It used to be a single address named in the module&#39;s parameters, chain-wide, able to freeze anything. The perimeter is the difference: an authority that needs to stop an account outside its own country needs the authority of that country, urgently or otherwise. Skipping the jurisdiction check because the situation is urgent would make the one path that acts on a single signature also the one path with no territorial limit.</td>
 </tr>
 <tr>
 <td><code>target</code></td>
@@ -60,7 +60,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <h3>MsgEmergencyRelease</h3>
 <p><code>/blockchain.enforcement.v1.MsgEmergencyRelease</code></p>
 <p>Signed by the <code>authority</code> field.</p>
-<p>EmergencyRelease lets them let it go again, just as fast.</p>
+<p>EmergencyRelease lets it let the account go again, just as fast.</p>
 <table>
 <thead>
 <tr>
@@ -72,7 +72,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>authority</code></td>
 <td>string</td>
-<td></td>
+<td>authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the case&#39;s target is recorded in.</td>
 </tr>
 <tr>
 <td><code>case_id</code></td>
@@ -128,7 +128,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>opener</code></td>
 <td>string</td>
-<td>opener is the account address of a bonded validator — the key it signs with, not its operator address. The chain derives the operator from it and records that on the case, so the accusation is attributed to the validator rather than to an address nobody recognises.</td>
+<td>opener is the account that signs: either a bonded validator&#39;s account address — the key it signs with, not its operator address — or the account holding ROLE_ENFORCEMENT_AUTHORITY over the target&#39;s country. What gets recorded on the case differs, deliberately. A validator is recorded by its operator address, because that is the name the accusation is legible under; an office is recorded by the account itself, which is the group policy address a role-holders query can be read against. Both are identities somebody can look up, which is the property that matters: an accusation with no visible author is not an accusation.</td>
 </tr>
 <tr>
 <td><code>target</code></td>
@@ -278,7 +278,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <tbody><tr>
 <td><code>opener</code></td>
 <td>string</td>
-<td>opener is the account address of the validator that opened the case.</td>
+<td>opener is the account that opened the case: a validator&#39;s account address, or the enforcement authority&#39;s own address. It is resolved the same way it was when the case was opened, so whichever of the two forms was recorded is the one that matches.</td>
 </tr>
 <tr>
 <td><code>case_id</code></td>
@@ -1385,11 +1385,6 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 <td>1113</td>
 <td><code>ErrLimitReached</code></td>
 <td>exceeds a configured maximum</td>
-</tr>
-<tr>
-<td>1114</td>
-<td><code>ErrNoEmergencyAuthority</code></td>
-<td>no emergency authority is configured</td>
 </tr>
 <tr>
 <td>1115</td>

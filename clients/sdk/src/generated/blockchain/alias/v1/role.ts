@@ -57,8 +57,76 @@ export const Role = {
    * an auditor or a regulator that watches a perimeter it does not administer.
    * It is granted through the same registry as the rest so that "who is
    * watching this country" has one answer in one place.
+   *
+   * What it confers is a READING entitlement, and the shape of it is decided by
+   * a fact about gRPC rather than by preference: a query carries no signer, so
+   * the chain cannot gate a read by role and any design that pretended to would
+   * be worse than an empty role. Ordinary read access on a deployment is
+   * controlled at the proxy.
+   *
+   * So the entitlement is over the one body of data the chain does NOT serve to
+   * whoever asks: the encrypted payload of a payment. A holder of this role in
+   * country X is entitled to be a viewing-key recipient of every payload whose
+   * declared settlement jurisdiction is X — the same declaration that decides
+   * which authority may act on a cross-border payment, which is what makes it
+   * the right field. The set is published by Query/PayloadReaders, so a sender
+   * resolves "who must this be sealed to" from the grant registry rather than
+   * from a list somebody maintains.
+   *
+   * Two consequences the chain can actually enforce, and one it cannot:
+   *
+   *   - a country's appointed regulator must hold this role covering that
+   *     country. AppointRegulator refuses otherwise, so the most powerful grant
+   *     the confidentiality design makes cannot be handed to an account that
+   *     holds nothing in the perimeter registry, and "who is watching this
+   *     country" really does have one answer in one place.
+   *   - a grant of it is made by governance or by the foundation like any
+   *     other, and revoking it removes the holder from every future payload's
+   *     recipient set.
+   *   - it cannot force a sender to seal to the holder. The envelope is built
+   *     off-chain and the chain only ever sees a hash of the plaintext, so a
+   *     sender that ignores the published set produces a payload the supervisor
+   *     can never open, and nothing on chain detects it. That is a limit of
+   *     where the ciphertext lives, not a gap in the registry.
+   *
+   * And it confers nothing else. A supervisor may not open an enforcement case,
+   * freeze, seize, register or validate land, admit an issuer or a participant,
+   * grant a role, correct a jurisdiction, or appoint a regulator. Oversight
+   * without the power to act, which is what the name says.
    */
   ROLE_SUPERVISOR: 5,
+  /**
+   * ROLE_FOUNDATION_ADMINISTRATOR - ROLE_FOUNDATION_ADMINISTRATOR is the chain-wide authority that places
+   * accounts: it may correct an account's recorded country, appoint a country's
+   * regulator, grant the time-boxed auditor role, and hold an identifier with no
+   * country behind it.
+   *
+   * It replaces the alias module's foundation_administrators parameter, which
+   * was a list of up to eight addresses appointed by MsgUpdateParams. Collapsing
+   * the two mechanisms is the point. Enrolling a country needed BOTH the
+   * foundation group (to grant roles) and a foundation administrator (to place
+   * the offices' own accounts); they were unrelated lists that happened to share
+   * a name, and holding one without the other produced a proposal that passed
+   * and an office that could not work.
+   *
+   * It is CHAIN-WIDE OR NOTHING. A grant of it naming a country is refused, and
+   * that refusal is what preserves today's authority exactly: by the rule in
+   * GrantRole, a chain-wide scope may be granted by governance and by nobody
+   * else — which is the same body that could edit the parameter list. The
+   * foundation's power to admit a country is untouched and is not widened into
+   * the power to appoint the accounts that stand outside every country.
+   *
+   * A country scope would also be meaningless rather than merely wrong. What the
+   * role exempts is the ABSENCE of a national perimeter, so an administrator of
+   * one country is an account claiming an exemption from a rule it is already
+   * inside.
+   *
+   * The cap the parameter carried survives the move — see
+   * MaxFoundationAdministrators — because the reason for it survives: this is
+   * the single exception to "every account has a jurisdiction", and it must not
+   * be possible to widen it without somebody seeing.
+   */
+  ROLE_FOUNDATION_ADMINISTRATOR: 6,
   UNRECOGNIZED: -1,
 } as const;
 
@@ -71,6 +139,7 @@ export namespace Role {
   export type ROLE_PAYMENTS_AUTHORITY = typeof Role.ROLE_PAYMENTS_AUTHORITY;
   export type ROLE_ENFORCEMENT_AUTHORITY = typeof Role.ROLE_ENFORCEMENT_AUTHORITY;
   export type ROLE_SUPERVISOR = typeof Role.ROLE_SUPERVISOR;
+  export type ROLE_FOUNDATION_ADMINISTRATOR = typeof Role.ROLE_FOUNDATION_ADMINISTRATOR;
   export type UNRECOGNIZED = typeof Role.UNRECOGNIZED;
 }
 
@@ -94,6 +163,9 @@ export function roleFromJSON(object: any): Role {
     case 5:
     case "ROLE_SUPERVISOR":
       return Role.ROLE_SUPERVISOR;
+    case 6:
+    case "ROLE_FOUNDATION_ADMINISTRATOR":
+      return Role.ROLE_FOUNDATION_ADMINISTRATOR;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -115,6 +187,8 @@ export function roleToJSON(object: Role): string {
       return "ROLE_ENFORCEMENT_AUTHORITY";
     case Role.ROLE_SUPERVISOR:
       return "ROLE_SUPERVISOR";
+    case Role.ROLE_FOUNDATION_ADMINISTRATOR:
+      return "ROLE_FOUNDATION_ADMINISTRATOR";
     case Role.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";

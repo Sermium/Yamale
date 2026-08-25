@@ -89,6 +89,38 @@ service Query {
     option (google.api.http).get = "/yamale/blockchain/alias/v1/regulator/{country}";
   }
 
+  // PayloadReaders lists every account entitled to be sealed into the encrypted
+  // payload of a payment that settles in one country, with the key each of them
+  // reads through.
+  //
+  // This is what makes ROLE_SUPERVISOR a role rather than a name in a registry.
+  // A grant of it covering a country is an entitlement to read that country's
+  // payment detail, and the entitlement is realised by a sender wrapping the
+  // content key to the holder — so the set has to be resolvable in one call, at
+  // the moment of sending, from the chain rather than from a list somebody
+  // maintains beside it.
+  //
+  // Two sources, one answer. The appointed regulator of the country is here
+  // because that is the authority with standing to act on the payment; every
+  // holder of ROLE_SUPERVISOR covering the country is here because oversight is
+  // what the role is. A chain-wide supervisor appears for every country, which
+  // is what a chain-wide grant means and why it is listed on its own endpoint
+  // for anyone auditing the exceptions.
+  //
+  // Deliberately NOT here: the auditors. They are time-boxed, chain-wide and
+  // unrelated to any settlement jurisdiction, and folding them in would put an
+  // expiry rule in two responses that could come to disagree — see Auditors,
+  // which a sender calls as well. A complete envelope is this set plus that one
+  // plus the payer and the payee.
+  //
+  // An empty response is a real answer: a country with no appointed regulator
+  // and no supervisor has nobody entitled to read, and the payment is readable
+  // by its two parties and any live auditor. It is not an error and a sender
+  // must not retry it.
+  rpc PayloadReaders(QueryPayloadReadersRequest) returns (QueryPayloadReadersResponse) {
+    option (google.api.http).get = "/yamale/blockchain/alias/v1/payload_readers/{country}";
+  }
+
   // Auditors lists the grants that have not expired, with their current keys.
   //
   // A list endpoint in a module that avoids them, and it is the right call
@@ -231,6 +263,77 @@ message QueryRegulatorResponse {
   // bytes would produce an envelope that looks addressed to the regulator and
   // opens for nobody.
   ViewingKey key = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryPayloadReadersRequest asks who may be sealed into a payload settling in
+// one country.
+message QueryPayloadReadersRequest {
+  // country is an ISO 3166-1 alpha-2 code from the assigned list, in any case.
+  //
+  // The chain-wide marker and the foundation's reserved code are refused, for
+  // the same reason AssertScopeIn refuses them: no payment settles chain-wide,
+  // and a payment declaring the absence of a national perimeter would be one no
+  // authority is accountable for.
+  string country = 1;
+}
+
+// QueryPayloadReadersResponse carries the entitled accounts and their keys.
+//
+// Unpaginated. The set is one appointed regulator plus that country's
+// supervisors plus the chain-wide ones, which is an office count rather than a
+// population, and a sender that received only the first page would build an
+// envelope that looks complete and leaves an entitled reader out.
+message QueryPayloadReadersResponse {
+  repeated PayloadReader readers = 1 [(gogoproto.nullable) = false];
+}
+
+// PayloadReader is one account entitled to open a country's payment payloads,
+// and the reason it is entitled.
+message PayloadReader {
+  // address is the account whose viewing key the payload must be wrapped to.
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // basis says why this account is in the list, because the two reasons carry
+  // different consequences and a client showing the set to a person has to be
+  // able to say which is which. A regulator can also act on the payment; a
+  // supervisor can only read it.
+  PayloadReaderBasis basis = 2;
+
+  // scope is the jurisdiction of the grant that entitles a supervisor: the
+  // country asked about, or "*" for a chain-wide grant. Empty for the appointed
+  // regulator, whose entitlement comes from the appointment rather than from a
+  // scope.
+  //
+  // It is here so that an operator reading the list can tell a supervisor this
+  // country granted from one that is chain-wide and appears in every country's
+  // list — which is exactly the distinction ChainWideGrants exists to keep
+  // visible, and it would be lost if the two rendered identically here.
+  string scope = 3;
+
+  // key is the reader's current viewing key. Its public_key is empty when the
+  // account is entitled but has published none — a state a sender has to be
+  // able to see, because wrapping to a key of thirty-two zero bytes produces an
+  // envelope that looks addressed to them and opens for nobody.
+  ViewingKey key = 4 [(gogoproto.nullable) = false];
+}
+
+// PayloadReaderBasis is why an account may read a country's payment payloads.
+enum PayloadReaderBasis {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // PAYLOAD_READER_UNSPECIFIED is never returned. The zero value is reserved
+  // for the same reason Role's is: proto3 cannot tell a zero from a field
+  // nobody filled in, and a reader whose basis defaulted to the first of the
+  // list would be indistinguishable from one whose basis nobody set.
+  PAYLOAD_READER_UNSPECIFIED = 0;
+
+  // PAYLOAD_READER_REGULATOR is the authority appointed over the country by
+  // MsgAppointRegulator. One per country, and the one with standing to act.
+  PAYLOAD_READER_REGULATOR = 1;
+
+  // PAYLOAD_READER_SUPERVISOR holds ROLE_SUPERVISOR covering the country —
+  // either granted in it or chain-wide. Oversight without the power to act.
+  PAYLOAD_READER_SUPERVISOR = 2;
 }
 
 // QueryAuditorsRequest asks for the live auditor grants.

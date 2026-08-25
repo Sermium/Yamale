@@ -33,7 +33,13 @@ var (
 // issued before there was a jurisdiction to check the prefix against — see
 // keeper.Migrator.Migrate1to2 for why tombstoning them is the only honest
 // option.
-const ConsensusVersion = 2
+//
+// 3 retired the foundation_administrators parameter in favour of a chain-wide
+// grant of ROLE_FOUNDATION_ADMINISTRATOR. Its migration carries every address
+// already named into a grant — see keeper.Migrator.Migrate2to3, and note that
+// skipping it removes the only account on the live chain that can correct a
+// country.
+const ConsensusVersion = 3
 
 // AppModule implements the module interface for x/alias.
 //
@@ -83,6 +89,17 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 		return m.Migrate1to2(ctx)
 	}); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration from 1 to 2: %v", types.ModuleName, err))
+	}
+	// Panicking here for a sharper reason than the one above. A 2-to-3 migration
+	// that failed to register would leave every node running the new binary
+	// against v2 state, where the foundation administrators are still a parameter
+	// nothing reads — so the chain would come up, answer every query, and have
+	// nobody able to correct a country. A halt is the visible failure and this is
+	// the case where the invisible one costs more.
+	if err := cfg.RegisterMigration(types.ModuleName, 2, func(ctx sdk.Context) error {
+		return m.Migrate2to3(ctx)
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration from 2 to 3: %v", types.ModuleName, err))
 	}
 }
 

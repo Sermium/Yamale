@@ -128,16 +128,40 @@ var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 // MsgOpenCase opens a case against an address and freezes it immediately.
 //
-// One bonded validator is enough to open one, which is the point: a scam is
-// drained in minutes and a vote takes hours, so the freeze cannot wait for the
-// vote. What stops that being an arbitrary power is that the freeze expires by
-// itself, the case is public from the first block, and taking anything needs
-// the supermajority.
+// One signature is enough to open one, which is the point: a scam is drained in
+// minutes and a vote takes hours, so the freeze cannot wait for the vote. What
+// stops that being an arbitrary power is that the freeze expires by itself, the
+// case is public from the first block, and taking anything needs the
+// supermajority.
+//
+// Accusation and decision are separate offices, and this message is only the
+// first of them. Two kinds of account may accuse:
+//
+//   - a bonded validator, exactly as before. This message has never narrowed
+//     what a validator may do and does not now.
+//   - a holder of ROLE_ENFORCEMENT_AUTHORITY covering the target's country — a
+//     national enforcement office, which is an x/group account of two or more
+//     people. Before this existed the role could be granted and no message let
+//     it be used, so a country's enforcement authority held a grant that did
+//     nothing.
+//
+// Either way the perimeter check runs against the target's recorded country, so
+// widening who may accuse does not widen where anybody may accuse. And either
+// way the DECISION is unchanged: two thirds of bonded voting power, cast by
+// validators, on MsgVoteCase. The opener's own vote is not assumed from opening
+// — an office that is not a validator has no vote at all, so a national
+// authority can stop money for a day and cannot decide anything.
 type MsgOpenCase struct {
-	// opener is the account address of a bonded validator — the key it signs
-	// with, not its operator address. The chain derives the operator from it and
-	// records that on the case, so the accusation is attributed to the validator
-	// rather than to an address nobody recognises.
+	// opener is the account that signs: either a bonded validator's account
+	// address — the key it signs with, not its operator address — or the account
+	// holding ROLE_ENFORCEMENT_AUTHORITY over the target's country.
+	//
+	// What gets recorded on the case differs, deliberately. A validator is
+	// recorded by its operator address, because that is the name the accusation
+	// is legible under; an office is recorded by the account itself, which is the
+	// group policy address a role-holders query can be read against. Both are
+	// identities somebody can look up, which is the property that matters: an
+	// accusation with no visible author is not an accusation.
 	Opener string     `protobuf:"bytes,1,opt,name=opener,proto3" json:"opener,omitempty"`
 	Target string     `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	Action CaseAction `protobuf:"varint,3,opt,name=action,proto3,enum=blockchain.enforcement.v1.CaseAction" json:"action,omitempty"`
@@ -383,8 +407,18 @@ func (m *MsgVoteCaseResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MsgVoteCaseResponse proto.InternalMessageInfo
 
 // MsgWithdrawCase withdraws an open case. Only whoever opened it may.
+//
+// It deliberately asks for nothing but identity. Whoever opened the case may
+// take it back even if the grant that let them open it has since been revoked,
+// or the validator has since unbonded: withdrawing lifts a freeze, and a rule
+// that made de-escalation conditional on still holding a power would leave
+// somebody's account frozen because the office that was wrong about them lost
+// its authority afterwards.
 type MsgWithdrawCase struct {
-	// opener is the account address of the validator that opened the case.
+	// opener is the account that opened the case: a validator's account address,
+	// or the enforcement authority's own address. It is resolved the same way it
+	// was when the case was opened, so whichever of the two forms was recorded is
+	// the one that matches.
 	Opener string `protobuf:"bytes,1,opt,name=opener,proto3" json:"opener,omitempty"`
 	CaseId uint64 `protobuf:"varint,2,opt,name=case_id,json=caseId,proto3" json:"case_id,omitempty"`
 }
@@ -803,7 +837,7 @@ func (m *MsgReverseCaseResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgReverseCaseResponse proto.InternalMessageInfo
 
-// MsgEmergencyFreeze freezes an account on the emergency authority's signature
+// MsgEmergencyFreeze freezes an account on an enforcement authority's signature
 // alone.
 //
 // There is no matching emergency seizure, and that is the whole shape of this
@@ -813,9 +847,22 @@ var xxx_messageInfo_MsgReverseCaseResponse proto.InternalMessageInfo
 //
 // The freeze this creates is provisional exactly like a validator's: it opens a
 // case, it lapses if nobody confirms it, and the validators can refuse it. The
-// founders are faster than the set; they are not above it.
+// authority is faster than the set; it is not above it.
+//
+// What separates it from MsgOpenCase, now that both accept the same role, is
+// what it does NOT require: no bonded validator anywhere in the picture, and no
+// legal instrument, because it can only freeze. It is the same act with the
+// validator step removed from the front, which is what an emergency is.
 type MsgEmergencyFreeze struct {
-	// authority must equal the emergency_authority parameter.
+	// authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the
+	// target account is recorded in.
+	//
+	// It used to be a single address named in the module's parameters, chain-wide,
+	// able to freeze anything. The perimeter is the difference: an authority that
+	// needs to stop an account outside its own country needs the authority of that
+	// country, urgently or otherwise. Skipping the jurisdiction check because the
+	// situation is urgent would make the one path that acts on a single signature
+	// also the one path with no territorial limit.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	Target    string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	// reason is the grounds, in words the accused can read. Required, the same
@@ -945,7 +992,15 @@ func (m *MsgEmergencyFreezeResponse) GetId() uint64 {
 // opened on a misread transaction otherwise sits on somebody's account for the
 // whole voting period, and "wait a day, it expires by itself" is not an answer
 // anyone can give a customer whose payroll is stuck.
+//
+// Scoped like the freeze, against the country of the case's TARGET rather than
+// of anything named in this message. Releasing is a smaller act than freezing
+// and it would have been defensible to leave it chain-wide, but an office able
+// to release anywhere could lift the freeze another country's authority had just
+// imposed — which is interference in that perimeter, not mercy in its own.
 type MsgEmergencyRelease struct {
+	// authority must hold ROLE_ENFORCEMENT_AUTHORITY covering the country the
+	// case's target is recorded in.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	CaseId    uint64 `protobuf:"varint,2,opt,name=case_id,json=caseId,proto3" json:"case_id,omitempty"`
 	// reason is why it was released, kept beside the original accusation. The
@@ -1168,10 +1223,10 @@ type MsgClient interface {
 	// repeatable: funds that were staked arrive later, when unbonding matures,
 	// and somebody has to be able to collect them without another vote.
 	Sweep(ctx context.Context, in *MsgSweep, opts ...grpc.CallOption) (*MsgSweepResponse, error)
-	// EmergencyFreeze lets the founders' group stop an account in one block,
-	// without waiting for a validator to open a case.
+	// EmergencyFreeze lets a country's enforcement authority stop an account in
+	// one block, without waiting for a validator to open a case.
 	EmergencyFreeze(ctx context.Context, in *MsgEmergencyFreeze, opts ...grpc.CallOption) (*MsgEmergencyFreezeResponse, error)
-	// EmergencyRelease lets them let it go again, just as fast.
+	// EmergencyRelease lets it let the account go again, just as fast.
 	EmergencyRelease(ctx context.Context, in *MsgEmergencyRelease, opts ...grpc.CallOption) (*MsgEmergencyReleaseResponse, error)
 	// OmbudsmanVeto stops a case that has not taken anything yet. The only
 	// message the ombudsman may sign, and the only thing it can do.
@@ -1287,10 +1342,10 @@ type MsgServer interface {
 	// repeatable: funds that were staked arrive later, when unbonding matures,
 	// and somebody has to be able to collect them without another vote.
 	Sweep(context.Context, *MsgSweep) (*MsgSweepResponse, error)
-	// EmergencyFreeze lets the founders' group stop an account in one block,
-	// without waiting for a validator to open a case.
+	// EmergencyFreeze lets a country's enforcement authority stop an account in
+	// one block, without waiting for a validator to open a case.
 	EmergencyFreeze(context.Context, *MsgEmergencyFreeze) (*MsgEmergencyFreezeResponse, error)
-	// EmergencyRelease lets them let it go again, just as fast.
+	// EmergencyRelease lets it let the account go again, just as fast.
 	EmergencyRelease(context.Context, *MsgEmergencyRelease) (*MsgEmergencyReleaseResponse, error)
 	// OmbudsmanVeto stops a case that has not taken anything yet. The only
 	// message the ombudsman may sign, and the only thing it can do.

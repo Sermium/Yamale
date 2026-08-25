@@ -15,7 +15,7 @@ package main
 //	ceremony country init    --config country.json
 //	ceremony country groups  --dossier country-SN.json
 //	ceremony country confirm --dossier ... --office "..." --tx ... --policy ... --members ...
-//	ceremony country grants  --dossier ... --proposer <custodian> --invariants ... --alias-params ...
+//	ceremony country grants  --dossier ... --proposer <custodian> --invariants ... --chain-wide-grants ...
 //	ceremony country verify  --dossier ... --office "..." --grants ... --jurisdiction ...
 //	ceremony country seed    --dossier ... --proposer <custodian> --account <applicant>
 //	ceremony country admit   --dossier ... --proposer <super user> --applicant <bank>
@@ -358,9 +358,9 @@ func runCountryConfirm(args []string) error {
 		c.println("Every office is confirmed. The grants can be composed now:")
 		c.println()
 		c.println("  blockchaind query constitution invariants -o json > invariants.json")
-		c.println("  blockchaind query alias params -o json > alias-params.json")
+		c.println("  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
 		c.printf("  ceremony country grants --dossier %s --proposer <custodian> \\\n", *dossierPath)
-		c.println("    --invariants invariants.json --alias-params alias-params.json")
+		c.println("    --invariants invariants.json --chain-wide-grants chain-wide-grants.json")
 	}
 	return nil
 }
@@ -372,7 +372,8 @@ func runCountryGrants(args []string) error {
 	dossierPath := dossierFlag(flags)
 	proposer := flags.String("proposer", "", "the foundation custodian submitting the proposal")
 	invariants := flags.String("invariants", "", "`blockchaind query constitution invariants -o json`")
-	aliasParams := flags.String("alias-params", "", "`blockchaind query alias params -o json`")
+	chainWideGrants := flags.String("chain-wide-grants", "",
+		"`blockchaind query alias chain-wide-grants -o json`")
 	out := flags.String("out", ".", "directory for the proposal")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -390,18 +391,20 @@ func runCountryGrants(args []string) error {
 				"a proposal built for any other address would be voted through by three custodians and then " +
 				"refused by the chain")
 	}
-	if strings.TrimSpace(*aliasParams) == "" {
+	if strings.TrimSpace(*chainWideGrants) == "" {
 		return errors.New(
-			"--alias-params is required. Placing an office's own account needs the foundation to be a foundation " +
-				"administrator in x/alias's parameters, which is a different mechanism from the constitutional " +
-				"invariant and has to be checked separately")
+			"--chain-wide-grants is required. Placing an office's own account needs the foundation to hold " +
+				"ROLE_FOUNDATION_ADMINISTRATOR at the chain-wide scope, which is a governance decision rather " +
+				"than the constitutional invariant that lets it grant a role inside a country — two different " +
+				"mechanisms with two different amendment costs, and an enrolment needs both.\n" +
+				"  blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json")
 	}
 
 	threshold, err := requireFoundation(dossier, *invariants)
 	if err != nil {
 		return err
 	}
-	if err := requireFoundationAdministrator(dossier, *aliasParams); err != nil {
+	if err := requireFoundationAdministrator(dossier, *chainWideGrants); err != nil {
 		return err
 	}
 

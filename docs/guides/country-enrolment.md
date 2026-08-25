@@ -125,11 +125,14 @@ country list rather than prevented, and it is enumerable —
 ### The offices
 
 Decide them first, on paper, and decide the roles with them. The
-[roles and perimeter design](../scope/roles-and-perimeter.md) has the five:
-registry authority, monetary authority, payments authority, enforcement authority
-and supervisor. A payments country needs **payments authority and enforcement
-authority** at a minimum, and the tool refuses without both unless you write down
-why.
+[roles and perimeter design](../scope/roles-and-perimeter.md) has the five a
+country's offices can hold: registry authority, monetary authority, payments
+authority, enforcement authority and supervisor. There is a sixth,
+`ROLE_FOUNDATION_ADMINISTRATOR`, and it is not one of these — it is chain-wide or
+nothing, a grant naming a country is refused, and it belongs to
+[a different ceremony](foundation-administrators.md). A payments country needs
+**payments authority and enforcement authority** at a minimum, and the tool
+refuses without both unless you write down why.
 
 Why those two. Without a payments authority nothing in the country can be admitted
 to the rail, so no account in the country can be onboarded or placed, and the
@@ -205,28 +208,52 @@ four-of-seven; the chain holds it to the three-of-five.
 
 ### What the foundation needs to be able to do
 
-Two separate things, and they are granted by two separate mechanisms with two
-different costs. Check both before the day, because discovering the second one
-late means a governance cycle in the middle of a ceremony.
+Two separate things, held in two places with two different costs to change.
+Check both before the day, because discovering the second one late means a
+governance cycle in the middle of a ceremony.
 
-| The foundation must | Mechanism | Cost to change |
+| The foundation must | Where that is decided | Cost to change |
 | --- | --- | --- |
 | grant a role in a country | it is the address `x/constitution` pins as `enforcement_recovery_destination` | a constitutional amendment |
-| record a jurisdiction | it is in `alias.params.foundation_administrators` | one governance proposal |
+| record a jurisdiction | it holds `ROLE_FOUNDATION_ADMINISTRATOR` at the chain-wide `*` scope | one governance proposal |
 
 The second is the one people miss. An office's group account was onboarded by no
 participant, so nobody but a foundation administrator or governance may record
 where it is — and that record is part of what makes the office real. So:
 
 ```bash
-blockchaind query alias params
+blockchaind query alias chain-wide-grants
 ```
 
-If the foundation's policy address is not in `foundation_administrators`, put it
-there with a governance proposal, **once, before enrolling any country**. It is
-not part of an enrolment and it should not be. `ceremony country grants` checks it
-and refuses rather than composing a proposal that would be voted through and then
-fail.
+If the foundation's policy address does not hold that grant, have it granted by a
+governance proposal, **once, before enrolling any country**. It is not part of an
+enrolment and it should not be. `ceremony country grants` checks it and refuses
+rather than composing a proposal that would be voted through and then fail. See
+[appointing a foundation administrator](foundation-administrators.md).
+
+**One mechanism where there used to be two.** That second row used to read
+"it is in `alias.params.foundation_administrators`" — a repeated field on a
+module parameter, edited by `MsgUpdateParams`, with no relationship to the grant
+registry at all beyond sharing the word "foundation". So an operator standing up
+a country had to check two unrelated kinds of state and satisfy them by two
+unrelated messages, and holding one without the other produced a proposal that
+passed and an office that could not work. Both facts now live in the same
+registry as the offices' own grants: one query enumerates them, `MsgGrantRole`
+and `MsgRevokeRole` write both, and every grant carries `granted_by` and
+`granted_at_height`.
+
+What has **not** collapsed is the two costs, and the table still has two rows for
+that reason. Who may grant a role inside a country is a constitutional invariant;
+who may place an account that no participant onboarded is a chain-wide grant that
+governance alone may make. An enrolment needs both, and `ceremony country grants`
+requires a file for each.
+
+The `required_shape` on that grant is worth reading while you are there.
+`MsgSetJurisdiction` resolves the foundation's own group policy and holds it to
+whatever the grant records, so a foundation that has fallen below its recorded
+M-of-N will pass every check this tool can make and still be refused by the
+chain — the file says what shape is required and nothing about the group's shape
+today.
 
 ---
 
@@ -400,12 +427,21 @@ version.
 
 ```bash
 blockchaind query constitution invariants -o json > invariants.json
-blockchaind query alias params -o json > alias-params.json
+blockchaind query alias chain-wide-grants -o json > chain-wide-grants.json
 
 ./ceremony country grants --dossier country-SN.json \
   --proposer <a foundation custodian> \
-  --invariants invariants.json --alias-params alias-params.json
+  --invariants invariants.json --chain-wide-grants chain-wide-grants.json
 ```
+
+Both files are required and they are the two rows of
+[the table above](#what-the-foundation-needs-to-be-able-to-do), read off the
+chain rather than assumed: `--invariants` because a proposal built for any
+address but the one `x/constitution` pins would be voted through by three
+custodians and then refused, and `--chain-wide-grants` because placing an
+office's own account needs the foundation to hold
+`ROLE_FOUNDATION_ADMINISTRATOR`, which is a governance decision rather than a
+constitutional one.
 
 One proposal for the whole country, carrying, in this order:
 
@@ -617,33 +653,85 @@ That last one is worth internalising, because it is the shape of most surprises
 here: a great many failures that look like "my authority does not work" are
 actually "the account you named has no jurisdiction record".
 
-### Two of the five roles have nothing to do yet
+It has one consequence that is a real loss rather than a diagnosis, and it
+belongs here rather than in a footnote. `MsgEmergencyRelease` is scoped to the
+country the case's target is recorded in, so an account the chain cannot place
+**cannot be released by that message at all** — there is no office whose
+perimeter reaches it. What is left for that account is the provisional freeze
+lapsing by itself and a governance `MsgReverseCase`. Both are slower and both
+exist, and the way to not need them is to make sure every account an authority
+might act on has been placed.
 
-This is a gap in the chain rather than in the enrolment, and it is stated here
-because an operator will otherwise grant a role and then spend an afternoon
-finding out why nobody can use it.
+### What each of the five roles actually confers
 
-| Role | What consults it today |
+Stated here because an operator otherwise grants a role and then spends an
+afternoon finding out what it does. Two rows of this table used to say "nothing
+yet"; both of them now do something, and the second one does something an
+enrolment has to plan for.
+
+| Role | What consults it |
 | --- | --- |
-| `ROLE_PAYMENTS_AUTHORITY` | `x/paymsg` — admitting a participant. Works. |
-| `ROLE_MONETARY_AUTHORITY` | `x/stablecoin` — approving an issuer. Works. |
-| `ROLE_REGISTRY_AUTHORITY` | `x/land` — parcels, transfers, freezes. Works. |
-| `ROLE_ENFORCEMENT_AUTHORITY` | `x/enforcement` — but see below. |
-| `ROLE_SUPERVISOR` | **nothing at all.** |
+| `ROLE_PAYMENTS_AUTHORITY` | `x/paymsg` — admitting a participant |
+| `ROLE_MONETARY_AUTHORITY` | `x/stablecoin` — approving an issuer |
+| `ROLE_REGISTRY_AUTHORITY` | `x/land` — parcels, transfers, freezes |
+| `ROLE_ENFORCEMENT_AUTHORITY` | `x/enforcement` — opening a case, and the emergency freeze and release |
+| `ROLE_SUPERVISOR` | `x/alias` — the payload-reader set, and the precondition on appointing a regulator |
 
-`ROLE_ENFORCEMENT_AUTHORITY` is consulted in exactly two places and both have a
-second gate an office cannot pass. `MsgOpenCase` requires the opener to be a
-**bonded validator**, and a group policy account cannot be one.
-`MsgEmergencyFreeze` requires the signer to be `x/enforcement`'s
-`emergency_authority` parameter. So a country's enforcement office holds a grant
-that no message currently lets it use. Grant it anyway — the enrolment is the
-right moment, and appointing the office later is much harder than appointing it
-now — but do not expect it to be able to freeze anything yet.
+**A country's enforcement office can now act, and this page used to say it could
+not.** It said the office held a grant no message let it use, because `MsgOpenCase`
+required a bonded validator and a group policy account cannot be one, and
+`MsgEmergencyFreeze` required the signer to be `x/enforcement`'s
+`emergency_authority` parameter. Both of those gates are gone. `MsgOpenCase` now
+accepts either a bonded validator or a holder of this role covering the target's
+country, and the emergency messages are authorised by this role and by nothing
+else — the parameter is retired.
 
-`ROLE_SUPERVISOR` has no consumer anywhere. It is a name in the registry, which is
-precisely what `role.proto`'s own comment warns about: "a role nothing consults is
-a name in a registry pretending to be a control". Granting it records who is
-watching a country and confers nothing.
+So Senegal's enforcement office, holding a grant scoped to `SN`, can:
+
+- **open a case** against an account recorded in `SN`, for a freeze or for a
+  seizure, recorded on the case under its own group address;
+- **freeze immediately** with `MsgEmergencyFreeze`, which opens a real case,
+  imposes the same provisional freeze and goes into the same voting queue;
+- **release** a freeze with `MsgEmergencyRelease`, scoped to the country the
+  **case's target** is recorded in rather than to anything the message names;
+- **withdraw** a case it opened, on identity alone — which still works if the
+  grant is revoked afterwards, because withdrawing is de-escalation.
+
+What it still cannot do is **decide** anything. A case is resolved by two thirds
+of bonded voting power on `MsgVoteCase`, and an office that is not a validator has
+no vote to cast. It can stop money in `SN` for a day, in public, under its own
+name; the validator set decides whether any of it is taken, and only governance
+can reverse a case that passed. See [the enforcement guide](enforcement.md).
+
+**`ROLE_SUPERVISOR` is a reading entitlement, and the shape of it is decided by a
+fact about gRPC.** A query carries no signer, so the chain cannot gate a read by
+role and any design that pretended to would be worse than an empty role. What it
+can do is publish the set a sender must seal to. A holder of the role covering
+`SN` is entitled to be a viewing-key recipient of the encrypted payload of every
+payment whose declared settlement jurisdiction is `SN` — the same declaration that
+decides which authority may act on a cross-border payment. The set is published by
+`Query/PayloadReaders`, which is not in the CLI; reach it over gRPC or at
+`GET /yamale/blockchain/alias/v1/payload_readers/{country}`. It returns the
+country's appointed regulator first, then every supervisor granted in that country
+or chain-wide, each with its current viewing key, deduplicated on the address.
+
+Two consequences worth knowing before granting it. A country's appointed regulator
+**must** hold this role covering that country: `MsgAppointRegulator` refuses an
+appointee that does not, so the most powerful grant the confidentiality design
+makes cannot go to an account holding nothing in the perimeter registry. It is
+checked on the write and not re-read afterwards, so revoking a sitting regulator's
+supervisor grant does not unappoint it — an appointment that could evaporate would
+leave a country's payments sealed to an authority the chain no longer lists, with
+nothing saying when it stopped.
+
+And the chain **cannot force a sender to seal to a supervisor**. The envelope is
+built off-chain and the chain only ever sees a hash of the plaintext, so a sender
+that ignores the published set produces a payload the supervisor can never open
+and nothing on chain detects it. That is a limit of where the ciphertext lives
+rather than a gap in the registry, and it is the reason the role confers nothing
+else at all: a supervisor may not open a case, freeze, seize, register or validate
+land, admit an issuer or a participant, grant a role, correct a jurisdiction, or
+appoint a regulator.
 
 ## Validators are a different registry, and the difference is real
 

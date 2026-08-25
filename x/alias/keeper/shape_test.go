@@ -557,7 +557,6 @@ func TestAGenesisSeededRequirementIsHeldToOnUse(t *testing.T) {
 	// Written directly into genesis, which is the one route that does not pass
 	// through GrantRole's check that the holder meets the requirement today.
 	gs := types.DefaultGenesis()
-	gs.Params = types.NewParams(types.PayloadLength, f.admin)
 	gs.RoleGrants = []types.RoleGrant{{
 		Holder:        single,
 		Role:          types.ROLE_ENFORCEMENT_AUTHORITY,
@@ -579,7 +578,6 @@ func TestGenesisRefusesAnIncoherentRequirement(t *testing.T) {
 	office := f.officeShaped(t, 3, 5)
 
 	gs := types.DefaultGenesis()
-	gs.Params = types.NewParams(types.PayloadLength, f.admin)
 	gs.RoleGrants = []types.RoleGrant{{
 		Holder:        office,
 		Role:          types.ROLE_SUPERVISOR,

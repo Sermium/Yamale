@@ -353,6 +353,7 @@ const thresholdDecisionPolicyType = "/cosmos.group.v1.ThresholdDecisionPolicy"
 //     rewrite its membership;
 //  5. the threshold or the policy type is not what the office attested to;
 //  6. the member set is not exactly the office's roster, at equal weight.
+//
 // attestedGroup is the group a ceremony's custodians attested to, reduced to the
 // four things the chain's answer has to be checked against.
 //
@@ -639,61 +640,66 @@ func requireFoundation(dossier countryDossier, path string) (int, error) {
 	return threshold, nil
 }
 
-
-// ---------------------------------------------------------------- alias params
-
-// aliasParamsResponse is the part of `query alias params` this reads.
-type aliasParamsResponse struct {
-	Params struct {
-		// PayloadLength is read as well as the list, because the appointment
-		// ceremony has to RESUBMIT it: MsgUpdateParams carries a Params message
-		// rather than a field mask, so setting it replaces the whole object and a
-		// parameter this tool did not read is a parameter it would zero.
-		//
-		// flexUint64 because the two producers disagree: the CLI's JSON renders a
-		// uint32 as a number and the REST gateway has rendered it as a string. A
-		// type that accepted only one of them would read zero from the other, and
-		// zero is the value that means "unknown" here.
-		PayloadLength            flexUint64 `json:"payload_length"`
-		FoundationAdministrators []string   `json:"foundation_administrators"`
-	} `json:"params"`
-}
+// -------------------------------------------------------- the foundation's own grant
 
 // requireFoundationAdministrator checks that the foundation may record a
 // jurisdiction.
 //
 // This is a coupling worth being explicit about, because it is the one place
 // where the two things called "the foundation" have to be the same account.
-// MsgGrantRole recognises the address x/constitution pins. MsgSetJurisdiction
-// recognises the addresses in x/alias's own foundation_administrators parameter.
-// They are different mechanisms with different amendment costs, deliberately —
-// but an enrolment needs both, because an office's group account was onboarded by
-// no participant and so nobody but an administrator or governance can record
-// where it is.
+// MsgGrantRole's country scope recognises the address x/constitution pins.
+// MsgSetJurisdiction recognises an account holding ROLE_FOUNDATION_ADMINISTRATOR
+// chain-wide. They are different mechanisms with different amendment costs,
+// deliberately — the first is a constitutional invariant and the second is a
+// governance vote — but an enrolment needs BOTH, because an office's group
+// account was onboarded by no participant and so nobody except an administrator
+// or governance can record where it is.
+//
+// That the administrator half is now a role grant rather than a parameter list
+// makes this check more worth having, not less. The two mechanisms have become
+// one registry: the same query that lists a country's grants lists the chain-wide
+// ones, the foundation's own entitlement is a record with a granting authority
+// and a height against it exactly like the grants this enrolment is about to
+// make, and a reader can see the whole arrangement in one place. What has NOT
+// become one thing is the decision. The chain-wide grant is governance's alone,
+// and the constitutional pin is a constitutional amendment, so holding one still
+// says nothing about holding the other — and holding the pin without the grant
+// still produces an enrolment proposal that three custodians vote through and the
+// chain then refuses at execution.
 //
 // So the ceremony refuses rather than composing a proposal that will fail. The
-// fix is a governance proposal adding the foundation's policy address to
-// alias.params.foundation_administrators, once, before any country is enrolled.
+// fix is a governance proposal granting the foundation's policy address
+// ROLE_FOUNDATION_ADMINISTRATOR at the chain-wide scope, once, before any country
+// is enrolled.
+//
+// Presence is what is checked, and it is worth naming what that leaves out.
+// MsgSetJurisdiction goes through actsAsFoundationAdministrator, which also holds
+// the foundation to any required_shape recorded on its grant, so a foundation
+// that has fallen below the M-of-N its grant names would pass this check and
+// still be refused by the chain. This tool cannot see that from here: the file it
+// reads says what shape is required and nothing about the group's shape today.
 func requireFoundationAdministrator(dossier countryDossier, path string) error {
-	var response aliasParamsResponse
-	if err := readJSONFile(path, &response); err != nil {
+	held, err := chainWideGrantsOf(path, aliastypes.ROLE_FOUNDATION_ADMINISTRATOR)
+	if err != nil {
 		return err
 	}
 	foundation := strings.TrimSpace(dossier.Foundation)
-	for _, administrator := range response.Params.FoundationAdministrators {
-		if strings.TrimSpace(administrator) == foundation {
+	holders := make([]string, 0, len(held))
+	for _, grant := range held {
+		if grant.Holder == foundation {
 			return nil
 		}
+		holders = append(holders, grant.Holder)
 	}
 	return fmt.Errorf(
-		"%s is not in alias.params.foundation_administrators, so it cannot record a jurisdiction.\n"+
+		"%s holds no %s grant at the %q scope, so it cannot record a jurisdiction.\n"+
 			"An office's group account was onboarded by no participant, so the only accounts that may place it "+
-			"are a foundation administrator and governance — and %q is currently %s.\n"+
-			"This is a one-off governance proposal, not part of the enrolment: add the foundation's policy "+
-			"address to that parameter before enrolling any country. It is a separate mechanism from the "+
-			"constitutional invariant that decides who may grant a role, and both are needed.",
-		foundation, "foundation_administrators",
-		describeList(response.Params.FoundationAdministrators))
+			"are a foundation administrator and governance — and the accounts holding that role are %s.\n"+
+			"This is a one-off governance proposal, not part of the enrolment: have the foundation's policy "+
+			"address granted that role before enrolling any country. It is a separate decision from the "+
+			"constitutional invariant that decides who may grant a role in a country, and both are needed.",
+		foundation, aliastypes.RoleName(aliastypes.ROLE_FOUNDATION_ADMINISTRATOR), aliastypes.ChainWide,
+		describeList(holders))
 }
 
 func describeList(values []string) string {
@@ -705,7 +711,64 @@ func describeList(values []string) string {
 
 // ---------------------------------------------------------------- role grants
 
+// chainWideGrant is one grant that no border bounds, as the chain reports it.
+type chainWideGrant struct {
+	Holder          string
+	GrantedBy       string
+	GrantedAtHeight int64
+}
+
+// chainWideGrantsOf reads `query alias chain-wide-grants -o json` and keeps the
+// grants of one role.
+//
+// One function for both callers — the country enrolment asking whether the
+// foundation may place an office, and the appointment ceremony counting the
+// administrators against the cap — because "which of these records is a
+// chain-wide grant of that role" is a question two implementations would
+// eventually answer differently, and the permissive one always wins: it is the
+// one nothing fails on. The same reasoning x/alias's own role.go gives for having
+// ChainWideOnly rather than a comparison at each call site.
+//
+// The jurisdiction is checked as well as the role, even though this endpoint
+// returns nothing but chain-wide grants. `query alias role-grants <holder>`
+// renders the identical shape and DOES include a holder's country grants, so a
+// file mixed up between the two would otherwise have its country grants counted
+// as chain-wide ones. That substitution is not hypothetical: the two files are a
+// tab apart in a runbook and neither says which query produced it.
+//
+// An empty answer is a real answer and not a refusal. The CLI omits an empty
+// repeated field entirely, so a chain with no chain-wide grants at all produces
+// `{}` — and on a freshly launched chain that is the truth. What this cannot
+// detect is a role-grants file for an account that holds nothing, which reads the
+// same; see the callers, which say which query to run.
+func chainWideGrantsOf(path string, role aliastypes.Role) ([]chainWideGrant, error) {
+	var response roleGrantsResponse
+	if err := readJSONFile(path, &response); err != nil {
+		return nil, err
+	}
+	name := aliastypes.RoleName(role)
+	grants := make([]chainWideGrant, 0, len(response.Grants))
+	for _, grant := range response.Grants {
+		if strings.TrimSpace(grant.Role) != name {
+			continue
+		}
+		if strings.TrimSpace(grant.Jurisdiction) != aliastypes.ChainWide {
+			continue
+		}
+		grants = append(grants, chainWideGrant{
+			Holder:          strings.TrimSpace(grant.Holder),
+			GrantedBy:       strings.TrimSpace(grant.GrantedBy),
+			GrantedAtHeight: int64(grant.GrantedAtHeight),
+		})
+	}
+	return grants, nil
+}
+
 // roleGrantsResponse is the part of `query alias role-grants` this reads.
+//
+// It reads `query alias chain-wide-grants` too: both render a repeated RoleGrant
+// under "grants", so one type decodes either. See chainWideGrantsOf for what that
+// costs and why the scope is checked rather than assumed.
 type roleGrantsResponse struct {
 	Grants []struct {
 		Holder          string    `json:"holder"`

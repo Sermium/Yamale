@@ -5,17 +5,17 @@ package main
 //
 // Every message is built from the chain's own Go types and marshalled through the
 // proto codec, never assembled as hand-written JSON — the same rule
-// country_artefacts.go follows, and here it earns its keep twice over. A map
-// literal with an "@type" in it would keep producing a decodable document after a
-// field was renamed in the proto, with a zero where the value used to be. The
-// message this file composes replaces every parameter of x/alias at once.
+// country_artefacts.go follows. A map literal with an "@type" in it would keep
+// producing a decodable document after a field was renamed in the proto, with a
+// zero where the value used to be, and the field that would go quietest is the
+// scope: a grant decoding to an empty jurisdiction is a grant the chain refuses,
+// but a grant decoding to a country nobody typed is a grant it accepts.
 //
 // Nothing here signs anything.
 
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -34,9 +34,10 @@ func administratorsCodec() codec.Codec {
 // govProposalDocument is the JSON `blockchaind tx gov submit-proposal` reads.
 //
 // A governance proposal, not an x/group one, and the difference is the whole point
-// of this ceremony existing separately from the country enrolment. x/alias's
-// UpdateParams is authority-gated to the governance module account; the
-// foundation's 3-of-5 cannot sign it. So the decision belongs to the voting set.
+// of this ceremony existing separately from the country enrolment. A grant at the
+// chain-wide scope is refused from every signer but the governance module account;
+// the foundation's 3-of-5 can grant a role inside a country and cannot grant this
+// one. So the decision belongs to the voting set.
 //
 // `expedited` is deliberately absent rather than false. This is the appointment of
 // the account that can move any customer on the chain out from under the authority
@@ -54,31 +55,59 @@ type govProposalDocument struct {
 
 // appointmentProposal is the one act that gives this group the power.
 //
-// # The trap it absorbs
+// # The trap that used to be here, and why its absence is the point
 //
-// MsgUpdateParams carries a Params message, not a field mask, so setting it
-// REPLACES THE WHOLE OBJECT. "Appoint one administrator" is really "read the
-// current parameters, add one address, and resubmit every parameter", and the
-// failure mode is not an error: it is a proposal that passes and quietly drops the
-// administrators already appointed, or resets payload_length to a default nobody
-// voted for. Nothing on the chain catches it. Params.Validate() bounds the length
-// and refuses duplicates, and a shorter list than before is a perfectly valid
-// list.
+// The appointment used to be a MsgUpdateParams setting
+// alias.params.foundation_administrators. MsgUpdateParams carries a Params
+// message, not a field mask, so setting it REPLACED THE WHOLE OBJECT: "appoint
+// one administrator" was really "read the current parameters, add one address,
+// and resubmit every parameter". The failure mode was not an error. It was a
+// proposal that passed and quietly dropped the administrators already appointed,
+// or reset payload_length to a default nobody voted for, and nothing on the chain
+// caught it, because a shorter list is a perfectly valid list. Everything in this
+// file existed to survive that: the current parameters were REQUIRED and read in
+// full, every existing administrator was carried across, the resulting list was
+// sorted so two orderings could not produce two objects, and the summary stated
+// the count before and after because a list that had SHRUNK was the only visible
+// evidence of a stale read.
 //
-// So the current parameters are REQUIRED, read off the chain, and read in full.
-// There is no path here that composes a proposal from a default:
+// None of it is here any more, and that is the single best thing about the change.
+// MsgGrantRole names ONE holder and is additive. It cannot drop an administrator
+// it does not mention. It cannot re-parameterise the chain while reading as an
+// appointment. A proposal composed from a view of the chain that went stale during
+// the voting period is merely out of date, where before it was destructive.
 //
-//   - No --alias-params, no proposal.
-//   - A payload_length that reads as zero is a refusal, not a default of eight.
-//     Proto3 cannot tell a zero from a field nobody filled in, so a zero means
-//     the value is unknown — and a proposal that guessed it would reset the
-//     identifier length of a chain that had raised it, showing no change anywhere
-//     a person would look.
-//   - Every administrator already named is carried across, and the summary states
-//     the count before and after so a voter can see whether the list shrank.
+// What is still read off the chain is who already holds the role, and for exactly
+// one reason: the cap. See requireAppointableCount. Nothing about the message this
+// function composes depends on it.
+//
+// # Why the grant records no required shape
+//
+// A required shape is the M-of-N the chain holds a grant's holder to for as long
+// as the grant exists, and country_artefacts.go writes one onto every grant it
+// composes. It can do that because a country's offices declare their minimum in
+// the enrolment config, before the day, by the same person who writes down which
+// offices exist — see officeMinimum, and the reason it is decided in advance: a
+// requirement captured from the assembled group is no requirement at all, because
+// it ratifies a one-of-one as readily as a three-of-five.
+//
+// This ceremony's config has no such field. The only numbers to hand are the
+// dossier's own threshold and member count, and those are read out of the group
+// file the custodians signed — which is precisely the captured-from-the-group
+// number that argument refuses. Writing 3-of-5 into required_shape because the
+// group that turned up was a 3-of-5 would put a requirement on the chain that
+// nobody decided, and it would read on the signed record as though somebody had.
+//
+// So the grant is made with none, which is what every grant made before
+// required_shape existed carries and what the chain reads as "no requirement"
+// rather than as a requirement of zero. If administrators should be held to a
+// shape, the place to add it is the appointment config, agreed before the
+// ceremony; the grant can then be re-made to carry it, because GrantRole counts
+// the cap excluding the holder so that a grant can be amended, and
+// assertShapeNotReduced stops such an amendment ever lowering the bar.
 func appointmentProposal(
 	dossier administratorsDossier,
-	current aliasParams,
+	current standingGrants,
 	deposit string,
 ) ([]byte, error) {
 	address, err := dossier.requireConfirmedGroup()
@@ -91,7 +120,7 @@ func appointmentProposal(
 	if err := current.validate(); err != nil {
 		return nil, err
 	}
-	if err := requireAppointableCount(current.FoundationAdministrators, address); err != nil {
+	if err := requireAppointableCount(current.Administrators, address); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(deposit) == "" {
@@ -102,56 +131,61 @@ func appointmentProposal(
 				"`blockchaind query gov params deposit`")
 	}
 
-	// Sorted, so the resulting list depends on the SET of administrators rather
-	// than on the order appointments happened to be proposed in. Two proposals
-	// appointing the same two addresses in opposite orders should not produce two
-	// different Params objects, and a list a reader has to sort in their head is a
-	// list that hides a change.
-	after := append([]string(nil), current.FoundationAdministrators...)
-	after = append(after, address)
-	sort.Strings(after)
-
-	params := aliastypes.Params{
-		PayloadLength:            current.PayloadLength,
-		FoundationAdministrators: after,
-	}
-	// Checked against the chain's own validator before anybody votes. It is the
-	// same function the keeper runs, so a proposal that gets past this is a
-	// proposal that fails at execution only for reasons this tool cannot see.
-	//
-	// A mutation pass found this line to be an EQUIVALENT MUTANT: deleting it
-	// changes no test result, because aliasParams.validate() and
-	// requireAppointableCount above already enforce every rule Params.Validate()
-	// enforces today — the bounds, the duplicates, the cap, the empty entry. That
-	// is not a reason to delete it. It is here for the rule the chain adds NEXT,
-	// which this tool will not know about: the alternative to calling the chain's
-	// own validator is a list of rules maintained in two places, and the failure of
-	// that is a proposal this tool blessed and the keeper rejected after a vote.
-	// No test can distinguish it until such a rule exists, and pretending
-	// otherwise would mean writing a test that asserts nothing.
-	if err := params.Validate(); err != nil {
-		return nil, fmt.Errorf(
-			"the parameters this proposal would set are ones the chain refuses: %w.\n"+
-				"That is Params.Validate(), the same function the keeper runs — so this would have passed a vote "+
-				"and then failed when it executed", err)
-	}
-
-	msg := &aliastypes.MsgUpdateParams{
+	msg := &aliastypes.MsgGrantRole{
 		// The governance module account, and it is a required input rather than a
 		// constant in this file. A tool with the authority compiled in would keep
 		// composing confidently against a chain whose prefix or module name had
 		// moved, and the proposal would pass its vote and then be refused at
 		// execution by the authority check.
 		Authority: current.Authority,
-		Params:    params,
+		Holder:    address,
+		Role:      aliastypes.ROLE_FOUNDATION_ADMINISTRATOR,
+		// aliastypes.ChainWide rather than the literal "*", so that the marker this
+		// composes and the marker the keeper matches on are one value. They are the
+		// same byte today; the day one of them moves, a literal here would compose a
+		// proposal naming a scope ValidGrantScope refuses — after the vote. The test
+		// pins the literal, which is the other half of the same arrangement: the
+		// constant may not change its meaning without something failing.
+		Jurisdiction: aliastypes.ChainWide,
 	}
+
+	// Checked against the chain's own validator before anybody votes, over the
+	// record the grant would WRITE rather than over the message. RoleGrant.Validate
+	// is the function both GrantRole and genesis validation run, so a proposal that
+	// gets past this is one that fails at execution only for reasons this tool
+	// cannot see.
+	//
+	// The version of this that stood here called Params.Validate() and a mutation
+	// pass found it to be an EQUIVALENT MUTANT: every rule it enforced was already
+	// enforced by the checks above, so deleting the line changed no test result.
+	// The reasoning for keeping it survives the change of message intact. It is
+	// here for the rule the chain adds NEXT, which this tool will not know about:
+	// the alternative to calling the chain's own validator is a list of rules
+	// maintained in two places, and the failure of that is a proposal this tool
+	// blessed and the keeper rejected after a vote. No test can distinguish it
+	// until such a rule exists, and pretending otherwise would mean writing a test
+	// that asserts nothing.
+	grant := aliastypes.RoleGrant{
+		Holder:        msg.Holder,
+		Role:          msg.Role,
+		Jurisdiction:  msg.Jurisdiction,
+		GrantedBy:     msg.Authority,
+		RequiredShape: msg.RequiredShape,
+	}
+	if err := grant.Validate(); err != nil {
+		return nil, fmt.Errorf(
+			"the grant this proposal would make is one the chain refuses: %w.\n"+
+				"That is RoleGrant.Validate(), the same function the keeper and genesis validation run — so this "+
+				"would have passed a vote and then failed when it executed", err)
+	}
+
 	encoded, err := administratorsCodec().MarshalInterfaceJSON(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	title := fmt.Sprintf("Appoint %s a foundation administrator", dossier.Ceremony)
-	summary := appointmentSummary(dossier, address, current.FoundationAdministrators, after)
+	summary := appointmentSummary(dossier, address, current.Administrators)
 	// Refused rather than truncated, unlike the summary, and the difference is who
 	// chose the text. The summary is assembled by this tool, so this tool can
 	// decide what to drop. The title is a sentence built around a name a person
@@ -177,14 +211,18 @@ func appointmentProposal(
 // appointmentSummary states the whole proposal in words.
 //
 // What a voter is being asked to agree to, and specifically what the power IS,
-// because the name of the parameter does not say. "foundation_administrators"
-// reads like a list of people with logins; what it confers is the ability to move
-// any account on the chain out from under the authority investigating it.
+// because the name of the role does not say. "Foundation administrator" reads like
+// somebody with a login; what it confers is the ability to move any account on the
+// chain out from under the authority investigating it.
 //
-// The count before and after is in here on purpose. It is the one number that
-// reveals the failure this whole design exists to prevent: a proposal composed
-// from a stale read of the parameters shows a list that SHRANK, and the diff
-// nobody looked at would not have said so.
+// The count before and after is still here, and it is here for a different reason
+// than it used to be. It used to be the one number that revealed a proposal
+// composed from a stale read of the parameters, because such a proposal showed a
+// list that had SHRUNK. A grant cannot shrink anything. What the count says now is
+// how many accounts stand outside every national perimeter and how close this
+// proposal takes the chain to the cap of eight — which is the fact the cap exists
+// to keep visible, and which a voter reading one message about one holder has no
+// other way to see.
 // Assembled in priority order rather than written as one sentence and truncated,
 // and that ordering is the whole of the function. x/group and x/gov cap a summary
 // at 255 bytes; a foundation administrator's address is 62 of them and a ceremony
@@ -197,10 +235,10 @@ func appointmentProposal(
 // gets lost is a name and a reason that are both in the message, the dossier and
 // the signed record; what survives is the description of the power and the count
 // that reveals a shrinking list.
-func appointmentSummary(dossier administratorsDossier, address string, before, after []string) string {
-	// The two things that must always be present. The power, because the parameter
-	// name gives no hint of it; the counts, because a list that SHRANK is the only
-	// visible evidence of a proposal composed from a stale read.
+func appointmentSummary(dossier administratorsDossier, address string, before []string) string {
+	// The two things that must always be present. The power, because the role's
+	// name gives no hint of it; the counts, because one message about one holder
+	// says nothing about how many accounts already stand outside every perimeter.
 	//
 	// The full description, because there is room for it. This was first written
 	// against a 255-byte cap and had to have the sentence about the reserved code
@@ -212,12 +250,15 @@ func appointmentSummary(dossier administratorsDossier, address string, before, a
 	// it, so something can still have to be dropped — and the thing dropped must
 	// not be the description of the power.
 	core := fmt.Sprintf(
-		"Appoints %s, a %d-of-%d x/group policy, a foundation administrator on x/alias, taking the list from "+
-			"%d to %d. It may then correct the country recorded against ANY account — which moves that account "+
-			"out from under the authority investigating it, and retires and reissues its identifier — and may "+
-			"hold an identifier with no country at all, carrying the reserved %s code. payload_length is "+
-			"unchanged by this proposal.",
-		address, dossier.Threshold, len(dossier.Members), len(before), len(after),
+		"Grants %s, a %d-of-%d x/group policy, %s at the %q scope, taking the number of accounts holding it "+
+			"from %d to %d of a maximum of %d. It may then correct the country recorded against ANY account — "+
+			"which moves that account out from under the authority investigating it, and retires and reissues "+
+			"its identifier — and may hold an identifier with no country at all, carrying the reserved %s code. "+
+			"This proposal changes nothing else: it names one holder and adds one grant, and no account that "+
+			"holds the role today loses it.",
+		address, dossier.Threshold, len(dossier.Members),
+		aliastypes.RoleName(aliastypes.ROLE_FOUNDATION_ADMINISTRATOR), aliastypes.ChainWide,
+		len(before), len(before)+1, aliastypes.MaxFoundationAdministrators,
 		aliastypes.FoundationCountry)
 
 	summary := core
@@ -235,64 +276,53 @@ func appointmentSummary(dossier administratorsDossier, address string, before, a
 	return summary
 }
 
-// aliasParams is x/alias's parameters as this tool needs them, plus the authority.
+// standingGrants is what the chain already says about the role, plus the
+// authority a proposal has to name.
 //
-// A type of its own rather than aliastypes.Params, because it carries one thing
-// the chain's type does not: the authority the message has to name. Bundling them
-// means there is one input to the composing function and one place that can be
+// It is what aliasParams used to be, reshaped by the message changing. A proposal
+// no longer needs to know anything about x/alias's PARAMETERS — it carries none of
+// them — so the parameter fields are gone and what remains is the set of accounts
+// already holding the role. One type rather than two arguments, for the reason the
+// old one gave: one input to the composing function is one place that can be
 // incomplete.
-type aliasParams struct {
-	PayloadLength            uint32
-	FoundationAdministrators []string
-	Authority                string
+type standingGrants struct {
+	// Administrators is every account already holding
+	// ROLE_FOUNDATION_ADMINISTRATOR at the chain-wide scope.
+	//
+	// Read for the cap and for the summary's count, and for nothing else. The
+	// message this proposal carries does not depend on it, which is the whole
+	// difference between this and the parameter list it replaced: a stale value
+	// here makes the count in the summary wrong, where a stale parameter list made
+	// the proposal itself destructive.
+	Administrators []string
+
+	// Authority is the governance module account.
+	Authority string
 }
 
-// validate refuses parameters this tool cannot safely resubmit.
-//
-// The payload_length rule is the one worth restating. It is not defaulted, and
-// zero is refused rather than replaced with the chain's default of eight, because
-// proto3 cannot tell a zero from a field nobody filled in — so a zero means the
-// value is UNKNOWN. A proposal composed from a guess would reset the identifier
-// length of a chain that had raised it, and the change would appear nowhere: the
-// proposal would read as an appointment and would also silently be a
-// re-parameterisation.
-func (p aliasParams) validate() error {
-	if p.PayloadLength == 0 {
+// validate refuses a view of the chain this tool cannot compose against.
+func (s standingGrants) validate() error {
+	if strings.TrimSpace(s.Authority) == "" {
 		return fmt.Errorf(
-			"payload_length came back as zero or absent, so this tool does not know x/alias's current " +
-				"identifier length and will not guess it. Proto3 cannot tell a zero from a field nobody filled " +
-				"in, and the chain refuses a zero anyway — so this is not the chain's real value. " +
-				"MsgUpdateParams replaces EVERY parameter at once, so a proposal composed from a guess would " +
-				"quietly re-parameterise the chain while reading as an appointment.\n" +
-				"  blockchaind query alias params -o json > alias-params.json")
-	}
-	if p.PayloadLength < aliastypes.MinPayloadLen || p.PayloadLength > aliastypes.MaxPayloadLen {
-		return fmt.Errorf(
-			"payload_length reads as %d and the chain accepts %d to %d. A value the chain would refuse cannot "+
-				"be resubmitted, and this tool will not quietly correct it: if the chain really holds that, "+
-				"something is wrong that this proposal would hide",
-			p.PayloadLength, aliastypes.MinPayloadLen, aliastypes.MaxPayloadLen)
-	}
-	if strings.TrimSpace(p.Authority) == "" {
-		return fmt.Errorf(
-			"the governance module account is required. x/alias refuses MsgUpdateParams from any other signer, " +
-				"so a proposal naming the wrong one would pass its vote and then be refused at execution.\n" +
+			"the governance module account is required. A grant at the chain-wide scope is refused from every " +
+				"signer but governance — assertMayGrant refuses it before it has even read the constitution — " +
+				"so a proposal naming any other authority would pass its vote and then be refused at execution.\n" +
 				"  blockchaind query auth module-account gov -o json > gov-account.json")
 	}
-	if err := requireAccountAddress("authority", strings.TrimSpace(p.Authority)); err != nil {
+	if err := requireAccountAddress("authority", strings.TrimSpace(s.Authority)); err != nil {
 		return err
 	}
-	for _, administrator := range p.FoundationAdministrators {
+	for _, administrator := range s.Administrators {
 		if strings.TrimSpace(administrator) == "" {
 			return fmt.Errorf(
-				"the administrator list read off the chain contains an empty entry, which the chain would not " +
-					"have accepted. Do not resubmit it")
+				"the chain-wide grants read off the chain include one with an empty holder, which the chain " +
+					"would not have written. This is not an answer to count a cap against")
 		}
 	}
 	return nil
 }
 
-// readAliasParams reads the parameters and the authority out of two queried files.
+// readStandingGrants reads the holders and the authority out of two queried files.
 //
 // Two files rather than one because they come from two queries, and it is worth
 // naming what would happen with a default instead. `query auth module-account gov`
@@ -300,28 +330,38 @@ func (p aliasParams) validate() error {
 // shortcut is to fall back to the well-known derivation. This does not: it is one
 // address, it is checked, and a tool that guessed it would compose a proposal that
 // passed and then did nothing.
-func readAliasParamsFiles(paramsPath, authorityPath string) (aliasParams, error) {
-	var response aliasParamsResponse
-	if err := readJSONFile(paramsPath, &response); err != nil {
-		return aliasParams{}, err
+//
+// The grants file is `query alias chain-wide-grants`, which takes no argument, and
+// not `role-grants <holder>`, which takes one and renders the same shape. See
+// chainWideGrantsOf: the scope is checked on every record so the second file's
+// country grants cannot be counted as chain-wide ones, but a role-grants file for
+// an account that holds nothing still reads as a chain with no administrators, and
+// nothing here can tell those apart.
+func readStandingGrants(grantsPath, authorityPath string) (standingGrants, error) {
+	held, err := chainWideGrantsOf(grantsPath, aliastypes.ROLE_FOUNDATION_ADMINISTRATOR)
+	if err != nil {
+		return standingGrants{}, err
 	}
 
 	var account moduleAccountResponse
 	if err := readJSONFile(authorityPath, &account); err != nil {
-		return aliasParams{}, err
+		return standingGrants{}, err
 	}
 	address, name := account.address()
 	if name != "gov" {
-		return aliasParams{}, fmt.Errorf(
-			"%s describes the module account %q, not \"gov\". x/alias's authority is the governance module "+
-				"account and nothing else, so a proposal naming that address would pass its vote and then be "+
-				"refused at execution", authorityPath, name)
+		return standingGrants{}, fmt.Errorf(
+			"%s describes the module account %q, not \"gov\". A chain-wide grant is governance's and nobody "+
+				"else's, so a proposal naming that address would pass its vote and then be refused at execution",
+			authorityPath, name)
 	}
 
-	return aliasParams{
-		PayloadLength:            uint32(response.Params.PayloadLength),
-		FoundationAdministrators: append([]string(nil), response.Params.FoundationAdministrators...),
-		Authority:                address,
+	holders := make([]string, 0, len(held))
+	for _, grant := range held {
+		holders = append(holders, grant.Holder)
+	}
+	return standingGrants{
+		Administrators: holders,
+		Authority:      address,
 	}, nil
 }
 

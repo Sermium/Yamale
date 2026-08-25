@@ -24,6 +24,16 @@ func (gs GenesisState) Validate() error {
 		return err
 	}
 
+	// The grants are checked FIRST, and then the set of administrators is read
+	// off them, because the ZZ exemption below is decided by that set. Validating
+	// the aliases first would let a file whose grants are malformed be refused
+	// for the identifier that depended on one of them, which sends a reader to
+	// the wrong half of their own file.
+	if err := gs.validateRoles(); err != nil {
+		return err
+	}
+	administrators := gs.foundationAdministrators()
+
 	seenID := make(map[string]struct{}, len(gs.Aliases))
 	seenAddr := make(map[string]struct{}, len(gs.Aliases))
 	retired := make(map[string]struct{}, len(gs.Retired))
@@ -94,11 +104,11 @@ func (gs GenesisState) Validate() error {
 			}
 		case Country(a.Id) == FoundationCountry:
 			// The one exemption, and it is checked rather than assumed: only a
-			// named foundation administrator may hold an identifier with no
-			// country behind it.
-			if !gs.Params.IsFoundationAdministrator(a.Address) {
-				return fmt.Errorf("identifier %q carries the foundation prefix but %s is not a foundation administrator",
-					a.Id, a.Address)
+			// holder of ROLE_FOUNDATION_ADMINISTRATOR may hold an identifier
+			// with no country behind it.
+			if _, ok := administrators[a.Address]; !ok {
+				return fmt.Errorf("identifier %q carries the foundation prefix but %s holds no chain-wide grant of %s",
+					a.Id, a.Address, RoleName(ROLE_FOUNDATION_ADMINISTRATOR))
 			}
 		default:
 			return fmt.Errorf("identifier %q is bound to %s, which has no recorded jurisdiction",
@@ -109,10 +119,7 @@ func (gs GenesisState) Validate() error {
 		seenAddr[a.Address] = struct{}{}
 	}
 
-	if err := gs.validateViewing(); err != nil {
-		return err
-	}
-	return gs.validateRoles()
+	return gs.validateViewing()
 }
 
 // validateRoles checks the grant registry.
@@ -130,9 +137,15 @@ func (gs GenesisState) Validate() error {
 // to whoever reads the file.
 func (gs GenesisState) validateRoles() error {
 	seen := make(map[string]struct{}, len(gs.RoleGrants))
+	administrators := 0
 	for _, g := range gs.RoleGrants {
 		if err := g.Validate(); err != nil {
 			return err
+		}
+		// RoleGrant.Validate has already refused a country scope for this role,
+		// so counting the grants of it is counting the chain-wide ones.
+		if ChainWideOnly(g.Role) {
+			administrators++
 		}
 		// One record per triple. A duplicate is not harmless: the derived index
 		// would carry one entry for two records, so an export would emit two and
@@ -145,7 +158,39 @@ func (gs GenesisState) validateRoles() error {
 		}
 		seen[key] = struct{}{}
 	}
+	// The cap, held against a file for the same reason GrantRole holds it
+	// against a message: nothing re-examines a grant seeded at height zero, so a
+	// rule enforced only in the handler is a rule a genesis file walks around —
+	// and this one bounds the single exception to every account having a
+	// jurisdiction. Counted after the duplicate check above, so a triple written
+	// twice cannot spend two of the eight places.
+	if administrators > MaxFoundationAdministrators {
+		return fmt.Errorf("at most %d accounts may hold %s, and the file grants it to %d",
+			MaxFoundationAdministrators, RoleName(ROLE_FOUNDATION_ADMINISTRATOR), administrators)
+	}
 	return nil
+}
+
+// foundationAdministrators is the set of accounts the file exempts from the rule
+// that every account carries a country.
+//
+// A set rather than a count, because the alias check above asks about one
+// address at a time and a linear scan per identifier would make validating a
+// file quadratic in the two things a large deployment has most of.
+//
+// It is called after validateRoles rather than instead of it, so every grant it
+// reads has already been held to the handler's rules — including the one that
+// makes this function's exact match on ChainWide complete rather than merely
+// narrow, which is that a grant of this role naming a country is refused
+// outright.
+func (gs GenesisState) foundationAdministrators() map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, g := range gs.RoleGrants {
+		if g.Role == ROLE_FOUNDATION_ADMINISTRATOR && g.Jurisdiction == ChainWide {
+			set[g.Holder] = struct{}{}
+		}
+	}
+	return set
 }
 
 // validateViewing checks the confidentiality registries.

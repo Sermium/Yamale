@@ -56,26 +56,33 @@ service Msg {
   // RevokeRole removes one such grant. The same signers as GrantRole.
   rpc RevokeRole(MsgRevokeRole) returns (MsgRevokeRoleResponse);
 
-  // UpdateParams sets the module parameters. Governance only, and it is the only
-  // way a foundation administrator is appointed or removed — the foundation's own
-  // M-of-N group cannot do it, and nothing else can either.
+  // UpdateParams sets the module parameters. Governance only.
   //
-  // It REPLACES THE WHOLE Params OBJECT. `params` is a message, not a field mask,
-  // and there is no partial update, so "appoint one administrator" means reading
-  // the current parameters, adding one address, and resubmitting every parameter.
-  // A proposal composed without reading them first passes and silently drops the
-  // administrators already appointed, or resets payload_length. Nothing catches
-  // that: a list shorter than the one before it is a valid list.
+  // It no longer appoints anybody. Appointing a foundation administrator is now
+  // MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope —
+  // which is still governance and nobody else, because a chain-wide grant is
+  // governance's alone, so the authority behind the act did not move. What moved
+  // is where it is recorded, and that is the point: the appointment and the role
+  // registry are one mechanism rather than two lists that happened to share a
+  // name.
   //
-  // A payload_length that reads back as 0 means the value is UNKNOWN, not zero —
-  // proto3 cannot tell a zero from a field nobody filled in, and Validate()
-  // refuses a zero, so no chain holds one. Resubmitting a guess would
-  // re-parameterise the chain while reading as an appointment.
+  // Three failure modes went with the parameter, and they are worth recording
+  // because they are what the move was for. This message REPLACES THE WHOLE
+  // Params OBJECT — it is a message, not a field mask — so a proposal composed
+  // without reading the current parameters first silently dropped every
+  // administrator already appointed, and nothing caught it, because a list
+  // shorter than the one before it is a valid list; a grant cannot be dropped by
+  // a message about something else. Validate() never checked that an entry was an
+  // address, so a mistyped one passed a vote, occupied one of the eight places
+  // and granted the exemption to nobody, where MsgGrantRole decodes the holder.
+  // And an administrator was a bare address, where a role holder must be an
+  // x/group account, so the exemption is now held M-of-N like every other
+  // authority.
   //
-  // Note also what Validate() does NOT check: that an entry in
-  // foundation_administrators is an address. A mistyped one passes a governance
-  // vote, occupies one of the eight capped places, and grants the exemption to
-  // nobody. Verify the bech32 checksum before composing; the chain will not.
+  // What remains here is payload_length. A value that reads back as 0 means the
+  // value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody
+  // filled in, and Validate() refuses a zero, so no chain holds one.
+  // Resubmitting a guess would re-parameterise the chain.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
@@ -232,6 +239,25 @@ message MsgRevokeViewingKeyResponse {}
 // every payment that names their country from the moment they are appointed.
 // An account that could appoint itself regulator of Ghana would have granted
 // itself that by sending one message.
+//
+// The appointee must additionally hold ROLE_SUPERVISOR covering that country —
+// granted in it, or chain-wide. That is the one place where this module's two
+// answers to "who is watching this country" were reconciled rather than left to
+// agree by convention: an appointment is an entry in one map and a role is an
+// entry in a registry, and before this check they could name different accounts
+// with nothing objecting. Requiring the grant makes the registry the source and
+// the appointment the choice of which of its holders also has standing to act.
+//
+// It also puts the appointment behind the office rules the registry enforces:
+// a role holder must be an x/group account, so a regulator is now M-of-N rather
+// than possibly one key, and an office that has fallen below the shape its grant
+// records cannot be newly appointed.
+//
+// An appointment already recorded is not revisited. This is a check on the write,
+// not a condition re-read on every payment — a country whose regulator was
+// appointed before the rule existed keeps it, and revoking the supervisor grant
+// of a sitting regulator does not silently unappoint them. Removing a regulator
+// is appointing a different one, visibly, which is what the record should show.
 message MsgAppointRegulator {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "blockchain/x/alias/MsgAppointRegulator";
@@ -286,12 +312,12 @@ message MsgGrantAuditorResponse {}
 // "The foundation" here means one specific account: the address
 // x/constitution pins as enforcement_recovery_destination, which is the 3-of-5
 // group produced by the key ceremony and the account every seized asset on the
-// chain is sent to. It is deliberately not the foundation_administrators list in
-// this module's own parameters, and the difference matters — a parameter list is
-// editable by one ordinary governance proposal, so naming the foundation there
-// would make "who may appoint a country's authorities" a set that a single vote
-// could append to. An invariant cannot be changed without a constitutional
-// amendment.
+// chain is sent to. It is deliberately NOT a holder of
+// ROLE_FOUNDATION_ADMINISTRATOR, and the difference matters. That role is
+// granted by this very message, so reading the foundation out of it would make
+// "who may appoint a country's authorities" a set that this message could append
+// to — the same circularity a parameter list had, wearing a grant's clothes. An
+// invariant cannot be changed without a constitutional amendment.
 //
 // # Why the foundation, when this used to be governance alone
 //
@@ -363,6 +389,13 @@ message MsgGrantRole {
   // chain-wide. The reserved code the foundation's own identifiers carry is
   // refused — it marks the absence of a perimeter, so a grant over it would
   // confer nothing while reading like everything.
+  //
+  // One role refuses a country here: ROLE_FOUNDATION_ADMINISTRATOR is chain-wide
+  // or nothing. What it exempts is the ABSENCE of a national perimeter, so an
+  // administrator of one country would be an account claiming an exemption from
+  // a rule it is already inside — and, because chain-wide is governance-only,
+  // the refusal is also what keeps that appointment exactly as governance-only
+  // as the parameter list it replaced.
   //
   // This field also decides who may sign the message, so it is validated before
   // the signer is checked. "*" narrows the acceptable authority to governance
@@ -449,11 +482,11 @@ message MsgRevokeRoleResponse {}
 
 // MsgUpdateParams sets the module parameters. Governance only.
 //
-// This is also the only way a foundation administrator is appointed or removed,
-// which makes it the most consequential message in this module: an administrator
-// may correct the country recorded against any account, and a correction moves
-// that account out from under the authority investigating it. The foundation's own
-// M-of-N group cannot send this message. Nothing can, but governance.
+// It used to be the only way a foundation administrator was appointed or
+// removed, which made it the most consequential message in this module. That
+// appointment is now MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the
+// chain-wide scope — still governance and nobody else, because a chain-wide
+// grant is governance's alone. What is left here is one parameter.
 //
 // # It replaces the whole Params object
 //
@@ -471,20 +504,17 @@ message MsgRevokeRoleResponse {}
 //     the message is a field set to its protobuf default, not a field left alone.
 //   - A `payload_length` that reads back as 0 means the value is UNKNOWN, not
 //     zero: proto3 cannot tell a zero from a field nobody filled in. Resubmitting
-//     a guess would re-parameterise the chain while reading as an appointment.
-//     Validate() refuses a zero, so a chain never actually holds one.
+//     a guess would re-parameterise the chain. Validate() refuses a zero, so a
+//     chain never actually holds one.
 //
 // clients/governance composes this message with the whole object shown before and
 // after, and refuses rather than defaulting when the current parameters cannot be
-// read. `ceremony administrators propose` does the same from the command line.
+// read.
 //
-// # What is not checked here
-//
-// Validate() does not check that an entry in `foundation_administrators` is an
-// address. It refuses an empty string, a duplicate and a ninth entry, and nothing
-// else — so a mistyped address passes a governance vote, occupies one of the
-// eight places, and grants the exemption to nobody. Both interfaces above verify
-// the bech32 checksum before composing, because the chain will not.
+// Note that this message no longer appoints anybody. Field 2 held
+// foundation_administrators and is reserved; the appointment is MsgGrantRole
+// with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope, which is
+// governance-only for the same reason every chain-wide grant is.
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "blockchain/x/alias/MsgUpdateParams";

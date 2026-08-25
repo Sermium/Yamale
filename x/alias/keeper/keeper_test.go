@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
@@ -25,6 +26,38 @@ import (
 // what matters is that it is one the chain accepts and that the identifiers
 // issued below carry it.
 const country = "NG"
+
+// administratorGrant seeds a foundation administrator the way one exists now: a
+// chain-wide grant of ROLE_FOUNDATION_ADMINISTRATOR, rather than an entry in the
+// parameter list this module used to carry.
+//
+// No required_shape, which is what the v2-to-v3 migration writes and therefore
+// what the accounts on a chain that has been upgraded actually hold. A helper
+// that recorded one would test a state no existing administrator is in.
+func administratorGrant(holder string) types.RoleGrant {
+	return types.RoleGrant{
+		Holder:       holder,
+		Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: types.ChainWide,
+	}
+}
+
+// supervise makes an account a supervisor of a country, which is now the
+// precondition for being appointed its regulator.
+//
+// Written straight into the registry rather than through MsgGrantRole, because
+// the fixtures that call it wire no group keeper and GrantRole would refuse a
+// holder that is not a group policy. The rule being exercised in those tests is
+// the appointment rule, not the office rule, and role_test.go covers the second
+// against a group keeper that answers.
+func supervise(t *testing.T, k keeper.Keeper, ctx sdk.Context, holder, cc string) {
+	t.Helper()
+	require.NoError(t, k.GrantForUpgrade(ctx, types.RoleGrant{
+		Holder:       holder,
+		Role:         types.ROLE_SUPERVISOR,
+		Jurisdiction: cc,
+	}))
+}
 
 func setup(t *testing.T) (*integration.Env, keeper.Keeper, types.MsgServer, types.QueryServer) {
 	t.Helper()

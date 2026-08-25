@@ -46,11 +46,16 @@ func (k msgServer) SetJurisdiction(ctx context.Context, msg *types.MsgSetJurisdi
 		return nil, errorsmod.Wrapf(types.ErrInvalidCountry, "%q", msg.Country)
 	}
 
-	params, err := k.Params.Get(ctx)
+	// The administrator is a grant now rather than a parameter, so the check can
+	// fail for a reason a list lookup never could: the office holds the role and
+	// has fallen below the M-of-N its grant records. That error is returned
+	// rather than folded into "not an administrator", because the two send an
+	// operator to different places and only one of them is fixed by a proposal
+	// the office passes by itself.
+	administrator, err := k.actsAsFoundationAdministrator(ctx, msg.Recorder)
 	if err != nil {
 		return nil, err
 	}
-	administrator := params.IsFoundationAdministrator(msg.Recorder)
 	governance := msg.Recorder == k.GetAuthority()
 
 	existing, err := k.Jurisdictions.Get(ctx, msg.Account)

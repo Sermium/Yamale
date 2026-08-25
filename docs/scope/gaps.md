@@ -28,6 +28,8 @@ Last verified 2026-08-24, against `yamale-devnet-2` at block 52,356.
 | Tiered netting | `x/netting`: collateral posted first, hold-and-retry, no recompute path |
 | Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
 | Roles and the perimeter | `x/alias` role grants, and `AssertScope` consulted by four modules |
+| All five roles confer something | supervisors are payload readers; an enforcement office can open a case and freeze in an emergency |
+| Administrators and the emergency authority are grants | two parameter lists retired, their fields reserved, and both carried across by the `roles-that-do-something` upgrade |
 | An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action |
 | Country enrolment | `ceremony country` — offices, grants and jurisdictions, approved by the foundation |
 | Administrator appointment | `ceremony administrators` plus a governance console that composes it |
@@ -123,15 +125,37 @@ bottleneck and a rubber-stamping risk. Revisit by giving offices the power to
 *propose* rather than to grant, if the bottleneck turns out to be drafting
 rather than approval.
 
+**Answered 2026-08-25.** **The retired emergency authority is carried across
+chain-wide, and that widens it.** `emergency_authority` was one address with no
+territorial limit, so the `roles-that-do-something` upgrade grants the address it
+held `ROLE_ENFORCEMENT_AUTHORITY` at `*`. Granting it a country instead would
+have been the upgrade choosing to narrow an authority nobody voted to narrow, and
+choosing which country on top of it; granting nothing would have removed the
+emergency path from a running chain with no one noticing until it was needed.
+
+What the chain-wide grant adds, stated because collapsing two mechanisms into one
+always adds something: that account can now open an ordinary case as well,
+including a seizure accusation, which `emergency_authority` could not do. It
+still cannot decide one — a seizure needs two thirds of bonded voting power, and
+this account has no vote unless it is also a validator. The first thing a
+deployment should do after the upgrade is revoke the chain-wide grant and issue
+country ones, which is one foundation proposal per country.
+
 3. **Whether a bonded validator should still be able to freeze anything.**
-   `AssertScope` now gates `x/enforcement`'s `OpenCase`, which changes the
-   module's central property from *any bonded validator can freeze* to *any
-   bonded validator governance has placed in that country's perimeter*. That is
-   what [roles-and-perimeter.md](roles-and-perimeter.md) asks for and it is the
-   point of having a perimeter — but it is a real narrowing of who can act in an
+   `AssertScope` gates `x/enforcement`'s `OpenCase`, which changes the module's
+   central property from *any bonded validator can freeze* to *any bonded
+   validator governance has placed in that country's perimeter*. That is what
+   [roles-and-perimeter.md](roles-and-perimeter.md) asks for and it is the point
+   of having a perimeter — but it is a real narrowing of who can act in an
    emergency, and the narrower alternative was to scope only `EmergencyFreeze`
    and leave ordinary validators chain-wide. Worth confirming deliberately
    rather than discovering.
+
+   **Still open, and less pressing than it was.** `OpenCase` now also accepts a
+   holder of `ROLE_ENFORCEMENT_AUTHORITY`, so a country that has enrolled an
+   enforcement office is no longer relying on a validator being both awake and
+   granted. The question the decision turns on is unchanged: who can stop money
+   in a country that has NOT enrolled one.
 
 4. **Whether the count of chain-wide `*` grants belongs in the constitution.**
    A validator set wanting to act outside its perimeter would grant itself `*`,
@@ -169,15 +193,24 @@ could reasonably have gone the other way:
 
 ## Known defects
 
-- **Two of the five roles do nothing an office can use.**
-  `ROLE_SUPERVISOR` has no consumer anywhere in the tree, and
-  `ROLE_ENFORCEMENT_AUTHORITY` cannot be exercised by an office because
-  `OpenCase` additionally requires a bonded validator and `EmergencyFreeze`
-  requires being the emergency-authority parameter. Enrolment grants both
-  anyway — appointing an office later is harder than granting a role that is
-  waiting for its message — and the runbook says plainly not to expect them to
-  work. This is a gap between the design and the modules rather than a bug in
-  either.
+- **A sender is not obliged to seal a payload to the readers the chain names.**
+  `ROLE_SUPERVISOR` now confers an entitlement — a holder covering a country is
+  a viewing-key recipient for every payload settling there, published by
+  `Query/PayloadReaders` — but the envelope is built off chain and the chain
+  holds only a hash of the plaintext. A sender that ignores the published set
+  produces a payload the supervisor can never open, and nothing on chain
+  detects it. That is a limit of where the ciphertext lives rather than a gap in
+  the registry, and closing it would mean putting the recipient key ids on the
+  payment record and checking them, which is a design decision nobody has taken.
+- **A regulator appointed before the supervisor rule existed keeps the
+  appointment.** `MsgAppointRegulator` refuses an appointee that holds no
+  `ROLE_SUPERVISOR` covering the country, checked on the write and not re-read
+  afterwards. So a country appointed under the old rule, or one whose regulator's
+  grant is later revoked, has a sitting regulator holding no role — visible in
+  `role-holders` and `regulator` disagreeing, and fixed by appointing again.
+  Re-reading it on every payment was rejected because an appointment that could
+  evaporate would leave a country's payments sealed to an authority the chain no
+  longer lists, with nothing saying when it stopped.
 - **Role grants made before `required_shape` are unpinned**, so their holders
   can still reduce themselves to a single key. Absent means no requirement, by
   design: the alternative disabled every authority on the upgrade block. On a
@@ -185,11 +218,14 @@ could reasonably have gone the other way:
   value it would need a migration somebody decided on deliberately.
 - **`x/land`'s own admin path has the same weakness `required_shape` closes.**
   It asks whether a registry office is a group, once, and never again.
-- **`x/alias`'s `Params.Validate()` accepts any non-empty string as a foundation
-  administrator.** It refuses duplicates and a ninth entry but never asks whether
-  an entry is an address, so a typo passes a vote, consumes one of the eight
-  places and grants the power to nobody. The governance console checks the
-  bech32 checksum itself precisely because the chain does not.
+- **Every foundation administrator carried across by the upgrade is unpinned and
+  may not be a group.** `Migrate2to3` writes each address from the retired
+  parameter as a chain-wide grant with no `required_shape` and without asking
+  whether the holder is an `x/group` account, because neither was true of a
+  parameter entry and a migration that applied today's rule would be deleting the
+  one authority that can correct a country rather than carrying it. Both are
+  closed by re-granting deliberately, per grant, and the guide says how. Until
+  then this is the same class of defect as the unpinned grants above.
 - **No payment has been pushed through the Pay screen end to end.** The screen no
   longer forges a receipt — it signs, waits for the block, and reports from
   execution rather than acceptance — but that path is verified by reading and by

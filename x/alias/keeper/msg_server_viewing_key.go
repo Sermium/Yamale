@@ -143,6 +143,31 @@ func (k msgServer) AppointRegulator(ctx context.Context, msg *types.MsgAppointRe
 		return nil, errorsmod.Wrapf(types.ErrInvalidCountry, "%q", msg.Country)
 	}
 
+	// The appointee has to hold ROLE_SUPERVISOR covering this country.
+	//
+	// This is where the module's two answers to "who is watching this country"
+	// were reconciled. An appointment was an entry in one map and a role was an
+	// entry in a registry; they could name different accounts and nothing
+	// objected, which made role.proto's claim that the registry is where that
+	// question has one answer untrue in the one country it mattered for.
+	//
+	// It also puts the appointment behind the rules the registry already
+	// enforces rather than restating them here. A role holder is an x/group
+	// account, so a regulator is M-of-N rather than possibly one key; a grant may
+	// pin the office's shape, so an office that has fallen below it cannot be
+	// newly appointed; and a chain-wide supervisor satisfies this for every
+	// country, which is what a chain-wide grant means.
+	//
+	// Checked on the write and not re-read afterwards — see the proto comment.
+	// Revoking a sitting regulator's supervisor grant does not unappoint them,
+	// because an appointment that could evaporate would leave a country's
+	// payments sealed to an authority the chain no longer lists, with nothing
+	// saying when it stopped.
+	if err := k.assertGranted(ctx, msg.Address, types.ROLE_SUPERVISOR, country); err != nil {
+		return nil, errorsmod.Wrapf(err,
+			"%s cannot be appointed regulator of %s", msg.Address, country)
+	}
+
 	if err := k.Regulators.Set(ctx, country, types.RegulatorAppointment{
 		Country:           country,
 		Address:           msg.Address,
@@ -212,23 +237,32 @@ func (k msgServer) GrantAuditor(ctx context.Context, msg *types.MsgGrantAuditor)
 	return &types.MsgGrantAuditorResponse{}, nil
 }
 
-// assertChainAuthority accepts governance or a named foundation administrator.
+// assertChainAuthority accepts governance or a foundation administrator.
 //
 // The same two signers that may correct a jurisdiction, because these grants
 // are the same class of act: they decide who may see inside a perimeter. A
 // foundation administrator is allowed so that appointing a country's regulator
 // does not require a governance cycle at the moment a deployment is being stood
-// up — the list of administrators is itself governance-controlled, capped and
-// deduplicated, so this widens who may act without widening who decides.
+// up — the role is itself granted by governance alone, capped, and held by an
+// x/group account, so this widens who may act without widening who decides.
+//
+// The administrator is a grant now rather than a parameter list, and two of that
+// change's consequences land here. An office that has fallen below the shape its
+// grant records is refused with ErrOfficeShape rather than with "you are not an
+// administrator", which is the true statement and the one that names the fix.
+// And a store failure resolving the grant is an error rather than a silent
+// "not an administrator" — the closed direction, and the same rule the rest of
+// this module follows: a lookup that could not be made is not a permission that
+// was denied.
 func (k Keeper) assertChainAuthority(ctx context.Context, signer string) error {
 	if signer == k.GetAuthority() {
 		return nil
 	}
-	params, err := k.Params.Get(ctx)
+	administrator, err := k.actsAsFoundationAdministrator(ctx, signer)
 	if err != nil {
 		return err
 	}
-	if params.IsFoundationAdministrator(signer) {
+	if administrator {
 		return nil
 	}
 	return errorsmod.Wrapf(types.ErrInvalidSigner,

@@ -62,6 +62,13 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "country"}},
 				},
 				{
+					RpcMethod:      "PayloadReaders",
+					Use:            "payload-readers [country]",
+					Short:          "List everyone entitled to open payloads settling in one country",
+					Long:           "The appointed regulator and every supervisor granted in that country or chain-wide, each with the key a payload has to be wrapped to. This is the set a sender resolves before it seals; an entitled reader left out of an envelope can never open it, and nothing on chain detects that.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "country"}},
+				},
+				{
 					RpcMethod: "Auditors",
 					Use:       "auditors",
 					Short:     "List the live cross-account reading grants",

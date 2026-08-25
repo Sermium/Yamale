@@ -4,14 +4,22 @@ package main
 //
 // What is worth testing here is not that a proposal comes out with the right keys
 // in it. It is that the tool REFUSES in every case where composing something
-// plausible would be worse than composing nothing — because MsgUpdateParams
-// replaces the whole Params object, so each of those cases is a governance
-// proposal that passes and silently changes a parameter nobody voted on.
+// plausible would be worse than composing nothing — because every one of those
+// cases is a governance proposal that costs a voting period and then does
+// something other than what it says.
 //
-// So most of what follows is refusals: an unconfirmed address, a payload_length
-// that reads as zero, a group file from the wrong ceremony, an authority that is
-// not the gov module. Those are the cases that would still fail if somebody
+// So most of what follows is refusals: an unconfirmed address, a group file from
+// the wrong ceremony, an authority that is not the gov module, a ninth
+// administrator. Those are the cases that would still fail if somebody
 // "simplified" this by adding a default.
+//
+// A second group of tests asserts things that are now true STRUCTURALLY, and they
+// are the ones to read before deleting anything here. The appointment used to be a
+// MsgUpdateParams, which replaced the whole Params object, so a proposal could
+// drop the administrators it did not name or reset payload_length to a default
+// nobody voted for. The tests that guarded those two failures are gone and have
+// been replaced by tests that the failures cannot be expressed: the message names
+// one holder and carries no parameters at all.
 
 import (
 	"encoding/json"
@@ -67,20 +75,46 @@ func confirmedAppointment() administratorsDossier {
 	}
 }
 
-func liveParams(administrators ...string) aliasParams {
-	return aliasParams{
-		PayloadLength:            8,
-		FoundationAdministrators: administrators,
-		Authority:                adminGovAddr,
+// standing is the chain's answer to "who already holds the role", plus the gov
+// module account.
+func standing(administrators ...string) standingGrants {
+	return standingGrants{
+		Administrators: administrators,
+		Authority:      adminGovAddr,
 	}
 }
 
-// decodeProposal pulls the composed MsgUpdateParams back out of the document.
+// chainWideGrantsFile writes what `query alias chain-wide-grants` returns.
+//
+// Every holder is written with the role and the scope the real answer carries,
+// because the reader filters on both and a fixture that omitted them would test a
+// filter that never runs.
+func chainWideGrantsFile(t *testing.T, name string, holders ...string) string {
+	t.Helper()
+	grants := make([]map[string]any, 0, len(holders))
+	for _, holder := range holders {
+		grants = append(grants, map[string]any{
+			"holder":            holder,
+			"role":              "ROLE_FOUNDATION_ADMINISTRATOR",
+			"jurisdiction":      "*",
+			"granted_by":        adminGovAddr,
+			"granted_at_height": "28100",
+		})
+	}
+	body, err := json.Marshal(map[string]any{"grants": grants})
+	require.NoError(t, err)
+	return writeAdminJSON(t, name, string(body))
+}
+
+// decodeProposal pulls the composed MsgGrantRole back out of the document.
 //
 // Decoded rather than string-matched, because the whole reason the document is
 // built through the proto codec is that a field renamed in the proto should break
-// this rather than produce JSON that reads correctly and decodes to a zero.
-func decodeProposal(t *testing.T, blob []byte) (govProposalDocument, aliastypes.MsgUpdateParams) {
+// this rather than produce JSON that reads correctly and decodes to a zero. The
+// field that would go quietest is the scope, and a grant decoding to an empty
+// jurisdiction is one the chain refuses while a grant decoding to a country is one
+// it accepts.
+func decodeProposal(t *testing.T, blob []byte) (govProposalDocument, aliastypes.MsgGrantRole) {
 	t.Helper()
 	var doc govProposalDocument
 	require.NoError(t, json.Unmarshal(blob, &doc))
@@ -92,65 +126,143 @@ func decodeProposal(t *testing.T, blob []byte) (govProposalDocument, aliastypes.
 	// on, and would pass for a type URL the chain cannot resolve.
 	var any sdk.Msg
 	require.NoError(t, administratorsCodec().UnmarshalInterfaceJSON(doc.Messages[0], &any))
-	msg, ok := any.(*aliastypes.MsgUpdateParams)
-	require.True(t, ok, "the proposal's message is %T, not a MsgUpdateParams", any)
+	msg, ok := any.(*aliastypes.MsgGrantRole)
+	require.True(t, ok, "the proposal's message is %T, not a MsgGrantRole", any)
 	return doc, *msg
 }
 
-// ------------------------------------------------------------ the whole object
+// -------------------------------------------------------------- the one grant
 
-func TestTheProposalCarriesEveryExistingAdministrator(t *testing.T) {
+func TestTheProposalGrantsTheRoleChainWideToTheConfirmedGroup(t *testing.T) {
 	configureAddresses()
-	// The failure the whole design exists to prevent. Composed by hand, the
-	// proposal that appoints one administrator drops the others — and it passes,
-	// because a shorter list is a valid list.
-	existing := []string{adminFoundAddr, adminMemberA}
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(existing...), "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(adminFoundAddr), "1000000uyml")
 	require.NoError(t, err)
 
 	_, msg := decodeProposal(t, blob)
-	require.Len(t, msg.Params.FoundationAdministrators, 3)
-	for _, address := range existing {
-		require.Contains(t, msg.Params.FoundationAdministrators, address,
-			"an existing administrator was dropped by the proposal")
+	require.Equal(t, adminGroupAddr, msg.Holder)
+	require.Equal(t, aliastypes.ROLE_FOUNDATION_ADMINISTRATOR, msg.Role)
+	// The scope, asserted as the literal the chain stores rather than as
+	// aliastypes.ChainWide, so that a change to that constant is a failure here
+	// rather than a silently agreed change of meaning on both sides. A grant naming
+	// a country would be refused by the chain; a grant naming an empty string would
+	// be refused too; and the difference between those and this is one byte.
+	require.Equal(t, "*", msg.Jurisdiction)
+}
+
+// The single best thing about the appointment being a grant, asserted rather than
+// asserted about.
+//
+// The MsgUpdateParams this replaced carried the WHOLE administrator list, so
+// composing it meant reading the current one and copying every entry across; the
+// test that stood here checked that none of them was dropped, because a proposal
+// that dropped one passed anyway. A grant names one holder. There is no field in
+// the message for the others to be dropped from, and that is what this asserts:
+// no address but this group's appears anywhere in the document.
+func TestTheProposalNamesOneHolderAndCannotDropTheOthers(t *testing.T) {
+	configureAddresses()
+	existing := []string{adminFoundAddr, adminMemberA, adminMemberB}
+	blob, err := appointmentProposal(confirmedAppointment(), standing(existing...), "1000000uyml")
+	require.NoError(t, err)
+
+	_, msg := decodeProposal(t, blob)
+	require.Equal(t, adminGroupAddr, msg.Holder)
+
+	var raw struct {
+		Messages []map[string]any `json:"messages"`
 	}
-	require.Contains(t, msg.Params.FoundationAdministrators, adminGroupAddr)
+	require.NoError(t, json.Unmarshal(blob, &raw))
+	encoded, err := json.Marshal(raw.Messages[0])
+	require.NoError(t, err)
+	for _, address := range existing {
+		require.NotContains(t, string(encoded), address,
+			"an existing administrator appears in the message, so there is something for a "+
+				"careless proposal to drop")
+	}
 }
 
-func TestTheProposalCarriesPayloadLengthRatherThanResettingIt(t *testing.T) {
+// The other half of that, and the other failure that is now unexpressible.
+//
+// MsgUpdateParams replaced every parameter at once, so an appointment composed
+// without reading payload_length reset the identifier length of a chain that had
+// raised it — silently, while reading as an appointment. Two tests guarded that:
+// one that a zero was refused rather than defaulted, one that a value the chain
+// itself would refuse was not quietly corrected. Both are gone, and neither is
+// missing: the message carries no parameters, so there is nothing in it that could
+// re-parameterise the chain, and the tool no longer reads x/alias's parameters at
+// all.
+func TestTheProposalCarriesNoParametersAtAll(t *testing.T) {
 	configureAddresses()
-	// A chain that had raised payload_length to 12 must not have it silently reset
-	// to the default of 8 by a proposal that reads as an appointment.
-	params := liveParams()
-	params.PayloadLength = 12
-	blob, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(), "1000000uyml")
 	require.NoError(t, err)
 
-	_, msg := decodeProposal(t, blob)
-	require.Equal(t, uint32(12), msg.Params.PayloadLength)
+	var raw struct {
+		Messages []map[string]any `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(blob, &raw))
+	require.NotContains(t, raw.Messages[0], "params")
+	require.NotContains(t, string(blob), "payload_length")
 }
 
-func TestTheResultingListIsSorted(t *testing.T) {
+func TestTheMessageDoesNotDependOnWhoElseHoldsTheRole(t *testing.T) {
 	configureAddresses()
-	// So the object depends on the SET of administrators rather than on the order
-	// appointments happened to be proposed in.
-	one, err := appointmentProposal(confirmedAppointment(), liveParams(adminMemberA, adminFoundAddr), "1uyml")
+	// The old proposal's contents were a function of the current administrator
+	// list, which is why a stale read of it was destructive. This one is not: the
+	// standing set decides whether the proposal is composed at all — the cap and
+	// the duplicate check — and nothing about what it says.
+	one, err := appointmentProposal(confirmedAppointment(), standing(), "1uyml")
 	require.NoError(t, err)
-	two, err := appointmentProposal(confirmedAppointment(), liveParams(adminFoundAddr, adminMemberA), "1uyml")
+	two, err := appointmentProposal(confirmedAppointment(), standing(adminMemberA, adminFoundAddr), "1uyml")
 	require.NoError(t, err)
 
-	_, first := decodeProposal(t, one)
-	_, second := decodeProposal(t, two)
-	require.Equal(t, first.Params.FoundationAdministrators, second.Params.FoundationAdministrators)
-	require.IsIncreasing(t, first.Params.FoundationAdministrators)
+	first, _ := decodeProposal(t, one)
+	second, _ := decodeProposal(t, two)
+	require.Equal(t, first.Messages, second.Messages)
 }
 
 func TestTheAuthorityIsTheGovernanceModuleAccount(t *testing.T) {
 	configureAddresses()
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(), "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(), "1000000uyml")
 	require.NoError(t, err)
 	_, msg := decodeProposal(t, blob)
 	require.Equal(t, adminGovAddr, msg.Authority)
+}
+
+// The grant records no required shape, and that is a decision rather than an
+// omission — see appointmentProposal.
+//
+// A shape captured from the group that turned up is not a requirement: it ratifies
+// a one-of-one as readily as a three-of-five, which is the reason a country's
+// offices declare their minimum in the enrolment config before the day. This
+// ceremony's config has no such field, so the only numbers to hand are the
+// dossier's own threshold and member count — exactly the captured number that
+// argument refuses.
+//
+// Asserted rather than left implicit, because a future reader with the country
+// enrolment's grants in front of them will notice the difference and the useful
+// thing to find is a test saying it was deliberate.
+func TestTheGrantRecordsNoRequiredShapeBecauseNobodyDecidedOne(t *testing.T) {
+	configureAddresses()
+	dossier := confirmedAppointment()
+	require.Equal(t, 3, dossier.Threshold, "this test is about the 3-of-5 NOT being recorded")
+
+	blob, err := appointmentProposal(dossier, standing(), "1000000uyml")
+	require.NoError(t, err)
+	_, msg := decodeProposal(t, blob)
+	require.Nil(t, msg.RequiredShape)
+
+	// Null in the document rather than an object, which is the distinction the
+	// chain's own pointer exists to keep. A message field has real presence in
+	// proto3, so nil means "nobody asked for a shape" while a zero-valued
+	// OfficeShape means "somebody asked for a shape of zero" — and
+	// OfficeShape.Validate refuses the second, so a document carrying 0-of-0 would
+	// be a proposal that passed its vote and failed when it executed.
+	var raw struct {
+		Messages []map[string]json.RawMessage `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(blob, &raw))
+	if shape, present := raw.Messages[0]["required_shape"]; present {
+		require.JSONEq(t, "null", string(shape))
+	}
 }
 
 // ------------------------------------------------------------------- refusals
@@ -161,7 +273,7 @@ func TestAnUnconfirmedDossierProposesNothing(t *testing.T) {
 	// proposal, no fallback to a predicted one.
 	dossier := confirmedAppointment()
 	dossier.OnChain = nil
-	_, err := appointmentProposal(dossier, liveParams(), "1000000uyml")
+	_, err := appointmentProposal(dossier, standing(), "1000000uyml")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "will not guess one")
 	require.Contains(t, err.Error(), "FOUNDATION'S OWN")
@@ -176,82 +288,55 @@ func TestAnUnconfirmedDossierProposesNothing(t *testing.T) {
 	// impossible; do not proceed" points at the dossier; a decoding error points at
 	// an address somebody typed.
 	dossier.OnChain = &onChainGroup{PolicyAddress: "   "}
-	_, err = appointmentProposal(dossier, liveParams(), "1000000uyml")
+	_, err = appointmentProposal(dossier, standing(), "1000000uyml")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "should be impossible")
 
 	// And on the verification path, where without the guard the failure would read
-	// as "the group is not in the administrator list" — which is true of the empty
+	// as "this address holds no chain-wide grant" — which is true of the empty
 	// string and tells nobody anything.
-	path := writeAdminJSON(t, "p.json", `{"params":{"payload_length":8}}`)
+	path := chainWideGrantsFile(t, "grants.json")
 	_, err = verifyAppointment(dossier, path, adminTestTime())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "should be impossible")
 }
 
-func TestAPayloadLengthOfZeroIsRefusedNotDefaulted(t *testing.T) {
-	configureAddresses()
-	// Proto3 cannot tell a zero from a field nobody filled in, so a zero means
-	// UNKNOWN. Defaulting it to eight would compose a proposal that reset the
-	// identifier length of a chain that had raised it, with no sign of it anywhere
-	// a person would look.
-	params := liveParams()
-	params.PayloadLength = 0
-	_, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "will not guess it")
-	require.Contains(t, err.Error(), "Proto3")
-}
-
-func TestAPayloadLengthTheChainWouldRefuseIsNotQuietlyCorrected(t *testing.T) {
-	configureAddresses()
-	// The message is asserted, and a mutation pass is why. With this bounds check
-	// removed the chain's own Params.Validate() further down still refused every
-	// one of these, so the test passed — but the message had become "the parameters
-	// this proposal would set are ones the chain refuses", which points at the
-	// proposal. The value came off the chain. If the chain reports a
-	// payload_length the chain would reject, the problem is upstream of anything
-	// this tool is composing, and the refusal has to say so or somebody will go on
-	// editing the proposal.
-	for _, length := range []uint32{1, aliastypes.MinPayloadLen - 1, aliastypes.MaxPayloadLen + 1, 99} {
-		params := liveParams()
-		params.PayloadLength = length
-		_, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
-		require.Error(t, err, "payload_length %d should be refused", length)
-		require.Contains(t, err.Error(), "will not quietly correct it",
-			"payload_length %d was refused for the wrong reason", length)
-	}
-	// And the boundaries themselves are accepted, so the rule is the chain's and
-	// not one narrower.
-	for _, length := range []uint32{aliastypes.MinPayloadLen, aliastypes.MaxPayloadLen} {
-		params := liveParams()
-		params.PayloadLength = length
-		_, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
-		require.NoError(t, err, "payload_length %d should be accepted", length)
-	}
-}
-
 func TestAMissingAuthorityIsRefused(t *testing.T) {
 	configureAddresses()
-	params := liveParams()
-	params.Authority = ""
-	_, err := appointmentProposal(confirmedAppointment(), params, "1000000uyml")
+	current := standing()
+	current.Authority = ""
+	_, err := appointmentProposal(confirmedAppointment(), current, "1000000uyml")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "governance module account")
 
 	// And one that is not an address this chain can read.
-	params.Authority = "not-an-address"
-	_, err = appointmentProposal(confirmedAppointment(), params, "1000000uyml")
+	current.Authority = "not-an-address"
+	_, err = appointmentProposal(confirmedAppointment(), current, "1000000uyml")
 	require.Error(t, err)
 }
 
-func TestADuplicateAppointmentIsRefusedBeforeTheVote(t *testing.T) {
+// A second grant to an account that already holds the role is refused, and the
+// reason it is refused has changed completely.
+//
+// It used to be that the chain would reject it: Params.Validate() refused a list
+// naming one address twice, so the proposal failed when it executed. That is not
+// what happens now. GrantRole counts the cap EXCLUDING the holder being granted,
+// deliberately, so that a grant can be re-made — which is how a proposal
+// resubmitted after a timeout arrives and how a required shape is added to a grant
+// that had none. The chain would accept this one.
+//
+// It is refused here because this ceremony records no required shape, so a second
+// grant has nothing to change: it would be a governance vote that passes,
+// executes, reads on the record as an appointment, and leaves the chain exactly as
+// it was. The message is asserted for that reason — a refusal claiming the chain
+// would reject this would send an operator to look for a rule that is not there.
+func TestASecondGrantToTheSameHolderIsRefusedBeforeTheVote(t *testing.T) {
 	configureAddresses()
-	// Params.Validate() refuses a list naming one address twice, so this would
-	// fail when it executed — after the vote.
-	_, err := appointmentProposal(confirmedAppointment(), liveParams(adminGroupAddr), "1000000uyml")
+	_, err := appointmentProposal(confirmedAppointment(), standing(adminGroupAddr), "1000000uyml")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "already a foundation administrator")
+	require.Contains(t, err.Error(), "already holds ROLE_FOUNDATION_ADMINISTRATOR chain-wide")
+	require.Contains(t, err.Error(), "would change nothing")
+	require.Contains(t, err.Error(), "The chain would ACCEPT it")
 }
 
 func TestTheNinthAdministratorIsRefusedAtTheCap(t *testing.T) {
@@ -267,13 +352,40 @@ func TestTheNinthAdministratorIsRefusedAtTheCap(t *testing.T) {
 	}
 	require.Len(t, eight, aliastypes.MaxFoundationAdministrators)
 
-	_, err := appointmentProposal(confirmedAppointment(), liveParams(eight...), "1000000uyml")
+	_, err := appointmentProposal(confirmedAppointment(), standing(eight...), "1000000uyml")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "caps the list at 8")
+	require.Contains(t, err.Error(), "the chain caps it at 8")
 
 	// The eighth is allowed, so the cap is the cap and not one less.
-	_, err = appointmentProposal(confirmedAppointment(), liveParams(eight[:7]...), "1000000uyml")
+	_, err = appointmentProposal(confirmedAppointment(), standing(eight[:7]...), "1000000uyml")
 	require.NoError(t, err)
+}
+
+// The cap counts grants of THIS role at THIS scope, and nothing else.
+//
+// Worth its own test because the query the operator runs answers a wider question
+// than the cap asks: chain-wide-grants lists every grant no border bounds, and a
+// chain with supervisors or auditors granted chain-wide would have entries in it
+// that the cap does not count. A tool that counted the whole response would refuse
+// a perfectly appointable ninth-of-eight — and the operator's only recourse would
+// be to edit the evidence file.
+//
+// The scope is filtered as well as the role, and the third entry below is a record
+// the chain would never write: this role is chain-wide or nothing. It is in the
+// fixture because the file an operator passes is not always the file they think it
+// is — `role-grants <holder>` renders the identical shape and does list country
+// grants — and a filter on the role alone would count those.
+func TestTheCapCountsOnlyChainWideGrantsOfThisRole(t *testing.T) {
+	configureAddresses()
+	path := writeAdminJSON(t, "mixed.json", `{"grants":[
+		{"holder":"`+adminFoundAddr+`","role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"*"},
+		{"holder":"`+adminMemberA+`","role":"ROLE_SUPERVISOR","jurisdiction":"*"},
+		{"holder":"`+adminMemberB+`","role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"SN"}
+	]}`)
+	held, err := chainWideGrantsOf(path, aliastypes.ROLE_FOUNDATION_ADMINISTRATOR)
+	require.NoError(t, err)
+	require.Len(t, held, 1)
+	require.Equal(t, adminFoundAddr, held[0].Holder)
 }
 
 func TestAProposalWithNoDepositIsRefused(t *testing.T) {
@@ -281,7 +393,7 @@ func TestAProposalWithNoDepositIsRefused(t *testing.T) {
 	// A proposal submitted with less than the minimum is accepted, sits in the
 	// deposit period, and never enters a vote — which looks from the outside
 	// exactly like a proposal nobody got round to voting on.
-	_, err := appointmentProposal(confirmedAppointment(), liveParams(), "  ")
+	_, err := appointmentProposal(confirmedAppointment(), standing(), "  ")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "deposit is required")
 }
@@ -328,7 +440,7 @@ func TestAnAdministratorCeremonyForAnotherAppointmentIsRefused(t *testing.T) {
 		"  yamale foundation administrators  "))
 }
 
-// -------------------------------------------------------------- the parameters
+// ---------------------------------------------------------- the chain's answer
 
 func writeAdminJSON(t *testing.T, name, body string) string {
 	t.Helper()
@@ -339,28 +451,28 @@ func writeAdminJSON(t *testing.T, name, body string) string {
 
 func TestTheAuthorityMustBeTheGovModuleAccountAndIsChecked(t *testing.T) {
 	configureAddresses()
-	params := writeAdminJSON(t, "p.json", `{"params":{"payload_length":8,"foundation_administrators":[]}}`)
+	grants := chainWideGrantsFile(t, "grants.json", adminFoundAddr)
 
 	// The right one.
 	good := writeAdminJSON(t, "gov.json",
 		`{"account":{"value":{"address":"`+adminGovAddr+`","name":"gov"}}}`)
-	read, err := readAliasParamsFiles(params, good)
+	read, err := readStandingGrants(grants, good)
 	require.NoError(t, err)
 	require.Equal(t, adminGovAddr, read.Authority)
-	require.Equal(t, uint32(8), read.PayloadLength)
+	require.Equal(t, []string{adminFoundAddr}, read.Administrators)
 
-	// A different module account. x/alias refuses MsgUpdateParams from any signer
-	// but governance, so this would pass a vote and then be refused at execution.
+	// A different module account. A chain-wide grant is refused from any signer but
+	// governance, so this would pass a vote and then be refused at execution.
 	wrong := writeAdminJSON(t, "distribution.json",
 		`{"account":{"value":{"address":"`+adminFoundAddr+`","name":"distribution"}}}`)
-	_, err = readAliasParamsFiles(params, wrong)
+	_, err = readStandingGrants(grants, wrong)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `"distribution"`)
 }
 
 func TestBothShapesOfTheModuleAccountAnswerAreRead(t *testing.T) {
 	configureAddresses()
-	params := writeAdminJSON(t, "p.json", `{"params":{"payload_length":8}}`)
+	grants := chainWideGrantsFile(t, "grants.json")
 
 	// The CLI's shape and the gateway's flatter one. Both, because guessing one
 	// would mean reading an empty address out of a file that plainly contains it,
@@ -371,88 +483,106 @@ func TestBothShapesOfTheModuleAccountAnswerAreRead(t *testing.T) {
 		`{"account":{"name":"gov","base_account":{"address":"`+adminGovAddr+`"}}}`)
 
 	for _, path := range []string{cli, rest} {
-		read, err := readAliasParamsFiles(params, path)
+		read, err := readStandingGrants(grants, path)
 		require.NoError(t, err, path)
 		require.Equal(t, adminGovAddr, read.Authority)
 	}
 }
 
-func TestPayloadLengthIsReadAsANumberOrAString(t *testing.T) {
+func TestTheGrantHeightIsReadAsANumberOrAString(t *testing.T) {
 	configureAddresses()
-	gov := writeAdminJSON(t, "gov.json",
-		`{"account":{"value":{"address":"`+adminGovAddr+`","name":"gov"}}}`)
-
-	// The CLI renders a uint32 as a number and the gateway has rendered it as a
-	// string. A type accepting only one would read zero from the other — and zero
-	// is the value that means "unknown" here, so the tool would refuse a perfectly
-	// good answer.
-	for _, body := range []string{
-		`{"params":{"payload_length":12}}`,
-		`{"params":{"payload_length":"12"}}`,
-	} {
-		read, err := readAliasParamsFiles(writeAdminJSON(t, "p.json", body), gov)
-		require.NoError(t, err, body)
-		require.Equal(t, uint32(12), read.PayloadLength, body)
+	// The CLI renders an int64 as a number and the gateway has rendered it as a
+	// string. A type accepting only one would read zero from the other, and a
+	// signed record saying this appointment landed at height zero is a record
+	// pointing at a block that is not the one anybody should go and read.
+	//
+	// This is what the payload_length version of this test used to guard, moved to
+	// the field that is still read: the parameters are not read at all any more.
+	for _, height := range []string{`28100`, `"28100"`} {
+		path := writeAdminJSON(t, "grants.json", `{"grants":[{"holder":"`+adminGroupAddr+`",`+
+			`"role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"*","granted_by":"`+adminGovAddr+`",`+
+			`"granted_at_height":`+height+`}]}`)
+		verified, err := verifyAppointment(confirmedAppointment(), path, adminTestTime())
+		require.NoError(t, err, height)
+		require.Equal(t, int64(28100), verified.GrantedAtHeight, height)
 	}
 }
 
-func TestAnAbsentAdministratorListReadsAsEmpty(t *testing.T) {
+func TestAnAbsentGrantListReadsAsEmpty(t *testing.T) {
 	configureAddresses()
 	// This is what the CLI actually returns on the live devnet: the empty repeated
 	// field is omitted entirely. Read as empty rather than refused, because for a
-	// repeated field absent and empty ARE the same value — there is no third state
-	// to confuse them with, unlike payload_length.
+	// repeated field absent and empty ARE the same value — and on a chain that has
+	// appointed nobody yet, empty is the truth.
 	gov := writeAdminJSON(t, "gov.json",
 		`{"account":{"value":{"address":"`+adminGovAddr+`","name":"gov"}}}`)
-	read, err := readAliasParamsFiles(writeAdminJSON(t, "p.json", `{"params":{"payload_length":8}}`), gov)
+	read, err := readStandingGrants(writeAdminJSON(t, "grants.json", `{}`), gov)
 	require.NoError(t, err)
-	require.Empty(t, read.FoundationAdministrators)
+	require.Empty(t, read.Administrators)
+
+	// And a proposal composed against it is the first appointment on the chain,
+	// which is a state this ceremony has to be able to reach.
+	_, err = appointmentProposal(confirmedAppointment(), read, "1000000uyml")
+	require.NoError(t, err)
 }
 
 // ---------------------------------------------------------------- verification
 
-func TestVerifyRefusesUntilTheGroupIsActuallyInTheParameters(t *testing.T) {
+func TestVerifyRefusesUntilTheGroupActuallyHoldsTheGrant(t *testing.T) {
 	configureAddresses()
 	dossier := confirmedAppointment()
 
 	// Not appointed. A proposal that PASSED can still fail when it executes, which
-	// leaves the parameters exactly as they were and says so only in a transaction
-	// log nobody is watching.
-	absent := writeAdminJSON(t, "p.json",
-		`{"params":{"payload_length":8,"foundation_administrators":["`+adminFoundAddr+`"]}}`)
+	// leaves the chain exactly as it was and says so only in a transaction log
+	// nobody is watching.
+	absent := chainWideGrantsFile(t, "absent.json", adminFoundAddr)
 	_, err := verifyAppointment(dossier, absent, adminTestTime())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "is NOT in alias.params.foundation_administrators")
+	require.Contains(t, err.Error(), `holds no ROLE_FOUNDATION_ADMINISTRATOR grant at the "*" scope`)
 	require.Contains(t, err.Error(), "can still fail when it executes")
 
-	// Appointed. The whole list is recorded, not just this group.
-	present := writeAdminJSON(t, "q.json",
-		`{"params":{"payload_length":8,"foundation_administrators":["`+adminFoundAddr+`","`+adminGroupAddr+`"]}}`)
+	// Appointed. The whole set is recorded, not just this group, and the chain's
+	// own account of who granted it and when is recorded with it.
+	present := chainWideGrantsFile(t, "present.json", adminFoundAddr, adminGroupAddr)
 	verified, err := verifyAppointment(dossier, present, adminTestTime())
 	require.NoError(t, err)
 	require.Equal(t, adminGroupAddr, verified.PolicyAddress)
+	require.Equal(t, "*", verified.Jurisdiction)
+	require.Equal(t, adminGovAddr, verified.GrantedBy)
+	require.Equal(t, int64(28100), verified.GrantedAtHeight)
 	require.Len(t, verified.Administrators, 2)
-	require.Equal(t, uint32(8), verified.PayloadLength)
 	require.Equal(t, "2026-08-23T11:00:00Z", verified.VerifiedAt)
 }
 
-func TestVerifyRefusesParametersItCannotRead(t *testing.T) {
+// The two ways a grant can be present and not be this appointment.
+//
+// Neither is a state the chain can reach — it refuses a country scope for this
+// role, and a grant of some other role is a different record entirely — but verify
+// is the step that turns a queried file into a signed record, and the file is
+// whichever one the operator passed. A verify that matched on the holder alone
+// would sign "this group is a foundation administrator" on the strength of a
+// supervisor grant.
+func TestVerifyRefusesAGrantOfTheWrongRoleOrTheWrongScope(t *testing.T) {
 	configureAddresses()
 	dossier := confirmedAppointment()
-	// Zero payload_length means the file is not what the chain holds, so nothing
-	// is recorded from it — including an appointment that happens to be listed.
-	bad := writeAdminJSON(t, "p.json",
-		`{"params":{"foundation_administrators":["`+adminGroupAddr+`"]}}`)
-	_, err := verifyAppointment(dossier, bad, adminTestTime())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no usable payload_length")
+
+	for name, body := range map[string]string{
+		"another role": `{"grants":[{"holder":"` + adminGroupAddr + `","role":"ROLE_SUPERVISOR",` +
+			`"jurisdiction":"*"}]}`,
+		"a country": `{"grants":[{"holder":"` + adminGroupAddr + `",` +
+			`"role":"ROLE_FOUNDATION_ADMINISTRATOR","jurisdiction":"SN"}]}`,
+	} {
+		_, err := verifyAppointment(dossier, writeAdminJSON(t, "g.json", body), adminTestTime())
+		require.Error(t, err, name)
+		require.Contains(t, err.Error(), "holds nothing", name)
+	}
 }
 
 func TestVerifyRefusesAnUnconfirmedDossier(t *testing.T) {
 	configureAddresses()
 	dossier := confirmedAppointment()
 	dossier.OnChain = nil
-	path := writeAdminJSON(t, "p.json", `{"params":{"payload_length":8}}`)
+	path := chainWideGrantsFile(t, "grants.json", adminGroupAddr)
 	_, err := verifyAppointment(dossier, path, adminTestTime())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "will not guess one")
@@ -487,21 +617,26 @@ func TestTheConfigRefusesWhatItCannotProceedWithout(t *testing.T) {
 
 func TestTheSummaryStatesThePowerAndTheCounts(t *testing.T) {
 	configureAddresses()
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(adminFoundAddr), "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(adminFoundAddr), "1000000uyml")
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
 
-	// The power, because "foundation_administrators" reads like a list of people
-	// with logins and gives no hint of what it confers. This is the assertion that
-	// found the bug: composed as one sentence with the address and the ceremony
-	// name first, this was the part that fell off the end of the 255-byte cap.
+	// The power, because "foundation administrator" reads like somebody with a
+	// login and gives no hint of what it confers. This is the assertion that found
+	// the bug: composed as one sentence with the address and the ceremony name
+	// first, this was the part that fell off the end of the 255-byte cap.
 	require.Contains(t, doc.Summary, "correct the country recorded against ANY account")
 	require.Contains(t, doc.Summary, "reissues its identifier")
 	require.Contains(t, doc.Summary, aliastypes.FoundationCountry)
-	// The counts, because a list that SHRANK is the only visible evidence of a
-	// proposal composed from a stale read of the parameters.
-	require.Contains(t, doc.Summary, "from 1 to 2")
+	// The counts, because one message about one holder says nothing about how many
+	// accounts already stand outside every national perimeter, and that number is
+	// what the cap of eight exists to keep visible.
+	require.Contains(t, doc.Summary, "from 1 to 2 of a maximum of 8")
 	require.Contains(t, doc.Summary, adminGroupAddr)
+	// And the summary says in words what the message shape guarantees, because a
+	// voter reading the summary is not reading the message: this proposal takes
+	// nothing away from anybody.
+	require.Contains(t, doc.Summary, "no account that holds the role today loses it")
 	// The chain's two limits, which are NOT the same number: the title is capped at
 	// MaxMetadataLen and the summary at forty times that. Asserted separately
 	// because conflating them is what made an earlier version of this cut the
@@ -525,7 +660,7 @@ func TestTheSummaryLimitIsTheChainsAndNotFortyTimesStricter(t *testing.T) {
 	configureAddresses()
 	// A summary comfortably over the old 255 and well under the real limit must
 	// come through whole, with no truncation marker.
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(adminFoundAddr), "1uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(adminFoundAddr), "1uyml")
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
 	require.Greater(t, len(doc.Summary), maxMetadataLen,
@@ -545,13 +680,13 @@ func TestThePowerSurvivesTheCapWhateverElseDoesNot(t *testing.T) {
 	dossier := confirmedAppointment()
 	dossier.Reason = strings.Repeat("And a very long reason as well. ", 12)
 
-	blob, err := appointmentProposal(dossier, liveParams(adminFoundAddr, adminMemberA), "1uyml")
+	blob, err := appointmentProposal(dossier, standing(adminFoundAddr, adminMemberA), "1uyml")
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
 
 	require.LessOrEqual(t, len(doc.Summary), maxSummaryLen)
 	require.Contains(t, doc.Summary, "correct the country recorded against ANY account")
-	require.Contains(t, doc.Summary, "from 2 to 3")
+	require.Contains(t, doc.Summary, "from 2 to 3 of a maximum of 8")
 }
 
 // TestALongCeremonyNameIsRefusedWithSomethingToDoAboutIt.
@@ -565,7 +700,7 @@ func TestALongCeremonyNameIsRefusedWithSomethingToDoAboutIt(t *testing.T) {
 	dossier := confirmedAppointment()
 	dossier.Ceremony = strings.Repeat("An Extremely Long Ceremony Name ", 8)
 
-	_, err := appointmentProposal(dossier, liveParams(), "1uyml")
+	_, err := appointmentProposal(dossier, standing(), "1uyml")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Shorten the ceremony name")
 	require.Contains(t, err.Error(), "group metadata")
@@ -579,7 +714,7 @@ func TestAnOverlongSummaryIsTruncatedRatherThanRefused(t *testing.T) {
 	// somebody pasted a document into the reason field.
 	dossier.Reason = strings.Repeat("The ceremony lead wrote a very long explanation. ", 300)
 	require.Greater(t, len(dossier.Reason), maxSummaryLen)
-	blob, err := appointmentProposal(dossier, liveParams(), "1000000uyml")
+	blob, err := appointmentProposal(dossier, standing(), "1000000uyml")
 	require.NoError(t, err)
 	doc, _ := decodeProposal(t, blob)
 	require.LessOrEqual(t, len(doc.Summary), maxSummaryLen)
@@ -598,7 +733,7 @@ func TestTheProposalIsAGovernanceProposalAndNotAGroupOne(t *testing.T) {
 	// foundation's 3-of-5 cannot appoint an administrator, so composing the wrong
 	// shape here would produce a document three custodians would vote on and that
 	// would change nothing.
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(), "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(), "1000000uyml")
 	require.NoError(t, err)
 
 	var raw map[string]any
@@ -613,9 +748,9 @@ func TestTheProposalIsAGovernanceProposalAndNotAGroupOne(t *testing.T) {
 	require.Equal(t, "1000000uyml", raw["deposit"])
 }
 
-func TestTheMessageTypeIsTheAliasUpdateParams(t *testing.T) {
+func TestTheMessageTypeIsTheAliasGrantRole(t *testing.T) {
 	configureAddresses()
-	blob, err := appointmentProposal(confirmedAppointment(), liveParams(), "1000000uyml")
+	blob, err := appointmentProposal(confirmedAppointment(), standing(), "1000000uyml")
 	require.NoError(t, err)
 
 	var doc struct {
@@ -625,7 +760,7 @@ func TestTheMessageTypeIsTheAliasUpdateParams(t *testing.T) {
 	require.Len(t, doc.Messages, 1)
 	// The proto package, not the REST path: the REST prefix carries `yamale` and
 	// the proto package does not.
-	require.Equal(t, "/blockchain.alias.v1.MsgUpdateParams", doc.Messages[0]["@type"])
+	require.Equal(t, "/blockchain.alias.v1.MsgGrantRole", doc.Messages[0]["@type"])
 }
 
 // ---------------------------------------------------------------- the dossier

@@ -18,7 +18,8 @@
 take it and hand it to the foundation. This page is how that works, what it
 costs the people it is aimed at, and what stops it being aimed at you.</p>
 <p><strong>You need:</strong> a running chain (<a href="local-devnet.html">local devnet</a> is enough), and
-for the acting parts, a bonded validator&#39;s key.</p>
+for the acting parts, a bonded validator&#39;s key — or an account holding
+<code>ROLE_ENFORCEMENT_AUTHORITY</code> over the country the target is recorded in.</p>
 <p><strong>You will end with:</strong> an account frozen mid-theft, a case voted through, and
 the funds in the recovery destination — plus the same account released again
 when a case fails.</p>
@@ -38,19 +39,19 @@ gone, so the two are deliberately split apart:</p>
 </thead>
 <tbody><tr>
 <td><strong>Freeze</strong></td>
-<td>one bonded validator</td>
+<td>one bonded validator, or an enforcement authority for the target&#39;s country</td>
 <td>the same block</td>
 <td>the account cannot send anything</td>
 </tr>
 <tr>
 <td><strong>Emergency freeze</strong></td>
-<td>the founders&#39; group</td>
+<td>an enforcement authority for the target&#39;s country</td>
 <td>the same block</td>
-<td>the same, without waiting for a validator</td>
+<td>the same, without opening an accusation as a validator</td>
 </tr>
 <tr>
 <td><strong>Release</strong></td>
-<td>the founders&#39; group</td>
+<td>an enforcement authority for the case target&#39;s country</td>
 <td>the same block</td>
 <td>lifts any freeze, whoever imposed it</td>
 </tr>
@@ -67,11 +68,15 @@ gone, so the two are deliberately split apart:</p>
 <td>stops any case that has not taken anything yet</td>
 </tr>
 </tbody></table>
-<p>That asymmetry is the whole design. One validator, acting alone and under their
-own name, can stop transfers for a day. Nothing else. The freeze <strong>expires by
+<p>That asymmetry is the whole design. One signature, acting alone and under its own
+name, can stop transfers for a day. Nothing else. The freeze <strong>expires by
 itself</strong> if the set does not confirm it, the case is public from the block it
 was opened in, and no case can ever send funds anywhere except the one address
 governance has set.</p>
+<p>Note which column the enforcement authority appears in and which it does not. It
+can stop money in one block, inside one country; it has no vote on any case
+unless it happens also to be a bonded validator, and there is no message that
+lets it take anything.</p>
 <p>Four things constrain a seizure specifically, because a seizure is the only
 action here that cannot be undone:</p>
 <ol>
@@ -97,9 +102,29 @@ count.</li>
   }&#39; \
   --from validator --chain-id yamale-testnet-1
 </code></pre>
-<p><code>&lt;your-account&gt;</code> is the validator&#39;s own account — the key it signs with. The
-chain works out the operator address and records <strong>that</strong> on the case, so the
-accusation carries a name people recognise.</p>
+<p><code>&lt;your-account&gt;</code> is the signer&#39;s own account. Two kinds of account may sign, and
+the case records them differently on purpose:</p>
+<ul>
+<li>a <strong>bonded validator</strong> signs with its account key, and the chain works out the
+operator address and records <strong>that</strong> on the case, so the accusation carries a
+name people recognise;</li>
+<li>a holder of <strong><code>ROLE_ENFORCEMENT_AUTHORITY</code></strong> covering the target&#39;s country is
+recorded by its own address, because a group policy has no operator address and
+its own address is exactly what <code>query alias role-holders &lt;CC&gt;</code> is read against.</li>
+</ul>
+<p>The validator path is tried first, so nothing a validator could do before has
+changed shape — including the error it gets when it has unbonded, which stays
+<code>ErrUnknownValidator</code> as long as it holds no grant. An account that is neither is
+told both things it is not, because a signer told only &quot;you hold no enforcement
+grant&quot; when they meant to sign as a validator would go looking for a proposal
+they never needed.</p>
+<p>Holding the role <strong>somewhere</strong> gets an account past that step and permits
+nothing. What permits is the perimeter: the signer has to hold
+<code>ROLE_ENFORCEMENT_AUTHORITY</code> covering the country the <strong>target</strong> is recorded in,
+and that check runs on both kinds of opener. Being a bonded validator says you
+are trusted to secure this chain; it does not say whose accounts you may stop.
+This module used to answer only the first question, which is how a validator in
+one jurisdiction could freeze an account in another.</p>
 <p>The target is frozen in this block. Check it from the other side:</p>
 <pre><code class="language-bash">blockchaind query enforcement freeze-status &lt;target&gt;
 </code></pre>
@@ -197,7 +222,7 @@ Worth knowing before the set grows.</p>
 </blockquote>
 <h2>3. What passing does</h2>
 <p>For a <code>freeze</code> case: the freeze stops expiring. It is the set&#39;s decision now,
-not one validator&#39;s suspicion, and lifting it takes another decision.</p>
+not one opener&#39;s suspicion, and lifting it takes another decision.</p>
 <p>For a <code>seize</code> case, <strong>nothing happens yet</strong>. The case becomes <code>HELD</code>: agreed,
 frozen, and waiting out a delay sized by what it would take.</p>
 <pre><code class="language-bash">blockchaind query enforcement held-cases
@@ -295,27 +320,45 @@ moved forward, and the ombudsman is closed out of all of them:</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>OpenCase</code>, <code>VoteCase</code></td>
-<td>require a bonded validator — <strong>and</strong> are refused to the ombudsman&#39;s address in the handler, on every call, even if that key <em>is</em> bonded</td>
+<td><code>OpenCase</code></td>
+<td>requires a bonded validator or a holder of <code>ROLE_ENFORCEMENT_AUTHORITY</code> in the target&#39;s country — <strong>and</strong> is refused to the ombudsman&#39;s address in the handler, on every call, even if that key <em>is</em> bonded or <em>does</em> hold the grant</td>
+</tr>
+<tr>
+<td><code>VoteCase</code></td>
+<td>requires a bonded validator, and holding the role confers no vote — <strong>and</strong> is refused to the ombudsman&#39;s address in the handler, including a vote of no, because an office that could vote at all would be inside the process it checks</td>
 </tr>
 <tr>
 <td><code>EmergencyFreeze</code></td>
-<td>requires the emergency authority, and the parameters refuse an ombudsman that is also the emergency authority</td>
+<td>requires <code>ROLE_ENFORCEMENT_AUTHORITY</code> over the target&#39;s country, and is refused to the ombudsman&#39;s address in the handler before the grant is read at all</td>
 </tr>
 <tr>
 <td><code>UpdateParams</code>, <code>ReverseCase</code></td>
-<td>governance authority only. This matters more than it looks: an ombudsman that could reach <code>UpdateParams</code> could appoint itself emergency authority and open cases from there</td>
+<td>governance authority only — and <code>UpdateParams</code> refuses an ombudsman that already holds <code>ROLE_ENFORCEMENT_AUTHORITY</code>, returning <code>ErrOmbudsmanCannotInitiate</code></td>
 </tr>
 <tr>
 <td><code>Sweep</code></td>
 <td>permissionless, and refused to the ombudsman anyway</td>
 </tr>
 </tbody></table>
-<p>The address checks live in the handlers rather than only in <code>Params.Validate</code>
-because whether the ombudsman&#39;s key is <em>also</em> a bonded validator is a fact about
-chain state, not about a parameter struct — a validator admitted with that key,
-an operator changing hands. Guarding where the power is exercised is the only
-place the guard holds for every state the chain can reach.</p>
+<p><code>Params.Validate()</code> used to refuse parameters in which the ombudsman and the
+emergency authority were the same address. That comparison is gone with the
+field, and it could not have been kept: the authority is a grant in another
+module now, so a method on a parameter struct cannot see it.</p>
+<p>What replaces it is two checks in two places, which between them cover the two
+orders the collision can arrive in. <code>UpdateParams</code> asks the registry before
+writing an ombudsman, and refuses one that already holds the role — that catches
+appointing an ombudsman over an existing grant, and it fails closed, so a chain
+that cannot check this cannot appoint an ombudsman past it. The handlers refuse
+the ombudsman outright wherever a case is opened or advanced — and that is the
+check actually holding the property, because it catches the other order too: a
+grant made to a sitting ombudsman <em>after</em> the parameters were written, which the
+parameters could never have seen even when the field existed.</p>
+<p>The same argument covers the older half of this. Whether the ombudsman&#39;s key is
+<em>also</em> a bonded validator is a fact about chain state, not about a parameter
+struct — a validator admitted with that key, an operator changing hands. Guarding
+where the power is exercised is the only place the guard holds for every state the
+chain can reach, and the field&#39;s disappearance is what makes that no longer belt
+and braces but the whole belt.</p>
 <p>And the positive half: <code>MsgOmbudsmanVeto</code> is the only message whose signer is
 the ombudsman, and the only status it can write is a terminal one. There is no
 branch in it that creates a case, sets one to voting, or increases any tally.
@@ -329,9 +372,14 @@ somebody decides, deliberately, which side of the line it falls on.</p>
 open a fresh case against the same target in the next block. What the veto buys
 is that doing so is a <strong>new, public accusation</strong> every time, and stopping it
 again costs the ombudsman another signature on the record.</p>
-<p>The parameters refuse an ombudsman that is also the emergency authority (which
-can open cases) or the recovery destination (which receives what seizures take).
-The office is meant to be outside, and those are the two ways it would not be.</p>
+<p>Two things the ombudsman must not also be, and they are now checked in two
+different places because only one of them is still a fact about the parameters.
+<code>Params.Validate()</code> refuses an ombudsman that is the <strong>recovery destination</strong>,
+which receives what seizures take — both are fields, so a struct method can
+compare them. <code>UpdateParams</code> refuses an ombudsman that holds
+<strong><code>ROLE_ENFORCEMENT_AUTHORITY</code></strong>, which can open cases — that is a grant in
+another module, so the check moved to where the state is. The office is meant to
+be outside, and those are the two ways it would not be.</p>
 <p>If <code>ombudsman</code> is unset there is no veto at all, which is the default. An
 unappointed office means nobody, never anybody.</p>
 <h2>The rolling cap on seizures</h2>
@@ -389,75 +437,161 @@ forgotten, and the difference matters most to the person still frozen.</p>
 <p>A seizure larger than the whole window&#39;s budget will keep deferring, visibly,
 once per window, forever. Governance raising the cap or reversing the case are
 the two ways out, and both need somebody to know it is stuck.</p>
-<h2>The founders&#39; emergency path</h2>
+<h2>The emergency path</h2>
 <p>The validator process has two failure modes a real network cannot simply wait
 out. A theft at three in the morning with nobody awake to open a case. And a
 freeze that was plainly wrong, sitting on a business&#39;s payroll for the twelve
 hours until the voting period ends — &quot;wait a day, it expires by itself&quot; is not
 an answer anyone can give a customer.</p>
-<p>So one address, <code>emergency_authority</code>, can do two things immediately: <strong>freeze</strong>
-and <strong>release</strong>. In practice it is a founders&#39; M-of-N group policy from
-<code>x/group</code>, so those actions still take several people.</p>
-<p>It cannot seize, and there is no message that would let it. That is the whole
-shape of the power:</p>
+<p>So an <strong>enforcement authority</strong> can do two things immediately: <strong>freeze</strong> and
+<strong>release</strong>. That means a holder of <code>ROLE_ENFORCEMENT_AUTHORITY</code> in <code>x/alias</code>&#39;s
+grant registry, and the role goes to an <code>x/group</code> account, so those actions still
+take several people.</p>
+<h3>It used to be one address, and the shape of that is what changed</h3>
+<p>The signer used to be <code>emergency_authority</code>: one address, named in this module&#39;s
+parameters, with no territorial limit at all. It could freeze any account on this
+chain.</p>
+<p>That shape is worth naming because it is the one the perimeter exists to abolish.
+The single fastest power in the module — the one path that acts on one signature,
+without waiting for a validator — was also the one path no border bounded. What
+replaces it is not slower: an office signs, in one block, exactly as before,
+inside a country. <code>EmergencyFreeze</code> now requires the signer to hold the role
+covering the country the <strong>target</strong> is recorded in, which is the same check every
+other authority action on this chain routes through, and skipping it because the
+situation is urgent would mean an authority that needs to stop an account outside
+its perimeter never needs the authority of that perimeter.</p>
+<p><strong>&quot;Unset means nobody&quot; survives the move, in a new form.</strong> The parameter&#39;s
+careful property was that an empty <code>emergency_authority</code> meant <em>nobody</em>, never
+<em>anybody</em>, and there was a dedicated error for it. The grant carries the same
+property by a shorter road: no grant is no emergency path, because there is
+nothing to satisfy the check. A store failure resolving the registry refuses too,
+and so does a target the chain cannot place — the perimeter refuses an
+unplaceable target <em>before</em> any grant is read. There is no configuration of this
+module in which the emergency path is open to whoever noticed first.</p>
+<p>The error you get on an empty chain is <code>ErrOutOfScope</code>, from the perimeter, and
+it names the country the signer&#39;s grant did not reach. Code <strong>1114</strong>,
+<code>ErrNoEmergencyAuthority</code>, is retired and will never be reused: a client that
+special-cased it should find that out, and a future error wearing that number
+would tell every one of them something false.</p>
+<h3>What happened to the address a running chain already had</h3>
+<p>The <code>roles-that-do-something</code> upgrade carries it across, and the grant it writes
+is <strong>chain-wide</strong> rather than scoped to a country. That is the honest reading of
+what the parameter was rather than a preference: <code>emergency_authority</code> had no
+territorial limit, so choosing a country here would be an upgrade narrowing an
+authority nobody voted to narrow, and picking the country on top of it.
+Governance can revoke that grant and issue country ones the moment it wants to;
+an upgrade that silently removed the emergency path is not something anybody can
+undo before they notice.</p>
+<p>The grant is written by the upgrade handler rather than by either module&#39;s
+migration, and the split is deliberate. Grants live in <code>x/alias</code> and
+<code>x/enforcement</code> has no edge into it — precisely so the perimeter cannot be
+widened from inside the module it constrains — so the upgrade handler, which
+holds both keepers and runs once at a height governance voted for, reads the old
+address out of the raw parameter bytes <em>before</em> the module migrations discard it
+and writes the grant afterwards. <code>granted_by</code> names governance, because
+governance is what set the parameter.</p>
+<h3>What an office may now do that it could not</h3>
+<p>Holding the role also lets that account <strong>open an ordinary case</strong> — including a
+seizure accusation — without being a bonded validator. That is a real widening
+and it should be read as one, because collapsing two mechanisms into one always
+is: <code>emergency_authority</code> could freeze and release and nothing else. On a chain
+that had one, the account that held it can now accuse.</p>
+<p>What it does not let it do is <strong>decide</strong> one. A seizure still needs two thirds of
+bonded voting power on <code>MsgVoteCase</code>, and an office that is not a validator has
+no vote to cast. A national authority can stop money for a day; the validator set
+decides whether it is taken.</p>
+<p>It cannot seize directly, and there is no message that would let it. That is the
+whole shape of the power:</p>
 <blockquote>
 <p>Stopping money is recoverable — release the account and nothing was lost but
 time. Taking it is not. So taking it stays with the validator supermajority,
 whoever is asking.</p>
 </blockquote>
-<p>A freeze the founders impose is <strong>provisional exactly like a validator&#39;s</strong>. It
+<p>A freeze an office imposes is <strong>provisional exactly like a validator&#39;s</strong>. It
 opens a real case, it goes into the same voting queue, it lapses if nobody
 confirms it, and the validators can refuse it — which releases the account in
-that same block. The founders are faster than the set; they are not above it.</p>
+that same block. The office is faster than the set; it is not above it.</p>
 <p>Both messages are signed by the group policy, so they go through an <code>x/group</code>
 proposal rather than a key at a terminal:</p>
 <pre><code class="language-json">{
   &quot;@type&quot;: &quot;/blockchain.enforcement.v1.MsgEmergencyFreeze&quot;,
-  &quot;authority&quot;: &quot;&lt;founders group policy address&gt;&quot;,
+  &quot;authority&quot;: &quot;&lt;the enforcement office&#39;s group policy address&gt;&quot;,
   &quot;target&quot;: &quot;yml1...&quot;,
   &quot;reason&quot;: &quot;exchange reported the deposit as stolen at 03:14 UTC&quot;,
   &quot;evidence_uri&quot;: &quot;https://…/report.pdf&quot;,
   &quot;evidence_hash&quot;: &quot;&lt;sha256&gt;&quot;
 }
 </code></pre>
-<pre><code class="language-bash">blockchaind tx group submit-proposal proposal.json --from founder-1
-blockchaind tx group vote &lt;proposal-id&gt; &lt;founder&gt; VOTE_OPTION_YES --from founder-2
-blockchaind tx group exec &lt;proposal-id&gt; --from founder-1
+<pre><code class="language-bash">blockchaind tx group submit-proposal proposal.json --from officer-1
+blockchaind tx group vote &lt;proposal-id&gt; &lt;officer&gt; VOTE_OPTION_YES --from officer-2
+blockchaind tx group exec &lt;proposal-id&gt; --from officer-1
 </code></pre>
 <p>Releasing is the same shape:</p>
 <pre><code class="language-json">{
   &quot;@type&quot;: &quot;/blockchain.enforcement.v1.MsgEmergencyRelease&quot;,
-  &quot;authority&quot;: &quot;&lt;founders group policy address&gt;&quot;,
+  &quot;authority&quot;: &quot;&lt;the enforcement office&#39;s group policy address&gt;&quot;,
   &quot;case_id&quot;: &quot;4&quot;,
   &quot;reason&quot;: &quot;the counterparty was the exchange&#39;s own settlement account&quot;
 }
 </code></pre>
-<p>Release works on a case that is still being voted on and on one that already
-passed. What it does <strong>not</strong> do is undo a seizure: if the funds have moved,
-releasing gives the account back and nothing else. Those funds are the recovery
-destination&#39;s to return.</p>
+<p>Release works on a case that is still being voted on, on one that already
+passed, and on a seizure waiting out its delay. What it does <strong>not</strong> do is undo a
+seizure: if the funds have moved, releasing gives the account back and nothing
+else. Those funds are the recovery destination&#39;s to return.</p>
+<p><strong>Release is scoped to the case&#39;s target, not to anything the message names.</strong>
+There is no country in <code>MsgEmergencyRelease</code> — only a case id — so the case is
+loaded first and the signer is then checked against the country its <strong>target</strong> is
+recorded in. That ordering is forced rather than chosen: taking a country from the
+signer instead would let an actor name its own perimeter, which is the one claim
+the perimeter design refuses.</p>
+<p>Leaving release chain-wide was the defensible alternative, since it is the smaller
+act and a wrong freeze is an emergency of its own. It was not taken, because an
+office able to release anywhere could lift the freeze another country&#39;s authority
+had just imposed, which is interference in that perimeter rather than mercy in its
+own.</p>
+<p>The cost of that is real and is better stated than discovered: <strong>a target whose
+jurisdiction the chain cannot resolve cannot be released by this message at all.</strong>
+The perimeter refuses an unplaceable target before any grant is read, so there is
+no office that can act for it. What is left for that account is the provisional
+freeze lapsing by itself, and governance reversing a case that passed with
+<code>MsgReverseCase</code>. Both are slower and both exist.</p>
 <p>Everything the emergency path does is marked as such — on the case, in the
-events, and with its own badge in the explorer. &quot;A validator saw this&quot; and &quot;the
-founders acted directly&quot; are different facts about how the chain is being run,
+events, and with its own badge in the explorer. &quot;A validator saw this&quot; and &quot;an
+authority acted directly&quot; are different facts about how the chain is being run,
 and only one of them is the normal case.</p>
-<p>If <code>emergency_authority</code> is unset there is no emergency path at all, which is
-the default. An unset authority means nobody, never anybody.</p>
+<p>If nobody holds <code>ROLE_ENFORCEMENT_AUTHORITY</code> there is no emergency path at all,
+which is the state a chain starts in. No grant means nobody, never anybody — and
+<code>query alias role-holders &lt;CC&gt;</code> and <code>query alias chain-wide-grants</code> are how you
+find out which it is.</p>
 <h2>When it goes wrong</h2>
 <p>Three ways out, in increasing order of how much the chain has already done:</p>
-<p><strong>Withdraw.</strong> The validator who opened a case can take it back while it is still
-being voted on, which releases the account immediately. The person trusted to
-impose a freeze alone is trusted to admit alone that they were wrong.</p>
+<p><strong>Withdraw.</strong> Whoever opened a case can take it back while it is still being
+voted on, which releases the account immediately. The party trusted to impose a
+freeze alone is trusted to admit alone that they were wrong.</p>
 <pre><code class="language-bash">blockchaind tx enforcement withdraw-case &lt;your-account&gt; 1 --from validator
 </code></pre>
+<p>Withdrawal matches on <strong>identity and nothing else</strong>. An office whose grant has
+since been revoked, and a validator that has since unbonded, may both still
+withdraw the case they opened — deliberately, because withdrawing is
+de-escalation, and a rule that made it conditional on still holding a power would
+leave somebody&#39;s account frozen precisely because the party that was wrong about
+them lost its authority afterwards. The one consequence to know: an unbonded
+validator renders as its own account address rather than its operator address, so
+it no longer matches a case it opened under the operator name. The freeze it
+imposed still lapses, the validators can still resolve the case, and governance
+can still reverse one that passed.</p>
 <p><strong>Let it lapse.</strong> A case nobody votes on expires at the end of its voting
 period, and the account is released. The status is <code>EXPIRED</code>, deliberately not
 <code>REJECTED</code>: silence is not a finding, and the record should not claim it was.</p>
 <p><strong>Veto.</strong> The ombudsman can stop any case that has not taken anything yet (see
 above), including a seizure the validators have already agreed to.</p>
-<p><strong>Release or appeal.</strong> The founders&#39; group can lift any freeze immediately (see
-above). Governance can also overturn a case that already passed, through a
-proposal carrying <code>MsgReverseCase</code>. Either way the freeze is lifted and the
-reversal is recorded beside the original accusation.</p>
+<p><strong>Release or appeal.</strong> An enforcement authority for the country the case&#39;s target
+is recorded in can lift the freeze immediately (see above). Governance can also
+overturn a case that already passed or is waiting out its delay, through a
+proposal carrying <code>MsgReverseCase</code> — and that path asks nothing about the target&#39;s
+country, which is what makes it the one route left when the chain cannot place
+the target at all. Either way the freeze is lifted and the reversal is recorded
+beside the original accusation.</p>
 <p>It does <strong>not</strong> return what was already seized. Those funds are in the recovery
 destination&#39;s hands, and only they can send them back. The module could pretend
 otherwise, and the state machine would then be telling a comforting lie.</p>
@@ -493,8 +627,9 @@ collector, exactly what the freeze was imposed to preserve. Somebody who wants
 to make restitution to the foundation should do it from an account that is not
 frozen, or ask the foundation to sweep.</p>
 <h3>Freeze lapse: a backstop, not the ordinary path</h3>
-<p><code>provisional_freeze_blocks</code> is documented as what limits a freeze one validator
-imposed alone. It does, but not by the route the name suggests, and the
+<p><code>provisional_freeze_blocks</code> is documented as what limits a freeze one signature
+imposed alone, whether a validator&#39;s or an office&#39;s. It does, but not by the
+route the name suggests, and the
 difference is worth knowing before anybody goes looking for a lapse on a running
 chain and concludes the mechanism is broken.</p>
 <p><code>Params.Validate</code> requires <code>provisional_freeze_blocks &gt;= voting_period_blocks</code>.
@@ -525,7 +660,7 @@ cannot be reached by using the module correctly.</p>
 <tr>
 <td><code>provisional_freeze_blocks</code></td>
 <td>17,280 (~24h)</td>
-<td>how long one validator&#39;s freeze lasts unconfirmed</td>
+<td>how long a freeze one signature imposed lasts unconfirmed</td>
 </tr>
 <tr>
 <td><code>threshold_bps</code></td>
@@ -541,11 +676,6 @@ cannot be reached by using the module correctly.</p>
 <td><code>seize_requires_evidence</code></td>
 <td>true</td>
 <td>whether a seizure can be opened without a record</td>
-</tr>
-<tr>
-<td><code>emergency_authority</code></td>
-<td><em>(unset)</em></td>
-<td>the founders&#39; group, which can freeze and release at once</td>
 </tr>
 <tr>
 <td><code>seizure_delay_blocks</code></td>
@@ -580,6 +710,13 @@ cannot be reached by using the module correctly.</p>
 </tbody></table>
 <p>There is no parameter for the legal instrument, and that is deliberate. A
 requirement governance can vote away is a default.</p>
+<p>There is no parameter for the emergency authority either, and there used to be:
+field 8 held <code>emergency_authority</code>, and it is now <strong>reserved</strong> — the number will
+never be reused, because a chain that has run carries parameter bytes with a
+field 8 in them and a new field wearing that number would decode an old
+authority&#39;s address as whatever the new field is. Who may freeze in an emergency
+is a grant in <code>x/alias</code> now, scoped to the target&#39;s country. See
+<a href="#the-emergency-path">the emergency path</a>.</p>
 <p><code>recovery_destination</code> is the foundation account: the trust body administering
 the chain, which holds what is recovered so it can be restituted to the people
 it was taken from.</p>
@@ -617,8 +754,8 @@ itself, and a safeguard the same body can remove by the same vote is a statement
 of intent rather than a rule. The destination is the same argument one step
 further: the threshold decides whether funds move, the destination decides who
 ends up with them.</p>
-<p>The rest of the table above is still ordinary. <code>max_reason_length</code>,
-<code>seize_requires_evidence</code> and <code>emergency_authority</code> move by proposal as before.</p>
+<p>The rest of the table above is still ordinary. <code>max_reason_length</code> and
+<code>seize_requires_evidence</code> move by proposal as before.</p>
 <p><code>threshold_bps</code> cannot be set at or below 5,000 by any route, amendment
 included. There is no configuration of this module worth having in which a
 minority of the validator set can take somebody&#39;s assets, so that is refused at
@@ -654,9 +791,12 @@ a Tuesday afternoon has not really got them.</p>
 on this chain from spending, within one block, on one member&#39;s say-so; and with
 two thirds it can take what that account holds. That is a real power over other
 people&#39;s money, and no amount of process makes it not one.</p>
-<p>The founders&#39; group can stop any account on its own signature too, though it
-can never take anything and any account it stops is released the moment the
-validators say so.</p>
+<p>A country&#39;s enforcement authority can stop an account in its own country on its
+own signature too, and can accuse one without holding a validator&#39;s stake —
+though it can never take anything, has no vote on whether anything is taken, and
+any account it stops is released the moment the validators say so. That last set
+of powers used to belong to one address with no country attached to it at all,
+which was the fastest power in the module and also the widest.</p>
 <p>What is offered against all that is not a promise but a shape: every case is
 public from the block it opens, carries its author&#39;s name and its grounds,
 expires unless confirmed, can only ever move funds to one governance-set

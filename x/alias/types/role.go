@@ -28,6 +28,57 @@ func ValidRole(role Role) bool {
 	return known
 }
 
+// MaxFoundationAdministrators caps how many accounts may hold
+// ROLE_FOUNDATION_ADMINISTRATOR at once.
+//
+// The cap is not about storage. It is there so that widening the one rule the
+// whole perimeter rests on cannot happen by accident. It kept its number and its
+// reason when the administrators stopped being a parameter list and became role
+// grants, and it is worth saying why it was kept rather than dropped, because
+// the argument for it changed shape.
+//
+// What it used to defend against was a governance proposal that appended a
+// hundred addresses to a repeated field and passed because nobody scrolled. That
+// exact failure is gone: a grant is one message naming one holder, with the
+// holder decoded, the role named, an event emitted and a height recorded, so a
+// hundred administrators is a hundred visible acts rather than one long line in
+// a parameter object.
+//
+// What it still defends against is the two places where a set can grow without
+// being read one entry at a time: a governance proposal carrying many messages,
+// and a genesis file. Both are checked — GrantRole counts the chain-wide grants
+// of this role before writing another, and GenesisState.Validate counts them in
+// the file — which is the same arrangement gaps.md describes for any invariant
+// on a count in a module with no EndBlocker.
+//
+// And the underlying reason has not moved at all: this is the single exception
+// to "every account has a jurisdiction", so it must not be possible to widen it
+// without somebody seeing. Eight is more than a foundation board needs and small
+// enough that the whole set fits on one screen of chain-wide-grants.
+const MaxFoundationAdministrators = 8
+
+// ChainWideOnly reports whether a role may be granted at the chain-wide scope
+// and nowhere else.
+//
+// One role today, and the function exists rather than a comparison at each call
+// site so that "which roles are chain-wide only" has one answer that GrantRole
+// and genesis validation both read. Two implementations of a rule like this
+// disagree eventually, and the permissive one wins because it is the one nothing
+// fails on.
+//
+// ROLE_FOUNDATION_ADMINISTRATOR is chain-wide or nothing for two reasons that
+// point the same way. What it exempts is the ABSENCE of a national perimeter, so
+// an administrator of one country would be claiming an exemption from a rule it
+// is already inside — a grant that reads like authority and confers confusion.
+// And because a chain-wide grant is governance's alone, refusing the country
+// form is what keeps this appointment exactly as governance-only as the
+// parameter list it replaced. Allowing a country scope would have handed the
+// foundation the power to appoint the accounts that stand outside every country,
+// which is a widening nobody asked for.
+func ChainWideOnly(role Role) bool {
+	return role == ROLE_FOUNDATION_ADMINISTRATOR
+}
+
 // ValidGrantScope reports whether a string may be the *where* of a grant.
 //
 // Assigned country codes and the chain-wide marker, and nothing else. Note in
@@ -83,6 +134,15 @@ func (g RoleGrant) Validate() error {
 	}
 	if !ValidGrantScope(g.Jurisdiction) {
 		return fmt.Errorf("the grant of %s to %s names %q, which is neither an assigned country code nor %q",
+			RoleName(g.Role), g.Holder, g.Jurisdiction, ChainWide)
+	}
+	// Checked here rather than only in the handler, for the reason the whole of
+	// this function is: nothing re-examines a grant seeded at height zero, so a
+	// rule enforced only in the message server is a rule a genesis file walks
+	// around — and this one decides whether the foundation may appoint the
+	// accounts that stand outside every national perimeter.
+	if ChainWideOnly(g.Role) && g.Jurisdiction != ChainWide {
+		return fmt.Errorf("the grant of %s to %s names %q; that role is %q or nothing, because what it exempts is the absence of a national perimeter",
 			RoleName(g.Role), g.Holder, g.Jurisdiction, ChainWide)
 	}
 	if err := g.RequiredShape.Validate(); err != nil {

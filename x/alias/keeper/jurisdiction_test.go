@@ -70,7 +70,7 @@ func jSetup(t *testing.T) *jFixture {
 	_, f.outsider = env.Addr(t)
 
 	gs := types.DefaultGenesis()
-	gs.Params = types.NewParams(types.PayloadLength, f.admin)
+	gs.RoleGrants = []types.RoleGrant{administratorGrant(f.admin)}
 	require.NoError(t, k.InitGenesis(env.Ctx, *gs))
 
 	f.bank = f.approvedParticipant(t, "BANK1")
@@ -476,17 +476,29 @@ func TestGenesisRefusesALyingPrefix(t *testing.T) {
 	gs.Aliases = []types.Alias{{Id: types.Derive("NG", acct, 0, types.PayloadLength), Address: acct}}
 	require.ErrorContains(t, gs.Validate(), "no recorded jurisdiction")
 
-	// The foundation prefix worn by an account that is not a foundation
-	// administrator.
+	// The foundation prefix worn by an account holding no administrator grant.
 	gs = types.DefaultGenesis()
 	gs.Aliases = []types.Alias{{
 		Id: types.Derive(types.FoundationCountry, acct, 0, types.PayloadLength), Address: acct,
 	}}
-	require.ErrorContains(t, gs.Validate(), "not a foundation administrator")
+	require.ErrorContains(t, gs.Validate(), "holds no chain-wide grant")
 
-	// And the same file with the account named as an administrator loads.
+	// A grant of the role naming a COUNTRY does not carry the exemption, and the
+	// file is refused outright rather than loading with an identifier nothing
+	// backs. The rule is checked in the file for the same reason it is checked in
+	// the handler: nothing re-examines a grant seeded at height zero.
 	gs = types.DefaultGenesis()
-	gs.Params = types.NewParams(types.PayloadLength, acct)
+	gs.RoleGrants = []types.RoleGrant{{
+		Holder: acct, Role: types.ROLE_FOUNDATION_ADMINISTRATOR, Jurisdiction: "NG",
+	}}
+	gs.Aliases = []types.Alias{{
+		Id: types.Derive(types.FoundationCountry, acct, 0, types.PayloadLength), Address: acct,
+	}}
+	require.ErrorContains(t, gs.Validate(), `is "*" or nothing`)
+
+	// And the same file with the chain-wide grant loads.
+	gs = types.DefaultGenesis()
+	gs.RoleGrants = []types.RoleGrant{administratorGrant(acct)}
 	gs.Aliases = []types.Alias{{
 		Id: types.Derive(types.FoundationCountry, acct, 0, types.PayloadLength), Address: acct,
 	}}
@@ -495,41 +507,96 @@ func TestGenesisRefusesALyingPrefix(t *testing.T) {
 }
 
 // The exemption is the one rule the perimeter rests on, so every way it could
-// widen without anyone noticing is closed at the parameter.
-func TestTheExemptionListCannotWidenQuietly(t *testing.T) {
+// widen without anyone noticing is closed.
+//
+// The three closures used to be properties of a parameter list — governance
+// only, no duplicates, capped at eight — and two of them stopped being checks at
+// all when the administrators became grants, because a grant registry cannot
+// express them. That is the point rather than a loss, so this test now says
+// which mechanism carries each one.
+func TestTheExemptionCannotWidenQuietly(t *testing.T) {
 	f := jSetup(t)
 
-	// Governance only. An administrator is not governance: the list that names
-	// them is not theirs to extend.
-	_, err := f.ms.UpdateParams(f.env.Ctx, &types.MsgUpdateParams{
-		Authority: f.admin,
-		Params:    types.NewParams(types.PayloadLength, f.admin, f.outsider),
+	// Governance only, and it still is. A chain-wide grant may be made by
+	// governance and by nobody else, so an administrator cannot appoint another
+	// one — including the foundation, which may admit a country and may not
+	// manufacture authority over every country.
+	_, err := f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority:    f.admin,
+		Holder:       f.outsider,
+		Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: types.ChainWide,
 	})
 	require.ErrorIs(t, err, types.ErrInvalidSigner)
 
-	// A duplicate is refused, because a list that reads as two names and grants
-	// one is a list nobody can audit by looking at it.
-	_, err = f.ms.UpdateParams(f.env.Ctx, &types.MsgUpdateParams{
-		Authority: f.env.AuthorityString(t),
-		Params:    types.NewParams(types.PayloadLength, f.admin, f.admin),
+	// A country scope is refused. This is what keeps the appointment as
+	// governance-only as the parameter list was: without it the foundation could
+	// sign the message above by naming a country.
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority:    f.env.AuthorityString(t),
+		Holder:       f.outsider,
+		Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: "NG",
 	})
-	require.ErrorIs(t, err, types.ErrInvalidParams)
+	require.ErrorIs(t, err, types.ErrInvalidScope)
 
-	// And an unbounded one, so a proposal cannot pass because nobody scrolled.
-	many := make([]string, 0, types.MaxFoundationAdministrators+1)
-	for i := 0; i <= types.MaxFoundationAdministrators; i++ {
-		_, a := f.env.Addr(t)
-		many = append(many, a)
+	// A duplicate is no longer refused; it is impossible. A grant is keyed by
+	// (holder, role, jurisdiction), so granting the same triple twice writes one
+	// record and the second call is the idempotence every other role has.
+	grant := &types.MsgGrantRole{
+		Authority:    f.env.AuthorityString(t),
+		Holder:       f.outsider,
+		Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: types.ChainWide,
 	}
-	_, err = f.ms.UpdateParams(f.env.Ctx, &types.MsgUpdateParams{
-		Authority: f.env.AuthorityString(t),
-		Params:    types.NewParams(types.PayloadLength, many...),
-	})
-	require.ErrorIs(t, err, types.ErrInvalidParams)
+	_, err = f.ms.GrantRole(f.env.Ctx, grant)
+	require.NoError(t, err)
+	_, err = f.ms.GrantRole(f.env.Ctx, grant)
+	require.NoError(t, err)
+	held, err := f.k.GrantsOf(f.env.Ctx, f.outsider)
+	require.NoError(t, err)
+	require.Len(t, held, 1, "granting the same triple twice must write one record")
 
-	// The exemption still covers exactly who it covered.
-	_, err = f.ms.RegisterAlias(f.env.Ctx, &types.MsgRegisterAlias{Account: f.outsider})
+	// And the cap holds, so a proposal cannot widen the exemption because nobody
+	// scrolled. Two are already held — the fixture's administrator and the one
+	// just granted — so the cap is reached six grants later.
+	for i := 0; i < types.MaxFoundationAdministrators-2; i++ {
+		_, a := f.env.Addr(t)
+		_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+			Authority:    f.env.AuthorityString(t),
+			Holder:       a,
+			Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+			Jurisdiction: types.ChainWide,
+		})
+		require.NoErrorf(t, err, "administrator %d of %d", i+3, types.MaxFoundationAdministrators)
+	}
+	_, ninth := f.env.Addr(t)
+	_, err = f.ms.GrantRole(f.env.Ctx, &types.MsgGrantRole{
+		Authority:    f.env.AuthorityString(t),
+		Holder:       ninth,
+		Role:         types.ROLE_FOUNDATION_ADMINISTRATOR,
+		Jurisdiction: types.ChainWide,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidRole)
+	require.ErrorContains(t, err, "at most 8 accounts may hold")
+
+	// Re-granting one that already holds it is still accepted at the cap, or the
+	// eighth administrator's grant could never be amended.
+	_, err = f.ms.GrantRole(f.env.Ctx, grant)
+	require.NoError(t, err)
+}
+
+// The exemption covers absence of a jurisdiction and nothing else, and it covers
+// exactly the accounts holding the grant.
+func TestTheExemptionCoversOnlyItsHolders(t *testing.T) {
+	f := jSetup(t)
+
+	_, err := f.ms.RegisterAlias(f.env.Ctx, &types.MsgRegisterAlias{Account: f.outsider})
 	require.ErrorIs(t, err, types.ErrNoJurisdiction)
+
+	res, err := f.ms.RegisterAlias(f.env.Ctx, &types.MsgRegisterAlias{Account: f.admin})
+	require.NoError(t, err)
+	require.Equal(t, types.FoundationCountry, types.Country(res.Id))
 }
 
 // The devnet's prefixless identifiers, handled deliberately.

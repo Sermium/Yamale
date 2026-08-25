@@ -131,16 +131,51 @@ unspecified and refused everywhere: proto3 cannot tell a zero from an absent
 field, so a role numbered zero would make "grant the first role in the list" and
 "grant whatever the default is" the same message.
 
-**Two of the five currently confer nothing, and that is a gap rather than a
-design.** `role.proto` keeps the list short on the stated grounds that "a role
-nothing consults is a name in a registry pretending to be a control" — and today
-`ROLE_SUPERVISOR` is exactly that, with no consumer anywhere. `ROLE_ENFORCEMENT_
-AUTHORITY` is nearly that: its only two consumers, `MsgOpenCase` and
-`MsgEmergencyFreeze`, each impose a second condition an office cannot satisfy —
-being a bonded validator, or being `x/enforcement`'s `emergency_authority`
-parameter — so a country's enforcement office holds a grant no message lets it
-use. The perimeter check is correct in both; what is missing is a message a
-national enforcement authority can send.
+**Two of the five conferred nothing, and both now confer something.** `role.proto`
+keeps the list short on the stated grounds that "a role nothing consults is a
+name in a registry pretending to be a control", and for a while
+`ROLE_SUPERVISOR` was exactly that, with no consumer anywhere, while
+`ROLE_ENFORCEMENT_AUTHORITY` was nearly that: its only two consumers,
+`MsgOpenCase` and `MsgEmergencyFreeze`, each imposed a second condition an office
+could not satisfy — being a bonded validator, or being `x/enforcement`'s
+`emergency_authority` parameter — so a country's enforcement office held a grant
+no message let it use.
+
+What closed the enforcement half was the second condition going away. `MsgOpenCase`
+accepts a bonded validator **or** a holder of the role covering the target's
+country, and `MsgEmergencyFreeze` is authorised by the role instead of by a
+parameter naming one chain-wide address. Both changes are widenings of *who may
+accuse* and neither touches *who decides*: two thirds of bonded voting power
+still resolves every case, and an office that is not a validator has no vote at
+all. A national authority can stop money for a day; the set decides whether any
+is taken.
+
+What closed the supervisor half needed a different shape, because of a fact about
+the transport rather than about the design: **a gRPC query carries no signer, so
+the chain cannot gate a read by role.** Ordinary read access on this deployment
+is controlled at the proxy, and a role that pretended to control it would be
+worse than an empty one. What the chain can do is decide who is *entitled* to
+read the one body of data it does not serve to whoever asks — the encrypted
+payload of a payment — and publish that set authoritatively from the grant
+registry. A holder of `ROLE_SUPERVISOR` covering a country is entitled to be a
+viewing-key recipient for every payload whose declared settlement jurisdiction is
+that country, which is the same declaration that decides who may act on the
+payment, and `Query/PayloadReaders` returns the whole set with each holder's
+current key so a sender can resolve it in one call at the moment it seals.
+
+Two things follow, and the second is a limit worth stating rather than glossing.
+A country's appointed regulator must now hold the role covering that country —
+`MsgAppointRegulator` refuses otherwise — so "who is watching this country" stops
+having two answers in two places, which is what the role was always documented as
+providing. And the chain **cannot force a sender to seal to an entitled reader**:
+the envelope is built off-chain and the chain holds only a hash of the plaintext,
+so a sender that ignores the published set produces a payload the supervisor can
+never open and nothing on chain detects it. That is a limit of where the
+ciphertext lives, not a gap in the registry.
+
+A supervisor still cannot open a case, freeze, seize, touch land, admit an issuer
+or a participant, grant a role, correct a jurisdiction, or appoint a regulator.
+Oversight without the power to act, which is what the name says.
 
 Grants naming a **country** are created and removed by governance **or by the
 foundation** — meaning the one account `x/constitution` pins as
@@ -182,14 +217,38 @@ rule under which the foundation can appoint a national enforcement authority in
 one vote and needs a governance cycle to remove one makes the emergency the
 expensive case.
 
-Note that "the foundation" here is **not** the `foundation_administrators`
-parameter of this same module, and the difference is the point: a parameter list
-is editable by one ordinary proposal, so naming the foundation there would make
-"who may appoint a country's authorities" a set a single vote could append to. An
-invariant cannot be changed without a constitutional amendment. Both mechanisms
-are needed in practice — recording an office's own jurisdiction goes through the
-parameter list, because no participant onboarded a group policy — and an
-enrolment checks for both rather than discovering the second one late.
+Note that "the foundation" here is **not** a foundation administrator, and the
+difference is the point. That role is granted by `MsgGrantRole`, so reading the
+foundation out of it would make "who may appoint a country's authorities" a set
+that `MsgGrantRole` itself could append to; an invariant cannot be changed
+without a constitutional amendment. The circularity is the same one that ruled
+out a parameter list, which is where the administrators used to live: a list a
+single ordinary proposal could edit.
+
+**The administrators are a role now, and collapsing the two mechanisms was the
+point.** `alias.params.foundation_administrators` is retired and its field number
+reserved; the exemption is `ROLE_FOUNDATION_ADMINISTRATOR`, granted chain-wide
+and refused at a country scope — which keeps the appointment exactly as
+governance-only as the parameter was, since a chain-wide grant is governance's
+alone. Enrolling a country used to need both mechanisms at once, because
+recording an office's own jurisdiction goes through the administrator (no
+participant onboarded a group policy) while granting its roles goes through the
+registry; they were unrelated lists that happened to share a name, and holding
+one without the other produced a proposal that passed and an office that could
+not work. It is one registry now, and an enrolment checks one thing.
+
+Three properties the parameter never had come with the move, and each of them was
+a real defect: an administrator must be an `x/group` account rather than a bare
+key; the address is decoded, where `Params.Validate()` accepted any non-empty
+string so a typo passed a vote and granted the exemption to nobody; and a
+proposal about something else cannot silently drop the administrators already
+appointed, which `MsgUpdateParams` could do every time, because it replaces the
+whole parameter object and a shorter list is a valid list.
+
+The cap of eight survives, now counted over the chain-wide grants of the role in
+both `GrantRole` and genesis validation, and for the reason it always had: this
+is the single exception to "every account has a jurisdiction", and widening it
+must be a visible act.
 
 Roles are held by `x/group` accounts, checked at grant time rather than trusted,
 so an authority action is M-of-N rather than one official — which is already how
@@ -294,9 +353,20 @@ the grants; requiring it to hold one would be circular.
 **Every account has a jurisdiction. There is exactly one exception.** *(Built.)*
 Registration refuses an account with no country recorded — not a permissive
 default, a refusal. The only accounts without one are the **foundation
-administrators**, the highest authority on the rail, who hold the chain-wide `*`
-scope. There is therefore no ambiguous unclaimed state for anyone to reason about
-or exploit, and no migration limbo in which the perimeter is advisory.
+administrators**, the highest authority on the rail, who hold
+`ROLE_FOUNDATION_ADMINISTRATOR` at the chain-wide `*` scope. There is therefore
+no ambiguous unclaimed state for anyone to reason about or exploit, and no
+migration limbo in which the perimeter is advisory.
+
+The exemption is read as a fact about placement rather than as an authority, and
+the distinction matters at exactly one point. `CountryOf` asks only whether the
+grant exists; it does not hold the office to the M-of-N its grant may record.
+An office that lost a member would otherwise stop having a country at all — its
+own identifier unissuable, every authority action against it refused with "no
+recorded jurisdiction" — which is failing closed in the direction that removes
+an account from every perimeter rather than the one that refuses it a power.
+Acting is a different question, asked elsewhere, and there the shape is checked
+like everywhere else.
 
 The identifiers issued before this existed are prefixless, and there was no
 source of truth to give them a country from — the registry is what the change

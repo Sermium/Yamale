@@ -30,6 +30,27 @@ type ScopeKeeper interface {
 	// covering the country the target account is recorded in. A target the chain
 	// cannot place is an error, not a match.
 	AssertScope(ctx context.Context, actor string, role aliastypes.Role, target string) error
+
+	// HoldsRole reports whether an account holds a role in any jurisdiction at
+	// all. It is NOT an authorisation check and nothing is permitted on the
+	// strength of it — AssertScope still runs and is still the only thing that
+	// permits anything.
+	//
+	// It is here for two jobs, and both are about telling the truth rather than
+	// about deciding:
+	//
+	//   - OpenCase accepts either a bonded validator or an enforcement office, so
+	//     it has to choose which refusal to report to somebody who is neither.
+	//     Without this, an ordinary account opening a case would be told its
+	//     target has no recorded jurisdiction, which sends the reader after a
+	//     bug in the wrong module.
+	//   - UpdateParams refuses an ombudsman that already holds
+	//     ROLE_ENFORCEMENT_AUTHORITY, which is the parameter-time half of the
+	//     exclusion the retired emergency_authority field used to carry. That
+	//     question is about the holder and not about any target, so AssertScope
+	//     is the wrong shape for it: there is no account to resolve a country
+	//     from.
+	HoldsRole(ctx context.Context, actor string, role aliastypes.Role) (bool, error)
 }
 
 // ConstitutionKeeper is where this module's non-negotiable parameters really

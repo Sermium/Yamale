@@ -59,6 +59,18 @@ type Keeper struct {
 	authority    string
 	logger       log.Logger
 
+	// storeService is kept for one purpose and it is worth naming, because every
+	// other read in this module goes through a collection: the v2-to-v3 migration
+	// has to read the module's parameters as RAW BYTES.
+	//
+	// Params lost a field in v3 — foundation_administrators, which became a role
+	// grant — and a reserved field is a field the generated Go type no longer
+	// has. The gogoproto build here does not keep unknown fields either, so
+	// decoding the stored bytes with the new type silently drops exactly the
+	// value the migration exists to carry across. Reading the bytes is the only
+	// way to see it. See Migrator.Migrate2to3.
+	storeService storetypes.KVStoreService
+
 	// participants answers "who onboarded this account, and are they still
 	// admitted". Read-only; see types.ParticipantKeeper.
 	participants types.ParticipantKeeper
@@ -116,6 +128,7 @@ func NewKeeper(
 		addressCodec: addressCodec,
 		authority:    authority,
 		logger:       logger.With("module", "x/"+types.ModuleName),
+		storeService: storeService,
 		participants: participants,
 		groups:       groups,
 		constitution: constitution,
@@ -163,9 +176,9 @@ func (k Keeper) Logger() log.Logger   { return k.logger }
 // implemented differently in two:
 //
 //  1. a recorded jurisdiction wins, always;
-//  2. failing that, a named foundation administrator gets the reserved code,
-//     because it belongs to no national perimeter and there is no country that
-//     would be true of it;
+//  2. failing that, a holder of ROLE_FOUNDATION_ADMINISTRATOR gets the reserved
+//     code, because it belongs to no national perimeter and there is no country
+//     that would be true of it;
 //  3. failing that, refusal. Not a default, not a placeholder — an account
 //     nobody has placed gets no identifier at all, so there is no account on
 //     the rail whose perimeter is unknown.
@@ -173,6 +186,12 @@ func (k Keeper) Logger() log.Logger   { return k.logger }
 // The exemption is deliberately last. A foundation administrator that has been
 // recorded in a country uses that country: the exemption covers the *absence*
 // of a jurisdiction and nothing else, which is as narrow as it can be made.
+//
+// Step two used to read a list on this module's Params and now reads a grant,
+// and it reads PRESENCE rather than authority — see hasFoundationGrant for why
+// an office that has fallen below its recorded M-of-N still has this exemption.
+// Being placed nowhere is a fact about an account; acting is a different
+// question, asked elsewhere.
 func (k Keeper) CountryOf(ctx context.Context, addr string) (string, error) {
 	j, err := k.Jurisdictions.Get(ctx, addr)
 	switch {
@@ -182,11 +201,11 @@ func (k Keeper) CountryOf(ctx context.Context, addr string) (string, error) {
 		return "", err
 	}
 
-	params, err := k.Params.Get(ctx)
+	administrator, err := k.hasFoundationGrant(ctx, addr)
 	if err != nil {
 		return "", err
 	}
-	if params.IsFoundationAdministrator(addr) {
+	if administrator {
 		return types.FoundationCountry, nil
 	}
 	return "", types.ErrNoJurisdiction

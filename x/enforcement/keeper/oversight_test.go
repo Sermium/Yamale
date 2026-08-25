@@ -618,20 +618,16 @@ func TestTheOmbudsmanCannotSweep(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// The parameters refuse the two configurations that would give the office a way
-// in through the front door.
-func TestParamsRefuseAnOmbudsmanThatCouldAlsoInitiate(t *testing.T) {
+// The parameters still refuse the one configuration they can still see.
+//
+// There were two. The other — ombudsman equal to emergency_authority — stopped
+// being expressible when the emergency authority became a role grant in another
+// module, and it moved to UpdateParams and to the handlers rather than being
+// dropped. The two tests below are what it moved into.
+func TestParamsRefuseAnOmbudsmanThatIsTheBeneficiary(t *testing.T) {
 	f := initFixture(t)
 	base, err := f.keeper.Params.Get(f.ctx)
 	require.NoError(t, err)
-
-	_, shared := f.addr(t)
-
-	both := base
-	both.EmergencyAuthority = shared
-	both.Ombudsman = shared
-	require.ErrorContains(t, both.Validate(), "emergency_authority",
-		"the emergency authority can open a case; the ombudsman must never be able to")
 
 	beneficiary := base
 	beneficiary.Ombudsman = base.RecoveryDestination
@@ -639,27 +635,60 @@ func TestParamsRefuseAnOmbudsmanThatCouldAlsoInitiate(t *testing.T) {
 		"the office that can stop a seizure must not be the one that receives what seizures take")
 }
 
-// The belt-and-braces bar, tested against the state it is braced for: a
-// migration that wrote parameters straight into the store without going through
-// Validate, leaving the ombudsman holding the emergency authority's key.
-func TestEvenUnvalidatedParamsCannotLetTheOmbudsmanOpenACase(t *testing.T) {
+// The half of the old parameter comparison that catches the appointment order:
+// an account that already holds the enforcement role cannot be made ombudsman.
+func TestUpdateParamsRefusesAnOmbudsmanThatHoldsTheEnforcementRole(t *testing.T) {
+	f := initFixture(t)
+	params, err := f.keeper.Params.Get(f.ctx)
+	require.NoError(t, err)
+
+	_, office := f.addr(t)
+	f.grantEnforcement(t, office)
+
+	params.Ombudsman = office
+	_, err = f.ms.UpdateParams(f.ctx, &types.MsgUpdateParams{
+		Authority: f.env.AuthorityString(t), Params: params,
+	})
+	require.ErrorIs(t, err, types.ErrOmbudsmanCannotInitiate)
+	require.ErrorContains(t, err, "holds ROLE_ENFORCEMENT_AUTHORITY")
+
+	// And the same parameters are accepted for an account that holds nothing.
+	_, plain := f.addr(t)
+	params.Ombudsman = plain
+	_, err = f.ms.UpdateParams(f.ctx, &types.MsgUpdateParams{
+		Authority: f.env.AuthorityString(t), Params: params,
+	})
+	require.NoError(t, err)
+}
+
+// The half that catches the other order, and the one that actually holds the
+// property: a grant made to a sitting ombudsman.
+//
+// The parameters could never have caught this even when emergency_authority was
+// a field, because a grant written after the parameters were set is invisible to
+// them. So it is tested against exactly that sequence — appoint first, grant
+// afterwards, then try the door.
+func TestAGrantMadeToASittingOmbudsmanStillCannotOpenACase(t *testing.T) {
 	f := initFixture(t)
 	f.addValidator(t, 10)
 	f.addValidator(t, 10)
 
-	_, shared := f.addr(t)
-	params, err := f.keeper.Params.Get(f.ctx)
-	require.NoError(t, err)
-	params.EmergencyAuthority = shared
-	params.Ombudsman = shared
-	require.Error(t, params.Validate(), "this configuration is exactly what Validate refuses")
-
-	// Written anyway, as a bad migration would.
-	require.NoError(t, f.keeper.Params.Set(f.ctx, params))
+	ombudsman := f.appointOmbudsman(t)
+	f.grantEnforcement(t, ombudsman)
 
 	_, targetStr := f.fundedAddr(t, coins(100_000))
-	_, err = f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
-		Authority: shared, Target: targetStr, Reason: "letting myself in through the emergency door",
+	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
+		Authority: ombudsman, Target: targetStr, Reason: "letting myself in through the emergency door",
+	})
+	require.ErrorIs(t, err, types.ErrOmbudsmanCannotInitiate)
+	require.False(t, f.keeper.IsFrozen(f.ctx, targetStr))
+
+	// And the ordinary door is shut too, which is the one the grant would
+	// otherwise have opened now that an office may accuse without being a
+	// validator.
+	_, err = f.ms.OpenCase(f.ctx, &types.MsgOpenCase{
+		Opener: ombudsman, Target: targetStr, Action: types.CASE_ACTION_FREEZE,
+		Reason: "trying the front door instead",
 	})
 	require.ErrorIs(t, err, types.ErrOmbudsmanCannotInitiate)
 	require.False(t, f.keeper.IsFrozen(f.ctx, targetStr))
@@ -900,12 +929,6 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	two := f.addValidator(t, 10)
 	f.addValidator(t, 10)
 	f.addValidator(t, 10)
-	f.setParams(t, func(p *types.Params) {
-		p.EmergencyAuthority = mustNewAddr(t, f)
-	})
-	emergency, err := f.keeper.Params.Get(f.ctx)
-	require.NoError(t, err)
-
 	statuses := make(map[types.CaseStatus]uint64)
 
 	// WITHDRAWN
@@ -995,8 +1018,6 @@ func TestGenesisRoundTripsWithCasesAtEveryStatus(t *testing.T) {
 	})
 	require.NoError(t, err)
 	statuses[types.CASE_STATUS_VOTING] = voting.Id
-
-	_ = emergency
 
 	exported, err := f.keeper.ExportGenesis(f.ctx)
 	require.NoError(t, err)
@@ -1207,15 +1228,6 @@ func mustBytes(t *testing.T, f *fixture, addr string) []byte {
 func mustAddr(t *testing.T, f *fixture, addr string) sdk.AccAddress {
 	t.Helper()
 	return sdk.AccAddress(mustBytes(t, f, addr))
-}
-
-// mustNewAddr returns a fresh account that may act: placed, and granted the
-// enforcement role. Its one caller uses it as the emergency authority.
-func mustNewAddr(t *testing.T, f *fixture) string {
-	t.Helper()
-	_, s := f.addr(t)
-	f.grantEnforcement(t, s)
-	return s
 }
 
 // t2ctx is the fixture's context, named for the one assertion that needs it
