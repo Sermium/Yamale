@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="yamale.css?v=b55e92bf">
-<link rel="stylesheet" href="site.css?v=1a3ba767">
+<link rel="stylesheet" href="site.css?v=b6968687">
 </head>
 <body>
 
@@ -187,24 +187,79 @@
     </div>
   </section>
 
-  <section class="band">
-    <div class="wrap prose">
+  <!-- Institutions decide by comparison, and the page had been asking them to
+       hold three models in their head from prose. Three columns, one row per
+       question a treasurer or a supervisor actually asks. -->
+  <section id="compare" class="band">
+    <div class="wrap">
       <div class="band-head">
         <span class="band-num">Why</span>
         <h2 data-i18n="site.problem">The problem</h2>
+        <p class="band-sub">A cross-border payment today takes days, passes through
+          correspondents that each take a cut, and arrives stripped of the reference that
+          would let anyone match it to an invoice. Public blockchains fix the speed and
+          lose everything else.</p>
       </div>
-      <p>
-        A cross-border payment between two institutions still takes days, passes through
-        correspondents that each take a cut, and arrives stripped of the reference that
-        would let anyone match it to an invoice. The money is fine. The <em>information</em>
-        about the money is what gets lost, and reconciling it is somebody's whole job.
-      </p>
-      <p>
-        Public blockchains fix the speed and lose everything else: no idea who is on the
-        other side, no licensed issuer behind the currency, no way to satisfy a supervisor
-        asking who processed a transaction.
-      </p>
-      <p><strong>Yamale keeps the speed and puts the accountability back.</strong></p>
+
+      <div class="y-scroll">
+        <table class="compare">
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col">Correspondent banking</th>
+              <th scope="col">A public blockchain</th>
+              <th scope="col" class="compare__ours">Yamale</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Settlement</th>
+              <td>2–5 days</td>
+              <td>Seconds to minutes</td>
+              <td class="compare__ours"><span class="compare__strong">Seconds</span>, final</td>
+            </tr>
+            <tr>
+              <th scope="row">Who may take part</th>
+              <td>Whoever your correspondent already banks</td>
+              <td>Anyone with a key</td>
+              <td class="compare__ours">Institutions <span class="compare__strong">approved by name</span>, by a national authority</td>
+            </tr>
+            <tr>
+              <th scope="row">Reference and purpose</th>
+              <td>Truncated, or lost between hops</td>
+              <td>A memo field, if any</td>
+              <td class="compare__ours"><span class="compare__strong">First-class fields</span>, ISO 20022 shaped</td>
+            </tr>
+            <tr>
+              <th scope="row">Who issues the currency</th>
+              <td>The central bank, off-ledger</td>
+              <td>Anyone, unbacked</td>
+              <td class="compare__ours"><span class="compare__strong">One approved issuer</span> per currency</td>
+            </tr>
+            <tr>
+              <th scope="row">Who can freeze an account</th>
+              <td>Any correspondent, unilaterally</td>
+              <td>Nobody</td>
+              <td class="compare__ours">A national authority, on a <span class="compare__strong">public case</span> with an ombudsman veto</td>
+            </tr>
+            <tr>
+              <th scope="row">Who can seize funds</th>
+              <td>A court order, executed by a bank</td>
+              <td>Nobody</td>
+              <td class="compare__ours"><span class="compare__strong">Two thirds</span> of validators, into an account no one person holds</td>
+            </tr>
+            <tr>
+              <th scope="row">What a supervisor can see</th>
+              <td>What each bank chooses to report</td>
+              <td>Everything, including what it should not</td>
+              <td class="compare__ours">Its own country's payments, by <span class="compare__strong">a key it was granted</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="compare__foot">Yamale keeps the speed of the second column and puts the
+        accountability of the first one back — enforced by the chain rather than promised
+        in a contract.</p>
     </div>
   </section>
 
@@ -219,6 +274,7 @@
       <div class="grid">
 
         <article class="card">
+          <span class="card__n">01</span>
           <h3>Payments</h3>
           <p>
             Credit transfers shaped like ISO 20022, the standard banks already use. The
@@ -228,6 +284,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">02</span>
           <h3>Currencies</h3>
           <p>
             Fiat-referenced tokens with exactly one approved issuer each. Only that issuer
@@ -237,6 +294,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">03</span>
           <h3>Treasuries</h3>
           <p>
             Shared funds with roles, spending limits and time locks. Money committed to
@@ -246,6 +304,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">04</span>
           <h3>Trading</h3>
           <p>
             Liquidity pools anyone may open or add to, so a holder of one currency can move
@@ -255,6 +314,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">05</span>
           <h3>Prices</h3>
           <p>
             Exchange rates agreed by the validators, weighted by stake, so moving one costs
@@ -264,6 +324,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">06</span>
           <h3>Recovery</h3>
           <p>
             A validator can freeze a stolen balance in the block they see it move — because a
@@ -275,6 +336,7 @@
         </article>
 
         <article class="card">
+          <span class="card__n">07</span>
           <h3>Governance</h3>
           <p>
             Who may validate, who may issue, who may route payments — every one of those is a
@@ -338,6 +400,34 @@
     version is more persuasive to the audience that matters here than an
     implied production-readiness that a first conversation would puncture.
   -->
+  <!-- The strongest thing this project can show a government, and it was not on
+       the page at all: a set of rules fixed at genesis that ordinary governance
+       is refused permission to edit — read live, from the chain, so a reader is
+       looking at the running values rather than at a claim about them. -->
+  <section id="constitution" class="band band--dark">
+    <div class="wrap">
+      <div class="band-head">
+        <span class="band-num">Guarantees</span>
+        <h2>Thirteen rules the operators cannot change</h2>
+        <p class="band-sub">Fixed when the chain was created. An ordinary governance vote to
+          alter any of them is refused by the chain itself; changing one is an amendment
+          needing four fifths and a delay measured in weeks. These are the values in force
+          right now, read from the network.</p>
+      </div>
+
+      <div class="rules" id="rules" aria-live="polite">
+        <p class="rules__pending" id="rules-pending">Reading the constitution from the chain…</p>
+        <dl class="rules__grid" id="rules-grid" hidden></dl>
+      </div>
+
+      <p class="rules__foot">
+        The account every seized asset is sent to is one of these rules, so it cannot be
+        redirected by the people who would benefit from redirecting it. It is a three-of-five
+        held by five separate custodians, and no single one of them can move it.
+      </p>
+    </div>
+  </section>
+
   <section id="status" class="band band--alt">
     <div class="wrap prose">
       <div class="band-head">
@@ -737,6 +827,88 @@
   getJSON('/api/rest/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=500')
     .then(function (d) { set('p-denoms', String((d.metadatas || []).length)); })
     .catch(function () { set('p-denoms', 'unknown'); });
+})();
+</script>
+
+<script>
+/* The constitution, read from the chain rather than written into the page.
+ *
+ * A page that listed thirteen guarantees in markup would be making a claim. A
+ * page that reads them off the running network is showing the reader the same
+ * values any validator enforces, and a mismatch would be visible rather than
+ * quiet. If the chain cannot be reached the section says so and shows nothing —
+ * a stale guarantee is worse than an absent one. */
+(function () {
+  var grid = document.getElementById('rules-grid');
+  var pending = document.getElementById('rules-pending');
+  if (!grid) return;
+
+  /* Labels and units, because the raw keys are basis points and block counts
+     and neither is a unit anybody outside this project thinks in. */
+  var SHAPE = [
+    ['foundation_custodian_count', 'Custodians', function (v) { return v; }, 'hold the account seizures go to'],
+    ['foundation_signature_threshold', 'Signatures needed', function (v) { return v; }, 'no one custodian can act'],
+    ['enforcement_threshold_bps', 'To seize anything', bps, 'of validator voting power'],
+    ['enforcement_recovery_destination', 'Seized funds go to', addr, 'and nowhere else'],
+    ['enforcement_voting_period_blocks', 'A case is decided in', blocks, 'not left open'],
+    ['enforcement_provisional_freeze_blocks', 'A freeze expires after', blocks, 'unless a case passes'],
+    ['amendment_threshold_bps', 'To change any of this', bps, 'of voting power'],
+    ['amendment_delay_blocks', 'And then a delay of', blocks, 'before it takes effect'],
+    ['max_entity_power_bps', 'No legal entity above', bps, 'of the validator set'],
+    ['max_beneficial_owner_power_bps', 'No owner above', bps, 'however many entities'],
+    ['max_jurisdiction_power_bps', 'No country above', bps, 'of the validator set'],
+    ['concentration_epoch_blocks', 'Those ceilings checked every', blocks, 'not once at admission'],
+    ['min_active_validators', 'Never fewer than', function (v) { return v; }, 'active validators']
+  ];
+
+  function bps(v) { return (Number(v) / 100).toFixed(2).replace(/\.00$/, '') + '%'; }
+  function blocks(v) {
+    var s = Number(v) * 5;
+    if (s >= 86400) return Math.round(s / 86400) + ' days';
+    if (s >= 3600) return Math.round(s / 3600) + ' hours';
+    return Math.round(s / 60) + ' min';
+  }
+  function addr(v) { return String(v || '').slice(0, 14) + '…' + String(v || '').slice(-8); }
+
+  fetch('/api/rest/yamale/blockchain/constitution/v1/invariants', { headers: { accept: 'application/json' } })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (data) {
+      var inv = data.invariants || {};
+      var made = 0;
+      SHAPE.forEach(function (row) {
+        var raw = inv[row[0]];
+        if (raw === undefined || raw === null || raw === '') return;
+        var cell = document.createElement('div');
+        cell.className = 'rule';
+        var dt = document.createElement('dt');
+        dt.textContent = row[1];
+        var dd = document.createElement('dd');
+        dd.textContent = row[2](raw);
+        if (row[0] === 'enforcement_recovery_destination') {
+          dd.className = 'rule__addr';
+          dd.title = raw;
+        }
+        var note = document.createElement('span');
+        note.className = 'rule__note';
+        note.textContent = row[3];
+        cell.appendChild(dt);
+        cell.appendChild(dd);
+        cell.appendChild(note);
+        grid.appendChild(cell);
+        made++;
+      });
+      if (!made) throw new Error('no invariants');
+      pending.hidden = true;
+      grid.hidden = false;
+    })
+    .catch(function () {
+      /* Deliberately shows nothing rather than the shipped defaults. The whole
+         value of this section is that the numbers are the chain's. */
+      pending.textContent =
+        'The chain is not answering, so these are not being shown. They are not written '
+        + 'into this page on purpose: the point of them is that they are the network’s '
+        + 'values and not ours.';
+    });
 })();
 </script>
 </body>

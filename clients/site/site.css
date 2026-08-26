@@ -722,3 +722,99 @@ footer p { max-width: none; }
   stroke-width: 1.5;
   color: var(--brass);
 }
+
+/* ========================================================== comparison ===
+ *
+ * The audience decides by comparison and the page had been asking them to hold
+ * three models in their head from prose. Dense on purpose: a treasurer reading
+ * this is scanning rows, not sentences.
+ */
+.compare { width: 100%; border-collapse: collapse; min-width: 780px; font-size: 0.92rem; }
+.compare th, .compare td {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.compare thead th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom-width: 2px;
+}
+.compare tbody th {
+  font-weight: 600;
+  color: var(--text);
+  width: 12rem;
+}
+.compare td { color: var(--text-muted); }
+
+/* Our column is marked once, in the header, and then simply carries more
+   contrast — rather than being coloured in, which would read as a claim the
+   table is making rather than one the rows support. */
+.compare thead .compare__ours { color: var(--brass); }
+.compare td.compare__ours { color: var(--text); background: var(--wash-brass); }
+.compare__strong { font-weight: 600; }
+.compare__foot { margin-top: 1.2rem; color: var(--text-muted); max-width: 70ch; }
+
+/* ======================================================== constitution ===
+ *
+ * Thirteen values read from the running chain. Mono and tabular so a reader can
+ * compare two of them by eye, which is what a supervisor does with numbers.
+ */
+.rules__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.rule {
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.rule dt {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.rule dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-all;
+}
+.rule dd.rule__addr { font-size: 0.76rem; line-height: 1.45; }
+.rule__note { font-size: 0.76rem; color: var(--text-muted); }
+.rules__pending, .rules__foot { color: var(--text-muted); max-width: 70ch; }
+.rules__foot { margin-top: 1.3rem; }
+
+/* =========================================================== the cards ===
+ * Seven headings-with-paragraphs read as one texture. A number beside each one
+ * gives the grid a scannable spine and says how many there are without
+ * counting. */
+.card { position: relative; }
+.card__n {
+  position: absolute;
+  top: 1.4rem;
+  right: 1.4rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
