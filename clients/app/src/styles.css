@@ -33,6 +33,21 @@
    sibling belong to the same colour. */
 :root { --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent); }
 
+/* Two colours that must NOT flip with the theme.
+ *
+ * The desk under the phone is the fixed navy gradient in light and dark alike,
+ * so anything sitting directly on it needs ink chosen against navy rather than
+ * against the page ground. Declared here at :root, never inside a
+ * prefers-color-scheme block: a colour whose only definition sits in a media
+ * query is undefined in the un-stamped default state, which is the state most
+ * readers are in. */
+:root {
+  --desk-ink: #e8eef7;
+  --desk-ink-mute: #a9bcd4;
+  /* How wide the bar and the columns beneath it agree to be. */
+  --stage-w: 1060px;
+}
+
 body {
   margin: 0;
   /* The desk, not the page. Fixed rather than tokenised: it is the same dark
@@ -50,7 +65,7 @@ body {
   padding: 0 var(--sp-4) var(--sp-6);
 }
 .stage__bar {
-  width: 100%; max-width: 1060px;
+  width: 100%; max-width: var(--stage-w);
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--sp-4); padding: var(--sp-4) var(--sp-1) var(--sp-5);
   /* On the dark desk, not on the page ground: these tokens would flip with the
@@ -624,4 +639,262 @@ body {
     border: 0; border-radius: 0; box-shadow: none;
   }
   .phone__notch { display: none; }
+}
+
+/* ==========================================================================
+   The desk beside the phone
+   ==========================================================================
+
+   The desktop decision, in one block. Below 1080px there is no desk: the phone
+   is the whole product and a second column would either squeeze it or push it
+   off-centre. Above it the empty navy field gets a job — the same payment as
+   the ledger records it — rather than the app being widened into a second and
+   worse version of itself.
+
+   `display: none` rather than a conditional render, so the component mounts at
+   every width and the code path is the one that ships. A panel that only
+   exists above a breakpoint is a panel nobody tests. */
+
+.stage__two {
+  width: 100%;
+  max-width: var(--stage-w);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--sp-6);
+}
+
+.desk { display: none; }
+
+@media (min-width: 1080px) {
+  :root { --stage-w: 1220px; }
+
+  .desk {
+    display: grid;
+    gap: var(--sp-4);
+    flex: 1 1 0;
+    min-width: 0;
+    max-height: 92vh;
+    overflow-y: auto;
+    /* The scroll happens inside the desk, so the phone stays put while an
+       instruction table is read. Padding on the end edge keeps the scrollbar
+       off the panel borders. */
+    padding-inline-end: var(--sp-2);
+  }
+}
+
+.desk__head { color: var(--desk-ink); }
+.desk__title {
+  font-family: var(--font-display); font-size: var(--step-3);
+  letter-spacing: -0.01em; margin: 0 0 var(--sp-1);
+}
+.desk__lede {
+  margin: 0; font-size: var(--step-0); color: var(--desk-ink-mute);
+  max-width: 62ch;
+}
+
+.desk__panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-2);
+  padding: var(--sp-4);
+  color: var(--text);
+}
+.desk__h {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);
+  margin: 0 0 var(--sp-3);
+}
+.desk__h4 {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+.desk__note { margin: calc(var(--sp-2) * -1) 0 var(--sp-3); font-size: var(--step--1); color: var(--text-muted); }
+
+/* The empty state, which is where this panel spends most of its life. Drawn
+   rather than blank: a blank half-screen reads as a broken one. */
+.desk__empty {
+  margin: 0; padding: var(--sp-6) var(--sp-4);
+  text-align: center; font-size: var(--step-0); color: var(--text-muted);
+  border: 1px dashed var(--border); border-radius: 12px;
+}
+
+.desk__warn {
+  margin: var(--sp-3) 0 0; font-size: var(--step--1);
+  padding: var(--sp-2) var(--sp-3); border-radius: 9px;
+  border-inline-start: 3px solid var(--warn);
+  background: var(--wash-warn); color: var(--text);
+}
+
+/* --- live figures --- */
+.facts { margin: 0; display: grid; gap: 0; }
+.facts__row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.facts__row:last-child { border-bottom: 0; }
+.facts dt { font-size: var(--step--1); color: var(--text-muted); }
+.facts dd {
+  margin: 0; font-size: var(--step-0); font-weight: 500;
+  font-variant-numeric: tabular-nums; text-align: end;
+}
+/* A figure that could not be read is a word, in the muted voice and italic, so
+   it can never be mistaken for a value at a glance. Colour is not carrying
+   this on its own. */
+.facts__unknown { color: var(--text-muted); font-style: italic; font-weight: 400; }
+
+/* --- what this refuses --- */
+.refuses { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-3); }
+.refuses li {
+  font-size: var(--step--1); line-height: 1.5; color: var(--text);
+  padding-inline-start: var(--sp-4); position: relative;
+}
+.refuses li::before {
+  content: '×';
+  position: absolute; inset-inline-start: 0; top: -0.05em;
+  font-family: var(--font-mono); font-weight: 500; color: var(--bad);
+}
+
+/* ==========================================================================
+   The instruction table
+   ==========================================================================
+
+   Used inside the phone behind a disclosure and open on the desk. One
+   implementation, because two would drift and the one that drifted would be
+   the one making a claim about somebody's money. */
+
+.iso { display: block; text-align: start; }
+.iso__title {
+  font-family: var(--font-display); font-size: var(--step-1);
+  margin: var(--sp-3) 0 var(--sp-1);
+}
+.iso__lede { font-size: var(--step--1); color: var(--text-muted); margin: 0 0 var(--sp-3); }
+.iso__sub {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+
+.iso__fields { list-style: none; margin: 0; padding: 0; display: grid; }
+
+/* Two rows per field, on a phone and on a desk alike: names and destination on
+   the first, the value across the full width on the second. A three-column
+   table would put a bech32 address in 90px on the narrow case. */
+.iso__field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--sp-3);
+  row-gap: 2px;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.iso__field:last-child { border-bottom: 0; }
+
+.iso__names { grid-column: 1; grid-row: 1; display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
+.iso__iso { font-size: var(--step-0); font-weight: 500; }
+.iso__proto { font-size: 0.7rem; color: var(--text-faint); }
+.iso__val { grid-column: 1 / -1; grid-row: 2; min-width: 0; display: grid; gap: 2px; justify-items: start; }
+.iso__plain, .iso__base { word-break: break-word; }
+.iso__amount { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+.iso__amount > .y-mono { font-size: var(--step-1); font-variant-numeric: tabular-nums; }
+/* The base units beside the human figure rather than instead of it. This is
+   the screen for the audience that wants to audit, and the unit the chain
+   actually holds is part of what they are auditing. */
+.iso__base { font-size: 0.7rem; color: var(--text-faint); }
+.iso__none { color: var(--text-faint); font-style: italic; font-size: var(--step--1); }
+.iso__why { font-size: var(--step--1); color: var(--text-muted); line-height: 1.45; }
+
+/* Where a field ends up. Three states, distinguished by the word, by the dot's
+   shape, and only then by colour — a payer who cannot tell green from red
+   still reads "Not sent". */
+.iso__where {
+  grid-column: 2; grid-row: 1;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-mono); font-size: 0.64rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.15rem 0.5rem; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-muted);
+}
+.iso__dot { width: 7px; height: 7px; flex: 0 0 auto; }
+.iso__where--ledger { border-color: var(--ok); color: var(--ok); }
+.iso__where--ledger .iso__dot { border-radius: 50%; background: currentColor; }
+.iso__where--memo { border-color: var(--warn); color: var(--warn); }
+.iso__where--memo .iso__dot { border-radius: 50%; border: 1.5px solid currentColor; }
+.iso__where--dropped { border-color: var(--bad); color: var(--bad); }
+/* A square, not a circle. The shape is the second signal. */
+.iso__where--dropped .iso__dot { background: currentColor; }
+.iso__field--dropped .iso__iso, .iso__field--dropped .iso__proto { opacity: 0.72; }
+
+/* The chain's own answer, at a stated height. */
+.iso__standing {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--step--1); line-height: 1.5;
+  padding: var(--sp-3);
+  border-radius: 10px;
+  border-inline-start: 3px solid var(--bad);
+  background: var(--wash-bad);
+  color: var(--text);
+}
+/* Unknown is not failure. It is a different state and it gets a different
+   voice — the warning wash, not the bad one — because collapsing the two is how
+   a network fault gets reported as a fact about the world. */
+.iso__standing--unknown { border-inline-start-color: var(--warn); background: var(--wash-warn); }
+.iso__at { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.68rem; white-space: nowrap; }
+
+/* The disclosure that holds it inside the phone. */
+.iso__disclosure { margin-top: var(--sp-4); }
+.iso__disclosure > summary { padding: var(--sp-2) 0; }
+
+/* ==========================================================================
+   Copyable identifiers, and the receipt
+   ========================================================================== */
+
+.copyval { display: inline-flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; min-width: 0; }
+.copyval__face {
+  font: inherit; font-family: var(--font-mono); font-size: var(--step--1);
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  max-width: 100%; word-break: break-all; text-align: start;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.15rem 0.45rem; cursor: pointer;
+}
+.copyval__face:hover { border-color: var(--accent); }
+.copyval__face:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.copyval__ico { display: inline-flex; flex: 0 0 auto; color: var(--text-muted); }
+.copyval__reveal {
+  font: inherit; font-size: 0.7rem;
+  background: none; border: 0; color: var(--accent);
+  text-decoration: underline; cursor: pointer; padding: 0;
+}
+
+/* The receipt: the three fields somebody matches against an invoice. */
+.receipt {
+  width: 100%; margin: var(--sp-2) 0 0; padding: var(--sp-3);
+  display: grid; gap: var(--sp-2); text-align: start;
+  background: var(--surface-2); border-radius: 12px;
+}
+.receipt > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }
+.receipt dt {
+  font-family: var(--font-mono); font-size: 0.66rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);
+  flex: 0 0 auto;
+}
+.receipt dd { margin: 0; font-size: var(--step--1); text-align: end; min-width: 0; word-break: break-word; }
+
+/* The reference on a history row. Truncated to one line, because the row's job
+   is recognition and the full text is on the statement. */
+.movement__ref {
+  display: block; font-size: 0.7rem; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.movement__purp {
+  display: inline-block; margin-inline-end: var(--sp-2);
+  padding: 0 0.3rem; border-radius: 4px;
+  background: var(--wash-mute); color: var(--text-muted);
+  letter-spacing: 0.04em;
 }
