@@ -824,16 +824,24 @@ body {
   letter-spacing: 0.06em; text-transform: uppercase;
   white-space: nowrap;
   padding: 0.15rem 0.5rem; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--text-muted);
+  border: 1px solid var(--border);
+  /* The label is body ink in all three states, not the state's own colour.
+     Measured: --warn on white gives 3.88:1 at this size, which is under AA —
+     so "In the memo" was the one chip a reader might not be able to make out,
+     and it is the chip that says a field is not where the site implies it is.
+     The colour moves to the border and the dot, where the requirement is the
+     3:1 for non-text, and the word carries the meaning as it should. */
+  color: var(--text);
 }
 .iso__dot { width: 7px; height: 7px; flex: 0 0 auto; }
-.iso__where--ledger { border-color: var(--ok); color: var(--ok); }
-.iso__where--ledger .iso__dot { border-radius: 50%; background: currentColor; }
-.iso__where--memo { border-color: var(--warn); color: var(--warn); }
-.iso__where--memo .iso__dot { border-radius: 50%; border: 1.5px solid currentColor; }
-.iso__where--dropped { border-color: var(--bad); color: var(--bad); }
-/* A square, not a circle. The shape is the second signal. */
-.iso__where--dropped .iso__dot { background: currentColor; }
+.iso__where--ledger { border-color: var(--ok); }
+.iso__where--ledger .iso__dot { border-radius: 50%; background: var(--ok); }
+.iso__where--memo { border-color: var(--warn); }
+/* Hollow, not filled. The fill is the second signal after the word. */
+.iso__where--memo .iso__dot { border-radius: 50%; border: 1.5px solid var(--warn); }
+.iso__where--dropped { border-color: var(--bad); }
+/* A square, not a circle. The shape is the third. */
+.iso__where--dropped .iso__dot { background: var(--bad); }
 .iso__field--dropped .iso__iso, .iso__field--dropped .iso__proto { opacity: 0.72; }
 
 /* The chain's own answer, at a stated height. */

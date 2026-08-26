@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { t, LanguagePicker, useLocale, formatUserId } from '@yamale/chain';
+import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 
 import { signIn, signUp, signOut, lastEmail, revealPhrase, eraseEverything, type Signer } from './account.ts';
 import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
@@ -322,9 +322,13 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
  * is a convenience and never the record.
  */
 function downloadStatement(st: ledger.MonthlyStatement, holder: string) {
+  // Dates take the app's locale, not the browser's. `undefined` here meant a
+  // statement whose headings were in English and whose dates were in French,
+  // on the same page, for anyone whose operating system disagreed with their
+  // chosen language — which on this product is most of the intended audience.
   const c = currencyOf(st.denom);
   const money = (v: bigint) => display(v.toString(), st.denom);
-  const when = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(st.from);
+  const when = new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(st.from);
 
   const lines = [
     `YAMALE — ${t('app.statement')} — ${when}`,
@@ -337,7 +341,7 @@ function downloadStatement(st: ledger.MonthlyStatement, holder: string) {
     '',
     t('app.movements'),
     ...st.movements.map((m) => {
-      const d = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit' }).format(new Date(m.at));
+      const d = new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit' }).format(new Date(m.at));
       const sign = m.amount > 0n ? '+' : '-';
       const abs = m.amount < 0n ? -m.amount : m.amount;
       // The reference and the purpose code on the line, because a statement
@@ -432,7 +436,7 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
             <button key={m} type="button"
                     className={m === month ? 'months__on' : undefined}
                     onClick={() => setMonth(m)}>
-              {new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' })
+              {new Intl.DateTimeFormat(getLocale(), { month: 'short', year: '2-digit' })
                 .format(new Date(new Date().getFullYear(), new Date().getMonth() - m, 1))}
             </button>
           ))}
@@ -469,7 +473,7 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
                 )}
                 <span className="muted movement__date">
                   {m.reference.purpose && <span className="movement__purp">{m.reference.purpose}</span>}
-                  {new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(new Date(m.at))}
+                  {new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short' }).format(new Date(m.at))}
                 </span>
               </span>
               <span className="acct-row__amount">
