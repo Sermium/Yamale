@@ -796,16 +796,22 @@ body {
 
 .iso__names { grid-column: 1; grid-row: 1; display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
 .iso__iso { font-size: var(--step-0); font-weight: 500; }
-.iso__proto { font-size: 0.7rem; color: var(--text-faint); }
+/* `--text-muted`, not `--text-faint`. Measured on the dark panel the faint
+   token gives 4.28:1, which is under AA for text this size — and this is the
+   screen whose whole job is being readable enough to audit. */
+.iso__proto { font-size: 0.7rem; color: var(--text-muted); }
 .iso__val { grid-column: 1 / -1; grid-row: 2; min-width: 0; display: grid; gap: 2px; justify-items: start; }
 .iso__plain, .iso__base { word-break: break-word; }
 .iso__amount { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
 .iso__amount > .y-mono { font-size: var(--step-1); font-variant-numeric: tabular-nums; }
 /* The base units beside the human figure rather than instead of it. This is
    the screen for the audience that wants to audit, and the unit the chain
-   actually holds is part of what they are auditing. */
-.iso__base { font-size: 0.7rem; color: var(--text-faint); }
-.iso__none { color: var(--text-faint); font-style: italic; font-size: var(--step--1); }
+   actually holds is part of what they are auditing.
+   Selected through `.iso__amount` because the sibling rule above also matches
+   this element on `.y-mono` and outranks a single class — which rendered the
+   base units at the same size as the figure they are subordinate to. */
+.iso__amount > .iso__base { font-size: 0.7rem; color: var(--text-muted); }
+.iso__none { color: var(--text-muted); font-style: italic; font-size: var(--step--1); }
 .iso__why { font-size: var(--step--1); color: var(--text-muted); line-height: 1.45; }
 
 /* Where a field ends up. Three states, distinguished by the word, by the dot's
