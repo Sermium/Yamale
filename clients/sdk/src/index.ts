@@ -9,6 +9,7 @@
  */
 
 export {
+  EMPTY_AMOUNT,
   KNOWN_DENOMS,
   formatAmount,
   formatCoins,
@@ -35,6 +36,7 @@ export {
   describeFee,
   headline,
   summariseSigningRequest,
+  transactionHash,
   type RequestFee,
   type RequestMessage,
   type SigningRequestSummary,

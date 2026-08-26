@@ -355,13 +355,154 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
 
 /* --- the approval screen ---------------------------------------------------
  *
- * The highest-stakes screen in the product, and until now the one with the
- * least design: a bulleted list of proto type URLs. What a signer needs, in
- * this order, is the sentence, the figure, the counterparty, and then the raw
- * bytes for anybody who wants to audit them. The hierarchy below is that
- * order. */
+ * The highest-stakes screen in the product. What a signer needs, in this
+ * order, is: what this does to *their* account, whether it can be undone, who
+ * asked, and then the messages and raw bytes for anybody auditing. The
+ * hierarchy below is that order — the ledger is the loudest thing on the page
+ * and the type URLs are the quietest. */
+
+/* Who asked, and as whom. A strip rather than a card: it has to sit on the same
+   screenful as the amount, and a full card for one line pushes the figure below
+   the fold on a phone. */
+.prov {
+  margin: 0 0 var(--sp-5); padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--step--1); line-height: 1.6;
+}
+.prov code { background: none; padding: 0; }
+.prov__origin { font-weight: 500; color: var(--text); word-break: break-all; }
+
+/* The ledger: what leaves, what arrives, what locks. Given the weight the
+   message list used to have, because it answers the question the message list
+   never did. */
+.card--ledger { border-color: var(--rule); }
+.ledger { margin: var(--sp-4) 0 0; display: grid; gap: var(--sp-3); }
+.ledger > div, .ledger__row {
+  display: grid; gap: var(--sp-1);
+  padding-inline-start: var(--sp-4);
+  border-inline-start: 3px solid var(--rule);
+}
+/* Colour supports the label; it never carries it. Each row says "Leaves this
+   account" or "Arrives in this account" in words, so a reader who sees no
+   colour at all loses nothing. */
+.ledger__row--out { border-inline-start-color: var(--bad); }
+.ledger__row--in { border-inline-start-color: var(--ok); }
+.ledger__row--lock { border-inline-start-color: var(--brass); }
+.ledger dt {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.ledger dd { margin: 0; }
+.ledger__figure {
+  display: block;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--step-3); line-height: 1.15; font-weight: 500;
+}
+.ledger__term { margin: var(--sp-4) 0 0; font-size: var(--step--1); max-width: var(--measure); }
+.ledger__grants { margin: var(--sp-4) 0 0; padding-inline-start: 1.1rem; font-size: var(--step--1); }
+
+/* Whether it can be undone. A word, a wash and a sentence together — the word
+   is the signal and the wash only agrees with it. This is the single most
+   important line on the screen and it must survive being read in greyscale. */
+.rev {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-3);
+  margin: 0; padding: var(--sp-3) var(--sp-4);
+  border-inline-start: 3px solid var(--text-muted);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--wash-mute);
+}
+.rev__word {
+  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+  color: var(--text);
+}
+.rev__note { font-size: var(--step--1); color: var(--text); flex: 1 1 18rem; }
+.rev--irreversible, .rev--unknown {
+  background: var(--wash-bad); border-inline-start-color: var(--bad);
+}
+.rev--irreversible .rev__word, .rev--unknown .rev__word { color: var(--bad); }
+.rev--delayed { background: var(--wash-warn); border-inline-start-color: var(--warn); }
+.rev--delayed .rev__word { color: var(--warn); }
+.rev--revocable, .rev--proposal {
+  background: var(--wash-brass); border-inline-start-color: var(--brass);
+}
+.rev--revocable .rev__word, .rev--proposal .rev__word { color: var(--brass); }
+.rev--none { background: var(--wash-ok); border-inline-start-color: var(--ok); }
+.rev--none .rev__word { color: var(--ok); }
+
+/* --- signed, then in a block, then executed --------------------------------
+ *
+ * Three steps rather than a spinner. The middle one is where a wallet normally
+ * lies: a broadcast that returns cleanly has been *accepted*, which is not the
+ * same as having been carried out, and the difference only ever shows up in the
+ * code the block recorded. Each step carries its own words, so the dots are
+ * decoration. */
+.track { list-style: none; margin: var(--sp-5) 0; padding: 0; display: grid; gap: 0; }
+.track__step {
+  display: grid; grid-template-columns: 1.1rem 1fr; align-items: start;
+  gap: var(--sp-3); padding-bottom: var(--sp-4); position: relative;
+  font-size: var(--step-0); color: var(--text-muted);
+}
+.track__step:last-child { padding-bottom: 0; }
+/* The rail between the dots, drawn from each step except the last. */
+.track__step:not(:last-child)::before {
+  content: ''; position: absolute; inset-block-start: 1rem; inset-block-end: 0;
+  inset-inline-start: 0.5rem; width: 1px; background: var(--rule);
+}
+.track__dot {
+  width: 0.65rem; height: 0.65rem; border-radius: 50%; margin: 0.28rem 0 0 0.18rem;
+  background: var(--surface-3); border: 1px solid var(--rule); box-sizing: border-box;
+}
+.track__step--done { color: var(--text); }
+.track__step--done .track__dot { background: var(--ok); border-color: var(--ok); }
+.track__step--live { color: var(--text); }
+.track__step--live .track__dot {
+  background: var(--warn); border-color: var(--warn);
+  animation: y-pulse 1.6s ease-in-out infinite;
+}
+.track__step--stalled .track__dot { background: var(--surface); border-color: var(--warn); }
+.track__step--stalled { color: var(--text); }
+.track__step--bad { color: var(--text); }
+.track__step--bad .track__dot { background: var(--bad); border-color: var(--bad); }
+@keyframes y-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .track__step--live .track__dot { animation: none; }
+}
+
+/* --- an identifier on screen -----------------------------------------------
+ *
+ * The name is the target; the copy glyph rides inside it so the whole thing is
+ * one tap. `show` sits outside that target deliberately — revealing and copying
+ * are different intents, and merging them means every copy reflows its row. */
+.addr { display: inline-flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.addr__copy {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font: inherit; color: inherit; text-align: start;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  border-bottom: 1px dotted var(--border);
+}
+.addr__copy:hover { border-bottom-color: var(--accent); }
+.addr__icon { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
+.addr__copy:hover .addr__icon { color: var(--accent); }
+.addr__reveal {
+  font: inherit; font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--text-faint);
+}
+.addr__reveal:hover { color: var(--text-muted); }
+.addr__full {
+  flex-basis: 100%; background: var(--surface-2);
+  padding: var(--sp-1) var(--sp-2); border-radius: 3px;
+}
+
+/* The one sentence, as the page's own heading. Set at step-3 rather than the
+   step-4 an h1 otherwise takes: this is a whole sentence rather than a label,
+   and at display size a two-line sentence pushes the ledger under it off the
+   first screenful of a phone — which is where the figure has to be. */
 .sign__headline {
-  font-size: var(--step-2); font-family: var(--font-display);
+  font-size: var(--step-3); font-family: var(--font-display);
   font-weight: 600; letter-spacing: -0.01em; line-height: 1.25;
   margin: 0 0 var(--sp-4); max-width: var(--measure);
 }

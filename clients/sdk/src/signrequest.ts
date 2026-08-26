@@ -31,7 +31,8 @@
  * wrapper, not the act. The action inside is the thing being approved.
  */
 
-import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx.js';
+import { AuthInfo, TxBody, TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 import { chainRegistry } from './registry.ts';
 import { decodeMessage, shortTypeUrl, type DecodeContext, type DecodedMessage } from './decode.ts';
@@ -286,6 +287,38 @@ let shared: ReturnType<typeof chainRegistry> | null = null;
 function sharedRegistry() {
   if (!shared) shared = chainRegistry();
   return shared;
+}
+
+/**
+ * The identifier the chain will give a transaction, computed before it is sent.
+ *
+ * A wallet that only signs never learns what happened next: it hands back a
+ * signature, the calling application broadcasts, and the person who approved is
+ * left looking at whatever that application chooses to tell them. Which is the
+ * one party a wallet exists not to trust.
+ *
+ * It does not have to be that way. A transaction's hash is the SHA-256 of its
+ * serialised `TxRaw`, and every part of that is known at the moment of signing —
+ * the body and auth-info bytes are the ones that were signed, and the signature
+ * is the one just produced. So the wallet can watch for its own transaction in
+ * a block and report pending → confirmed with the height, from the chain rather
+ * than from the requester.
+ *
+ * This holds only while the wallet returns the bytes it signed unaltered, which
+ * this one does. A caller that broadcast something else would produce a
+ * different hash, and this one would simply never appear — which is itself the
+ * correct thing to show.
+ */
+export function transactionHash(
+  bodyBytes: Uint8Array,
+  authInfoBytes: Uint8Array,
+  signature: Uint8Array,
+): string {
+  const raw = TxRaw.encode(TxRaw.fromPartial({ bodyBytes, authInfoBytes, signatures: [signature] })).finish();
+  return [...sha256(raw)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
 }
 
 /**
