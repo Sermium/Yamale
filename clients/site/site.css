@@ -815,3 +815,55 @@ footer p { max-width: none; }
 .hero--stack .proof { width: 100%; margin: 0.8rem 0 0; }
 .hero--stack .wire { width: 100%; max-width: 780px; margin: 1rem auto 0; }
 .hero--stack .wire figcaption { margin-left: auto; margin-right: auto; text-align: center; max-width: 56ch; }
+
+/* ========================================================== refusals ===
+ * A list of seven capabilities reads like every other chain's feature list.
+ * What distinguishes this one is what each module will not do, and that was
+ * buried mid-paragraph or missing. Set apart so the grid can be scanned for it. */
+.card__refuses {
+  margin: 0.9rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.card__refuses-k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bad);
+  margin-bottom: 0.2rem;
+}
+
+/* ======================================================== the chain ===
+ * Five steps, each refused until the one before it has happened. Drawn because
+ * it is a sequence, and a sequence in prose is a sequence the reader has to
+ * hold in their head. */
+.chainfig { margin: 0; }
+.chainfig svg { width: 100%; height: auto; display: block; }
+.chainfig figcaption {
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  max-width: 74ch;
+}
+.cf__step rect { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.cf__step--end rect { fill: var(--wash-brass); stroke: var(--brass); }
+.cf__n {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  fill: var(--brass);
+}
+.cf__who {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--text);
+}
+.cf__do { font-size: 11.5px; fill: var(--text-muted); }
+.cf__arrow { stroke: var(--brass); stroke-width: 1.5; color: var(--brass); }
+.cf__rule { font-size: 11px; fill: var(--text-muted); }

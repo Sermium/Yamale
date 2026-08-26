@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="yamale.css?v=b55e92bf">
-<link rel="stylesheet" href="site.css?v=aba9884c">
+<link rel="stylesheet" href="site.css?v=124da76f">
 </head>
 <body>
 
@@ -261,6 +261,7 @@
             end-to-end reference and purpose code are first-class fields, not a memo — so a
             payment arrives already matched to what it was for.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>An institution not approved by a national authority, or a customer that institution never registered.</p>
         </article>
 
         <article class="card">
@@ -271,6 +272,7 @@
             can mint or redeem, and the permission is a governance decision recorded on the
             chain rather than a setting in a config file.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>A second issuer for a currency that already has one.</p>
         </article>
 
         <article class="card">
@@ -281,6 +283,7 @@
             somebody — a vesting grant, a scheduled disbursement — leaves the spendable
             balance entirely and cannot be redirected by anyone.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>Spending funds already committed to somebody — no administrator, no vote and no quorum of signers can reach them.</p>
         </article>
 
         <article class="card">
@@ -291,6 +294,7 @@
             into another without leaving the network. Prices come from the pool's own
             reserves.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>A swap that would round in the pool’s favour against the person making it.</p>
         </article>
 
         <article class="card">
@@ -301,6 +305,7 @@
             as much as attacking the network. Real-world assets are valued instead by an
             appointed independent party, and every figure stays attributed to whoever signed it.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>A rate too old to trust. An expired price is not a price, and the transaction depending on it stops.</p>
         </article>
 
         <article class="card">
@@ -313,6 +318,7 @@
             of who accused whom, on what evidence, and how every validator voted. Cases that
             failed stay on that record too.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>Any one person moving what was seized. Three of five custodians, and the destination is fixed in the constitution.</p>
         </article>
 
         <article class="card">
@@ -323,9 +329,89 @@
             vote of everyone who has staked, with the decision and its reasoning kept on the
             chain next to what it authorised.
           </p>
+                  <p class="card__refuses"><span class="card__refuses-k">Refuses</span>A proposal that would edit one of the thirteen fixed rules, or admit a validator nobody voted for.</p>
         </article>
 
       </div>
+    </div>
+  </section>
+
+  <!-- The one mechanism nothing else has, and it was four paragraphs of prose.
+       A payment is only possible at the end of a chain of authorisations, each
+       of which the chain refuses to skip — so the chain is drawn. -->
+  <section id="perimeter" class="band">
+    <div class="wrap">
+      <div class="band-head">
+        <span class="band-num">How</span>
+        <h2>Why a stranger cannot appear on a payment</h2>
+        <p class="band-sub">Every account belongs to a country, and every step below is
+          refused until the one before it has happened. Nobody can place themselves — the
+          institution that performed the identity check is the only party that can, and it
+          had to be approved by that country's authority first.</p>
+      </div>
+
+      <figure class="chainfig" aria-labelledby="chainfig-cap">
+        <svg viewBox="0 0 980 210" role="img" aria-label="Five steps: the foundation grants a national authority, the authority approves a bank, the bank records a customer's country, the chain issues that customer an identifier, and only then can a payment be addressed to them.">
+          <defs>
+            <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <g class="cf__step">
+            <rect x="1" y="34" width="172" height="86" rx="5"/>
+            <text class="cf__n" x="15" y="56">01</text>
+            <text class="cf__who" x="15" y="80">The foundation</text>
+            <text class="cf__do" x="15" y="99">grants a country</text>
+            <text class="cf__do" x="15" y="112">its authority</text>
+          </g>
+          <line class="cf__arrow" x1="177" y1="77" x2="199" y2="77" marker-end="url(#arw)"/>
+
+          <g class="cf__step">
+            <rect x="203" y="34" width="172" height="86" rx="5"/>
+            <text class="cf__n" x="217" y="56">02</text>
+            <text class="cf__who" x="217" y="80">That authority</text>
+            <text class="cf__do" x="217" y="99">approves a bank</text>
+            <text class="cf__do" x="217" y="112">by name</text>
+          </g>
+          <line class="cf__arrow" x1="379" y1="77" x2="401" y2="77" marker-end="url(#arw)"/>
+
+          <g class="cf__step">
+            <rect x="405" y="34" width="172" height="86" rx="5"/>
+            <text class="cf__n" x="419" y="56">03</text>
+            <text class="cf__who" x="419" y="80">That bank</text>
+            <text class="cf__do" x="419" y="99">records where its</text>
+            <text class="cf__do" x="419" y="112">customer is</text>
+          </g>
+          <line class="cf__arrow" x1="581" y1="77" x2="603" y2="77" marker-end="url(#arw)"/>
+
+          <g class="cf__step">
+            <rect x="607" y="34" width="172" height="86" rx="5"/>
+            <text class="cf__n" x="621" y="56">04</text>
+            <text class="cf__who" x="621" y="80">The chain</text>
+            <text class="cf__do" x="621" y="99">issues an identifier</text>
+            <text class="cf__do" x="621" y="112">carrying that country</text>
+          </g>
+          <line class="cf__arrow" x1="783" y1="77" x2="805" y2="77" marker-end="url(#arw)"/>
+
+          <g class="cf__step cf__step--end">
+            <rect x="809" y="34" width="170" height="86" rx="5"/>
+            <text class="cf__n" x="823" y="56">05</text>
+            <text class="cf__who" x="823" y="80">Only now</text>
+            <text class="cf__do" x="823" y="99">can a payment be</text>
+            <text class="cf__do" x="823" y="112">addressed to them</text>
+          </g>
+
+          <text class="cf__rule" x="1" y="158">An account with no country recorded is issued no identifier at all, so nobody can address a payment to it.</text>
+          <text class="cf__rule" x="1" y="178">Nobody may declare their own country: an account free to name its own perimeter would name the one with no authority watching it.</text>
+          <text class="cf__rule" x="1" y="198">A correction is a foundation administrator's act, and it retires the old identifier — a prefix that could go stale is a prefix that can lie.</text>
+        </svg>
+        <figcaption id="chainfig-cap">
+          The same chain of authorisations decides who may freeze an account, who may issue
+          a currency and who may read a payment's detail — each scoped to one country, none
+          of them chain-wide.
+        </figcaption>
+      </figure>
     </div>
   </section>
 
