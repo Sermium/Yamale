@@ -144,6 +144,21 @@ test('the field plan says which fields survive the transfer and which do not', (
   }
 });
 
+test('an empty jurisdiction is explained by the account, not by the record', () => {
+  const jurisdiction = (p: ReturnType<typeof fieldPlan>) =>
+    p.find((f) => f.chainField === 'settlement_jurisdiction')!.whyKey;
+
+  // A placed account: the field is dropped only because no payment record is
+  // written, which is a fact about the chain rather than about them.
+  assert.equal(jurisdiction(fieldPlan(instructionFor(DRAFT))), 'iso.whyNoRecord');
+
+  // An unplaced one: the reason they can act on is that nobody has recorded
+  // their jurisdiction, which is also why the chain has issued them no
+  // identifier and why nobody can pay them.
+  const unplaced = fieldPlan(instructionFor({ ...DRAFT, debtorUserId: '' }));
+  assert.equal(jurisdiction(unplaced), 'iso.whyNoJurisdiction');
+});
+
 test('every field the memo carries is actually in the memo', () => {
   // The plan and the encoder have to agree. If a field is marked `memo` here
   // and the encoder does not write it, the screen claims something false about

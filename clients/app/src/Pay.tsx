@@ -24,6 +24,7 @@ import { balances } from './topup.ts';
 import { describe, readSigned, type PaymentRequest } from './request.ts';
 import { Scanner } from './scan.tsx';
 import { InstructionPanel } from './Instruction.tsx';
+import { useMyUserId } from './identity.ts';
 import { publish } from './draft.ts';
 import { approvedParticipants } from './standing.ts';
 import {
@@ -60,32 +61,16 @@ export function Pay({ signer }: { signer: Signer }) {
   // What the account actually holds, so the action can be disabled with the
   // precondition stated rather than the payment refused after signing.
   const [held, setHeld] = useState<Map<string, string> | null>(null);
-  const [me, setMe] = useState<{ address: string; userId: string }>({ address: '', userId: '' });
+  // The identifier is registered a moment after sign-in, not before it, and on
+  // this chain it may never arrive at all. `useMyUserId` holds the three-way
+  // answer; see identity.ts for why the third one is not a spinner.
+  const me = useMyUserId(signer);
   useEffect(() => {
+    if (!me.address) return;
     let live = true;
-    (async () => {
-      const address = await signer.internalAddress();
-      const map = await balances(address);
-      if (live) { setHeld(map); setMe({ address, userId: '' }); }
-
-      /**
-       * The identifier is registered a moment after sign-in, not before it.
-       *
-       * Asking once meant that opening this screen quickly — which is what a
-       * person doing a demonstration does — read "no identifier yet" and kept
-       * that answer for the whole session, leaving the settlement jurisdiction
-       * blank on an account that had one thirty seconds later. So it is asked
-       * again a few times and then left alone; a permanent poll would be
-       * spending somebody's data on a fact that does not change.
-       */
-      for (let attempt = 0; attempt < 6 && live; attempt++) {
-        const id = await book.myUserId(address);
-        if (id) { if (live) setMe({ address, userId: id }); return; }
-        await new Promise((r) => setTimeout(r, 5000));
-      }
-    })();
+    void balances(me.address).then((map) => { if (live) setHeld(map); });
     return () => { live = false; };
-  }, [signer]);
+  }, [me.address]);
 
   /**
    * The chain's own answer on whether the ISO path is open, read once.

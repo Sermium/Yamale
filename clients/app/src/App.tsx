@@ -14,6 +14,7 @@ import { Scanner } from './scan.tsx';
 import { Pay } from './Pay.tsx';
 import { Desk } from './Desk.tsx';
 import { CopyRow } from './copy.tsx';
+import { PayableNote } from './Identifier.tsx';
 import * as book from './book.ts';
 import * as biometric from './biometric.ts';
 import { DIRECTORY, matches } from './directory.ts';
@@ -494,6 +495,12 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
           <span>{t('app.toppingUp')}</span>
         </div>
       )}
+
+      {/* Says nothing at all unless the chain has refused this account an
+          identifier, which on this network it does — see Identifier.tsx. An
+          account nobody can pay is the one thing a payments app must not be
+          quiet about. */}
+      <PayableNote signer={signer} />
 
       {balances === null && <p className="muted">{t('app.loading')}</p>}
 

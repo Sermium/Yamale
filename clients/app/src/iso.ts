@@ -286,7 +286,14 @@ export function fieldPlan(i: Instruction): PlannedField[] {
     },
     {
       iso: 'SttlmInf/SttlmCtry', chainField: 'settlement_jurisdiction',
-      value: i.settlementJurisdiction, carried: 'dropped', whyKey: 'iso.whyNoRecord',
+      value: i.settlementJurisdiction, carried: 'dropped',
+      // Two true reasons, and the actionable one wins. The field is dropped
+      // because no payment record is written — but when it is *also* empty, the
+      // reason a reader can act on is that this account has no recorded
+      // jurisdiction, which is why the chain has issued it no identifier and
+      // why nobody can pay it. Verified live: x/alias refuses the registration
+      // with exactly that, in the block.
+      whyKey: i.settlementJurisdiction === '' ? 'iso.whyNoJurisdiction' : 'iso.whyNoRecord',
     },
   ];
 }
