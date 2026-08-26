@@ -132,7 +132,10 @@
 
   <section class="band">
     <div class="wrap prose">
-      <h2 data-i18n="site.problem">The problem</h2>
+      <div class="band-head">
+        <span class="band-num">Why</span>
+        <h2 data-i18n="site.problem">The problem</h2>
+      </div>
       <p>
         A cross-border payment between two institutions still takes days, passes through
         correspondents that each take a cut, and arrives stripped of the reference that
@@ -150,7 +153,12 @@
 
   <section id="what" class="band band--alt">
     <div class="wrap">
-      <h2 data-i18n="site.what">What it does</h2>
+      <div class="band-head">
+        <span class="band-num">What</span>
+        <h2 data-i18n="site.what">What it does</h2>
+        <p class="band-sub">Seven things the chain does, and the rule each of them enforces
+          rather than recommends.</p>
+      </div>
       <div class="grid">
 
         <article class="card">
@@ -222,17 +230,25 @@
     </div>
   </section>
 
-  <section id="different" class="band">
+  <section id="different" class="band band--dark">
     <div class="wrap prose">
-      <h2>Four decisions that shape everything else</h2>
+      <div class="band-head">
+        <span class="band-num">How</span>
+        <h2>Four decisions that shape everything else</h2>
+        <p class="band-sub">Each of these closed off an easier option. They are the reason the
+          rest of the system looks the way it does.</p>
+      </div>
 
+      <div class="decisions">
+        <div class="decision">
       <h3>The validator set is closed. The ledger is not.</h3>
       <p>
         Block production is a decision the network makes by vote, because an institution has
         to be able to say who processes its transactions. Reading the chain, holding
         currency and being paid need nobody's permission.
       </p>
-
+        </div>
+        <div class="decision">
       <h3>A commitment is stronger than a policy</h3>
       <p>
         When a treasury commits funds to somebody, they leave its spendable balance. No
@@ -240,7 +256,8 @@
         threshold can spend them. That is enforced by where the money sits rather than by a
         rule that checks — which is the difference between a commitment and an intention.
       </p>
-
+        </div>
+        <div class="decision">
       <h3>A value too old to trust is not a value</h3>
       <p>
         Every price carries when it was observed and how old that makes it. Nothing is
@@ -248,7 +265,8 @@
         unusable, and the operations that act on a price immediately refuse a stale one
         rather than guess.
       </p>
-
+        </div>
+        <div class="decision">
       <h3>Supply is capped, and approaches the cap</h3>
       <p>
         New issuance decays geometrically, so the total ever created converges on a fixed
@@ -265,28 +283,74 @@
   -->
   <section id="status" class="band band--alt">
     <div class="wrap prose">
-      <h2 data-i18n="site.where">Where the project actually is</h2>
+      <div class="band-head">
+        <span class="band-num">Status</span>
+        <h2 data-i18n="site.where">Where the project actually is</h2>
+      </div>
       <p>
-        Yamale is pre-testnet. The chain runs, the modules are built and tested, and the
-        launch ceremony has been rehearsed with three validators reaching consensus. It has
-        not been deployed to real infrastructure, and it has not been audited by anybody
-        outside the project.
+        The chain is running in public and the figures at the top of this page are read
+        from it. What has not happened is the part that gates a real deployment: nobody
+        outside the project has audited any of this, and the validator set is too small to
+        survive losing a member. Both are stated here because a reader who discovers them
+        later is right to discount everything else.
       </p>
-      <ul class="status">
-        <li><span class="tick" aria-hidden="true">✓</span> Payments, currencies, treasuries, trading, staking, governance, prices — built and covered by tests</li>
-        <li><span class="tick" aria-hidden="true">✓</span> Genesis ceremony rehearsed end to end; deployment scripts verify their own output</li>
-        <li><span class="tick" aria-hidden="true">✓</span> Block explorer with a plain-language view and a full technical view</li>
-        <li><span class="cross" aria-hidden="true">✗</span> Not yet running on real hosts, and not externally audited</li>
-        <li><span class="cross" aria-hidden="true">✗</span> Lending against real-world assets is a later phase — the valuation layer it needs is in place, nothing consumes it yet</li>
-      </ul>
+      <table class="state-table">
+        <thead>
+          <tr><th scope="col">Where</th><th scope="col">State</th><th scope="col">What that means</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The chain</td>
+            <td><span class="state state--live">Running</span></td>
+            <td>Public, producing blocks, two validators. The figures at the top of this page are read from it.</td>
+          </tr>
+          <tr>
+            <td>Payments, currencies, treasuries, trading, staking, governance, prices</td>
+            <td><span class="state state--built">Built and tested</span></td>
+            <td>Each covered by tests, and each documented — including what it refuses to do.</td>
+          </tr>
+          <tr>
+            <td>Launch and key ceremony</td>
+            <td><span class="state state--live">Performed</span></td>
+            <td>Genesis built from a real ceremony; the account that receives every seizure is a three-of-five nobody holds alone.</td>
+          </tr>
+          <tr>
+            <td>Upgrades</td>
+            <td><span class="state state--live">Performed</span></td>
+            <td>Proposed, voted, halted at a height and applied on the running chain — not only in a test.</td>
+          </tr>
+          <tr>
+            <td>Independent audit</td>
+            <td><span class="state state--none">Not started</span></td>
+            <td>Nobody outside the project has reviewed this. It is the gate on any real deployment and we do not pretend otherwise.</td>
+          </tr>
+          <tr>
+            <td>Fault tolerance</td>
+            <td><span class="state state--open">Two validators</span></td>
+            <td>Losing either stops the chain. Four is the minimum that survives losing one, and that is a deployment decision rather than a code one.</td>
+          </tr>
+          <tr>
+            <td>Account service, USSD, agent networks</td>
+            <td><span class="state state--none">Not started</span></td>
+            <td>The commercial critical path for reaching people who do not hold their own keys.</td>
+          </tr>
+          <tr>
+            <td>Lending against real-world assets</td>
+            <td><span class="state state--open">Later phase</span></td>
+            <td>The valuation layer it needs is in place; nothing consumes it yet.</td>
+          </tr>
+        </tbody>
+      </table>
       <p>
         Everything above is documented in the open, including the parts that are missing:
         the <a href="docs/index.html">documentation</a> keeps its own honest list.
       </p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="band band--cta">
+<section class="band band--cta">
     <div class="wrap prose">
       <h2 data-i18n="site.lookAt">Look at it yourself</h2>
       <p>

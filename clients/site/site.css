@@ -468,3 +468,158 @@ footer p { max-width: none; }
   font-weight: 600;
 }
 .button--primary:hover { filter: brightness(1.06); }
+
+/* ================================================================ bands ===
+ *
+ * The page was five full-width bands of prose stacked down the screen — 474,
+ * 985, 858, 648 and 328 pixels tall — alternating between two greys four steps
+ * apart and separated by a one-pixel hairline. Nothing had more weight than
+ * anything else, so nothing read as more important than anything else, and a
+ * reader arriving with a question had no way to find where it was answered.
+ *
+ * Three changes, in order of how much they do:
+ *
+ *  1. One band goes dark. A single reversal breaks a long page into a before
+ *     and an after and gives the eye somewhere to land, which alternating two
+ *     near-identical greys cannot do at any length.
+ *  2. Sections get a label and a number in the margin, so their order is
+ *     visible rather than merely present. Numbered because these four decisions
+ *     ARE presented as a set of four and referred to by count.
+ *  3. Cards get a mono eyebrow and real elevation instead of being paragraphs
+ *     with headings inside a hairline box.
+ */
+
+/* A section header that occupies the empty left margin at wide viewports
+   instead of leaving 270px of nothing beside every heading. */
+.band-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 1100px) {
+  .band-head {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 0 2.25rem;
+    align-items: baseline;
+  }
+  .band-head > .band-num { grid-row: 1 / span 2; text-align: right; }
+}
+
+.band-num {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+  padding-top: 0.4rem;
+}
+
+.band-head > h2 { margin: 0; }
+.band-head > .band-sub {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+/* The reversal. Its own tokens rather than a filter, so the text, the rules and
+   the cards inside it are each chosen against this ground rather than inverted
+   and hoped for. */
+.band--dark {
+  background: var(--navy);
+  border-top: 0;
+  --text: #eef3fa;
+  --text-muted: #9db2ce;
+  --border: #24405f;
+  --surface: #162943;
+  color: var(--text);
+}
+/* Deepened only where the surrounding page is already dark, so the reversal
+   still reads as a reversal. Written as a media query plus an explicit stamp,
+   because `:root:not([data-theme='light'])` on its own is true in the default
+   un-stamped state — which is most readers — and would apply the dark-mode
+   shade to a light page. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .band--dark { background: #0d1a2c; }
+}
+:root[data-theme='dark'] .band--dark { background: #0d1a2c; }
+.band--dark h2, .band--dark h3 { color: #ffffff; }
+.band--dark .card { background: var(--surface); border-color: var(--border); box-shadow: none; }
+
+/* Cards carry a label so a reader scanning the grid gets the shape of the
+   product without reading seven paragraphs. */
+.card__eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 0.45rem;
+}
+.card {
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+.card h3 { margin: 0 0 0.5rem; font-size: var(--step-1); }
+
+/* The four decisions read as a set, so they are numbered and ruled rather than
+   left as four h3s in a column of prose. */
+.decisions { display: grid; gap: 1.6rem; counter-reset: decision; margin-top: 0.5rem; }
+.decision {
+  counter-increment: decision;
+  display: grid;
+  gap: 0.3rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 800px) {
+  .decision { grid-template-columns: 3rem minmax(0, 1fr); }
+  .decision::before { grid-row: 1 / span 2; }
+}
+.decision::before {
+  content: counter(decision, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--brass);
+}
+.decision h3 { margin: 0; font-size: var(--step-2); }
+.decision p { margin: 0.4rem 0 0; }
+
+/* Status as a table of states rather than a list of ticks: the audience for
+   this section is deciding whether to trust the rest of the page, and "built,
+   not audited" is a different answer from "not built". A tick and a cross
+   cannot say that, and colour alone must not be what does. */
+.state-table { width: 100%; border-collapse: collapse; margin: 0 0 1.5rem; }
+.state-table th, .state-table td {
+  text-align: left;
+  padding: 0.7rem 0.9rem 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.state-table thead th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.state-table td:first-child { width: 11rem; }
+
+.state {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.67rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.state--live { background: var(--wash-ok); color: var(--ok); }
+.state--built { background: var(--wash-mute); color: var(--text-muted); }
+.state--open { background: var(--wash-warn); color: var(--warn); }
+.state--none { background: var(--wash-bad); color: var(--bad); }
