@@ -8,6 +8,7 @@
  * forward; if the two ever disagree, the chain is right and this is a bug.
  */
 import { currencyOf } from './money.ts';
+import { decodeMemo, type Remittance } from './iso.ts';
 
 export interface Movement {
   height: number;
@@ -18,6 +19,20 @@ export interface Movement {
   amount: bigint;
   counterparty: string;
   hash: string;
+  /**
+   * What the payer wrote, decoded from the transaction memo.
+   *
+   * The reference was going out with every payment and never coming back: the
+   * history showed a name, a figure and a date, which is a receipt rather than
+   * a statement. Reconciliation joins on the reference, so a payments app that
+   * cannot show it on the receiving side has only done half the job.
+   *
+   * A memo from an older build is a plain string with no structure, and
+   * `decodeMemo` reads that as remittance information in full rather than as a
+   * malformed record — so the references that already exist on this chain
+   * appear too.
+   */
+  reference: Remittance;
 }
 
 export interface MonthlyStatement {
@@ -82,6 +97,9 @@ function parse(tx: any, address: string, sign: 1 | -1): Movement[] {
   const height = Number(tx.height ?? 0);
   const at = tx.timestamp ? Date.parse(tx.timestamp) : 0;
   const hash = tx.txhash ?? '';
+  // The memo is on the transaction body, not on the response envelope. An
+  // absent one decodes to an empty unstructured reference rather than throwing.
+  const reference = decodeMemo(String(tx.tx?.body?.memo ?? ''));
 
   for (const event of tx.events ?? []) {
     if (event.type !== 'transfer') continue;
@@ -98,7 +116,7 @@ function parse(tx: any, address: string, sign: 1 | -1): Movement[] {
       // which is honest: they left the account.
       if (!currencyOf(m[2])) continue;
       out.push({
-        height, at, hash,
+        height, at, hash, reference,
         denom: m[2],
         amount: BigInt(m[1]) * BigInt(sign),
         counterparty: (sign > 0 ? attrs.sender : attrs.recipient) ?? '',
