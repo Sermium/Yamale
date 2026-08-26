@@ -129,7 +129,7 @@
           <g class="wire__node">
             <rect x="1" y="14" width="188" height="60" rx="5"/>
             <text class="wire__label" x="15" y="36">SENDER · SN</text>
-            <text class="wire__name" x="15" y="58">Banque Nationale</text>
+            <text class="wire__name" x="15" y="58" data-i18n="wire.from">A bank in Senegal</text>
           </g>
 
           <!-- the instruction, carrying its own reference -->
@@ -159,11 +159,11 @@
           <g class="wire__node">
             <rect x="271" y="272" width="188" height="56" rx="5"/>
             <text class="wire__label" x="285" y="294">RECEIVER · GH</text>
-            <text class="wire__name" x="285" y="316">Ecobank Ghana</text>
+            <text class="wire__name" x="285" y="316" data-i18n="wire.to">A bank in Ghana</text>
           </g>
         </svg>
         <figcaption id="wire-cap">
-          Both institutions were approved before either could appear on this instruction.
+          Both institutions were approved by their own national authority before either could appear on this instruction.
           The block and settlement time are read from the running chain.
         </figcaption>
       </figure>
@@ -724,19 +724,19 @@
    translating it. Headings and navigation are what a reader orients by. */
 (function () {
   var D = {
-    en: {'site.what':'What it does','site.different':'How it differs','site.status':'Status',
+    en: {'wire.from':'A bank in Senegal','wire.to':'A bank in Ghana','site.what':'What it does','site.different':'How it differs','site.status':'Status',
          'site.problem':'The problem','site.where':'Where the project actually is',
          'site.lookAt':'Look at it yourself'},
-    fr: {'site.what':'Ce qu’il fait','site.different':'Ce qui le distingue','site.status':'État',
+    fr: {'wire.from':'Une banque au Sénégal','wire.to':'Une banque au Ghana','site.what':'Ce qu’il fait','site.different':'Ce qui le distingue','site.status':'État',
          'site.problem':'Le problème','site.where':'Où en est le projet',
          'site.lookAt':'Voyez par vous-même'},
-    pt: {'site.what':'O que faz','site.different':'Como se distingue','site.status':'Estado',
+    pt: {'wire.from':'Um banco no Senegal','wire.to':'Um banco no Gana','site.what':'O que faz','site.different':'Como se distingue','site.status':'Estado',
          'site.problem':'O problema','site.where':'Onde está o projeto',
          'site.lookAt':'Veja por si próprio'},
-    sw: {'site.what':'Inafanya nini','site.different':'Inatofautianaje','site.status':'Hali',
+    sw: {'wire.from':'Benki nchini Senegal','wire.to':'Benki nchini Ghana','site.what':'Inafanya nini','site.different':'Inatofautianaje','site.status':'Hali',
          'site.problem':'Tatizo','site.where':'Mradi ulipo',
          'site.lookAt':'Jionee mwenyewe'},
-    ar: {'site.what':'ما الذي يفعله','site.different':'ما الذي يميّزه','site.status':'الحالة',
+    ar: {'wire.from':'مصرف في السنغال','wire.to':'مصرف في غانا','site.what':'ما الذي يفعله','site.different':'ما الذي يميّزه','site.status':'الحالة',
          'site.problem':'المشكلة','site.where':'أين وصل المشروع',
          'site.lookAt':'انظر بنفسك'}
   };
