@@ -637,23 +637,11 @@ footer p { max-width: none; }
  * readers decide in seconds whether to keep reading.
  */
 
-.hero > .wrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2.5rem;
-  align-items: start;
-}
-@media (min-width: 1000px) {
-  .hero > .wrap {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: 3.5rem;
-  }
-  /* The band spans both columns: it is evidence for the whole hero, not for the
-     paragraph it happens to sit under. */
-  .hero .proof { grid-column: 1 / -1; margin-top: 0.5rem; }
-  .hero .cta { grid-column: 1 / -1; }
-  .wire { grid-row: 1 / span 3; }
-}
+/* The hero is centred and stacked: the claim, the figures, then the payment
+   drawn at full width beneath them. Chosen over a two-column arrangement, which
+   left the drawing and the text fighting for the same optical weight and never
+   settled. */
+.hero > .wrap { display: block; }
 
 .wire { margin: 0; align-self: center; }
 .wire svg { width: 100%; height: auto; display: block; }
@@ -818,3 +806,12 @@ footer p { max-width: none; }
   font-size: 0.72rem;
   color: var(--text-faint);
 }
+
+.hero--stack { padding: 4.5rem 0 3.5rem; }
+.hero--stack > .wrap { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.3rem; }
+.hero--stack h1 { max-width: 17ch; font-size: clamp(2.4rem, 5.6vw, 4rem); }
+.hero--stack .lede { max-width: 62ch; margin: 0; }
+.hero--stack .cta { justify-content: center; }
+.hero--stack .proof { width: 100%; margin: 0.8rem 0 0; }
+.hero--stack .wire { width: 100%; max-width: 780px; margin: 1rem auto 0; }
+.hero--stack .wire figcaption { margin-left: auto; margin-right: auto; text-align: center; max-width: 56ch; }

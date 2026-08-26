@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="yamale.css?v=b55e92bf">
-<link rel="stylesheet" href="site.css?v=b6968687">
+<link rel="stylesheet" href="site.css?v=aba9884c">
 </head>
 <body>
 
@@ -79,22 +79,44 @@
     the consensus algorithm, and the people who care about that will find it in
     the docs.
   -->
-  <section class="hero">
+  <section class="hero hero--stack">
     <div class="wrap">
       <p class="eyebrow">Institutional payments infrastructure</p>
       <h1>Money that moves in seconds, between institutions that know each other.</h1>
-      <p class="lede">
-        Yamale settles payments between banks, funds and businesses in the time it takes to
-        read this sentence — carrying the reference and purpose codes reconciliation actually
-        needs, on a network where every participant has been approved rather than merely
-        allowed.
-      </p>
-      <!-- The claim drawn, rather than asserted.
-           A payment leaving one named institution and arriving at another with
-           its reference and purpose still attached — which is the whole product,
-           and which four paragraphs of prose had been describing instead. Inline
-           SVG so it carries no request, scales without blurring, inherits the
-           page's tokens in both themes, and can be read by a screen reader. -->
+      <p class="lede">Yamale settles payments between banks, funds and businesses in the time it takes to read this sentence — carrying the reference and purpose codes reconciliation actually needs, on a network where every participant has been approved rather than merely allowed.</p>
+      <div class="cta">
+        <a class="button button--primary" href="docs/guides/local-devnet.html">Run a chain in two minutes</a>
+        <a class="button" href="docs/guides/concepts.html">What it is, and why</a>
+      </div>
+      <div class="proof" id="proof" aria-live="polite">
+        <div class="proof__state" id="proof-state">
+          <span class="proof__dot" aria-hidden="true"></span>
+          <span id="proof-chain">reading the chain…</span>
+        </div>
+        <dl class="proof__grid">
+          <div class="proof__item">
+            <dt>Block</dt>
+            <dd class="proof__value" id="p-height">—</dd>
+            <dd class="proof__note" id="p-age">&nbsp;</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Settled in</dt>
+            <dd class="proof__value" id="p-time">—</dd>
+            <dd class="proof__note">median of the last 20</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Validators</dt>
+            <dd class="proof__value" id="p-vals">—</dd>
+            <dd class="proof__note" id="p-vals-note">&nbsp;</dd>
+          </div>
+          <div class="proof__item">
+            <dt>Currencies</dt>
+            <dd class="proof__value" id="p-denoms">—</dd>
+            <dd class="proof__note">issued on this chain</dd>
+          </div>
+        </dl>
+      </div>
+
       <figure class="wire" aria-labelledby="wire-cap">
         <svg viewBox="0 0 460 330" role="img" aria-label="A payment leaving Banque Nationale, settling on the Yamale chain, and arriving at Ecobank Ghana with its reference and purpose code intact.">
           <defs>
@@ -146,50 +168,8 @@
         </figcaption>
       </figure>
 
-      <!-- The first question an institution asks is whether this is real, and
-           the honest way to answer it is to read the running chain in front of
-           them. Every figure here comes from the node this page is served
-           beside; none of it is written into the markup, and when the chain
-           cannot be reached the band says so rather than showing a zero. -->
-      <div class="proof" id="proof" aria-live="polite">
-        <div class="proof__state" id="proof-state">
-          <span class="proof__dot" aria-hidden="true"></span>
-          <span id="proof-chain">reading the chain…</span>
-        </div>
-        <dl class="proof__grid">
-          <div class="proof__item">
-            <dt>Block</dt>
-            <dd class="proof__value" id="p-height">—</dd>
-            <dd class="proof__note" id="p-age">&nbsp;</dd>
-          </div>
-          <div class="proof__item">
-            <dt>Settled in</dt>
-            <dd class="proof__value" id="p-time">—</dd>
-            <dd class="proof__note">median of the last 20</dd>
-          </div>
-          <div class="proof__item">
-            <dt>Validators</dt>
-            <dd class="proof__value" id="p-vals">—</dd>
-            <dd class="proof__note" id="p-vals-note">&nbsp;</dd>
-          </div>
-          <div class="proof__item">
-            <dt>Currencies</dt>
-            <dd class="proof__value" id="p-denoms">—</dd>
-            <dd class="proof__note">issued on this chain</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div class="cta">
-        <a class="button button--primary" href="docs/guides/local-devnet.html">Run a chain in two minutes</a>
-        <a class="button" href="docs/guides/concepts.html">What it is, and why</a>
-      </div>
     </div>
   </section>
-
-  <!-- Institutions decide by comparison, and the page had been asking them to
-       hold three models in their head from prose. Three columns, one row per
-       question a treasurer or a supervisor actually asks. -->
   <section id="compare" class="band">
     <div class="wrap">
       <div class="band-head">
