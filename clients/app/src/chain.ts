@@ -8,6 +8,7 @@
  */
 import { ChainSigner, translateError, type TranslatedError } from '@yamale/chain';
 import type { Signer } from './account.ts';
+import { MEMO_LIMIT } from './iso.ts';
 
 const RPC = `${window.location.origin}/api/rpc/`;
 const CHAIN_ID = 'yamale-devnet-2';
@@ -101,19 +102,40 @@ export interface PaymentOutcome {
  * says what it is. The reference travels in the transaction memo: a real field,
  * on the ledger, queryable, and enough to reconcile against. It is not a
  * PaymentRecord and the receipt does not pretend it is.
+ *
+ * One correction to the third bullet above, found by pointing this at the
+ * running chain rather than reading the nginx config: the REST prefix is
+ * gated, but the same queries answer over the node's ABCI interface at
+ * /api/rpc/, which is not. So the app *can* discover the chain's standing and
+ * now does — see standing.ts. It reads zero approved participants at a stated
+ * block height instead of asserting it.
+ *
+ * `memo` arrives already encoded. Building it here would put the ISO field
+ * layout in the file that signs transactions, and the point of this file is
+ * that the list of things it can do to somebody's money reads in a minute.
  */
 export async function pay(
   account: Signer,
   toAddress: string,
   amount: string,
   denom: string,
-  reference: string,
+  memoIn: string,
 ): Promise<PaymentOutcome> {
   const signer = signerFor(account);
   const from = await signer.address();
 
-  const memo = reference.trim();
+  const memo = memoIn.trim();
   const reported = { value: memo, on: memo === '' ? ('none' as const) : ('memo' as const) };
+
+  // Refused here as well as prevented in the form. A memo over the node's
+  // `max_memo_characters` is rejected after signing, and no screen should be
+  // able to reach that by forgetting a check of its own.
+  if (memo.length > MEMO_LIMIT) {
+    return {
+      ok: false, hash: '', height: 0, rails: 'transfer', reference: reported,
+      error: translateError(`memo is too long: ${memo.length} > ${MEMO_LIMIT}`),
+    };
+  }
 
   try {
     const res = await signer.submit(
