@@ -844,7 +844,10 @@ body {
    voice — the warning wash, not the bad one — because collapsing the two is how
    a network fault gets reported as a fact about the world. */
 .iso__standing--unknown { border-inline-start-color: var(--warn); background: var(--wash-warn); }
-.iso__at { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.68rem; white-space: nowrap; }
+/* The height this was read at. Not `--text-muted`: measured against the tinted
+   wash behind it that came out at 4.42:1, which is under AA for text this size.
+   The mono face and the size make it secondary; the colour does not have to. */
+.iso__at { color: var(--text); opacity: 0.72; font-family: var(--font-mono); font-size: 0.68rem; white-space: nowrap; }
 
 /* The disclosure that holds it inside the phone. */
 .iso__disclosure { margin-top: var(--sp-4); }

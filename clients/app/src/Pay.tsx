@@ -65,8 +65,24 @@ export function Pay({ signer }: { signer: Signer }) {
     let live = true;
     (async () => {
       const address = await signer.internalAddress();
-      const [map, id] = await Promise.all([balances(address), book.myUserId(address)]);
-      if (live) { setHeld(map); setMe({ address, userId: id ?? '' }); }
+      const map = await balances(address);
+      if (live) { setHeld(map); setMe({ address, userId: '' }); }
+
+      /**
+       * The identifier is registered a moment after sign-in, not before it.
+       *
+       * Asking once meant that opening this screen quickly — which is what a
+       * person doing a demonstration does — read "no identifier yet" and kept
+       * that answer for the whole session, leaving the settlement jurisdiction
+       * blank on an account that had one thirty seconds later. So it is asked
+       * again a few times and then left alone; a permanent poll would be
+       * spending somebody's data on a fact that does not change.
+       */
+      for (let attempt = 0; attempt < 6 && live; attempt++) {
+        const id = await book.myUserId(address);
+        if (id) { if (live) setMe({ address, userId: id }); return; }
+        await new Promise((r) => setTimeout(r, 5000));
+      }
     })();
     return () => { live = false; };
   }, [signer]);
