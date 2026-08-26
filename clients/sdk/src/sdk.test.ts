@@ -225,6 +225,37 @@ test('an account the chain has never seen is explained, not reported as missing'
   assert.notEqual(t.message, 'Not enough funds');
 });
 
+test('a request that never reached the node is not reported as the chain refusing', () => {
+  // The single most common failure on any of these screens, and the one that
+  // most misleads: the chain has done nothing, and a treasury that cannot be
+  // read is not a treasury that is empty.
+  const t = translateError('TypeError: Failed to fetch');
+  assert.equal(t.message, 'The node could not be reached');
+  assert.equal(t.retryable, true);
+  assert.match(t.reason ?? '', /nothing on the chain has changed/i);
+});
+
+test('a node answering with a server error is separated from a node not answering', () => {
+  const t = translateError('Request failed with 503');
+  assert.equal(t.message, 'The node is not answering');
+  assert.equal(t.retryable, true);
+});
+
+test('a 404 is an answer, not a failure', () => {
+  // The distinction a screen needs in order to choose between "there is none"
+  // and "unknown". Conflating the two is how an empty page gets rendered over a
+  // question nobody managed to ask.
+  const t = translateError('Request failed with 404');
+  assert.equal(t.message, 'There is no such record');
+  assert.equal(t.retryable, false);
+});
+
+test('a gateway refusing an endpoint does not read as missing data', () => {
+  const t = translateError('Request failed with 401');
+  assert.equal(t.message, 'This node refuses that query');
+  assert.match(t.reason ?? '', /configuration decision/i);
+});
+
 test('an unrecognised error is surfaced verbatim, not hidden', () => {
   const raw = 'some entirely novel failure from a future module';
   const t = translateError(raw);
