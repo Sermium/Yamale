@@ -15,8 +15,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="yamale.css">
-<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="yamale.css?v=b55e92bf">
+<link rel="stylesheet" href="site.css?v=1a3ba767">
 </head>
 <body>
 
@@ -89,6 +89,63 @@
         needs, on a network where every participant has been approved rather than merely
         allowed.
       </p>
+      <!-- The claim drawn, rather than asserted.
+           A payment leaving one named institution and arriving at another with
+           its reference and purpose still attached — which is the whole product,
+           and which four paragraphs of prose had been describing instead. Inline
+           SVG so it carries no request, scales without blurring, inherits the
+           page's tokens in both themes, and can be read by a screen reader. -->
+      <figure class="wire" aria-labelledby="wire-cap">
+        <svg viewBox="0 0 460 330" role="img" aria-label="A payment leaving Banque Nationale, settling on the Yamale chain, and arriving at Ecobank Ghana with its reference and purpose code intact.">
+          <defs>
+            <marker id="tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- sender -->
+          <g class="wire__node">
+            <rect x="1" y="14" width="188" height="60" rx="5"/>
+            <text class="wire__label" x="15" y="36">SENDER · SN</text>
+            <text class="wire__name" x="15" y="58">Banque Nationale</text>
+          </g>
+
+          <!-- the instruction, carrying its own reference -->
+          <g class="wire__packet">
+            <rect x="1" y="96" width="458" height="96" rx="5"/>
+            <text class="wire__label" x="15" y="118">INSTRUCTION</text>
+            <text class="wire__amount" x="15" y="146">4,500.00 NGN</text>
+            <text class="wire__label" x="243" y="118">REFERENCE</text>
+            <text class="wire__mono" x="243" y="143">INV-2026-0041</text>
+            <text class="wire__label" x="243" y="167">PURPOSE</text>
+            <text class="wire__mono" x="243" y="182">SUPP · supplier payment</text>
+            <text class="wire__note" x="15" y="170">travels with the money,</text>
+            <text class="wire__note" x="15" y="183">not in a memo beside it</text>
+          </g>
+
+          <!-- settlement -->
+          <g class="wire__rail">
+            <line x1="95" y1="74" x2="95" y2="96" marker-end="url(#tip)"/>
+            <line x1="365" y1="192" x2="365" y2="214" marker-end="url(#tip)"/>
+          </g>
+          <g class="wire__node wire__node--chain">
+            <rect x="1" y="214" width="458" height="40" rx="5"/>
+            <text class="wire__label" x="15" y="239">SETTLED IN <tspan class="wire__live" id="wire-secs">5.3</tspan>s · BLOCK <tspan class="wire__live" id="wire-block">—</tspan> · JURISDICTION SN</text>
+          </g>
+
+          <!-- receiver -->
+          <g class="wire__node">
+            <rect x="271" y="272" width="188" height="56" rx="5"/>
+            <text class="wire__label" x="285" y="294">RECEIVER · GH</text>
+            <text class="wire__name" x="285" y="316">Ecobank Ghana</text>
+          </g>
+        </svg>
+        <figcaption id="wire-cap">
+          Both institutions were approved before either could appear on this instruction.
+          The block and settlement time are read from the running chain.
+        </figcaption>
+      </figure>
+
       <!-- The first question an institution asks is whether this is real, and
            the honest way to answer it is to read the running chain in front of
            them. Every figure here comes from the node this page is served
@@ -635,6 +692,7 @@
     band.classList.add('is-live');
     set('proof-chain', 'live · ' + chain);
     set('p-height', group(height));
+    set('wire-block', group(height));
     set('p-age', 'last block ' + ago(sync.latest_block_time));
 
     /* A chain that has stopped still answers /status with its last height, so
@@ -655,6 +713,8 @@
           .sort(function (x, y) { return x - y; });
         var med = medianBlockTime(times);
         set('p-time', med === null ? 'unknown' : med.toFixed(1) + 's');
+        // The drawing shows this chain, not an illustration of one.
+        if (med !== null) set('wire-secs', med.toFixed(1));
       })
       .catch(function () { set('p-time', 'unknown'); });
   }).catch(function () {

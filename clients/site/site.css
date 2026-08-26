@@ -623,3 +623,102 @@ footer p { max-width: none; }
 .state--built { background: var(--wash-mute); color: var(--text-muted); }
 .state--open { background: var(--wash-warn); color: var(--warn); }
 .state--none { background: var(--wash-bad); color: var(--bad); }
+
+/* ============================================================ the hero ===
+ *
+ * The hero was a headline, a paragraph and two buttons in a 1060px column with
+ * 270px of nothing either side, on a page that never once drew what it sells.
+ * It now runs in two columns at desktop width: the claim on the left, the claim
+ * *drawn* on the right.
+ *
+ * The drawing is the point. A payment leaving one named institution and
+ * arriving at another with its reference and purpose still attached is the
+ * entire product, and it was being explained in four paragraphs by a page whose
+ * readers decide in seconds whether to keep reading.
+ */
+
+.hero > .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+@media (min-width: 1000px) {
+  .hero > .wrap {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 3.5rem;
+  }
+  /* The band spans both columns: it is evidence for the whole hero, not for the
+     paragraph it happens to sit under. */
+  .hero .proof { grid-column: 1 / -1; margin-top: 0.5rem; }
+  .hero .cta { grid-column: 1 / -1; }
+  .wire { grid-row: 1 / span 3; }
+}
+
+.wire { margin: 0; align-self: center; }
+.wire svg { width: 100%; height: auto; display: block; }
+
+.wire figcaption {
+  margin-top: 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 44ch;
+}
+
+/* Every colour from a token, so the drawing follows the theme rather than
+   being a picture of one theme pasted onto the other. */
+.wire__node rect {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.wire__packet rect {
+  fill: var(--wash-brass);
+  stroke: var(--brass);
+  stroke-width: 1;
+}
+.wire__node--chain rect {
+  fill: var(--navy);
+  stroke: var(--navy);
+}
+:root[data-theme='dark'] .wire__node--chain rect { fill: #0d1a2c; stroke: #24405f; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .wire__node--chain rect { fill: #0d1a2c; stroke: #24405f; }
+}
+
+.wire__label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.1px;
+  fill: var(--text-muted);
+}
+.wire__node--chain .wire__label { fill: #9db2ce; }
+.wire__live { fill: #e8eef7; }
+
+.wire__name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--text);
+}
+.wire__amount {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  fill: var(--text);
+}
+.wire__mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--text);
+}
+.wire__note {
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+.wire__rail line {
+  stroke: var(--brass);
+  stroke-width: 1.5;
+  color: var(--brass);
+}
