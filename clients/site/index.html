@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="yamale.css?v=b55e92bf">
-<link rel="stylesheet" href="site.css?v=124da76f">
+<link rel="stylesheet" href="site.css?v=12079e7b">
 </head>
 <body>
 
@@ -593,14 +593,11 @@
 
       <div class="foot__col">
         <h3>Apps</h3>
-        <ul>
-          <li><a class="app-link" href="/app/"><strong>Yamale Pay</strong></a></li>
-          <li><a class="app-link" href="/explorer/"><strong>Explorer</strong></a></li>
-          <li><a class="app-link" href="/wallet/"><strong>Wallet</strong></a></li>
-          <li><a class="app-link" href="/wallet/faucet"><strong>Faucet</strong></a></li>
-          <li><a class="app-link" href="/safe/"><strong>Safe</strong></a></li>
-          <li><a class="app-link" href="/safe/operations"><strong>Operations</strong></a></li>
-          <li><a class="app-link" href="/explorer/capabilities"><strong>Capabilities</strong></a></li>
+        <ul class="foot__apps">
+          <li><a href="/app/">Yamale Pay<span>send and receive</span></a></li>
+          <li><a href="/explorer/">Explorer<span>what the chain did</span></a></li>
+          <li><a href="/wallet/">Wallet<span>keys and signing</span></a></li>
+          <li><a href="/safe/">Safe<span>shared accounts</span></a></li>
         </ul>
       </div>
 
@@ -645,8 +642,9 @@
       so plainly is both the honest position and the legally safer one: nothing
       on this site is an offer, and no reader should be able to claim otherwise.
     -->
-    <div class="foot__legal">
-      <h3>Important notices</h3>
+    <details class="foot__legal">
+      <summary>Important notices — no offer, pre-production software, jurisdiction and licensing</summary>
+      <div class="foot__legal-body">
 
       <p>
         <strong>No offer, no solicitation, no investment advice.</strong> Nothing on this site or
@@ -701,7 +699,8 @@
         <strong>Third-party links.</strong> Links to external sites are provided for convenience.
         We do not control them and are not responsible for their content, security or practices.
       </p>
-    </div>
+      </div>
+    </details>
 
     <div class="foot__base">
       <p class="small muted">

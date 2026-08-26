@@ -867,3 +867,48 @@ footer p { max-width: none; }
 .cf__do { font-size: 11.5px; fill: var(--text-muted); }
 .cf__arrow { stroke: var(--brass); stroke-width: 1.5; color: var(--brass); }
 .cf__rule { font-size: 11px; fill: var(--text-muted); }
+
+/* The footer had five columns and four tracks, so Contact wrapped onto a row of
+   its own and the whole thing read as broken. Five tracks, and the brand column
+   keeps the extra width because it carries a sentence rather than a list. */
+.foot__grid { grid-template-columns: 1.7fr repeat(4, 1fr); }
+@media (max-width: 1000px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .foot__grid { grid-template-columns: 1fr; } }
+
+/* Each app says what it is for. Seven bold links said nothing except that there
+   were seven of them. */
+.foot__apps { display: flex; flex-direction: column; gap: 0.6rem; }
+.foot__apps a { display: block; font-weight: 600; color: var(--text); text-decoration: none; }
+.foot__apps a:hover { color: var(--brass); }
+.foot__apps a span {
+  display: block;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+/* 515 pixels of disclaimers sat between the footer links and the copyright —
+   more than half the footer — pushing everything a visitor came for off the
+   screen. Every word is kept, because they are securities and pre-production
+   notices and trimming them would be the wrong kind of tidying. They are simply
+   not the first thing in the footer any more.
+
+   The summary names what is inside rather than saying "legal", so somebody
+   looking for the offer disclaimer knows it is there without opening it. */
+.foot__legal { margin: 0 0 1.5rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
+.foot__legal > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  list-style: none;
+}
+.foot__legal > summary::-webkit-details-marker { display: none; }
+.foot__legal > summary::before { content: '+ '; color: var(--brass); font-weight: 700; }
+.foot__legal[open] > summary::before { content: '– '; }
+.foot__legal > summary:hover { color: var(--text); }
+.foot__legal-body { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.foot__legal-body p { font-size: 0.82rem; line-height: 1.6; max-width: 90ch; }
