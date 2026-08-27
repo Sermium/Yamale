@@ -485,6 +485,264 @@ export const en = {
   'error.unauthorized': 'This account is not permitted to do that.',
   'error.unknown': 'Something went wrong. Nothing was sent.',
 
+  // --- the approval screen ---
+  //
+  // The highest-stakes screen in the product, and the one where a mistranslated
+  // word costs money rather than clarity. "Irreversible" is not a mood; it is
+  // the statement that no party on this chain can return what is about to move.
+  'sign.eyebrow': 'Approval requested',
+  'sign.eyebrowConnect': 'Connection requested',
+  'sign.eyebrowSigned': 'Signed',
+  'sign.noAccount': 'No account on this device',
+  'sign.noAccountBody':
+    'This wallet holds nothing yet. Create or load an account first, then the application can ask again.',
+  'sign.waiting': 'Waiting for a request',
+  'sign.requestedBy': 'Requested by',
+  'sign.signingAs': 'Signing as',
+  'sign.originNote':
+    'That is the address the browser reports, not a name the site chose for itself.',
+  'sign.connectTitle': 'Give this site your address',
+  'sign.whatItGets': 'What it gets',
+  'sign.connectBody': 'Your address and your public key. Not your recovery phrase.',
+  'sign.connectRefuses':
+    'Nothing can move on the strength of this. Every payment comes back to this window to be approved.',
+  'sign.connectApprove': 'Give it my address',
+  'sign.approve': 'Approve',
+  'sign.reject': 'Reject',
+  'sign.working': 'Working…',
+  'sign.passwordFor': 'Password for “{label}”',
+  'sign.whatChanges': 'What this does to your account',
+  'sign.leaves': 'Leaves this account',
+  'sign.arrives': 'Arrives in this account',
+  'sign.becomesLocked': 'Becomes locked',
+  'sign.movesElsewhere': 'Moves on your authority',
+  'sign.outOf': 'out of',
+  'sign.into': 'into',
+  'sign.nothingMoves': 'Nothing leaves this account and nothing becomes locked.',
+  'sign.grants': 'Gives',
+  'sign.someone': 'another account',
+  'sign.onTheseTerms': 'On these terms',
+  'sign.committedTo': 'committed to',
+  'sign.releasesIn': 'Released in {when}.',
+  'sign.releaseUnknown': 'This message states no release date.',
+  'sign.canCancel': 'Whoever created it may still cancel the part not yet released.',
+  'sign.cannotCancel': 'Nobody can cancel it — not the treasury, not an administrator, not a vote.',
+  'sign.ledgerIncompleteTitle': 'This is not the whole of it.',
+  'sign.ledgerIncompleteBody':
+    'At least one message here is one this wallet cannot read, so what it does to your account is unknown rather than nothing. Do not treat the figures above as complete.',
+  'sign.severalActions': '{n} actions in one signature',
+  'sign.detail': 'What is in the transaction',
+  'sign.incompleteTitle': 'Part of this could not be read.',
+  'sign.incompleteBody':
+    'At least one message in it is not a type this wallet knows, so what it does is unknown — not harmless. Approve it only if you can account for every line below.',
+  'sign.notATxTitle': 'These bytes are not a transaction',
+  'sign.notATx': 'They could not be decoded at all.',
+  'sign.notATxBody': 'Nothing can be said about what signing them would do.',
+  'sign.doNotApprove': 'Do not approve.',
+  'sign.whyUnreadable': 'Why it could not be read',
+  'sign.raw': 'Raw',
+  'sign.to': 'To',
+  'sign.carriesOne': 'It carries this action',
+  'sign.carriesMany': 'It carries these actions',
+  'sign.noDecoder':
+    'This wallet has no decoder for that message type, so it cannot say what it does.',
+  'sign.mismatch': 'The bytes do not match the type they claim to be.',
+  'sign.memo': 'On the ledger as a memo',
+  'sign.memoNote': 'public and permanent',
+  'sign.whatTheChainSaid': 'What the chain said',
+  'sign.revLabel.irreversible': 'Irreversible',
+  'sign.revLabel.delayed': 'On a clock',
+  'sign.revLabel.revocable': 'You can undo this',
+  'sign.revLabel.proposal': 'A request, not an act',
+  'sign.revLabel.none': 'Moves nothing',
+  'sign.revLabel.unknown': 'Unknown',
+  'sign.rev.irreversible':
+    'Once this is in a block nobody can undo it — not the recipient, not an administrator, not the validators.',
+  'sign.rev.delayed':
+    'Signing starts a clock you cannot shorten. The funds are not available again until it runs out.',
+  'sign.rev.revocable': 'You can undo this yourself later, with a second transaction.',
+  'sign.rev.proposal':
+    'Nothing moves when you sign. This asks other people to decide, and it is their approval that would move anything.',
+  'sign.rev.none': 'Nothing leaves this account, and nothing becomes locked.',
+  'sign.rev.unknown':
+    'This wallet cannot say whether it can be undone, because it does not recognise every message in it.',
+  'sign.signedTitle': 'Signed',
+  'sign.settled': 'Settled',
+  'sign.refused': 'The chain refused it',
+  'sign.cannotSee': 'This wallet cannot see the chain',
+  'sign.notSeen': 'Not in a block yet',
+  'sign.you': 'You',
+  'sign.progress': 'Progress',
+  'sign.stepSigned': 'Signed on this device, and handed back.',
+  'sign.stepInBlock': 'In block {height}.',
+  'sign.stepWaiting': 'Waiting for a block — {seconds}s so far.',
+  'sign.stepUnknown': 'Cannot tell: the node is not answering.',
+  'sign.stepNotSeen': 'No block has it yet. Still watching.',
+  'sign.stepPendingExecution': 'Carried out — not yet known.',
+  'sign.stepExecuted': 'Carried out. This is the only success.',
+  'sign.stepRefused': 'Refused inside the block, code {code}. Nothing moved.',
+  'sign.cannotApprove':
+    'There is no Approve button on this screen, and that is deliberate. This wallet will not put a signature on bytes it cannot read.',
+  'sign.cannotSeeTitle': 'Unknown, not failed.',
+  'sign.cannotSeeBody':
+    'This wallet could not reach a node to ask. The transaction may well have settled — check it in the explorer before signing anything again.',
+  'sign.notSeenTitle': 'It has not appeared.',
+  'sign.notSeenBody':
+    'Nothing carrying this identifier has reached a block in {duration}. The usual reason is that {origin} never broadcast it — a signature on its own moves nothing. This window is still watching, so if it does appear this will change.',
+  'sign.txId': 'Transaction',
+  'sign.close': 'Close this window',
+  'sign.backToWaiting': 'Wait for another request',
+  'sign.connected': 'Address given',
+  'sign.connectedBody':
+    '{origin} now has your address and public key. It cannot move anything: every payment comes back here to be approved.',
+
+  // --- an account's own page ---
+  //
+  // Three of these say "unknown". That is the state this page could not
+  // previously express: a query that failed rendered identically to an answer
+  // of nothing, and on a balance screen those are opposite facts.
+  'acct.cannotSend': 'This account cannot send.',
+  'acct.frozenBy': 'Enforcement case {id} froze it:',
+  'acct.canStillReceive':
+    'It can still receive. The case is public — anyone can read the grounds and how the validators voted.',
+  'acct.freezeUnknown': 'Whether this account is frozen could not be read.',
+  'acct.noYmlTitle': 'No YML, and nobody sponsoring the fees.',
+  'acct.noYmlBody':
+    'Network fees are payable in YML, so this account cannot move what it holds until an institution grants it a fee allowance or somebody sends it a little YML.',
+  'acct.reading': 'Reading the chain…',
+  'acct.balancesUnknown': 'Balances unknown',
+  'acct.balancesUnknownBody': 'What this account holds could not be read.',
+  'acct.tryAgain': 'Try again',
+  'acct.nothingHere': 'Nothing here yet',
+  'acct.nothingHereBody':
+    'This account holds no money. That is also what an address that has never been used looks like — the chain does not distinguish between the two, and neither does this page.',
+  'acct.holds': 'Holds',
+  'acct.fees': 'Fees',
+  'acct.feesUnknown': 'Who pays this account’s fees could not be read.',
+  'acct.isPaying': 'is paying this account’s network fees, up to',
+  'acct.until': 'until {date}',
+  'acct.paysOwn':
+    'This account pays its own fees from its YML balance. A payment costs a fraction of a cent.',
+  'acct.noSponsor':
+    'Nobody is sponsoring this account and it holds no YML, so it cannot send anything yet.',
+
+  // --- the safe ---
+  'safe.lede':
+    'Shared funds with named signers, spending limits, and commitments that a later proposal cannot touch — not even one that reaches the signing threshold.',
+  'safe.onThisChain': 'On this chain',
+  'safe.reading': 'Reading the chain…',
+  'safe.readingTreasury': 'Reading treasury {id}…',
+  'safe.tryAgain': 'Try again',
+  'safe.whatTheNodeSaid': 'What the node said',
+  'safe.listUnknown': 'What treasuries exist could not be read.',
+  'safe.balancesUnknown': 'What this treasury holds could not be read.',
+  'safe.existenceUnknown': 'Whether treasury {id} exists could not be read.',
+  'safe.rolesUnknown': 'Who holds a role here could not be read.',
+  'safe.commitmentsUnknown': 'What this treasury has promised could not be read.',
+  'safe.limitsUnknown': 'This currency’s spending policy could not be read.',
+  'safe.treasuryN': 'Treasury {id}',
+  'safe.andMore': 'and {n} more',
+  'safe.noTreasuriesBody':
+    'A treasury is created with tx treasury create-treasury. Creating one is permissionless: an empty treasury grants nobody anything, and gating creation behind governance would make the feature unusable for the teams it is for.',
+  'safe.noSuchTreasury': 'No treasury {id}',
+  'safe.noSuchTreasuryBody':
+    'The chain answered, and there is no treasury with that number. Treasury ids are handed out in order, so a number above the count has simply not been created yet.',
+  'safe.backToList': 'Back to the list',
+  'safe.openedAtBlock': 'opened at block {height}',
+  'safe.frozenTitle': 'Frozen.',
+  'safe.frozenBody':
+    'Nothing can leave this treasury until an admin unfreezes it. Proposals can still be made and will fail at execution, so it is worth unfreezing first.',
+  'safe.assets': 'Assets',
+  'safe.available': 'Available',
+  'safe.total': 'Total',
+  'safe.limits': 'Limits',
+  'safe.nothingInIt': 'Nothing in it',
+  'safe.refuses': 'Refuses',
+  'safe.refusesCommitted':
+    'Spending funds already committed to somebody. No administrator, no vote and no quorum of signers can reach them — the chain holds the money in a module account and refuses the payment outright.',
+  'safe.nothingCommittedHere':
+    'Nothing here is committed, so every figure in this table is spendable.',
+  'safe.recipient': 'Recipient',
+  'safe.amountIn': 'Amount in {symbol}',
+  'safe.memo': 'What it is for',
+  'safe.notAnAmount':
+    'That is not an amount. Digits and one decimal separator — a group separator (1 250,50) is fine, both separators at once is ambiguous.',
+  'safe.truncated':
+    '{symbol} is held to {places} decimal places on this chain, so the digits past that are not in the amount that will move: {amount}.',
+  'safe.overPerTransaction':
+    'Over the per-payment limit. This treasury refuses any single payment above {limit}, whatever its balance. Split it, or have an administrator raise the limit.',
+  'safe.offAllowlist':
+    'This treasury only pays approved destinations, and that address is not one of them. Ask an administrator to add it.',
+  'safe.onBlocklist': 'This treasury refuses that address outright.',
+  'safe.canPay': 'This treasury can pay {amount}.',
+  'safe.availableNow': '{amount} available',
+  'safe.committedNow': '{amount} committed',
+  'safe.theMessage': 'The message this produces',
+  'safe.theMessageNote':
+    'Sign it directly if you hold a spender role, or put it inside an x/group proposal for an M-of-N treasury. Either way the chain checks the same policy.',
+  'safe.limitsLede':
+    'What bounds a spender who already holds the role. This is what makes handing that role out safe: it caps a compromised operational key at one period rather than at the treasury.',
+  'safe.noPolicy':
+    'No policy for this currency. A spender is bounded only by what is available — there is no per-payment cap, no period cap and no restriction on the destination.',
+  // What a policy refuses, one key per clause. Singular and plural are
+  // separate keys rather than an inflected string: the arithmetic version
+  // produced "one of the 1 approved address", and half the languages here do
+  // not pluralise the way English does anyway.
+  'safe.refusePerTx': 'Any single payment over {limit}.',
+  'safe.refusePerPeriod': 'Anything that would take the total past {limit} within {window}.',
+  'safe.refusePerPeriodNoWindow': 'Anything that would take the total past {limit} in one period.',
+  'safe.refuseAllowlistOne': 'Any destination other than the one approved address.',
+  'safe.refuseAllowlistMany': 'Any destination that is not one of the {n} approved addresses.',
+  'safe.refuseBlocklistOne': 'One named address, outright.',
+  'safe.refuseBlocklistMany': '{n} named addresses, outright.',
+  'safe.leftThisPeriod': 'Left this period',
+  'safe.resets': 'resets in {when}',
+  'safe.membersNote':
+    'For an M-of-N treasury the admin is a group policy address rather than a person, and the signers are that group’s members. The threshold lives in x/group; the spending limits live here.',
+  'safe.nothingCommitted': 'Nothing committed',
+  'safe.nothingCommittedBody': 'Every coin this treasury holds is available to spend.',
+  'safe.progress': 'Committed, and how much has gone',
+  'safe.stillLocked': 'Still locked',
+  'safe.releases': 'Releases',
+  'safe.revocable': 'Cancellable',
+  'safe.revoked': 'Cancelled',
+  'safe.revocableYes': 'Yes, the unreleased part',
+  'safe.revocableNo': 'No',
+  'safe.releasesIn': 'in {when}',
+  'safe.claimedSoFar': '{amount} claimed so far',
+  'safe.splitAlt': '{available} available to spend, {committed} committed and out of reach',
+  'safe.lockAlt': '{claimed} already claimed, {remaining} still locked',
+
+  // The custody figure. Kept short: these are labels inside an SVG, which does
+  // not wrap, and a sentence that fits in English is not a sentence that fits
+  // in French.
+  'safe.figureAlt':
+    'A treasury’s balance split in two by a wall. On the available side, a payment the signers approve may leave. On the committed side, an administrator, a vote of the signers and every signer at once are all refused; only the beneficiary may take what the schedule has released.',
+  'safe.figAvailable': 'Available to spend',
+  'safe.figCommitted': 'Committed — out of reach',
+  'safe.figAvailableIn': 'What the signers may move',
+  'safe.figCommittedIn': 'Promised to somebody',
+  'safe.figAllowed': 'Allowed',
+  'safe.figSpendPath': 'A payment the signers approve',
+  'safe.figSpendWho': 'A spender within their limit, or a proposal that reaches the threshold',
+  'safe.figRefused': 'Refused by the chain',
+  'safe.figWho1': 'The treasury’s administrator',
+  'safe.figWho2': 'A proposal that reaches the signing threshold',
+  'safe.figWho3': 'Every signer of the treasury, acting together',
+  'safe.figClaimPath': 'Only the beneficiary, and only what the schedule has released',
+  'safe.figRule1':
+    'Committing funds does not transfer them. It moves them out of the treasury’s available balance into its locked balance, in the chain’s own custody.',
+  'safe.figRule2':
+    'A revocable commitment can be cancelled for the part not yet released. What has vested is never clawed back — a promise that can be withdrawn retroactively is not a promise.',
+  'safe.figureCaption':
+    'The wall is a keeper invariant, not a convention this interface enforces: x/treasury holds the money in a module account and refuses a spend against locked balance outright. That is the whole difference between this and a shared account with signatures on it.',
+
+  // --- identifiers, wherever one is shown ---
+  'id.copy': 'Copy {value}',
+  'id.copied': 'Copied {value}',
+  'id.show': 'show',
+  'id.hide': 'hide',
+
   // --- plurals ---
   'tx.count.one': '{count} transaction',
   'tx.count.other': '{count} transactions',
@@ -1019,6 +1277,250 @@ export const fr = {
   'error.unauthorized': "Ce compte n'est pas autorisé à effectuer cette opération.",
   'error.unknown': "Une erreur s'est produite. Rien n'a été envoyé.",
 
+  // --- l'écran d'approbation ---
+  'sign.eyebrow': "Approbation demandée",
+  'sign.eyebrowConnect': "Connexion demandée",
+  'sign.eyebrowSigned': "Signé",
+  'sign.noAccount': "Aucun compte sur cet appareil",
+  'sign.noAccountBody':
+    "Ce portefeuille ne contient encore rien. Créez ou chargez un compte, puis l'application pourra redemander.",
+  'sign.waiting': "En attente d'une demande",
+  'sign.requestedBy': "Demandé par",
+  'sign.signingAs': "Signature au nom de",
+  'sign.originNote':
+    "C'est l'adresse rapportée par le navigateur, et non un nom que le site s'est donné.",
+  'sign.connectTitle': "Donner votre adresse à ce site",
+  'sign.whatItGets': "Ce qu'il obtient",
+  'sign.connectBody': "Votre adresse et votre clé publique. Pas votre phrase de récupération.",
+  'sign.connectRefuses':
+    "Rien ne peut bouger sur cette base. Chaque paiement revient dans cette fenêtre pour y être approuvé.",
+  'sign.connectApprove': "Donner mon adresse",
+  'sign.approve': "Approuver",
+  'sign.reject': "Refuser",
+  'sign.working': "En cours…",
+  'sign.passwordFor': "Mot de passe de « {label} »",
+  'sign.whatChanges': "Ce que cela fait à votre compte",
+  'sign.leaves': "Quitte ce compte",
+  'sign.arrives': "Arrive sur ce compte",
+  'sign.becomesLocked': "Devient bloqué",
+  'sign.movesElsewhere': "Se déplace sous votre autorité",
+  'sign.outOf': "depuis",
+  'sign.into': "vers",
+  'sign.nothingMoves': "Rien ne quitte ce compte et rien n'est bloqué.",
+  'sign.grants': "Donne à",
+  'sign.someone': "un autre compte",
+  'sign.onTheseTerms': "Aux conditions suivantes",
+  'sign.committedTo': "engagé envers",
+  'sign.releasesIn': "Libéré dans {when}.",
+  'sign.releaseUnknown': "Ce message n'indique aucune date de libération.",
+  'sign.canCancel': "Son auteur peut encore annuler la part non encore libérée.",
+  'sign.cannotCancel':
+    "Personne ne peut l'annuler — ni la trésorerie, ni un administrateur, ni un vote.",
+  'sign.ledgerIncompleteTitle': "Ce n'est pas tout.",
+  'sign.ledgerIncompleteBody':
+    "Au moins un message ici est illisible pour ce portefeuille : son effet sur votre compte est donc inconnu, et non nul. Ne considérez pas les chiffres ci-dessus comme complets.",
+  'sign.severalActions': "{n} actions en une seule signature",
+  'sign.detail': "Ce que contient la transaction",
+  'sign.incompleteTitle': "Une partie n'a pas pu être lue.",
+  'sign.incompleteBody':
+    "Au moins un message n'est pas d'un type connu de ce portefeuille : son effet est inconnu, et non inoffensif. N'approuvez que si vous pouvez rendre compte de chaque ligne ci-dessous.",
+  'sign.notATxTitle': "Ces octets ne sont pas une transaction",
+  'sign.notATx': "Ils n'ont pas pu être décodés du tout.",
+  'sign.notATxBody': "Rien ne peut être dit de ce que leur signature ferait.",
+  'sign.doNotApprove': "N'approuvez pas.",
+  'sign.whyUnreadable': "Pourquoi la lecture a échoué",
+  'sign.raw': "Brut",
+  'sign.to': "À",
+  'sign.carriesOne': "Il porte cette action",
+  'sign.carriesMany': "Il porte ces actions",
+  'sign.noDecoder':
+    "Ce portefeuille n'a pas de décodeur pour ce type de message : il ne peut pas dire ce qu'il fait.",
+  'sign.mismatch': "Les octets ne correspondent pas au type qu'ils déclarent.",
+  'sign.memo': "Inscrit au registre comme mémo",
+  'sign.memoNote': "public et permanent",
+  'sign.whatTheChainSaid': "Ce qu'a répondu la chaîne",
+  'sign.revLabel.irreversible': "Irréversible",
+  'sign.revLabel.delayed': "Soumis à un délai",
+  'sign.revLabel.revocable': "Vous pouvez revenir dessus",
+  'sign.revLabel.proposal': "Une demande, pas un acte",
+  'sign.revLabel.none': "Ne déplace rien",
+  'sign.revLabel.unknown': "Inconnu",
+  'sign.rev.irreversible':
+    "Une fois inscrit dans un bloc, personne ne peut l'annuler — ni le bénéficiaire, ni un administrateur, ni les validateurs.",
+  'sign.rev.delayed':
+    "Signer déclenche un délai que vous ne pouvez pas raccourcir. Les fonds ne redeviennent disponibles qu'à son terme.",
+  'sign.rev.revocable': "Vous pourrez l'annuler vous-même plus tard, par une seconde transaction.",
+  'sign.rev.proposal':
+    "Rien ne bouge quand vous signez. Ceci demande à d'autres de décider, et c'est leur approbation qui déplacerait quelque chose.",
+  'sign.rev.none': "Rien ne quitte ce compte et rien n'est bloqué.",
+  'sign.rev.unknown':
+    "Ce portefeuille ne peut pas dire si c'est annulable, car il ne reconnaît pas tous les messages qui s'y trouvent.",
+  'sign.signedTitle': "Signé",
+  'sign.settled': "Réglé",
+  'sign.refused': "La chaîne l'a refusé",
+  'sign.cannotSee': "Ce portefeuille ne voit pas la chaîne",
+  'sign.notSeen': "Pas encore dans un bloc",
+  'sign.you': "Vous",
+  'sign.progress': "Avancement",
+  'sign.stepSigned': "Signé sur cet appareil, et rendu au demandeur.",
+  'sign.stepInBlock': "Dans le bloc {height}.",
+  'sign.stepWaiting': "En attente d'un bloc — {seconds} s jusqu'ici.",
+  'sign.stepUnknown': "Impossible à dire : le nœud ne répond pas.",
+  'sign.stepNotSeen': "Aucun bloc ne la contient encore. Surveillance en cours.",
+  'sign.stepPendingExecution': "Exécuté — encore inconnu.",
+  'sign.stepExecuted': "Exécuté. C'est le seul succès qui compte.",
+  'sign.stepRefused': "Refusé dans le bloc, code {code}. Rien n'a bougé.",
+  'sign.cannotApprove':
+    "Il n'y a pas de bouton Approuver sur cet écran, et c'est délibéré. Ce portefeuille ne signera pas des octets qu'il ne peut pas lire.",
+  'sign.cannotSeeTitle': "Inconnu, et non échoué.",
+  'sign.cannotSeeBody':
+    "Ce portefeuille n'a pas pu joindre un nœud pour poser la question. La transaction est peut-être bien réglée — vérifiez-la dans l'explorateur avant de signer autre chose.",
+  'sign.notSeenTitle': "Elle n'est pas apparue.",
+  'sign.notSeenBody':
+    "Rien portant cet identifiant n'a atteint un bloc en {duration}. La raison habituelle est que {origin} ne l'a jamais diffusée — une signature seule ne déplace rien. Cette fenêtre continue de surveiller : si elle apparaît, ceci changera.",
+  'sign.txId': "Transaction",
+  'sign.close': "Fermer cette fenêtre",
+  'sign.backToWaiting': "Attendre une autre demande",
+  'sign.connected': "Adresse communiquée",
+  'sign.connectedBody':
+    "{origin} a désormais votre adresse et votre clé publique. Cela ne peut rien déplacer : chaque paiement revient ici pour être approuvé.",
+
+  // --- la page d'un compte ---
+  'acct.cannotSend': "Ce compte ne peut pas envoyer.",
+  'acct.frozenBy': "L'affaire {id} l'a gelé :",
+  'acct.canStillReceive':
+    "Il peut toujours recevoir. L'affaire est publique — chacun peut lire les motifs et le vote des validateurs.",
+  'acct.freezeUnknown': "Impossible de savoir si ce compte est gelé.",
+  'acct.noYmlTitle': "Aucun YML, et personne ne prend en charge les frais.",
+  'acct.noYmlBody':
+    "Les frais de réseau se paient en YML : ce compte ne peut donc rien déplacer tant qu'une institution ne lui accorde pas une autorisation de frais ou que personne ne lui envoie un peu de YML.",
+  'acct.reading': "Lecture de la chaîne…",
+  'acct.balancesUnknown': "Soldes inconnus",
+  'acct.balancesUnknownBody': "Impossible de lire ce que détient ce compte.",
+  'acct.tryAgain': "Réessayer",
+  'acct.nothingHere': "Rien ici pour l'instant",
+  'acct.nothingHereBody':
+    "Ce compte ne détient aucun fonds. C'est aussi à cela que ressemble une adresse jamais utilisée — la chaîne ne distingue pas les deux, et cette page non plus.",
+  'acct.holds': "Détient",
+  'acct.fees': "Frais",
+  'acct.feesUnknown': "Impossible de lire qui paie les frais de ce compte.",
+  'acct.isPaying': "prend en charge les frais de réseau de ce compte, à hauteur de",
+  'acct.until': "jusqu'au {date}",
+  'acct.paysOwn':
+    "Ce compte paie ses propres frais sur son solde en YML. Un paiement coûte une fraction de centime.",
+  'acct.noSponsor':
+    "Personne ne parraine ce compte et il ne détient aucun YML : il ne peut donc encore rien envoyer.",
+
+  // --- le coffre ---
+  'safe.lede':
+    "Des fonds partagés avec des signataires nommés, des plafonds de dépense et des engagements qu'aucune proposition ultérieure ne peut toucher — pas même une qui atteint le seuil de signature.",
+  'safe.onThisChain': "Sur cette chaîne",
+  'safe.reading': "Lecture de la chaîne…",
+  'safe.readingTreasury': "Lecture de la trésorerie {id}…",
+  'safe.tryAgain': "Réessayer",
+  'safe.whatTheNodeSaid': "Ce qu'a répondu le nœud",
+  'safe.listUnknown': "Impossible de lire quelles trésoreries existent.",
+  'safe.balancesUnknown': "Impossible de lire ce que détient cette trésorerie.",
+  'safe.existenceUnknown': "Impossible de savoir si la trésorerie {id} existe.",
+  'safe.rolesUnknown': "Impossible de lire qui détient un rôle ici.",
+  'safe.commitmentsUnknown': "Impossible de lire ce que cette trésorerie a promis.",
+  'safe.limitsUnknown': "Impossible de lire la politique de dépense de cette devise.",
+  'safe.treasuryN': "Trésorerie {id}",
+  'safe.andMore': "et {n} de plus",
+  'safe.noTreasuriesBody':
+    "Une trésorerie se crée avec tx treasury create-treasury. La création est libre : une trésorerie vide n'accorde rien à personne, et la soumettre à la gouvernance rendrait la fonction inutilisable pour les équipes auxquelles elle s'adresse.",
+  'safe.noSuchTreasury': "Aucune trésorerie {id}",
+  'safe.noSuchTreasuryBody':
+    "La chaîne a répondu : aucune trésorerie ne porte ce numéro. Les identifiants sont attribués dans l'ordre, donc un numéro au-delà du compte n'a simplement pas encore été créé.",
+  'safe.backToList': "Retour à la liste",
+  'safe.openedAtBlock': "ouverte au bloc {height}",
+  'safe.frozenTitle': "Gelée.",
+  'safe.frozenBody':
+    "Rien ne peut quitter cette trésorerie tant qu'un administrateur ne la dégèle pas. Des propositions restent possibles mais échoueront à l'exécution : mieux vaut dégeler d'abord.",
+  'safe.assets': "Actifs",
+  'safe.available': "Disponible",
+  'safe.total': "Total",
+  'safe.limits': "Plafonds",
+  'safe.nothingInIt': "Elle est vide",
+  'safe.refuses': "Refuse",
+  'safe.refusesCommitted':
+    "De dépenser des fonds déjà engagés envers quelqu'un. Aucun administrateur, aucun vote et aucun quorum de signataires ne peut les atteindre — la chaîne détient l'argent dans un compte de module et refuse le paiement purement et simplement.",
+  'safe.nothingCommittedHere':
+    "Rien n'est engagé ici : chaque chiffre de ce tableau est dépensable.",
+  'safe.recipient': "Bénéficiaire",
+  'safe.amountIn': "Montant en {symbol}",
+  'safe.memo': "Objet du paiement",
+  'safe.notAnAmount':
+    "Ce n'est pas un montant. Des chiffres et un seul séparateur décimal — un séparateur de milliers (1 250,50) convient, les deux à la fois sont ambigus.",
+  'safe.truncated':
+    "Le {symbol} est détenu à {places} décimales sur cette chaîne : les chiffres au-delà ne figurent pas dans le montant qui sera déplacé : {amount}.",
+  'safe.overPerTransaction':
+    "Au-dessus du plafond par paiement. Cette trésorerie refuse tout paiement unique supérieur à {limit}, quel que soit son solde. Fractionnez-le, ou demandez à un administrateur de relever le plafond.",
+  'safe.offAllowlist':
+    "Cette trésorerie ne paie que des destinataires approuvés, et cette adresse n'en fait pas partie. Demandez à un administrateur de l'ajouter.",
+  'safe.onBlocklist': "Cette trésorerie refuse cette adresse purement et simplement.",
+  'safe.canPay': "Cette trésorerie peut payer {amount}.",
+  'safe.availableNow': "{amount} disponibles",
+  'safe.committedNow': "{amount} engagés",
+  'safe.theMessage': "Le message ainsi produit",
+  'safe.theMessageNote':
+    "Signez-le directement si vous détenez un rôle de dépensier, ou placez-le dans une proposition x/group pour une trésorerie M-sur-N. Dans les deux cas la chaîne applique la même politique.",
+  'safe.limitsLede':
+    "Ce qui borne un dépensier qui détient déjà le rôle. C'est ce qui rend l'attribution de ce rôle sûre : une clé opérationnelle compromise est plafonnée à une période, et non à la trésorerie entière.",
+  'safe.noPolicy':
+    "Aucune politique pour cette devise. Un dépensier n'est borné que par le disponible : ni plafond par paiement, ni plafond par période, ni restriction de destinataire.",
+  'safe.refusePerTx': "Tout paiement unique supérieur à {limit}.",
+  'safe.refusePerPeriod': "Tout ce qui porterait le total au-delà de {limit} sur {window}.",
+  'safe.refusePerPeriodNoWindow': "Tout ce qui porterait le total au-delà de {limit} sur une période.",
+  'safe.refuseAllowlistOne': "Toute destination autre que la seule adresse approuvée.",
+  'safe.refuseAllowlistMany': "Toute destination ne figurant pas parmi les {n} adresses approuvées.",
+  'safe.refuseBlocklistOne': "Une adresse nommément désignée, purement et simplement.",
+  'safe.refuseBlocklistMany': "{n} adresses nommément désignées, purement et simplement.",
+  'safe.leftThisPeriod': "Restant sur la période",
+  'safe.resets': "réinitialisée dans {when}",
+  'safe.membersNote':
+    "Pour une trésorerie M-sur-N, l'administrateur est l'adresse d'une politique de groupe et non une personne, et les signataires sont les membres de ce groupe. Le seuil vit dans x/group ; les plafonds de dépense vivent ici.",
+  'safe.nothingCommitted': "Aucun engagement",
+  'safe.nothingCommittedBody': "Chaque pièce détenue par cette trésorerie est dépensable.",
+  'safe.progress': "Engagé, et ce qui est déjà parti",
+  'safe.stillLocked': "Encore bloqué",
+  'safe.releases': "Libération",
+  'safe.revocable': "Annulable",
+  'safe.revoked': "Annulé",
+  'safe.revocableYes': "Oui, la part non libérée",
+  'safe.revocableNo': "Non",
+  'safe.releasesIn': "dans {when}",
+  'safe.claimedSoFar': "{amount} réclamés à ce jour",
+  'safe.splitAlt': "{available} disponibles à dépenser, {committed} engagés et hors d'atteinte",
+  'safe.lockAlt': "{claimed} déjà réclamés, {remaining} encore bloqués",
+
+  'safe.figureAlt':
+    "Le solde d'une trésorerie coupé en deux par un mur. Du côté disponible, un paiement approuvé par les signataires peut sortir. Du côté engagé, l'administrateur, un vote des signataires et tous les signataires réunis sont refusés ; seul le bénéficiaire peut prendre ce que l'échéancier a libéré.",
+  'safe.figAvailable': "Disponible à dépenser",
+  'safe.figCommitted': "Engagé — hors d'atteinte",
+  'safe.figAvailableIn': "Ce que les signataires peuvent déplacer",
+  'safe.figCommittedIn': "Promis à quelqu'un",
+  'safe.figAllowed': "Autorisé",
+  'safe.figSpendPath': "Un paiement approuvé par les signataires",
+  'safe.figSpendWho':
+    "Un dépensier dans son plafond, ou une proposition qui atteint le seuil",
+  'safe.figRefused': "Refusé par la chaîne",
+  'safe.figWho1': "L'administrateur de la trésorerie",
+  'safe.figWho2': "Une proposition qui atteint le seuil de signature",
+  'safe.figWho3': "Tous les signataires de la trésorerie, ensemble",
+  'safe.figClaimPath': "Seul le bénéficiaire, et seulement ce que l'échéancier a libéré",
+  'safe.figRule1':
+    "Engager des fonds ne les transfère pas. Cela les fait passer du solde disponible de la trésorerie à son solde bloqué, sous la garde de la chaîne elle-même.",
+  'safe.figRule2':
+    "Un engagement révocable peut être annulé pour la part non encore libérée. Ce qui est acquis n'est jamais repris — une promesse annulable rétroactivement n'est pas une promesse.",
+  'safe.figureCaption':
+    "Le mur est un invariant du keeper, non une convention appliquée par cette interface : x/treasury détient l'argent dans un compte de module et refuse purement et simplement une dépense sur du solde bloqué. C'est toute la différence entre ceci et un compte partagé assorti de signatures.",
+
+  'id.copy': "Copier {value}",
+  'id.copied': "{value} copié",
+  'id.show': "voir",
+  'id.hide': "masquer",
+
   'tx.count.one': '{count} transaction',
   'tx.count.other': '{count} transactions',
   // --- le paiement en tant qu'instruction ---
@@ -1549,6 +2051,249 @@ export const pt = {
   'error.unauthorized': 'Esta conta não tem permissão para o fazer.',
   'error.unknown': 'Algo correu mal. Nada foi enviado.',
 
+  // --- o ecrã de aprovação ---
+  'sign.eyebrow': "Aprovação pedida",
+  'sign.eyebrowConnect': "Ligação pedida",
+  'sign.eyebrowSigned': "Assinado",
+  'sign.noAccount': "Nenhuma conta neste dispositivo",
+  'sign.noAccountBody':
+    "Esta carteira ainda não tem nada. Crie ou carregue uma conta e depois a aplicação pode voltar a pedir.",
+  'sign.waiting': "À espera de um pedido",
+  'sign.requestedBy': "Pedido por",
+  'sign.signingAs': "A assinar como",
+  'sign.originNote':
+    "É o endereço que o navegador comunica, não um nome que o site escolheu para si próprio.",
+  'sign.connectTitle': "Dar o seu endereço a este site",
+  'sign.whatItGets': "O que recebe",
+  'sign.connectBody': "O seu endereço e a sua chave pública. Não a sua frase de recuperação.",
+  'sign.connectRefuses':
+    "Nada se pode mover com base nisto. Cada pagamento volta a esta janela para ser aprovado.",
+  'sign.connectApprove': "Dar o meu endereço",
+  'sign.approve': "Aprovar",
+  'sign.reject': "Recusar",
+  'sign.working': "A processar…",
+  'sign.passwordFor': "Palavra-passe de «{label}»",
+  'sign.whatChanges': "O que isto faz à sua conta",
+  'sign.leaves': "Sai desta conta",
+  'sign.arrives': "Entra nesta conta",
+  'sign.becomesLocked': "Fica bloqueado",
+  'sign.movesElsewhere': "Move-se sob a sua autoridade",
+  'sign.outOf': "de",
+  'sign.into': "para",
+  'sign.nothingMoves': "Nada sai desta conta e nada fica bloqueado.",
+  'sign.grants': "Dá a",
+  'sign.someone': "outra conta",
+  'sign.onTheseTerms': "Nestes termos",
+  'sign.committedTo': "comprometido a favor de",
+  'sign.releasesIn': "Libertado dentro de {when}.",
+  'sign.releaseUnknown': "Esta mensagem não indica data de libertação.",
+  'sign.canCancel': "Quem o criou pode ainda cancelar a parte ainda não libertada.",
+  'sign.cannotCancel':
+    "Ninguém o pode cancelar — nem a tesouraria, nem um administrador, nem uma votação.",
+  'sign.ledgerIncompleteTitle': "Isto não é tudo.",
+  'sign.ledgerIncompleteBody':
+    "Pelo menos uma mensagem aqui não é legível para esta carteira, pelo que o seu efeito na sua conta é desconhecido e não nulo. Não tome os valores acima como completos.",
+  'sign.severalActions': "{n} ações numa só assinatura",
+  'sign.detail': "O que a transação contém",
+  'sign.incompleteTitle': "Parte disto não pôde ser lida.",
+  'sign.incompleteBody':
+    "Pelo menos uma mensagem não é de um tipo que esta carteira conheça, pelo que o seu efeito é desconhecido — não inofensivo. Só aprove se conseguir dar conta de cada linha abaixo.",
+  'sign.notATxTitle': "Estes bytes não são uma transação",
+  'sign.notATx': "Não foi possível descodificá-los de todo.",
+  'sign.notATxBody': "Nada se pode dizer sobre o que assiná-los faria.",
+  'sign.doNotApprove': "Não aprove.",
+  'sign.whyUnreadable': "Porque não foi possível ler",
+  'sign.raw': "Bruto",
+  'sign.to': "Para",
+  'sign.carriesOne': "Transporta esta ação",
+  'sign.carriesMany': "Transporta estas ações",
+  'sign.noDecoder':
+    "Esta carteira não tem descodificador para esse tipo de mensagem, por isso não pode dizer o que faz.",
+  'sign.mismatch': "Os bytes não correspondem ao tipo que declaram ser.",
+  'sign.memo': "No registo como memo",
+  'sign.memoNote': "público e permanente",
+  'sign.whatTheChainSaid': "O que a cadeia respondeu",
+  'sign.revLabel.irreversible': "Irreversível",
+  'sign.revLabel.delayed': "Sujeito a prazo",
+  'sign.revLabel.revocable': "Pode desfazer isto",
+  'sign.revLabel.proposal': "Um pedido, não um ato",
+  'sign.revLabel.none': "Não move nada",
+  'sign.revLabel.unknown': "Desconhecido",
+  'sign.rev.irreversible':
+    "Assim que estiver num bloco ninguém o pode desfazer — nem o destinatário, nem um administrador, nem os validadores.",
+  'sign.rev.delayed':
+    "Assinar inicia um prazo que não pode encurtar. Os fundos só voltam a estar disponíveis quando ele terminar.",
+  'sign.rev.revocable': "Pode desfazer isto você mesmo mais tarde, com uma segunda transação.",
+  'sign.rev.proposal':
+    "Nada se move quando assina. Isto pede a outras pessoas que decidam, e é a aprovação delas que moveria alguma coisa.",
+  'sign.rev.none': "Nada sai desta conta e nada fica bloqueado.",
+  'sign.rev.unknown':
+    "Esta carteira não pode dizer se é reversível, porque não reconhece todas as mensagens que contém.",
+  'sign.signedTitle': "Assinado",
+  'sign.settled': "Liquidado",
+  'sign.refused': "A cadeia recusou-a",
+  'sign.cannotSee': "Esta carteira não consegue ver a cadeia",
+  'sign.notSeen': "Ainda não está num bloco",
+  'sign.you': "Você",
+  'sign.progress': "Progresso",
+  'sign.stepSigned': "Assinado neste dispositivo e devolvido a quem pediu.",
+  'sign.stepInBlock': "No bloco {height}.",
+  'sign.stepWaiting': "À espera de um bloco — {seconds}s até agora.",
+  'sign.stepUnknown': "Impossível dizer: o nó não responde.",
+  'sign.stepNotSeen': "Nenhum bloco a contém ainda. A continuar a observar.",
+  'sign.stepPendingExecution': "Executada — ainda não se sabe.",
+  'sign.stepExecuted': "Executada. É este o único êxito.",
+  'sign.stepRefused': "Recusada dentro do bloco, código {code}. Nada se moveu.",
+  'sign.cannotApprove':
+    "Não há botão Aprovar neste ecrã, e é de propósito. Esta carteira não assina bytes que não consegue ler.",
+  'sign.cannotSeeTitle': "Desconhecido, não falhado.",
+  'sign.cannotSeeBody':
+    "Esta carteira não conseguiu alcançar um nó para perguntar. A transação pode muito bem ter liquidado — confirme no explorador antes de assinar seja o que for.",
+  'sign.notSeenTitle': "Não apareceu.",
+  'sign.notSeenBody':
+    "Nada com este identificador chegou a um bloco em {duration}. A razão habitual é {origin} nunca a ter difundido — uma assinatura por si só não move nada. Esta janela continua a observar: se aparecer, isto mudará.",
+  'sign.txId': "Transação",
+  'sign.close': "Fechar esta janela",
+  'sign.backToWaiting': "Esperar por outro pedido",
+  'sign.connected': "Endereço entregue",
+  'sign.connectedBody':
+    "{origin} tem agora o seu endereço e a sua chave pública. Não pode mover nada: cada pagamento volta aqui para ser aprovado.",
+
+  // --- a página de uma conta ---
+  'acct.cannotSend': "Esta conta não pode enviar.",
+  'acct.frozenBy': "O processo {id} congelou-a:",
+  'acct.canStillReceive':
+    "Continua a poder receber. O processo é público — qualquer pessoa pode ler os fundamentos e como os validadores votaram.",
+  'acct.freezeUnknown': "Não foi possível saber se esta conta está congelada.",
+  'acct.noYmlTitle': "Sem YML e sem ninguém a suportar as taxas.",
+  'acct.noYmlBody':
+    "As taxas de rede pagam-se em YML, por isso esta conta não pode mover o que detém enquanto uma instituição não lhe conceder uma autorização de taxas ou alguém não lhe enviar um pouco de YML.",
+  'acct.reading': "A ler a cadeia…",
+  'acct.balancesUnknown': "Saldos desconhecidos",
+  'acct.balancesUnknownBody': "Não foi possível ler o que esta conta detém.",
+  'acct.tryAgain': "Tentar de novo",
+  'acct.nothingHere': "Ainda nada aqui",
+  'acct.nothingHereBody':
+    "Esta conta não detém dinheiro. É também assim que se apresenta um endereço nunca usado — a cadeia não distingue os dois casos, e esta página também não.",
+  'acct.holds': "Detém",
+  'acct.fees': "Taxas",
+  'acct.feesUnknown': "Não foi possível ler quem paga as taxas desta conta.",
+  'acct.isPaying': "está a pagar as taxas de rede desta conta, até",
+  'acct.until': "até {date}",
+  'acct.paysOwn':
+    "Esta conta paga as suas próprias taxas a partir do saldo em YML. Um pagamento custa uma fração de cêntimo.",
+  'acct.noSponsor':
+    "Ninguém patrocina esta conta e ela não detém YML, por isso ainda não pode enviar nada.",
+
+  // --- o cofre ---
+  'safe.lede':
+    "Fundos partilhados com signatários nomeados, limites de despesa e compromissos que nenhuma proposta posterior pode tocar — nem sequer uma que atinja o limiar de assinatura.",
+  'safe.onThisChain': "Nesta cadeia",
+  'safe.reading': "A ler a cadeia…",
+  'safe.readingTreasury': "A ler a tesouraria {id}…",
+  'safe.tryAgain': "Tentar de novo",
+  'safe.whatTheNodeSaid': "O que o nó respondeu",
+  'safe.listUnknown': "Não foi possível ler que tesourarias existem.",
+  'safe.balancesUnknown': "Não foi possível ler o que esta tesouraria detém.",
+  'safe.existenceUnknown': "Não foi possível saber se a tesouraria {id} existe.",
+  'safe.rolesUnknown': "Não foi possível ler quem tem um papel aqui.",
+  'safe.commitmentsUnknown': "Não foi possível ler o que esta tesouraria prometeu.",
+  'safe.limitsUnknown': "Não foi possível ler a política de despesa desta moeda.",
+  'safe.treasuryN': "Tesouraria {id}",
+  'safe.andMore': "e mais {n}",
+  'safe.noTreasuriesBody':
+    "Uma tesouraria cria-se com tx treasury create-treasury. Criar uma não exige permissão: uma tesouraria vazia não concede nada a ninguém, e sujeitar a criação à governação tornaria a funcionalidade inutilizável para as equipas a que se destina.",
+  'safe.noSuchTreasury': "Não existe a tesouraria {id}",
+  'safe.noSuchTreasuryBody':
+    "A cadeia respondeu e não há tesouraria com esse número. Os identificadores são atribuídos por ordem, por isso um número acima da contagem simplesmente ainda não foi criado.",
+  'safe.backToList': "Voltar à lista",
+  'safe.openedAtBlock': "aberta no bloco {height}",
+  'safe.frozenTitle': "Congelada.",
+  'safe.frozenBody':
+    "Nada pode sair desta tesouraria até um administrador a descongelar. Ainda se podem fazer propostas, mas falharão na execução: vale a pena descongelar primeiro.",
+  'safe.assets': "Ativos",
+  'safe.available': "Disponível",
+  'safe.total': "Total",
+  'safe.limits': "Limites",
+  'safe.nothingInIt': "Está vazia",
+  'safe.refuses': "Recusa",
+  'safe.refusesCommitted':
+    "Gastar fundos já comprometidos a favor de alguém. Nenhum administrador, nenhuma votação e nenhum quórum de signatários lhes chega — a cadeia guarda o dinheiro numa conta de módulo e recusa o pagamento de imediato.",
+  'safe.nothingCommittedHere':
+    "Nada aqui está comprometido, por isso todos os valores desta tabela são gastáveis.",
+  'safe.recipient': "Destinatário",
+  'safe.amountIn': "Montante em {symbol}",
+  'safe.memo': "Finalidade do pagamento",
+  'safe.notAnAmount':
+    "Isso não é um montante. Dígitos e um só separador decimal — um separador de milhares (1 250,50) serve, os dois ao mesmo tempo é ambíguo.",
+  'safe.truncated':
+    "O {symbol} é guardado com {places} casas decimais nesta cadeia, por isso os dígitos além disso não entram no montante que se moverá: {amount}.",
+  'safe.overPerTransaction':
+    "Acima do limite por pagamento. Esta tesouraria recusa qualquer pagamento único acima de {limit}, seja qual for o saldo. Divida-o, ou peça a um administrador que suba o limite.",
+  'safe.offAllowlist':
+    "Esta tesouraria só paga a destinos aprovados e esse endereço não é um deles. Peça a um administrador que o acrescente.",
+  'safe.onBlocklist': "Esta tesouraria recusa esse endereço de imediato.",
+  'safe.canPay': "Esta tesouraria pode pagar {amount}.",
+  'safe.availableNow': "{amount} disponíveis",
+  'safe.committedNow': "{amount} comprometidos",
+  'safe.theMessage': "A mensagem que isto produz",
+  'safe.theMessageNote':
+    "Assine-a diretamente se tiver um papel de pagador, ou coloque-a dentro de uma proposta x/group para uma tesouraria M-de-N. Em qualquer dos casos a cadeia verifica a mesma política.",
+  'safe.limitsLede':
+    "O que limita um pagador que já tem o papel. É isto que torna seguro atribuí-lo: uma chave operacional comprometida fica limitada a um período, e não à tesouraria inteira.",
+  'safe.noPolicy':
+    "Sem política para esta moeda. Um pagador está limitado apenas pelo disponível — sem limite por pagamento, sem limite por período e sem restrição de destino.",
+  'safe.refusePerTx': "Qualquer pagamento único acima de {limit}.",
+  'safe.refusePerPeriod': "Tudo o que leve o total acima de {limit} em {window}.",
+  'safe.refusePerPeriodNoWindow': "Tudo o que leve o total acima de {limit} num período.",
+  'safe.refuseAllowlistOne': "Qualquer destino que não seja o único endereço aprovado.",
+  'safe.refuseAllowlistMany': "Qualquer destino que não esteja entre os {n} endereços aprovados.",
+  'safe.refuseBlocklistOne': "Um endereço nomeado, de imediato.",
+  'safe.refuseBlocklistMany': "{n} endereços nomeados, de imediato.",
+  'safe.leftThisPeriod': "Resta neste período",
+  'safe.resets': "reinicia dentro de {when}",
+  'safe.membersNote':
+    "Numa tesouraria M-de-N o administrador é o endereço de uma política de grupo e não uma pessoa, e os signatários são os membros desse grupo. O limiar vive em x/group; os limites de despesa vivem aqui.",
+  'safe.nothingCommitted': "Nada comprometido",
+  'safe.nothingCommittedBody': "Todas as moedas desta tesouraria estão disponíveis para gastar.",
+  'safe.progress': "Comprometido, e quanto já saiu",
+  'safe.stillLocked': "Ainda bloqueado",
+  'safe.releases': "Liberta",
+  'safe.revocable': "Cancelável",
+  'safe.revoked': "Cancelado",
+  'safe.revocableYes': "Sim, a parte não libertada",
+  'safe.revocableNo': "Não",
+  'safe.releasesIn': "dentro de {when}",
+  'safe.claimedSoFar': "{amount} reclamados até agora",
+  'safe.splitAlt': "{available} disponíveis para gastar, {committed} comprometidos e fora de alcance",
+  'safe.lockAlt': "{claimed} já reclamados, {remaining} ainda bloqueados",
+
+  'safe.figureAlt':
+    "O saldo de uma tesouraria dividido em dois por um muro. Do lado disponível, um pagamento aprovado pelos signatários pode sair. Do lado comprometido, o administrador, uma votação dos signatários e todos os signatários juntos são recusados; só o beneficiário pode levar o que o calendário libertou.",
+  'safe.figAvailable': "Disponível para gastar",
+  'safe.figCommitted': "Comprometido — fora de alcance",
+  'safe.figAvailableIn': "O que os signatários podem mover",
+  'safe.figCommittedIn': "Prometido a alguém",
+  'safe.figAllowed': "Permitido",
+  'safe.figSpendPath': "Um pagamento aprovado pelos signatários",
+  'safe.figSpendWho': "Um pagador dentro do seu limite, ou uma proposta que atinge o limiar",
+  'safe.figRefused': "Recusado pela cadeia",
+  'safe.figWho1': "O administrador da tesouraria",
+  'safe.figWho2': "Uma proposta que atinge o limiar de assinatura",
+  'safe.figWho3': "Todos os signatários da tesouraria, em conjunto",
+  'safe.figClaimPath': "Só o beneficiário, e só o que o calendário libertou",
+  'safe.figRule1':
+    "Comprometer fundos não os transfere. Move-os do saldo disponível da tesouraria para o seu saldo bloqueado, à guarda da própria cadeia.",
+  'safe.figRule2':
+    "Um compromisso revogável pode ser cancelado na parte ainda não libertada. O que já venceu nunca é retomado — uma promessa que se pode retirar retroativamente não é uma promessa.",
+  'safe.figureCaption':
+    "O muro é um invariante do keeper, não uma convenção imposta por esta interface: x/treasury guarda o dinheiro numa conta de módulo e recusa de imediato uma despesa sobre saldo bloqueado. É essa toda a diferença entre isto e uma conta partilhada com assinaturas.",
+
+  'id.copy': "Copiar {value}",
+  'id.copied': "{value} copiado",
+  'id.show': "ver",
+  'id.hide': "ocultar",
+
   'tx.count.one': '{count} transação',
   'tx.count.other': '{count} transações',
   // --- o pagamento como instrução ---
@@ -2078,6 +2823,249 @@ export const sw = {
   'error.accountFrozen': 'Akaunti hii imegandishwa na haiwezi kutuma fedha.',
   'error.unauthorized': 'Akaunti hii hairuhusiwi kufanya hivyo.',
   'error.unknown': 'Hitilafu imetokea. Hakuna kilichotumwa.',
+
+  // --- skrini ya kuidhinisha ---
+  'sign.eyebrow': "Idhini imeombwa",
+  'sign.eyebrowConnect': "Muunganisho umeombwa",
+  'sign.eyebrowSigned': "Imetiwa saini",
+  'sign.noAccount': "Hakuna akaunti kwenye kifaa hiki",
+  'sign.noAccountBody':
+    "Pochi hii bado haina kitu. Fungua au pakia akaunti kwanza, kisha programu inaweza kuomba tena.",
+  'sign.waiting': "Inasubiri ombi",
+  'sign.requestedBy': "Imeombwa na",
+  'sign.signingAs': "Unatia saini kama",
+  'sign.originNote':
+    "Hiyo ni anwani ambayo kivinjari kinaripoti, si jina ambalo tovuti imejipa yenyewe.",
+  'sign.connectTitle': "Ipe tovuti hii anwani yako",
+  'sign.whatItGets': "Kile inachopata",
+  'sign.connectBody': "Anwani yako na ufunguo wako wa umma. Si maneno yako ya kurejesha akaunti.",
+  'sign.connectRefuses':
+    "Hakuna kinachoweza kuhamishwa kwa msingi huu. Kila malipo yanarudi kwenye dirisha hili ili yaidhinishwe.",
+  'sign.connectApprove': "Ipe anwani yangu",
+  'sign.approve': "Idhinisha",
+  'sign.reject': "Kataa",
+  'sign.working': "Inaendelea…",
+  'sign.passwordFor': "Nenosiri la “{label}”",
+  'sign.whatChanges': "Kile hii inafanya kwa akaunti yako",
+  'sign.leaves': "Kinatoka kwenye akaunti hii",
+  'sign.arrives': "Kinaingia kwenye akaunti hii",
+  'sign.becomesLocked': "Kinafungwa",
+  'sign.movesElsewhere': "Kinahama kwa idhini yako",
+  'sign.outOf': "kutoka",
+  'sign.into': "kwenda",
+  'sign.nothingMoves': "Hakuna kinachotoka kwenye akaunti hii wala kinachofungwa.",
+  'sign.grants': "Inampa",
+  'sign.someone': "akaunti nyingine",
+  'sign.onTheseTerms': "Kwa masharti haya",
+  'sign.committedTo': "kimeahidiwa kwa",
+  'sign.releasesIn': "Kitaachiliwa baada ya {when}.",
+  'sign.releaseUnknown': "Ujumbe huu hauonyeshi tarehe ya kuachiliwa.",
+  'sign.canCancel': "Aliyeiunda bado anaweza kufuta sehemu ambayo haijaachiliwa.",
+  'sign.cannotCancel':
+    "Hakuna anayeweza kuifuta — si hazina, si msimamizi, wala kura.",
+  'sign.ledgerIncompleteTitle': "Hii si yote.",
+  'sign.ledgerIncompleteBody':
+    "Angalau ujumbe mmoja hapa pochi hii haiwezi kuusoma, hivyo athari yake kwa akaunti yako haijulikani — si kwamba haina athari. Usichukue takwimu zilizo hapo juu kuwa kamili.",
+  'sign.severalActions': "Vitendo {n} katika saini moja",
+  'sign.detail': "Kilicho ndani ya muamala",
+  'sign.incompleteTitle': "Sehemu ya hii haikusomeka.",
+  'sign.incompleteBody':
+    "Angalau ujumbe mmoja si aina inayojulikana kwa pochi hii, hivyo unachofanya hakijulikani — si kwamba hauna madhara. Idhinisha tu kama unaweza kueleza kila mstari ulio hapa chini.",
+  'sign.notATxTitle': "Baiti hizi si muamala",
+  'sign.notATx': "Hazikuweza kusomwa kabisa.",
+  'sign.notATxBody': "Hakuna linaloweza kusemwa kuhusu kile kutia saini kungefanya.",
+  'sign.doNotApprove': "Usiidhinishe.",
+  'sign.whyUnreadable': "Kwa nini hazikusomeka",
+  'sign.raw': "Ghafi",
+  'sign.to': "Kwenda kwa",
+  'sign.carriesOne': "Unabeba kitendo hiki",
+  'sign.carriesMany': "Unabeba vitendo hivi",
+  'sign.noDecoder':
+    "Pochi hii haina kisomaji cha aina hiyo ya ujumbe, hivyo haiwezi kusema unafanya nini.",
+  'sign.mismatch': "Baiti hazilingani na aina zinazodai kuwa.",
+  'sign.memo': "Kwenye daftari kama memo",
+  'sign.memoNote': "ya wazi na ya kudumu",
+  'sign.whatTheChainSaid': "Kile mnyororo ulisema",
+  'sign.revLabel.irreversible': "Haiwezi kutenduliwa",
+  'sign.revLabel.delayed': "Ina muda wa kusubiri",
+  'sign.revLabel.revocable': "Unaweza kuitendua",
+  'sign.revLabel.proposal': "Ni ombi, si kitendo",
+  'sign.revLabel.none': "Haihamishi kitu",
+  'sign.revLabel.unknown': "Haijulikani",
+  'sign.rev.irreversible':
+    "Ikishaingia kwenye bloku hakuna anayeweza kuitendua — si mpokeaji, si msimamizi, wala wathibitishaji.",
+  'sign.rev.delayed':
+    "Kutia saini kunaanzisha muda usioweza kufupishwa. Fedha hazipatikani tena mpaka muda huo uishe.",
+  'sign.rev.revocable': "Unaweza kuitendua mwenyewe baadaye, kwa muamala wa pili.",
+  'sign.rev.proposal':
+    "Hakuna kinachohama unapotia saini. Hii inawaomba wengine waamue, na ni idhini yao ndiyo ingehamisha kitu.",
+  'sign.rev.none': "Hakuna kinachotoka kwenye akaunti hii wala kinachofungwa.",
+  'sign.rev.unknown':
+    "Pochi hii haiwezi kusema kama inaweza kutenduliwa, kwa sababu haitambui kila ujumbe ulio ndani yake.",
+  'sign.signedTitle': "Imetiwa saini",
+  'sign.settled': "Imekamilika",
+  'sign.refused': "Mnyororo umeikataa",
+  'sign.cannotSee': "Pochi hii haiwezi kuona mnyororo",
+  'sign.notSeen': "Bado haipo kwenye bloku",
+  'sign.you': "Wewe",
+  'sign.progress': "Hatua",
+  'sign.stepSigned': "Imetiwa saini kwenye kifaa hiki, na kurudishwa kwa aliyeomba.",
+  'sign.stepInBlock': "Kwenye bloku {height}.",
+  'sign.stepWaiting': "Inasubiri bloku — sekunde {seconds} hadi sasa.",
+  'sign.stepUnknown': "Haiwezekani kujua: nodi haijibu.",
+  'sign.stepNotSeen': "Bado hakuna bloku iliyo nayo. Uangalizi unaendelea.",
+  'sign.stepPendingExecution': "Imetekelezwa — bado haijulikani.",
+  'sign.stepExecuted': "Imetekelezwa. Huu ndio ufanisi pekee.",
+  'sign.stepRefused': "Imekataliwa ndani ya bloku, msimbo {code}. Hakuna kilichohama.",
+  'sign.cannotApprove':
+    "Hakuna kitufe cha Kuidhinisha kwenye skrini hii, na hiyo ni kwa makusudi. Pochi hii haitatia saini baiti isizoweza kuzisoma.",
+  'sign.cannotSeeTitle': "Haijulikani, si kwamba imeshindwa.",
+  'sign.cannotSeeBody':
+    "Pochi hii haikuweza kufikia nodi ili kuuliza. Muamala huenda umekamilika — uangalie kwenye kichunguzi kabla ya kutia saini kitu kingine.",
+  'sign.notSeenTitle': "Haijatokea.",
+  'sign.notSeenBody':
+    "Hakuna chenye kitambulisho hiki kilichofika kwenye bloku ndani ya {duration}. Sababu ya kawaida ni kwamba {origin} haikuisambaza — saini peke yake haihamishi kitu. Dirisha hili linaendelea kuangalia: ikitokea, hii itabadilika.",
+  'sign.txId': "Muamala",
+  'sign.close': "Funga dirisha hili",
+  'sign.backToWaiting': "Subiri ombi lingine",
+  'sign.connected': "Anwani imetolewa",
+  'sign.connectedBody':
+    "{origin} sasa ina anwani yako na ufunguo wako wa umma. Haiwezi kuhamisha chochote: kila malipo yanarudi hapa ili yaidhinishwe.",
+
+  // --- ukurasa wa akaunti ---
+  'acct.cannotSend': "Akaunti hii haiwezi kutuma.",
+  'acct.frozenBy': "Kesi {id} imeigandisha:",
+  'acct.canStillReceive':
+    "Bado inaweza kupokea. Kesi ni ya wazi — mtu yeyote anaweza kusoma sababu na jinsi wathibitishaji walivyopiga kura.",
+  'acct.freezeUnknown': "Haikujulikana kama akaunti hii imegandishwa.",
+  'acct.noYmlTitle': "Hakuna YML, wala mtu anayelipia ada.",
+  'acct.noYmlBody':
+    "Ada za mtandao hulipwa kwa YML, hivyo akaunti hii haiwezi kuhamisha ilichonacho mpaka taasisi impe ruhusa ya ada au mtu amtumie YML kidogo.",
+  'acct.reading': "Inasoma mnyororo…",
+  'acct.balancesUnknown': "Salio halijulikani",
+  'acct.balancesUnknownBody': "Haikuwezekana kusoma kile akaunti hii inashikilia.",
+  'acct.tryAgain': "Jaribu tena",
+  'acct.nothingHere': "Bado hakuna kitu hapa",
+  'acct.nothingHereBody':
+    "Akaunti hii haina fedha. Hivyo ndivyo pia anwani ambayo haijawahi kutumika inavyoonekana — mnyororo hautofautishi hizo mbili, wala ukurasa huu.",
+  'acct.holds': "Inashikilia",
+  'acct.fees': "Ada",
+  'acct.feesUnknown': "Haikuwezekana kusoma nani analipa ada za akaunti hii.",
+  'acct.isPaying': "analipa ada za mtandao za akaunti hii, hadi",
+  'acct.until': "hadi {date}",
+  'acct.paysOwn':
+    "Akaunti hii hulipa ada zake yenyewe kutoka salio lake la YML. Malipo hugharimu sehemu ndogo sana ya senti.",
+  'acct.noSponsor':
+    "Hakuna anayeidhamini akaunti hii na haina YML, hivyo bado haiwezi kutuma chochote.",
+
+  // --- hazina ---
+  'safe.lede':
+    "Fedha za pamoja zenye watia-saini waliotajwa, mipaka ya matumizi, na ahadi ambazo pendekezo la baadaye haliwezi kuzigusa — hata lile linalofikia kiwango cha saini.",
+  'safe.onThisChain': "Kwenye mnyororo huu",
+  'safe.reading': "Inasoma mnyororo…",
+  'safe.readingTreasury': "Inasoma hazina {id}…",
+  'safe.tryAgain': "Jaribu tena",
+  'safe.whatTheNodeSaid': "Kile nodi ilisema",
+  'safe.listUnknown': "Haikuwezekana kusoma ni hazina zipi zipo.",
+  'safe.balancesUnknown': "Haikuwezekana kusoma kile hazina hii inashikilia.",
+  'safe.existenceUnknown': "Haikujulikana kama hazina {id} ipo.",
+  'safe.rolesUnknown': "Haikuwezekana kusoma nani ana wadhifa hapa.",
+  'safe.commitmentsUnknown': "Haikuwezekana kusoma kile hazina hii imeahidi.",
+  'safe.limitsUnknown': "Haikuwezekana kusoma sera ya matumizi ya sarafu hii.",
+  'safe.treasuryN': "Hazina {id}",
+  'safe.andMore': "na nyingine {n}",
+  'safe.noTreasuriesBody':
+    "Hazina huundwa kwa tx treasury create-treasury. Kuunda hakuhitaji idhini: hazina tupu haimpi mtu chochote, na kuweka uundaji chini ya utawala kungeifanya isitumike kwa timu ambazo imekusudiwa.",
+  'safe.noSuchTreasury': "Hakuna hazina {id}",
+  'safe.noSuchTreasuryBody':
+    "Mnyororo umejibu, na hakuna hazina yenye namba hiyo. Vitambulisho hutolewa kwa mpangilio, hivyo namba iliyo juu ya idadi bado haijaundwa.",
+  'safe.backToList': "Rudi kwenye orodha",
+  'safe.openedAtBlock': "ilifunguliwa kwenye bloku {height}",
+  'safe.frozenTitle': "Imegandishwa.",
+  'safe.frozenBody':
+    "Hakuna kinachoweza kutoka kwenye hazina hii mpaka msimamizi aiondolee ugandishaji. Mapendekezo bado yanaweza kutolewa lakini yatashindwa wakati wa utekelezaji, hivyo ni bora kuiondolea ugandishaji kwanza.",
+  'safe.assets': "Mali",
+  'safe.available': "Inapatikana",
+  'safe.total': "Jumla",
+  'safe.limits': "Mipaka",
+  'safe.nothingInIt': "Haina kitu",
+  'safe.refuses': "Inakataa",
+  'safe.refusesCommitted':
+    "Kutumia fedha ambazo tayari zimeahidiwa kwa mtu. Hakuna msimamizi, hakuna kura na hakuna idadi ya watia-saini inayoweza kuzifikia — mnyororo unashikilia fedha kwenye akaunti ya moduli na unakataa malipo moja kwa moja.",
+  'safe.nothingCommittedHere':
+    "Hakuna kilichoahidiwa hapa, hivyo kila takwimu kwenye jedwali hili inaweza kutumika.",
+  'safe.recipient': "Mpokeaji",
+  'safe.amountIn': "Kiasi kwa {symbol}",
+  'safe.memo': "Malipo ni ya nini",
+  'safe.notAnAmount':
+    "Hicho si kiasi. Tarakimu na kitenganishi kimoja cha desimali — kitenganishi cha maelfu (1 250,50) ni sawa, vyote viwili kwa pamoja ni utata.",
+  'safe.truncated':
+    "{symbol} inashikiliwa kwa desimali {places} kwenye mnyororo huu, hivyo tarakimu zilizozidi hazipo kwenye kiasi kitakachohama: {amount}.",
+  'safe.overPerTransaction':
+    "Zaidi ya kiwango cha malipo moja. Hazina hii inakataa malipo yoyote yanayozidi {limit}, bila kujali salio lake. Yagawe, au mwombe msimamizi apandishe kiwango.",
+  'safe.offAllowlist':
+    "Hazina hii inalipa tu maeneo yaliyoidhinishwa, na anwani hiyo si mojawapo. Mwombe msimamizi aiongeze.",
+  'safe.onBlocklist': "Hazina hii inakataa anwani hiyo moja kwa moja.",
+  'safe.canPay': "Hazina hii inaweza kulipa {amount}.",
+  'safe.availableNow': "{amount} zinapatikana",
+  'safe.committedNow': "{amount} zimeahidiwa",
+  'safe.theMessage': "Ujumbe unaotokana na hili",
+  'safe.theMessageNote':
+    "Utie saini moja kwa moja kama una wadhifa wa kutumia, au uweke ndani ya pendekezo la x/group kwa hazina ya M-kati-ya-N. Kwa vyovyote mnyororo huangalia sera ile ile.",
+  'safe.limitsLede':
+    "Kinachomweka mipaka mtumiaji ambaye tayari ana wadhifa. Ndicho kinachofanya kutoa wadhifa huo kuwa salama: ufunguo wa kazi ulioibiwa unabanwa kwa kipindi kimoja, si kwa hazina nzima.",
+  'safe.noPolicy':
+    "Hakuna sera ya sarafu hii. Mtumiaji anabanwa tu na kinachopatikana — hakuna kiwango kwa kila malipo, hakuna kiwango kwa kipindi, wala vizuizi vya mpokeaji.",
+  'safe.refusePerTx': "Malipo yoyote ya mara moja yanayozidi {limit}.",
+  'safe.refusePerPeriod': "Chochote kingepandisha jumla kuzidi {limit} ndani ya {window}.",
+  'safe.refusePerPeriodNoWindow': "Chochote kingepandisha jumla kuzidi {limit} ndani ya kipindi kimoja.",
+  'safe.refuseAllowlistOne': "Mahali popote pengine isipokuwa anwani moja iliyoidhinishwa.",
+  'safe.refuseAllowlistMany': "Mahali popote pasipo kuwa mojawapo ya anwani {n} zilizoidhinishwa.",
+  'safe.refuseBlocklistOne': "Anwani moja iliyotajwa, moja kwa moja.",
+  'safe.refuseBlocklistMany': "Anwani {n} zilizotajwa, moja kwa moja.",
+  'safe.leftThisPeriod': "Kilichobaki kipindi hiki",
+  'safe.resets': "kinaanza upya baada ya {when}",
+  'safe.membersNote':
+    "Kwa hazina ya M-kati-ya-N msimamizi ni anwani ya sera ya kikundi badala ya mtu, na watia-saini ni wanachama wa kikundi hicho. Kiwango kipo katika x/group; mipaka ya matumizi ipo hapa.",
+  'safe.nothingCommitted': "Hakuna kilichoahidiwa",
+  'safe.nothingCommittedBody': "Kila sarafu hazina hii inayoshikilia inaweza kutumika.",
+  'safe.progress': "Kilichoahidiwa, na kiasi gani kimeondoka",
+  'safe.stillLocked': "Bado kimefungwa",
+  'safe.releases': "Kitaachiliwa",
+  'safe.revocable': "Kinaweza kufutwa",
+  'safe.revoked': "Kimefutwa",
+  'safe.revocableYes': "Ndiyo, sehemu isiyoachiliwa",
+  'safe.revocableNo': "Hapana",
+  'safe.releasesIn': "baada ya {when}",
+  'safe.claimedSoFar': "{amount} zimechukuliwa hadi sasa",
+  'safe.splitAlt': "{available} zinapatikana kutumia, {committed} zimeahidiwa na haziwezi kufikiwa",
+  'safe.lockAlt': "{claimed} tayari zimechukuliwa, {remaining} bado zimefungwa",
+
+  'safe.figureAlt':
+    "Salio la hazina limegawanywa mara mbili na ukuta. Upande unaopatikana, malipo yaliyoidhinishwa na watia-saini yanaweza kutoka. Upande ulioahidiwa, msimamizi, kura ya watia-saini na watia-saini wote kwa pamoja wanakataliwa; ni mnufaika pekee anayeweza kuchukua kile ratiba imeachilia.",
+  'safe.figAvailable': "Inapatikana kutumia",
+  'safe.figCommitted': "Imeahidiwa — haiwezi kufikiwa",
+  'safe.figAvailableIn': "Kile watia-saini wanaweza kuhamisha",
+  'safe.figCommittedIn': "Kimeahidiwa kwa mtu",
+  'safe.figAllowed': "Kinaruhusiwa",
+  'safe.figSpendPath': "Malipo yaliyoidhinishwa na watia-saini",
+  'safe.figSpendWho': "Mtumiaji ndani ya kiwango chake, au pendekezo linalofikia kiwango",
+  'safe.figRefused': "Kimekataliwa na mnyororo",
+  'safe.figWho1': "Msimamizi wa hazina",
+  'safe.figWho2': "Pendekezo linalofikia kiwango cha saini",
+  'safe.figWho3': "Watia-saini wote wa hazina, kwa pamoja",
+  'safe.figClaimPath': "Mnufaika pekee, na kile tu ratiba imeachilia",
+  'safe.figRule1':
+    "Kuahidi fedha si kuzihamisha. Kunazitoa kwenye salio linalopatikana la hazina na kuziweka kwenye salio lililofungwa, chini ya ulinzi wa mnyororo wenyewe.",
+  'safe.figRule2':
+    "Ahadi inayoweza kufutwa inaweza kufutwa kwa sehemu ambayo bado haijaachiliwa. Kile kilichoiva hakichukuliwi tena — ahadi inayoweza kuondolewa nyuma si ahadi.",
+  'safe.figureCaption':
+    "Ukuta ni kanuni ya keeper, si makubaliano yanayotekelezwa na kiolesura hiki: x/treasury inashikilia fedha kwenye akaunti ya moduli na inakataa moja kwa moja matumizi dhidi ya salio lililofungwa. Hiyo ndiyo tofauti yote kati ya hii na akaunti ya pamoja yenye saini.",
+
+  'id.copy': "Nakili {value}",
+  'id.copied': "{value} imenakiliwa",
+  'id.show': "onyesha",
+  'id.hide': "ficha",
 
   'tx.count.one': 'muamala {count}',
   'tx.count.other': 'miamala {count}',
@@ -2613,6 +3601,243 @@ export const ar = {
 
   // Arabic distinguishes six plural categories; Intl.PluralRules selects and
   // the catalogue carries each form as a whole phrase.
+  // --- شاشة الموافقة ---
+  'sign.eyebrow': "مطلوبة موافقة",
+  'sign.eyebrowConnect': "مطلوب اتصال",
+  'sign.eyebrowSigned': "تم التوقيع",
+  'sign.noAccount': "لا يوجد حساب على هذا الجهاز",
+  'sign.noAccountBody':
+    "هذه المحفظة لا تحتوي على شيء بعد. أنشئ حسابًا أو حمّل واحدًا، ثم يمكن للتطبيق أن يطلب مرة أخرى.",
+  'sign.waiting': "في انتظار طلب",
+  'sign.requestedBy': "الطلب من",
+  'sign.signingAs': "التوقيع باسم",
+  'sign.originNote': "هذا هو العنوان الذي يبلّغ عنه المتصفح، لا اسم اختاره الموقع لنفسه.",
+  'sign.connectTitle': "إعطاء هذا الموقع عنوانك",
+  'sign.whatItGets': "ما الذي يحصل عليه",
+  'sign.connectBody': "عنوانك ومفتاحك العام. لا عبارة الاسترداد الخاصة بك.",
+  'sign.connectRefuses':
+    "لا شيء يمكن أن يتحرك بناءً على هذا. كل دفعة تعود إلى هذه النافذة للموافقة عليها.",
+  'sign.connectApprove': "أعطِه عنواني",
+  'sign.approve': "موافقة",
+  'sign.reject': "رفض",
+  'sign.working': "جارٍ التنفيذ…",
+  'sign.passwordFor': "كلمة سر «{label}»",
+  'sign.whatChanges': "ما الذي يفعله هذا بحسابك",
+  'sign.leaves': "يخرج من هذا الحساب",
+  'sign.arrives': "يدخل إلى هذا الحساب",
+  'sign.becomesLocked': "يصبح محجوزًا",
+  'sign.movesElsewhere': "يتحرك بتفويض منك",
+  'sign.outOf': "من",
+  'sign.into': "إلى",
+  'sign.nothingMoves': "لا شيء يخرج من هذا الحساب ولا شيء يُحجز.",
+  'sign.grants': "يمنح",
+  'sign.someone': "حسابًا آخر",
+  'sign.onTheseTerms': "بهذه الشروط",
+  'sign.committedTo': "ملتزَم به لصالح",
+  'sign.releasesIn': "يُفرج عنه خلال {when}.",
+  'sign.releaseUnknown': "هذه الرسالة لا تذكر تاريخًا للإفراج.",
+  'sign.canCancel': "لا يزال بإمكان من أنشأه إلغاء الجزء الذي لم يُفرج عنه بعد.",
+  'sign.cannotCancel': "لا أحد يستطيع إلغاءه — لا الخزينة، ولا مسؤول، ولا تصويت.",
+  'sign.ledgerIncompleteTitle': "هذا ليس كل شيء.",
+  'sign.ledgerIncompleteBody':
+    "رسالة واحدة على الأقل هنا لا تستطيع هذه المحفظة قراءتها، فأثرها على حسابك مجهول وليس معدومًا. لا تعتبر الأرقام أعلاه كاملة.",
+  'sign.severalActions': "{n} إجراءات في توقيع واحد",
+  'sign.detail': "ما تحتويه المعاملة",
+  'sign.incompleteTitle': "تعذّرت قراءة جزء من هذا.",
+  'sign.incompleteBody':
+    "رسالة واحدة على الأقل ليست من نوع تعرفه هذه المحفظة، فما تفعله مجهول — وليس بلا ضرر. لا توافق إلا إذا كنت تستطيع تفسير كل سطر أدناه.",
+  'sign.notATxTitle': "هذه البايتات ليست معاملة",
+  'sign.notATx': "تعذّر فك ترميزها إطلاقًا.",
+  'sign.notATxBody': "لا يمكن قول أي شيء عمّا سيفعله التوقيع عليها.",
+  'sign.doNotApprove': "لا توافق.",
+  'sign.whyUnreadable': "سبب تعذّر القراءة",
+  'sign.raw': "خام",
+  'sign.to': "إلى",
+  'sign.carriesOne': "يحمل هذا الإجراء",
+  'sign.carriesMany': "يحمل هذه الإجراءات",
+  'sign.noDecoder': "لا تملك هذه المحفظة فاكّ ترميز لهذا النوع من الرسائل، فلا تستطيع قول ما يفعله.",
+  'sign.mismatch': "البايتات لا تطابق النوع الذي تدّعيه.",
+  'sign.memo': "في السجل كملاحظة",
+  'sign.memoNote': "علنية ودائمة",
+  'sign.whatTheChainSaid': "ما قالته السلسلة",
+  'sign.revLabel.irreversible': "لا رجعة فيه",
+  'sign.revLabel.delayed': "مرهون بمهلة",
+  'sign.revLabel.revocable': "يمكنك التراجع عنه",
+  'sign.revLabel.proposal': "طلب، لا فعل",
+  'sign.revLabel.none': "لا يحرّك شيئًا",
+  'sign.revLabel.unknown': "غير معروف",
+  'sign.rev.irreversible':
+    "بمجرد دخوله في كتلة لا يستطيع أحد التراجع عنه — لا المستفيد، ولا مسؤول، ولا المدققون.",
+  'sign.rev.delayed':
+    "التوقيع يبدأ مهلة لا يمكنك تقصيرها. لا تعود الأموال متاحة قبل انقضائها.",
+  'sign.rev.revocable': "يمكنك التراجع عنه بنفسك لاحقًا، بمعاملة ثانية.",
+  'sign.rev.proposal':
+    "لا شيء يتحرك عند توقيعك. هذا يطلب من آخرين أن يقرروا، وموافقتهم هي التي تحرّك شيئًا.",
+  'sign.rev.none': "لا شيء يخرج من هذا الحساب ولا شيء يُحجز.",
+  'sign.rev.unknown':
+    "لا تستطيع هذه المحفظة قول ما إذا كان قابلًا للتراجع، لأنها لا تتعرف على كل رسالة فيه.",
+  'sign.signedTitle': "تم التوقيع",
+  'sign.settled': "تمّت التسوية",
+  'sign.refused': "رفضته السلسلة",
+  'sign.cannotSee': "هذه المحفظة لا ترى السلسلة",
+  'sign.notSeen': "لم تدخل كتلة بعد",
+  'sign.you': "أنت",
+  'sign.progress': "التقدّم",
+  'sign.stepSigned': "وُقّعت على هذا الجهاز، وأُعيدت إلى الطالب.",
+  'sign.stepInBlock': "في الكتلة {height}.",
+  'sign.stepWaiting': "في انتظار كتلة — {seconds} ثانية حتى الآن.",
+  'sign.stepUnknown': "لا سبيل للمعرفة: العقدة لا تجيب.",
+  'sign.stepNotSeen': "لا كتلة تحتويها بعد. المتابعة مستمرة.",
+  'sign.stepPendingExecution': "التنفيذ — غير معروف بعد.",
+  'sign.stepExecuted': "نُفّذت. هذا هو النجاح الوحيد.",
+  'sign.stepRefused': "رُفضت داخل الكتلة، الرمز {code}. لم يتحرك شيء.",
+  'sign.cannotApprove':
+    "لا يوجد زر موافقة في هذه الشاشة، وذلك عن قصد. هذه المحفظة لا توقّع على بايتات لا تستطيع قراءتها.",
+  'sign.cannotSeeTitle': "غير معروف، لا فاشل.",
+  'sign.cannotSeeBody':
+    "لم تتمكن هذه المحفظة من الوصول إلى عقدة لتسأل. قد تكون المعاملة قد تمّت — تحقق منها في المستكشف قبل توقيع أي شيء آخر.",
+  'sign.notSeenTitle': "لم تظهر.",
+  'sign.notSeenBody':
+    "لم يصل شيء يحمل هذا المعرّف إلى كتلة خلال {duration}. السبب المعتاد أن {origin} لم يبثّها — والتوقيع وحده لا يحرّك شيئًا. هذه النافذة ما زالت تتابع: إن ظهرت، سيتغيّر هذا.",
+  'sign.txId': "المعاملة",
+  'sign.close': "إغلاق هذه النافذة",
+  'sign.backToWaiting': "انتظار طلب آخر",
+  'sign.connected': "أُعطي العنوان",
+  'sign.connectedBody':
+    "أصبح لدى {origin} عنوانك ومفتاحك العام. لا يستطيع تحريك أي شيء: كل دفعة تعود إلى هنا للموافقة عليها.",
+
+  // --- صفحة الحساب ---
+  'acct.cannotSend': "هذا الحساب لا يستطيع الإرسال.",
+  'acct.frozenBy': "القضية {id} جمّدته:",
+  'acct.canStillReceive':
+    "ما زال يستطيع الاستقبال. القضية علنية — يمكن لأي شخص قراءة الأسباب وكيف صوّت المدققون.",
+  'acct.freezeUnknown': "تعذّرت معرفة ما إذا كان هذا الحساب مجمّدًا.",
+  'acct.noYmlTitle': "لا يوجد YML، ولا أحد يتحمّل الرسوم.",
+  'acct.noYmlBody':
+    "رسوم الشبكة تُدفع بعملة YML، فلا يستطيع هذا الحساب تحريك ما يملكه حتى تمنحه مؤسسة تفويضًا بالرسوم أو يرسل إليه أحدهم قليلًا من YML.",
+  'acct.reading': "جارٍ قراءة السلسلة…",
+  'acct.balancesUnknown': "الأرصدة غير معروفة",
+  'acct.balancesUnknownBody': "تعذّرت قراءة ما يملكه هذا الحساب.",
+  'acct.tryAgain': "أعد المحاولة",
+  'acct.nothingHere': "لا شيء هنا بعد",
+  'acct.nothingHereBody':
+    "هذا الحساب لا يملك أي مال. وهكذا يبدو أيضًا عنوان لم يُستخدم قط — السلسلة لا تفرّق بينهما، ولا هذه الصفحة.",
+  'acct.holds': "يملك",
+  'acct.fees': "الرسوم",
+  'acct.feesUnknown': "تعذّرت قراءة من يدفع رسوم هذا الحساب.",
+  'acct.isPaying': "يدفع رسوم شبكة هذا الحساب، حتى",
+  'acct.until': "حتى {date}",
+  'acct.paysOwn': "هذا الحساب يدفع رسومه من رصيده بعملة YML. الدفعة تكلّف جزءًا من السنت.",
+  'acct.noSponsor': "لا أحد يرعى هذا الحساب وهو لا يملك YML، فلا يستطيع إرسال شيء بعد.",
+
+  // --- الخزينة ---
+  'safe.lede':
+    "أموال مشتركة بموقّعين مسمّين، وحدود إنفاق، والتزامات لا يستطيع أي مقترح لاحق المساس بها — ولا حتى مقترح يبلغ عتبة التوقيع.",
+  'safe.onThisChain': "على هذه السلسلة",
+  'safe.reading': "جارٍ قراءة السلسلة…",
+  'safe.readingTreasury': "جارٍ قراءة الخزينة {id}…",
+  'safe.tryAgain': "أعد المحاولة",
+  'safe.whatTheNodeSaid': "ما قالته العقدة",
+  'safe.listUnknown': "تعذّرت قراءة الخزائن الموجودة.",
+  'safe.balancesUnknown': "تعذّرت قراءة ما تملكه هذه الخزينة.",
+  'safe.existenceUnknown': "تعذّرت معرفة ما إذا كانت الخزينة {id} موجودة.",
+  'safe.rolesUnknown': "تعذّرت قراءة من يشغل دورًا هنا.",
+  'safe.commitmentsUnknown': "تعذّرت قراءة ما التزمت به هذه الخزينة.",
+  'safe.limitsUnknown': "تعذّرت قراءة سياسة الإنفاق لهذه العملة.",
+  'safe.treasuryN': "الخزينة {id}",
+  'safe.andMore': "و{n} غيرها",
+  'safe.noTreasuriesBody':
+    "تُنشأ الخزينة بالأمر tx treasury create-treasury. الإنشاء مفتوح للجميع: خزينة فارغة لا تمنح أحدًا شيئًا، وإخضاع الإنشاء للحوكمة يجعل الميزة غير صالحة للفرق المقصودة بها.",
+  'safe.noSuchTreasury': "لا توجد خزينة {id}",
+  'safe.noSuchTreasuryBody':
+    "أجابت السلسلة، ولا توجد خزينة بهذا الرقم. المعرّفات تُمنح بالترتيب، فرقم يتجاوز العدد لم يُنشأ بعد ببساطة.",
+  'safe.backToList': "العودة إلى القائمة",
+  'safe.openedAtBlock': "فُتحت في الكتلة {height}",
+  'safe.frozenTitle': "مجمّدة.",
+  'safe.frozenBody':
+    "لا شيء يستطيع الخروج من هذه الخزينة حتى يرفع مسؤول التجميد. تبقى المقترحات ممكنة لكنها ستفشل عند التنفيذ، فالأفضل رفع التجميد أولًا.",
+  'safe.assets': "الأصول",
+  'safe.available': "المتاح",
+  'safe.total': "الإجمالي",
+  'safe.limits': "الحدود",
+  'safe.nothingInIt': "فارغة",
+  'safe.refuses': "ترفض",
+  'safe.refusesCommitted':
+    "إنفاق أموال سبق الالتزام بها لصالح أحد. لا مسؤول، ولا تصويت، ولا نصاب من الموقّعين يستطيع الوصول إليها — السلسلة تحتفظ بالمال في حساب وحدة وترفض الدفع رفضًا قاطعًا.",
+  'safe.nothingCommittedHere': "لا شيء هنا ملتزَم به، فكل رقم في هذا الجدول قابل للإنفاق.",
+  'safe.recipient': "المستفيد",
+  'safe.amountIn': "المبلغ بعملة {symbol}",
+  'safe.memo': "الغرض من الدفعة",
+  'safe.notAnAmount':
+    "هذا ليس مبلغًا. أرقام وفاصلة عشرية واحدة — فاصل الآلاف (1 250,50) مقبول، أما الاثنان معًا فملتبس.",
+  'safe.truncated':
+    "تُحفظ {symbol} بـ{places} خانات عشرية على هذه السلسلة، فالأرقام بعدها ليست ضمن المبلغ الذي سيتحرك: {amount}.",
+  'safe.overPerTransaction':
+    "فوق حد الدفعة الواحدة. ترفض هذه الخزينة أي دفعة واحدة تتجاوز {limit}، مهما كان رصيدها. جزّئها، أو اطلب من مسؤول رفع الحد.",
+  'safe.offAllowlist':
+    "هذه الخزينة تدفع فقط لجهات معتمدة، وهذا العنوان ليس منها. اطلب من مسؤول إضافته.",
+  'safe.onBlocklist': "ترفض هذه الخزينة ذلك العنوان رفضًا قاطعًا.",
+  'safe.canPay': "تستطيع هذه الخزينة دفع {amount}.",
+  'safe.availableNow': "{amount} متاح",
+  'safe.committedNow': "{amount} ملتزَم به",
+  'safe.theMessage': "الرسالة الناتجة عن ذلك",
+  'safe.theMessageNote':
+    "وقّعها مباشرة إن كنت تحمل دور المنفق، أو ضعها داخل مقترح x/group لخزينة M من N. في الحالتين تتحقق السلسلة من السياسة نفسها.",
+  'safe.limitsLede':
+    "ما يحدّ منفقًا يحمل الدور بالفعل. هذا ما يجعل منح ذلك الدور آمنًا: مفتاح تشغيلي مخترق يبقى محدودًا بفترة واحدة، لا بالخزينة كلها.",
+  'safe.noPolicy':
+    "لا سياسة لهذه العملة. المنفق محدود فقط بما هو متاح — لا حد للدفعة، ولا حد للفترة، ولا قيد على الجهة المستفيدة.",
+  'safe.refusePerTx': "أي دفعة واحدة تتجاوز {limit}.",
+  'safe.refusePerPeriod': "كل ما يرفع المجموع فوق {limit} خلال {window}.",
+  'safe.refusePerPeriodNoWindow': "كل ما يرفع المجموع فوق {limit} في فترة واحدة.",
+  'safe.refuseAllowlistOne': "أي جهة غير العنوان المعتمد الوحيد.",
+  'safe.refuseAllowlistMany': "أي جهة ليست من بين العناوين المعتمدة الـ{n}.",
+  'safe.refuseBlocklistOne': "عنوان واحد محدد بالاسم، رفضًا قاطعًا.",
+  'safe.refuseBlocklistMany': "{n} عناوين محددة بالاسم، رفضًا قاطعًا.",
+  'safe.leftThisPeriod': "المتبقي في هذه الفترة",
+  'safe.resets': "يُعاد ضبطها خلال {when}",
+  'safe.membersNote':
+    "في خزينة M من N يكون المسؤول عنوان سياسة مجموعة لا شخصًا، والموقّعون هم أعضاء تلك المجموعة. العتبة في x/group؛ وحدود الإنفاق هنا.",
+  'safe.nothingCommitted': "لا التزامات",
+  'safe.nothingCommittedBody': "كل عملة تملكها هذه الخزينة متاحة للإنفاق.",
+  'safe.progress': "الملتزَم به، وكم خرج منه",
+  'safe.stillLocked': "ما زال محجوزًا",
+  'safe.releases': "يُفرج عنه",
+  'safe.revocable': "قابل للإلغاء",
+  'safe.revoked': "أُلغي",
+  'safe.revocableYes': "نعم، الجزء غير المُفرج عنه",
+  'safe.revocableNo': "لا",
+  'safe.releasesIn': "خلال {when}",
+  'safe.claimedSoFar': "تم سحب {amount} حتى الآن",
+  'safe.splitAlt': "{available} متاح للإنفاق، و{committed} ملتزَم به وخارج المتناول",
+  'safe.lockAlt': "{claimed} سُحبت بالفعل، و{remaining} ما زالت محجوزة",
+
+  'safe.figureAlt':
+    "رصيد خزينة مقسوم بجدار. في الجانب المتاح، يمكن لدفعة يوافق عليها الموقّعون أن تخرج. في الجانب الملتزَم به، يُرفض المسؤول وتصويت الموقّعين وكل الموقّعين مجتمعين؛ ولا يأخذ إلا المستفيد، وفقط ما أفرج عنه الجدول الزمني.",
+  'safe.figAvailable': "متاح للإنفاق",
+  'safe.figCommitted': "ملتزَم به — خارج المتناول",
+  'safe.figAvailableIn': "ما يستطيع الموقّعون تحريكه",
+  'safe.figCommittedIn': "موعود به لأحد",
+  'safe.figAllowed': "مسموح",
+  'safe.figSpendPath': "دفعة يوافق عليها الموقّعون",
+  'safe.figSpendWho': "منفق ضمن حدّه، أو مقترح يبلغ العتبة",
+  'safe.figRefused': "ترفضه السلسلة",
+  'safe.figWho1': "مسؤول الخزينة",
+  'safe.figWho2': "مقترح يبلغ عتبة التوقيع",
+  'safe.figWho3': "كل موقّعي الخزينة مجتمعين",
+  'safe.figClaimPath': "المستفيد وحده، وفقط ما أفرج عنه الجدول الزمني",
+  'safe.figRule1':
+    "الالتزام بالأموال ليس تحويلًا لها. إنه ينقلها من رصيد الخزينة المتاح إلى رصيدها المحجوز، في عهدة السلسلة نفسها.",
+  'safe.figRule2':
+    "الالتزام القابل للإلغاء يمكن إلغاؤه في الجزء الذي لم يُفرج عنه بعد. أما ما استُحق فلا يُسترد أبدًا — وعد يمكن سحبه بأثر رجعي ليس وعدًا.",
+  'safe.figureCaption':
+    "الجدار قاعدة ثابتة في الـkeeper، لا عرفًا تفرضه هذه الواجهة: تحتفظ x/treasury بالمال في حساب وحدة وترفض رفضًا قاطعًا أي إنفاق من رصيد محجوز. هذا هو كل الفرق بين هذا وحساب مشترك عليه توقيعات.",
+
+  'id.copy': "نسخ {value}",
+  'id.copied': "نُسخ {value}",
+  'id.show': "إظهار",
+  'id.hide': "إخفاء",
+
   'tx.count.zero': 'لا معاملات',
   'tx.count.one': 'معاملة واحدة',
   'tx.count.two': 'معاملتان',

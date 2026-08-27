@@ -1,11 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
-import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx.js';
+import { AuthInfo, TxBody, TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx.js';
 
 import { chainRegistry } from './registry.ts';
 import { payment, send, treasurySpend } from './signing.ts';
-import { describeFee, headline, summariseSigningRequest } from './signrequest.ts';
+import { describeFee, headline, summariseSigningRequest, transactionHash } from './signrequest.ts';
 
 /**
  * The approval screen's decode, exercised the way the wallet exercises it:
@@ -263,6 +263,28 @@ test('several messages are counted rather than narrated into one story', () => {
   );
   assert.equal(summary.messages.length, 2);
   assert.match(headline(summary), /2 actions/);
+});
+
+test('the hash computed at signing time is the hash the chain gives it', () => {
+  // A real transaction lifted off yamale-devnet-2 — block 28,873, a group exec
+  // — with its bytes and the hash the chain itself recorded for them.
+  //
+  // This is the property the approval screen's pending → confirmed depends on:
+  // a wallet that returns the bytes it signed can name the transaction before
+  // anybody broadcasts it, and can therefore watch for its own transaction in a
+  // block rather than believing whatever the requesting application says
+  // happened next. If this ever fails, that screen is silently watching for a
+  // transaction that will never appear.
+  const raw = Buffer.from(
+    'CkwKSgoYL2Nvc21vcy5ncm91cC52MS5Nc2dFeGVjEi4IAhIqeW1sMTVtOXkyd2Q0MmxsbDA2dHFudWh6MHE5ang2NGE3OHB0NzJ3dGZ3EmcKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQNkPGlHCJnV4pgnEnPkr0tHPzk+sjk6ZGGqXTIrsgCDthIECgIIARgFEhMKDQoEdXltbBIFMjAwMDAQwM8kGkDvk8e6s4O53BOl4kTWGrou+sBX5uOGZoCbQY5bcT+MQSYz1k6ZnSNft84JN74T/qYpJ8QWZBMdsLn8rUZo69WA',
+    'base64',
+  );
+  const decoded = TxRaw.decode(new Uint8Array(raw));
+
+  assert.equal(
+    transactionHash(decoded.bodyBytes, decoded.authInfoBytes, decoded.signatures[0]!),
+    'E7AE7182104A5A0E3185F367037F8C3B41B8287C07B47DD14005A22DB0D488AF',
+  );
 });
 
 test('an auth info that will not decode does not take the messages down with it', () => {

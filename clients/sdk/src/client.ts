@@ -33,9 +33,12 @@ import { toEnforcementCase, type EnforcementCase, type EnforcementVote } from '.
 import { measure, type BlockSample, type Performance } from './performance.ts';
 import {
   toRoleAssignment,
+  toSpendPolicy,
   toTreasury,
   toTreasuryBalance,
   type RoleAssignment,
+  type SpendCapacity,
+  type SpendPolicy,
   type Treasury,
   type TreasuryBalance,
 } from './treasury.ts';
@@ -145,6 +148,23 @@ export interface ChainStatus {
   nodeVersion: string;
   catchingUp: boolean;
 }
+
+/**
+ * Where a transaction has got to, as three states rather than two.
+ *
+ * `pending` means the node has no record of it yet — which is the ordinary
+ * state for a few seconds after a broadcast, and is not a failure.
+ * `included` means a block has it, and `code` is the block's verdict: zero is
+ * the only success, and every other value comes with a `rawLog` worth
+ * translating.
+ * `unreachable` means the question could not be asked. It exists so an
+ * interface can say "we cannot see it" instead of leaving a spinner turning,
+ * because those are different facts and only one of them is the user's problem.
+ */
+export type TxStatus =
+  | { state: 'pending' }
+  | { state: 'included'; height: number; code: number; rawLog: string; gasUsed: string }
+  | { state: 'unreachable'; error: string };
 
 export class ChainError extends Error {
   // Declared as plain fields rather than constructor parameter properties, so
@@ -634,16 +654,93 @@ export class ChainClient {
     }));
   }
 
-  /** How much of this period's spending allowance is left for a denom. */
-  async spendCapacity(id: string, denom: string): Promise<{ remaining: string; limit: string } | null> {
+  /**
+   * The spending policy for one denom, or null when the treasury has none.
+   *
+   * A treasury with no policy for a denom is not a treasury with a zero limit —
+   * it is one where a spender is bounded only by the available balance. The
+   * chain says so with a gRPC NotFound, which the gateway renders as a 200
+   * carrying `{"code":5}`, so both shapes are treated as "no policy".
+   */
+  async treasurySpendPolicy(id: string, denom: string): Promise<SpendPolicy | null> {
+    try {
+      const data = await this.get<any>(
+        this.rest,
+        `/yamale/blockchain/treasury/v1/treasury/${id}/policy?denom=${encodeURIComponent(denom)}`,
+      );
+      if (!data?.policy) return null;
+      return toSpendPolicy(data.policy);
+    } catch (err) {
+      // A 404 or a NotFound is an answer: there is no policy. Anything else is
+      // the node failing, and swallowing that would show "no limits" for a
+      // treasury whose limits simply could not be read.
+      if (err instanceof ChainError && (err.status === 404 || err.status === 400)) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * How much of this period's spending allowance is left for a denom.
+   *
+   * The field names here are the ones the chain actually emits. This method
+   * used to read `data.remaining` and `data.limit`, neither of which exists in
+   * `QuerySpendCapacityResponse` — so it returned `{remaining: '0', limit: '0'}`
+   * for every treasury on the chain, including ones with no limit at all.
+   * Nothing consumed it, which is the only reason it was never noticed; a
+   * screen that had trusted it would have told a treasurer they could spend
+   * nothing.
+   */
+  async spendCapacity(id: string, denom: string): Promise<SpendCapacity | null> {
     try {
       const data = await this.get<any>(
         this.rest,
         `/yamale/blockchain/treasury/v1/treasury/${id}/capacity?denom=${encodeURIComponent(denom)}`,
       );
-      return { remaining: String(data.remaining ?? '0'), limit: String(data.limit ?? '0') };
+      return {
+        denom,
+        remainingThisPeriod: String(data.remaining_this_period ?? '0'),
+        available: String(data.available ?? '0'),
+        // Empty means "no cap", which is a different fact from a cap of zero.
+        perTransactionLimit: data.per_transaction_limit ? String(data.per_transaction_limit) : undefined,
+        periodResetsAt: Number(data.period_resets_at ?? 0) || undefined,
+      };
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Whether a transaction has made it into a block, and what the block made of
+   * it.
+   *
+   * Separate from `transaction()` because the answer "not there yet" is a
+   * legitimate state rather than an error, and a caller polling for a signature
+   * it just handed out needs to tell it apart from a node failure. Five separate
+   * bugs in this product came from treating a clean broadcast as a completed
+   * payment; the only way to know is to look for the transaction in a block and
+   * read the code the block recorded.
+   */
+  async txStatus(hash: string): Promise<TxStatus> {
+    try {
+      const data = await this.get<any>(this.rest, `/cosmos/tx/v1beta1/txs/${hash.toUpperCase()}`);
+      const response = data.tx_response;
+      if (!response) return { state: 'pending' };
+      return {
+        state: 'included',
+        height: Number(response.height ?? 0),
+        code: Number(response.code ?? 0),
+        rawLog: response.raw_log ?? '',
+        gasUsed: String(response.gas_used ?? ''),
+      };
+    } catch (err) {
+      // 404 while a transaction is still in the mempool is the ordinary case,
+      // not a failure. Anything else is the node, and saying "still pending"
+      // about a node that is down would be a lie told with a spinner.
+      if (err instanceof ChainError && err.status === 404) return { state: 'pending' };
+      return {
+        state: 'unreachable',
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 

@@ -23,10 +23,38 @@
   --warning-bg: var(--wash-warn);
   --warning-fg: var(--warn);
 
+  /* Ink versions of two state colours, for text.
+   *
+   * yamale.css picks --brass and --warn to work as borders, fills and rules,
+   * where they are excellent. As small text on their own washes in the light
+   * theme they are not: measured on the deployed build, brass on wash-brass
+   * lands at 3.3:1 and warn on wash-warn at 3.4:1, both under the 4.5 a label
+   * at 11–13px needs. These are the same hues darkened until they clear it,
+   * and they are used only where the token is carrying *text*.
+   *
+   * Declared on a bare :root first, then overridden in both dark forms. A
+   * colour whose only definition lives inside a prefers-color-scheme block
+   * never applies in the default un-stamped state — which is most readers. */
+  --brass-ink: #8a5f22;
+  --warn-ink: #7d580f;
+
   /* Tells the platform to paint form controls, scrollbars and the native
      select popup in the right theme. Without it a dark page gets a white
      dropdown, which is the one piece of chrome a stylesheet cannot reach. */
   color-scheme: light dark;
+}
+
+/* The dark palette's brass and warn are already chosen against a dark surface
+   and clear 4.5 there, so the ink versions step aside. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --brass-ink: var(--brass);
+    --warn-ink: var(--warn);
+  }
+}
+:root[data-theme='dark'] {
+  --brass-ink: var(--brass);
+  --warn-ink: var(--warn);
 }
 
 .wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--sp-5); }
@@ -167,8 +195,8 @@ h2.section { margin: var(--sp-7) 0 var(--sp-4); }
   padding: 0.2rem 0.45rem; border-radius: 3px; white-space: nowrap;
   background: var(--wash-mute); color: var(--text-muted);
 }
-.badge-paused { background: var(--wash-warn); color: var(--warn); }
-.badge-voting { background: var(--wash-warn); color: var(--warn); }
+.badge-paused { background: var(--wash-warn); color: var(--warn-ink); }
+.badge-voting { background: var(--wash-warn); color: var(--warn-ink); }
 .badge-emergency { background: var(--wash-bad); color: var(--bad); }
 
 .payload { margin-top: var(--sp-4); }
@@ -189,6 +217,173 @@ code {
   padding: 0.1rem 0.3rem; border-radius: 3px;
 }
 .address { font-family: var(--font-mono); word-break: break-all; font-size: 0.88em; }
+
+/* --- the custody figure ----------------------------------------------------
+ *
+ * The application's whole argument, drawn. Every fill and stroke reads a shared
+ * token through a class rather than a presentation attribute, so the figure
+ * follows the theme instead of being a light-mode illustration sitting on a
+ * dark page. Text inside the SVG is real text: selectable, searchable, and set
+ * in whatever the reader's device actually has. */
+.custody {
+  margin: 0 0 var(--sp-6); padding: var(--sp-4) var(--sp-5);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-1);
+}
+.custody figcaption {
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+  font-size: var(--step--1); color: var(--text-muted); max-width: var(--measure);
+}
+
+/* The bar and the columns share one grid, so the brass rule on the second
+   column reads as a single wall running the height of the figure. Logical
+   properties throughout: in Arabic the whole thing mirrors and the wall stays
+   between the two sides rather than beside one of them. */
+.custody__bar, .custody__cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+}
+.custody__side {
+  position: relative; background: var(--surface-2);
+  /* Room at the top for the hatched band on the committed side. Both sides
+     carry the padding so their text baselines line up; only one carries the
+     hatch. */
+  padding: calc(var(--sp-3) + 14px) var(--sp-4) var(--sp-3);
+}
+.custody__side:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.custody__side--held {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--wash-brass);
+  border-inline-start: 3px solid var(--brass);
+}
+/* Hatching as well as tint. A reader seeing no colour at all still sees a
+   different surface, which is the requirement — the committed side must never
+   depend on hue alone.
+   As a band above the text rather than behind it: solid stripes under a
+   11px uppercase label cost more legibility than the signal is worth, and the
+   band carries the same signal without touching the type. */
+.custody__side--held::before {
+  content: ''; position: absolute; inset-block-start: 0; inset-inline: 0;
+  block-size: 14px;
+  background-image: repeating-linear-gradient(45deg, var(--brass) 0 2px, transparent 2px 6px);
+}
+.custody__col--held { border-inline-start: 3px solid var(--brass); padding-inline-start: var(--sp-4); }
+.custody__col { padding: var(--sp-4) var(--sp-4) 0 0; }
+.custody__col--held { padding-inline-end: 0; }
+
+.custody__k {
+  display: block; font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.custody__k--lock { color: var(--brass-ink); font-weight: 500; }
+.custody__in { display: block; font-size: var(--step-1); font-weight: 500; margin-top: var(--sp-1); }
+
+.custody__eyebrow {
+  margin: 0 0 var(--sp-2); font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);
+}
+.custody__eyebrow--ok { color: var(--ok); }
+.custody__eyebrow--bad { color: var(--bad); }
+
+/* Each entry carries a glyph as well as a colour, and the column it sits in is
+   headed in words. Three signals for one fact, because the fact is the point
+   of the figure. */
+.custody__list { list-style: none; margin: 0 0 var(--sp-3); padding: 0; font-size: var(--step-0); }
+.custody__list li {
+  position: relative; padding-inline-start: 1.4rem; margin-bottom: var(--sp-2);
+  max-width: 34rem;
+}
+.custody__list li::before {
+  position: absolute; inset-inline-start: 0; font-weight: 600;
+}
+.custody__list--bad li::before { content: '✕'; color: var(--bad); }
+.custody__list--ok li::before { content: '→'; color: var(--ok); }
+.custody__note {
+  margin: 0 0 var(--sp-3); padding-inline-start: 1.4rem;
+  font-size: var(--step--1); color: var(--text-muted); max-width: 34rem;
+}
+
+.custody__rules {
+  list-style: none; margin: var(--sp-5) 0 0; padding: 0;
+  display: grid; gap: var(--sp-2);
+}
+.custody__rules li { font-size: var(--step--1); color: var(--text-muted); max-width: var(--measure); }
+
+/* One column below the width where two columns of prose stop being readable.
+   The wall becomes a rule above the committed side, which keeps the two sides
+   distinct without a 20ch measure. */
+@media (max-width: 46rem) {
+  .custody__bar, .custody__cols { grid-template-columns: 1fr; }
+  .custody__side:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .custody__side--held {
+    border-radius: 0 0 var(--radius) var(--radius);
+    border-inline-start: 0; border-block-start: 3px solid var(--brass);
+  }
+  .custody__col--held {
+    border-inline-start: 0; border-block-start: 3px solid var(--brass);
+    padding-inline-start: 0; padding-block-start: var(--sp-4);
+  }
+}
+
+/* --- available against committed, as a length ------------------------------
+ *
+ * Two figures side by side answer "how much of each". They do not answer "how
+ * much of this can I touch", which is a ratio and therefore a bar. The
+ * committed part is hatched as well as tinted, so the distinction survives
+ * greyscale and every form of colour blindness. */
+.split {
+  display: flex; height: 8px; margin: var(--sp-2) 0;
+  border-radius: 999px; overflow: hidden; background: var(--surface-3);
+}
+.splits { display: grid; gap: 2px; margin: var(--sp-3) 0 0; }
+.split__avail { display: block; background: var(--accent); }
+.split__locked {
+  display: block; background: var(--wash-brass);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--brass) 0 2px,
+    transparent 2px 5px
+  );
+}
+
+/* The committed figure carries the brass everywhere it appears, so the colour
+   means one thing across the whole application rather than being decoration on
+   one screen. */
+.figure--lock, .num--lock { color: var(--brass-ink); }
+.card__unknown {
+  margin: var(--sp-4) 0; font-size: var(--step--1); color: var(--warn-ink);
+}
+
+/* --- what a thing refuses --------------------------------------------------
+ *
+ * Borrowed from the presentation site, where each capability states its refusal
+ * in the same shape. A refusal is the most credible sentence any of these
+ * screens can make, and it deserves not to look like a footnote. */
+.refuses {
+  margin: var(--sp-4) 0 0; padding-inline-start: var(--sp-4);
+  border-inline-start: 3px solid var(--brass);
+  font-size: var(--step--1); max-width: var(--measure);
+}
+.refuses__k {
+  display: block; font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass-ink);
+  margin-bottom: var(--sp-1);
+}
+
+/* --- one currency's spending policy ---------------------------------------- */
+.limit { padding: var(--sp-4) 0; border-top: 1px solid var(--rule); }
+.limit:first-of-type { border-top: 0; }
+.limit__k { font-size: var(--step-1); margin: 0 0 var(--sp-2); }
+.limit__list { margin: var(--sp-2) 0 0; padding-inline-start: 1.1rem; font-size: var(--step--1); }
+.limit__list li { margin-bottom: var(--sp-1); }
+.limit__now { margin: var(--sp-3) 0 0; font-size: var(--step--1); }
+
+.lock__cell { min-width: 12rem; }
+.lock__total {
+  display: block; font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; font-size: var(--step-0);
+}
+.unknown__act { margin: var(--sp-3) 0 0; }
 
 /* --- an enforcement case ---------------------------------------------------
  *
@@ -282,7 +477,7 @@ code {
 
 .eyebrow {
   font-family: var(--font-mono); font-size: var(--step--1);
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass);
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass-ink);
 }
 
 /* An empty state is a screen this app spends much of its life on: a chain with
@@ -335,13 +530,17 @@ code {
 .addr__copy:hover { border-bottom-color: var(--accent); }
 .addr__icon { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
 .addr__copy:hover .addr__icon { color: var(--accent); }
+/* --text-muted, not --text-faint. Faint measures 2.67:1 on the light surface,
+   which is fine for a decorative rule and not fine for the control somebody
+   uses to read back an address before approving a payment to it. Measured on
+   the deployed build. */
 .addr__reveal {
   font: inherit; font-family: var(--font-mono); font-size: 0.68rem;
   letter-spacing: 0.06em; text-transform: uppercase;
   background: none; border: 0; padding: 0; cursor: pointer;
-  color: var(--text-faint);
+  color: var(--text-muted); text-decoration: underline;
 }
-.addr__reveal:hover { color: var(--text-muted); }
+.addr__reveal:hover { color: var(--text); }
 .addr__full {
   flex-basis: 100%; background: var(--surface-2);
   padding: var(--sp-1) var(--sp-2); border-radius: 3px;
@@ -358,4 +557,4 @@ code {
 }
 .field-note { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); font-size: var(--step--1); }
 .field-note--bad { color: var(--bad); }
-.field-note--warn { color: var(--warn); }
+.field-note--warn { color: var(--warn-ink); }
