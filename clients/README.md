@@ -162,3 +162,57 @@ because both derive at `m/44'/118'/0'/0/0` with coin type 118.
 The fee panel is not decoration. Fees are payable in YML, so an account holding
 only naira with no sponsor cannot move a single unit, and a wallet showing a
 healthy balance alone would hide the one fact that matters.
+
+## Vehicles
+
+`clients/rwa` — the investor-facing app for the real-world-asset vehicles
+x/tokenisation issues.
+
+It answers three questions in the order somebody deciding actually asks them.
+*What is this?* — the collection it was issued under, the title, the underlying,
+and where the underlying is registered land, the parcel with its restrictions,
+its encumbrances and whether the registry's fractionalisation authorisation is
+still live. *What do I own?* — a percentage of the asset rather than a token
+balance, and an entitlement read from `Query/Entitlement`, which is the only
+correct source: it is not derivable from a balance. *What could go wrong?*
+
+The third is the one the app is really for. A closed-end vehicle cannot dilute
+its holders — the supply is fixed at fractionalisation and there is no second
+issuance — and the app says so, because it is unusual and it is true. What can
+go wrong is the sale price: every holder is paid out against a number the
+sponsor reports, and the only things between that number and a lie are the
+collection's attestation threshold and its challenge window. So every collection
+carries a graded protection, computed as its *worst* finding rather than as a
+score. A ninety-day window does not offset the absence of any verification: a
+figure nobody checks is not made true by being contestable for a month. A
+collection with a threshold of zero and a window of zero grades as `none` and
+leads with the sentence saying why.
+
+Four actions, and they are treated differently on purpose. Claiming income
+changes nothing about what is owned and asks once. Redeeming destroys shares —
+the burn *is* the payment, with no later step — so it states what is destroyed
+before what is received and requires the word typed. Disputing takes the
+collection's bond out of the challenger's account in the same block, and that
+bond appears nowhere in `MsgDisputeSale`, so it is stated as a figure above the
+button. Each one shows the exact message the chain will receive, field by field,
+with the consequences the signed bytes do not mention marked as such.
+
+```bash
+YAMALE_RPC=http://<node>:26657 \
+YAMALE_REST=https://<host>/api/rest \
+npm run dev --workspace @yamale/rwa          # http://localhost:5378/rwa/
+```
+
+The two upstreams are not interchangeable. `/api/rpc` carries every read of
+x/tokenisation and x/land, because the proxy's REST allowlist does not cover
+those module paths and a browser asking for a vehicle over REST gets a 401 — which
+it renders as a login box for a password nobody has. The same queries answer
+unauthenticated over ABCI, which is what x/land's own service comment intends:
+*a citizen must be able to check a title before paying anybody, without an
+account and without an official's permission.* `/api/rest` carries only the two
+bank reads, a balance and a supply, which the allowlist does serve.
+
+`fixtures.mjs` encodes the protobuf responses a populated chain would return.
+It is a harness, not app code and not imported by it: the chain has held zero
+collections throughout this work, and an app that only looks right once
+populated is the failure this one was written against.

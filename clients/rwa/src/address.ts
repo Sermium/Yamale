@@ -18,6 +18,7 @@
  * repo's runner, which strips types but does not transform JSX and so cannot
  * load anything that reaches the SDK's React entry points.
  */
+import { fromBech32 } from '@cosmjs/encoding';
 import type { OfflineSigner } from '@cosmjs/proto-signing';
 
 export type Account =
@@ -26,18 +27,30 @@ export type Account =
   | { mode: 'connected'; address: string; signer: OfflineSigner; wallet: 'keplr' | 'leap' };
 
 /**
- * Whether a string could be an address on this chain.
+ * Whether a string is an address on this chain — checksum and all.
  *
- * A shape check, not a checksum: the point is to refuse "my wallet" and a
- * pasted transaction hash before they become a query that returns nothing and
- * looks like an empty account. Bech32's alphabet deliberately omits 1, b, i and
- * o, so a lookalike character is caught here rather than three screens later.
+ * This started as a shape regex fixed at 42 characters, and it was wrong twice
+ * over. A 42-character rule rejects every module and x/group account on the
+ * chain, which are 32-byte and therefore 62 characters: the registry offices
+ * this app displays on every land vehicle are exactly that shape, so watching
+ * one would have been refused. And a shape rule accepts a mistyped address
+ * whose checksum is broken — which the node answers with a 400, which this app
+ * then honestly reports as "the chain did not answer". Truthful, and useless:
+ * the chain answered perfectly well, and the problem was the typing.
  *
- * A wrong-but-well-formed address still gets through, and that is fine —
- * watching one shows an empty account, which is the truth about it.
+ * bech32 exists to catch exactly that transposition, and the decoder is already
+ * in the dependency tree. So the check is the real one, and the length is
+ * whatever the encoding says rather than whatever this file guessed.
+ *
+ * Prefix-checked as well: `ymlvaloper1…` decodes cleanly and is a validator
+ * operator, not an account that can hold shares.
  */
 export function looksLikeAddress(value: string): boolean {
-  return /^yml1[023456789acdefghjklmnpqrstuvwxyz]{38}$/.test(value.trim());
+  try {
+    return fromBech32(value.trim()).prefix === 'yml';
+  } catch {
+    return false;
+  }
 }
 
 /** True when this account can put a signature on something. */

@@ -12,6 +12,7 @@
     "test": "node --test src/*.test.ts"
   },
   "dependencies": {
+    "@cosmjs/encoding": "^0.32.4",
     "@cosmjs/proto-signing": "^0.32.4",
     "@yamale/chain": "*",
     "react": "^19.0.0",
