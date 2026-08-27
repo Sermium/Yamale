@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"cosmossdk.io/collections"
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -46,6 +47,13 @@ func (m msgServer) CreateCollection(ctx context.Context, msg *types.MsgCreateCol
 	c := msg.Collection
 	if c.Verification == types.VERIFY_ATTESTORS && c.AttestationThreshold < 2 {
 		return nil, types.ErrInvalidThreshold
+	}
+	// Checked here rather than left to the first attestation, because a
+	// collection whose threshold exceeds its register is one where no honest
+	// sale can ever finalise — and the way that presents is every vehicle in it
+	// silently becoming a one-way door months later, with the money already in.
+	if err := validAttestorRegister(m.addressCodec, c.Verification, c.AttestationThreshold, c.Attestors); err != nil {
+		return nil, err
 	}
 
 	params, err := m.Params.Get(ctx)
@@ -195,6 +203,25 @@ func (m msgServer) Fractionalise(ctx context.Context, msg *types.MsgFractionalis
 		CumulativePerToken: math.LegacyZeroDec(),
 		Denom:              msg.IncomeDenom,
 	}); err != nil {
+		return nil, err
+	}
+
+	// Seed the first holder's position, at the index the vault has just been
+	// created with - zero.
+	//
+	// Without this they have no position at all, and Settle's rule for an
+	// account it has never seen is to start it at the CURRENT index, because
+	// crediting a new buyer the asset's entire history would pay them for a
+	// period they did not hold. Right for a buyer, wrong for this account: it
+	// has held every share since issuance. The effect was that a holder who
+	// never transferred anything had their position created on the way out, at
+	// an index that had already moved, and was paid nothing for the whole life
+	// of the vehicle.
+	//
+	// It stayed hidden because any transfer settles both sides, so the ordinary
+	// path - issue, then distribute - creates the position early and by
+	// accident. What it hits is the case with no transfer at all.
+	if err := m.Settle(ctx, msg.AssetId, owner, msg.Supply); err != nil {
 		return nil, err
 	}
 
@@ -380,4 +407,87 @@ func (m msgServer) Redeem(ctx context.Context, msg *types.MsgRedeem) (*types.Msg
 	}
 
 	return &types.MsgRedeemResponse{Paid: payout}, nil
+}
+
+// validAttestorRegister holds a collection's register to the two things that
+// can be checked from the register alone: that it can reach its own threshold,
+// and that it is not padded with the same account twice.
+//
+// A duplicate would be the cheapest possible forgery of a quorum — one signer
+// listed three times reads as three attestors to anybody skimming, and
+// AttestSale's own duplicate check would then refuse the second and third
+// signature from the one account that could actually meet the threshold.
+func validAttestorRegister(codec address.Codec, mode types.VerificationMode, threshold uint32, attestors []string) error {
+	if mode != types.VERIFY_ATTESTORS {
+		// A register on a collection that verifies some other way is not
+		// wrong, only unused, and refusing it would be the chain having an
+		// opinion about a field it does not read.
+		return nil
+	}
+	if uint32(len(attestors)) < threshold {
+		return types.ErrInvalidThreshold.Wrapf(
+			"%d appointed attestors cannot meet a threshold of %d, so no sale in this collection could ever finalise",
+			len(attestors), threshold)
+	}
+	seen := make(map[string]struct{}, len(attestors))
+	for _, a := range attestors {
+		if _, err := codec.StringToBytes(a); err != nil {
+			return types.ErrNotAttestor.Wrapf("%q is not an address", a)
+		}
+		if _, dup := seen[a]; dup {
+			return types.ErrNotAttestor.Wrapf(
+				"%s is listed twice; a register padded with one account is not a quorum", a)
+		}
+		seen[a] = struct{}{}
+	}
+	return nil
+}
+
+// SetCollectionAttestors replaces the register of accounts that may attest a
+// sale reported under this collection.
+//
+// Governance only, like CreateCollection and SetCollectionAuthority beside it.
+// If the seller could appoint the accounts that check the seller, this register
+// would restate the problem rather than fix it.
+func (m msgServer) SetCollectionAttestors(
+	ctx context.Context, msg *types.MsgSetCollectionAttestors,
+) (*types.MsgSetCollectionAttestorsResponse, error) {
+	if err := m.assertGov(msg.Authority); err != nil {
+		return nil, err
+	}
+	c, err := m.Collections.Get(ctx, msg.CollectionId)
+	if err != nil {
+		return nil, types.ErrCollectionNotFound
+	}
+	if err := validAttestorRegister(m.addressCodec, c.Verification, c.AttestationThreshold, msg.Attestors); err != nil {
+		return nil, err
+	}
+
+	// Attestations already recorded are not revisited. They were made by an
+	// appointed attestor at the moment they were made, and rewriting that to
+	// match a later appointment would let governance manufacture or destroy a
+	// quorum after the fact — a worse power than the one being constrained here.
+	c.Attestors = msg.Attestors
+	return &types.MsgSetCollectionAttestorsResponse{}, m.Collections.Set(ctx, msg.CollectionId, c)
+}
+
+// FinaliseSale opens redemption on an asset whose reported price has cleared
+// verification and its challenge window.
+//
+// The crank existed as a keeper method from the beginning and nothing ever
+// called it — no message, no EndBlocker, not even a test. So no asset could
+// reach STATUS_REALISED, and Redeem, which requires that status, could never
+// succeed: every fractionalised vehicle was a one-way door. This is the caller.
+//
+// Anybody may send it. Every condition is fixed by the report and the clock, so
+// the sender decides nothing and contributes only the gas. If only the sponsor
+// could finalise, shareholders would be unable to exit until the party holding
+// their money chose to allow it.
+func (m msgServer) FinaliseSale(
+	ctx context.Context, msg *types.MsgFinaliseSale,
+) (*types.MsgFinaliseSaleResponse, error) {
+	if _, err := m.addressCodec.StringToBytes(msg.Caller); err != nil {
+		return nil, err
+	}
+	return &types.MsgFinaliseSaleResponse{}, m.Keeper.FinaliseSale(ctx, msg.AssetId)
 }

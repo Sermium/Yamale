@@ -91,4 +91,10 @@ var (
 	// land assets outright rather than treat every parcel as unrestricted.
 	ErrNoLandRegistry = sdkerrors.Register(ModuleName, 33,
 		"this chain has no land registry, so an asset cannot name a parcel")
+	// DisputeSale returned ErrStillInWindow for the opposite condition — the
+	// guard fires when the block time is PAST claimable_at — which would send
+	// whoever debugs a refused dispute looking for a window that has already
+	// closed. Two conditions, two errors.
+	ErrWindowClosed = sdkerrors.Register(ModuleName, 34,
+		"the challenge window on that sale has closed, so it can no longer be disputed")
 )

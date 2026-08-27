@@ -257,6 +257,22 @@ could reasonably have gone the other way:
 
 ## Known defects
 
+- **x/tokenisation credits a sale's proceeds that never arrive.** `FinaliseSale`
+  puts the whole reported price through the income index while moving no coins,
+  and the only message that does move coins — `FundVault` — accrues them a second
+  time on the way in. So the proceeds of a sale have no funding path that does
+  not double-count, every holder is credited money the vault does not hold, and
+  redemption fails with `insufficient funds` for everybody after the first.
+  Found 2026-08-27 while writing the pipeline's first test. **Not fixed, because
+  the fix is a decision rather than a mechanism:** either finalising pulls the
+  price from the reporter — which makes a reported price binding, and closes the
+  report-low-and-keep-the-difference attack a second way — or funding stops
+  accruing once a sale is reported and the proceeds are simply the last
+  `FundVault`. The first is stronger and assumes the sponsor holds the money on
+  chain; the second is weaker and assumes nothing.
+  `TestAVehicleCanBeExited` asserts the broken behaviour deliberately, so
+  whoever decides this will see it fail and have to look.
+
 - **A sender is not obliged to seal a payload to the readers the chain names.**
   `ROLE_SUPERVISOR` now confers an entitlement — a holder covering a country is
   a viewing-key recipient for every payload settling there, published by
@@ -313,6 +329,25 @@ could reasonably have gone the other way:
 - **`x/tokenisation` is served under `/yamale/` and the nginx allowlist names it
   under neither prefix**, so it falls through to deny-by-default. Correct today,
   a trap when somebody opens it up.
+- ~~**`FinaliseSale` has no caller.**~~ Closed 2026-08-27. It was a keeper method
+  nothing invoked — no message, no EndBlocker, not one test — so no asset reached
+  `STATUS_REALISED` and `Redeem`, which requires it, could never succeed for
+  anybody: every fractionalised vehicle was a one-way door. `MsgFinaliseSale` is
+  the caller, permissionless because a crank only the sponsor could turn is one
+  the sponsor can decline to turn.
+- ~~**`AttestSale` never checked who was attesting.**~~ Closed 2026-08-27.
+  `ErrNotAttestor` was registered as code 17 and returned from nowhere, and
+  `Collection` carried no register to check against, so a sponsor met any
+  threshold with fresh addresses at the cost of the gas — leaving the guide's
+  own "the sale price is the attack" defended by nothing. Collections now carry
+  an attestor register that **governance** appoints, not the seller.
+- ~~**A holder who never transferred was paid nothing.**~~ Closed 2026-08-27.
+  `Fractionalise` created the vault and no position for the owner, so `Settle`
+  treated them as a first-time holder on the way out and started them at an
+  index that had already moved. Hidden because any transfer settles both sides,
+  so the ordinary issue-then-distribute path created the position by accident.
+- ~~**`DisputeSale` returned `ErrStillInWindow` for a window that had closed.**~~
+  Closed 2026-08-27; `ErrWindowClosed` is code 34.
 
 ## Operational loose ends
 

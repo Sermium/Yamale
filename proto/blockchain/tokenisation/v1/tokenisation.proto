@@ -41,6 +41,34 @@ message Collection {
   // points. Scales with the vehicle rather than being flat: a flat bond is
   // trivial for a large fraud to post and prohibitive for a small holder.
   uint32 dispute_bond_bps = 6;
+
+  // attestors is the register of accounts that may attest a sale reported
+  // under this collection. Required when verification is VERIFY_ATTESTORS, and
+  // it must hold at least attestation_threshold entries: a threshold higher
+  // than the register is one no honest sale can ever meet, which turns every
+  // vehicle in the collection into a one-way door.
+  //
+  // # Why a register rather than nothing
+  //
+  // Without one, AttestSale accepts a signature from any address at all, and a
+  // sponsor meets any threshold with N fresh keys for the cost of the gas. The
+  // threshold is the whole of what stands between a shareholder and a sale
+  // reported below what was received, so a threshold anybody can meet is not a
+  // protection, it is the appearance of one.
+  //
+  // # Who sets it, which is the whole of why it works
+  //
+  // Governance, and only governance — the same signer that creates the
+  // collection in the first place. A sponsor cannot appoint their own
+  // attestors, so they cannot manufacture a quorum, and that is the difference
+  // between this register and a decorative one.
+  //
+  // What the chain still cannot decide is whether an account governance
+  // appointed is genuinely independent of the seller. That is not a fact the
+  // chain holds. What it can do is make the appointment a visible, deliberate
+  // act by a signer the seller does not control, which is the same arrangement
+  // x/land uses for the offices that attest a transfer.
+  repeated string attestors = 7 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
 
 // VerificationMode is how the chain learns what an asset sold for.

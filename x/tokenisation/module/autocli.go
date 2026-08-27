@@ -131,6 +131,29 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					},
 				},
 				{
+					RpcMethod: "SetCollectionAttestors",
+					Use:       "set-collection-attestors [collection-id] [attestors]",
+					Short:     "Appoint the accounts that may attest a sale reported under this collection",
+					Long: "Appoint the accounts that may attest a sale reported under this collection.\n\n" +
+						"Governance only, and that is the whole of why it works: if the seller could\n" +
+						"appoint the accounts that check the seller, the register would restate the\n" +
+						"problem rather than fix it.\n\n" +
+						"attestors is a comma-separated list. It REPLACES the register rather than\n" +
+						"adding to it, and it must hold at least attestation_threshold distinct\n" +
+						"accounts — a threshold higher than the register is one no honest sale can\n" +
+						"ever meet, which turns every vehicle in the collection into a one-way door.\n\n" +
+						"Attestations already recorded against a reported sale are not revisited.\n" +
+						"They were made by an appointed attestor at the time, and rewriting that to\n" +
+						"match a later appointment would let governance manufacture or destroy a\n" +
+						"quorum after the fact.",
+					Example: "blockchaind tx tokenisation set-collection-attestors ke-farmland \n\n" +
+						"  yml1auditor...,yml1registry...,yml1notary... --from gov",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "collection_id"},
+						{ProtoField: "attestors", Varargs: true},
+					},
+				},
+				{
 					RpcMethod: "MintAsset",
 					Use:       "mint-asset [collection-id] [owner] [uri]",
 					Short:     "Mint the title of one vehicle, optionally bound to a registered parcel",
@@ -165,8 +188,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						"--from must be the asset's owner. This is a closed-end vehicle: the supply is\n" +
 						"fixed here and there is no second issuance, so a holder's percentage cannot\n" +
 						"be diluted afterwards by anybody, including the sponsor.\n\n" +
-						"--holder-share-bps is the fraction the owner keeps back, in basis points.\n" +
-						"The rest is what the tokens carry. Where the asset is bound to a parcel,\n" +
+						"--holder-share-bps is the share of the asset's economics THE TOKENS CARRY,\n" +
+						"in basis points, and the sponsor keeps the rest. 4000 sells 40% and retains\n" +
+						"60%. It is what is being SOLD, not what is retained, and it can never be\n" +
+						"changed afterwards. Where the asset is bound to a parcel,\n" +
 						"the registry's max_share_bps caps what may be issued, and this message is\n" +
 						"refused outright if the authorisation has been withdrawn, has expired, or\n" +
 						"the parcel has since acquired a no_fractionalisation restriction.\n\n" +
@@ -182,7 +207,7 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						{ProtoField: "supply"},
 					},
 					FlagOptions: map[string]*autocliv1.FlagOptions{
-						"holder_share_bps": {Name: "holder-share-bps", Usage: "the fraction the owner keeps back, in basis points (4000 = 40%)"},
+						"holder_share_bps": {Name: "holder-share-bps", Usage: "share of the economics the tokens carry, in basis points (4000 sells 40%); the sponsor keeps the rest"},
 						"income_denom":     {Name: "income-denom", Usage: "the currency the vault pays holders in"},
 					},
 				},
@@ -271,6 +296,24 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						{ProtoField: "asset_id"},
 						{ProtoField: "reason"},
 					},
+				},
+				{
+					RpcMethod: "FinaliseSale",
+					Use:       "finalise-sale [asset-id]",
+					Short:     "Open redemption on a sale that has cleared its attestations and its window",
+					Long: "Open redemption on a sale that has cleared its attestations and its window.\n\n" +
+						"Anybody may send it, and that is deliberate rather than lax. Every condition\n" +
+						"it checks is already fixed by the report and the clock, so the sender decides\n" +
+						"nothing and contributes only the gas. If only the sponsor could finalise, a\n" +
+						"sponsor could decline to — and shareholders unable to exit until the party\n" +
+						"holding their money allows it is the position this instrument exists to\n" +
+						"avoid.\n\n" +
+						"A failure here names the condition not yet met: still inside the window,\n" +
+						"short of its attestation threshold, or under dispute.\n\n" +
+						"This message did not exist until 2026-08-27. The crank it calls was written\n" +
+						"and never wired to anything, so no asset could reach REALISED and no holder\n" +
+						"could ever redeem.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
 				},
 				{
 					RpcMethod: "Claim",

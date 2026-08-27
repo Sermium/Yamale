@@ -317,6 +317,117 @@ func (m *MsgSetCollectionAuthorityResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgSetCollectionAuthorityResponse proto.InternalMessageInfo
 
+// MsgSetCollectionAttestors replaces the register of accounts that may attest a
+// sale reported under this collection.
+//
+// Governance only, like CreateCollection and SetCollectionAuthority beside it.
+// If the seller could appoint the accounts that check the seller, the register
+// would restate the problem rather than fix it.
+//
+// It replaces rather than appends, because a register that could only grow
+// would let one careless proposal dilute a careful appointment for good.
+//
+// Attestations already recorded against a reported sale are not revisited. They
+// were made by an appointed attestor at the moment they were made, and rewriting
+// history to match a later appointment would let an authority manufacture or
+// destroy a quorum after the fact — which is a worse power than the one this
+// message exists to constrain.
+type MsgSetCollectionAttestors struct {
+	Authority    string   `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	CollectionId string   `protobuf:"bytes,2,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
+	Attestors    []string `protobuf:"bytes,3,rep,name=attestors,proto3" json:"attestors,omitempty"`
+}
+
+func (m *MsgSetCollectionAttestors) Reset()         { *m = MsgSetCollectionAttestors{} }
+func (m *MsgSetCollectionAttestors) String() string { return proto.CompactTextString(m) }
+func (*MsgSetCollectionAttestors) ProtoMessage()    {}
+func (*MsgSetCollectionAttestors) Descriptor() ([]byte, []int) {
+	return fileDescriptor_cdac8e18c8e4547d, []int{6}
+}
+func (m *MsgSetCollectionAttestors) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSetCollectionAttestors) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSetCollectionAttestors.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSetCollectionAttestors) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSetCollectionAttestors.Merge(m, src)
+}
+func (m *MsgSetCollectionAttestors) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSetCollectionAttestors) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSetCollectionAttestors.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSetCollectionAttestors proto.InternalMessageInfo
+
+func (m *MsgSetCollectionAttestors) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgSetCollectionAttestors) GetCollectionId() string {
+	if m != nil {
+		return m.CollectionId
+	}
+	return ""
+}
+
+func (m *MsgSetCollectionAttestors) GetAttestors() []string {
+	if m != nil {
+		return m.Attestors
+	}
+	return nil
+}
+
+type MsgSetCollectionAttestorsResponse struct {
+}
+
+func (m *MsgSetCollectionAttestorsResponse) Reset()         { *m = MsgSetCollectionAttestorsResponse{} }
+func (m *MsgSetCollectionAttestorsResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgSetCollectionAttestorsResponse) ProtoMessage()    {}
+func (*MsgSetCollectionAttestorsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_cdac8e18c8e4547d, []int{7}
+}
+func (m *MsgSetCollectionAttestorsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSetCollectionAttestorsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSetCollectionAttestorsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSetCollectionAttestorsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSetCollectionAttestorsResponse.Merge(m, src)
+}
+func (m *MsgSetCollectionAttestorsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSetCollectionAttestorsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSetCollectionAttestorsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSetCollectionAttestorsResponse proto.InternalMessageInfo
+
 // MsgMintAsset records title. Only the collection's appointed authority.
 //
 // A mint names its recipient, so title is attributed at creation and never
@@ -341,7 +452,7 @@ func (m *MsgMintAsset) Reset()         { *m = MsgMintAsset{} }
 func (m *MsgMintAsset) String() string { return proto.CompactTextString(m) }
 func (*MsgMintAsset) ProtoMessage()    {}
 func (*MsgMintAsset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{6}
+	return fileDescriptor_cdac8e18c8e4547d, []int{8}
 }
 func (m *MsgMintAsset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -413,7 +524,7 @@ func (m *MsgMintAssetResponse) Reset()         { *m = MsgMintAssetResponse{} }
 func (m *MsgMintAssetResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgMintAssetResponse) ProtoMessage()    {}
 func (*MsgMintAssetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{7}
+	return fileDescriptor_cdac8e18c8e4547d, []int{9}
 }
 func (m *MsgMintAssetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -474,7 +585,7 @@ func (m *MsgFractionalise) Reset()         { *m = MsgFractionalise{} }
 func (m *MsgFractionalise) String() string { return proto.CompactTextString(m) }
 func (*MsgFractionalise) ProtoMessage()    {}
 func (*MsgFractionalise) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{8}
+	return fileDescriptor_cdac8e18c8e4547d, []int{10}
 }
 func (m *MsgFractionalise) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -546,7 +657,7 @@ func (m *MsgFractionaliseResponse) Reset()         { *m = MsgFractionaliseRespon
 func (m *MsgFractionaliseResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgFractionaliseResponse) ProtoMessage()    {}
 func (*MsgFractionaliseResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{9}
+	return fileDescriptor_cdac8e18c8e4547d, []int{11}
 }
 func (m *MsgFractionaliseResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -596,7 +707,7 @@ func (m *MsgTransferAsset) Reset()         { *m = MsgTransferAsset{} }
 func (m *MsgTransferAsset) String() string { return proto.CompactTextString(m) }
 func (*MsgTransferAsset) ProtoMessage()    {}
 func (*MsgTransferAsset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{10}
+	return fileDescriptor_cdac8e18c8e4547d, []int{12}
 }
 func (m *MsgTransferAsset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -653,7 +764,7 @@ func (m *MsgTransferAssetResponse) Reset()         { *m = MsgTransferAssetRespon
 func (m *MsgTransferAssetResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgTransferAssetResponse) ProtoMessage()    {}
 func (*MsgTransferAssetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{11}
+	return fileDescriptor_cdac8e18c8e4547d, []int{13}
 }
 func (m *MsgTransferAssetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -694,7 +805,7 @@ func (m *MsgFundVault) Reset()         { *m = MsgFundVault{} }
 func (m *MsgFundVault) String() string { return proto.CompactTextString(m) }
 func (*MsgFundVault) ProtoMessage()    {}
 func (*MsgFundVault) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{12}
+	return fileDescriptor_cdac8e18c8e4547d, []int{14}
 }
 func (m *MsgFundVault) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -751,7 +862,7 @@ func (m *MsgFundVaultResponse) Reset()         { *m = MsgFundVaultResponse{} }
 func (m *MsgFundVaultResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgFundVaultResponse) ProtoMessage()    {}
 func (*MsgFundVaultResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{13}
+	return fileDescriptor_cdac8e18c8e4547d, []int{15}
 }
 func (m *MsgFundVaultResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -796,7 +907,7 @@ func (m *MsgReportSale) Reset()         { *m = MsgReportSale{} }
 func (m *MsgReportSale) String() string { return proto.CompactTextString(m) }
 func (*MsgReportSale) ProtoMessage()    {}
 func (*MsgReportSale) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{14}
+	return fileDescriptor_cdac8e18c8e4547d, []int{16}
 }
 func (m *MsgReportSale) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -860,7 +971,7 @@ func (m *MsgReportSaleResponse) Reset()         { *m = MsgReportSaleResponse{} }
 func (m *MsgReportSaleResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgReportSaleResponse) ProtoMessage()    {}
 func (*MsgReportSaleResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{15}
+	return fileDescriptor_cdac8e18c8e4547d, []int{17}
 }
 func (m *MsgReportSaleResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -900,7 +1011,7 @@ func (m *MsgAttestSale) Reset()         { *m = MsgAttestSale{} }
 func (m *MsgAttestSale) String() string { return proto.CompactTextString(m) }
 func (*MsgAttestSale) ProtoMessage()    {}
 func (*MsgAttestSale) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{16}
+	return fileDescriptor_cdac8e18c8e4547d, []int{18}
 }
 func (m *MsgAttestSale) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -957,7 +1068,7 @@ func (m *MsgAttestSaleResponse) Reset()         { *m = MsgAttestSaleResponse{} }
 func (m *MsgAttestSaleResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgAttestSaleResponse) ProtoMessage()    {}
 func (*MsgAttestSaleResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{17}
+	return fileDescriptor_cdac8e18c8e4547d, []int{19}
 }
 func (m *MsgAttestSaleResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1003,7 +1114,7 @@ func (m *MsgDisputeSale) Reset()         { *m = MsgDisputeSale{} }
 func (m *MsgDisputeSale) String() string { return proto.CompactTextString(m) }
 func (*MsgDisputeSale) ProtoMessage()    {}
 func (*MsgDisputeSale) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{18}
+	return fileDescriptor_cdac8e18c8e4547d, []int{20}
 }
 func (m *MsgDisputeSale) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1060,7 +1171,7 @@ func (m *MsgDisputeSaleResponse) Reset()         { *m = MsgDisputeSaleResponse{}
 func (m *MsgDisputeSaleResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgDisputeSaleResponse) ProtoMessage()    {}
 func (*MsgDisputeSaleResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{19}
+	return fileDescriptor_cdac8e18c8e4547d, []int{21}
 }
 func (m *MsgDisputeSaleResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1089,6 +1200,106 @@ func (m *MsgDisputeSaleResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgDisputeSaleResponse proto.InternalMessageInfo
 
+// MsgFinaliseSale opens redemption on an asset whose reported price has cleared
+// verification and its challenge window.
+//
+// Anybody may send it, and that is deliberate rather than lax. Every condition
+// it checks is already fixed by the report and the clock, so the sender decides
+// nothing; what they contribute is the gas. If only the sponsor could finalise,
+// a sponsor could decline to — and shareholders unable to exit until the party
+// holding their money chooses to let them is the position this whole instrument
+// exists to avoid.
+//
+// A crank rather than an EndBlocker sweep, because iterating every reported sale
+// on every block is a denial-of-service surface that grows with usage.
+type MsgFinaliseSale struct {
+	Caller  string `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	AssetId uint64 `protobuf:"varint,2,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
+}
+
+func (m *MsgFinaliseSale) Reset()         { *m = MsgFinaliseSale{} }
+func (m *MsgFinaliseSale) String() string { return proto.CompactTextString(m) }
+func (*MsgFinaliseSale) ProtoMessage()    {}
+func (*MsgFinaliseSale) Descriptor() ([]byte, []int) {
+	return fileDescriptor_cdac8e18c8e4547d, []int{22}
+}
+func (m *MsgFinaliseSale) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFinaliseSale) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFinaliseSale.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFinaliseSale) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFinaliseSale.Merge(m, src)
+}
+func (m *MsgFinaliseSale) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFinaliseSale) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFinaliseSale.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFinaliseSale proto.InternalMessageInfo
+
+func (m *MsgFinaliseSale) GetCaller() string {
+	if m != nil {
+		return m.Caller
+	}
+	return ""
+}
+
+func (m *MsgFinaliseSale) GetAssetId() uint64 {
+	if m != nil {
+		return m.AssetId
+	}
+	return 0
+}
+
+type MsgFinaliseSaleResponse struct {
+}
+
+func (m *MsgFinaliseSaleResponse) Reset()         { *m = MsgFinaliseSaleResponse{} }
+func (m *MsgFinaliseSaleResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgFinaliseSaleResponse) ProtoMessage()    {}
+func (*MsgFinaliseSaleResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_cdac8e18c8e4547d, []int{23}
+}
+func (m *MsgFinaliseSaleResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFinaliseSaleResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFinaliseSaleResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFinaliseSaleResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFinaliseSaleResponse.Merge(m, src)
+}
+func (m *MsgFinaliseSaleResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFinaliseSaleResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFinaliseSaleResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFinaliseSaleResponse proto.InternalMessageInfo
+
 // MsgResolveDispute is governance deciding the contested figure.
 type MsgResolveDispute struct {
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
@@ -1101,7 +1312,7 @@ func (m *MsgResolveDispute) Reset()         { *m = MsgResolveDispute{} }
 func (m *MsgResolveDispute) String() string { return proto.CompactTextString(m) }
 func (*MsgResolveDispute) ProtoMessage()    {}
 func (*MsgResolveDispute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{20}
+	return fileDescriptor_cdac8e18c8e4547d, []int{24}
 }
 func (m *MsgResolveDispute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1158,7 +1369,7 @@ func (m *MsgResolveDisputeResponse) Reset()         { *m = MsgResolveDisputeResp
 func (m *MsgResolveDisputeResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgResolveDisputeResponse) ProtoMessage()    {}
 func (*MsgResolveDisputeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{21}
+	return fileDescriptor_cdac8e18c8e4547d, []int{25}
 }
 func (m *MsgResolveDisputeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1197,7 +1408,7 @@ func (m *MsgClaim) Reset()         { *m = MsgClaim{} }
 func (m *MsgClaim) String() string { return proto.CompactTextString(m) }
 func (*MsgClaim) ProtoMessage()    {}
 func (*MsgClaim) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{22}
+	return fileDescriptor_cdac8e18c8e4547d, []int{26}
 }
 func (m *MsgClaim) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1248,7 +1459,7 @@ func (m *MsgClaimResponse) Reset()         { *m = MsgClaimResponse{} }
 func (m *MsgClaimResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgClaimResponse) ProtoMessage()    {}
 func (*MsgClaimResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{23}
+	return fileDescriptor_cdac8e18c8e4547d, []int{27}
 }
 func (m *MsgClaimResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1300,7 +1511,7 @@ func (m *MsgRedeem) Reset()         { *m = MsgRedeem{} }
 func (m *MsgRedeem) String() string { return proto.CompactTextString(m) }
 func (*MsgRedeem) ProtoMessage()    {}
 func (*MsgRedeem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{24}
+	return fileDescriptor_cdac8e18c8e4547d, []int{28}
 }
 func (m *MsgRedeem) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1351,7 +1562,7 @@ func (m *MsgRedeemResponse) Reset()         { *m = MsgRedeemResponse{} }
 func (m *MsgRedeemResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgRedeemResponse) ProtoMessage()    {}
 func (*MsgRedeemResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cdac8e18c8e4547d, []int{25}
+	return fileDescriptor_cdac8e18c8e4547d, []int{29}
 }
 func (m *MsgRedeemResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1394,6 +1605,8 @@ func init() {
 	proto.RegisterType((*MsgCreateCollectionResponse)(nil), "blockchain.tokenisation.v1.MsgCreateCollectionResponse")
 	proto.RegisterType((*MsgSetCollectionAuthority)(nil), "blockchain.tokenisation.v1.MsgSetCollectionAuthority")
 	proto.RegisterType((*MsgSetCollectionAuthorityResponse)(nil), "blockchain.tokenisation.v1.MsgSetCollectionAuthorityResponse")
+	proto.RegisterType((*MsgSetCollectionAttestors)(nil), "blockchain.tokenisation.v1.MsgSetCollectionAttestors")
+	proto.RegisterType((*MsgSetCollectionAttestorsResponse)(nil), "blockchain.tokenisation.v1.MsgSetCollectionAttestorsResponse")
 	proto.RegisterType((*MsgMintAsset)(nil), "blockchain.tokenisation.v1.MsgMintAsset")
 	proto.RegisterType((*MsgMintAssetResponse)(nil), "blockchain.tokenisation.v1.MsgMintAssetResponse")
 	proto.RegisterType((*MsgFractionalise)(nil), "blockchain.tokenisation.v1.MsgFractionalise")
@@ -1408,6 +1621,8 @@ func init() {
 	proto.RegisterType((*MsgAttestSaleResponse)(nil), "blockchain.tokenisation.v1.MsgAttestSaleResponse")
 	proto.RegisterType((*MsgDisputeSale)(nil), "blockchain.tokenisation.v1.MsgDisputeSale")
 	proto.RegisterType((*MsgDisputeSaleResponse)(nil), "blockchain.tokenisation.v1.MsgDisputeSaleResponse")
+	proto.RegisterType((*MsgFinaliseSale)(nil), "blockchain.tokenisation.v1.MsgFinaliseSale")
+	proto.RegisterType((*MsgFinaliseSaleResponse)(nil), "blockchain.tokenisation.v1.MsgFinaliseSaleResponse")
 	proto.RegisterType((*MsgResolveDispute)(nil), "blockchain.tokenisation.v1.MsgResolveDispute")
 	proto.RegisterType((*MsgResolveDisputeResponse)(nil), "blockchain.tokenisation.v1.MsgResolveDisputeResponse")
 	proto.RegisterType((*MsgClaim)(nil), "blockchain.tokenisation.v1.MsgClaim")
@@ -1421,95 +1636,101 @@ func init() {
 }
 
 var fileDescriptor_cdac8e18c8e4547d = []byte{
-	// 1396 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x58, 0xcf, 0x6f, 0xd4, 0xc6,
-	0x17, 0x8f, 0x49, 0xb2, 0xdf, 0xec, 0xcb, 0x0f, 0x82, 0xbf, 0x10, 0x36, 0x46, 0x5d, 0xc0, 0x29,
-	0x10, 0x02, 0xd9, 0x25, 0x09, 0x3f, 0xda, 0xa8, 0x54, 0x24, 0x41, 0xb4, 0x91, 0xba, 0x12, 0xda,
-	0x94, 0x1e, 0x5a, 0xa9, 0xab, 0x89, 0x3d, 0x38, 0x2e, 0xb6, 0xc7, 0xf2, 0x78, 0x03, 0x91, 0x7a,
-	0xa8, 0x7a, 0x6c, 0xa5, 0xaa, 0x7f, 0x0a, 0x07, 0x6e, 0xbd, 0x55, 0xaa, 0x44, 0xa5, 0x1e, 0x10,
-	0xa7, 0xaa, 0x52, 0x51, 0x05, 0x07, 0xa4, 0xde, 0x7b, 0xab, 0xd4, 0x6a, 0x7e, 0xec, 0xd8, 0xde,
-	0x24, 0xb6, 0x93, 0x72, 0x89, 0x76, 0xde, 0x7c, 0xe6, 0xbd, 0xf7, 0xf9, 0x8c, 0x67, 0xde, 0x9b,
-	0xc0, 0xcc, 0xa6, 0x47, 0xac, 0x07, 0xd6, 0x16, 0x72, 0x83, 0x66, 0x4c, 0x1e, 0xe0, 0xc0, 0xa5,
-	0x28, 0x76, 0x49, 0xd0, 0xdc, 0x5e, 0x68, 0xc6, 0x8f, 0x1a, 0x61, 0x44, 0x62, 0xa2, 0x1b, 0x09,
-	0xa8, 0x91, 0x06, 0x35, 0xb6, 0x17, 0x8c, 0x93, 0x16, 0xa1, 0x3e, 0xa1, 0x4d, 0x9f, 0x3a, 0x6c,
-	0x8d, 0x4f, 0x1d, 0xb1, 0xc8, 0x98, 0x16, 0x13, 0x1d, 0x3e, 0x6a, 0x8a, 0x81, 0x9c, 0x3a, 0xee,
-	0x10, 0x87, 0x08, 0x3b, 0xfb, 0x25, 0xad, 0xc7, 0x90, 0xef, 0x06, 0xa4, 0xc9, 0xff, 0x4a, 0x53,
-	0x5d, 0x3a, 0xdf, 0x44, 0x14, 0x37, 0xb7, 0x17, 0x36, 0x71, 0x8c, 0x16, 0x9a, 0x16, 0x71, 0x03,
-	0x39, 0x3f, 0x9f, 0x97, 0x7d, 0x3a, 0x51, 0x01, 0xbf, 0x90, 0x03, 0x0f, 0x51, 0x84, 0x7c, 0x99,
-	0xa0, 0xf9, 0xb3, 0x06, 0x47, 0x5b, 0xd4, 0xb9, 0x17, 0xda, 0x28, 0xc6, 0x77, 0xf9, 0x8c, 0x7e,
-	0x1d, 0xaa, 0xa8, 0x1b, 0x6f, 0x91, 0xc8, 0x8d, 0x77, 0x6a, 0xda, 0x19, 0x6d, 0xb6, 0xba, 0x5a,
-	0x7b, 0xfe, 0x64, 0xfe, 0xb8, 0x64, 0xb6, 0x62, 0xdb, 0x11, 0xa6, 0x74, 0x23, 0x8e, 0xdc, 0xc0,
-	0x69, 0x27, 0x50, 0xfd, 0x16, 0x54, 0x84, 0xef, 0xda, 0x91, 0x33, 0xda, 0xec, 0xe8, 0xa2, 0xd9,
-	0xd8, 0x5f, 0xcd, 0x86, 0x88, 0xb5, 0x3a, 0xf4, 0xf4, 0xc5, 0xe9, 0x81, 0xb6, 0x5c, 0xb7, 0xfc,
-	0xde, 0xd7, 0xaf, 0x1f, 0xcf, 0x25, 0x1e, 0xbf, 0x79, 0xfd, 0x78, 0xee, 0x62, 0x8a, 0xc9, 0xa3,
-	0x2c, 0x97, 0xbe, 0xbc, 0xcd, 0x69, 0x38, 0xd9, 0x67, 0x6a, 0x63, 0x1a, 0x92, 0x80, 0x62, 0xf3,
-	0x77, 0x0d, 0xfe, 0xdf, 0xa2, 0xce, 0x5a, 0x84, 0x51, 0x8c, 0xd7, 0x88, 0xe7, 0x61, 0x8b, 0xb9,
-	0x38, 0x34, 0xd5, 0x8f, 0x00, 0x2c, 0xe5, 0x45, 0xd2, 0x3d, 0x9f, 0x47, 0x37, 0x89, 0x29, 0x29,
-	0xa7, 0xd6, 0x2f, 0xdf, 0xda, 0x4d, 0x7b, 0x3e, 0x97, 0x76, 0x3f, 0x0f, 0xf3, 0x2d, 0x38, 0xb5,
-	0x87, 0x59, 0xd1, 0xff, 0x47, 0x83, 0xe9, 0x16, 0x75, 0x36, 0x70, 0x9c, 0x4c, 0xae, 0x28, 0x32,
-	0x87, 0x15, 0x61, 0x06, 0xc6, 0x13, 0x12, 0x1d, 0xd7, 0xe6, 0x3a, 0x54, 0xdb, 0x63, 0x89, 0x71,
-	0xdd, 0xd6, 0x6f, 0xc2, 0x78, 0x80, 0x1f, 0x76, 0x92, 0x00, 0x83, 0x05, 0x01, 0xc6, 0x02, 0xfc,
-	0x50, 0xe5, 0xb6, 0x7c, 0x67, 0xb7, 0x34, 0x4b, 0xb9, 0xd2, 0xec, 0xcd, 0xd1, 0x9c, 0x81, 0xb3,
-	0xfb, 0x4e, 0x2a, 0x99, 0xfe, 0xd6, 0x60, 0xac, 0x45, 0x9d, 0x96, 0x1b, 0xc4, 0x2b, 0x94, 0xe2,
-	0x58, 0xbf, 0x02, 0x15, 0xdf, 0x0d, 0x62, 0x1c, 0x15, 0xca, 0x22, 0x71, 0xe5, 0x34, 0x69, 0xc0,
-	0x30, 0x79, 0x18, 0xe0, 0xa8, 0x50, 0x0b, 0x01, 0xd3, 0x27, 0x61, 0xb0, 0x1b, 0xb9, 0xb5, 0x21,
-	0xee, 0x8a, 0xfd, 0xd4, 0x4f, 0x41, 0x35, 0x44, 0x91, 0x85, 0x3d, 0x16, 0x62, 0xf8, 0x8c, 0x36,
-	0x3b, 0xd4, 0x1e, 0x11, 0x86, 0x75, 0x7b, 0xf9, 0x3a, 0xd3, 0x4c, 0x26, 0xc4, 0x04, 0x3b, 0x9f,
-	0x2b, 0x98, 0x62, 0x6b, 0x2e, 0xc0, 0xf1, 0xf4, 0xb8, 0x27, 0x8b, 0x3e, 0x0d, 0x23, 0x88, 0x19,
-	0x58, 0x2c, 0x8d, 0xc7, 0xfa, 0x1f, 0x1f, 0xaf, 0xdb, 0xe6, 0x8f, 0x47, 0x60, 0xb2, 0x45, 0x9d,
-	0x3b, 0x11, 0xe2, 0xdc, 0x90, 0xe7, 0x52, 0x9c, 0xd0, 0xd3, 0xca, 0xd1, 0x4b, 0xfb, 0x3f, 0x92,
-	0xf1, 0xaf, 0x4f, 0x41, 0x85, 0xee, 0xf8, 0x9b, 0xc4, 0x13, 0x52, 0xb5, 0xe5, 0x48, 0x5f, 0x83,
-	0x0a, 0xed, 0x86, 0xa1, 0xb7, 0x23, 0x44, 0x59, 0xbd, 0xc4, 0xce, 0xd4, 0x6f, 0x2f, 0x4e, 0x9f,
-	0x10, 0x71, 0xa8, 0xfd, 0xa0, 0xe1, 0x92, 0xa6, 0x8f, 0xe2, 0xad, 0xc6, 0x7a, 0x10, 0x3f, 0x7f,
-	0x32, 0x0f, 0x32, 0x81, 0xf5, 0x20, 0x6e, 0xcb, 0xa5, 0xfa, 0x2c, 0x4c, 0x6e, 0x11, 0xcf, 0xc6,
-	0x51, 0x87, 0x6e, 0xa1, 0x08, 0x77, 0x36, 0x43, 0xca, 0xb5, 0x1c, 0x6f, 0x4f, 0x08, 0xfb, 0x06,
-	0x33, 0xaf, 0x86, 0x54, 0x3f, 0x0b, 0x63, 0x6e, 0x60, 0x11, 0x1f, 0x77, 0x6c, 0x1c, 0x10, 0xbf,
-	0x56, 0xe1, 0xc9, 0x8c, 0x0a, 0xdb, 0x6d, 0x66, 0x5a, 0x7e, 0x97, 0x89, 0x2e, 0x08, 0x31, 0xcd,
-	0xe7, 0x72, 0x35, 0xcf, 0xe8, 0x65, 0xae, 0x40, 0xad, 0xdf, 0xa6, 0xb4, 0x3f, 0x07, 0x13, 0xf7,
-	0xe5, 0x84, 0x8c, 0xcd, 0x45, 0x6d, 0x8f, 0xf7, 0xac, 0x3c, 0xba, 0xf9, 0x4c, 0xe3, 0xfb, 0xf0,
-	0x71, 0x84, 0x02, 0x7a, 0x1f, 0x47, 0xe2, 0xeb, 0x7d, 0x83, 0xfb, 0x70, 0x1d, 0xaa, 0x11, 0xb6,
-	0xdc, 0xd0, 0xc5, 0x41, 0x5c, 0xf8, 0xd5, 0x26, 0xd0, 0x83, 0xa9, 0x92, 0xc9, 0xde, 0x34, 0xb8,
-	0x2a, 0x19, 0x9b, 0x3a, 0xa8, 0xbf, 0x88, 0x83, 0x7a, 0xa7, 0x1b, 0xd8, 0x9f, 0xa0, 0xae, 0xc7,
-	0x0f, 0xea, 0xfd, 0x6e, 0x60, 0x97, 0x39, 0xa8, 0x02, 0x97, 0x47, 0xf6, 0x06, 0x54, 0x90, 0x4f,
-	0xba, 0x92, 0xe9, 0xe8, 0xe2, 0x74, 0x43, 0x7a, 0x62, 0xc5, 0xb9, 0x21, 0x8b, 0x73, 0x63, 0x8d,
-	0xb8, 0xbd, 0xbb, 0x5c, 0xc2, 0xe5, 0xc1, 0x13, 0x01, 0x8a, 0x0f, 0x9e, 0xca, 0xde, 0x9c, 0xe2,
-	0x07, 0x4f, 0x8d, 0x15, 0xcd, 0xbf, 0x34, 0x18, 0x6f, 0x51, 0xa7, 0x8d, 0x43, 0x12, 0xc5, 0x1b,
-	0xc8, 0xc3, 0xfa, 0x55, 0x18, 0x89, 0xf8, 0xa8, 0x04, 0x53, 0x85, 0xcc, 0xe3, 0x7a, 0x0d, 0x86,
-	0xc3, 0xc8, 0xb5, 0x70, 0x59, 0xaa, 0x02, 0xcd, 0x0e, 0x04, 0xde, 0x76, 0x6d, 0x1c, 0x58, 0xb8,
-	0x93, 0x5c, 0x4d, 0xa3, 0x3d, 0xdb, 0xbd, 0xc8, 0x15, 0x5b, 0xaf, 0x72, 0x60, 0x72, 0x5c, 0xc8,
-	0x95, 0x23, 0x61, 0x69, 0x9e, 0x84, 0x13, 0x19, 0x83, 0x12, 0xe4, 0xb9, 0x10, 0x64, 0x25, 0x8e,
-	0x31, 0x55, 0x82, 0x20, 0x3e, 0x22, 0x25, 0x04, 0xe9, 0x21, 0xdf, 0xbc, 0x20, 0x92, 0x6d, 0x2f,
-	0x40, 0x31, 0xdb, 0x84, 0x82, 0x64, 0x9b, 0x18, 0x14, 0xdb, 0x1f, 0x34, 0x98, 0x68, 0x51, 0xe7,
-	0xb6, 0x4b, 0xc3, 0x6e, 0x8c, 0x39, 0xdd, 0x77, 0x00, 0xac, 0x2d, 0xe4, 0x79, 0x38, 0x70, 0x4a,
-	0x7c, 0x01, 0x29, 0x6c, 0xc1, 0x25, 0x1b, 0x61, 0x44, 0x49, 0xd0, 0xbb, 0x64, 0xc5, 0x48, 0x74,
-	0x63, 0x29, 0x1f, 0x8c, 0xd5, 0x6c, 0x2e, 0xab, 0x54, 0xaa, 0x66, 0x0d, 0xa6, 0xb2, 0x16, 0xc5,
-	0xeb, 0x4f, 0x0d, 0x8e, 0xf1, 0xfd, 0xa5, 0xc4, 0xdb, 0xc6, 0x12, 0x71, 0xe8, 0x2e, 0x24, 0x87,
-	0xd8, 0x2a, 0x1c, 0xb5, 0x48, 0x14, 0x61, 0x2b, 0xc6, 0x76, 0xa7, 0xdc, 0xae, 0xb6, 0x27, 0xd4,
-	0x8a, 0xbb, 0x7c, 0x63, 0xdf, 0xdf, 0xdd, 0x80, 0x5c, 0x2a, 0xf8, 0x8e, 0xd3, 0xb4, 0xcc, 0x53,
-	0xbc, 0xf3, 0xca, 0x1a, 0x95, 0x12, 0xdf, 0x6a, 0x30, 0xc2, 0xfa, 0x36, 0x0f, 0xb9, 0x3e, 0xbb,
-	0xc3, 0x44, 0xd9, 0x29, 0xbe, 0xc3, 0x04, 0x2e, 0x87, 0xfa, 0xf2, 0x22, 0xbf, 0x8a, 0x04, 0x8e,
-	0xe5, 0x6c, 0xe6, 0xf7, 0x93, 0x2c, 0x01, 0xf3, 0x03, 0x5e, 0x43, 0xf8, 0x6f, 0x55, 0x7f, 0x96,
-	0x60, 0x28, 0x44, 0xbc, 0xee, 0x0f, 0x96, 0x39, 0x0d, 0x1c, 0xcc, 0x8e, 0x69, 0x95, 0x93, 0xb6,
-	0x31, 0x7e, 0xb3, 0xbc, 0x58, 0xe1, 0x4f, 0xdd, 0xcd, 0x07, 0x2d, 0xfc, 0xf2, 0x9e, 0x5e, 0xea,
-	0x13, 0x67, 0xa6, 0x60, 0x43, 0x19, 0x0d, 0xf3, 0x43, 0xf9, 0xd1, 0xb2, 0xc1, 0x7f, 0x92, 0x67,
-	0xf1, 0xa7, 0x51, 0x18, 0x6c, 0x51, 0x47, 0x0f, 0x61, 0x2c, 0xf3, 0xee, 0xba, 0x94, 0xf7, 0x80,
-	0xe8, 0x7b, 0xd9, 0x18, 0x4b, 0x07, 0x00, 0xab, 0x74, 0xbf, 0x84, 0xc9, 0x5d, 0x4f, 0xa0, 0x66,
-	0x81, 0xa3, 0xfe, 0x05, 0xc6, 0x8d, 0x03, 0x2e, 0x50, 0xd1, 0xbf, 0xd3, 0x60, 0x6a, 0x9f, 0x27,
-	0xc8, 0xb5, 0x02, 0x9f, 0x7b, 0x2f, 0x33, 0x6e, 0x1e, 0x6a, 0x99, 0x4a, 0x68, 0x1b, 0x26, 0xfa,
-	0x2e, 0xa1, 0xf9, 0x02, 0x87, 0x59, 0xb8, 0x71, 0xed, 0x40, 0x70, 0x15, 0xd7, 0x81, 0x6a, 0xf2,
-	0xc6, 0x98, 0x2d, 0xf0, 0xa1, 0x90, 0xc6, 0x95, 0xb2, 0x48, 0x15, 0x88, 0xc2, 0x78, 0xb6, 0x35,
-	0xbf, 0x5c, 0xe0, 0x22, 0x83, 0x36, 0xae, 0x1e, 0x04, 0x9d, 0x0e, 0x9a, 0xed, 0x43, 0x8b, 0x82,
-	0x66, 0xd0, 0x85, 0x41, 0xf7, 0xec, 0x08, 0x99, 0xa4, 0x49, 0x37, 0x58, 0x24, 0xa9, 0x42, 0x16,
-	0x4a, 0xba, 0xab, 0x27, 0xd3, 0xbf, 0x00, 0x48, 0xf5, 0x63, 0x17, 0x0b, 0x3f, 0x80, 0x1e, 0xd4,
-	0x58, 0x28, 0x0d, 0x4d, 0xc7, 0x4a, 0xb5, 0x3a, 0x45, 0xb1, 0x12, 0x68, 0x61, 0xac, 0xdd, 0xcd,
-	0x86, 0xee, 0xc3, 0x68, 0xba, 0xd1, 0x98, 0x2b, 0xf0, 0x90, 0xc2, 0x1a, 0x8b, 0xe5, 0xb1, 0x2a,
-	0xdc, 0x67, 0x30, 0x2c, 0xaa, 0xde, 0xdb, 0x45, 0xb7, 0x09, 0x43, 0x19, 0x97, 0xcb, 0xa0, 0x94,
-	0xf3, 0xcf, 0xa1, 0x22, 0x6b, 0xcf, 0xb9, 0x42, 0xd1, 0x19, 0xcc, 0x98, 0x2f, 0x05, 0xeb, 0xf9,
-	0x37, 0x86, 0xbf, 0x7a, 0xfd, 0x78, 0x4e, 0x5b, 0xbd, 0xf5, 0xf4, 0x65, 0x5d, 0x7b, 0xf6, 0xb2,
-	0xae, 0xfd, 0xf1, 0xb2, 0xae, 0x7d, 0xff, 0xaa, 0x3e, 0xf0, 0xec, 0x55, 0x7d, 0xe0, 0xd7, 0x57,
-	0xf5, 0x81, 0x4f, 0xcf, 0xef, 0x20, 0x1f, 0x79, 0xb8, 0xb9, 0x7f, 0x5d, 0x89, 0x77, 0x42, 0x4c,
-	0x37, 0x2b, 0xfc, 0x9f, 0x70, 0x4b, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0x48, 0xa9, 0xa3, 0x76,
-	0x9c, 0x14, 0x00, 0x00,
+	// 1493 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x58, 0xcd, 0x6f, 0xdc, 0x44,
+	0x14, 0x8f, 0x9b, 0x64, 0x49, 0x5e, 0x3e, 0x9a, 0x9a, 0x36, 0xdd, 0xb8, 0x22, 0x4d, 0x1d, 0xda,
+	0xa6, 0x69, 0xb3, 0xdb, 0x24, 0xfd, 0x80, 0x88, 0xa2, 0x26, 0xa9, 0x02, 0x91, 0x58, 0xa9, 0xda,
+	0x50, 0x0e, 0x20, 0xb1, 0x72, 0xec, 0xa9, 0x63, 0xea, 0x2f, 0x79, 0xbc, 0x69, 0x23, 0x71, 0x40,
+	0x1c, 0x41, 0x42, 0x5c, 0xf9, 0x2f, 0x7a, 0xe8, 0x8d, 0x1b, 0xa7, 0x22, 0x71, 0xa8, 0x7a, 0x42,
+	0x48, 0x54, 0xa8, 0x3d, 0x54, 0xe2, 0x8e, 0xc4, 0x01, 0x09, 0x34, 0x1f, 0x1e, 0xdb, 0x9b, 0x8d,
+	0xc7, 0x9b, 0x96, 0xcb, 0xca, 0xf3, 0xe6, 0x37, 0xef, 0xbd, 0xdf, 0x6f, 0xbe, 0xde, 0x2c, 0xcc,
+	0x6e, 0xbb, 0x81, 0x79, 0xcf, 0xdc, 0x31, 0x1c, 0xbf, 0x1e, 0x07, 0xf7, 0x90, 0xef, 0x60, 0x23,
+	0x76, 0x02, 0xbf, 0xbe, 0xbb, 0x58, 0x8f, 0x1f, 0xd4, 0xc2, 0x28, 0x88, 0x03, 0x55, 0x4b, 0x41,
+	0xb5, 0x2c, 0xa8, 0xb6, 0xbb, 0xa8, 0x9d, 0x34, 0x03, 0xec, 0x05, 0xb8, 0xee, 0x61, 0x9b, 0x8c,
+	0xf1, 0xb0, 0xcd, 0x06, 0x69, 0x53, 0xac, 0xa3, 0x45, 0x5b, 0x75, 0xd6, 0xe0, 0x5d, 0xc7, 0xed,
+	0xc0, 0x0e, 0x98, 0x9d, 0x7c, 0x71, 0xeb, 0x31, 0xc3, 0x73, 0xfc, 0xa0, 0x4e, 0x7f, 0xb9, 0x69,
+	0x9a, 0x3b, 0xdf, 0x36, 0x30, 0xaa, 0xef, 0x2e, 0x6e, 0xa3, 0xd8, 0x58, 0xac, 0x9b, 0x81, 0xe3,
+	0xf3, 0xfe, 0x85, 0xa2, 0xec, 0xb3, 0x89, 0x32, 0xf8, 0xf9, 0x02, 0x78, 0x68, 0x44, 0x86, 0xc7,
+	0x13, 0xd4, 0x7f, 0x56, 0xe0, 0x68, 0x03, 0xdb, 0x77, 0x42, 0xcb, 0x88, 0xd1, 0x6d, 0xda, 0xa3,
+	0x5e, 0x83, 0x61, 0xa3, 0x1d, 0xef, 0x04, 0x91, 0x13, 0xef, 0x55, 0x95, 0x19, 0x65, 0x6e, 0x78,
+	0xad, 0xfa, 0xf4, 0xd1, 0xc2, 0x71, 0xce, 0x6c, 0xd5, 0xb2, 0x22, 0x84, 0xf1, 0x56, 0x1c, 0x39,
+	0xbe, 0xdd, 0x4c, 0xa1, 0xea, 0x4d, 0xa8, 0x30, 0xdf, 0xd5, 0x23, 0x33, 0xca, 0xdc, 0xc8, 0x92,
+	0x5e, 0x3b, 0x58, 0xcd, 0x1a, 0x8b, 0xb5, 0x36, 0xf0, 0xf8, 0xd9, 0xe9, 0xbe, 0x26, 0x1f, 0xb7,
+	0xf2, 0xde, 0xd7, 0x2f, 0x1f, 0xce, 0xa7, 0x1e, 0xbf, 0x79, 0xf9, 0x70, 0xfe, 0x42, 0x86, 0xc9,
+	0x83, 0x3c, 0x97, 0x8e, 0xbc, 0xf5, 0x29, 0x38, 0xd9, 0x61, 0x6a, 0x22, 0x1c, 0x06, 0x3e, 0x46,
+	0xfa, 0xef, 0x0a, 0xbc, 0xd9, 0xc0, 0xf6, 0x7a, 0x84, 0x8c, 0x18, 0xad, 0x07, 0xae, 0x8b, 0x4c,
+	0xe2, 0xe2, 0xd0, 0x54, 0x3f, 0x02, 0x30, 0x85, 0x17, 0x4e, 0xf7, 0x5c, 0x11, 0xdd, 0x34, 0x26,
+	0xa7, 0x9c, 0x19, 0xbf, 0x72, 0x73, 0x3f, 0xed, 0x85, 0x42, 0xda, 0x9d, 0x3c, 0xf4, 0xb7, 0xe0,
+	0x54, 0x17, 0xb3, 0xa0, 0xff, 0xaf, 0x02, 0x53, 0x0d, 0x6c, 0x6f, 0xa1, 0x38, 0xed, 0x5c, 0x15,
+	0x64, 0x0e, 0x2b, 0xc2, 0x2c, 0x8c, 0xa5, 0x24, 0x5a, 0x8e, 0x45, 0x75, 0x18, 0x6e, 0x8e, 0xa6,
+	0xc6, 0x4d, 0x4b, 0xbd, 0x01, 0x63, 0x3e, 0xba, 0xdf, 0x4a, 0x03, 0xf4, 0x4b, 0x02, 0x8c, 0xfa,
+	0xe8, 0xbe, 0xc8, 0x6d, 0x65, 0x63, 0xbf, 0x34, 0xcb, 0x85, 0xd2, 0x74, 0xe7, 0xa8, 0xcf, 0xc2,
+	0x99, 0x03, 0x3b, 0x85, 0x4c, 0x7f, 0x77, 0x93, 0x29, 0x8e, 0x11, 0x8e, 0x83, 0x08, 0xff, 0xbf,
+	0x32, 0x11, 0xe7, 0x49, 0xa4, 0x6a, 0xff, 0x4c, 0xbf, 0xc4, 0x79, 0x02, 0x7d, 0x55, 0x7d, 0x12,
+	0x3f, 0x5d, 0xf5, 0x49, 0x3a, 0x85, 0x3e, 0xff, 0x28, 0x30, 0xda, 0xc0, 0x76, 0xc3, 0xf1, 0xe3,
+	0x55, 0x8c, 0x51, 0xac, 0x5e, 0x86, 0x8a, 0xe7, 0xf8, 0x31, 0x8a, 0xa4, 0x7a, 0x70, 0x5c, 0x39,
+	0x31, 0x6a, 0x30, 0x18, 0xdc, 0xf7, 0x51, 0x24, 0x5d, 0x2b, 0x0c, 0xa6, 0x4e, 0x40, 0x7f, 0x3b,
+	0x72, 0xaa, 0x03, 0xd4, 0x15, 0xf9, 0x54, 0x4f, 0xc1, 0x70, 0x68, 0x44, 0x26, 0x72, 0x49, 0x88,
+	0xc1, 0x19, 0x65, 0x6e, 0xa0, 0x39, 0xc4, 0x0c, 0x9b, 0xd6, 0xca, 0x35, 0xa2, 0x19, 0x4f, 0x88,
+	0x08, 0x76, 0xae, 0x50, 0x30, 0xc1, 0x56, 0x5f, 0x84, 0xe3, 0xd9, 0x76, 0x22, 0x8b, 0x3a, 0x05,
+	0x43, 0x06, 0x31, 0x90, 0x58, 0x0a, 0x8d, 0xf5, 0x06, 0x6d, 0x6f, 0x5a, 0xfa, 0x4f, 0x47, 0x60,
+	0xa2, 0x81, 0xed, 0x8d, 0xc8, 0xa0, 0xdc, 0x0c, 0xd7, 0xc1, 0x28, 0xa5, 0xa7, 0x94, 0xa3, 0x97,
+	0xf5, 0x7f, 0x24, 0xe7, 0x5f, 0x9d, 0x84, 0x0a, 0xde, 0xf3, 0xb6, 0x03, 0x97, 0x49, 0xd5, 0xe4,
+	0x2d, 0x75, 0x1d, 0x2a, 0xb8, 0x1d, 0x86, 0xee, 0x1e, 0x13, 0x65, 0xed, 0x22, 0x39, 0x73, 0x7e,
+	0x7b, 0x76, 0xfa, 0x04, 0x8b, 0x83, 0xad, 0x7b, 0x35, 0x27, 0xa8, 0x7b, 0x46, 0xbc, 0x53, 0xdb,
+	0xf4, 0xe3, 0xa7, 0x8f, 0x16, 0x80, 0x27, 0xb0, 0xe9, 0xc7, 0x4d, 0x3e, 0x54, 0x9d, 0x83, 0x89,
+	0x9d, 0xc0, 0xb5, 0x50, 0xd4, 0xc2, 0x3b, 0x46, 0x84, 0x5a, 0xdb, 0x21, 0xa6, 0x5a, 0x8e, 0x35,
+	0xc7, 0x99, 0x7d, 0x8b, 0x98, 0xd7, 0x42, 0xac, 0x9e, 0x81, 0x51, 0xc7, 0x37, 0x03, 0x0f, 0xb5,
+	0x2c, 0xe4, 0x07, 0x5e, 0xb5, 0x42, 0x93, 0x19, 0x61, 0xb6, 0x5b, 0xc4, 0xb4, 0xf2, 0x2e, 0x11,
+	0x9d, 0x11, 0x22, 0x9a, 0xcf, 0x17, 0x6a, 0x9e, 0xd3, 0x4b, 0x5f, 0x85, 0x6a, 0xa7, 0x4d, 0x68,
+	0x7f, 0x16, 0xc6, 0xef, 0xf2, 0x0e, 0x1e, 0x9b, 0x8a, 0xda, 0x1c, 0x4b, 0xac, 0x34, 0xba, 0xfe,
+	0x44, 0xa1, 0xf3, 0xf0, 0x71, 0x64, 0xf8, 0xf8, 0x2e, 0x8a, 0xd8, 0xea, 0x7d, 0x8d, 0xf3, 0x70,
+	0x0d, 0x86, 0x23, 0x64, 0x3a, 0xa1, 0x83, 0xfc, 0x58, 0xba, 0x6a, 0x53, 0x68, 0x6f, 0xaa, 0xe4,
+	0xb2, 0xd7, 0x35, 0xaa, 0x4a, 0xce, 0x26, 0x36, 0xea, 0x2f, 0x6c, 0xa3, 0x6e, 0xb4, 0x7d, 0xeb,
+	0x13, 0xa3, 0xed, 0xd2, 0x8d, 0x7a, 0xb7, 0xed, 0x5b, 0x65, 0x36, 0x2a, 0xc3, 0x15, 0x91, 0xbd,
+	0x0e, 0x15, 0xc3, 0x0b, 0xda, 0x9c, 0xe9, 0xc8, 0xd2, 0x54, 0x8d, 0x7b, 0x22, 0xc5, 0x4b, 0x8d,
+	0x17, 0x2f, 0xb5, 0xf5, 0xc0, 0x49, 0xee, 0x3a, 0x0e, 0xe7, 0x1b, 0x8f, 0x05, 0x90, 0x6f, 0x3c,
+	0x91, 0xbd, 0x3e, 0x49, 0x37, 0x9e, 0x68, 0x0b, 0x9a, 0x7f, 0x29, 0x30, 0xd6, 0xc0, 0x76, 0x13,
+	0x85, 0x41, 0x14, 0x6f, 0x19, 0x2e, 0x52, 0xaf, 0xc0, 0x50, 0x44, 0x5b, 0x25, 0x98, 0x0a, 0x64,
+	0x11, 0xd7, 0xab, 0x30, 0x18, 0x46, 0x8e, 0x89, 0xca, 0x52, 0x65, 0x68, 0xb2, 0x21, 0xd0, 0xae,
+	0x63, 0x21, 0xdf, 0x44, 0xad, 0xf4, 0x68, 0x1a, 0x49, 0x6c, 0x77, 0x22, 0x87, 0x4d, 0xbd, 0xc8,
+	0x81, 0xc8, 0x71, 0xbe, 0x50, 0x8e, 0x94, 0xa5, 0x7e, 0x12, 0x4e, 0xe4, 0x0c, 0x42, 0x90, 0xa7,
+	0x4c, 0x10, 0x76, 0x72, 0x27, 0x82, 0x24, 0x97, 0x85, 0x5c, 0x90, 0x04, 0xf9, 0xfa, 0x05, 0xe1,
+	0x6c, 0x93, 0x00, 0x72, 0xb6, 0x29, 0x05, 0xce, 0x36, 0x35, 0x08, 0xb6, 0x3f, 0x2a, 0x30, 0xde,
+	0xc0, 0xf6, 0x2d, 0x07, 0x87, 0xed, 0x18, 0x51, 0xba, 0xef, 0x00, 0x98, 0x3b, 0x86, 0xeb, 0x22,
+	0xdf, 0x2e, 0xb1, 0x02, 0x32, 0x58, 0xc9, 0x21, 0x1b, 0x21, 0x03, 0x07, 0x7e, 0x72, 0xc8, 0xb2,
+	0x16, 0xab, 0x56, 0x33, 0x3e, 0x08, 0xab, 0xb9, 0x42, 0x56, 0x99, 0x54, 0xf5, 0x2a, 0x4c, 0xe6,
+	0x2d, 0x82, 0xd7, 0x0f, 0xac, 0x26, 0xdf, 0x70, 0xd8, 0x59, 0x47, 0x89, 0x5d, 0x86, 0x8a, 0x49,
+	0xe2, 0x94, 0xd8, 0xc0, 0x0c, 0x57, 0x40, 0x88, 0x4d, 0x06, 0xc7, 0xc9, 0x6b, 0xec, 0x6c, 0x1e,
+	0xbc, 0xc6, 0xce, 0x9a, 0x44, 0xda, 0x7f, 0x2a, 0x70, 0x8c, 0x2e, 0x4b, 0x1c, 0xb8, 0xbb, 0x88,
+	0x13, 0x3b, 0x74, 0xd5, 0x54, 0x30, 0x1f, 0x6b, 0x70, 0xd4, 0x0c, 0xa2, 0x08, 0x99, 0x31, 0xb2,
+	0x5a, 0xe5, 0x16, 0x63, 0x73, 0x5c, 0x8c, 0xb8, 0x4d, 0xd7, 0xe3, 0xfb, 0xfb, 0xeb, 0xa6, 0x8b,
+	0x92, 0xed, 0x97, 0xa5, 0xa5, 0x9f, 0xa2, 0x95, 0x62, 0xde, 0x28, 0x94, 0xf8, 0x56, 0x81, 0x21,
+	0x52, 0x8e, 0xbb, 0x86, 0xe3, 0x91, 0x99, 0x63, 0xb7, 0xa5, 0x7c, 0xe6, 0x18, 0xae, 0x68, 0xe6,
+	0x96, 0xe8, 0xcc, 0x31, 0x1c, 0xc9, 0x59, 0x2f, 0x7e, 0x26, 0x90, 0x04, 0xf4, 0x0f, 0xe8, 0xd5,
+	0x47, 0xbf, 0xc5, 0xb5, 0xb9, 0x0c, 0x03, 0xa1, 0x41, 0xcb, 0x95, 0xfe, 0x32, 0x9b, 0x98, 0x82,
+	0xc9, 0xe9, 0x32, 0x4c, 0x49, 0x5b, 0x08, 0xbd, 0x5e, 0x5e, 0xa4, 0x5e, 0xc9, 0x5c, 0x29, 0xbd,
+	0xd6, 0x2b, 0xfc, 0x7a, 0x59, 0xee, 0x10, 0x67, 0x56, 0x32, 0xa1, 0x84, 0x86, 0xfe, 0x21, 0x5f,
+	0xb4, 0xa4, 0xf1, 0x4a, 0xf2, 0x2c, 0x3d, 0x1e, 0x83, 0xfe, 0x06, 0xb6, 0xd5, 0x10, 0x46, 0x73,
+	0xcf, 0xe9, 0x8b, 0x45, 0xef, 0xc2, 0x8e, 0x07, 0xab, 0xb6, 0xdc, 0x03, 0x58, 0xa4, 0xfb, 0x25,
+	0x4c, 0xec, 0x7b, 0xd9, 0xd6, 0x25, 0x8e, 0x3a, 0x07, 0x68, 0xd7, 0x7b, 0x1c, 0x20, 0xa2, 0x7f,
+	0xa7, 0xc0, 0xe4, 0x01, 0x2f, 0xcb, 0xab, 0x12, 0x9f, 0xdd, 0x87, 0x69, 0x37, 0x0e, 0x35, 0xac,
+	0x20, 0x21, 0xf1, 0x86, 0xeb, 0x2d, 0xa1, 0x64, 0x58, 0x8f, 0x09, 0x75, 0xbe, 0x9b, 0xd4, 0x5d,
+	0x18, 0xef, 0x38, 0x15, 0x17, 0x24, 0x0e, 0xf3, 0x70, 0xed, 0x6a, 0x4f, 0x70, 0x11, 0xd7, 0x86,
+	0xe1, 0xf4, 0xad, 0x36, 0x27, 0xf1, 0x21, 0x90, 0xda, 0xe5, 0xb2, 0x48, 0x11, 0x08, 0xc3, 0x58,
+	0xfe, 0x89, 0x73, 0x49, 0xe2, 0x22, 0x87, 0xd6, 0xae, 0xf4, 0x82, 0xce, 0x06, 0xcd, 0xd7, 0xf3,
+	0xb2, 0xa0, 0x39, 0xb4, 0x34, 0x68, 0xd7, 0xca, 0x9a, 0x48, 0x9a, 0x56, 0xd5, 0x32, 0x49, 0x05,
+	0x52, 0x2a, 0xe9, 0xbe, 0xda, 0x56, 0xfd, 0x02, 0x20, 0x53, 0xd7, 0x5e, 0x90, 0x2e, 0x80, 0x04,
+	0xaa, 0x2d, 0x96, 0x86, 0x66, 0x63, 0x65, 0x4a, 0x46, 0x59, 0xac, 0x14, 0x2a, 0x8d, 0xb5, 0xbf,
+	0x68, 0x53, 0x3d, 0x18, 0xc9, 0x16, 0x6c, 0xf3, 0x12, 0x0f, 0x19, 0xac, 0xb6, 0x54, 0x1e, 0x2b,
+	0xc2, 0x85, 0x30, 0x9a, 0xab, 0xa3, 0x64, 0x87, 0x71, 0x16, 0x2c, 0x3d, 0x8c, 0xbb, 0x95, 0x41,
+	0xea, 0x67, 0x30, 0xc8, 0x2e, 0xfe, 0xb7, 0x65, 0x07, 0x2a, 0x41, 0x69, 0x97, 0xca, 0xa0, 0x84,
+	0xf3, 0xcf, 0xa1, 0xc2, 0xaf, 0xdf, 0xb3, 0xd2, 0x69, 0x26, 0x30, 0x6d, 0xa1, 0x14, 0x2c, 0xf1,
+	0xaf, 0x0d, 0x7e, 0xf5, 0xf2, 0xe1, 0xbc, 0xb2, 0x76, 0xf3, 0xf1, 0xf3, 0x69, 0xe5, 0xc9, 0xf3,
+	0x69, 0xe5, 0x8f, 0xe7, 0xd3, 0xca, 0xf7, 0x2f, 0xa6, 0xfb, 0x9e, 0xbc, 0x98, 0xee, 0xfb, 0xf5,
+	0xc5, 0x74, 0xdf, 0xa7, 0xe7, 0xf6, 0x0c, 0xcf, 0x70, 0x51, 0xfd, 0xe0, 0xab, 0x35, 0xde, 0x0b,
+	0x11, 0xde, 0xae, 0xd0, 0xbf, 0x97, 0x97, 0xff, 0x0b, 0x00, 0x00, 0xff, 0xff, 0xa2, 0xa4, 0x09,
+	0xe7, 0x76, 0x17, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1528,6 +1749,9 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	CreateCollection(ctx context.Context, in *MsgCreateCollection, opts ...grpc.CallOption) (*MsgCreateCollectionResponse, error)
 	SetCollectionAuthority(ctx context.Context, in *MsgSetCollectionAuthority, opts ...grpc.CallOption) (*MsgSetCollectionAuthorityResponse, error)
+	// Governance appoints who may attest a sale, so that a seller cannot appoint
+	// the accounts that check the seller.
+	SetCollectionAttestors(ctx context.Context, in *MsgSetCollectionAttestors, opts ...grpc.CallOption) (*MsgSetCollectionAttestorsResponse, error)
 	ResolveDispute(ctx context.Context, in *MsgResolveDispute, opts ...grpc.CallOption) (*MsgResolveDisputeResponse, error)
 	// The collection's appointed authority only.
 	MintAsset(ctx context.Context, in *MsgMintAsset, opts ...grpc.CallOption) (*MsgMintAssetResponse, error)
@@ -1536,9 +1760,13 @@ type MsgClient interface {
 	TransferAsset(ctx context.Context, in *MsgTransferAsset, opts ...grpc.CallOption) (*MsgTransferAssetResponse, error)
 	FundVault(ctx context.Context, in *MsgFundVault, opts ...grpc.CallOption) (*MsgFundVaultResponse, error)
 	ReportSale(ctx context.Context, in *MsgReportSale, opts ...grpc.CallOption) (*MsgReportSaleResponse, error)
-	// Permissionless.
+	// An attestor appointed by the collection. This used to sit under
+	// "permissionless", which made the attestation threshold meetable by anybody
+	// and therefore no threshold at all.
 	AttestSale(ctx context.Context, in *MsgAttestSale, opts ...grpc.CallOption) (*MsgAttestSaleResponse, error)
+	// Permissionless.
 	DisputeSale(ctx context.Context, in *MsgDisputeSale, opts ...grpc.CallOption) (*MsgDisputeSaleResponse, error)
+	FinaliseSale(ctx context.Context, in *MsgFinaliseSale, opts ...grpc.CallOption) (*MsgFinaliseSaleResponse, error)
 	Claim(ctx context.Context, in *MsgClaim, opts ...grpc.CallOption) (*MsgClaimResponse, error)
 	Redeem(ctx context.Context, in *MsgRedeem, opts ...grpc.CallOption) (*MsgRedeemResponse, error)
 }
@@ -1572,6 +1800,15 @@ func (c *msgClient) CreateCollection(ctx context.Context, in *MsgCreateCollectio
 func (c *msgClient) SetCollectionAuthority(ctx context.Context, in *MsgSetCollectionAuthority, opts ...grpc.CallOption) (*MsgSetCollectionAuthorityResponse, error) {
 	out := new(MsgSetCollectionAuthorityResponse)
 	err := c.cc.Invoke(ctx, "/blockchain.tokenisation.v1.Msg/SetCollectionAuthority", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) SetCollectionAttestors(ctx context.Context, in *MsgSetCollectionAttestors, opts ...grpc.CallOption) (*MsgSetCollectionAttestorsResponse, error) {
+	out := new(MsgSetCollectionAttestorsResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.tokenisation.v1.Msg/SetCollectionAttestors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1650,6 +1887,15 @@ func (c *msgClient) DisputeSale(ctx context.Context, in *MsgDisputeSale, opts ..
 	return out, nil
 }
 
+func (c *msgClient) FinaliseSale(ctx context.Context, in *MsgFinaliseSale, opts ...grpc.CallOption) (*MsgFinaliseSaleResponse, error) {
+	out := new(MsgFinaliseSaleResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.tokenisation.v1.Msg/FinaliseSale", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) Claim(ctx context.Context, in *MsgClaim, opts ...grpc.CallOption) (*MsgClaimResponse, error) {
 	out := new(MsgClaimResponse)
 	err := c.cc.Invoke(ctx, "/blockchain.tokenisation.v1.Msg/Claim", in, out, opts...)
@@ -1674,6 +1920,9 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	CreateCollection(context.Context, *MsgCreateCollection) (*MsgCreateCollectionResponse, error)
 	SetCollectionAuthority(context.Context, *MsgSetCollectionAuthority) (*MsgSetCollectionAuthorityResponse, error)
+	// Governance appoints who may attest a sale, so that a seller cannot appoint
+	// the accounts that check the seller.
+	SetCollectionAttestors(context.Context, *MsgSetCollectionAttestors) (*MsgSetCollectionAttestorsResponse, error)
 	ResolveDispute(context.Context, *MsgResolveDispute) (*MsgResolveDisputeResponse, error)
 	// The collection's appointed authority only.
 	MintAsset(context.Context, *MsgMintAsset) (*MsgMintAssetResponse, error)
@@ -1682,9 +1931,13 @@ type MsgServer interface {
 	TransferAsset(context.Context, *MsgTransferAsset) (*MsgTransferAssetResponse, error)
 	FundVault(context.Context, *MsgFundVault) (*MsgFundVaultResponse, error)
 	ReportSale(context.Context, *MsgReportSale) (*MsgReportSaleResponse, error)
-	// Permissionless.
+	// An attestor appointed by the collection. This used to sit under
+	// "permissionless", which made the attestation threshold meetable by anybody
+	// and therefore no threshold at all.
 	AttestSale(context.Context, *MsgAttestSale) (*MsgAttestSaleResponse, error)
+	// Permissionless.
 	DisputeSale(context.Context, *MsgDisputeSale) (*MsgDisputeSaleResponse, error)
+	FinaliseSale(context.Context, *MsgFinaliseSale) (*MsgFinaliseSaleResponse, error)
 	Claim(context.Context, *MsgClaim) (*MsgClaimResponse, error)
 	Redeem(context.Context, *MsgRedeem) (*MsgRedeemResponse, error)
 }
@@ -1701,6 +1954,9 @@ func (*UnimplementedMsgServer) CreateCollection(ctx context.Context, req *MsgCre
 }
 func (*UnimplementedMsgServer) SetCollectionAuthority(ctx context.Context, req *MsgSetCollectionAuthority) (*MsgSetCollectionAuthorityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetCollectionAuthority not implemented")
+}
+func (*UnimplementedMsgServer) SetCollectionAttestors(ctx context.Context, req *MsgSetCollectionAttestors) (*MsgSetCollectionAttestorsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetCollectionAttestors not implemented")
 }
 func (*UnimplementedMsgServer) ResolveDispute(ctx context.Context, req *MsgResolveDispute) (*MsgResolveDisputeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResolveDispute not implemented")
@@ -1725,6 +1981,9 @@ func (*UnimplementedMsgServer) AttestSale(ctx context.Context, req *MsgAttestSal
 }
 func (*UnimplementedMsgServer) DisputeSale(ctx context.Context, req *MsgDisputeSale) (*MsgDisputeSaleResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DisputeSale not implemented")
+}
+func (*UnimplementedMsgServer) FinaliseSale(ctx context.Context, req *MsgFinaliseSale) (*MsgFinaliseSaleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FinaliseSale not implemented")
 }
 func (*UnimplementedMsgServer) Claim(ctx context.Context, req *MsgClaim) (*MsgClaimResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Claim not implemented")
@@ -1787,6 +2046,24 @@ func _Msg_SetCollectionAuthority_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).SetCollectionAuthority(ctx, req.(*MsgSetCollectionAuthority))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_SetCollectionAttestors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgSetCollectionAttestors)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).SetCollectionAttestors(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.tokenisation.v1.Msg/SetCollectionAttestors",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).SetCollectionAttestors(ctx, req.(*MsgSetCollectionAttestors))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1935,6 +2212,24 @@ func _Msg_DisputeSale_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_FinaliseSale_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgFinaliseSale)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).FinaliseSale(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.tokenisation.v1.Msg/FinaliseSale",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).FinaliseSale(ctx, req.(*MsgFinaliseSale))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_Claim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgClaim)
 	if err := dec(in); err != nil {
@@ -1989,6 +2284,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_SetCollectionAuthority_Handler,
 		},
 		{
+			MethodName: "SetCollectionAttestors",
+			Handler:    _Msg_SetCollectionAttestors_Handler,
+		},
+		{
 			MethodName: "ResolveDispute",
 			Handler:    _Msg_ResolveDispute_Handler,
 		},
@@ -2019,6 +2318,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DisputeSale",
 			Handler:    _Msg_DisputeSale_Handler,
+		},
+		{
+			MethodName: "FinaliseSale",
+			Handler:    _Msg_FinaliseSale_Handler,
 		},
 		{
 			MethodName: "Claim",
@@ -2219,6 +2522,75 @@ func (m *MsgSetCollectionAuthorityResponse) MarshalTo(dAtA []byte) (int, error) 
 }
 
 func (m *MsgSetCollectionAuthorityResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSetCollectionAttestors) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSetCollectionAttestors) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSetCollectionAttestors) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Attestors) > 0 {
+		for iNdEx := len(m.Attestors) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Attestors[iNdEx])
+			copy(dAtA[i:], m.Attestors[iNdEx])
+			i = encodeVarintTx(dAtA, i, uint64(len(m.Attestors[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.CollectionId) > 0 {
+		i -= len(m.CollectionId)
+		copy(dAtA[i:], m.CollectionId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CollectionId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSetCollectionAttestorsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSetCollectionAttestorsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSetCollectionAttestorsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -2745,6 +3117,64 @@ func (m *MsgDisputeSaleResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgFinaliseSale) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFinaliseSale) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFinaliseSale) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AssetId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.AssetId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Caller) > 0 {
+		i -= len(m.Caller)
+		copy(dAtA[i:], m.Caller)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Caller)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgFinaliseSaleResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFinaliseSaleResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFinaliseSaleResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
 func (m *MsgResolveDispute) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -3058,6 +3488,38 @@ func (m *MsgSetCollectionAuthorityResponse) Size() (n int) {
 	return n
 }
 
+func (m *MsgSetCollectionAttestors) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.CollectionId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if len(m.Attestors) > 0 {
+		for _, s := range m.Attestors {
+			l = len(s)
+			n += 1 + l + sovTx(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *MsgSetCollectionAttestorsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
 func (m *MsgMintAsset) Size() (n int) {
 	if m == nil {
 		return 0
@@ -3275,6 +3737,31 @@ func (m *MsgDisputeSale) Size() (n int) {
 }
 
 func (m *MsgDisputeSaleResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgFinaliseSale) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Caller)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.AssetId != 0 {
+		n += 1 + sovTx(uint64(m.AssetId))
+	}
+	return n
+}
+
+func (m *MsgFinaliseSaleResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -3885,6 +4372,202 @@ func (m *MsgSetCollectionAuthorityResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgSetCollectionAuthorityResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSetCollectionAttestors) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSetCollectionAttestors: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSetCollectionAttestors: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CollectionId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CollectionId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attestors", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Attestors = append(m.Attestors, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSetCollectionAttestorsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSetCollectionAttestorsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSetCollectionAttestorsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -5401,6 +6084,157 @@ func (m *MsgDisputeSaleResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgDisputeSaleResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFinaliseSale) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFinaliseSale: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFinaliseSale: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Caller", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Caller = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssetId", wireType)
+			}
+			m.AssetId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AssetId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFinaliseSaleResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFinaliseSaleResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFinaliseSaleResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
