@@ -66,16 +66,16 @@ export function AccountPage({ address }: { address: string }) {
         <Link to="/">{t('nav.lookUp')}</Link> / {truncateAddress(address)}
       </p>
 
-      {/* The name first, the address beneath it. Nobody confirms they are on
-          the right account by reading 43 characters of bech32, and setting one
-          as the page heading meant the heading wrapped to three lines on a
-          phone before saying anything a person could recognise. */}
-      <h1>
-        <Named address={address} />
+      {/* The name if the chain issued one, the truncation otherwise, and the
+          full address one click away either way.
+          Not a full bech32 as the heading: 43 characters wrap to three lines on
+          a phone before saying anything a person can recognise. And not a name
+          above a second line carrying the address, which was the first attempt
+          — on an account with no user ID both render the same truncation, so
+          the page opened with the same string twice. */}
+      <h1 className="account__who">
+        <Identifier value={address} />
       </h1>
-      <p className="account__id">
-        <Identifier value={address} name={false} />
-      </p>
 
       {/* Ordered by consequence. A freeze stops everything, so it is first and
           it says which case did it — an account holder refused a transfer needs

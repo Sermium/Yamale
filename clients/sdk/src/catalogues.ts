@@ -581,6 +581,8 @@ export const en = {
   'sign.stepPendingExecution': 'Carried out — not yet known.',
   'sign.stepExecuted': 'Carried out. This is the only success.',
   'sign.stepRefused': 'Refused inside the block, code {code}. Nothing moved.',
+  'sign.cannotApprove':
+    'There is no Approve button on this screen, and that is deliberate. This wallet will not put a signature on bytes it cannot read.',
   'sign.cannotSeeTitle': 'Unknown, not failed.',
   'sign.cannotSeeBody':
     'This wallet could not reach a node to ask. The transaction may well have settled — check it in the explorer before signing anything again.',
@@ -1310,6 +1312,8 @@ export const fr = {
   'sign.stepPendingExecution': "Exécuté — encore inconnu.",
   'sign.stepExecuted': "Exécuté. C'est le seul succès qui compte.",
   'sign.stepRefused': "Refusé dans le bloc, code {code}. Rien n'a bougé.",
+  'sign.cannotApprove':
+    "Il n'y a pas de bouton Approuver sur cet écran, et c'est délibéré. Ce portefeuille ne signera pas des octets qu'il ne peut pas lire.",
   'sign.cannotSeeTitle': "Inconnu, et non échoué.",
   'sign.cannotSeeBody':
     "Ce portefeuille n'a pas pu joindre un nœud pour poser la question. La transaction est peut-être bien réglée — vérifiez-la dans l'explorateur avant de signer autre chose.",
@@ -2027,6 +2031,8 @@ export const pt = {
   'sign.stepPendingExecution': "Executada — ainda não se sabe.",
   'sign.stepExecuted': "Executada. É este o único êxito.",
   'sign.stepRefused': "Recusada dentro do bloco, código {code}. Nada se moveu.",
+  'sign.cannotApprove':
+    "Não há botão Aprovar neste ecrã, e é de propósito. Esta carteira não assina bytes que não consegue ler.",
   'sign.cannotSeeTitle': "Desconhecido, não falhado.",
   'sign.cannotSeeBody':
     "Esta carteira não conseguiu alcançar um nó para perguntar. A transação pode muito bem ter liquidado — confirme no explorador antes de assinar seja o que for.",
@@ -2743,6 +2749,8 @@ export const sw = {
   'sign.stepPendingExecution': "Imetekelezwa — bado haijulikani.",
   'sign.stepExecuted': "Imetekelezwa. Huu ndio ufanisi pekee.",
   'sign.stepRefused': "Imekataliwa ndani ya bloku, msimbo {code}. Hakuna kilichohama.",
+  'sign.cannotApprove':
+    "Hakuna kitufe cha Kuidhinisha kwenye skrini hii, na hiyo ni kwa makusudi. Pochi hii haitatia saini baiti isizoweza kuzisoma.",
   'sign.cannotSeeTitle': "Haijulikani, si kwamba imeshindwa.",
   'sign.cannotSeeBody':
     "Pochi hii haikuweza kufikia nodi ili kuuliza. Muamala huenda umekamilika — uangalie kwenye kichunguzi kabla ya kutia saini kitu kingine.",
@@ -3460,6 +3468,8 @@ export const ar = {
   'sign.stepPendingExecution': "التنفيذ — غير معروف بعد.",
   'sign.stepExecuted': "نُفّذت. هذا هو النجاح الوحيد.",
   'sign.stepRefused': "رُفضت داخل الكتلة، الرمز {code}. لم يتحرك شيء.",
+  'sign.cannotApprove':
+    "لا يوجد زر موافقة في هذه الشاشة، وذلك عن قصد. هذه المحفظة لا توقّع على بايتات لا تستطيع قراءتها.",
   'sign.cannotSeeTitle': "غير معروف، لا فاشل.",
   'sign.cannotSeeBody':
     "لم تتمكن هذه المحفظة من الوصول إلى عقدة لتسأل. قد تكون المعاملة قد تمّت — تحقق منها في المستكشف قبل توقيع أي شيء آخر.",

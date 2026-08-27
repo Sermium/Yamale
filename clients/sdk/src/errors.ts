@@ -8,6 +8,8 @@
  * support and debugging.
  */
 
+import { truncateAddress } from './format.ts';
+
 export interface TranslatedError {
   /** One line, in plain language. */
   message: string;
@@ -287,6 +289,21 @@ const RULES: Rule[] = [
       message: 'Not allowed',
       reason: 'This account does not have permission to do that.',
       nextStep: 'Use an account with the right role, or ask an administrator to grant it.',
+      retryable: false,
+    }),
+  },
+  {
+    // Seen on the devnet, code 38 in block 94,512: a group proposal naming an
+    // ordinary account where a group policy address belongs. The generic "not
+    // found" rule below caught it and said "the thing this transaction refers
+    // to does not exist" — true, useless, and it sends somebody looking at the
+    // treasury id when the fault is in a different field.
+    match: /load group policy: (\S+?):? not found/i,
+    translate: (m) => ({
+      message: 'That is not a shared account',
+      reason: `The chain has no group policy at ${truncateAddress(m[1])}. A proposal must name the policy address of the group that will decide it, which is not the same as any member's own address — and not the same as the treasury's id either.`,
+      nextStep:
+        "Use the group's policy address: it is the account the treasury is administered by, shown as the admin on the treasury's page.",
       retryable: false,
     }),
   },

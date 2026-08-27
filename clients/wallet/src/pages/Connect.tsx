@@ -186,6 +186,25 @@ export function ConnectPage() {
   const signRequest = pending.request.kind === 'signDirect' ? pending.request : null;
   const translated = error ? translateError(error) : null;
 
+  /**
+   * Bytes that are not a transaction cannot be approved at all.
+   *
+   * Prevention rather than a warning: the screen already said "Do not approve"
+   * in the loudest form this design has, with the Approve button live beside
+   * it. There is no legitimate request that reaches this branch — a TxBody that
+   * will not decode would be refused by the chain anyway, so the only realistic
+   * sender is one hoping the person clicks through. Everything short of this,
+   * including a message type this build does not recognise, stays approvable
+   * and loudly flagged: that is a gap in the wallet, and an expert may know
+   * exactly what they are signing.
+   */
+  const unreadable =
+    signRequest !== null &&
+    summariseSigningRequest(
+      fromBase64(signRequest.bodyBytes),
+      fromBase64(signRequest.authInfoBytes),
+    ).undecodable !== undefined;
+
   return (
     <>
       {signRequest ? (
@@ -195,7 +214,7 @@ export function ConnectPage() {
       )}
 
       <section className="card">
-        {!unlocked && (
+        {!unlocked && !unreadable && (
           <label className="field">
             <span>{t('sign.passwordFor', { label: summary.label })}</span>
             <input
@@ -219,11 +238,14 @@ export function ConnectPage() {
             ) : null}
           </div>
         )}
+        {unreadable && <p className="muted">{t('sign.cannotApprove')}</p>}
         <div className="actions__row">
-          <button type="button" onClick={approve} disabled={busy || (!unlocked && !password)}>
-            {busy ? t('sign.working') : signRequest ? t('sign.approve') : t('sign.connectApprove')}
-          </button>
-          <button type="button" className="chip" onClick={reject} disabled={busy}>
+          {!unreadable && (
+            <button type="button" onClick={approve} disabled={busy || (!unlocked && !password)}>
+              {busy ? t('sign.working') : signRequest ? t('sign.approve') : t('sign.connectApprove')}
+            </button>
+          )}
+          <button type="button" className={unreadable ? undefined : 'chip'} onClick={reject} disabled={busy}>
             {t('sign.reject')}
           </button>
         </div>

@@ -530,13 +530,17 @@ code {
 .addr__copy:hover { border-bottom-color: var(--accent); }
 .addr__icon { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
 .addr__copy:hover .addr__icon { color: var(--accent); }
+/* --text-muted, not --text-faint. Faint measures 2.67:1 on the light surface,
+   which is fine for a decorative rule and not fine for the control somebody
+   uses to read back an address before approving a payment to it. Measured on
+   the deployed build. */
 .addr__reveal {
   font: inherit; font-family: var(--font-mono); font-size: 0.68rem;
   letter-spacing: 0.06em; text-transform: uppercase;
   background: none; border: 0; padding: 0; cursor: pointer;
-  color: var(--text-faint);
+  color: var(--text-muted); text-decoration: underline;
 }
-.addr__reveal:hover { color: var(--text-muted); }
+.addr__reveal:hover { color: var(--text); }
 .addr__full {
   flex-basis: 100%; background: var(--surface-2);
   padding: var(--sp-1) var(--sp-2); border-radius: 3px;
