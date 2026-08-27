@@ -23,7 +23,6 @@ export {
   toBaseUnits,
   toBaseUnitsOf,
   toDisplayAmount,
-  EMPTY_AMOUNT,
   type BaseUnits,
   type Coin,
   type DenomInfo,
