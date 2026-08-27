@@ -343,3 +343,63 @@ func TestOnlyGovernanceAppointsAttestors(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// The send restriction, which was written and never registered.
+//
+// x/tokenisation pays income by a cumulative-per-token index, so a holder's
+// position must be settled at the moment their balance changes or their income
+// is silently attributed to whoever holds the shares next. SendRestrictionFn
+// does that, and until 2026-08-27 nothing in the repository called it: no
+// transfer settled, no position was created by one, and every entitlement read
+// zero however much the vault held.
+//
+// This asserts the behaviour rather than the wiring, because the wiring lives
+// in app/ behind a build tag. Both halves are needed and this is the half that
+// says what the function is for.
+func TestATransferSettlesBothSides(t *testing.T) {
+	env, k, ms, asset, minter, denom, _ := attested(t, 2, 3)
+
+	seller, err := env.AddressCodec.StringToBytes(minter)
+	require.NoError(t, err)
+	buyerAcc, buyer := env.Addr(t)
+
+	// Income arrives while the seller holds every share.
+	env.Fund(t, seller, sdk.NewCoins(price(1_000)))
+	_, err = ms.FundVault(env.Ctx, &types.MsgFundVault{
+		Funder: minter, AssetId: asset, Amount: price(1_000),
+	})
+	require.NoError(t, err)
+
+	owed, err := k.Entitlement(env.Ctx, asset, seller)
+	require.NoError(t, err)
+	require.True(t, owed.IsPositive(), "the seller earned nothing while holding every share")
+
+	// A quarter of the shareholding changes hands. The restriction runs first.
+	quarter := sdk.NewCoins(sdk.NewCoin(denom, math.NewInt(250)))
+	_, err = k.SendRestrictionFn(env.Ctx, seller, buyerAcc, quarter)
+	require.NoError(t, err)
+	require.NoError(t, env.BankKeeper.SendCoins(env.Ctx, seller, buyerAcc, quarter))
+
+	// The seller keeps what they earned before the sale...
+	after, err := k.Entitlement(env.Ctx, asset, seller)
+	require.NoError(t, err)
+	require.Equal(t, owed, after, "the seller's earned income moved with the shares")
+
+	// ...and the buyer is owed nothing for a period they did not hold.
+	buyerOwed, err := k.Entitlement(env.Ctx, asset, buyerAcc)
+	require.NoError(t, err)
+	require.True(t, buyerOwed.IsZero(), "the buyer was paid for income that accrued before they held anything")
+	_ = buyer
+
+	// Income after the sale splits by the shares each now holds.
+	env.Fund(t, seller, sdk.NewCoins(price(1_000)))
+	_, err = ms.FundVault(env.Ctx, &types.MsgFundVault{
+		Funder: minter, AssetId: asset, Amount: price(1_000),
+	})
+	require.NoError(t, err)
+
+	buyerOwed, err = k.Entitlement(env.Ctx, asset, buyerAcc)
+	require.NoError(t, err)
+	require.Equal(t, math.NewInt(250), buyerOwed,
+		"a quarter of 1000 income on a quarter of the shares")
+}

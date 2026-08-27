@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/depinject/appconfig"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	tokenisationmodulekeeper "yamale/blockchain/x/tokenisation/keeper"
 	_ "yamale/blockchain/x/tokenisation/module" // registers the module with appconfig
 	tokenisationmoduletypes "yamale/blockchain/x/tokenisation/types"
 )
@@ -35,3 +36,32 @@ var (
 		},
 	}
 )
+
+type tokenisationKeepers struct {
+	TokenisationKeeper tokenisationmodulekeeper.Keeper
+}
+
+func (app *App) tokenisationDepinjectOutputs() []any {
+	return []any{&app.TokenisationKeeper}
+}
+
+// registerTokenisationSendRestriction settles both sides of a share transfer
+// before the balances move.
+//
+// Income is paid by a cumulative-per-token index: a holder earns the movement
+// in that index across the period they held, so a position must be settled at
+// the moment a balance changes or the arithmetic attributes their income to
+// whoever holds the shares next. Doing it inside the module's own handlers
+// would catch only the transfers it issues, and a fraction token is an ordinary
+// bank denomination - it moves by MsgSend, by authz, through the AMM, out of a
+// treasury. This is the one place all of them pass through, which is the same
+// reason the freeze lives here.
+//
+// It went unregistered from the beginning. SendRestrictionFn was written,
+// commented, and referenced by nothing in the repository, so no transfer ever
+// settled and every holder's entitlement read zero however much the vault held.
+// Found on 2026-08-27 against a live vehicle holding 72 YML against 1,000,000
+// shares, which the chain's own query said was owed to nobody.
+func (app *App) registerTokenisationSendRestriction() {
+	app.BankKeeper.AppendSendRestriction(app.TokenisationKeeper.SendRestrictionFn)
+}

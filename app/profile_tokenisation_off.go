@@ -21,3 +21,10 @@ var (
 	tokenisationInitGenesis     []string
 	tokenisationModuleConfigs   []*appv1alpha1.ModuleConfig
 )
+
+type tokenisationKeepers struct{}
+
+func (app *App) tokenisationDepinjectOutputs() []any { return nil }
+
+// No module, no shareholding, nothing to settle.
+func (app *App) registerTokenisationSendRestriction() {}

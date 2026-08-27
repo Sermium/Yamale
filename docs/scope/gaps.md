@@ -257,6 +257,19 @@ could reasonably have gone the other way:
 
 ## Known defects
 
+- ~~**No shareholder in x/tokenisation could ever be paid anything.**~~ Closed
+  2026-08-27. `SendRestrictionFn` settles both sides of a share transfer, which
+  the income index requires — a holder earns the movement in the index across
+  the period they held, so a position has to be settled the moment a balance
+  changes. It was written, commented, and **registered nowhere**: `app.go`
+  appended only the enforcement restriction, and a repository-wide search found
+  the function referenced by nothing at all, not even a test. So no transfer
+  settled, no position was created by one, and every entitlement read zero.
+  Found against a live vehicle holding 72 YML against 1,000,000 shares which the
+  chain's own query said was owed to nobody. Second dead load-bearing function
+  in this module after `FinaliseSale`, and both were found the same way: by
+  driving the thing rather than reading it.
+
 - **x/tokenisation credits a sale's proceeds that never arrive.** `FinaliseSale`
   puts the whole reported price through the income index while moving no coins,
   and the only message that does move coins — `FundVault` — accrues them a second
