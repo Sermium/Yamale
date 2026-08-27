@@ -719,12 +719,12 @@
 import {
   ACTIONS, ACTION_NAMES, CHAIN, MESSAGES, actionsBy, admissionCommand,
   admissionProposal, explainRefusal, groupPreamble, landTx, officeProposal,
-  officeTx, personalMessage, proposalMetadata,
+  officeTx, personalMessage, proposalMetadata, roleGrantProposal,
 } from './registrar.js';
 import {
   CallFailed, WalletRefused, aliasOf, addressOfAlias, blockTime, connectWallet,
-  govAuthority, govMinDeposit, head, idFromResponse, landOrNull, landQuery,
-  signAndSend, txsOf,
+  canAct, govAuthority, govMinDeposit, head, idFromResponse, landOrNull,
+  landQuery, signAndSend, txsOf,
 } from './chain.js';
 import { GROUP_SUBMIT_PROPOSAL, any } from './proto.js';
 
@@ -806,8 +806,31 @@ const authorities = () => once('offices', async () =>
 const OFFICE = new Map();   // address -> Authority
 const PERSON = new Map();   // address -> user ID, or null
 
+/**
+ * Whether each office can actually act, cached for the visit.
+ *
+ * Being in `query land authorities` is only half of being an office. The other
+ * half is a ROLE_REGISTRY_AUTHORITY grant in x/alias covering the same country,
+ * and without it the office is listed, marked active, and refused by every
+ * message it sends. Measured on this chain at height 95,131: four offices
+ * admitted in CD, none of them holding a grant.
+ *
+ * `true`, `false` and `null` are three different answers and the page draws
+ * three different things. `null` is "this page could not ask", which is not
+ * "this office cannot act" — those are opposite claims about somebody's
+ * registry.
+ */
+const STANDING = new Map();   // address -> true | false | null
+
 async function loadOffices() {
   (await authorities()).forEach((a) => OFFICE.set(a.address, a));
+}
+
+async function standingOf(office) {
+  if (!STANDING.has(office.address)) {
+    STANDING.set(office.address, canAct(office));
+  }
+  return STANDING.get(office.address);
 }
 
 /**
@@ -1443,11 +1466,23 @@ function signCard(name, { heading, body, verb, fields, memo, gather, disabled })
  * keyring on a machine may well prefer it, and an operator who cannot see what
  * the button would send stops trusting the button.
  */
-function proposeCard(name, { office, officeName, heading, body, fields, summary, cli, disabled }) {
+function proposeCard(name, { office, officeName, heading, body, fields, summary, cli,
+                             disabled, barred }) {
   const spec = ACTIONS[name];
   const id = `prop${seq++}`;
   const cmd = cli ? officeTx({ ...cli, from: 'your-office-key' }) : null;
   if (cmd) COPY.set(`${id}-cmd`, cmd);
+  // An office that holds no ROLE_REGISTRY_AUTHORITY grant is refused by every
+  // message it sends, so a proposal put to it spends the office's own quorum on
+  // something the keeper will reject afterwards. Said before the button rather
+  // than discovered after the vote.
+  const barredNote = barred === true
+    ? `<p class="badbox"><strong>${esc(officeName ?? 'This office')} cannot act yet.</strong>
+       It is admitted to the register and holds no
+       <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant, so the chain will refuse this
+       even if every one of its registrars votes for it. That grant is a separate act, in
+       x/alias, and it is <a href="#/offices">composed on Registry offices</a>.</p>`
+    : '';
   return {
     html: `<div class="card card--waiting">
       <div class="row"><h3>${esc(heading ?? spec.title)}</h3>
@@ -1455,6 +1490,7 @@ function proposeCard(name, { office, officeName, heading, body, fields, summary,
       ${body ?? ''}
       <p class="muted small" style="margin:.4rem 0 0"><strong>Who may:</strong> ${esc(spec.who)}.
         ${esc(spec.why)}</p>
+      ${barredNote}
       <p class="warnbox" style="margin-top:.6rem">${esc(groupPreamble(officeName ?? 'This office'))}
         The button below does not act as the office and cannot: it signs a
         <em>proposal</em> with your own key, and ${esc(officeName ?? 'the office')}'s registrars
@@ -1899,6 +1935,9 @@ async function screenParcel(id) {
 async function parcelActions(p, transfers, prm) {
   const el = document.getElementById('parcel-acts');
   const office = officeLabel(p.authority);
+  const barred = OFFICE.has(p.authority)
+    ? (await standingOf(OFFICE.get(p.authority))) === false
+    : false;
   const open = (transfers || []).find((t) => t.completed_at === '0' && !t.objected_by);
   const cards = [];
 
@@ -1967,6 +2006,7 @@ async function parcelActions(p, transfers, prm) {
       uri: document.getElementById('dd-uri').value.trim(),
       issued_on: document.getElementById('dd-date').value.trim(),
     }),
+    barred,
     summary: `parcel ${p.cadastral_ref}`,
     cli: { sub: 'attach-deed', args: [p.id, 'KIND', 'HASH'] },
   }));
@@ -2005,6 +2045,7 @@ async function parcelActions(p, transfers, prm) {
         detail: document.getElementById('en-detail').value.trim(),
       };
     },
+    barred,
     summary: `parcel ${p.cadastral_ref}`,
     cli: { sub: 'record-encumbrance', args: [p.id],
            flags: ['--kind mortgage', '--holder yml1…'] },
@@ -2044,11 +2085,12 @@ async function parcelActions(p, transfers, prm) {
         detail: document.getElementById('rs-detail').value.trim(),
       };
     },
+    barred,
     summary: `parcel ${p.cadastral_ref}`,
     cli: { sub: 'set-restriction', args: [p.id], flags: ['--kind heritage_protected'] },
   }));
 
-  cards.push(await fractionalisationCard(p, office));
+  cards.push(await fractionalisationCard(p, office, barred));
 
   /* ---- the freeze ---------------------------------------------------- */
   cards.push(freezeCard(p, office));
@@ -2117,7 +2159,7 @@ function freezeCard(p, office) {
 }
 
 /** The office's permission for shares to be sold over this parcel. */
-async function fractionalisationCard(p, office) {
+async function fractionalisationCard(p, office, barred) {
   const forbidden = (p.restrictions || [])
     .some((r) => !r.lifted && r.kind === 'no_fractionalisation');
   const existing = await fractionalisationAuthority(p.id).catch(() => null);
@@ -2182,6 +2224,7 @@ async function fractionalisationCard(p, office) {
     cli: { sub: 'authorise-fractionalisation', args: [p.id],
            flags: ['--right exploitation', '--max-share-bps 6000', '--expires-at 1790000000'] },
     disabled: forbidden,
+    barred,
   });
 }
 
@@ -2429,6 +2472,8 @@ async function transferActions(t, p, prm, st) {
       fields: { transfer_id: t.id },
       summary: `transfer ${t.id}${p ? `, parcel ${p.cadastral_ref}` : ''}`,
       cli: { sub: 'validate-transfer', args: [t.id] },
+      barred: OFFICE.has(p.authority)
+        ? (await standingOf(OFFICE.get(p.authority))) === false : false,
     }));
   }
 
@@ -2445,7 +2490,9 @@ async function transferActions(t, p, prm, st) {
         active ${active - 1 === 1 ? 'office' : 'offices'} in the register. That is a
         governance problem, not something an office can fix by signing.</p></div>`);
     }
-    eligible.forEach((a) => cards.push(proposeCard('AttestTransfer', {
+    const attestorStanding = await Promise.all(eligible.map(standingOf));
+    eligible.forEach((a, i) => cards.push(proposeCard('AttestTransfer', {
+      barred: attestorStanding[i] === false,
       office: a.address,
       officeName: a.name || shortRef(a.address),
       heading: `Attest as ${a.name || shortRef(a.address)}`,
@@ -2891,13 +2938,34 @@ async function screenOffices() {
     return;
   }
   const quorum = Number(prm.attestation_quorum);
+  // Asked once, in parallel, before the cards are drawn. Being listed here is
+  // only half of being an office — see standingOf — and an office drawn as
+  // "active" while it holds no role grant is the exact misreport this screen
+  // exists to prevent.
+  const standing = await Promise.all(list.map(standingOf));
   el.innerHTML = `
     <div id="blocking"></div>
-    <div class="grid">${list.map((o) => `
-      <div class="card">
+    <div class="grid">${list.map((o, i) => `
+      <div class="card${standing[i] === false ? ' card--warn' : ''}">
         <strong style="display:block">${esc(o.name || 'unnamed office')}</strong>
         <p class="muted small" style="margin:.3rem 0 .45rem">${esc(o.jurisdiction || 'no jurisdiction recorded')}</p>
         <span class="pill ${o.active ? 'p-ok' : 'p-mute'}">${o.active ? 'active' : 'not active'}</span>
+        ${standing[i] === true
+          ? '<span class="pill p-ok">may act</span>'
+          : standing[i] === false
+            ? '<span class="pill p-warn">cannot act yet</span>'
+            : '<span class="pill p-mute">standing unknown</span>'}
+        ${standing[i] === false
+          ? `<p class="small" style="margin:.5rem 0 0">Admitted to the register and holding no
+             <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant for
+             ${esc(o.jurisdiction || 'its jurisdiction')}, so every message it sends is refused.
+             Admitting an office takes two acts and this is only the first — the second lives in
+             x/alias, not here.</p>`
+          : standing[i] === null
+            ? `<p class="muted small" style="margin:.5rem 0 0">This page could not read the
+               office’s role grants, so it is not saying whether this office can act. That is
+               not the same as saying it cannot.</p>`
+            : ''}
         <details><summary>Account reference</summary>
           ${idHtml(o.address, "the office's account")}</details>
       </div>`).join('')}
@@ -2917,6 +2985,7 @@ async function screenOffices() {
         official can lower the quorum is a chain with no quorum.</p>
     </div>
     <h2>Admitting an office</h2>
+    <div id="grant-missing"></div>
     <div id="admit"></div>`;
 
   await blockingNotice(document.getElementById('blocking'));
@@ -2965,6 +3034,13 @@ async function admitForm(el) {
       only from <span class="y-mono">${esc(gov)}</span> — x/gov's own account — so no key on
       any machine can send it. What is composed below is the proposal the whole chain then
       votes on.</p>
+    <p class="badbox"><strong>Admitting an office takes two acts, and this page composes
+      both.</strong> <code>MsgRegisterAuthority</code> writes the record
+      <code>query land authorities</code> reads. Every message the office then sends is
+      checked against a <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant in x/alias
+      covering the same country. File only the first and the office is listed here, marked
+      active, and refused by everything it does — which reads as a bug in the admission and
+      is not one.</p>
     <label for="${id}-addr">The office's account — a group account, not a key</label>
     <input id="${id}-addr" placeholder="yml1…">
     <p class="muted small" style="margin:.3rem 0 0">The chain refuses an office that is a
@@ -3007,23 +3083,100 @@ async function admitForm(el) {
       summary: why || `Admit ${name} (${juris.toUpperCase()}) to the land register.`,
       deposit,
     });
+    const grant = roleGrantProposal({
+      govAuthority: gov, office, name, jurisdiction: juris, deposit,
+    });
     const cmd = admissionCommand('your-key');
+    const grantCmd = admissionCommand('your-key', 'grant-authority.json');
+    COPY.set(`${id}-doc`, doc);
+    COPY.set(`${id}-grant`, grant);
+    COPY.set(`${id}-cmd`, `${cmd}\n\n${grantCmd}`);
+    out.innerHTML = `
+      <h4 style="margin:.9rem 0 .2rem">Act one — admit the office to the register</h4>
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">admit-office.json</span></span>
+        <button class="copy" data-copy="${id}-doc" data-label="copy act one">copy act
+          one</button></div>
+      <pre>${esc(doc)}</pre>
+      <h4 style="margin:.9rem 0 .2rem">Act two — grant it authority over land in
+        ${esc(juris.toUpperCase())}</h4>
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">grant-authority.json</span></span>
+        <button class="copy" data-copy="${id}-grant" data-label="copy act two">copy act
+          two</button></div>
+      <pre>${esc(grant)}</pre>
+      <p class="muted small" style="margin:.2rem 0 0">Act two may also come from the
+        foundation’s own 3-of-5 rather than from a vote — bringing a country onto the rail is
+        the foundation’s act by design, because it is a sequence of grants that has to land in
+        a particular order. This composes the governance path, which is the one that needs no
+        standing to file.</p>
+      <div class="cmdhead"><span class="muted small">then file them — the deposit
+        (${esc(deposit)} each) is read from the chain, not typed</span>
+        <button class="copy" data-copy="${id}-cmd" data-label="copy both commands">copy both
+          commands</button></div>
+      <pre>${esc(`${cmd}\n\n${grantCmd}`)}</pre>
+      <p class="muted small">Filing them is not admitting the office. Each goes to a vote of
+        the whole chain, which is the point: this is the one decision in the land register that
+        nobody inside the land register gets to make.</p>`;
+  };
+
+  await grantForm(document.getElementById('grant-missing'));
+}
+
+/**
+ * The second act, for offices that already have the first.
+ *
+ * Drawn only when there is an office it applies to. A standing form for a
+ * problem nobody has is a form that teaches people to ignore forms.
+ */
+async function grantForm(el) {
+  if (!el) return;
+  let offices;
+  let gov;
+  let deposit;
+  try {
+    offices = await authorities();
+    [gov, deposit] = await Promise.all([govAuthority(), govMinDeposit()]);
+  } catch { el.innerHTML = ''; return; }
+
+  const standing = await Promise.all(offices.map(standingOf));
+  const barred = offices.filter((_, i) => standing[i] === false);
+  if (!barred.length) { el.innerHTML = ''; return; }
+
+  const id = `grn${seq++}`;
+  el.innerHTML = `<div class="card card--warn">
+    <div class="row"><h3>Grant an admitted office its authority</h3>
+      <span class="pill p-warn">act two, missing</span></div>
+    <p class="small" style="margin:.2rem 0 .3rem">${esc(String(barred.length))}
+      ${barred.length === 1 ? 'office is' : 'offices are'} in the register and cannot act.
+      Until the grant exists, every message ${barred.length === 1 ? 'it sends is' : 'they send is'}
+      refused — including the first registration, so nothing can be recorded at all.</p>
+    <label for="${id}-who">Which office</label>
+    <select id="${id}-who">${barred.map((o) => `<option value="${esc(o.address)}">${
+      esc(o.name || o.address)} — ${esc(o.jurisdiction)}</option>`).join('')}</select>
+    <p style="margin:.8rem 0 0"><button class="primary" id="${id}-go">Compose the grant</button></p>
+    <div id="${id}-out"></div>
+  </div>`;
+
+  document.getElementById(`${id}-go`).onclick = () => {
+    const chosen = barred.find((o) => o.address === document.getElementById(`${id}-who`).value);
+    const doc = roleGrantProposal({
+      govAuthority: gov, office: chosen.address, name: chosen.name || chosen.address,
+      jurisdiction: chosen.jurisdiction, deposit,
+    });
+    const cmd = admissionCommand('your-key', 'grant-authority.json');
     COPY.set(`${id}-doc`, doc);
     COPY.set(`${id}-cmd`, cmd);
-    out.innerHTML = `
-      <div class="cmdhead"><span class="muted small">save this as
-        <span class="y-mono">admit-office.json</span></span>
+    document.getElementById(`${id}-out`).innerHTML = `
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">grant-authority.json</span></span>
         <button class="copy" data-copy="${id}-doc" data-label="copy the proposal">copy the
           proposal</button></div>
       <pre>${esc(doc)}</pre>
-      <div class="cmdhead"><span class="muted small">then file it — the deposit
-        (${esc(deposit)}) is read from the chain, not typed</span>
+      <div class="cmdhead"><span class="muted small">then file it</span>
         <button class="copy" data-copy="${id}-cmd" data-label="copy the command">copy the
           command</button></div>
-      <pre>${esc(cmd)}</pre>
-      <p class="muted small">Filing it is not admitting it. The proposal goes to a vote of the
-        whole chain, which is the point: this is the one decision in the land register that
-        nobody inside the land register gets to make.</p>`;
+      <pre>${esc(cmd)}</pre>`;
   };
 }
 
@@ -3192,13 +3345,52 @@ async function blockingNotice(el) {
       <ol class="small" style="margin:.2rem 0 .6rem;padding-inline-start:1.2rem">
         <li>Governance admits at least one office — a group account, so that its own
           decisions already need several registrars to agree.</li>
+        <li>That office is granted <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> over
+          its country. This is a second act in a different module, and skipping it produces
+          an office that is listed here, marked active, and refused by every message it
+          sends — which reads as a bug in the admission and is not one.</li>
         <li>That office registers a parcel, which is when this register first holds
           anything.</li>
-        <li>Governance admits ${esc(String(quorum))} more offices before any transfer can
-          complete, because the parcel’s own office may not attest its own transfer.</li>
+        <li>${esc(String(quorum))} more offices are admitted and granted the same, before any
+          transfer can complete — because the parcel’s own office may not attest its own
+          transfer.</li>
       </ol>
       ${location.hash.startsWith('#/offices') ? '' : `<p class="small"><a href="#/offices">The
         admission proposal is composed on Registry offices →</a></p>`}
+    </div>`;
+    return;
+  }
+
+  // Asked before the quorum arithmetic, because an office that cannot act does
+  // not count toward a quorum either, and reporting "enough offices" about a
+  // set of offices that are all refused is worse than reporting nothing.
+  const standing = await Promise.all(active.map(standingOf));
+  const able = active.filter((_, i) => standing[i] === true);
+  const barred = active.filter((_, i) => standing[i] === false);
+
+  if (barred.length && !able.length) {
+    el.innerHTML = `<div class="card card--warn">
+      <div class="row" style="align-items:flex-start">
+        <p class="lede" style="margin:0">${esc(String(barred.length))}
+          ${barred.length === 1 ? 'office is' : 'offices are'} admitted, and
+          ${barred.length === 1 ? 'it holds' : 'none of them holds'} the grant that lets
+          ${barred.length === 1 ? 'it' : 'them'} act</p>
+        <span class="pill p-warn">half admitted</span>
+      </div>
+      <p class="small">Admitting a registry office takes two acts, and only the first has
+        happened. <code>MsgRegisterAuthority</code> writes the record this page lists; every
+        message the office then sends is checked against a
+        <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant in x/alias covering the same
+        country, and there is none. So the ${barred.length === 1 ? 'office appears' : 'offices appear'}
+        here, marked active, and ${barred.length === 1 ? 'is' : 'are'} refused by every message
+        ${barred.length === 1 ? 'it sends' : 'they send'} — with
+        <em>holds no grant of ROLE_REGISTRY_AUTHORITY covering
+        ${esc(barred[0].jurisdiction || 'that country')}</em>.</p>
+      <p class="small">Nothing can be registered until that grant exists, and it cannot be made
+        from this page: a country-scoped grant comes from governance or from the foundation’s
+        own M-of-N, never from an office.</p>
+      ${location.hash.startsWith('#/offices') ? '' : `<p class="small"><a href="#/offices">The
+        grant proposal is composed on Registry offices →</a></p>`}
     </div>`;
     return;
   }

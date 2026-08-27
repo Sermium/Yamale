@@ -514,7 +514,51 @@ export function admissionProposal({
   }, null, 2);
 }
 
-/** The command that files the document above. */
+/**
+ * The other half of admitting an office, which is not in x/land at all.
+ *
+ * `MsgRegisterAuthority` writes the record `query land authorities` reads.
+ * Every message the office then sends resolves through `activeAuthority`, which
+ * asserts a `ROLE_REGISTRY_AUTHORITY` grant in **x/alias** covering the same
+ * country. Without it the office is listed, marked active, and refused by every
+ * message it sends — which reads as a bug in the admission and is not one.
+ *
+ * The two acts have different signers, and that is why they cannot be one
+ * proposal composed here without saying so: the x/land admission is governance,
+ * while a country-scoped role grant may come from governance *or* from the
+ * foundation's 3-of-5. Bringing a country onto the rail is the foundation's act
+ * by design — it is an M-of-N group per office, several grants across them, and
+ * the jurisdiction records, in a particular order.
+ *
+ * Composed as a governance proposal here because that is the path that needs no
+ * standing to file. A deployment whose foundation is doing the enrolment will
+ * use its own runbook and does not need a page for it.
+ */
+export function roleGrantProposal({
+  govAuthority, office, name, jurisdiction, deposit,
+}) {
+  if (!govAuthority) throw new Error('the gov module account must be read from the chain');
+  if (!deposit) throw new Error('the minimum deposit must be read from the chain');
+  return JSON.stringify({
+    messages: [{
+      '@type': '/blockchain.alias.v1.MsgGrantRole',
+      authority: govAuthority,
+      holder: office,
+      // The enum by name: proto3 JSON accepts either, and the name is what a
+      // reviewer of the proposal can check without a lookup table.
+      role: 'ROLE_REGISTRY_AUTHORITY',
+      jurisdiction: String(jurisdiction || '').toUpperCase(),
+    }],
+    metadata: '',
+    deposit,
+    title: `Grant ${name} authority over land in ${String(jurisdiction || '').toUpperCase()}`,
+    summary: `${name} is admitted to the land register but holds no role grant, so every `
+      + `message it sends is refused. This grants ROLE_REGISTRY_AUTHORITY for `
+      + `${String(jurisdiction || '').toUpperCase()}.`,
+  }, null, 2);
+}
+
+/** The command that files either of the documents above. */
 export function admissionCommand(from, file = 'admit-office.json') {
   return [
     `${CHAIN.bin} tx gov submit-proposal ${file} \\`,

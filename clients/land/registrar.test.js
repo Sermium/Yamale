@@ -34,6 +34,7 @@ import {
   personalMessage,
   proposable,
   proposalMetadata,
+  roleGrantProposal,
   sh,
   signable,
 } from './registrar.js';
@@ -278,6 +279,38 @@ test('an admission proposal names x/gov as the authority, not a person', () => {
   assert.equal(doc.messages[0].active, true);
   assert.equal(doc.deposit, '1000000uyml');
   assert.ok(admissionCommand(REGISTRAR).includes('tx gov submit-proposal'));
+});
+
+test('admitting an office is two acts, and the second is in another module', () => {
+  // Found by running it, on main: a governance proposal admitted four offices
+  // in CD and RegisterParcel still refused — "holds no grant of
+  // ROLE_REGISTRY_AUTHORITY covering CD". The x/land admission writes the
+  // record `query land authorities` reads; every message the office then sends
+  // is checked against a grant in x/alias. An office with only the first is
+  // listed, marked active, and refused by everything it does.
+  const doc = JSON.parse(roleGrantProposal({
+    govAuthority: GOV, office: OFFICE, name: 'Registre foncier de Lubumbashi',
+    jurisdiction: 'cd', deposit: '1000000uyml',
+  }));
+  assert.equal(doc.messages[0]['@type'], '/blockchain.alias.v1.MsgGrantRole');
+  assert.equal(doc.messages[0].authority, GOV);
+  assert.equal(doc.messages[0].holder, OFFICE, 'the office is the holder, not the authority');
+  // By name rather than by number: proto3 JSON accepts either, and a reviewer
+  // of the proposal can check a name without a lookup table. The number would
+  // also collide with the reason the zero value is reserved — a role nobody
+  // filled in and a role that happens to be first must not look alike.
+  assert.equal(doc.messages[0].role, 'ROLE_REGISTRY_AUTHORITY');
+  assert.equal(doc.messages[0].jurisdiction, 'CD');
+  assert.equal(doc.deposit, '1000000uyml');
+  assert.ok(doc.summary.includes('refused'), 'the summary says what is broken without it');
+});
+
+test('the role grant refuses to be composed from memory either', () => {
+  const fields = { office: OFFICE, name: 'X', jurisdiction: 'CD' };
+  assert.throws(() => roleGrantProposal({ ...fields, deposit: '1uyml' }),
+    /gov module account must be read from the chain/);
+  assert.throws(() => roleGrantProposal({ ...fields, govAuthority: GOV }),
+    /minimum deposit must be read from the chain/);
 });
 
 test('an admission proposal refuses to be composed from memory', () => {

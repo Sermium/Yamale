@@ -252,6 +252,64 @@ function aliasField(bytes, num) {
   return value ? new TextDecoder().decode(value) || null : null;
 }
 
+/* --------------------------------------------------- the other half of an office */
+
+/**
+ * The role grants an account actually holds, from x/alias.
+ *
+ * This is the half of admitting a registry office that is not in x/land at all,
+ * and it is the half that makes the difference between an office and a name.
+ * `MsgRegisterAuthority` writes the record that `query land authorities` reads;
+ * every message the office then sends goes through `activeAuthority`, which
+ * calls `AssertScopeIn(ctx, actor, ROLE_REGISTRY_AUTHORITY, jurisdiction)` —
+ * x/land/keeper/msg_server_parcel.go — and that is x/alias's registry, not
+ * x/land's.
+ *
+ * So an office can be admitted, listed, and marked active while holding no
+ * grant, and every message it sends is refused with "holds no grant of
+ * ROLE_REGISTRY_AUTHORITY covering CD". Measured on yamale-devnet-2 at height
+ * 95,131: four offices admitted in CD, and RoleGrants answers empty for them.
+ * A console that showed those four as ready to act would be sending registrars
+ * into a refusal it could have predicted.
+ *
+ * RoleGrant: holder=1, role=2, jurisdiction=3, granted_by=4.
+ * ROLE_REGISTRY_AUTHORITY = 1. Chain-wide scope is spelled "*" and only "*".
+ */
+export const ROLE_REGISTRY_AUTHORITY = 1;
+
+export async function roleGrants(address) {
+  const { bytes } = await abci('/blockchain.alias.v1.Query/RoleGrants',
+    write((w) => w.string(1, address)));
+  const d = new TextDecoder();
+  return (read(bytes).get(1) ?? []).map((g) => {
+    const f = read(g);
+    return {
+      holder: d.decode(f.get(1)?.[0] ?? new Uint8Array()),
+      role: Number(f.get(2)?.[0] ?? 0n),
+      jurisdiction: d.decode(f.get(3)?.[0] ?? new Uint8Array()),
+      granted_by: d.decode(f.get(4)?.[0] ?? new Uint8Array()),
+    };
+  });
+}
+
+/**
+ * Whether this office may actually act in its own jurisdiction.
+ *
+ * `null` when the question could not be asked, which is not the same as `false`
+ * and must not be drawn as one: "this office cannot register anything" and
+ * "this page could not check" are opposite claims about somebody's registry.
+ */
+export async function canAct(office) {
+  try {
+    const grants = await roleGrants(office.address);
+    const wanted = String(office.jurisdiction || '').toUpperCase();
+    return grants.some((g) => g.role === ROLE_REGISTRY_AUTHORITY
+      && (g.jurisdiction === '*' || g.jurisdiction.toUpperCase() === wanted));
+  } catch {
+    return null;
+  }
+}
+
 /* ---------------------------------------------------------- governance */
 
 /**
