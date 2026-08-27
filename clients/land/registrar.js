@@ -485,7 +485,16 @@ export function groupPreamble(officeName) {
  * so a proposal naming a person is a proposal that passes its vote and then
  * fails to execute.
  */
-export function admissionProposal({ govAuthority, office, name, jurisdiction, title, summary }) {
+export function admissionProposal({
+  govAuthority, office, name, jurisdiction, title, summary, deposit,
+}) {
+  // Both read from the chain by the caller, and both refused here rather than
+  // defaulted. A wrong authority produces a proposal that passes its vote and
+  // then fails to execute; a deposit below the minimum produces one that never
+  // enters voting at all, which from outside looks exactly like a proposal
+  // nobody supported. Neither failure names itself, so neither gets a fallback.
+  if (!govAuthority) throw new Error('the gov module account must be read from the chain');
+  if (!deposit) throw new Error('the minimum deposit must be read from the chain');
   return JSON.stringify({
     messages: [{
       '@type': TYPE('MsgRegisterAuthority'),
@@ -499,7 +508,7 @@ export function admissionProposal({ govAuthority, office, name, jurisdiction, ti
       active: true,
     }],
     metadata: '',
-    deposit: '10000000uyml',
+    deposit,
     title,
     summary,
   }, null, 2);

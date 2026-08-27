@@ -266,13 +266,30 @@ test('an admission proposal names x/gov as the authority, not a person', () => {
   const doc = JSON.parse(admissionProposal({
     govAuthority: GOV, office: OFFICE, name: 'Kinshasa Lands Office',
     jurisdiction: 'cd', title: 'Admit the Kinshasa Lands Office', summary: 'A new office.',
+    // Both read from the chain. Measured 2026-08-27 on yamale-devnet-2:
+    // ModuleAccountByName("gov") → the address above; gov Params min_deposit
+    // → 1000000uyml.
+    deposit: '1000000uyml',
   }));
   assert.equal(doc.messages[0]['@type'], '/blockchain.land.v1.MsgRegisterAuthority');
   assert.equal(doc.messages[0].authority, GOV);
   assert.equal(doc.messages[0].office, OFFICE);
   assert.equal(doc.messages[0].jurisdiction, 'CD', 'normalised, as the keeper does');
   assert.equal(doc.messages[0].active, true);
+  assert.equal(doc.deposit, '1000000uyml');
   assert.ok(admissionCommand(REGISTRAR).includes('tx gov submit-proposal'));
+});
+
+test('an admission proposal refuses to be composed from memory', () => {
+  // A hard-coded gov account produces a proposal that passes its vote and then
+  // fails to execute; a hard-coded deposit produces one that never enters
+  // voting, which from outside looks exactly like a proposal nobody supported.
+  // Neither failure names itself, so neither gets a default.
+  const fields = { office: OFFICE, name: 'X', jurisdiction: 'CD', title: 'T', summary: 'S' };
+  assert.throws(() => admissionProposal({ ...fields, deposit: '1uyml' }),
+    /gov module account must be read from the chain/);
+  assert.throws(() => admissionProposal({ ...fields, govAuthority: GOV }),
+    /minimum deposit must be read from the chain/);
 });
 
 /* ============================================================ plumbing */
