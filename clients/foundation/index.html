@@ -140,6 +140,13 @@
     --wash-mute: rgba(92, 110, 136, .10);
     --wash-brass: rgba(168, 123, 60, .12);
 
+    /* Brass and amber as *type* do not clear 4.5:1 in the light palette:
+       measured 3.77:1 for a brass link on white, 3.31:1 and 3.38:1 for the
+       two chips on their own washes. Darkened along the same hue, and only
+       where the colour carries words. Dark already passes, measured. */
+    --brass-ink: #8b6632;
+    --warn-ink: #8d6617;
+
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
   }
@@ -172,6 +179,8 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
+      --brass-ink: var(--brass);
+      --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -202,6 +211,8 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: var(--brass);
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -250,7 +261,7 @@
     font-size: var(--step--1);
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--brass-ink);
   }
 
   .y-label {
@@ -281,10 +292,10 @@
     white-space: nowrap;
   }
   .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
-  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
   .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
   .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
-  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   .y-scroll { overflow-x: auto; }
 
@@ -321,7 +332,7 @@
      thousand lines of template literal. */
   p { margin: 0 0 var(--sp-3); }
   p:last-child { margin-bottom: 0; }
-  a { color: var(--brass); }
+  a { color: var(--brass-ink); }
   a:hover { color: var(--text); }
 
   /* --- chrome ------------------------------------------------------------ */
@@ -393,10 +404,10 @@
     text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
     white-space: nowrap; }
   .p-ok { background: var(--wash-ok); color: var(--ok); }
-  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-ink); }
   .p-bad { background: var(--wash-bad); color: var(--bad); }
   .p-mute { background: var(--wash-mute); color: var(--text-muted); }
-  .p-brass { background: var(--wash-brass); color: var(--brass); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   code { font-size: 0.86em; word-break: break-all; }
   pre {
@@ -431,7 +442,7 @@
   .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
   .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
   .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
-  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass-ink); }
   .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
   .copy {
     font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;

@@ -99,6 +99,16 @@
   --wash-mute: rgba(92, 110, 136, .10);
   --wash-brass: rgba(168, 123, 60, .12);
 
+  /* Brass and amber are brand colours before they are type, and as type neither
+     clears 4.5:1 in the light palette. Measured in a browser at 1600px:
+     3.77:1 for a brass link on white, 3.31:1 for a brass chip on its own wash,
+     3.38:1 for an amber chip on its own. Darkened along the same hue rather
+     than replaced, and used only where the colour carries words — a border or a
+     rule at 3.3:1 is doing a different job and reads correctly there. The dark
+     palette needs no equivalent: both already pass, also measured. */
+  --brass-ink: #8b6632;
+  --warn-ink: #8d6617;
+
   /* Elevation the palette previously had none of: every panel was a 1px
      border on flat white, which is why the surfaces read as wireframes. */
   --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
@@ -134,6 +144,8 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: var(--brass);
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -164,6 +176,8 @@
   --wash-bad: rgba(239, 138, 133, .13);
   --wash-mute: rgba(143, 164, 196, .12);
   --wash-brass: rgba(196, 152, 86, .16);
+  --brass-ink: var(--brass);
+  --warn-ink: var(--warn);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -222,7 +236,7 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
   font-size: var(--step--1);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brass);
+  color: var(--brass-ink);
 }
 
 .y-label {
@@ -255,10 +269,10 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
   white-space: nowrap;
 }
 .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
-.y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+.y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
 .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
 .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
-.y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+.y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
 
 /* Wide content scrolls inside its own box. The page body never scrolls
    sideways — a horizontal scrollbar on the document is how a table takes a
