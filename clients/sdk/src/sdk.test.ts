@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { EMPTY_AMOUNT, formatAmount, formatCoins, poolIdFromDenom, resolveDenom, toDisplayAmount } from './denom.ts';
+import {
+  EMPTY_AMOUNT,
+  formatAmount,
+  formatCoins,
+  fractionDenomParts,
+  isFractionShare,
+  poolIdFromDenom,
+  resolveDenom,
+  toDisplayAmount,
+} from './denom.ts';
 import { describeThroughput, measure } from './performance.ts';
 import { decodeMessage, describeProposalAction, summariseTransaction } from './decode.ts';
 import { translateError } from './errors.ts';
@@ -40,6 +49,38 @@ test('pool share denoms are recognised and named', () => {
   assert.equal(poolIdFromDenom('amm/pool/7'), 7);
   assert.equal(poolIdFromDenom('uyml'), null);
   assert.equal(resolveDenom('amm/pool/7').symbol, 'Pool 7 shares');
+});
+
+test('a shareholding denom is taken apart into the two halves that matter', () => {
+  // x/tokenisation mints these as tok/<asset id>/<SYMBOL>. The symbol is what a
+  // holder calls their shares; the asset id is the only thing linking a balance
+  // in a wallet back to the vehicle it is a share of.
+  assert.deepEqual(fractionDenomParts('tok/3/KEFARM'), { assetId: '3', symbol: 'KEFARM' });
+  assert.equal(isFractionShare('tok/3/KEFARM'), true);
+
+  // A uint64 asset id beyond what a double holds exactly stays a string.
+  assert.deepEqual(
+    fractionDenomParts('tok/18446744073709551615/X'),
+    { assetId: '18446744073709551615', symbol: 'X' },
+  );
+});
+
+test('anything that is not a shareholding gets no partial answer', () => {
+  // A partial answer is how an ordinary balance ends up rendered as a holding.
+  assert.equal(fractionDenomParts('uyml'), null);
+  assert.equal(fractionDenomParts('tok/3'), null, 'no symbol');
+  assert.equal(fractionDenomParts('tok/3/'), null, 'an empty symbol names no instrument');
+  assert.equal(fractionDenomParts('tok//KEFARM'), null, 'no asset id');
+  assert.equal(fractionDenomParts('tok/abc/KEFARM'), null, 'the id must be a number');
+  assert.equal(isFractionShare('amm/pool/7'), false);
+});
+
+test('shares are counted whole, never in millionths', () => {
+  const info = resolveDenom('tok/3/KEFARM');
+  assert.equal(info.symbol, 'KEFARM');
+  assert.equal(info.exponent, 0,
+    'six decimal places would render a holding of a million shares as one');
+  assert.equal(formatAmount('1000000', 'tok/3/KEFARM'), '1,000,000 KEFARM');
 });
 
 test('coin lists read as a phrase', () => {

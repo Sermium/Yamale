@@ -257,6 +257,82 @@ test('a fee allowance survives encoding with its limit intact', () => {
   assert.equal(allowance.expiration?.getTime(), expires.getTime());
 });
 
+// The three tokenisation messages an ordinary shareholder signs. Each carries
+// exactly one number that decides money, and a dropped field on any of them is
+// silent: an empty amount encodes to nothing, not to an error.
+test('a redemption carries the count of shares being burned', () => {
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.tokenisation.v1.MsgRedeem',
+    value: { holder: 'yml1holder', assetId: '3', amount: '250000' },
+  });
+
+  assert.equal(decoded.holder, 'yml1holder');
+  assert.equal(decoded.assetId, '3');
+  // A redemption that arrived with amount '0' would burn nothing and pay
+  // nothing, after somebody had agreed to exit.
+  assert.equal(decoded.amount, '250000');
+});
+
+test('a claim names the asset and nothing else', () => {
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.tokenisation.v1.MsgClaim',
+    value: { holder: 'yml1holder', assetId: '3' },
+  });
+  assert.equal(decoded.holder, 'yml1holder');
+  assert.equal(decoded.assetId, '3');
+});
+
+test('a sale dispute carries the reason it will be judged on', () => {
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.tokenisation.v1.MsgDisputeSale',
+    value: {
+      challenger: 'yml1holder',
+      assetId: '3',
+      reason: 'the deed filed with the registry shows 96,000,000 KES',
+    },
+  });
+
+  assert.equal(decoded.challenger, 'yml1holder');
+  assert.equal(decoded.assetId, '3');
+  assert.equal(decoded.reason, 'the deed filed with the registry shows 96,000,000 KES');
+});
+
+test('an attestation states a price rather than endorsing one', () => {
+  // The price is repeated in the message on purpose: attesting to a figure that
+  // differs from the report is a refusal, not an amendment. A dropped price
+  // field would turn every attestation into a blank endorsement.
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.tokenisation.v1.MsgAttestSale',
+    value: {
+      attestor: 'yml1valuer',
+      assetId: '3',
+      price: { denom: 'ukes', amount: '82000000' },
+    },
+  });
+
+  assert.deepEqual(decoded.price, { denom: 'ukes', amount: '82000000' });
+});
+
+test('fractionalising carries the share the tokens will permanently hold', () => {
+  // holder_share_bps is fixed here forever, and a zero would be refused rather
+  // than silently meaning "all of it" — but only if it survives encoding.
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.tokenisation.v1.MsgFractionalise',
+    value: {
+      owner: 'yml1sponsor',
+      assetId: '3',
+      symbol: 'KEFARM',
+      supply: '1000000',
+      holderShareBps: 4000,
+      incomeDenom: 'ukes',
+    },
+  });
+
+  assert.equal(decoded.supply, '1000000');
+  assert.equal(decoded.holderShareBps, 4000);
+  assert.equal(decoded.incomeDenom, 'ukes');
+});
+
 test('revoking a fee allowance names both parties', () => {
   const decoded = roundTrip(revokeFeeAllowance('yml1bank', 'yml1customer'));
   assert.equal(decoded.granter, 'yml1bank');

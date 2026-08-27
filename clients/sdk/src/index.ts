@@ -14,6 +14,8 @@ export {
   formatAmount,
   formatCoins,
   groupDigits,
+  fractionDenomParts,
+  isFractionShare,
   isPoolShare,
   parseCoin,
   poolIdFromDenom,
@@ -21,10 +23,12 @@ export {
   toBaseUnits,
   toBaseUnitsOf,
   toDisplayAmount,
+  EMPTY_AMOUNT,
   type BaseUnits,
   type Coin,
   type DenomInfo,
   type FormatAmountOptions,
+  type FractionDenom,
 } from './denom.ts';
 
 /**

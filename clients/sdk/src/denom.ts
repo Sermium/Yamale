@@ -102,6 +102,7 @@ export const KNOWN_DENOMS: Record<string, DenomInfo> = {
 };
 
 const LP_DENOM_PREFIX = 'amm/pool/';
+const FRACTION_DENOM_PREFIX = 'tok/';
 
 /** Reports whether a denom represents liquidity-pool shares rather than an asset. */
 export function isPoolShare(denom: string): boolean {
@@ -113,6 +114,44 @@ export function poolIdFromDenom(denom: string): number | null {
   if (!isPoolShare(denom)) return null;
   const id = Number(denom.slice(LP_DENOM_PREFIX.length));
   return Number.isInteger(id) ? id : null;
+}
+
+/**
+ * A shareholding in a real-world-asset vehicle, taken apart.
+ *
+ * x/tokenisation mints these as `tok/<asset id>/<SYMBOL>` — see
+ * `types.FractionDenom` — and the two halves are both needed: the symbol is
+ * what a holder calls their shares, and the asset id is the only thing that
+ * links a balance sitting in a wallet back to the vehicle it is a share of.
+ *
+ * Returns null rather than a partial answer for anything that is not one, so a
+ * caller cannot accidentally treat an ordinary balance as a shareholding. The
+ * symbol is required to be non-empty for the same reason: `tok/3/` names no
+ * instrument, and rendering a blank symbol beside a figure is how somebody ends
+ * up unable to tell two holdings apart.
+ */
+export interface FractionDenom {
+  /** The vehicle's asset id, as a decimal string — uint64 exceeds a double. */
+  assetId: string;
+  /** The symbol chosen at fractionalisation, e.g. `KEFARM`. */
+  symbol: string;
+}
+
+export function fractionDenomParts(denom: string): FractionDenom | null {
+  if (!denom.startsWith(FRACTION_DENOM_PREFIX)) return null;
+  const rest = denom.slice(FRACTION_DENOM_PREFIX.length);
+  const cut = rest.indexOf('/');
+  if (cut <= 0) return null;
+
+  const assetId = rest.slice(0, cut);
+  const symbol = rest.slice(cut + 1);
+  if (!/^\d+$/.test(assetId) || symbol === '') return null;
+  return { assetId, symbol };
+}
+
+/** Reports whether a denom is a shareholding in a vehicle. */
+export function isFractionShare(denom: string): boolean {
+  return fractionDenomParts(denom) !== null;
 }
 
 /**
@@ -129,6 +168,19 @@ export function resolveDenom(denom: string, registry: Record<string, DenomInfo> 
   const poolId = poolIdFromDenom(denom);
   if (poolId !== null) {
     return { base: denom, symbol: `Pool ${poolId} shares`, exponent: 0, name: `Liquidity shares in pool ${poolId}` };
+  }
+
+  const fraction = fractionDenomParts(denom);
+  if (fraction) {
+    // Exponent zero, and that is not a default standing in for an unknown: a
+    // share is an indivisible count fixed at fractionalisation, and giving one
+    // six decimal places would render a holding of a million shares as one.
+    return {
+      base: denom,
+      symbol: fraction.symbol,
+      exponent: 0,
+      name: `Shares in vehicle ${fraction.assetId}`,
+    };
   }
 
   if (denom.startsWith('ibc/')) {
