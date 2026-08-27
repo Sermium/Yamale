@@ -97,20 +97,27 @@
     --rule: #d3dae6;
 
     --text: var(--ink);
-    --text-muted: var(--slate);
+    --text-muted: #526178;
     --text-faint: #8798af;
     --accent: var(--navy);
     --accent-ink: #ffffff;
     --focus: #1f6feb;
 
-    --ok: #0d7a4a;
+    --ok: #0c6d42;
     --warn: #a8791b;
-    --bad: #b02a25;
+    --bad: #ac2924;
     --wash-ok: rgba(13, 122, 74, .10);
     --wash-warn: rgba(168, 121, 27, .12);
     --wash-bad: rgba(176, 42, 37, .10);
     --wash-mute: rgba(92, 110, 136, .10);
     --wash-brass: rgba(168, 123, 60, .12);
+
+    /* Brass and amber as *type* do not clear 4.5:1 in the light palette:
+       measured 3.77:1 for a brass link on white, 3.31:1 and 3.38:1 for the
+       two chips on their own washes. Darkened along the same hue, and only
+       where the colour carries words. Dark already passes, measured. */
+    --brass-ink: #78582b;
+    --warn-ink: #795814;
 
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
@@ -144,6 +151,8 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
+      --brass-ink: #c79d5e;
+      --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -174,6 +183,8 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: #c79d5e;
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -222,7 +233,7 @@
     font-size: var(--step--1);
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--brass-ink);
   }
 
   .y-label {
@@ -253,10 +264,10 @@
     white-space: nowrap;
   }
   .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
-  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
   .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
   .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
-  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   .y-scroll { overflow-x: auto; }
 
@@ -293,7 +304,7 @@
      thousand lines of template literal. */
   p { margin: 0 0 var(--sp-3); }
   p:last-child { margin-bottom: 0; }
-  a { color: var(--brass); }
+  a { color: var(--brass-ink); }
   a:hover { color: var(--text); }
 
   /* --- chrome ------------------------------------------------------------ */
@@ -365,10 +376,10 @@
     text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
     white-space: nowrap; }
   .p-ok { background: var(--wash-ok); color: var(--ok); }
-  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-ink); }
   .p-bad { background: var(--wash-bad); color: var(--bad); }
   .p-mute { background: var(--wash-mute); color: var(--text-muted); }
-  .p-brass { background: var(--wash-brass); color: var(--brass); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   code { font-size: 0.86em; word-break: break-all; }
   pre {
@@ -389,7 +400,7 @@
   .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
   .err code, .badbox code, .warnbox code { color: inherit; }
   .err strong, .badbox strong { color: var(--bad); }
-  .warnbox strong { color: var(--warn); }
+  .warnbox strong { color: var(--warn-ink); }
 
   /* --- controls --------------------------------------------------------- */
   /* Anything interactive looks interactive: a border, a hover, a focus ring
@@ -403,7 +414,7 @@
   .btn:hover, .vote:hover, .primary:hover { border-color: var(--brass); background: var(--surface-2); }
   .btn.ok, .vote.ok { border-color: var(--ok); color: var(--ok); }
   .btn.bad, .vote.bad { border-color: var(--bad); color: var(--bad); }
-  .btn.primary, .primary { border-color: var(--brass); color: var(--brass); }
+  .btn.primary, .primary { border-color: var(--brass); color: var(--brass-ink); }
   .btn:disabled, .vote:disabled, .primary:disabled { opacity: .55; cursor: default; }
   .copy {
     font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
@@ -540,7 +551,7 @@
     line-height: 1.2; letter-spacing: -0.015em;
   }
   .verdict--ok .verdict__head { color: var(--ok); }
-  .verdict--warn .verdict__head { color: var(--warn); }
+  .verdict--warn .verdict__head { color: var(--warn-ink); }
   .verdict--bad .verdict__head { color: var(--bad); }
   .verdict__why { margin: var(--sp-2) 0 0; font-size: var(--step-0); }
   .verdict__why li { margin: var(--sp-1) 0; }
@@ -572,7 +583,7 @@
     border: 2px solid var(--border); background: var(--surface); z-index: 1;
   }
   .step--done .step__mark { border-color: var(--ok); color: var(--ok); background: var(--wash-ok); }
-  .step--now .step__mark { border-color: var(--warn); color: var(--warn); background: var(--wash-warn); }
+  .step--now .step__mark { border-color: var(--warn); color: var(--warn-ink); background: var(--wash-warn); }
   .step--stop .step__mark { border-color: var(--bad); color: var(--bad); background: var(--wash-bad); }
   .step:not(:last-child)::before {
     content: ""; position: absolute; inset-inline-start: 0.8rem;
@@ -582,7 +593,7 @@
   .step__body { flex: 1; min-width: 0; }
   .step__title { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1);
                  letter-spacing: -0.005em; }
-  .step--now .step__title { color: var(--warn); }
+  .step--now .step__title { color: var(--warn-ink); }
   .step--stop .step__title { color: var(--bad); }
 
   /* Chain of title. Same shape as the stepper, different job: this one is
@@ -621,6 +632,47 @@
   .claim--gone { border-inline-start-color: var(--text-muted); background: var(--wash-mute); }
   .claim--stop { border-inline-start-color: var(--bad); background: var(--wash-bad); }
 
+  /* Who is signing. Quiet by design: it is not the subject of this page and a
+     reader who never signs anything should be able to ignore it entirely. */
+  .signerbar {
+    display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+    margin-bottom: var(--sp-4); padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--border);
+  }
+  .signerbar:empty { display: none; }
+
+  /* The one card shape reserved for something that cannot be undone.
+     `.card--waiting` already carries "this is waiting for you"; an objection
+     and a completion are a different thing and must not look the same as a
+     form. Doubled border, the bad colour, and the tint — three signals, so a
+     reader who cannot see the difference between this page's amber and its red
+     still sees a heavier box than anything else on the screen. */
+  .card--grave {
+    border: 1px solid var(--bad); border-inline-start: 6px double var(--bad);
+    background: var(--wash-bad); box-shadow: var(--shadow-2);
+  }
+
+  /* A proportion drawn as a length, for attestations against quorum. Segmented
+     rather than continuous: three attestations out of three is three marks a
+     reader can count, and a smooth bar at 100% and a smooth bar at 95% are the
+     same picture. */
+  .quorum { display: flex; gap: 4px; margin: var(--sp-2) 0; }
+  .quorum span {
+    flex: 1 1 0; height: 10px; border-radius: 2px;
+    background: var(--wash-mute); box-shadow: inset 0 0 0 1px var(--rule);
+  }
+  .quorum span.on { background: var(--ok); box-shadow: none; }
+
+  /* The catalogue of what can be done. A definition list of twelve rows would
+     read as a specification; these are cards because each one is a decision
+     somebody has to make about their own land. */
+  .acts { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+  .act { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .act__how {
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
   @media (max-width: 560px) {
     .verdict { padding: var(--sp-3); }
     .verdict__head { font-size: var(--step-1); }
@@ -644,6 +696,13 @@
 </header>
 
 <div class="wrap">
+  <!-- Who is signing, if anybody is. Below the chrome and above the content
+       rather than inside the header, because reading this register needs no
+       account at all and a connect button in the masthead implies otherwise —
+       which on this page would be a lie about the one property that matters
+       most: that a stranger can check a title without identifying themselves
+       to anyone. -->
+  <div class="signerbar" id="signer"></div>
   <div id="banner"></div>
   <!-- The pending state, drawn rather than left blank. "No objection against
        this title" and "this page has not read the register yet" are opposite
@@ -657,47 +716,44 @@
 </div>
 
 <script type="module">
-import { CHAIN, MESSAGES, landTx, officeTx, groupPreamble } from './registrar.js';
-
-const REST = '/api/rest';
-const LAND = `${REST}/yamale/blockchain/land/v1`;
+import {
+  ACTIONS, ACTION_NAMES, CHAIN, MESSAGES, actionsBy, admissionCommand,
+  admissionProposal, explainRefusal, groupPreamble, landTx, officeProposal,
+  officeTx, personalMessage, proposalMetadata, roleGrantProposal,
+} from './registrar.js';
+import {
+  CallFailed, WalletRefused, aliasOf, addressOfAlias, blockTime, connectWallet,
+  canAct, govAuthority, govMinDeposit, head, idFromResponse, landOrNull,
+  landQuery, signAndSend, txsOf,
+} from './chain.js';
+import { GROUP_SUBMIT_PROPOSAL, any } from './proto.js';
 
 // ---------------------------------------------------------------------------
 // Reading the chain.
 //
-// Every failure names the call that failed. "Something went wrong" tells a
-// clerk nothing, and tells a citizen standing in front of a seller even less:
+// THE READS MOVED, AND THIS IS THE ONE THING TO KNOW ABOUT THIS PAGE.
+//
+// Every query here used to go to /api/rest/yamale/blockchain/land/v1/…, and on
+// the live deployment every single one of them answered 401 with
+// `WWW-Authenticate: Basic realm="Yamale — supervisor access"`. The proxy
+// allowlists REST paths per module and denies by default; x/land's prefix is
+// not on that list. So the register whose entire premise is that reading it is
+// public showed a browser login box on every screen, and the banner below —
+// written to explain exactly this — was the only thing that ever rendered.
+//
+// The identical queries answer unauthenticated over the node's ABCI interface
+// at /api/rpc/, which the proxy does publish. chain.js speaks it, proto.js
+// decodes it, and the shape of what comes back is the same as the REST
+// gateway's JSON on purpose: uint64 as a decimal string, enums as their names,
+// absent repeated fields as empty arrays. Every comparison already written on
+// this page against `'STATUS_FROZEN'` or `completed_at !== '0'` therefore still
+// means what it meant.
+//
+// Every failure still names the call that failed. "Something went wrong" tells
+// a clerk nothing, and tells somebody standing in front of a seller even less:
 // they need to know whether the register said "no objection" or whether the
 // register did not answer, because those are opposite facts.
 // ---------------------------------------------------------------------------
-
-class CallFailed extends Error {
-  constructor(url, status, detail) {
-    super(detail ? `${url} → ${status}: ${detail}` : `${url} → ${status}`);
-    this.url = url; this.status = status;
-  }
-}
-
-async function get(url) {
-  let res;
-  try {
-    res = await fetch(url);
-  } catch (e) {
-    throw new CallFailed(url, 'unreachable', e.message);
-  }
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).message || ''; } catch { /* not json */ }
-    throw new CallFailed(url, res.status, detail);
-  }
-  return res.json();
-}
-
-/** Returns null for a 404 rather than throwing. "No such title" is an answer. */
-async function getOrNull(url) {
-  try { return await get(url); }
-  catch (e) { if (e.status === 404 || e.status === 400) return null; throw e; }
-}
 
 const cache = new Map();
 const once = (key, fn) => {
@@ -708,27 +764,22 @@ const once = (key, fn) => {
 /**
  * Finding a parcel by the reference printed on somebody's paper.
  *
- * This is the module's primary lookup — "how people actually search", as the
- * keeper puts it — and until recently it was the one query that could not be
- * made over REST at all. Every real cadastral reference contains slashes
- * (ACC/GA/2019/00412), the gateway route bound the reference to a single path
- * segment, and no encoding makes a slash fit in one: the node answered 501.
- * This page carried twenty lines of hand-written protobuf and an `abci_query`
- * call to get around it.
+ * The module's primary lookup — "how people actually search", as the keeper
+ * puts it — and the one that used to be impossible to make at all. Every real
+ * cadastral reference contains slashes (ACC/GA/2019/00412) and the REST route
+ * bound the reference to a single path segment, so the node answered 501; the
+ * query then moved into the query string, and then the whole REST prefix went
+ * behind a credential.
  *
- * The query now takes the reference in the query string, where a slash is an
- * ordinary character, so the workaround is gone and this is an ordinary read
- * like every other screen. `encodeURIComponent` is still correct and still
- * required — it is what keeps a reference containing `&` or `#` from being
- * read as more parameters.
+ * Over ABCI the reference is a protobuf string field, where a slash is an
+ * ordinary byte and no encoding question arises. The problem is gone rather
+ * than worked around.
  */
-const parcelByRef = (ref) =>
-  getOrNull(`${LAND}/parcel_by_ref?cadastral_ref=${encodeURIComponent(ref)}`);
+const parcelByRef = (ref) => landOrNull('ParcelByRef', ref);
 
-/** The uniqueness check, for the same reason in the query string: the keeper
- *  imposes no encoding on a survey hash, and base64 digests contain slashes. */
-const parcelByGeometry = (hash) =>
-  getOrNull(`${LAND}/parcel_by_geometry?geometry_hash=${encodeURIComponent(hash)}`);
+/** The uniqueness check. Same reasoning: a survey hash may be any string the
+ *  surveyor chose, and a protobuf field does not care what is in it. */
+const parcelByGeometry = (hash) => landOrNull('ParcelByGeometry', hash);
 
 /**
  * The registry's standing permission to fractionalise one parcel, and whether
@@ -742,75 +793,11 @@ const parcelByGeometry = (hash) =>
  * refuse to mint.
  */
 const fractionalisationAuthority = (parcelId) =>
-  getOrNull(`${LAND}/fractionalisation_authority/${encodeURIComponent(parcelId)}`);
+  landOrNull('FractionalisationAuthority', parcelId);
 
-const params = () => once('params', async () => (await get(`${LAND}/params`)).params);
-const authorities = () => once('offices', async () => (await get(`${LAND}/authorities`)).authorities || []);
-
-/**
- * Transaction search, used for the two things the module's state cannot answer:
- * which titles were registered recently, and what fractionalisation has been
- * authorised. It is a *different kind* of source from a state query — it is the
- * record of what was sent, not of what is held — so every panel fed by it says
- * so, and degrades to an honest blank rather than an empty-looking success.
- *
- * On a hardened deployment this endpoint sits behind the operator's basic-auth
- * gate and answers 401. That is a legitimate configuration, not a bug, and the
- * caller renders it as such.
- */
-async function txsOf(msgType, limit = 30) {
-  const url = `${REST}/cosmos/tx/v1beta1/txs`
-    + `?query=${encodeURIComponent(`message.action='${msgType}'`)}`
-    + `&limit=${limit}&order_by=ORDER_BY_DESC`;
-  const data = await get(url);
-  const out = [];
-  (data.tx_responses || []).forEach((r, i) => {
-    const body = (data.txs || [])[i]?.body;
-    (body?.messages || []).forEach((m) => {
-      if (m['@type'] === msgType) out.push({ msg: m, height: r.height, code: r.code, hash: r.txhash });
-    });
-  });
-  return out;
-}
-
-// Block heights are the chain's clock and nobody thinks in them. Each height
-// shown is resolved to its actual block time rather than estimated from an
-// average: an estimated date on a land record is a date somebody will one day
-// cite in court.
-//
-// Held to three at a time. A parcel with a long history asks for a dozen
-// blocks at once, and firing them all is fine on a desk and miserable on the
-// connection this page is actually opened on — where the browser's own
-// connection limit turns a burst into a queue with nothing rendering behind it.
-const blockTimes = new Map();
-let inFlight = 0;
-const waiting = [];
-function slot() {
-  if (inFlight < 3) { inFlight += 1; return Promise.resolve(); }
-  return new Promise((r) => waiting.push(r));
-}
-function release() {
-  const next = waiting.shift();
-  if (next) next(); else inFlight -= 1;
-}
-
-async function blockTime(height) {
-  const h = String(height);
-  if (blockTimes.has(h)) return blockTimes.get(h);
-  const p = (async () => {
-    await slot();
-    try {
-      const b = await get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/${h}`);
-      return b?.block?.header?.time || null;
-    } catch {
-      return null;  // pruned, or the node will not serve it
-    } finally {
-      release();
-    }
-  })();
-  blockTimes.set(h, p);
-  return p;
-}
+const params = () => once('params', async () => (await landQuery('Params')).params);
+const authorities = () => once('offices', async () =>
+  (await landQuery('Authorities')).authorities || []);
 
 // ---------------------------------------------------------------------------
 // Naming things the way the people reading this name them.
@@ -819,8 +806,31 @@ async function blockTime(height) {
 const OFFICE = new Map();   // address -> Authority
 const PERSON = new Map();   // address -> user ID, or null
 
+/**
+ * Whether each office can actually act, cached for the visit.
+ *
+ * Being in `query land authorities` is only half of being an office. The other
+ * half is a ROLE_REGISTRY_AUTHORITY grant in x/alias covering the same country,
+ * and without it the office is listed, marked active, and refused by every
+ * message it sends. Measured on this chain at height 95,131: four offices
+ * admitted in CD, none of them holding a grant.
+ *
+ * `true`, `false` and `null` are three different answers and the page draws
+ * three different things. `null` is "this page could not ask", which is not
+ * "this office cannot act" — those are opposite claims about somebody's
+ * registry.
+ */
+const STANDING = new Map();   // address -> true | false | null
+
 async function loadOffices() {
   (await authorities()).forEach((a) => OFFICE.set(a.address, a));
+}
+
+async function standingOf(office) {
+  if (!STANDING.has(office.address)) {
+    STANDING.set(office.address, canAct(office));
+  }
+  return STANDING.get(office.address);
 }
 
 /**
@@ -849,8 +859,7 @@ async function personLabel(addr) {
   if (!PERSON.has(addr)) {
     PERSON.set(addr, (async () => {
       try {
-        const r = await get(`${REST}/yamale/blockchain/alias/v1/alias_of/${addr}`);
-        return r?.alias?.id || null;
+        return await aliasOf(addr);
       } catch { return null; }
     })());
   }
@@ -1212,6 +1221,336 @@ function action(title, note, spec, office = false) {
   </div>`;
 }
 
+// ===========================================================================
+// SIGNING.
+//
+// The console now signs three of x/land's twelve messages, proposes seven to
+// an office, composes one as a command and explains the last as a governance
+// vote. Which is which — and the reasoning for each — is in registrar.js, and
+// this section is only the plumbing.
+//
+// The rule that keeps it honest is that nothing below chooses. Every entry
+// point goes through `personalMessage` or `officeProposal`, both of which throw
+// on a message whose shape does not permit them. A screen written in a hurry
+// therefore cannot decide for itself that an office message is signable; it
+// gets an exception instead of a signature.
+// ===========================================================================
+
+/**
+ * Who is signing, remembered for the length of a visit and no longer.
+ *
+ * Not persisted. A land register is consulted on shared and borrowed devices —
+ * a phone passed across a counter is the normal case — and an address left in
+ * localStorage is the next person's starting point. Reconnecting costs one
+ * click and the wallet remembers its own unlock.
+ */
+let SIGNER = null;
+
+const signerBar = () => document.getElementById('signer');
+
+function renderSigner() {
+  const el = signerBar();
+  if (!el) return;
+  el.innerHTML = SIGNER
+    ? `<span class="pill p-ok">ready to sign</span>
+       <span class="small">${esc(SIGNER.label ?? 'Signing as')}</span>
+       ${idHtml(SIGNER.address, 'your account')}
+       <button class="copy" id="signer-out">sign out</button>`
+    : `<button class="btn" id="signer-in">Connect your Yamale wallet</button>
+       <span class="muted small">Only to act. Reading this register needs no account, and
+         nobody is told that you looked.</span>`;
+  const inBtn = document.getElementById('signer-in');
+  if (inBtn) inBtn.onclick = () => connect().then(renderSigner).catch(() => renderSigner());
+  const outBtn = document.getElementById('signer-out');
+  if (outBtn) outBtn.onclick = () => { SIGNER = null; renderSigner(); route(); };
+}
+
+/**
+ * Connect, and find out what the chain already knows about this account.
+ *
+ * The user ID is looked up so the page can say "User NG-K3M9-7QRT-5" rather
+ * than forty characters of bech32 — the same courtesy every other name on this
+ * page gets, applied to the reader's own.
+ */
+async function connect() {
+  const account = await connectWallet();
+  const id = await aliasOf(account.address);
+  SIGNER = { ...account, label: id ? `User ${groupUserId(id)}` : '' };
+  return SIGNER;
+}
+
+/**
+ * Sign something, put it in a block, and say what happened.
+ *
+ * `where` is the element the outcome is drawn into. The three states are drawn
+ * in it in turn — waiting for the wallet, waiting for the block, and the
+ * result — because the worst version of this screen is the one that goes blank
+ * while a popup is open and leaves somebody unsure whether they have just sold
+ * their land.
+ */
+async function submit(where, messageAnys, memo, { onDone } = {}) {
+  const el = typeof where === 'string' ? document.getElementById(where) : where;
+  const say = (html) => { el.innerHTML = html; };
+
+  if (!SIGNER) {
+    try {
+      say(`<p class="spin">Waiting for the wallet window…</p>`);
+      await connect();
+      renderSigner();
+    } catch (e) {
+      say(walletFailure(e));
+      return null;
+    }
+  }
+
+  say(`<div class="card card--waiting"><p class="lede">Check this in your wallet</p>
+    <p class="muted small">The wallet's own window shows what is about to be signed. Nothing
+      is sent until you approve it there — and this page cannot approve it for you, which is
+      the point of it being a separate window.</p></div>`);
+
+  let outcome;
+  try {
+    outcome = await signAndSend(SIGNER, messageAnys, memo);
+  } catch (e) {
+    say(walletFailure(e));
+    return null;
+  }
+
+  if (!outcome.accepted) {
+    say(refusalHtml(outcome, 'Nothing was recorded. The node refused this before it '
+      + 'reached a block, so the register is exactly as it was.'));
+    return outcome;
+  }
+  if (!outcome.delivered) {
+    say(`<div class="card card--warn">
+      <p class="lede">Sent, and still waiting for a block</p>
+      <p class="muted small">The transaction is signed and the node has it. This page stopped
+        watching after half a minute, which is not the same as it having failed — do not send
+        it again. Reload in a moment and the register will show whether it ran.</p>
+      <p class="small">Transaction ${idHtml(outcome.hash, 'the transaction')}</p></div>`);
+    return outcome;
+  }
+  if (outcome.code) {
+    say(refusalHtml(outcome, 'It reached a block and the chain refused it there, so nothing '
+      + 'changed in the register.'));
+    return outcome;
+  }
+
+  say(`<div class="card card--ok">
+    <p class="lede">Done, and in the register</p>
+    <p class="muted small">Written in block ${esc(String(outcome.height))}. Everything on this
+      page is read back from the register itself, so reload to see it.</p>
+    <p class="small">Transaction ${idHtml(outcome.hash, 'the transaction')}</p>
+    ${onDone ? onDone(outcome) : ''}</div>`);
+  return outcome;
+}
+
+/**
+ * A refusal, translated, with the chain's own words kept beside it.
+ *
+ * An operator who cannot see the original stops trusting the translation, and
+ * is right to. A refusal this page has not learned yet is shown as itself
+ * rather than smoothed into one it has — that is how "your objection was not
+ * recorded" comes to read as though everything is fine.
+ */
+function refusalHtml(outcome, lead) {
+  const r = explainRefusal(outcome);
+  return `<div class="card card--bad">
+    <p class="lede">The chain refused this</p>
+    <p class="small">${esc(lead)}</p>
+    ${r.known
+      ? `<p style="margin:.5rem 0 0">${esc(r.says)}</p>`
+      : `<p style="margin:.5rem 0 0">This console has not learned what that refusal means.
+           The chain's own words are below, unaltered.</p>`}
+    <details><summary>What the chain said</summary>
+      <pre>${esc(outcome.log || '(no message)')}</pre>
+      <p class="muted small">${esc(outcome.codespace || 'no codespace')} · code ${
+        esc(String(outcome.code ?? '?'))}</p></details>
+  </div>`;
+}
+
+/** The wallet declining is ordinary. Everything else is worth naming. */
+function walletFailure(e) {
+  if (e instanceof WalletRefused && e.declined) {
+    return `<div class="card"><p class="muted small" style="margin:0">Nothing was signed and
+      nothing was sent. ${esc(e.message)}</p></div>`;
+  }
+  if (e instanceof CallFailed && e.status === 'unknown') {
+    return `<div class="card card--warn"><p class="lede">That account is not on the chain yet</p>
+      <p class="muted small">An account comes into existence when something is first sent to
+        it, and until then it cannot sign. Ask whoever is helping you to send it any amount —
+        the fee for these messages is zero on this network, so the amount does not matter.</p>
+      </div>`;
+  }
+  return `<div class="card card--bad"><p class="lede">This could not be signed</p>
+    <p class="small"><code>${esc(e.message)}</code></p>
+    <p class="muted small">Nothing was sent. If the wallet window did not open, allow pop-ups
+      for this site.</p></div>`;
+}
+
+/**
+ * A card for a message this console signs from a person's own key.
+ *
+ * `terminal` is not decoration. Two of the three signable messages cannot be
+ * undone — an objection stops a transfer for good and marks the parcel
+ * disputed, and a completion moves title — and the sentence before the button
+ * is the only protection a person gets. So the catalogue's `terminal` text is
+ * rendered as a distinct block above the control rather than as one more line
+ * of small print, and the button says what it does rather than "confirm".
+ */
+function signCard(name, { heading, body, verb, fields, memo, gather, disabled }) {
+  const spec = ACTIONS[name];
+  const id = `sign${seq++}`;
+  return {
+    html: `<div class="card ${spec.undo === '' ? 'card--grave' : 'card--waiting'}">
+      <div class="row"><h3>${esc(heading ?? spec.title)}</h3>
+        <span class="pill p-brass">you sign this</span></div>
+      ${body ?? ''}
+      <p class="muted small" style="margin:.4rem 0 0"><strong>Who may:</strong> ${esc(spec.who)}.
+        ${esc(spec.why)}</p>
+      ${spec.undo === ''
+        ? `<p class="badbox" style="margin-top:.6rem"><strong>This cannot be undone.</strong>
+             ${esc(spec.terminal)}</p>`
+        : `<p class="muted small" style="margin:.3rem 0 0"><strong>Afterwards:</strong> ${
+             esc(spec.undo)}</p>`}
+      <p style="margin:.8rem 0 0"><button class="primary" id="${id}-go"${
+        disabled ? ' disabled' : ''}>${esc(verb ?? spec.title)}</button></p>
+      <div id="${id}-out"></div>
+    </div>`,
+    wire: () => {
+      const btn = document.getElementById(`${id}-go`);
+      if (!btn) return;
+      btn.onclick = async () => {
+        const out = document.getElementById(`${id}-out`);
+        let values;
+        try {
+          values = gather ? gather() : (fields ?? {});
+        } catch (e) {
+          // A validation refusal, phrased as the chain would refuse it. Better
+          // caught here: the chain's version costs a signature and a block.
+          out.innerHTML = `<p class="err small" style="margin-top:.7rem">${esc(e.message)}</p>`;
+          return;
+        }
+        // Connected before the message is composed, not inside `submit`: the
+        // signer's own address IS a field of every one of these messages, so a
+        // message built before connecting would name `undefined` as its
+        // creator and be refused after a signature had already been given.
+        if (!SIGNER) {
+          out.innerHTML = '<p class="spin">Waiting for the wallet window…</p>';
+          try { await connect(); renderSigner(); }
+          catch (e) { out.innerHTML = walletFailure(e); return; }
+        }
+        btn.disabled = true;
+        try {
+          await submit(out, [personalMessage(name, { ...values, creator: SIGNER.address })],
+            memo ?? '');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    },
+  };
+}
+
+/**
+ * A card for a message only an office can send.
+ *
+ * The button does not sign the land message — it cannot, and the whole module
+ * depends on that. It signs `MsgSubmitProposal` in the registrar's own name,
+ * carrying the land message to the office's group policy, where the office's
+ * own M-of-N then votes. The card says so above the button, because a control
+ * labelled "Validate" that in fact opens a vote would be lying about what the
+ * click did.
+ *
+ * The command is kept beside it, in a disclosure. A registrar with the office's
+ * keyring on a machine may well prefer it, and an operator who cannot see what
+ * the button would send stops trusting the button.
+ */
+function proposeCard(name, { office, officeName, heading, body, fields, summary, cli,
+                             disabled, barred }) {
+  const spec = ACTIONS[name];
+  const id = `prop${seq++}`;
+  const cmd = cli ? officeTx({ ...cli, from: 'your-office-key' }) : null;
+  if (cmd) COPY.set(`${id}-cmd`, cmd);
+  // An office that holds no ROLE_REGISTRY_AUTHORITY grant is refused by every
+  // message it sends, so a proposal put to it spends the office's own quorum on
+  // something the keeper will reject afterwards. Said before the button rather
+  // than discovered after the vote.
+  const barredNote = barred === true
+    ? `<p class="badbox"><strong>${esc(officeName ?? 'This office')} cannot act yet.</strong>
+       It is admitted to the register and holds no
+       <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant, so the chain will refuse this
+       even if every one of its registrars votes for it. That grant is a separate act, in
+       x/alias, and it is <a href="#/offices">composed on Registry offices</a>.</p>`
+    : '';
+  return {
+    html: `<div class="card card--waiting">
+      <div class="row"><h3>${esc(heading ?? spec.title)}</h3>
+        <span class="pill p-mute">put to ${esc(officeName ?? 'the office')}</span></div>
+      ${body ?? ''}
+      <p class="muted small" style="margin:.4rem 0 0"><strong>Who may:</strong> ${esc(spec.who)}.
+        ${esc(spec.why)}</p>
+      ${barredNote}
+      <p class="warnbox" style="margin-top:.6rem">${esc(groupPreamble(officeName ?? 'This office'))}
+        The button below does not act as the office and cannot: it signs a
+        <em>proposal</em> with your own key, and ${esc(officeName ?? 'the office')}'s registrars
+        vote on it afterwards.</p>
+      <p class="muted small" style="margin:.3rem 0 0"><strong>Afterwards:</strong> ${
+        esc(spec.undo)}</p>
+      <p style="margin:.8rem 0 0"><button class="primary" id="${id}-go"${
+        disabled ? ' disabled' : ''}>Put this to ${esc(officeName ?? 'the office')}</button></p>
+      <div id="${id}-out"></div>
+      ${cmd ? `<details><summary>Or run it where the office's keyring is</summary>
+        <div class="cmdhead"><span class="muted small">generated unsigned, then submitted as
+          the same proposal</span>
+          <button class="copy" data-copy="${id}-cmd" data-label="copy the command">copy the
+            command</button></div>
+        <pre>${esc(cmd)}</pre></details>` : ''}
+    </div>`,
+    wire: () => {
+      const btn = document.getElementById(`${id}-go`);
+      if (!btn) return;
+      btn.onclick = async () => {
+        const out = document.getElementById(`${id}-out`);
+        if (!SIGNER) {
+          try { await connect(); renderSigner(); }
+          catch (e) { out.innerHTML = walletFailure(e); return; }
+        }
+        let proposal;
+        try {
+          proposal = officeProposal(name, {
+            office,
+            proposer: SIGNER.address,
+            fields: typeof fields === 'function' ? fields() : fields,
+            metadata: proposalMetadata(name, summary),
+          });
+        } catch (e) {
+          out.innerHTML = `<p class="err small" style="margin-top:.7rem">${esc(e.message)}</p>`;
+          return;
+        }
+        btn.disabled = true;
+        try {
+          await submit(out, [any(proposal.typeUrl, proposal.bytes)], '', {
+            onDone: () => `<p class="small" style="margin:.5rem 0 0">This is now a proposal
+              inside ${esc(officeName ?? 'the office')}, not a change to the register. It takes
+              effect only when enough of its registrars have voted for it.</p>`,
+          });
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    },
+  };
+}
+
+/** Insert a card and wire its button. Composed-then-inserted, so wiring cannot
+ *  happen while composing — see the note above `COPY`. */
+function place(el, cards) {
+  const list = [].concat(cards);
+  el.innerHTML = list.map((c) => (typeof c === 'string' ? c : c.html)).join('');
+  list.forEach((c) => { if (typeof c !== 'string') c.wire(); });
+}
+
 // ---------------------------------------------------------------------------
 // Screens.
 // ---------------------------------------------------------------------------
@@ -1219,41 +1558,57 @@ function action(title, note, spec, office = false) {
 const view = document.getElementById('view');
 const banner = document.getElementById('banner');
 /**
- * The banner, and the one status code worth explaining.
+ * The banner, and what a failure here actually means now.
  *
- * A 401 from this deployment does not mean a password exists. The node's REST
- * surface is allowlisted per module path by the proxy in front of it and denies
- * by default, so a 401 means x/land's paths are not in that list — and the
- * symptom is a browser login box with no credentials to type into it, which
- * reads as "you are not allowed to see the register" rather than as "this
- * deployment has not published it yet". Those are opposite facts about a
- * register whose whole design is that reading it is public.
+ * The 401 this used to explain is gone, because the reads moved off the REST
+ * surface that produced it — see the note at the top of this script, and
+ * chain.js. It was worth explaining while it lasted: the proxy allowlists the
+ * node's REST paths per module and denies by default, x/land's prefix was not
+ * on that list, and the symptom was a browser login box with no credentials to
+ * type into it. That reads as "you are not allowed to see the register" rather
+ * than as "this deployment has not published it yet", and those are opposite
+ * facts about a register whose whole design is that reading it is public.
+ *
+ * What is left is a genuine failure to reach the node, and the thing a reader
+ * has to be told about one is that nothing below it is a statement about any
+ * title. "No objection against this land" and "this page could not ask" look
+ * identical on a screen.
  */
 const setBanner = (e) => {
   if (!e) { banner.innerHTML = ''; return; }
-  const denied = e.status === 401 || e.status === 403;
   banner.innerHTML = `<p class="err">
-    <strong>The register did not answer.</strong> <code>${esc(e.message)}</code>${
-    denied ? `<br>A ${esc(String(e.status))} here is not a password prompt: this deployment's
-      proxy allowlists the node's REST paths per module and denies everything else, and
-      <code>/yamale/blockchain/land/</code> is not on that list. The register is public by design
-      — x/land publishes no "list every owner" query precisely so that the rest of it can be open
-      — so this is a deployment that has not published it yet rather than a register you are
-      barred from. Nothing on this page is a statement about any title until it is fixed.` : ''}
-    </p>`;
+    <strong>The register did not answer.</strong> <code>${esc(e.message)}</code>
+    <br>Nothing on this page is a statement about any title while this is showing. The
+    register is read over the node's public interface at <code>/api/rpc/</code>, which
+    needs no account and no password, so this is the node being unreachable from here
+    rather than a register you are barred from.</p>`;
 };
 
+/**
+ * Four, and the fourth one is new.
+ *
+ * "Register a parcel" and "Fractionalisation" left the masthead and did not
+ * leave the console: both are office acts, and a top-level tab for each made
+ * the navigation of a public register read as the navigation of a staff tool.
+ * They are reached from "What can be done", which lists all twelve of x/land's
+ * messages with who may send each — and which is the honest front page for a
+ * chain with no offices and no parcels on it yet, where every other screen can
+ * only say "none".
+ */
 const ROUTES = [
   ['#/', 'Search a title'],
   ['#/pending', 'Transfers under way'],
-  ['#/authorisations', 'Fractionalisation'],
-  ['#/register', 'Register a parcel'],
   ['#/offices', 'Registry offices'],
+  ['#/actions', 'What can be done'],
 ];
 
 function renderNav(hash) {
   document.getElementById('nav').innerHTML = ROUTES.map(([h, label]) => {
-    const on = h === '#/' ? (hash === '#/' || hash === '' || hash.startsWith('#/parcel') || hash.startsWith('#/transfer')) : hash.startsWith(h);
+    const on = h === '#/'
+      ? (hash === '#/' || hash === '' || hash.startsWith('#/parcel') || hash.startsWith('#/transfer'))
+      : h === '#/actions'
+        ? (hash.startsWith('#/actions') || hash === '#/register' || hash === '#/authorisations')
+        : hash.startsWith(h);
     return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${label}</a>`;
   }).join('');
 }
@@ -1272,6 +1627,7 @@ async function screenSearch(query) {
       No account is needed and nobody is told that you looked. Reading the register is
       public on purpose: the secrecy that protects a corrupt registry is the same
       secrecy that stops a buyer discovering the land was already sold.</p>
+    <div id="blocking"></div>
     <div id="results"></div>
     <div id="recent"></div>`;
 
@@ -1280,6 +1636,11 @@ async function screenSearch(query) {
     const v = document.getElementById('q').value.trim();
     location.hash = v ? `#/?q=${encodeURIComponent(v)}` : '#/';
   };
+
+  // The empty state, drawn first and drawn from the chain. On a register with
+  // no offices this is the whole truth of the page, and it must not arrive
+  // underneath a search box that implies there is something to find.
+  await blockingNotice(document.getElementById('blocking'));
 
   if (query) await runSearch(query);
   else await recentlyRegistered();
@@ -1298,30 +1659,34 @@ async function runSearch(q) {
   const found = new Map();
   const failures = [];
 
-  const attempt = async (what, url, pick) => {
+  const attempt = async (what, ask, pick) => {
     tried.push(what);
     try {
-      const r = await getOrNull(url);
+      const r = await ask();
       if (r) pick(r);
     } catch (e) { failures.push(`${what} — ${e.message}`); }
   };
 
   const add = (p) => { if (p) found.set(p.id, p); };
 
-  // Parcel numbers start at 1. The register never issues parcel 0: a zero id
-  // is indistinguishable from an unset protobuf field, and x/tokenisation says
-  // "this vehicle is over land" by carrying a parcel id — so a parcel 0 would
-  // make every warehouse receipt on the chain look like a vehicle over the
-  // first field this registry ever recorded. A "0" typed here is therefore a
-  // reference, not a number, and falls through to the reference lookup below.
+  // Parcel numbers start at 1, and TRANSFER numbers start at 0. The two are
+  // not the same rule and the difference is in the keeper, not in taste:
+  // x/land/keeper/msg_server_parcel.go calls `NextParcelID.Next` and then, if
+  // it got 0, calls it again — because a zero id is indistinguishable from an
+  // unset protobuf field, and x/tokenisation says "this vehicle is over land"
+  // by carrying a parcel id, so a parcel 0 would make every warehouse receipt
+  // on the chain look like a vehicle over the first field this registry ever
+  // recorded. msg_server_transfer.go does no such thing, so transfer 0 is
+  // real and `#/transfer/0` must work. A "0" typed into this box is therefore
+  // a reference, not a parcel number, and falls through to the lookups below.
   if (/^[1-9][0-9]*$/.test(q)) {
-    await attempt('parcel number', `${LAND}/parcel/${encodeURIComponent(q)}`, (r) => add(r.parcel));
+    await attempt('parcel number', () => landOrNull('Parcel', q), (r) => add(r.parcel));
   }
   if (/^[0-9a-f]{32,}$/i.test(q)) {
-    await attempt('survey hash', `${LAND}/parcel_by_geometry?geometry_hash=${encodeURIComponent(q)}`, (r) => add(r.parcel));
+    await attempt('survey hash', () => parcelByGeometry(q), (r) => add(r.parcel));
   }
   if (/^yml1[0-9a-z]{20,}$/.test(q)) {
-    await attempt('account reference', `${LAND}/parcels_by_holder/${encodeURIComponent(q)}`,
+    await attempt('account reference', () => landOrNull('ParcelsByHolder', q),
       (r) => (r.parcels || []).forEach(add));
   } else if (/^[A-Za-z0-9-]{4,24}$/.test(q)) {
     // A user ID resolves to an account, and the account is then asked what it
@@ -1330,9 +1695,9 @@ async function runSearch(q) {
     // screen as the register failing when nothing failed at all.
     tried.push('user ID');
     try {
-      const a = await getOrNull(`${REST}/yamale/blockchain/alias/v1/alias/${encodeURIComponent(q)}`);
-      if (a?.alias?.address) {
-        const r = await getOrNull(`${LAND}/parcels_by_holder/${a.alias.address}`);
+      const address = await addressOfAlias(q);
+      if (address) {
+        const r = await landOrNull('ParcelsByHolder', address);
         (r?.parcels || []).forEach(add);
       }
     } catch (e) { failures.push(`user ID — ${e.message}`); }
@@ -1359,7 +1724,7 @@ async function runSearch(q) {
   }
 
   const cards = await Promise.all(parcels.map(async (p) => {
-    const ts = await getOrNull(`${LAND}/transfers_by_parcel/${p.id}`);
+    const ts = await landOrNull('TransfersByParcel', p.id);
     const v = verdict(p, ts?.transfers || []);
     return `<a class="card hit verdict verdict--${v.tone}" href="#/parcel/${p.id}">
       <div class="row">
@@ -1399,10 +1764,14 @@ async function recentlyRegistered() {
   }
   const ok = rows.filter((r) => r.code === 0);
   if (!ok.length) {
+    // Deliberately terse. When the register is empty because no office has been
+    // admitted, `blockingNotice` above has already said so at length, and
+    // repeating it here would make the page read as two complaints about the
+    // same thing.
     el.innerHTML = `<h2>Recently registered</h2>
-      <div class="card"><p class="muted small">No parcel has been registered on this chain yet.
-        The register is empty — not unreachable. An office can open the first title from
-        <a href="#/register">Register a parcel</a>.</p></div>`;
+      <div class="card"><p class="muted small" style="margin:0">No parcel has been registered
+        on this chain yet. The transaction log answered — the register is empty, not
+        unreachable.</p></div>`;
     return;
   }
   const items = await Promise.all(ok.slice(0, 10).map(async (r) => {
@@ -1433,16 +1802,18 @@ async function recentlyRegistered() {
 async function screenParcel(id) {
   view.innerHTML = '<p class="spin">Reading the title…</p>';
   // Refused before the call rather than after it. The register has no parcel 0
-  // and never will — see the note in runSearch — so asking for one and
-  // reporting "the register answered" would be reporting something that did
-  // not happen.
+  // and never will — the keeper steps past it, see the note in runSearch — so
+  // asking for one and reporting "the register answered" would be reporting
+  // something that did not happen. There is no equivalent gate on
+  // `#/transfer/…`, and there must not be: transfer 0 is a real transfer.
   if (!/^[1-9][0-9]*$/.test(id)) {
     view.innerHTML = `<div class="card"><h3>No parcel ${esc(id)}</h3>
-      <p class="muted small">Parcel numbers start at 1.</p>
+      <p class="muted small">Parcel numbers start at 1. (Transfer numbers start at 0 — if you
+      meant a transfer, it is <a href="#/transfer/${esc(id)}">#/transfer/${esc(id)}</a>.)</p>
       <p><a href="#/">Search by cadastral reference instead</a></p></div>`;
     return;
   }
-  const res = await getOrNull(`${LAND}/parcel/${encodeURIComponent(id)}`);
+  const res = await landOrNull('Parcel', id);
   if (!res) {
     view.innerHTML = `<div class="card"><h3>No parcel ${esc(id)}</h3>
       <p class="muted small">The register answered, and holds no title with that number.</p>
@@ -1451,7 +1822,7 @@ async function screenParcel(id) {
   }
   const p = res.parcel;
   const [ts, prm] = await Promise.all([
-    getOrNull(`${LAND}/transfers_by_parcel/${p.id}`).catch(() => null),
+    landOrNull('TransfersByParcel', p.id).catch(() => null),
     params(),
   ]);
   const transfers = ts?.transfers || [];
@@ -1501,6 +1872,9 @@ async function screenParcel(id) {
     <h2>Limits on what may be done with it</h2>
     <div id="limits"></div>
 
+    <h2>Acting on this title</h2>
+    <div id="parcel-acts"><p class="spin">Working out what can be done…</p></div>
+
     <h2>Chain of title</h2>
     <p class="muted small" style="margin:0 0 .5rem">Every deed, every claim, and every transfer
       with the offices that signed it. This is the receipt a dispossessed owner does not
@@ -1543,6 +1917,315 @@ async function screenParcel(id) {
 
   document.getElementById('history').innerHTML = await historyHtml(p, transfers, prm);
   if (p.status === 'STATUS_FROZEN') await whyFrozen(p);
+  await parcelActions(p, transfers, prm);
+}
+
+/**
+ * Everything x/land lets somebody do to one parcel, on the parcel.
+ *
+ * Nine of the twelve messages act on a parcel, and before this they were
+ * reachable from nowhere at all — the console composed two of them, on their
+ * own screens, and the rest existed only in the module. Putting them here is
+ * not tidiness: a restriction, an encumbrance and a deed are all things a
+ * registrar decides while looking at the title, and a console that makes them
+ * navigate away to a form loses the record they were reading.
+ *
+ * The order is by who acts, and the holder comes first. This is their land.
+ */
+async function parcelActions(p, transfers, prm) {
+  const el = document.getElementById('parcel-acts');
+  const office = officeLabel(p.authority);
+  const barred = OFFICE.has(p.authority)
+    ? (await standingOf(OFFICE.get(p.authority))) === false
+    : false;
+  const open = (transfers || []).find((t) => t.completed_at === '0' && !t.objected_by);
+  const cards = [];
+
+  /* ---- the holder ---------------------------------------------------- */
+
+  if (open) {
+    cards.push(`<div class="card card--warn"><p class="lede">A transfer is already under way</p>
+      <p class="small">No second transfer can start while one is open — that refusal is the
+        on-chain form of selling the same land twice.
+        <a href="#/transfer/${esc(open.id)}">Follow transfer ${esc(open.id)} →</a></p></div>`);
+  } else if (p.status !== 'STATUS_REGISTERED') {
+    cards.push(`<div class="card"><p class="muted small" style="margin:0">This parcel is
+      ${esc(String(p.status).replace('STATUS_', '').toLowerCase().replace(/_/g, ' '))}, so no
+      transfer can begin. That is a stop rather than a warning, and it is lifted by the office
+      or by a court, not from this page.</p></div>`);
+  } else {
+    cards.push(signCard('ProposeTransfer', {
+      heading: 'Offer this land to a buyer',
+      verb: 'Offer this land',
+      body: `<p class="small" style="margin:.2rem 0 .3rem">Only ${esc(await personLabel(p.holder))}
+          can send this, because they hold the land. If that is not you the chain will refuse
+          it, and it will refuse it before anything moves.</p>
+        <label for="pt-to">The buyer's account reference</label>
+        <input id="pt-to" placeholder="yml1…">
+        <label for="pt-price">Declared price — recorded, never moved by the chain</label>
+        <input id="pt-price" placeholder="4200 USD">
+        <p class="muted small" style="margin:.3rem 0 0">The chain does not move the money.
+          Land paid for off-chain is the common case and pretending otherwise would make the
+          record false — so this is the consideration <em>as declared</em>, for the audit
+          trail, and a buyer should read it as a claim rather than as a receipt.</p>`,
+      gather: () => {
+        const to = document.getElementById('pt-to').value.trim();
+        if (!to) throw new Error('A transfer needs a buyer. Nothing was sent.');
+        if (to === p.holder) {
+          throw new Error('That is the current holder\u2019s own account. The chain refuses a '
+            + 'transfer to the person who already holds the land.');
+        }
+        return { parcel_id: p.id, to, price: document.getElementById('pt-price').value.trim() };
+      },
+      memo: `propose transfer of parcel ${p.id}`,
+    }));
+  }
+
+  /* ---- the office ---------------------------------------------------- */
+
+  cards.push(proposeCard('AttachDeed', {
+    office: p.authority,
+    officeName: office,
+    body: `<p class="small" style="margin:.2rem 0 .3rem">A grant, a deed of sale, a
+        succession, a court order, a survey. The document itself never goes on the chain.</p>
+      <label for="dd-kind">What the document is</label>
+      <input id="dd-kind" placeholder="grant, sale, inheritance, court order, survey">
+      <label for="dd-hash">Document hash</label>
+      <input id="dd-hash" placeholder="the hash of the paper the registry holds">
+      <label for="dd-ref">The registry's reference for it (optional)</label>
+      <input id="dd-ref" placeholder="ACT-1974-221">
+      <label for="dd-uri">Where the registry serves it from (optional)</label>
+      <input id="dd-uri" placeholder="https://registry.example/deeds/4c1f">
+      <label for="dd-date">Its date in the paper world (optional)</label>
+      <input id="dd-date" placeholder="1974-06-02">`,
+    fields: () => ({
+      parcel_id: p.id,
+      kind: document.getElementById('dd-kind').value.trim(),
+      document_hash: document.getElementById('dd-hash').value.trim(),
+      reference: document.getElementById('dd-ref').value.trim(),
+      uri: document.getElementById('dd-uri').value.trim(),
+      issued_on: document.getElementById('dd-date').value.trim(),
+    }),
+    barred,
+    summary: `parcel ${p.cadastral_ref}`,
+    cli: { sub: 'attach-deed', args: [p.id, 'KIND', 'HASH'] },
+  }));
+
+  cards.push(proposeCard('RecordEncumbrance', {
+    office: p.authority,
+    officeName: office,
+    body: `<p class="small" style="margin:.2rem 0 .3rem">A claim against the land that is not
+        ownership, and that a buyer would inherit.</p>
+      <label for="en-kind">What kind</label>
+      <input id="en-kind" placeholder="mortgage, lien, right-of-way, caveat">
+      <label for="en-holder">In favour of</label>
+      <input id="en-holder" placeholder="yml1…">
+      <label for="en-detail">The terms, in words the owner can read</label>
+      <textarea id="en-detail" placeholder="12,000 USD over 5 years"></textarea>
+      ${(p.encumbrances || []).length ? `
+      <label for="en-release">Or release one that is already recorded</label>
+      <select id="en-release">
+        <option value="">record a new claim (the fields above)</option>
+        ${(p.encumbrances || []).map((c, i) => `<option value="${i}"${c.released
+          ? ' disabled' : ''}>release entry ${i} — ${esc(kindLabel(c.kind))}${
+          c.released ? ' (already released)' : ''}</option>`).join('')}
+      </select>
+      <p class="muted small" style="margin:.3rem 0 0">A release marks the entry rather than
+        deleting it. An encumbrance that vanishes takes with it the evidence that it ever
+        constrained the title.</p>` : ''}`,
+    fields: () => {
+      const sel = document.getElementById('en-release');
+      // The entries are numbered from zero by `query land parcel`, so entry 0
+      // is a real entry and an empty string is the only "nothing chosen".
+      if (sel && sel.value !== '') return { parcel_id: p.id, release: true, index: Number(sel.value) };
+      return {
+        parcel_id: p.id,
+        kind: document.getElementById('en-kind').value.trim(),
+        holder: document.getElementById('en-holder').value.trim(),
+        detail: document.getElementById('en-detail').value.trim(),
+      };
+    },
+    barred,
+    summary: `parcel ${p.cadastral_ref}`,
+    cli: { sub: 'record-encumbrance', args: [p.id],
+           flags: ['--kind mortgage', '--holder yml1…'] },
+  }));
+
+  cards.push(proposeCard('SetRestriction', {
+    office: p.authority,
+    officeName: office,
+    body: `<p class="small" style="margin:.2rem 0 .3rem">A limit on what may be done with the
+        land. Not a defect in the title — heritage protection is a fact about the ground, not
+        a warning about the seller.</p>
+      <label for="rs-kind">Which limit</label>
+      <select id="rs-kind">
+        ${['agricultural_use_only', 'no_fractionalisation', 'foreign_ownership_capped',
+           'heritage_protected', 'minimum_parcel_size', 'customary_tenure']
+          .map((k) => `<option value="${k}">${esc(kindLabel(k))}</option>`).join('')}
+      </select>
+      <label for="rs-value">The limit itself, where one applies (optional)</label>
+      <input id="rs-value" placeholder="4900 — a 49% ceiling, in basis points">
+      <label for="rs-detail">The grounds, in words the owner can argue with</label>
+      <textarea id="rs-detail"></textarea>
+      ${(p.restrictions || []).length ? `
+      <label for="rs-lift">Or lift one that is in force</label>
+      <select id="rs-lift">
+        <option value="">impose a new limit (the fields above)</option>
+        ${(p.restrictions || []).map((r, i) => `<option value="${i}"${r.lifted
+          ? ' disabled' : ''}>lift entry ${i} — ${esc(kindLabel(r.kind))}${
+          r.lifted ? ' (already lifted)' : ''}</option>`).join('')}
+      </select>` : ''}`,
+    fields: () => {
+      const sel = document.getElementById('rs-lift');
+      if (sel && sel.value !== '') return { parcel_id: p.id, lift: true, index: Number(sel.value) };
+      return {
+        parcel_id: p.id,
+        kind: document.getElementById('rs-kind').value,
+        value: document.getElementById('rs-value').value.trim(),
+        detail: document.getElementById('rs-detail').value.trim(),
+      };
+    },
+    barred,
+    summary: `parcel ${p.cadastral_ref}`,
+    cli: { sub: 'set-restriction', args: [p.id], flags: ['--kind heritage_protected'] },
+  }));
+
+  cards.push(await fractionalisationCard(p, office, barred));
+
+  /* ---- the freeze ---------------------------------------------------- */
+  cards.push(freezeCard(p, office));
+
+  place(el, cards);
+}
+
+/**
+ * The one action this console composes and will not start.
+ *
+ * See registrar.js for the argument. In short: a freeze proposal would work
+ * exactly like the seven above, the office's own vote is required either way,
+ * and what a button changes is the cost of the first move — which, for the one
+ * act that stops everything a holder can do with their land the moment it
+ * lands, is the only part of an extortion a register can affect.
+ *
+ * So the grounds are typed into the command rather than into a form: the field
+ * is required by the keeper, it is what the holder will read, and putting it in
+ * the command means it is present in the thing the office actually runs rather
+ * than remembered at the terminal.
+ */
+function freezeCard(p, office) {
+  const spec = ACTIONS.FreezeParcel;
+  const frozen = p.status === 'STATUS_FROZEN';
+  const id = `frz${seq++}`;
+  return {
+    html: `<div class="card card--grave">
+      <div class="row"><h3>${frozen ? 'Lift the freeze on this land' : esc(spec.title)}</h3>
+        <span class="pill p-warn">composed here, run at the office</span></div>
+      <p class="small" style="margin:.2rem 0 0">${frozen
+        ? 'Returning the parcel to REGISTERED. The freeze and the lift both stay on the '
+          + 'record, with the office that ordered each and the grounds it gave.'
+        : 'A freeze stops every dealing with this land in the block it lands in.'}</p>
+      <p class="muted small" style="margin:.4rem 0 0"><strong>Who may:</strong> ${esc(spec.who)}.</p>
+      <p class="badbox" style="margin-top:.6rem">${esc(spec.why)}</p>
+      <label for="${id}-why">${frozen ? 'Grounds for lifting it' : 'Grounds — required, and recorded on the parcel'}</label>
+      <textarea id="${id}-why" placeholder="${frozen
+        ? 'inquiry closed, no finding'
+        : 'court order 2026/114, fraud inquiry'}"></textarea>
+      <p style="margin:.7rem 0 0"><button class="btn" id="${id}-go">Compose the ${
+        frozen ? 'lift' : 'freeze'} order</button></p>
+      <div id="${id}-out"></div>
+    </div>`,
+    wire: () => {
+      const btn = document.getElementById(`${id}-go`);
+      if (!btn) return;
+      btn.onclick = () => {
+        const why = document.getElementById(`${id}-why`).value.trim();
+        const out = document.getElementById(`${id}-out`);
+        if (!frozen && !why) {
+          out.innerHTML = `<p class="err small" style="margin-top:.7rem">A freeze needs
+            grounds, and the chain refuses one without them. A stop whose grounds nobody can
+            read is one nobody can argue with, which is the point of writing it down.</p>`;
+          return;
+        }
+        out.innerHTML = action(
+          frozen ? `Lift the freeze on ${p.cadastral_ref}` : `Freeze ${p.cadastral_ref}`,
+          groupPreamble(office) + ' Nothing is sent from this page.',
+          { sub: 'freeze-parcel', args: [p.id, why].filter((x) => x !== ''),
+            flags: frozen ? ['--unfreeze'] : [],
+            from: 'your-office-key' },
+          true);
+      };
+    },
+  };
+}
+
+/** The office's permission for shares to be sold over this parcel. */
+async function fractionalisationCard(p, office, barred) {
+  const forbidden = (p.restrictions || [])
+    .some((r) => !r.lifted && r.kind === 'no_fractionalisation');
+  const existing = await fractionalisationAuthority(p.id).catch(() => null);
+  const live = Boolean(existing?.live);
+  const id = `frc${seq++}`;
+
+  return proposeCard('AuthoriseFractionalisation', {
+    office: p.authority,
+    officeName: office,
+    heading: live ? 'Change or withdraw the fractionalisation permission' : ACTIONS.AuthoriseFractionalisation.title,
+    body: `${forbidden ? `<p class="badbox" style="margin:.2rem 0"><strong>A restriction on
+        this parcel forbids fractionalisation.</strong> A restriction outranks the office's own
+        permission and the keeper refuses this, so lift the restriction first — otherwise
+        recording restrictions would be decorative.</p>` : ''}
+      ${live ? `<p class="small" style="margin:.2rem 0">A permission is already live over this
+        parcel. Granting again replaces its terms rather than adding to them: a parcel
+        carrying two ceilings has the higher one.</p>` : ''}
+      <label for="${id}-right">What may be sold — never the title</label>
+      <input id="${id}-right" placeholder="an exploitation right, a lease, a revenue share"
+        value="${esc(existing?.authorisation?.right ?? '')}">
+      <label for="${id}-bps">Ceiling, as a percentage of that right</label>
+      <input id="${id}-bps" inputmode="decimal" placeholder="60"
+        value="${existing?.authorisation ? esc((Number(existing.authorisation.max_share_bps) / 100).toString()) : ''}">
+      <label for="${id}-until">Runs until</label>
+      <input id="${id}-until" type="date">
+      <p class="muted small" style="margin:.3rem 0 0">An expiry is required and must be in the
+        future. A permission with none sits open for years, which is the thing that field
+        exists to prevent.</p>
+      <label for="${id}-wd">Or withdraw it</label>
+      <select id="${id}-wd">
+        <option value="">grant or replace the permission (the fields above)</option>
+        <option value="1"${live ? '' : ' disabled'}>withdraw the permission${
+          live ? '' : ' (there is none to withdraw)'}</option>
+      </select>`,
+    fields: () => {
+      if (document.getElementById(`${id}-wd`).value === '1') {
+        return { parcel_id: p.id, withdraw: true };
+      }
+      const pct = Number(document.getElementById(`${id}-bps`).value);
+      const until = document.getElementById(`${id}-until`).value;
+      if (!(pct > 0) || pct > 100) {
+        throw new Error('The ceiling must be between 0.01% and 100%. The chain stores it in '
+          + 'basis points and refuses anything outside 1 to 10,000.');
+      }
+      if (!until) throw new Error('An expiry is required, and it must be in the future.');
+      const seconds = Math.floor(new Date(`${until}T23:59:59`).getTime() / 1000);
+      if (!(seconds > Math.floor(Date.now() / 1000))) {
+        throw new Error('That expiry is not in the future. The chain refuses it — an '
+          + 'authorisation that has already lapsed is indistinguishable from an unset field.');
+      }
+      return {
+        parcel_id: p.id,
+        right: document.getElementById(`${id}-right`).value.trim(),
+        // Basis points, and rounded rather than truncated: 60.005% typed by a
+        // clerk should not silently become 6000 rather than 6001, and the
+        // ceiling is compared against what the tokens carry.
+        max_share_bps: Math.round(pct * 100),
+        expires_at: seconds,
+      };
+    },
+    summary: `parcel ${p.cadastral_ref}`,
+    cli: { sub: 'authorise-fractionalisation', args: [p.id],
+           flags: ['--right exploitation', '--max-share-bps 6000', '--expires-at 1790000000'] },
+    disabled: forbidden,
+    barred,
+  });
 }
 
 /**
@@ -1687,7 +2370,7 @@ async function historyHtml(p, transfers, prm) {
 
 async function screenTransfer(id) {
   view.innerHTML = '<p class="spin">Reading the transfer…</p>';
-  const res = await getOrNull(`${LAND}/transfer/${encodeURIComponent(id)}`);
+  const res = await landOrNull('Transfer', id);
   if (!res) {
     view.innerHTML = `<div class="card"><h3>No transfer ${esc(id)}</h3>
       <p class="muted small">The register answered, and holds no transfer with that number.</p></div>`;
@@ -1695,7 +2378,7 @@ async function screenTransfer(id) {
   }
   const t = res.transfer;
   const [pr, prm] = await Promise.all([
-    getOrNull(`${LAND}/parcel/${t.parcel_id}`), params(),
+    landOrNull('Parcel', t.parcel_id), params(),
   ]);
   const p = pr?.parcel;
   const st = stage(t, p, prm);
@@ -1705,7 +2388,13 @@ async function screenTransfer(id) {
       <div class="label">Transfer ${esc(t.id)} · ${
         p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</div>
       <div class="row" style="align-items:flex-start">
-        <div class="verdict__head" style="margin-top:.2rem">What this is waiting for</div>
+        <!-- A transfer that has finished is not waiting for anything, and a
+             heading that says it is makes the reader distrust the sentence
+             under it. Three headings, one per outcome. -->
+        <div class="verdict__head" style="margin-top:.2rem">${
+          st.key === 'done' ? 'This transfer is finished'
+          : st.key === 'objected' ? 'This transfer has been stopped'
+          : 'What this is waiting for'}</div>
         <span class="pill p-${st.tone}">${esc(
           st.key === 'done' ? 'complete' : st.key === 'objected' ? 'stopped' : st.key)}</span>
       </div>
@@ -1731,114 +2420,138 @@ async function screenTransfer(id) {
     <div id="objection"></div>`;
 
   document.getElementById('steps').innerHTML = await stepsHtml(t, p, prm, st);
-  document.getElementById('acts').innerHTML = await actionsFor(t, p, prm, st);
-  // Wired after insertion, not while composing — see the note above `action`.
-  const cmp = document.getElementById('cmp-go');
-  if (cmp) cmp.onclick = () => {
-    const who = document.getElementById('cmp-who').value.trim();
-    document.getElementById('cmp-out').innerHTML = action(
-      `Complete transfer ${t.id}`,
-      'The chain checks every condition and applies the result. Nothing here is discretionary.',
-      { sub: 'complete-transfer', args: [t.id], from: who || 'your-key' });
-  };
-  renderObjection(t, st);
+  await transferActions(t, p, prm, st);
 }
 
-async function actionsFor(t, p, prm, st) {
-  if (st.key === 'objected') {
-    return `<div class="card"><p class="muted small" style="margin:0">Nothing can be done to this
-      transfer on the chain. It is stopped, the parcel is disputed, and the register's job now is
-      to preserve the evidence rather than to decide who is right. That belongs to a court.</p></div>`;
-  }
-  if (st.key === 'done') {
-    return `<div class="card"><p class="muted small" style="margin:0">This transfer is complete
-      and closed. It is kept rather than deleted: the record of who signed what and when is worth
-      more than the bytes it costs.</p></div>`;
-  }
+/**
+ * What can be done to this transfer now, and by whom.
+ *
+ * Ordered by who is waiting rather than by the module's message list. A
+ * transfer has exactly one next step at a time — that is what the four-party
+ * shape means — so the step it is waiting for is drawn first, as the one card
+ * on the screen carrying the second elevation, and the objection is drawn
+ * beneath it always. Always, because an objection is possible at every point
+ * between the proposal and the completion, and a screen that showed it only
+ * sometimes would be teaching people it is only sometimes allowed.
+ */
+async function transferActions(t, p, prm, st) {
+  const acts = document.getElementById('acts');
+  const objection = document.getElementById('objection');
 
-  const out = [];
-  if (st.key === 'validate' && p) {
-    out.push(action(
-      `Validate — ${officeLabel(p.authority)} only`,
-      groupPreamble(officeLabel(p.authority)) + ' Validating means the office has checked the seller against the paper file it holds.',
-      { sub: 'validate-transfer', args: [t.id], from: 'your-office-key' }, true));
-  }
-  if (st.key === 'attest' && p) {
-    const eligible = (await authorities()).filter((a) => a.active
-      && a.address !== p.authority && !(t.attestors || []).includes(a.address));
-    if (!eligible.length) {
-      out.push(`<div class="card"><p class="err small" style="margin:0">This transfer cannot reach
-        quorum. It needs ${esc(prm.attestation_quorum)} independent attestations, and after
-        excluding ${esc(officeLabel(p.authority))} there are only
-        ${esc((await authorities()).filter((a) => a.active).length - 1)} other active offices in the
-        register. That is a configuration problem for governance, not something an office can fix
-        by signing.</p></div>`);
-    }
-    eligible.forEach((a) => out.push(action(
-      `Attest — ${a.name}`,
-      groupPreamble(a.name) + ` ${esc(officeLabel(p.authority))} cannot attest its own transfer; that is what "independent" means here, and the chain refuses it.`,
-      { sub: 'attest-transfer', args: [t.id], from: 'your-office-key' }, true)));
-  }
-  if (st.key === 'window') {
-    out.push(`<div class="card"><p class="muted small" style="margin:0">Nothing to sign. Every
-      office that had to act has acted, and the transfer is now simply waiting out its challenge
-      window. It can be completed after ${esc(dateTimeOf(st.closesAt))}.</p></div>`);
-  }
-  if (st.key === 'complete') {
-    // An input rather than a placeholder in the document: the one field that
-    // changes per sender is the sender, and a document that has to be
-    // hand-edited before it will sign is a document somebody edits wrongly.
-    out.push(`<div class="card">
-      <h3>Complete this transfer — anyone may</h3>
-      <p class="muted small" style="margin:.1rem 0 .3rem">Not an official act, and not restricted to
-        one. The chain checks the conditions and applies the result, so this can be sent by the
-        buyer, the seller, or a stranger. That is deliberate: if only an official could finalise a
-        transfer, an official could refuse to, and refusal is leverage.</p>
-      <label for="cmp-who">The account you will sign from</label>
-      <input id="cmp-who" placeholder="yml1…">
-      <p style="margin:.7rem 0 0"><button class="primary" id="cmp-go">Compose the completion</button></p>
-      <div id="cmp-out"></div>
-    </div>`);
-  }
-  return out.join('');
-}
-
-function renderObjection(t, st) {
-  const el = document.getElementById('objection');
   if (st.key === 'objected' || st.key === 'done') {
-    el.innerHTML = `<div class="card"><p class="muted small" style="margin:0">${
+    acts.innerHTML = st.key === 'objected'
+      ? `<div class="card"><p class="muted small" style="margin:0">Nothing can be done to this
+          transfer on the chain. It is stopped, the parcel is disputed, and the register's job
+          now is to preserve the evidence rather than to decide who is right. That belongs to
+          a court.</p></div>`
+      : `<div class="card"><p class="muted small" style="margin:0">This transfer is complete
+          and closed. It is kept rather than deleted: the record of who signed what and when
+          is worth more than the bytes it costs.</p></div>`;
+    objection.innerHTML = `<div class="card"><p class="muted small" style="margin:0">${
       st.key === 'objected'
         ? 'This transfer has already been objected to. One objection is enough.'
-        : 'This transfer is complete. An objection can no longer stop it — a court can still undo it, and the record above is what that court would read.'}</p></div>`;
+        : 'This transfer is complete. An objection can no longer stop it — a court can still '
+          + 'undo it, and the record above is what that court would read.'}</p></div>`;
     return;
   }
-  el.innerHTML = `
-    <div class="card">
-      <p class="muted small" style="margin:0 0 .3rem">Anybody may object, and no standing has to be
-        proved. The person being robbed is usually the person with no official relationships, and
-        requiring standing would exclude exactly them. One objection stops the transfer dead and
-        marks the parcel disputed; the chain then preserves the evidence and a court decides.</p>
-      <label for="obj-why">Why you are objecting — this goes on the permanent record</label>
-      <textarea id="obj-why" placeholder="e.g. My late father's estate has not been distributed. The seller is one of four heirs and cannot convey the whole parcel alone. Succession case HC/PR/2024/118."></textarea>
-      <label for="obj-who">Your account reference</label>
-      <input id="obj-who" placeholder="yml1…">
-      <p style="margin:.7rem 0 0"><button class="primary" id="obj-go">Compose the objection</button></p>
-      <div id="obj-out"></div>
-    </div>`;
-  document.getElementById('obj-go').onclick = () => {
-    const why = document.getElementById('obj-why').value.trim();
-    const who = document.getElementById('obj-who').value.trim();
-    const out = document.getElementById('obj-out');
-    if (!why) {
-      out.innerHTML = `<p class="err small" style="margin-top:.7rem">An objection must give a
-        reason — the chain refuses one without it (<code>land error 23</code>). The reason is the
-        whole point: it is what a court reads afterwards.</p>`;
-      return;
+
+  const cards = [];
+
+  if (st.key === 'validate' && p) {
+    // Only one office in the whole register may send this, and the page knows
+    // which. Named rather than offered as a chooser: a list to pick from
+    // implies a choice the chain does not offer, and picking wrong costs the
+    // office a vote on a message the keeper then refuses.
+    cards.push(proposeCard('ValidateTransfer', {
+      office: p.authority,
+      officeName: officeLabel(p.authority),
+      heading: `Validate transfer ${t.id} — ${officeLabel(p.authority)} only`,
+      body: `<p class="small" style="margin:.2rem 0 0">Validating means the office has checked
+        the seller against the paper file it holds. It is the one step that rests on evidence
+        the chain cannot see.</p>`,
+      fields: { transfer_id: t.id },
+      summary: `transfer ${t.id}${p ? `, parcel ${p.cadastral_ref}` : ''}`,
+      cli: { sub: 'validate-transfer', args: [t.id] },
+      barred: OFFICE.has(p.authority)
+        ? (await standingOf(OFFICE.get(p.authority))) === false : false,
+    }));
+  }
+
+  if (st.key === 'attest' && p) {
+    const offices = await authorities();
+    const active = offices.filter((a) => a.active).length;
+    const eligible = offices.filter((a) => a.active
+      && a.address !== p.authority && !(t.attestors || []).includes(a.address));
+    if (!eligible.length) {
+      cards.push(`<div class="card card--bad"><p class="lede">This transfer cannot reach
+        quorum</p><p class="small">It needs ${esc(prm.attestation_quorum)} independent
+        attestations, and after excluding ${esc(officeLabel(p.authority))} there
+        ${active - 1 === 1 ? 'is' : 'are'} only ${esc(String(Math.max(0, active - 1)))} other
+        active ${active - 1 === 1 ? 'office' : 'offices'} in the register. That is a
+        governance problem, not something an office can fix by signing.</p></div>`);
     }
-    out.innerHTML = action('Your objection',
-      'Run this wherever your key is. It halts the transfer in the block it lands in.',
-      { sub: 'object', args: [t.id, why], from: who || 'your-key' });
-  };
+    const attestorStanding = await Promise.all(eligible.map(standingOf));
+    eligible.forEach((a, i) => cards.push(proposeCard('AttestTransfer', {
+      barred: attestorStanding[i] === false,
+      office: a.address,
+      officeName: a.name || shortRef(a.address),
+      heading: `Attest as ${a.name || shortRef(a.address)}`,
+      body: `<p class="small" style="margin:.2rem 0 0">${esc(a.jurisdiction || 'no jurisdiction recorded')}
+        · ${esc(String(st.got))} of ${esc(String(st.quorum))} attestations so far.</p>`,
+      fields: { transfer_id: t.id },
+      summary: `transfer ${t.id}`,
+      cli: { sub: 'attest-transfer', args: [t.id] },
+    })));
+  }
+
+  if (st.key === 'window') {
+    cards.push(`<div class="card"><p class="muted small" style="margin:0">Nothing to sign.
+      Every office that had to act has acted, and the transfer is now simply waiting out its
+      challenge window. It can be completed after ${esc(dateTimeOf(st.closesAt))} — by anyone,
+      including you.</p></div>`);
+  }
+
+  if (st.key === 'complete') {
+    cards.push(signCard('CompleteTransfer', {
+      heading: `Complete transfer ${t.id}`,
+      verb: 'Complete this transfer',
+      body: `<p class="small" style="margin:.2rem 0 0">Every condition is satisfied and the
+        challenge window has closed. This is not an official act and is not restricted to one:
+        the chain checks the conditions and applies the result, so it can be sent by the
+        buyer, the seller, or a stranger who has never seen the land.</p>
+        <dl><dt>Land</dt><dd>${p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</dd>
+          <dt>Passes from</dt><dd>${esc(await personLabel(t.from))}</dd>
+          <dt>Passes to</dt><dd>${esc(await personLabel(t.to))}</dd></dl>`,
+      fields: { transfer_id: t.id },
+      memo: `complete land transfer ${t.id}`,
+    }));
+  }
+
+  place(acts, cards);
+
+  // The objection, always.
+  const objCard = signCard('Object', {
+    heading: 'Object to this transfer',
+    verb: 'Object, and stop this transfer',
+    body: `<p class="small" style="margin:.2rem 0 .5rem">Anybody may object, and no standing
+      has to be proved. The person being robbed is usually the person with no official
+      relationships, and requiring standing would exclude exactly them.</p>
+      <label for="obj-why">Why you are objecting — this goes on the permanent record</label>
+      <textarea id="obj-why" placeholder="e.g. My late father's estate has not been distributed. The seller is one of four heirs and cannot convey the whole parcel alone. Succession case HC/PR/2024/118."></textarea>`,
+    gather: () => {
+      const why = document.getElementById('obj-why').value.trim();
+      if (!why) {
+        // Refused here rather than by the chain. x/land error 23 is the same
+        // refusal and costs a signature and a block to discover, and somebody
+        // watching a sale go through does not have a block to spare.
+        throw new Error('An objection must give a reason — the chain refuses one without it, '
+          + 'and the reason is the whole point: it is what a court reads afterwards.');
+      }
+      return { transfer_id: t.id, reason: why };
+    },
+    memo: `objection to land transfer ${t.id}`,
+  });
+  place(objection, [objCard]);
 }
 
 // --- 4a. Transfers under way ----------------------------------------------
@@ -1852,7 +2565,7 @@ async function screenPending() {
   const el = document.getElementById('list');
   let data, prm;
   try {
-    [data, prm] = await Promise.all([get(`${LAND}/pending_transfers`), params()]);
+    [data, prm] = await Promise.all([landQuery('PendingTransfers'), params()]);
   } catch (e) {
     el.innerHTML = `<p class="err">Could not read the pending transfers. <code>${esc(e.message)}</code><br>
       This list being empty and this list being unavailable are different facts, so nothing is
@@ -1866,7 +2579,7 @@ async function screenPending() {
     return;
   }
   const cards = await Promise.all(ts.map(async (t) => {
-    const pr = await getOrNull(`${LAND}/parcel/${t.parcel_id}`);
+    const pr = await landOrNull('Parcel', t.parcel_id);
     const p = pr?.parcel;
     const st = stage(t, p, prm);
     return `<a class="card hit verdict verdict--${st.tone}" href="#/transfer/${t.id}">
@@ -1891,6 +2604,15 @@ async function screenPending() {
 
 async function screenRegister() {
   const offices = await authorities();
+  // Drawn before the form, and instead of it when there is nobody who could
+  // send what the form composes. A registration form on a chain with no
+  // admitted office is a form whose every output is refused, and offering it
+  // teaches a visitor that the register is broken rather than that it is empty.
+  if (!offices.filter((o) => o.active).length) {
+    view.innerHTML = '<h2>Register a parcel</h2><div id="blocking"></div>';
+    await blockingNotice(document.getElementById('blocking'));
+    return;
+  }
   view.innerHTML = `
     <h2>Register a parcel</h2>
     <p class="muted small" style="margin:0 0 .8rem">First registration: opening a title over ground
@@ -1989,6 +2711,16 @@ async function checkRef(ref) {
   }
 }
 
+/**
+ * The registration, put to the office rather than typed at it.
+ *
+ * The three positionals go in the order autocli declares them — survey hash,
+ * cadastral reference, holder — and the same order is asserted here by naming
+ * the fields rather than by position, which is the point of composing a
+ * message instead of a command string. Getting that order wrong would register
+ * the reference as the survey and the survey as the reference, and the chain
+ * would accept it: both are free-form strings to the keeper.
+ */
 function composeRegistration() {
   const geom = document.getElementById('geom').value.trim();
   const ref = document.getElementById('ref').value.trim();
@@ -2005,15 +2737,22 @@ function composeRegistration() {
       ${missing.map(esc).join('; ')}.</p>`;
     return;
   }
-  out.innerHTML = action(
-    `Register ${ref}`,
-    groupPreamble(officeLabel(office)) + ' Nothing is sent from this page — the command below is what the office runs.',
-    // The three positionals in the order autocli declares them: survey hash,
-    // cadastral reference, holder. Getting that order wrong would register the
-    // reference as the survey and the survey as the reference, and the chain
-    // would accept it — both are free-form strings to the keeper.
-    { sub: 'register-parcel', args: [geom, ref, holder], from: 'your-office-key' },
-    true);
+
+  place(out, [proposeCard('RegisterParcel', {
+    office,
+    officeName: officeLabel(office),
+    heading: `Register ${ref}`,
+    body: `<dl>
+        <dt>Survey hash</dt><dd>${idHtml(geom, 'the survey hash')}</dd>
+        <dt>Cadastral reference</dt><dd class="y-mono">${esc(ref)}</dd>
+        <dt>Held by</dt><dd>${idHtml(holder, "the holder's account")}</dd>
+        <dt>Registering office</dt><dd>${esc(officeLabel(office))}${
+          officeWhere(office) ? ` — ${esc(officeWhere(office))}` : ''}</dd>
+      </dl>`,
+    fields: { geometry_hash: geom, cadastral_ref: ref, holder },
+    summary: ref,
+    cli: { sub: 'register-parcel', args: [geom, ref, holder] },
+  })]);
 }
 
 // --- 5. Fractionalisation --------------------------------------------------
@@ -2044,12 +2783,16 @@ async function screenAuthorisations() {
   document.getElementById('auth-go').onclick = async () => {
     const el = document.getElementById('auth-one');
     const raw = document.getElementById('auth-id').value.trim();
-    // Parcel 0 is never issued — a zero id is what an unset protobuf field
-    // looks like, and x/tokenisation says "this vehicle is over land" by
-    // carrying one. Treating 0 as a parcel would make every warehouse receipt
-    // on the chain look like a vehicle over the first field ever registered.
+    // Parcel 0 is never issued, and this is the keeper's doing rather than a
+    // convention: msg_server_parcel.go calls NextParcelID.Next and, if it got
+    // 0, calls it again. A zero id is what an unset protobuf field looks like,
+    // and x/tokenisation says "this vehicle is over land" by carrying one — so
+    // a parcel 0 would make every warehouse receipt on the chain look like a
+    // vehicle over the first field this registry ever recorded. TRANSFER 0 is
+    // real, and this rule does not apply to it.
     if (!/^[1-9][0-9]*$/.test(raw)) {
-      el.innerHTML = `<p class="err small" style="margin-top:.7rem">Parcel numbers start at 1.</p>`;
+      el.innerHTML = `<p class="err small" style="margin-top:.7rem">Parcel numbers start at 1 —
+        the register never issues parcel 0. Transfer numbers do start at 0.</p>`;
       return;
     }
     el.innerHTML = '<p class="spin">Asking…</p>';
@@ -2113,7 +2856,7 @@ async function screenAuthorisations() {
  * chain and the console must not disagree about what live means.
  */
 async function authorisationCard(parcelId, res) {
-  const pr = await getOrNull(`${LAND}/parcel/${encodeURIComponent(parcelId)}`);
+  const pr = await landOrNull('Parcel', parcelId);
   const p = pr?.parcel;
   const title = p
     ? `<a href="#/parcel/${p.id}">${esc(p.cadastral_ref)}</a>`
@@ -2194,28 +2937,35 @@ async function screenOffices() {
     el.innerHTML = `<p class="err">Could not read the offices. <code>${esc(e.message)}</code></p>`;
     return;
   }
-  const active = list.filter((o) => o.active).length;
   const quorum = Number(prm.attestation_quorum);
+  // Asked once, in parallel, before the cards are drawn. Being listed here is
+  // only half of being an office — see standingOf — and an office drawn as
+  // "active" while it holds no role grant is the exact misreport this screen
+  // exists to prevent.
+  const standing = await Promise.all(list.map(standingOf));
   el.innerHTML = `
-    ${active <= quorum ? `<p class="err">The register has ${active} active
-      ${active === 1 ? 'office' : 'offices'} and a transfer needs ${quorum} independent
-      attestations. Since the parcel's own office may not attest, no transfer can ever reach
-      quorum. This is a governance problem — admit more offices, or lower the quorum knowing what
-      that costs.</p>` : ''}
-    ${list.length ? '' : `<div class="card">
-      <p class="lede">No office has been admitted to the register.</p>
-      <p class="muted small">The register answered — this is an empty list, not a failed call.
-        Until governance admits an office nothing can be registered at all: a first registration
-        is an office's act, and a transfer needs ${esc(String(quorum))} more offices than that to
-        attest it. Offices are admitted by the chain's governance and never by each other, which
-        is why this list cannot be filled in from here.</p>
-      <p class="small"><a href="/governance/">Governance is where an office is admitted →</a></p>
-    </div>`}
-    <div class="grid">${list.map((o) => `
-      <div class="card">
+    <div id="blocking"></div>
+    <div class="grid">${list.map((o, i) => `
+      <div class="card${standing[i] === false ? ' card--warn' : ''}">
         <strong style="display:block">${esc(o.name || 'unnamed office')}</strong>
         <p class="muted small" style="margin:.3rem 0 .45rem">${esc(o.jurisdiction || 'no jurisdiction recorded')}</p>
         <span class="pill ${o.active ? 'p-ok' : 'p-mute'}">${o.active ? 'active' : 'not active'}</span>
+        ${standing[i] === true
+          ? '<span class="pill p-ok">may act</span>'
+          : standing[i] === false
+            ? '<span class="pill p-warn">cannot act yet</span>'
+            : '<span class="pill p-mute">standing unknown</span>'}
+        ${standing[i] === false
+          ? `<p class="small" style="margin:.5rem 0 0">Admitted to the register and holding no
+             <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant for
+             ${esc(o.jurisdiction || 'its jurisdiction')}, so every message it sends is refused.
+             Admitting an office takes two acts and this is only the first — the second lives in
+             x/alias, not here.</p>`
+          : standing[i] === null
+            ? `<p class="muted small" style="margin:.5rem 0 0">This page could not read the
+               office’s role grants, so it is not saying whether this office can act. That is
+               not the same as saying it cannot.</p>`
+            : ''}
         <details><summary>Account reference</summary>
           ${idHtml(o.address, "the office's account")}</details>
       </div>`).join('')}
@@ -2233,7 +2983,433 @@ async function screenOffices() {
       </dl>
       <p class="muted small" style="margin:.6rem 0 0">These belong to governance. A chain where an
         official can lower the quorum is a chain with no quorum.</p>
+    </div>
+    <h2>Admitting an office</h2>
+    <div id="grant-missing"></div>
+    <div id="admit"></div>`;
+
+  await blockingNotice(document.getElementById('blocking'));
+  await admitForm(document.getElementById('admit'));
+}
+
+/**
+ * Admitting a registry office — a governance proposal, and said so plainly.
+ *
+ * This is the one message on the console with no signing path at all, and the
+ * reason is the reason the module works: `assertGovernance` gates it so that an
+ * office cannot admit an office, because an office that could would be able to
+ * manufacture the independent attestors every transfer's quorum depends on.
+ * autocli skips it too — there is no `tx land register-authority` to compose.
+ *
+ * So what is offered is the proposal document itself, with both of the two
+ * values that cannot be typed from memory read off the chain: x/gov's own
+ * module account, which is the only authority the message is accepted from, and
+ * the current minimum deposit. Getting the first wrong produces a proposal that
+ * passes its vote and then fails to execute; getting the second wrong produces
+ * one that never enters voting, which from outside looks identical to a
+ * proposal nobody supported.
+ */
+async function admitForm(el) {
+  const spec = ACTIONS.RegisterAuthority;
+  let gov;
+  let deposit;
+  try {
+    [gov, deposit] = await Promise.all([govAuthority(), govMinDeposit()]);
+  } catch (e) {
+    el.innerHTML = `<div class="card"><h3>${esc(spec.title)}</h3>
+      <p class="small">${esc(spec.why)}</p>
+      <p class="err small">The proposal cannot be composed here: this page could not read
+        x/gov's own module account and current deposit from the chain, and both have to be
+        exact. <code>${esc(e.message)}</code></p>
+      <p class="small"><a href="/governance/">The governance console →</a></p></div>`;
+    return;
+  }
+
+  const id = `adm${seq++}`;
+  el.innerHTML = `<div class="card">
+    <div class="row"><h3>${esc(spec.title)}</h3>
+      <span class="pill p-mute">a governance vote</span></div>
+    <p class="small" style="margin:.2rem 0 .3rem">${esc(spec.why)}</p>
+    <p class="warnbox">There is no button here and there cannot be. This message is accepted
+      only from <span class="y-mono">${esc(gov)}</span> — x/gov's own account — so no key on
+      any machine can send it. What is composed below is the proposal the whole chain then
+      votes on.</p>
+    <p class="badbox"><strong>Admitting an office takes two acts, and this page composes
+      both.</strong> <code>MsgRegisterAuthority</code> writes the record
+      <code>query land authorities</code> reads. Every message the office then sends is
+      checked against a <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant in x/alias
+      covering the same country. File only the first and the office is listed here, marked
+      active, and refused by everything it does — which reads as a bug in the admission and
+      is not one.</p>
+    <label for="${id}-addr">The office's account — a group account, not a key</label>
+    <input id="${id}-addr" placeholder="yml1…">
+    <p class="muted small" style="margin:.3rem 0 0">The chain refuses an office that is a
+      single key, so that every decision the office later makes already needs several
+      registrars to agree. A plain key here would make registering a parcel, validating a
+      transfer and freezing land each one bribe.</p>
+    <label for="${id}-name">What the office is called</label>
+    <input id="${id}-name" placeholder="Kinshasa Lands Office">
+    <label for="${id}-juris">Jurisdiction — a two-letter country code</label>
+    <input id="${id}-juris" placeholder="CD" maxlength="2" style="max-width:8rem">
+    <p class="muted small" style="margin:.3rem 0 0">Checked against the countries this chain
+      recognises. Free text here would admit an office to a perimeter no grant can ever cover:
+      it would look admitted and be unable to register a single parcel.</p>
+    <label for="${id}-why">Why the chain should admit it</label>
+    <textarea id="${id}-why" placeholder="What this office is, who runs it, which registrars hold its keys, and what its M-of-N is."></textarea>
+    <p style="margin:.8rem 0 0"><button class="primary" id="${id}-go">Compose the proposal</button></p>
+    <div id="${id}-out"></div>
+  </div>`;
+
+  document.getElementById(`${id}-go`).onclick = () => {
+    const out = document.getElementById(`${id}-out`);
+    const office = document.getElementById(`${id}-addr`).value.trim();
+    const name = document.getElementById(`${id}-name`).value.trim();
+    const juris = document.getElementById(`${id}-juris`).value.trim();
+    const why = document.getElementById(`${id}-why`).value.trim();
+
+    const missing = [];
+    if (!office) missing.push("the office's account");
+    if (!name) missing.push('a name');
+    if (!/^[A-Za-z]{2}$/.test(juris)) missing.push('a two-letter country code');
+    if (missing.length) {
+      out.innerHTML = `<p class="err small" style="margin-top:.7rem">Still needed:
+        ${missing.map(esc).join('; ')}.</p>`;
+      return;
+    }
+
+    const doc = admissionProposal({
+      govAuthority: gov, office, name, jurisdiction: juris,
+      title: `Admit ${name} as a registry office`,
+      summary: why || `Admit ${name} (${juris.toUpperCase()}) to the land register.`,
+      deposit,
+    });
+    const grant = roleGrantProposal({
+      govAuthority: gov, office, name, jurisdiction: juris, deposit,
+    });
+    const cmd = admissionCommand('your-key');
+    const grantCmd = admissionCommand('your-key', 'grant-authority.json');
+    COPY.set(`${id}-doc`, doc);
+    COPY.set(`${id}-grant`, grant);
+    COPY.set(`${id}-cmd`, `${cmd}\n\n${grantCmd}`);
+    out.innerHTML = `
+      <h4 style="margin:.9rem 0 .2rem">Act one — admit the office to the register</h4>
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">admit-office.json</span></span>
+        <button class="copy" data-copy="${id}-doc" data-label="copy act one">copy act
+          one</button></div>
+      <pre>${esc(doc)}</pre>
+      <h4 style="margin:.9rem 0 .2rem">Act two — grant it authority over land in
+        ${esc(juris.toUpperCase())}</h4>
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">grant-authority.json</span></span>
+        <button class="copy" data-copy="${id}-grant" data-label="copy act two">copy act
+          two</button></div>
+      <pre>${esc(grant)}</pre>
+      <p class="muted small" style="margin:.2rem 0 0">Act two may also come from the
+        foundation’s own 3-of-5 rather than from a vote — bringing a country onto the rail is
+        the foundation’s act by design, because it is a sequence of grants that has to land in
+        a particular order. This composes the governance path, which is the one that needs no
+        standing to file.</p>
+      <div class="cmdhead"><span class="muted small">then file them — the deposit
+        (${esc(deposit)} each) is read from the chain, not typed</span>
+        <button class="copy" data-copy="${id}-cmd" data-label="copy both commands">copy both
+          commands</button></div>
+      <pre>${esc(`${cmd}\n\n${grantCmd}`)}</pre>
+      <p class="muted small">Filing them is not admitting the office. Each goes to a vote of
+        the whole chain, which is the point: this is the one decision in the land register that
+        nobody inside the land register gets to make.</p>`;
+  };
+
+  await grantForm(document.getElementById('grant-missing'));
+}
+
+/**
+ * The second act, for offices that already have the first.
+ *
+ * Drawn only when there is an office it applies to. A standing form for a
+ * problem nobody has is a form that teaches people to ignore forms.
+ */
+async function grantForm(el) {
+  if (!el) return;
+  let offices;
+  let gov;
+  let deposit;
+  try {
+    offices = await authorities();
+    [gov, deposit] = await Promise.all([govAuthority(), govMinDeposit()]);
+  } catch { el.innerHTML = ''; return; }
+
+  const standing = await Promise.all(offices.map(standingOf));
+  const barred = offices.filter((_, i) => standing[i] === false);
+  if (!barred.length) { el.innerHTML = ''; return; }
+
+  const id = `grn${seq++}`;
+  el.innerHTML = `<div class="card card--warn">
+    <div class="row"><h3>Grant an admitted office its authority</h3>
+      <span class="pill p-warn">act two, missing</span></div>
+    <p class="small" style="margin:.2rem 0 .3rem">${esc(String(barred.length))}
+      ${barred.length === 1 ? 'office is' : 'offices are'} in the register and cannot act.
+      Until the grant exists, every message ${barred.length === 1 ? 'it sends is' : 'they send is'}
+      refused — including the first registration, so nothing can be recorded at all.</p>
+    <label for="${id}-who">Which office</label>
+    <select id="${id}-who">${barred.map((o) => `<option value="${esc(o.address)}">${
+      esc(o.name || o.address)} — ${esc(o.jurisdiction)}</option>`).join('')}</select>
+    <p style="margin:.8rem 0 0"><button class="primary" id="${id}-go">Compose the grant</button></p>
+    <div id="${id}-out"></div>
+  </div>`;
+
+  document.getElementById(`${id}-go`).onclick = () => {
+    const chosen = barred.find((o) => o.address === document.getElementById(`${id}-who`).value);
+    const doc = roleGrantProposal({
+      govAuthority: gov, office: chosen.address, name: chosen.name || chosen.address,
+      jurisdiction: chosen.jurisdiction, deposit,
+    });
+    const cmd = admissionCommand('your-key', 'grant-authority.json');
+    COPY.set(`${id}-doc`, doc);
+    COPY.set(`${id}-cmd`, cmd);
+    document.getElementById(`${id}-out`).innerHTML = `
+      <div class="cmdhead"><span class="muted small">save as
+        <span class="y-mono">grant-authority.json</span></span>
+        <button class="copy" data-copy="${id}-doc" data-label="copy the proposal">copy the
+          proposal</button></div>
+      <pre>${esc(doc)}</pre>
+      <div class="cmdhead"><span class="muted small">then file it</span>
+        <button class="copy" data-copy="${id}-cmd" data-label="copy the command">copy the
+          command</button></div>
+      <pre>${esc(cmd)}</pre>`;
+  };
+}
+
+// --- 7. What can be done, and by whom -------------------------------------
+
+/**
+ * All twelve of x/land's messages, and what this console can do about each.
+ *
+ * This screen was written because of what the live chain currently holds: zero
+ * registry offices and zero parcels. Every other screen can honestly say only
+ * "none", and a register that answers "none" four times running looks broken
+ * rather than empty. What is true and useful in that state is the shape of the
+ * thing — who may do what, in what order, and what is blocking the first step.
+ *
+ * It is also the page's own audit. The console used to compose two of these
+ * twelve as structured messages and hand the other ten over as strings; listing
+ * them here means a message that quietly loses its affordance is visible rather
+ * than merely absent.
+ */
+const HOW = {
+  sign: { word: 'you can sign this here', cls: 'p-ok' },
+  propose: { word: 'you can put this to an office', cls: 'p-brass' },
+  command: { word: 'composed, run at the office', cls: 'p-warn' },
+  governance: { word: 'a governance vote', cls: 'p-mute' },
+};
+
+/** Where each action is actually reachable from, or null when it is not a
+ *  screen of its own — the transfer ones live on a transfer. */
+const WHERE = {
+  RegisterAuthority: ['#/offices', 'Registry offices'],
+  RegisterParcel: ['#/register', 'Register a parcel'],
+  AuthoriseFractionalisation: ['#/authorisations', 'Fractionalisation'],
+  ProposeTransfer: [null, 'a parcel’s record'],
+  ValidateTransfer: [null, 'a transfer'],
+  AttestTransfer: [null, 'a transfer'],
+  Object: [null, 'a transfer'],
+  CompleteTransfer: [null, 'a transfer'],
+  RecordEncumbrance: [null, 'a parcel’s record'],
+  FreezeParcel: [null, 'a parcel’s record'],
+  AttachDeed: [null, 'a parcel’s record'],
+  SetRestriction: [null, 'a parcel’s record'],
+};
+
+async function screenActions() {
+  view.innerHTML = `<h2>What can be done to land here, and by whom</h2>
+    <p class="muted small" style="margin:0 0 .8rem">Twelve things, and the reason each one is
+      shaped the way it is. Almost every protection in this register is a rule about <em>who
+      may not</em> do something: an office cannot start the sale of your land, an office
+      cannot attest its own transfer, an office cannot admit another office, and no single
+      person inside an office can act for it.</p>
+    <div id="blocking"></div>
+    <div class="acts">${ACTION_NAMES.map((name) => {
+      const a = ACTIONS[name];
+      const how = HOW[a.how];
+      const [href, place] = WHERE[name];
+      return `<div class="card act">
+        <div class="row" style="align-items:flex-start">
+          <h3 style="margin:0">${esc(a.title)}</h3>
+          <span class="pill ${how.cls} act__how">${esc(how.word)}</span>
+        </div>
+        <p class="small" style="margin:0"><strong>Who may:</strong> ${esc(a.who)}.</p>
+        <p class="muted small" style="margin:0">${esc(a.why)}</p>
+        <p class="muted small" style="margin:0"><strong>${a.undo === ''
+          ? 'Nothing undoes this.' : 'Afterwards:'}</strong> ${
+          a.undo === ''
+            ? `<span style="color:var(--bad)">${esc(a.terminal)}</span>`
+            : esc(a.undo)}</p>
+        <p class="small" style="margin:auto 0 0">${href
+          ? `<a href="${href}">${esc(place)} →</a>`
+          : `<span class="muted">From ${esc(place)}.</span>`}</p>
+      </div>`;
+    }).join('')}</div>
+
+    <h2>The four steps of a transfer</h2>
+    <div class="card">
+      <p class="muted small" style="margin:0 0 .5rem">No party controls two of them, and that
+        is the whole design. The numbers below are read from the chain, not written here.</p>
+      <div id="rules"><p class="spin">Reading the rules in force…</p></div>
     </div>`;
+
+  await blockingNotice(document.getElementById('blocking'));
+
+  const el = document.getElementById('rules');
+  try {
+    const prm = await params();
+    const offices = await authorities();
+    const active = offices.filter((o) => o.active).length;
+    el.innerHTML = `<ol class="steps">
+      ${[
+        ['The holder consents', 'Signed by whoever holds the parcel. An office cannot start '
+          + 'the sale of somebody’s land.'],
+        ['The office in charge validates', 'The office whose jurisdiction the parcel falls in '
+          + 'checks the seller against the paper file it holds. Exactly one validation is '
+          + 'accepted, and it does not count toward the quorum below.'],
+        [`${esc(prm.attestation_quorum)} independent offices attest`,
+          `Offices <em>other</em> than the one holding the parcel. An attestor from the same `
+          + `office is not independent, and allowing it would collapse a quorum of many `
+          + `offices back into a single bribe. The register currently has ${
+            esc(String(active))} active ${active === 1 ? 'office' : 'offices'}.`],
+        [`Anybody may object for ${esc(span(Number(prm.challenge_window)))}`,
+          'The clock runs from the moment quorum is reached, not from the proposal, so the '
+          + 'public clock only starts once the transfer is real. One objection stops '
+          + 'everything and marks the parcel disputed.'],
+        ['Anyone completes it', 'Mechanical. If only an official could finalise a transfer, an '
+          + 'official could refuse to — and a refusal that costs a seller their sale is '
+          + 'leverage worth paying to remove.'],
+      ].map(([t, d], i) => `<li class="step">
+        <span class="step__mark">${i + 1}</span>
+        <div class="step__body"><div class="step__title">${t}</div>
+          <p class="muted small" style="margin:.2rem 0">${d}</p></div></li>`).join('')}
+    </ol>
+    <p class="muted small" style="margin:.6rem 0 0">To move this land against a holder’s
+      wishes somebody would have to buy the holder’s consent, the office holding the file,
+      and ${esc(prm.attestation_quorum)} offices elsewhere with no relationship to them — and
+      then survive ${esc(span(Number(prm.challenge_window)))} of public objection.</p>`;
+  } catch (e) {
+    el.innerHTML = `<p class="err small">The rules in force could not be read, so the numbers
+      above are not shown rather than guessed. <code>${esc(e.message)}</code></p>`;
+  }
+}
+
+/**
+ * What is stopping the register from being used at all, drawn before anything
+ * else on the two screens that would otherwise show an empty list.
+ *
+ * The live chain has no offices and no parcels, and the honest thing to say
+ * about that is not "no results". It is that first registration is an office
+ * act, that offices are admitted only by governance, and that until one is
+ * admitted nothing can be registered by anybody — which tells a visitor what
+ * would have to happen next, rather than leaving them to conclude the register
+ * is broken.
+ *
+ * It draws nothing at all once the register is in use. An empty state that
+ * lingers as a permanent notice is a banner people stop reading.
+ */
+async function blockingNotice(el) {
+  if (!el) return;
+  let offices;
+  let prm;
+  try { [offices, prm] = await Promise.all([authorities(), params()]); }
+  catch (e) {
+    el.innerHTML = `<p class="err">The register’s list of offices could not be read, so this
+      page cannot tell you whether the register is empty or unreachable.
+      <code>${esc(e.message)}</code></p>`;
+    return;
+  }
+  const active = offices.filter((o) => o.active);
+  const quorum = Number(prm.attestation_quorum);
+
+  if (!offices.length) {
+    el.innerHTML = `<div class="card card--warn">
+      <div class="row" style="align-items:flex-start">
+        <p class="lede" style="margin:0">No registry office has been admitted, so no land can
+          be registered here yet</p>
+        <span class="pill p-warn">register empty</span>
+      </div>
+      <p class="small">The register answered — this is an empty list, not a failed call, and
+        not a page that has not loaded. There are no parcels because there is nobody who
+        could have registered one: a first registration is an office’s act, and offices are
+        admitted by the chain’s governance and never by each other.</p>
+      <p class="small">That last rule is the reason this cannot be fixed from this page. An
+        office that could admit another office would be able to manufacture the independent
+        attestors every transfer’s quorum depends on, so buying one office would buy the
+        whole mechanism.</p>
+      <p class="small"><strong>What would have to happen, in order:</strong></p>
+      <ol class="small" style="margin:.2rem 0 .6rem;padding-inline-start:1.2rem">
+        <li>Governance admits at least one office — a group account, so that its own
+          decisions already need several registrars to agree.</li>
+        <li>That office is granted <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> over
+          its country. This is a second act in a different module, and skipping it produces
+          an office that is listed here, marked active, and refused by every message it
+          sends — which reads as a bug in the admission and is not one.</li>
+        <li>That office registers a parcel, which is when this register first holds
+          anything.</li>
+        <li>${esc(String(quorum))} more offices are admitted and granted the same, before any
+          transfer can complete — because the parcel’s own office may not attest its own
+          transfer.</li>
+      </ol>
+      ${location.hash.startsWith('#/offices') ? '' : `<p class="small"><a href="#/offices">The
+        admission proposal is composed on Registry offices →</a></p>`}
+    </div>`;
+    return;
+  }
+
+  // Asked before the quorum arithmetic, because an office that cannot act does
+  // not count toward a quorum either, and reporting "enough offices" about a
+  // set of offices that are all refused is worse than reporting nothing.
+  const standing = await Promise.all(active.map(standingOf));
+  const able = active.filter((_, i) => standing[i] === true);
+  const barred = active.filter((_, i) => standing[i] === false);
+
+  if (barred.length && !able.length) {
+    el.innerHTML = `<div class="card card--warn">
+      <div class="row" style="align-items:flex-start">
+        <p class="lede" style="margin:0">${esc(String(barred.length))}
+          ${barred.length === 1 ? 'office is' : 'offices are'} admitted, and
+          ${barred.length === 1 ? 'it holds' : 'none of them holds'} the grant that lets
+          ${barred.length === 1 ? 'it' : 'them'} act</p>
+        <span class="pill p-warn">half admitted</span>
+      </div>
+      <p class="small">Admitting a registry office takes two acts, and only the first has
+        happened. <code>MsgRegisterAuthority</code> writes the record this page lists; every
+        message the office then sends is checked against a
+        <span class="y-mono">ROLE_REGISTRY_AUTHORITY</span> grant in x/alias covering the same
+        country, and there is none. So the ${barred.length === 1 ? 'office appears' : 'offices appear'}
+        here, marked active, and ${barred.length === 1 ? 'is' : 'are'} refused by every message
+        ${barred.length === 1 ? 'it sends' : 'they send'} — with
+        <em>holds no grant of ROLE_REGISTRY_AUTHORITY covering
+        ${esc(barred[0].jurisdiction || 'that country')}</em>.</p>
+      <p class="small">Nothing can be registered until that grant exists, and it cannot be made
+        from this page: a country-scoped grant comes from governance or from the foundation’s
+        own M-of-N, never from an office.</p>
+      ${location.hash.startsWith('#/offices') ? '' : `<p class="small"><a href="#/offices">The
+        grant proposal is composed on Registry offices →</a></p>`}
+    </div>`;
+    return;
+  }
+
+  if (active.length <= quorum) {
+    el.innerHTML = `<div class="card card--warn">
+      <div class="row" style="align-items:flex-start">
+        <p class="lede" style="margin:0">No transfer on this register can complete yet</p>
+        <span class="pill p-warn">${esc(String(active.length))} of ${esc(String(quorum + 1))} offices</span>
+      </div>
+      <p class="small">A transfer needs ${esc(String(quorum))} independent attestations, and
+        the parcel’s own office may not attest — so ${esc(String(quorum + 1))} active offices
+        is the minimum, and the register has ${esc(String(active.length))}. Land can be
+        registered and transfers can be proposed; none of them can finish. That is a
+        governance matter, not something an office can fix by signing.</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = '';
 }
 
 // ---------------------------------------------------------------------------
@@ -2250,7 +3426,7 @@ async function route() {
   } catch (e) {
     // Offices failing is survivable — every screen degrades to account
     // references — so it is a banner and not a dead page.
-    setBanner(new CallFailed(`${LAND}/authorities`, e.status ?? '?',
+    setBanner(new CallFailed('the register’s list of offices', e.status ?? '?',
       'office names cannot be shown, so accounts appear in their place'));
   }
   const [path, qs] = hash.split('?');
@@ -2262,6 +3438,7 @@ async function route() {
     if (path === '#/authorisations') return await screenAuthorisations();
     if (path === '#/register') return await screenRegister();
     if (path === '#/offices') return await screenOffices();
+    if (path === '#/actions') return await screenActions();
     return await screenSearch(q);
   } catch (e) {
     view.innerHTML = `<p class="err">This screen could not be built.
@@ -2272,18 +3449,24 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+renderSigner();
 
 // The clock is the honest signal that the page is live rather than a cached
 // screenshot of a register — which matters when the answer is "no objection".
 async function tick() {
+  const el = document.getElementById('clock');
   try {
-    const b = await get(`${REST}/cosmos/base/tendermint/v1beta1/blocks/latest`);
-    const h = b?.block?.header?.height;
-    document.getElementById('clock').textContent =
-      `register read at block ${Number(h).toLocaleString()} · ${new Date().toLocaleTimeString()}`;
+    const h = await head();
+    // A node replaying history answers every query correctly for a height that
+    // is hours old. A register that says "no objection" as of four hours ago is
+    // worse than one that says nothing, so this is surfaced rather than hidden.
+    el.innerHTML = h.catchingUp
+      ? `<span class="pill p-warn">catching up — answers are ${
+          esc(span((Date.now() - h.at.getTime()) / 1000))} behind</span>`
+      : `register read at block ${esc(h.height.toLocaleString())} · ${
+          esc(new Date().toLocaleTimeString())}`;
   } catch {
-    document.getElementById('clock').innerHTML =
-      '<span class="pill p-bad">not reading the chain</span>';
+    el.innerHTML = '<span class="pill p-bad">not reading the chain</span>';
   }
 }
 

@@ -1,0 +1,10 @@
+{
+  "name": "@yamale/land",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The land title register console: search a title, follow a transfer, object to one — and compose or sign the twelve messages x/land accepts.",
+  "scripts": {
+    "test": "node --test proto.test.js registrar.test.js theme.test.js"
+  }
+}

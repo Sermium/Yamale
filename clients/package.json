@@ -13,7 +13,8 @@
     "rwa",
     "ceremony",
     "foundation",
-    "governance"
+    "governance",
+    "land"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
