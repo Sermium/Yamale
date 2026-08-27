@@ -198,12 +198,7 @@ export function ConnectPage() {
    * and loudly flagged: that is a gap in the wallet, and an expert may know
    * exactly what they are signing.
    */
-  const unreadable =
-    signRequest !== null &&
-    summariseSigningRequest(
-      fromBase64(signRequest.bodyBytes),
-      fromBase64(signRequest.authInfoBytes),
-    ).undecodable !== undefined;
+  const unreadable = signRequest !== null && isUnreadable(signRequest);
 
   return (
     <>
@@ -252,6 +247,33 @@ export function ConnectPage() {
       </section>
     </>
   );
+}
+
+/**
+ * Whether these bytes decode at all, answered once per request.
+ *
+ * Not a `useMemo`: `ConnectPage` returns early four times before it needs this,
+ * so a hook here would be a conditional one. And it cannot go without
+ * memoisation either — it is read on every render, and the component re-renders
+ * on every keystroke in the password field, on the one screen that must not
+ * feel slow while somebody is reading it.
+ *
+ * One entry, replaced rather than accumulated: a window serves one request at a
+ * time, and keeping decoded transactions from earlier ones alive is a leak with
+ * somebody's payment details in it.
+ */
+let lastRead: { key: string; undecodable: boolean } | null = null;
+
+function isUnreadable(request: Extract<AnyRequest, { kind: 'signDirect' }>): boolean {
+  const key = `${request.bodyBytes}|${request.authInfoBytes}`;
+  if (lastRead?.key !== key) {
+    const summary = summariseSigningRequest(
+      fromBase64(request.bodyBytes),
+      fromBase64(request.authInfoBytes),
+    );
+    lastRead = { key, undecodable: summary.undecodable !== undefined };
+  }
+  return lastRead.undecodable;
 }
 
 /**
