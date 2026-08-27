@@ -23,79 +23,60 @@ import { EMPTY_AMOUNT, formatAmount, resolveDenom, t, type TreasuryBalance } fro
 export function CustodyFigure() {
   return (
     <figure className="custody" aria-labelledby="custody-cap">
-      <svg viewBox="0 0 980 330" role="img" aria-label={t('safe.figureAlt')}>
-        <defs>
-          <marker
-            id="cus-arw"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-          </marker>
-          {/* The committed block is hatched as well as tinted. A reader who
-              sees no colour at all still sees a different surface, which is the
-              whole requirement. */}
-          <pattern id="cus-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line className="cus__hatch" x1="0" y1="0" x2="0" y2="7" />
-          </pattern>
-        </defs>
+      {/* Deliberately not an SVG.
+       *
+       * The first version of this was one, and it was wrong in two ways that
+       * only show up outside English. SVG text does not wrap, so the longest
+       * caption was clipped by 41px at 1600 wide — measured, not guessed — and
+       * every translation of it is longer than the English. And an SVG's
+       * geometry does not mirror: with `dir="rtl"` on the document, a label
+       * anchored at x extends the other way, so the Arabic build would have put
+       * the refusals on the wrong side of the wall it is describing.
+       *
+       * As HTML the same figure wraps at any width, mirrors for Arabic through
+       * logical properties, and stays selectable and searchable. Nothing about
+       * it needed to be drawn — it is a wall with two columns either side, and
+       * that is a layout. */}
+      <div className="custody__bar" role="img" aria-label={t('safe.figureAlt')}>
+        <div className="custody__side">
+          <span className="custody__k">{t('safe.figAvailable')}</span>
+          <span className="custody__in">{t('safe.figAvailableIn')}</span>
+        </div>
+        {/* Hatched as well as tinted: a reader who sees no colour at all still
+            sees a different surface, which is the whole requirement. */}
+        <div className="custody__side custody__side--held">
+          <span className="custody__k custody__k--lock">{t('safe.figCommitted')}</span>
+          <span className="custody__in">{t('safe.figCommittedIn')}</span>
+        </div>
+      </div>
 
-        {/* What the treasury holds, as one bar cut in two. */}
-        <g className="cus__bar">
-          <rect className="cus__avail" x="1" y="34" width="558" height="56" rx="4" />
-          <rect className="cus__locked" x="561" y="34" width="418" height="56" rx="4" />
-          <rect className="cus__hatchfill" x="561" y="34" width="418" height="56" rx="4" fill="url(#cus-hatch)" />
-        </g>
-        <text className="cus__k" x="16" y="24">{t('safe.figAvailable')}</text>
-        <text className="cus__k cus__k--lock" x="576" y="24">{t('safe.figCommitted')}</text>
-        <text className="cus__in" x="16" y="68">{t('safe.figAvailableIn')}</text>
-        <text className="cus__in cus__in--lock" x="576" y="68">{t('safe.figCommittedIn')}</text>
+      <div className="custody__cols">
+        <div className="custody__col">
+          <p className="custody__eyebrow custody__eyebrow--ok">{t('safe.figAllowed')}</p>
+          <ul className="custody__list custody__list--ok">
+            <li>{t('safe.figSpendPath')}</li>
+          </ul>
+          <p className="custody__note">{t('safe.figSpendWho')}</p>
+        </div>
 
-        {/* The wall. Drawn full height on purpose: it is not a divider between
-            two columns of a table, it is the boundary of what anybody can
-            reach.
+        <div className="custody__col custody__col--held">
+          <p className="custody__eyebrow custody__eyebrow--bad">{t('safe.figRefused')}</p>
+          <ul className="custody__list custody__list--bad">
+            <li>{t('safe.figWho1')}</li>
+            <li>{t('safe.figWho2')}</li>
+            <li>{t('safe.figWho3')}</li>
+          </ul>
+          <ul className="custody__list custody__list--ok">
+            <li>{t('safe.figClaimPath')}</li>
+          </ul>
+        </div>
+      </div>
 
-            The two sides are stacked lists rather than a fan of arrows. Arrows
-            in a row need short labels, and a figure whose legibility depends on
-            the label staying short is a figure that breaks in the second
-            language it is translated into — which on this product is four out
-            of five readers. */}
-        <line className="cus__wall" x1="560" y1="18" x2="560" y2="270" />
+      <ul className="custody__rules">
+        <li>{t('safe.figRule1')}</li>
+        <li>{t('safe.figRule2')}</li>
+      </ul>
 
-        {/* Out of available: the ordinary path, and the only one. */}
-        <text className="cus__eyebrow cus__eyebrow--ok" x="1" y="122">{t('safe.figAllowed')}</text>
-        <g>
-          <line className="cus__ok" x1="6" y1="146" x2="30" y2="146" markerEnd="url(#cus-arw)" />
-          <text className="cus__lab" x="42" y="151">{t('safe.figSpendPath')}</text>
-        </g>
-        <text className="cus__sub" x="42" y="174">{t('safe.figSpendWho')}</text>
-
-        {/* Into committed: every path, refused — by the chain, not by a rule
-            this page is enforcing. */}
-        <text className="cus__refused" x="576" y="122">{t('safe.figRefused')}</text>
-        {[146, 178, 210].map((y, i) => (
-          <g key={y}>
-            <line className="cus__bad" x1="580" y1={y - 5} x2="592" y2={y + 5} />
-            <line className="cus__bad" x1="592" y1={y - 5} x2="580" y2={y + 5} />
-            <text className="cus__lab" x="606" y={y + 4}>
-              {[t('safe.figWho1'), t('safe.figWho2'), t('safe.figWho3')][i]}
-            </text>
-          </g>
-        ))}
-
-        {/* The one way out of the committed side, and it is not a spend. */}
-        <g>
-          <line className="cus__ok" x1="580" y1="244" x2="598" y2="244" markerEnd="url(#cus-arw)" />
-          <text className="cus__sub" x="606" y="249">{t('safe.figClaimPath')}</text>
-        </g>
-
-        <text className="cus__rule" x="1" y="292">{t('safe.figRule1')}</text>
-        <text className="cus__rule" x="1" y="312">{t('safe.figRule2')}</text>
-      </svg>
       <figcaption id="custody-cap">{t('safe.figureCaption')}</figcaption>
     </figure>
   );

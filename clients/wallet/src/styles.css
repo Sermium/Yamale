@@ -21,9 +21,36 @@
   --warning-bg: var(--wash-warn);
   --warning-fg: var(--warn);
 
+  /* Ink versions of two state colours, for text.
+   *
+   * yamale.css picks --brass and --warn to work as borders, fills and rules,
+   * where they are excellent. As small text on their own washes in the light
+   * theme they are not: measured on the deployed build, brass on wash-brass
+   * lands at 3.3:1 and warn on wash-warn at 3.4:1, both under the 4.5 a label
+   * at 11–13px needs. On the approval screen that label is the word telling
+   * somebody whether they can undo what they are about to sign, which is not a
+   * place to be a tenth of a ratio short.
+   *
+   * Declared on a bare :root first, then overridden in both dark forms. A
+   * colour whose only definition lives inside a prefers-color-scheme block
+   * never applies in the default un-stamped state — which is most readers. */
+  --brass-ink: #8a5f22;
+  --warn-ink: #7d580f;
+
   /* Form controls, scrollbars and the native select popup follow the theme.
      Without it a dark page gets a white dropdown. */
   color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --brass-ink: var(--brass);
+    --warn-ink: var(--warn);
+  }
+}
+:root[data-theme='dark'] {
+  --brass-ink: var(--brass);
+  --warn-ink: var(--warn);
 }
 
 .wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--sp-5); }
@@ -155,7 +182,7 @@ h2 { font-size: var(--step-2); margin: 0 0 var(--sp-3); }
   padding: 0.2rem 0.45rem; border-radius: 3px; white-space: nowrap;
   background: var(--wash-mute); color: var(--text-muted);
 }
-.badge-paused { background: var(--wash-warn); color: var(--warn); }
+.badge-paused { background: var(--wash-warn); color: var(--warn-ink); }
 
 .payload { margin-top: var(--sp-4); }
 .payload summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
@@ -285,7 +312,7 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
 
 .eyebrow {
   font-family: var(--font-mono); font-size: var(--step--1);
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass);
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass-ink);
 }
 
 /* --- faucet, grouped by region ------------------------------------------ */
@@ -300,7 +327,7 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
   font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500;
   letter-spacing: 0.06em;
   padding: 0.1rem 0.4rem; border-radius: 999px;
-  background: var(--wash-brass); color: var(--brass);
+  background: var(--wash-brass); color: var(--brass-ink);
 }
 
 /* --- folders within a page (send: direct / escrow / demand) -------------- */
@@ -344,7 +371,7 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
 }
 .field-note { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); font-size: var(--step--1); }
 .field-note--bad { color: var(--bad); }
-.field-note--warn { color: var(--warn); }
+.field-note--warn { color: var(--warn-ink); }
 
 .empty {
   border: 1px dashed var(--border); border-radius: var(--radius);
@@ -423,11 +450,11 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
 }
 .rev--irreversible .rev__word, .rev--unknown .rev__word { color: var(--bad); }
 .rev--delayed { background: var(--wash-warn); border-inline-start-color: var(--warn); }
-.rev--delayed .rev__word { color: var(--warn); }
+.rev--delayed .rev__word { color: var(--warn-ink); }
 .rev--revocable, .rev--proposal {
   background: var(--wash-brass); border-inline-start-color: var(--brass);
 }
-.rev--revocable .rev__word, .rev--proposal .rev__word { color: var(--brass); }
+.rev--revocable .rev__word, .rev--proposal .rev__word { color: var(--brass-ink); }
 .rev--none { background: var(--wash-ok); border-inline-start-color: var(--ok); }
 .rev--none .rev__word { color: var(--ok); }
 

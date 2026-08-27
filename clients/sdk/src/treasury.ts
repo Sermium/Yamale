@@ -113,38 +113,55 @@ export function toSpendPolicy(raw: any): SpendPolicy {
 }
 
 /**
- * What a policy refuses, in words, or nothing when it refuses nothing.
+ * What a policy refuses, as catalogue keys rather than as sentences.
  *
  * Written as refusals rather than as permissions on purpose. "Up to 5,000 YML
  * a day" and "refuses anything over 5,000 YML in a day" are the same rule, but
  * only the second answers the question a treasurer actually has when a payment
  * will not go through.
+ *
+ * Returning keys rather than English is the difference between a Limits tab
+ * that is translated and one that is in English on a French console. The
+ * amounts are formatted by the caller, because formatting needs the denom
+ * registry and this module has no business holding one.
  */
+export interface PolicyRefusal {
+  key: string;
+  vars: Record<string, string>;
+}
+
 export function policyRefusals(
   policy: SpendPolicy | null,
   format: (amount: string, denom: string) => string,
   duration: (seconds: number) => string,
-): string[] {
+): PolicyRefusal[] {
   if (!policy) return [];
-  const out: string[] = [];
+  const out: PolicyRefusal[] = [];
+
   if (policy.perTransaction) {
-    out.push(`Any single payment over ${format(policy.perTransaction, policy.denom)}.`);
+    out.push({ key: 'safe.refusePerTx', vars: { limit: format(policy.perTransaction, policy.denom) } });
   }
   if (policy.perPeriod) {
-    const window = policy.periodSeconds ? ` in any ${duration(policy.periodSeconds)}` : ' in one period';
-    out.push(`Anything that would take the total past ${format(policy.perPeriod, policy.denom)}${window}.`);
-  }
-  if (policy.allowlist.length > 0) {
+    const limit = format(policy.perPeriod, policy.denom);
     out.push(
-      `Any destination that is not one of the ${policy.allowlist.length} approved ${
-        policy.allowlist.length === 1 ? 'address' : 'addresses'
-      }.`,
+      policy.periodSeconds
+        ? { key: 'safe.refusePerPeriod', vars: { limit, window: duration(policy.periodSeconds) } }
+        : { key: 'safe.refusePerPeriodNoWindow', vars: { limit } },
     );
   }
-  if (policy.blocklist.length > 0) {
-    out.push(
-      `${policy.blocklist.length} named ${policy.blocklist.length === 1 ? 'address' : 'addresses'}, outright.`,
-    );
+  // Singular and plural as separate keys rather than an inflected English
+  // string: "one of the 1 approved address" is what the arithmetic version
+  // produced, and half the languages here do not pluralise the way English
+  // does anyway.
+  if (policy.allowlist.length === 1) {
+    out.push({ key: 'safe.refuseAllowlistOne', vars: {} });
+  } else if (policy.allowlist.length > 1) {
+    out.push({ key: 'safe.refuseAllowlistMany', vars: { n: String(policy.allowlist.length) } });
+  }
+  if (policy.blocklist.length === 1) {
+    out.push({ key: 'safe.refuseBlocklistOne', vars: {} });
+  } else if (policy.blocklist.length > 1) {
+    out.push({ key: 'safe.refuseBlocklistMany', vars: { n: String(policy.blocklist.length) } });
   }
   return out;
 }

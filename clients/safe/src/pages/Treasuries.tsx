@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  EMPTY_AMOUNT,
   committed,
   formatCoins,
   spendable,
@@ -160,8 +159,11 @@ function TreasuryCard({
  * decides what they can spend.
  */
 function TotalsBar({ balances }: { balances: TreasuryBalance[] }) {
+  // Nothing at all, rendered as nothing at all. A dash here would be the third
+  // dash on a card that already says "–" twice, and it would be set in the
+  // warning colour the unknown state uses — an empty treasury is not a problem.
   const withAny = balances.filter((b) => b.total !== '0');
-  if (withAny.length === 0) return <p className="card__unknown">{EMPTY_AMOUNT}</p>;
+  if (withAny.length === 0) return null;
 
   return (
     <div className="splits">

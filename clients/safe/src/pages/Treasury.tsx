@@ -483,8 +483,8 @@ function LimitRow({ treasuryId, denom }: { treasuryId: string; denom: string }) 
             <span className="refuses__k">{tr('safe.refuses')}</span>
           </p>
           <ul className="limit__list">
-            {refusals.map((line, i) => (
-              <li key={i}>{line}</li>
+            {refusals.map((refusal, i) => (
+              <li key={i}>{tr(refusal.key, refusal.vars)}</li>
             ))}
           </ul>
         </>
@@ -496,11 +496,18 @@ function LimitRow({ treasuryId, denom }: { treasuryId: string; denom: string }) 
         <p className="limit__now">
           <span className="y-label">{tr('safe.leftThisPeriod')}</span>{' '}
           <span className="y-num">{formatAmount(capacity.data.remainingThisPeriod, denom)}</span>
+          {/* formatDuration, not timeUntil. timeUntil returns a whole phrase
+              ("23 hours left"), which inside "resets {when}" reads as
+              "resets 23 hours left". A duration is the part that belongs in
+              this sentence. */}
           {capacity.data.periodResetsAt ? (
             <span className="small muted">
               {' '}
-              · {tr('safe.resets', {
-                when: timeUntil(new Date(capacity.data.periodResetsAt * 1000).toISOString()),
+              ·{' '}
+              {tr('safe.resets', {
+                when: formatDuration(
+                  Math.max(0, capacity.data.periodResetsAt - Math.floor(Date.now() / 1000)),
+                ),
               })}
             </span>
           ) : null}
@@ -690,11 +697,14 @@ function LockRow({ lock }: { lock: TreasuryLock }) {
 function releaseWhen(endTime: number | undefined) {
   if (!endTime) return <span className="muted">{EMPTY_AMOUNT}</span>;
   const at = new Date(endTime * 1000);
-  const iso = at.toISOString();
   const future = at.getTime() > Date.now();
   return (
     <span title={at.toLocaleString()}>
-      {future ? tr('safe.releasesIn', { when: timeUntil(iso) }) : timeAgo(iso)}
+      {future
+        ? tr('safe.releasesIn', {
+            when: formatDuration(Math.round((at.getTime() - Date.now()) / 1000)),
+          })
+        : timeAgo(at.toISOString())}
     </span>
   );
 }

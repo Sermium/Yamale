@@ -27,6 +27,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { serveWalletRequests, fromBase64, toBase64 } from '@yamale/connect';
 import type { AnyRequest, AnyResult } from '@yamale/connect';
 
+import { listContacts } from '@yamale/chain';
+
 import { client } from '../chain.ts';
 import { Named } from '../Named.tsx';
 import { Identifier } from '../Identifier.tsx';
@@ -302,9 +304,24 @@ function SignRequest({
 }) {
   // Memoised on the bytes: decoding builds a protobuf registry, and this
   // component re-renders on every keystroke in the password field below it.
+  //
+  // The names map is what turns "yml19csnys…0mdz sent 12.5 YML" into "You sent
+  // 12.5 YML". A person checking a transfer should not have to compare their
+  // own truncated address against the one in the sentence to work out which
+  // side of it they are on — and comparing truncations is exactly the check
+  // that fails when somebody is in a hurry.
+  const names = useMemo(() => {
+    const map: Record<string, string> = { [request.signerAddress]: t('sign.you') };
+    for (const contact of listContacts()) map[contact.address] ??= contact.pseudonym;
+    return map;
+  }, [request.signerAddress]);
+
   const summary: SigningRequestSummary = useMemo(
-    () => summariseSigningRequest(fromBase64(request.bodyBytes), fromBase64(request.authInfoBytes)),
-    [request.bodyBytes, request.authInfoBytes],
+    () =>
+      summariseSigningRequest(fromBase64(request.bodyBytes), fromBase64(request.authInfoBytes), {
+        names,
+      }),
+    [request.bodyBytes, request.authInfoBytes, names],
   );
   const consequences = useMemo(
     () => consequencesOf(summary, request.signerAddress),
@@ -443,7 +460,16 @@ function Ledger({ consequences }: { consequences: SigningConsequences }) {
             <em>{t('sign.releaseUnknown')}</em>
           ) : lock.releasesAt ? (
             <>
-              {t('sign.releasesIn', { when: timeUntil(new Date(lock.releasesAt * 1000).toISOString()) })}{' '}
+              {/* A duration, not `timeUntil`, which returns a whole phrase
+                  ("3 months left") and reads as "Released 3 months left"
+                  inside this sentence. The exact date follows, because a
+                  contract is reconciled against a date and not against
+                  "3 months". */}
+              {t('sign.releasesIn', {
+                when: formatDuration(
+                  Math.max(0, Math.round(lock.releasesAt - Date.now() / 1000)),
+                ),
+              })}{' '}
               <span className="muted">
                 ({new Date(lock.releasesAt * 1000).toLocaleDateString()})
               </span>
@@ -581,10 +607,13 @@ function MessageRow({ message, depth }: { message: RequestMessage; depth: number
         </p>
       )}
 
+      {/* One rendering of the address, not two. This printed the resolved name
+          and then the truncation beside it, so an account with no name showed
+          "yml1ywwjfd…z7j0 yml1ywwjfd…z7j0" — which reads as a rendering fault
+          on the screen that most needs to look trustworthy. */}
       {decoded.counterparty && (
         <p className="small muted">
-          {t('sign.to')} <Named address={decoded.counterparty} />{' '}
-          <code className="y-addr">{truncateAddress(decoded.counterparty)}</code>
+          {t('sign.to')} <Identifier value={decoded.counterparty} />
         </p>
       )}
 
@@ -650,14 +679,23 @@ function Connected({ origin, address, onDone }: { origin: string; address: strin
 }
 
 /**
- * How long to keep looking before saying so.
+ * How long before this stops reading as "any moment now".
  *
  * Blocks on this chain are a few seconds apart, so ninety seconds is many
  * blocks. Past that the honest answer is not "still waiting" — it is that the
  * transaction has not appeared, which usually means the application never
  * broadcast it, and a spinner that turns forever says neither.
+ *
+ * What it does *not* do past that point is stop looking. The first version
+ * gave up, and said "Nothing has left your account" — which was true when it
+ * printed and became false four minutes later when the application finally
+ * broadcast, with the window still open and still asserting it. Observed
+ * exactly that way on the devnet. A screen that stops watching must not make a
+ * claim that only holds while it is watching, so this one slows down instead.
  */
 const WATCH_SECONDS = 90;
+const POLL_FAST_MS = 2500;
+const POLL_SLOW_MS = 15000;
 
 /**
  * What happened to the transaction that was just signed.
@@ -685,14 +723,15 @@ function Outcome({ signed, onDone }: { signed: Signed; onDone: () => void }) {
     async function look() {
       const next = await client.txStatus(signed.hash);
       if (!live) return;
+      const since = Date.now() - started.current;
       setStatus(next);
-      setElapsed(Math.round((Date.now() - started.current) / 1000));
-      // Stop on any settled answer. Polling a chain that has already answered
-      // is how a wallet keeps a node busy for as long as somebody leaves a tab
-      // open.
+      setElapsed(Math.round(since / 1000));
+      // Stop on a settled answer, and only on that. Polling a chain that has
+      // already answered is how a wallet keeps a node busy for as long as
+      // somebody leaves a tab open; giving up on one that has not is how a
+      // wallet ends up displaying a stale conclusion.
       if (next.state === 'included') return;
-      if (Date.now() - started.current > WATCH_SECONDS * 1000) return;
-      timer = setTimeout(look, 2500);
+      timer = setTimeout(look, since > WATCH_SECONDS * 1000 ? POLL_SLOW_MS : POLL_FAST_MS);
     }
 
     void look();
@@ -792,7 +831,10 @@ function Outcome({ signed, onDone }: { signed: Signed; onDone: () => void }) {
         {gaveUp && (
           <div className="notice">
             <strong>{t('sign.notSeenTitle')}</strong>{' '}
-            {t('sign.notSeenBody', { origin: signed.origin, duration: formatDuration(WATCH_SECONDS) })}
+            {t('sign.notSeenBody', {
+              origin: signed.origin,
+              duration: formatDuration(elapsed),
+            })}
           </div>
         )}
 
