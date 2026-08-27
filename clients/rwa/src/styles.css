@@ -24,17 +24,57 @@
   --hair: color-mix(in srgb, var(--rule) 70%, transparent);
   --sheet-scrim: rgba(11, 21, 35, 0.55);
 
+  /* Three ink colours that are darker than the shared tokens in light, and are
+   * the shared tokens in dark.
+   *
+   * Every label on this surface that carries a state — the eyebrow, the status
+   * chips, the two tags on the message table — is small uppercase text sitting
+   * on a tinted wash, which is the hardest combination in the palette. Measured
+   * against the shared tokens on white:
+   *
+   *     .y-eyebrow          --brass  3.52:1   (3.77 on a panel)
+   *     .y-chip--warn       --warn   3.17:1
+   *     .y-chip--ok         --ok     4.11:1
+   *     .plan__where--ledger --ok    4.27:1
+   *     .plan__where--derived --warn 3.09:1
+   *
+   * All below AA for text that size, and none of them a failure of this app:
+   * they fail on every surface in this repo that uses .y-eyebrow or .y-chip in
+   * light mode. Darkened here rather than in yamale.css because changing a
+   * brand colour across every client is not this app's decision to make — the
+   * finding belongs upstream, and this fix is local and reversible.
+   *
+   * Dark keeps the shared trio, which measures 6.96, 7.4 and 6.6 respectively
+   * and needs nothing. */
+  --tone-brass: #8a6430;
+  --tone-ok: #0a5c38;
+  --tone-warn: #6f4d0a;
+
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     --sheet-scrim: rgba(2, 6, 12, 0.72);
+    --tone-brass: var(--brass);
+    --tone-ok: var(--ok);
+    --tone-warn: var(--warn);
   }
 }
 :root[data-theme='dark'] {
   --sheet-scrim: rgba(2, 6, 12, 0.72);
+  --tone-brass: var(--brass);
+  --tone-ok: var(--ok);
+  --tone-warn: var(--warn);
 }
+
+/* Not inside either block above: a colour whose only definition sits in a media
+   query is undefined in the un-stamped state, which is the state most readers
+   are in. */
+.y-eyebrow { color: var(--tone-brass); }
+.y-chip--ok { color: var(--tone-ok); }
+.y-chip--warn { color: var(--tone-warn); }
+.y-chip--brass { color: var(--tone-brass); }
 
 body {
   background: var(--bg);
@@ -240,7 +280,7 @@ body {
 /* ---------------------------------------------------------------- amounts */
 
 .amount { font-variant-numeric: tabular-nums; }
-.amount--empty { color: var(--text-faint); }
+.amount--empty { color: var(--text-muted); }
 
 /* --------------------------------------------------------------- addresses */
 
@@ -261,14 +301,14 @@ body {
   text-align: start;
 }
 .addr__face:hover { color: var(--accent); }
-.addr__ico { color: var(--text-faint); font-size: 0.9em; }
+.addr__ico { color: var(--text-muted); font-size: 0.9em; }
 .addr__reveal {
   font: inherit;
   font-size: var(--step--1);
   background: none;
   border: 0;
   padding: 0;
-  color: var(--text-faint);
+  color: var(--text-muted);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -346,7 +386,7 @@ body {
 .empty__title { font-size: var(--step-3); }
 .empty__body { display: grid; gap: var(--sp-2); color: var(--text-muted); justify-items: center; }
 .empty__body p { max-width: 54ch; }
-.empty__at { font-size: var(--step--1); color: var(--text-faint); margin: 0; }
+.empty__at { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
 
 /* ------------------------------------------------------------- vehicle grid */
 
@@ -414,7 +454,7 @@ body {
 .table tbody th { font-weight: 600; }
 .table .num { text-align: end; font-variant-numeric: tabular-nums; }
 .holdings__sym { display: block; font-size: var(--step--1); color: var(--text-muted); }
-.holdings__aside { display: block; font-size: var(--step--1); color: var(--text-faint); }
+.holdings__aside { display: block; font-size: var(--step--1); color: var(--text-muted); }
 
 /* ------------------------------------------------------------------ gate */
 
@@ -509,9 +549,15 @@ body {
 .btn--small { padding: 0.35rem var(--sp-3); font-size: var(--step--1); }
 .btn--ghost { background: transparent; color: var(--text); border-color: var(--rule); }
 .btn--ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); filter: none; }
-.btn--bad { background: var(--bad); color: #fff; border-color: var(--bad); }
+/* Ink from the token, never a literal white.
+ *
+ * --bad is a dark red in light and a light coral in dark, so a hardcoded #fff
+ * measured 2.43:1 on the dark theme's own danger button — the one button on
+ * this surface that destroys somebody's shares. --accent-ink flips with the
+ * theme and measures 6.6:1 light and 7.8:1 dark against the same grounds. */
+.btn--bad { background: var(--bad); color: var(--accent-ink); border-color: var(--bad); }
 .btn--ghost.btn--bad { background: transparent; color: var(--bad); border-color: var(--bad); }
-.btn--warn { background: var(--warn); color: #fff; border-color: var(--warn); }
+.btn--warn { background: var(--warn); color: var(--accent-ink); border-color: var(--warn); }
 
 /* ---------------------------------------------------------------- sheets */
 
@@ -623,8 +669,8 @@ body {
 }
 /* The word carries the distinction; the dot's shape reinforces it. A square
    for a derived consequence, a circle for a field that is literally signed. */
-.plan__where--ledger { color: var(--ok); background: var(--wash-ok); border-color: transparent; }
-.plan__where--derived { color: var(--warn); background: var(--wash-warn); border-color: transparent; }
+.plan__where--ledger { color: var(--tone-ok); background: var(--wash-ok); border-color: transparent; }
+.plan__where--derived { color: var(--tone-warn); background: var(--wash-warn); border-color: transparent; }
 .plan__dot { inline-size: 7px; block-size: 7px; background: currentColor; }
 .plan__where--ledger .plan__dot { border-radius: 999px; }
 
@@ -643,7 +689,7 @@ body {
   gap: var(--sp-1);
 }
 .foot__note { color: var(--text-muted); font-size: var(--step--1); }
-.foot__chain { font-size: var(--step--1); color: var(--text-faint); margin: 0; }
+.foot__chain { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
 
 /* -------------------------------------------------------------- narrow */
 

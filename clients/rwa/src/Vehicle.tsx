@@ -40,13 +40,15 @@ import {
   Panel,
   Percent,
   Raw,
+  Symbol,
   Unreachable,
 } from './ui.tsx';
 import {
   actionsFor,
   bpsToPercent,
   dilutionProtected,
-  isOverLand,
+  parcelStatusKey,
+  parcelTone,
   protectionOf,
   saleState,
   shareholding,
@@ -133,7 +135,13 @@ function LandPanel({ gate, parcel, parcelUnreadable }: {
             <Field label={t('rwa.parcelHolder')}><Address value={parcel.holder} /></Field>
             <Field label={t('rwa.registryOffice')}><Address value={parcel.authority} /></Field>
             <Field label={t('rwa.parcelStatus')}>
-              <span className="y-mono">{parcel.status}</span>
+              {/*
+                A sentence, not the enum. STATUS_TRANSFER_PENDING is not a
+                status somebody buying into a vehicle can act on; "a transfer of
+                this land is under way" is. The raw value stays reachable
+                through the panel's Raw disclosure.
+              */}
+              <Chip tone={parcelTone(parcel.status)}>{t(parcelStatusKey(parcel.status))}</Chip>
             </Field>
           </Fields>
 
@@ -416,7 +424,12 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                   : <span className="muted">{t('rwa.notIssued')}</span>}
               </Field>
               <Field label={t('rwa.incomeDenom')}>
-                {vault ? <span className="y-mono">{vault.denom}</span> : <span className="muted">—</span>}
+                {/*
+                  The currency people call it, not the base denom the chain
+                  stores. `ucdf` is a unit nobody outside this repository reads,
+                  and it is the currency a holder is being promised income in.
+                */}
+                {vault ? <Symbol denom={vault.denom} /> : <span className="muted">—</span>}
               </Field>
             </Fields>
 

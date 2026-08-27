@@ -578,6 +578,34 @@ export function statusKey(status: VehicleStatus): string {
   }
 }
 
+/**
+ * Catalogue key for a parcel's status in x/land.
+ *
+ * Separate from the vehicle's own status and deliberately not the enum name.
+ * `STATUS_TRANSFER_PENDING` is not something an investor can act on; "a
+ * transfer of this land is under way" is, and it is the fact that decides
+ * whether the sponsor will still be the parcel's holder when shares are issued.
+ */
+export function parcelStatusKey(status: string): string {
+  switch (status) {
+    case 'STATUS_REGISTERED': return 'rwa.parcelState.registered';
+    case 'STATUS_TRANSFER_PENDING': return 'rwa.parcelState.transferPending';
+    case 'STATUS_DISPUTED': return 'rwa.parcelState.disputed';
+    case 'STATUS_FROZEN': return 'rwa.parcelState.frozen';
+    default: return 'rwa.parcelState.unknown';
+  }
+}
+
+export function parcelTone(status: string): 'ok' | 'warn' | 'bad' | 'mute' {
+  switch (status) {
+    case 'STATUS_REGISTERED': return 'ok';
+    case 'STATUS_TRANSFER_PENDING': return 'warn';
+    case 'STATUS_DISPUTED': return 'bad';
+    case 'STATUS_FROZEN': return 'bad';
+    default: return 'mute';
+  }
+}
+
 /** The chip tone a status should carry. Never colour alone — the word leads. */
 export function statusTone(status: VehicleStatus): 'ok' | 'warn' | 'bad' | 'mute' {
   switch (status) {

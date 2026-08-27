@@ -10,6 +10,8 @@ import {
   isOverLand,
   isRealId,
   landGate,
+  parcelStatusKey,
+  parcelTone,
   issuancePermitted,
   protectionOf,
   redeemPayout,
@@ -375,6 +377,31 @@ test('a permission that was never granted is not the same as one we could not re
 });
 
 /* -------------------------------------------------------------- statuses */
+
+test('a parcel status is a sentence, never the enum', () => {
+  // STATUS_TRANSFER_PENDING on screen is not something an investor can act on.
+  // That it maps to a key at all is the assertion: the raw value leaked to the
+  // vehicle page once and read as a defect.
+  assert.equal(parcelStatusKey('STATUS_REGISTERED'), 'rwa.parcelState.registered');
+  assert.equal(parcelStatusKey('STATUS_TRANSFER_PENDING'), 'rwa.parcelState.transferPending');
+  assert.equal(parcelStatusKey('STATUS_DISPUTED'), 'rwa.parcelState.disputed');
+  assert.equal(parcelStatusKey('STATUS_FROZEN'), 'rwa.parcelState.frozen');
+});
+
+test('a parcel status this client does not know is surfaced, not hidden', () => {
+  // A status added to x/land after this shipped must render as unknown rather
+  // than silently as "registered, and movable".
+  assert.equal(parcelStatusKey('STATUS_SOMETHING_NEW'), 'rwa.parcelState.unknown');
+  assert.equal(parcelTone('STATUS_SOMETHING_NEW'), 'mute');
+  assert.notEqual(parcelTone('STATUS_SOMETHING_NEW'), 'ok');
+});
+
+test('the two statuses that stop a dealing both read as bad', () => {
+  assert.equal(parcelTone('STATUS_FROZEN'), 'bad');
+  assert.equal(parcelTone('STATUS_DISPUTED'), 'bad');
+  assert.equal(parcelTone('STATUS_TRANSFER_PENDING'), 'warn');
+  assert.equal(parcelTone('STATUS_REGISTERED'), 'ok');
+});
 
 test('every status has a sentence and a tone', () => {
   const all = [
