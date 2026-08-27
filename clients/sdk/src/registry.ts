@@ -26,6 +26,7 @@ import * as netting from './generated/blockchain/netting/v1/tx.ts';
 import * as oracle from './generated/blockchain/oracle/v1/tx.ts';
 import * as paymsg from './generated/blockchain/paymsg/v1/tx.ts';
 import * as stablecoin from './generated/blockchain/stablecoin/v1/tx.ts';
+import * as tokenisation from './generated/blockchain/tokenisation/v1/tx.ts';
 import * as treasury from './generated/blockchain/treasury/v1/tx.ts';
 import * as validatorgov from './generated/blockchain/validatorgov/v1/tx.ts';
 
@@ -147,6 +148,29 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.netting.v1.MsgPostReserve', netting.MsgPostReserve],
   ['/blockchain.netting.v1.MsgWithdrawReserve', netting.MsgWithdrawReserve],
   ['/blockchain.netting.v1.MsgSubmitObligation', netting.MsgSubmitObligation],
+
+  // Real-world-asset vehicles. Three of these are signed by an ordinary holder
+  // rather than by an institution — Claim, Redeem and DisputeSale — and until
+  // they were registered here no browser could build one, which meant the only
+  // people who could take their income out of a vault, exit a realised vehicle
+  // or challenge a reported sale price were people with the CLI installed.
+  //
+  // That is a worse gap than it looks. The challenge window is the single
+  // protection a shareholder has against a sponsor under-reporting what the
+  // asset sold for, and a window only a node operator can act inside is a
+  // window most holders do not have.
+  ['/blockchain.tokenisation.v1.MsgCreateCollection', tokenisation.MsgCreateCollection],
+  ['/blockchain.tokenisation.v1.MsgSetCollectionAuthority', tokenisation.MsgSetCollectionAuthority],
+  ['/blockchain.tokenisation.v1.MsgMintAsset', tokenisation.MsgMintAsset],
+  ['/blockchain.tokenisation.v1.MsgFractionalise', tokenisation.MsgFractionalise],
+  ['/blockchain.tokenisation.v1.MsgTransferAsset', tokenisation.MsgTransferAsset],
+  ['/blockchain.tokenisation.v1.MsgFundVault', tokenisation.MsgFundVault],
+  ['/blockchain.tokenisation.v1.MsgReportSale', tokenisation.MsgReportSale],
+  ['/blockchain.tokenisation.v1.MsgAttestSale', tokenisation.MsgAttestSale],
+  ['/blockchain.tokenisation.v1.MsgDisputeSale', tokenisation.MsgDisputeSale],
+  ['/blockchain.tokenisation.v1.MsgResolveDispute', tokenisation.MsgResolveDispute],
+  ['/blockchain.tokenisation.v1.MsgClaim', tokenisation.MsgClaim],
+  ['/blockchain.tokenisation.v1.MsgRedeem', tokenisation.MsgRedeem],
 ];
 
 /**
