@@ -391,6 +391,14 @@ function walletRequest(payload, { timeoutMs = 180000 } = {}) {
 
     const onMessage = (event) => {
       if (event.origin !== origin) return;
+      // And from the window we opened, not merely from a window at that origin.
+      // `event.source` is stamped by the browser and cannot be forged. Without
+      // it, any frame or tab on the wallet's origin can answer a request this
+      // page made — and, found by driving this in a browser, a message this
+      // page posts to the popup is also delivered back to this listener when
+      // the two share an origin, so the page can answer itself with the echo of
+      // its own request and read a request as a result.
+      if (event.source !== popup) return;
       const data = event.data;
       if (!data || data.channel !== 'yamale.connect' || typeof data.id !== 'string') return;
       // The wallet announces itself when its listener is attached. Sending
@@ -407,6 +415,12 @@ function walletRequest(payload, { timeoutMs = 180000 } = {}) {
         return;
       }
       const result = data.payload;
+      // Belt to the braces above: a reply must be a *result*, and the result
+      // asked for. The source check is what stops an echo; this stops a reply
+      // to a different question arriving under a matching id, which would
+      // resolve the caller with an object whose fields it never checks.
+      if (!result || !['connect', 'accounts', 'signDirect', 'error'].includes(result.kind)) return;
+      if (result.kind !== 'error' && result.kind !== payload.kind) return;
       finish(() => {
         popup.close();
         if (result.kind === 'error') reject(new WalletRefused(result.code, result.message));

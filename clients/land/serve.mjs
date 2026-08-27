@@ -72,7 +72,13 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  res.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
+  res.writeHead(200, {
+    'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream',
+    // Never cached. The whole point of this server is to look at an edit, and a
+    // browser holding the previous index.html means a measurement of a file
+    // that is no longer on disk — which is worse than not measuring.
+    'cache-control': 'no-store, must-revalidate',
+  });
   res.end(fs.readFileSync(file));
 }).listen(PORT, () => {
   console.log(`land console on http://localhost:${PORT}/land/ · /api → ${UPSTREAM}`);

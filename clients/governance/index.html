@@ -118,15 +118,15 @@
     --rule: #d3dae6;
 
     --text: var(--ink);
-    --text-muted: var(--slate);
+    --text-muted: #526178;
     --text-faint: #8798af;
     --accent: var(--navy);
     --accent-ink: #ffffff;
     --focus: #1f6feb;
 
-    --ok: #0d7a4a;
+    --ok: #0c6d42;
     --warn: #a8791b;
-    --bad: #b02a25;
+    --bad: #ac2924;
     --wash-ok: rgba(13, 122, 74, .10);
     --wash-warn: rgba(168, 121, 27, .12);
     --wash-bad: rgba(176, 42, 37, .10);
@@ -137,8 +137,8 @@
        measured 3.77:1 for a brass link on white, 3.31:1 and 3.38:1 for the
        two chips on their own washes. Darkened along the same hue, and only
        where the colour carries words. Dark already passes, measured. */
-    --brass-ink: #8b6632;
-    --warn-ink: #8d6617;
+    --brass-ink: #78582b;
+    --warn-ink: #795814;
 
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
@@ -172,7 +172,7 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
-      --brass-ink: var(--brass);
+      --brass-ink: #c79d5e;
       --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
@@ -204,7 +204,7 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
-    --brass-ink: var(--brass);
+    --brass-ink: #c79d5e;
     --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
@@ -421,7 +421,7 @@
   .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
   .err code, .badbox code, .warnbox code { color: inherit; }
   .err strong, .badbox strong { color: var(--bad); }
-  .warnbox strong { color: var(--warn); }
+  .warnbox strong { color: var(--warn-ink); }
 
   /* --- controls --------------------------------------------------------- */
   /* Anything interactive looks interactive: a border, a hover, a focus ring
