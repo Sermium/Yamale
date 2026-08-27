@@ -340,10 +340,53 @@ keep-what-you-raise is, and a user signs against a state that has moved.
   changes, liquidation is a separate module with its own keeper incentives and
   bad-debt policy, and it should not be smuggled in here.
 
-## Open before implementation
+## What the three open questions turned out to be
 
-1. The distribution snapshot mechanism, above. Largest remaining unknown.
-2. Whether `MaxHolders` is a chain param or per-offering.
-3. Whether an issuer must post a bond that is forfeited on non-delivery. It is
-   the only on-chain lever against an issuer who takes the money and does
-   nothing, and without it the chain's guarantee ends at settlement.
+This section used to list three things to decide before building. The module is
+built, so here is what each became — kept rather than deleted, because the one
+that is still open is easier to see beside the two that closed.
+
+**The distribution snapshot mechanism became no snapshot at all.** The worry was
+that paying holders from a snapshot lets somebody buy just before it and sell
+just after, collecting a whole period's income for a moment's holding. Rather
+than trying to place the snapshot where that is hardest, the vault carries a
+cumulative-income-per-token index, and each holder carries the index as of the
+last time their balance moved. What accrues to them is the difference multiplied
+by what they held across it, settled on every transfer. Two blocks of holding
+earn two blocks of income. There is no moment to time, so there is nothing to
+snipe, and `Query/Entitlement` can answer exactly what one account may take right
+now — which a snapshot scheme cannot do between snapshots.
+
+A holder seen for the first time starts at the *current* index, not at zero.
+Starting them at zero would credit them the asset's entire history, paying them
+for a period in which they held nothing.
+
+**`MaxHolders` became nothing.** It is not a chain parameter and not a
+per-offering field, because neither answer was any good: a chain-wide cap is a
+number no country agreed to, and a per-offering cap is one the issuer picks,
+which makes it a cap on nobody. Where a jurisdiction limits how many people may
+hold a private offering, that limit belongs to the registry that admitted the
+vehicle, expressed as a restriction on the parcel, and x/land already carries
+restrictions as data precisely because this kind of rule differs by country.
+
+**The issuer bond is still open, and it is still the gap it always was.** The
+`dispute_bond_bps` in a collection is staked by a *challenger*, not by the
+issuer: it makes a frivolous challenge expensive, which is the opposite end of
+the problem. There is nothing an issuer forfeits for taking the money and
+delivering nothing, so the chain's guarantee still ends at settlement.
+
+What partly covers it today, and it is worth being precise about how much:
+`ReportSale` is checked by the collection's attestation threshold and challenge
+window, so an issuer who *reports* a false price can be caught and disputed. An
+issuer who reports nothing at all, and simply never realises the vehicle, is
+caught by neither — the holders keep their tokens, the vault keeps whatever was
+paid into it, and no message on this module compels an exit. That is a real
+limitation and it should be read as one, not as an oversight.
+
+## Open
+
+1. The issuer bond above. Unresolved, and the only on-chain lever against an
+   issuer who takes the money and does nothing.
+2. Nothing compels realisation. A closed-end vehicle with no end date is an
+   open-ended one with worse liquidity, and the module does not currently carry
+   a defined life even though this guide's own heading promises one.
