@@ -434,3 +434,124 @@ func TestAReshareLeavesTheOriginalSharesUsable(t *testing.T) {
 	require.NoError(t, err, "the reshare consumed the shares it was handed")
 	require.True(t, verify(t, pub, digest, sig))
 }
+
+// A share retired by a reshare signs nothing, and says so instead of panicking.
+//
+// Found by running tools/mpc rather than reading it. Signing with an OLD device
+// share and a NEW custodian share crashed inside tss-lib's party construction:
+//
+//	panic: BuildLocalSaveDataSubset: unable to find a signer party in the local
+//	save data
+//
+// The refusal was right; the delivery was not. A panic in a signing path is a
+// crashed process rather than a rejected request, and in the custodian it would
+// be a denial of service reachable by anybody holding a stale share.
+//
+// It is not an exotic pairing either. A phone that lost its network halfway
+// through a password reset holds exactly the retired share while the custodian
+// holds the new one, and the next payment that phone attempts is this
+// combination.
+func TestAShareRetiredByAReshareRefusesRatherThanPanics(t *testing.T) {
+	s := accountShares(t)
+
+	fresh, err := mpc.Reshare(map[string]mpc.Share{
+		mpc.RoleRecovery:  s[mpc.RoleRecovery],
+		mpc.RoleCustodian: s[mpc.RoleCustodian],
+	}, preParams())
+	require.NoError(t, err)
+
+	// Same account — the reshare kept the public key, which is exactly why
+	// these two look compatible and are not.
+	oldPub, err := s[mpc.RoleDevice].PublicKey()
+	require.NoError(t, err)
+	newPub, err := fresh[mpc.RoleCustodian].PublicKey()
+	require.NoError(t, err)
+	require.True(t, oldPub.Equal(newPub), "the reshare moved the account, which is a different bug")
+
+	_, _, err = mpc.Sign(hash("a payment from a phone that missed the reset"), map[string]mpc.Share{
+		mpc.RoleDevice:    s[mpc.RoleDevice],        // retired
+		mpc.RoleCustodian: fresh[mpc.RoleCustodian], // current
+	})
+	require.Error(t, err, "a retired share signed alongside a current one")
+	require.Contains(t, err.Error(), "different sharings")
+
+	// And the pairing that should work still does.
+	_, _, err = mpc.Sign(hash("a payment after the reset completed"), map[string]mpc.Share{
+		mpc.RoleDevice:    fresh[mpc.RoleDevice],
+		mpc.RoleCustodian: fresh[mpc.RoleCustodian],
+	})
+	require.NoError(t, err)
+}
+
+// The same mismatch across a transport, which is what production actually runs
+// and what the reviewer flagged as untested.
+//
+// NewSigningParty builds its committee from its OWN share's key list, so
+// neither side can detect the mismatch locally — each one is internally
+// consistent and believes the other is on its sharing. The failure therefore
+// has to surface when a message arrives, and the two outcomes worth excluding
+// are a hang (the custodian holding a session open forever) and, far worse, a
+// signature that verifies against nothing.
+//
+// This asserts which of those it is, so that a change to tss-lib or to the
+// party cannot quietly turn a clean error into either.
+func TestPartiesOnDifferentSharingsFailFastAndProduceNoSignature(t *testing.T) {
+	s := accountShares(t)
+	fresh, err := mpc.Reshare(map[string]mpc.Share{
+		mpc.RoleRecovery:  s[mpc.RoleRecovery],
+		mpc.RoleCustodian: s[mpc.RoleCustodian],
+	}, preParams())
+	require.NoError(t, err)
+
+	digest := hash("across a transport, with a stale share")
+	committee := []string{mpc.RoleDevice, mpc.RoleCustodian}
+
+	stale, err := mpc.NewSigningParty(mpc.RoleDevice, digest, s[mpc.RoleDevice], committee)
+	require.NoError(t, err, "a party cannot tell locally that its peer has moved on")
+	current, err := mpc.NewSigningParty(mpc.RoleCustodian, digest, fresh[mpc.RoleCustodian], committee)
+	require.NoError(t, err)
+
+	parties := map[string]*mpc.SigningParty{mpc.RoleDevice: stale, mpc.RoleCustodian: current}
+
+	var failed bool
+	deadline := time.Now().Add(90 * time.Second)
+	for !failed && time.Now().Before(deadline) {
+		moved := false
+		for role, p := range parties {
+			out, err := p.Outbound()
+			if err != nil {
+				failed = true
+				break
+			}
+			for _, msg := range out {
+				moved = true
+				other := mpc.RoleCustodian
+				if role == mpc.RoleCustodian {
+					other = mpc.RoleDevice
+				}
+				if !msg.Broadcast && !addressed(msg, other) {
+					continue
+				}
+				if err := parties[other].Handle(msg); err != nil {
+					failed = true
+					break
+				}
+			}
+			if failed {
+				break
+			}
+		}
+		if !moved && !failed {
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	// Whatever the protocol does about it, the outcome that matters is that
+	// nobody ends up holding a signature.
+	for role, p := range parties {
+		if sig, done := p.Signature(); done {
+			t.Fatalf("%s produced a signature from mismatched sharings: %x", role, sig)
+		}
+	}
+	require.True(t, failed, "mismatched sharings neither errored nor finished; this is the hang case")
+}

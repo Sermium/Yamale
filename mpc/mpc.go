@@ -286,6 +286,22 @@ func Sign(hash []byte, shares map[string]Share) ([]byte, *ecdsa.PublicKey, error
 	parties := make(map[string]tss.Party, len(ids))
 	var mu sync.Mutex
 
+	// Every share must belong to the SAME sharing, checked before tss-lib is
+	// handed anything.
+	//
+	// A reshare issues new share ids under the same public key, so an old share
+	// and a new one look equally valid on their own and agree about the
+	// account. Handing both to tss-lib panics inside party construction —
+	// "unable to find a signer party in the local save data" — and a panic in a
+	// signing path is a crashed service rather than a refused request.
+	//
+	// This is not a theoretical pairing. A device that lost its network
+	// halfway through a password reset holds exactly the stale share, and the
+	// custodian holds the new one; the very next payment is this combination.
+	if err := sameSharing(shares); err != nil {
+		return nil, nil, err
+	}
+
 	msg := new(big.Int).SetBytes(hash)
 	for _, id := range ids {
 		share, ok := shares[id.Id]
@@ -400,6 +416,45 @@ func route(msg tss.Message, parties map[string]tss.Party, mu *sync.Mutex) error 
 		}
 		if err := deliver(p); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// sameSharing refuses a set of shares drawn from more than one sharing.
+//
+// Identity is the key list Ks, not the public key. A reshare deliberately keeps
+// the public key — that is the whole reason it exists, so a password reset does
+// not move the account — and rewrites every id in Ks. So the pubkey says "these
+// are the same account", which is true and useless here, and only Ks says
+// "these can actually sign together".
+func sameSharing(shares map[string]Share) error {
+	var reference []*big.Int
+	var referenceRole string
+	for _, role := range Roles {
+		share, ok := shares[role]
+		if !ok {
+			continue
+		}
+		if len(share.Data.Ks) == 0 {
+			return fmt.Errorf("the %s share knows no committee", role)
+		}
+		if reference == nil {
+			reference, referenceRole = share.Data.Ks, role
+			continue
+		}
+		if len(share.Data.Ks) != len(reference) {
+			return fmt.Errorf(
+				"the %s and %s shares come from different sharings and cannot sign together",
+				referenceRole, role)
+		}
+		for i := range reference {
+			if reference[i].Cmp(share.Data.Ks[i]) != 0 {
+				return fmt.Errorf(
+					"the %s and %s shares come from different sharings and cannot sign together: "+
+						"one of them is from before a reshare, and a share retired by a reshare signs nothing",
+					referenceRole, role)
+			}
 		}
 	}
 	return nil
