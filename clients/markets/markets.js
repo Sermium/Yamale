@@ -495,10 +495,19 @@ export function freshness(updatedAt, nowSeconds, maxAgeSeconds) {
   const age = now - updated;
   const remaining = maxAge - age;
 
-  // A rate stamped in the future is a clock disagreement, not a fresh rate, and
-  // saying "fresh" about it would hide the disagreement. Clamped, and flagged.
+  // A rate stamped in the future is stale, and this must match the keeper
+  // rather than be reasoned about independently. x/oracle's IsStale reads
+  //
+  //     if observedAt <= 0 || observedAt > now { return true }
+  //
+  // so a future stamp is refused, not trusted: a value that claims to be from
+  // a time that has not happened is a clock disagreement somewhere, and the
+  // module would rather stop than act on it. A console that drew it as fresh
+  // would be telling a reader a transaction will go through when the chain has
+  // already decided it will not. `maxAgeSeconds == 0` disables staleness
+  // entirely there, which is why the check below comes after this one.
   if (age < 0) {
-    return { state: 'fresh', ageSeconds: age, remaining: maxAge, fraction: 0, clockSkew: true };
+    return { state: 'expired', ageSeconds: age, remaining: 0, fraction: 1, clockSkew: true };
   }
   if (!maxAge) return { state: 'fresh', ageSeconds: age, remaining: null, fraction: 0 };
 

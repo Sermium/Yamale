@@ -710,8 +710,8 @@ function freshnessHtml(f, { maxAge, live } = {}) {
   const pct = Math.round((1 - (f.fraction ?? 0)) * 100);
   let text;
   if (f.state === 'none') text = 'never reported';
+  else if (f.clockSkew) text = 'stamped in the future — the chain refuses it';
   else if (f.state === 'expired') text = `expired ${span(-f.remaining)} ago — not usable`;
-  else if (f.clockSkew) text = 'stamped in the future — clocks disagree';
   else text = `usable for ${span(f.remaining)} more`;
 
   const age = f.ageSeconds === null || f.clockSkew ? '' :

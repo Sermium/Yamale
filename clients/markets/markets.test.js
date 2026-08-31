@@ -376,11 +376,23 @@ test('freshness distinguishes "no feed" from "feed stopped"', () => {
   assert.equal(freshness('0', 1_000_000, 900).ageSeconds, null);
 });
 
-test('a rate stamped in the future is a clock disagreement, not a fresh rate', () => {
+test('a rate stamped in the future is stale, exactly as the keeper says', () => {
+  // x/oracle/types/aggregate.go IsStale:
+  //   if observedAt <= 0 || observedAt > now { return true }
+  // The console must not draw as usable something the chain has already
+  // decided to refuse.
   const f = freshness(1_000_100, 1_000_000, 900);
+  assert.equal(f.state, 'expired');
   assert.equal(f.clockSkew, true);
   assert.ok(f.ageSeconds < 0);
-  assert.equal(f.fraction, 0, 'a negative age must not render as a negative bar');
+  assert.equal(f.fraction, 1, 'a negative age must not render as a negative bar');
+});
+
+test('a zero max age disables expiry, as it does in the keeper', () => {
+  // IsStale returns false outright when maxAgeSeconds is 0, so nothing ages.
+  const f = freshness(1, 1_000_000, 0);
+  assert.equal(f.state, 'fresh');
+  assert.equal(f.remaining, null, 'there is no deadline to count down to');
 });
 
 test('span reads as a duration a person understands', () => {
