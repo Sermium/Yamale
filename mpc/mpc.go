@@ -257,21 +257,26 @@ func Sign(hash []byte, shares map[string]Share) ([]byte, *ecdsa.PublicKey, error
 		return nil, nil, fmt.Errorf("expected a 32-byte hash, got %d bytes", len(hash))
 	}
 
-	all := partyIDs()
-	signing_ids := make(tss.UnSortedPartyIDs, 0, len(shares))
+	// Party identity comes from each share's own id, not from a table keyed by
+	// role. A reshare issues new ids under the same public key — that is what
+	// makes a password reset invisible to everybody else — so a signer looked up
+	// by role in a fixed table would be handed the id it had before the reset,
+	// which is in nobody's key list any more and produces a protocol that hangs
+	// rather than an error anybody can read.
+	unsorted := make(tss.UnSortedPartyIDs, 0, len(shares))
 	roles := make([]string, 0, len(shares))
 	for role := range shares {
 		roles = append(roles, role)
 	}
 	sort.Strings(roles)
 	for _, role := range roles {
-		id, err := findParty(all, role)
-		if err != nil {
-			return nil, nil, err
+		id := shares[role].Data.ShareID
+		if id == nil {
+			return nil, nil, fmt.Errorf("the %s share carries no share id", role)
 		}
-		signing_ids = append(signing_ids, tss.NewPartyID(id.Id, id.Moniker, id.KeyInt()))
+		unsorted = append(unsorted, tss.NewPartyID(role, role, id))
 	}
-	ids := tss.SortPartyIDs(signing_ids)
+	ids := tss.SortPartyIDs(unsorted)
 	ctx := tss.NewPeerContext(ids)
 	curve := tss.S256()
 

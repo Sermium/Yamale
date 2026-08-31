@@ -1,4 +1,12 @@
-package mpc
+// Package cosmos is the half of threshold signing that knows what chain this
+// is: turning the joint public key into a cosmos-sdk key type and a bech32
+// address.
+//
+// Separate from mpc itself for one blunt reason: importing cosmos-sdk drags in
+// the whole store stack — pebble, goleveldb — none of which compiles for
+// GOOS=js, and the device's share has to run in a browser. Keeping the protocol
+// free of it is what makes a WebAssembly build possible at all.
+package cosmos
 
 import (
 	"crypto/ecdsa"
