@@ -89,11 +89,13 @@ go run ./tools/mpc pay --shares ./account --to yml1... --amount 1000000uyml
 - **Two validators.** Neither holds two thirds, so losing one stops the chain.
 - **No country enrolled**, so `x/paymsg` holds no approved participants and no
   institutional payment has ever been made on this network.
-- **No licence yet.** See below.
+- **Proprietary licence.** Evaluation and audit are permitted; production is not, without an agreement.
 
 ## Licence
 
-**None.** This repository carries no LICENSE file, which under default copyright
-means no third party may use, modify or deploy this code. That is deliberate
-only in the sense that the choice has not been made yet; it is not a position.
-Until a licence is added, treat everything here as all rights reserved.
+**Proprietary.** See [LICENSE](LICENSE). All rights reserved.
+
+You may read, compile, run and audit this software on a test network, and you
+may publish what you find — security research on a system meant to hold public
+money should not need anybody's permission. Running it on a network carrying
+real value, or distributing it, requires a written agreement.

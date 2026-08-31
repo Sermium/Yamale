@@ -1,0 +1,100 @@
+Yamale — Proprietary Software Licence
+Copyright (c) 2026 Sermium. All rights reserved.
+
+NOT AN OPEN SOURCE LICENCE. This software is proprietary. Except for the
+limited permissions granted in section 1, no right to use, copy, modify, merge,
+publish, distribute, sublicense or sell any part of this software is granted,
+and all rights are reserved to the copyright holder.
+
+
+1. PERMITTED EVALUATION
+
+You may, without charge and without a separate agreement:
+
+  (a) view, read, download and compile this software;
+  (b) run it on infrastructure you control, on a test or development network
+      carrying no real value, for the sole purpose of evaluating it; and
+  (c) conduct security research, review or audit of it, and publish your
+      findings.
+
+These permissions exist because software a prospective customer's engineers and
+auditors may not read is software they cannot responsibly recommend, and
+because security research on a system intended to hold public money should
+never require anybody's permission.
+
+
+2. WHAT REQUIRES A WRITTEN AGREEMENT
+
+Everything else, and in particular:
+
+  (a) operating this software on a network carrying real value, real payments,
+      real title or real customer funds;
+  (b) any production, commercial or governmental deployment;
+  (c) distributing, sublicensing or offering it to third parties, whether or
+      not for a fee, including as a hosted or managed service;
+  (d) creating or distributing derivative works beyond those needed for
+      permitted evaluation; and
+  (e) removing or altering this notice or any copyright notice.
+
+Contact the copyright holder to obtain a licence for any of the above.
+
+
+3. FEEDBACK
+
+If you send the copyright holder suggestions, bug reports or security findings,
+you grant a perpetual, worldwide, royalty-free right to use them, with no
+obligation of confidence and no obligation to act. This does not transfer
+ownership of anything else you own, and it does not affect your right under
+section 1(c) to publish your own findings.
+
+
+4. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
+
+Stated plainly, because it is true and because it matters more here than the
+capital letters suggest: this software has not been audited, has never carried
+real value, and is under active development. It is not fit to hold anybody's
+money today, and the copyright holder does not represent otherwise.
+
+
+5. NO LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+A production deployment is expected to be governed by a separate written
+agreement carrying its own warranty and liability terms. This licence governs
+evaluation only, and nothing in section 1 should be read as an assurance about
+anything.
+
+
+6. TERMINATION
+
+The permissions in section 1 end automatically if you breach this licence.
+
+
+7. THIRD-PARTY COMPONENTS
+
+This software incorporates third-party components under their own licences,
+including the Cosmos SDK and CometBFT (Apache-2.0). Those licences govern those
+components and are unaffected by this one. See go.mod for the dependency set.
+
+
+---
+
+Two things the copyright holder must settle before relying on this document:
+
+  * the legal entity that holds the copyright, which is named here as "Sermium"
+    on the basis of the repository's own naming and should be replaced with the
+    registered entity; and
+  * the governing law and jurisdiction, which this licence deliberately does
+    not assert.
+
+This text was drafted for clarity rather than by a lawyer, and it has not been
+reviewed by one. It is fit to remove the "no licence at all" blocker that stops
+a counterparty's legal team looking at the code; it is not fit to be the
+licence under which a government deploys a payment system.
