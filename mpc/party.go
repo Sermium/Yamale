@@ -88,8 +88,15 @@ func NewSigningParty(role string, digest []byte, share Share, signers []string) 
 		return nil, fmt.Errorf("expected a 32-byte digest, got %d bytes", len(digest))
 	}
 	if len(signers) != Threshold+1 {
+		// Spelled out rather than left to a format verb, because this refusal
+		// is shown to people as the demonstration that one share cannot sign,
+		// and "1 were named" undercuts it.
+		were := "were"
+		if len(signers) == 1 {
+			were = "was"
+		}
 		return nil, fmt.Errorf(
-			"a signing committee is exactly %d parties; %d were named", Threshold+1, len(signers))
+			"a signing committee is exactly %d parties; %d %s named", Threshold+1, len(signers), were)
 	}
 	if share.Data.ShareID == nil {
 		return nil, fmt.Errorf("the %s share carries no share id", role)
