@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale — guided tour</title>
+<meta name="description" content="Every mechanism on the Yamale chain, what each one refuses to do, proof read from the running chain, and where to go to see it working.">
+<link rel="icon" type="image/svg+xml" href="mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="yamale.css">
+<link rel="stylesheet" href="tour.css">
+</head>
+<body>
+
+<a class="skip" href="#acts">Skip to the mechanisms</a>
+
+<header class="masthead">
+  <div class="wrap masthead__inner">
+    <a class="wordmark" href="/">
+      <svg class="wordmark__mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/>
+        <path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/>
+        <path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/>
+      </svg>
+      <span>Yamale</span>
+      <span class="wordmark__sub">Guided tour</span>
+    </a>
+
+    <nav class="masthead__nav" aria-label="Acts">
+      <!-- Filled from the catalogue so the navigation cannot drift from the
+           page. A hand-written list here is the thing that ends up pointing at
+           a section somebody renamed. -->
+    </nav>
+
+    <div class="masthead__end">
+      <!-- The head of the chain, read once and refreshed. It is in the
+           masthead rather than in a panel because every number below it is
+           only true as at this height, and a reader who scrolls past a
+           mechanism should still be able to see what moment it describes. -->
+      <div class="head" id="head" aria-live="polite">
+        <span class="head__dot" data-state="pending"></span>
+        <span class="head__text">reading the chain…</span>
+      </div>
+      <button class="theme" id="theme" type="button" aria-label="Switch between light and dark">
+        <span aria-hidden="true">◐</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ==================================================================== -->
+  <!-- The premise                                                          -->
+  <!-- ==================================================================== -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="y-eyebrow">A walk through the whole system</p>
+      <h1>Every mechanism, and what it refuses to&nbsp;do.</h1>
+      <p class="hero__lede">
+        Yamale is a chain for public money: institutional payments, a land register,
+        closed-end vehicles over real assets, and enforcement powers that are bounded
+        by numbers anybody can read. What follows is each mechanism in turn — one
+        sentence on what it does, then <strong>the thing it refuses</strong>, then a
+        query against the chain running right now, then where to click to see it
+        working.
+      </p>
+      <p class="hero__lede">
+        The refusal is the headline rather than the feature. A ministry is not asking
+        whether this is clever; it is asking whether it can be trusted with a citizen's
+        money and whether it constrains whoever operates it. Every number on this page
+        is read live and carries the height it was read at. Where a proof cannot be
+        obtained the page says so and shows nothing, because
+        <em>nought</em> and <em>could not ask</em> are opposite facts.
+      </p>
+
+      <div class="hero__meta">
+        <div class="hero__stat">
+          <span class="y-label">Network</span>
+          <strong class="y-mono" id="hero-network">…</strong>
+        </div>
+        <div class="hero__stat">
+          <span class="y-label">Read at height</span>
+          <strong class="y-mono y-num" id="hero-height">…</strong>
+        </div>
+        <div class="hero__stat">
+          <span class="y-label">Block time, measured</span>
+          <strong class="y-mono y-num" id="hero-blocktime">…</strong>
+        </div>
+        <div class="hero__stat">
+          <span class="y-label">Mechanisms below</span>
+          <strong class="y-mono y-num" id="hero-count">…</strong>
+        </div>
+      </div>
+
+      <!-- Stated up front rather than buried, because a scheduled halt that
+           arrives mid-demonstration and is not expected looks exactly like a
+           chain falling over. -->
+      <p class="hero__caveat">
+        This is a development network with two validators. It is scheduled to halt
+        for an upgrade, and this page will say <span class="y-chip y-chip--bad">cannot reach the chain</span>
+        rather than show you a zero when it does.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Where everything is                                                  -->
+  <!-- ==================================================================== -->
+  <section class="surfaces" id="surfaces">
+    <div class="wrap">
+      <h2>The surfaces</h2>
+      <p class="section__lede">
+        Thirteen places. Each mechanism below links into the one where you can see it.
+      </p>
+      <div class="surface-grid" id="surface-grid"></div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- The mechanisms                                                       -->
+  <!-- ==================================================================== -->
+  <div id="acts"></div>
+
+  <!-- ==================================================================== -->
+  <!-- The honest part                                                      -->
+  <!-- ==================================================================== -->
+  <section class="notbuilt" id="not-built">
+    <div class="wrap">
+      <p class="y-eyebrow">Say this before somebody finds it</p>
+      <h2>What is not built.</h2>
+      <p class="section__lede">
+        A page that oversells gets caught in the room, and being caught is worse than
+        being modest: a reader who finds one overstatement stops believing the other
+        sixteen claims, including the true ones.
+      </p>
+      <ul class="notbuilt__list" id="notbuilt-list"></ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <p>
+      Every figure on this page was read from the chain at the height shown beside it.
+      Nothing here is hard-coded except the identifiers naming <em>which</em> record to
+      go and read.
+    </p>
+    <p class="foot__links">
+      <a href="/">Yamale</a>
+      <a href="/docs/">Documentation</a>
+      <a href="/explorer/">Explorer</a>
+    </p>
+  </div>
+</footer>
+
+<script type="module" src="tour.js"></script>
+</body>
+</html>

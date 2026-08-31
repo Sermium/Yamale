@@ -1,0 +1,380 @@
+/* The guided tour.
+ *
+ * Every colour here comes from a token defined in yamale.css, and no rule in
+ * this file defines a colour inside a media query or a [data-theme] block. That
+ * constraint is not stylistic: yamale.css carries a complete light palette on
+ * bare :root and redefines only tokens for the two dark states, so a colour
+ * whose sole definition sat inside one of those blocks would render one theme's
+ * text on the other theme's ground in the unstamped, system-preference state.
+ * That bug has shipped in this repository. The rule that prevents it is that
+ * this file names tokens and never hex.
+ *
+ * The container is wider than the marketing site's 1060px because this page is
+ * a two-column reference rather than a column of prose, and because a layout
+ * that is only ever checked at its own max-width measures identically to a
+ * broken one. It is checked at 1600.
+ */
+
+.wrap {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 var(--sp-5);
+}
+
+body { font-size: var(--step-1); }
+
+a { color: var(--accent); text-underline-offset: 0.18em; }
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--sp-3) var(--sp-4);
+  z-index: 100;
+}
+.skip:focus { left: var(--sp-4); top: var(--sp-4); }
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.masthead__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-height: 64px;
+  flex-wrap: wrap;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: var(--step-2);
+  letter-spacing: -0.015em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.wordmark__mark { width: 22px; height: 22px; align-self: center; flex: none; }
+.wordmark__sub {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.masthead__nav {
+  display: flex;
+  gap: var(--sp-4);
+  margin-right: auto;
+  flex-wrap: wrap;
+}
+.masthead__navlink {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--step-0);
+  white-space: nowrap;
+}
+.masthead__navlink:hover { color: var(--text); text-decoration: underline; }
+
+.masthead__end { display: flex; align-items: center; gap: var(--sp-3); }
+
+/* The chain head. A dot carries the state in form as well as in words, so a
+   halted chain is legible before the text is read — and it is never the only
+   carrier, because a reader who cannot distinguish the hues still gets the
+   sentence beside it. */
+.head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  background: var(--surface);
+  white-space: nowrap;
+}
+.head__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); }
+.head__dot[data-state='ok'] { background: var(--ok); }
+.head__dot[data-state='warn'] { background: var(--warn); }
+.head__dot[data-state='bad'] { background: var(--bad); }
+
+.theme {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius);
+  width: 34px;
+  height: 30px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.theme:hover { color: var(--text); border-color: var(--rule); }
+
+/* -------------------------------------------------------------------- hero */
+
+.hero { padding: var(--sp-8) 0 var(--sp-7); }
+.hero h1 { margin: var(--sp-3) 0 var(--sp-5); max-width: 20ch; }
+.hero__lede {
+  font-size: var(--step-2);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 62ch;
+  margin-bottom: var(--sp-4);
+}
+.hero__lede strong { color: var(--text); font-weight: 600; }
+.hero__lede em { color: var(--text); font-style: italic; }
+
+.hero__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-4);
+  margin: var(--sp-6) 0 var(--sp-5);
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+.hero__stat { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.hero__stat strong { font-size: var(--step-3); font-weight: 500; overflow-wrap: anywhere; }
+
+.hero__caveat {
+  color: var(--text-muted);
+  font-size: var(--step-0);
+  max-width: 70ch;
+  border-left: 2px solid var(--warn);
+  padding-left: var(--sp-4);
+}
+
+/* ---------------------------------------------------------------- sections */
+
+.section__lede {
+  color: var(--text-muted);
+  font-size: var(--step-1);
+  max-width: 68ch;
+  margin-top: var(--sp-3);
+}
+
+.surfaces { padding: var(--sp-7) 0; border-top: 1px solid var(--border); }
+
+.surface-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+.surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.surface:hover { border-color: var(--accent); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.surface__top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.surface__label { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; }
+.surface__blurb { color: var(--text-muted); font-size: var(--step--1); line-height: 1.45; }
+.surface__href { color: var(--text-faint); font-size: 0.75rem; }
+.surface--building { border-style: dashed; }
+
+/* -------------------------------------------------------------------- acts */
+
+.act { padding: var(--sp-7) 0; border-top: 1px solid var(--border); }
+.act__head { margin-bottom: var(--sp-6); }
+.act__head h2 { margin-top: var(--sp-2); }
+
+.mech-list { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+.mech {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.mech__head {
+  padding: var(--sp-5) var(--sp-5) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+.mech__head h3 { margin-top: var(--sp-1); }
+
+/* Two columns: the argument on the left, the evidence on the right. They are
+   the same width on purpose — a proof panel narrower than the prose reads as a
+   footnote, and the evidence is the half the room is here for. */
+.mech__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+.mech__prose {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.mech__block { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mech__does { color: var(--text-muted); max-width: 54ch; }
+
+.mech__block--refuses {
+  border-left: 2px solid var(--brass);
+  padding-left: var(--sp-4);
+}
+.mech__refuses {
+  color: var(--text);
+  font-size: var(--step-1);
+  max-width: 54ch;
+}
+
+.mech__go {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+}
+.mech__go:hover { border-color: var(--accent); }
+.mech__go-arrow { transition: transform .12s; }
+.mech__go:hover .mech__go-arrow { transform: translateX(2px); }
+.mech__go--building { color: var(--text-muted); border-style: dashed; }
+
+/* -------------------------------------------------------------------- proof */
+
+.mech__proof {
+  padding: var(--sp-5);
+  background: var(--surface-2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.proof__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.proof__watch { color: var(--text-muted); font-size: var(--step-0); max-width: 54ch; }
+
+.proof__rows {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  align-items: baseline;
+}
+.proof__label {
+  color: var(--text-muted);
+  font-size: var(--step-0);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.proof__value {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.proof__value--emphasis { color: var(--text); font-weight: 600; }
+.proof__value--full { grid-column: 1 / -1; color: var(--text-muted); }
+/* A quoted objection is somebody's words about a death and a court. It is set
+   apart so it does not read as a field this page computed. */
+.proof__value--quote {
+  grid-column: 1 / -1;
+  font-style: italic;
+  color: var(--text);
+  border-left: 2px solid var(--rule);
+  padding-left: var(--sp-3);
+}
+
+.proof__note {
+  color: var(--text-muted);
+  font-size: var(--step-0);
+  line-height: 1.5;
+  max-width: 58ch;
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+}
+.proof__failure {
+  color: var(--text);
+  font-size: var(--step-1);
+  max-width: 50ch;
+}
+/* An unread proof gets a different ground, not a row of dashes. The eye reads
+   a dash in a data table as a measured value; it reads a changed panel as an
+   absence. */
+.mech__proof--unread { background: var(--wash-bad); }
+
+/* --------------------------------------------------------------- not built */
+
+.notbuilt { padding: var(--sp-7) 0 var(--sp-8); border-top: 1px solid var(--border); }
+.notbuilt h2 { margin-top: var(--sp-2); }
+.notbuilt__list {
+  margin: var(--sp-6) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-3);
+}
+.notbuilt__list li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--bad);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--step-0);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------- foot */
+
+.foot { border-top: 1px solid var(--border); padding: var(--sp-6) 0 var(--sp-7); background: var(--surface-2); }
+.foot__inner { display: flex; justify-content: space-between; gap: var(--sp-5); flex-wrap: wrap; }
+.foot p { color: var(--text-muted); font-size: var(--step-0); max-width: 62ch; }
+.foot__links { display: flex; gap: var(--sp-4); }
+
+/* ------------------------------------------------------------ narrow */
+
+/* One breakpoint, at the width where two columns of prose stop being two
+   readable columns. Below it the proof follows the argument rather than sitting
+   beside it, which is the same reading order the markup already has. */
+@media (max-width: 900px) {
+  .mech__body { grid-template-columns: 1fr; }
+  .mech__proof { border-left: 0; border-top: 1px solid var(--border); }
+  .masthead__nav { display: none; }
+  .hero { padding: var(--sp-6) 0 var(--sp-5); }
+}
+
+@media (max-width: 560px) {
+  .wrap { padding: 0 var(--sp-4); }
+  .proof__rows { grid-template-columns: 1fr; gap: var(--sp-1) 0; }
+  .proof__label { font-size: var(--step--1); }
+  .proof__value { margin-bottom: var(--sp-2); }
+  .wordmark__sub { display: none; }
+}

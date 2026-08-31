@@ -1,0 +1,11 @@
+{
+  "name": "@yamale/demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The guided tour: every mechanism on the chain, what it refuses to do, proof read from the running chain, and where to click to see it working.",
+  "scripts": {
+    "test": "node --test format.test.js proto.test.js mechanisms.test.js",
+    "dev": "node serve.mjs"
+  }
+}

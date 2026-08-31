@@ -482,6 +482,14 @@ export const MECHANISMS = [
         const body = await rest('/yamale/blockchain/constitution/v1/invariants', 'the constitution');
         const inv = body.invariants ?? {};
         const entries = Object.entries(inv);
+        // A well-formed answer with nothing in it. The node is up, the gateway
+        // is up, and the module is gone — which is the case most likely to
+        // render as a row of confident noughts, because nothing threw.
+        if (entries.length === 0) {
+          return unread('absent',
+            'The chain answered, and returned no invariants at all. That is not a constitution of nought rules; '
+            + 'it is a module that did not report. Treat it as unread.');
+        }
         const rows = [
           { label: 'Invariants held', value: count(entries.length, 'rule'), emphasis: true },
           { label: 'To amend one', value: `${bps(inv.amendment_threshold_bps) ?? '—'} of voting power`, },
@@ -512,9 +520,17 @@ export const MECHANISMS = [
       try {
         const body = await rest('/yamale/blockchain/constitution/v1/invariants', 'the constitution');
         const inv = body.invariants ?? {};
+        const custodians = Number(inv.foundation_custodian_count);
+        const threshold = Number(inv.foundation_signature_threshold);
+        // A quorum of nought is not a quorum. If either figure is missing this
+        // is an unread proof, not a foundation anybody can sign for alone.
+        if (!Number.isFinite(custodians) || !Number.isFinite(threshold) || custodians === 0) {
+          return unread('absent', 'The chain answered, and reported no custodian quorum. Treat it as unread.');
+        }
         return proven(0, [
-          { label: 'Custodians', value: count(Number(inv.foundation_custodian_count ?? 0), 'custodian') },
-          { label: 'Signatures required', value: count(Number(inv.foundation_signature_threshold ?? 0), 'signature'), emphasis: true },
+          { label: 'Custodians', value: count(custodians, 'custodian') },
+          { label: 'Signatures required', value: count(threshold, 'signature'), emphasis: true },
+          { label: 'Any one custodian alone', value: 'cannot act' },
         ], 'The devnet key this was rehearsed with has had its recovery phrase destroyed and is not carried forward.');
       } catch (e) { return describeFailure(e); }
     },

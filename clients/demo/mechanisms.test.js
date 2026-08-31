@@ -1,0 +1,207 @@
+// Tests for the catalogue itself.
+//
+// Nothing here talks to a chain. What is tested is the set of claims the page
+// makes before it reads anything: that every mechanism links somewhere that
+// exists, that every one states a refusal rather than only a feature, and —
+// the one that matters most in a room — that no `read` can return a number when
+// the chain does not answer.
+//
+// That last property is tested by handing every mechanism a fetch that fails in
+// each of the ways the deployment actually fails: a timeout, the gateway's 401,
+// the 503 the proxy returns when a node is halted for an upgrade, and an HTML
+// error page where JSON was expected. All four have been observed against
+// pay.yamalelegal.com. If any mechanism comes back `proven` from one of them,
+// this page is capable of showing a room a figure it did not read, and the test
+// fails.
+
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+
+import { ACTS, MECHANISMS, NOT_BUILT, SURFACES, THRESHOLD_ACCOUNT } from './mechanisms.js';
+
+/* ========================================================================= */
+/*  Shape                                                                    */
+/* ========================================================================= */
+
+test('every mechanism has an id, and no two share one', () => {
+  const ids = MECHANISMS.map((m) => m.id);
+  assert.equal(new Set(ids).size, ids.length, 'duplicate mechanism id');
+  ids.forEach((id) => assert.match(id, /^[a-z][a-z0-9-]*$/, `${id} is not usable as a fragment`));
+});
+
+test('every mechanism belongs to an act that exists, and every act has mechanisms', () => {
+  const acts = new Set(ACTS.map((a) => a.id));
+  MECHANISMS.forEach((m) => assert.ok(acts.has(m.act), `${m.id} is in unknown act "${m.act}"`));
+  ACTS.forEach((a) => assert.ok(MECHANISMS.some((m) => m.act === a.id), `act "${a.id}" is empty`));
+});
+
+test('every mechanism links to a surface that exists', () => {
+  // A typo here is a dead click in front of a central bank. It is a failing
+  // test instead.
+  MECHANISMS.forEach((m) => {
+    assert.ok(SURFACES[m.surface], `${m.id} links to unknown surface "${m.surface}"`);
+  });
+});
+
+test('every surface href is an absolute path on this origin', () => {
+  for (const [key, s] of Object.entries(SURFACES)) {
+    assert.match(s.href, /^\//, `${key} is not an absolute path`);
+    assert.doesNotMatch(s.href, /^https?:/, `${key} names a host; moving origin would break it`);
+    assert.ok(s.label && s.blurb, `${key} is missing a label or a blurb`);
+    assert.ok(['live', 'building'].includes(s.status), `${key} has status "${s.status}"`);
+  }
+});
+
+test('the two surfaces still being written are marked as such and still linked', () => {
+  // Linked rather than omitted: hiding them makes the tour look complete when
+  // it is not. Marked rather than linked silently: a dead click with no warning
+  // is worse than a labelled one.
+  assert.equal(SURFACES.oversight.status, 'building');
+  assert.equal(SURFACES.markets.status, 'building');
+  assert.ok(MECHANISMS.some((m) => m.surface === 'oversight'));
+  assert.ok(MECHANISMS.some((m) => m.surface === 'markets'));
+});
+
+test('the eleven deployed surfaces are all marked live', () => {
+  const live = Object.entries(SURFACES).filter(([, s]) => s.status === 'live').map(([k]) => k);
+  assert.equal(live.length, 11, `expected eleven live surfaces, got ${live.length}: ${live}`);
+  for (const key of ['site', 'app', 'wallet', 'safe', 'explorer', 'land', 'rwa',
+    'governance', 'foundation', 'validator', 'docs']) {
+    assert.equal(SURFACES[key]?.status, 'live', `${key} is not marked live`);
+  }
+});
+
+/* ========================================================================= */
+/*  The claims                                                               */
+/* ========================================================================= */
+
+test('every mechanism states what it does and what it refuses, at length', () => {
+  MECHANISMS.forEach((m) => {
+    assert.ok(m.name && m.module && m.watch, `${m.id} is missing a name, module or watch line`);
+    assert.ok(m.does.length > 40, `${m.id}: "does" is too short to be a sentence`);
+    // The refusal is the headline. A one-clause refusal is a feature list entry
+    // wearing a different label, and the room will treat it as one.
+    assert.ok(m.refuses.length > 60, `${m.id}: "refuses" is too short to be an argument`);
+    assert.match(m.does, /[.]$/, `${m.id}: "does" does not end in a full stop`);
+    assert.match(m.refuses, /[.]$/, `${m.id}: "refuses" does not end in a full stop`);
+  });
+});
+
+test('a refusal names something that cannot happen, not something that can', () => {
+  // Crude, and deliberately so: the failure it catches is a "refusal" written
+  // as "allows an authority to freeze an account", which is a feature.
+  MECHANISMS.forEach((m) => {
+    assert.doesNotMatch(m.refuses, /^(Allows|Lets|Enables|Supports|Provides)\b/,
+      `${m.id}: the refusal describes a capability, not a refusal`);
+  });
+});
+
+test('the module of every mechanism names an x/ module or the mpc component', () => {
+  MECHANISMS.forEach((m) => {
+    assert.match(m.module, /^(x\/[a-z]+|mpc)$/, `${m.id} names module "${m.module}"`);
+  });
+});
+
+test('the threshold account is a bech32 address on this chain', () => {
+  assert.match(THRESHOLD_ACCOUNT, /^yml1[a-z0-9]{38}$/);
+});
+
+test('what is not built is stated, and includes the four things a room would find', () => {
+  assert.ok(NOT_BUILT.length >= 5);
+  const all = NOT_BUILT.join(' ').toLowerCase();
+  for (const missing of ['audit', 'account service', 'two validators', 'paymsg']) {
+    assert.ok(all.includes(missing), `"${missing}" is not disclosed`);
+  }
+  NOT_BUILT.forEach((line) => assert.match(line, /[.]$/, `not a sentence: ${line}`));
+});
+
+/* ========================================================================= */
+/*  No read may invent a number                                              */
+/* ========================================================================= */
+
+/**
+ * The four ways this deployment actually fails, each observed.
+ *
+ * `halted` is the one that matters most: the chain is scheduled to halt for an
+ * upgrade during the demonstration this page is for, and the proxy answers 503
+ * while it is down.
+ */
+const BREAKAGES = {
+  timeout: () => Promise.reject(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' })),
+  refused: () => Promise.reject(new TypeError('fetch failed')),
+  halted: () => Promise.resolve(new Response('upstream unavailable', { status: 503 })),
+  gated: () => Promise.resolve(new Response('', {
+    status: 401,
+    headers: { 'www-authenticate': 'Basic realm="Yamale — supervisor access"' },
+  })),
+  htmlErrorPage: () => Promise.resolve(new Response('<html><h1>502 Bad Gateway</h1></html>', {
+    status: 200, headers: { 'content-type': 'text/html' },
+  })),
+  emptyBody: () => Promise.resolve(new Response('', { status: 200 })),
+};
+
+for (const [name, broken] of Object.entries(BREAKAGES)) {
+  test(`no mechanism reports a proven figure when the chain ${name}`, async () => {
+    const real = globalThis.fetch;
+    globalThis.fetch = broken;
+    try {
+      for (const m of MECHANISMS) {
+        const proof = await m.read({ secondsPerBlock: 5.4 });
+        assert.equal(proof.state, 'unread',
+          `${m.id} claimed a proof from a ${name} chain: ${JSON.stringify(proof).slice(0, 200)}`);
+        assert.ok(['unreachable', 'denied', 'absent'].includes(proof.reason),
+          `${m.id} gave reason "${proof.reason}"`);
+        assert.ok(proof.detail.length > 12, `${m.id} gave no explanation`);
+        // The whole point: nothing numeric escapes.
+        assert.equal(proof.rows, undefined, `${m.id} produced rows from a ${name} chain`);
+        assert.doesNotMatch(proof.detail, /\b0\b/, `${m.id} put a nought in its failure text`);
+      }
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+}
+
+test('a read never throws — it returns an unread proof instead', async () => {
+  // The page draws seventeen proofs concurrently. One that throws rather than
+  // returning would take its own panel down and, before this was arranged,
+  // could leave the panel showing "reading…" for the rest of the session.
+  const real = globalThis.fetch;
+  globalThis.fetch = () => { throw new Error('synchronous explosion'); };
+  try {
+    for (const m of MECHANISMS) {
+      const proof = await m.read({});
+      assert.equal(proof.state, 'unread', `${m.id} did not degrade`);
+    }
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('a read survives a chain that answers with well-formed but empty JSON', async () => {
+  // The subtle one: the node is up, the gateway is up, and every query returns
+  // {} because a module was removed in an upgrade. Nothing throws, so this is
+  // the case most likely to render as confident noughts.
+  const real = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response('{}', {
+    status: 200, headers: { 'content-type': 'application/json' },
+  }));
+  try {
+    for (const m of MECHANISMS) {
+      const proof = await m.read({ secondsPerBlock: 5.4 });
+      if (proof.state !== 'proven') continue;
+      // Where a mechanism does report a proof from an empty answer, it must not
+      // dress absence up as measurement: every row needs a value, and a note
+      // has to be attached saying what was actually found.
+      proof.rows.forEach((row) => {
+        assert.ok(row.label, `${m.id} produced a row with no label`);
+        assert.ok(row.value !== undefined && row.value !== null && row.value !== '',
+          `${m.id} produced an empty value for "${row.label}"`);
+        assert.doesNotMatch(String(row.value), /undefined|NaN|\[object/,
+          `${m.id} rendered "${row.label}" as ${row.value}`);
+      });
+    }
+  } finally {
+    globalThis.fetch = real;
+  }
+});
