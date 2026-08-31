@@ -516,6 +516,10 @@
   .asym__cell--take .asym__n { color: var(--bad); }
   .asym__u { font-size: var(--step-1); color: var(--text-muted); font-weight: 500; }
 
+  /* The digit-group gap, drawn rather than typed. See bigAmount() for the
+     measurement that made this necessary. */
+  .grp { display: inline-block; width: 0.26em; }
+
   /* ---------------------------------------------------------- power meter */
 
   .meter {
@@ -580,7 +584,14 @@
     padding: var(--sp-3) var(--sp-4);
     color: var(--text);
   }
-  .failed .why { font-family: var(--font-mono); font-size: var(--step--1); color: var(--bad); }
+  /* `/blockchain.enforcement.v1.Query/SeizureWindow` is 45 unbroken characters
+     — about 351px of mono at this size, which takes a 375px layout sideways on
+     its own. Found by watching the devnet 503 on a phone-width viewport, and
+     worth recording HOW: an element-rectangle scan does not catch it, because
+     overflowing text does not widen its block's box. Compare
+     documentElement.scrollWidth against clientWidth instead. */
+  .failed .why { font-family: var(--font-mono); font-size: var(--step--1); color: var(--bad);
+    overflow-wrap: anywhere; }
 
   .notice {
     background: var(--wash-warn);
@@ -755,6 +766,26 @@ const addr = (a) => a
 const chip = (tone, text) => `<span class="y-chip y-chip--${tone}">${esc(text)}</span>`;
 
 /**
+ * A grouped number for the display face, with the group gap drawn rather than
+ * typed.
+ *
+ * MEASURED: the narrow no-break space that groups digits everywhere else is
+ * 0.165 em wide in Archivo and 0.50 em in IBM Plex Mono. In a table at 13px
+ * that is a visible gap; in the hero at 46px it is 4.7px against a 28.6px
+ * digit, which reads as no gap at all — so the single most important number on
+ * the page, the voting power needed to take somebody's money, was rendering as
+ * an unbroken run of six digits.
+ *
+ * Fixed by making the separator an element with an em-relative width instead of
+ * a character, so it is the same fraction of the type size in any face. The
+ * data function keeps returning the real space: this is a rendering concern and
+ * belongs here, not in oversight.js.
+ */
+const bigAmount = (n) => esc(O.amount({ amount: String(n) }))
+  .split(O.GROUP_SEPARATOR)
+  .join('<span class="grp"></span>');
+
+/**
  * A read that failed, rendered as a failure.
  *
  * Never as an empty state. The distinction is the whole reason this console is
@@ -882,8 +913,8 @@ function asymmetryHtml(params) {
       </div>
       <div class="asym__cell asym__cell--take">
         <p class="y-label">To take it</p>
-        <div class="asym__n">${esc(O.amount({ amount: String(c.required) }))}
-          <span class="asym__u">of ${esc(O.amount({ amount: String(total) }))}</span></div>
+        <div class="asym__n">${bigAmount(c.required)}
+          <span class="asym__u">of ${bigAmount(total)}</span></div>
         <p class="small muted">${esc(O.bpsPercent(c.thresholdBps))} of the voting power bonded when
           the case opened — measured against the bonded total, not against whoever turned up to
           vote, because “most of those who voted” is a bar two validators clear on a quiet night.
@@ -1456,7 +1487,13 @@ async function lookupPosition(participant) {
     out.innerHTML = `<div class="y-scroll"><table>
       <thead><tr><th>Currency</th><th class="y-num">Posted</th><th class="y-num">Committed</th>
         <th class="y-num">Free to withdraw</th><th class="y-num">Net position</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr>
+      <tbody>${rows.map((r) => (r.unreadable ? `<tr>
+        <td class="mono">${esc(r.denom)}</td>
+        <td colspan="4">${chip('bad', 'could not be read')}
+          <span class="small muted">The chain returned an amount in this currency that is not a
+          decimal integer. It is shown as unreadable rather than as zero — those are opposite
+          answers to the only question this table is asked.</span></td>
+      </tr>` : `<tr>
         <td class="mono">${esc(r.denom)}</td>
         <td class="y-num mono">${esc(O.amount({ amount: r.reserve }))}</td>
         <td class="y-num mono">${esc(O.amount({ amount: r.locked }))}
@@ -1465,7 +1502,7 @@ async function lookupPosition(participant) {
         <td class="y-num mono">${esc(O.amount({ amount: r.available }))}</td>
         <td class="y-num mono">${esc(O.amount({ amount: r.net }))}
           ${r.owes ? chip('warn', 'owes') : ''}</td>
-      </tr>`).join('')}</tbody></table>
+      </tr>`)).join('')}</tbody></table>
       <p class="small muted" style="margin-top:var(--sp-3)">Read at height ${esc(String(at))}.
         Committed collateral is released as a position improves, not at the close, so a participant
         whose counterparties pay them gets their headroom back immediately.</p></div>`;

@@ -350,13 +350,32 @@ export function nettingWindowState({ params, cycle, closesAtHeight, held, height
  * what the net debit cap is checked on and what a withdrawal is refused
  * against.
  */
+/**
+ * A cosmos.Int off the wire.
+ *
+ * Returns null rather than throwing, and null rather than zero. Both matter.
+ * BigInt('') and BigInt('abc') throw, and one malformed entry would otherwise
+ * take down the whole participant's table with it — but substituting zero
+ * would be worse than the crash, because "0 posted" and "we could not read
+ * what was posted" are opposite answers to the only question anybody asks
+ * this panel.
+ */
+function intOrNull(s) {
+  if (typeof s !== 'string' || !/^-?\d+$/.test(s)) return null;
+  try { return BigInt(s); } catch { return null; }
+}
+
 export function exposure(entries) {
   return (entries || []).map((e) => {
-    const reserve = BigInt(e.reserve || '0');
-    const locked = BigInt(e.locked || '0');
-    const net = BigInt(e.net_position || '0');
+    const reserve = intOrNull(e.reserve);
+    const locked = intOrNull(e.locked);
+    const net = intOrNull(e.net_position);
+    if (reserve === null || locked === null || net === null) {
+      return { denom: e.denom, unreadable: true };
+    }
     return {
       denom: e.denom,
+      unreadable: false,
       reserve: reserve.toString(),
       locked: locked.toString(),
       available: (reserve > locked ? reserve - locked : 0n).toString(),

@@ -463,3 +463,22 @@ test('every refusal is attributed to the module it belongs to', () => {
   assert.ok(O.REFUSALS.some((r) => r.module === 'netting'));
   assert.ok(O.REFUSALS.some((r) => r.module === 'enforcement'));
 });
+
+test('an unreadable amount is reported as unreadable, never as zero', () => {
+  // 0 posted and we-could-not-read-what-was-posted are opposite answers to the
+  // only question this panel is asked. One malformed entry must also not take
+  // the rest of the table down with it.
+  const rows = O.exposure([
+    { denom: 'ungn', reserve: 'not-a-number', locked: '0', available: '0', net_position: '0' },
+    { denom: 'uyml', reserve: '500', locked: '100', available: '400', net_position: '-100' },
+  ]);
+  assert.equal(rows[0].unreadable, true);
+  assert.equal(rows[0].reserve, undefined);
+  assert.equal(rows[1].unreadable, false);
+  assert.equal(rows[1].available, '400');
+});
+
+test('an empty amount string is unreadable rather than zero', () => {
+  const [r] = O.exposure([{ denom: 'ungn', reserve: '', locked: '0', net_position: '0' }]);
+  assert.equal(r.unreadable, true);
+});
