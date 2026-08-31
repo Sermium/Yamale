@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/address"
 	corestore "cosmossdk.io/core/store"
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,6 +35,17 @@ type Keeper struct {
 	// constitutionKeeper holds the four parameters governance is not allowed to
 	// move. Read-only, and read on both write paths into Params.
 	constitutionKeeper types.ConstitutionKeeper
+
+	// concentration answers whether a validator is within the constitutional
+	// ceilings right now, rather than as of the last epoch sweep.
+	//
+	// Behind a pointer and assigned after the dependency graph is built, the
+	// same way x/paymsg receives the perimeter and for the same reason: an edge
+	// from here to x/validatorgov during wiring is one depinject would have to
+	// resolve alongside everything else both modules already depend on. The
+	// pointer is allocated in the constructor so the assignment reaches the
+	// copy the message server was built from.
+	concentration *types.ConcentrationKeeper
 
 	// scopeKeeper is the jurisdictional perimeter. Consulted on every path that
 	// stops an account — opening a case and the emergency freeze — because
@@ -108,6 +120,9 @@ func NewKeeper(
 
 		constitutionKeeper: constitutionKeeper,
 		scopeKeeper:        scopeKeeper,
+		// Allocated here so app.go's assignment after the graph is built
+		// reaches the copy the message server was constructed from.
+		concentration: new(types.ConcentrationKeeper),
 
 		authKeeper:    authKeeper,
 		bankKeeper:    bankKeeper,
@@ -268,4 +283,38 @@ func (k Keeper) makePermanent(ctx context.Context, addr string) error {
 	}
 	freeze.ExpiresAtHeight = 0
 	return k.Freeze.Set(ctx, addr, freeze)
+}
+
+// SetConcentrationKeeper hands this module the live concentration check, after
+// the dependency graph is built.
+//
+// Forgetting this line does NOT open a hole, and that is deliberate: an unset
+// pointer target is a nil interface, and assertWithinCaps below reads nil as
+// refuse. A wiring mistake stops every enforcement action loudly rather than
+// quietly restoring the epoch-long window this exists to close.
+func (k Keeper) SetConcentrationKeeper(concentration types.ConcentrationKeeper) {
+	*k.concentration = concentration
+}
+
+// assertWithinCaps refuses an actor whose groups are over a constitutional
+// ceiling right now.
+//
+// The ceilings are swept at an epoch boundary; enforcement does not wait for
+// one. Asking here makes being within caps a PRECONDITION of the power rather
+// than a correction applied after its use — which matters because a freeze
+// imposed during a breach is not undone by the demotion that follows.
+//
+// An actor that holds no validator seat is within by definition, so this does
+// not refuse an enforcement authority that is simply not a validator.
+func (k Keeper) assertWithinCaps(ctx context.Context, actor string) error {
+	concentration := *k.concentration
+	if concentration == nil {
+		return errorsmod.Wrap(types.ErrInvalidSigner,
+			"the concentration registry is not wired, so this module cannot tell whether the actor is "+
+				"within its constitutional ceilings; refusing rather than assuming it is")
+	}
+	if err := concentration.AssertOperatorWithinCaps(ctx, actor); err != nil {
+		return errorsmod.Wrap(types.ErrInvalidSigner, err.Error())
+	}
+	return nil
 }

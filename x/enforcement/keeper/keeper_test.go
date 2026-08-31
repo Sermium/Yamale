@@ -216,6 +216,12 @@ func initFixture(t *testing.T) *fixture {
 		perimeter.Keeper,
 	)
 
+	// Permissive here on purpose: these tests are about the perimeter, the
+	// delays, the quorum and the seizure, and a concentration check refusing in
+	// the middle of them would be noise. The refusal itself is exercised where
+	// it is the subject — see the caps tests and unwired_test.go.
+	k.SetConcentrationKeeper(withinCaps{})
+
 	params := types.DefaultParams()
 	params.RecoveryDestination = destinationStr
 

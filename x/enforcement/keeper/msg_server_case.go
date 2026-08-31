@@ -52,6 +52,13 @@ func (k msgServer) OpenCase(ctx context.Context, msg *types.MsgOpenCase) (*types
 	// The ombudsman may not open a case, and the bar is here rather than only
 	// in the parameters because whether that key is also a bonded validator is
 	// a fact about chain state that can change after the parameters were set.
+	// Within the constitutional concentration ceilings AT THIS MOMENT, not as
+	// of the last epoch sweep. See Keeper.assertWithinCaps: the sweep is
+	// periodic and this power is not, so without this a group that had crossed
+	// a ceiling held it for up to a whole epoch.
+	if err := k.assertWithinCaps(ctx, msg.Opener); err != nil {
+		return nil, err
+	}
 	if err := k.assertNotOmbudsman(params, msg.Opener); err != nil {
 		return nil, err
 	}
@@ -225,6 +232,13 @@ func (k msgServer) VoteCase(ctx context.Context, msg *types.MsgVoteCase) (*types
 	// initiation power in everything but name and the ombudsman is barred from
 	// it here — including from voting no, because an office that could vote at
 	// all would be inside the process it is appointed to check.
+	// Within the constitutional concentration ceilings AT THIS MOMENT, not as
+	// of the last epoch sweep. See Keeper.assertWithinCaps: the sweep is
+	// periodic and this power is not, so without this a group that had crossed
+	// a ceiling held it for up to a whole epoch.
+	if err := k.assertWithinCaps(ctx, msg.Voter); err != nil {
+		return nil, err
+	}
 	if err := k.assertNotOmbudsman(params, msg.Voter); err != nil {
 		return nil, err
 	}

@@ -434,3 +434,43 @@ func TestShareArithmeticGuardsAZeroTotal(t *testing.T) {
 	require.Empty(t, plans)
 	require.Empty(t, breaches)
 }
+
+// The end blocker survives a params store that has never been written.
+//
+// Audit finding 3.7 (Low). ConcentrationEndBlocker tolerates absent params and
+// proceeds with a zero-valued Params, relying on AttestationInterval() to read
+// zero as "use the default". Not returning an error is right — the alternative
+// halts the chain over a missing store entry — but the reliance on an accessor
+// behaving well was inferred from reading it rather than asserted anywhere.
+//
+// The state is reachable: a module added to a running chain by an upgrade whose
+// migration did not write params starts exactly here, which is not a
+// hypothetical on a chain that has taken four upgrades.
+func TestConcentrationEndBlockerSurvivesAnEmptyParamsStore(t *testing.T) {
+	f := newFixture(t, false)
+
+	// Emptied deliberately: even the no-genesis fixture writes DefaultParams,
+	// so without this the test would pass while exercising the ordinary path
+	// and prove nothing about the one it names.
+	require.NoError(t, f.keeper.Params.Remove(f.env.Ctx))
+	_, err := f.keeper.Params.Get(f.env.Ctx)
+	require.Error(t, err, "the params store is not empty, so this test is not testing what it says")
+
+	// Every height, not just a boundary: the divisor guard and the interval
+	// accessor are on different paths and only one of them runs off-epoch.
+	for _, height := range []int64{1, testEpoch - 1, testEpoch, testEpoch + 1, testEpoch * 3} {
+		require.NoError(t,
+			f.keeper.ConcentrationEndBlocker(f.env.Ctx.WithBlockHeight(height)),
+			"an empty params store halted the chain at height %d", height)
+	}
+}
+
+// And the accessor it relies on reads zero as the default rather than as an
+// interval of zero, which would make every declaration stale in the same block.
+func TestAZeroAttestationIntervalMeansTheDefaultNotZero(t *testing.T) {
+	var empty types.Params
+	require.Equal(t, uint64(types.DefaultAttestationIntervalBlocks), empty.AttestationInterval(),
+		"a zero interval read as zero would mark every declaration stale immediately")
+	require.Positive(t, empty.AttestationInterval(),
+		"an interval of zero is also a modulus of zero for anything that divides by it")
+}

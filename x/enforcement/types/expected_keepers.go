@@ -108,3 +108,34 @@ type StakingKeeper interface {
 	// its way back, and therefore whether it is finished.
 	GetUnbondingDelegations(ctx context.Context, delegator sdk.AccAddress, maxRetrieve uint16) ([]stakingtypes.UnbondingDelegation, error)
 }
+
+// ConcentrationKeeper answers whether a validator is inside the constitutional
+// concentration ceilings AT THIS MOMENT.
+//
+// # Why this module asks at all
+//
+// The ceilings are swept at an epoch boundary, and between boundaries a group
+// may exceed one with no consequence. That is fine for a demotion, which is a
+// correction and may be periodic. It is not fine here, because nothing this
+// module does waits for an epoch: one bonded validator freezes an account in a
+// block, and two thirds of bonded power carries a seizure in one vote.
+//
+// So there was a window, as long as one epoch, in which a group that had
+// crossed a constitutional ceiling held exactly the powers the constitution was
+// written to deny it — and a freeze imposed in that window is not undone by the
+// demotion that follows it. Raised as finding 3.3 by an independent review on
+// 2026-08-31.
+//
+// # Fails closed, and that is the whole point of the interface being here
+//
+// An unwired keeper is a nil interface. Every caller below treats nil as REFUSE
+// rather than as permit, because the alternative is that forgetting one line in
+// app.go silently restores the window this exists to close, and nothing would
+// fail until somebody read the code.
+type ConcentrationKeeper interface {
+	// AssertOperatorWithinCaps returns nil when the operator's groups are
+	// inside their ceilings, and an error naming the ceiling when they are not.
+	// An account that holds no seat is within: it belongs to no group and there
+	// is nothing to concentrate.
+	AssertOperatorWithinCaps(ctx context.Context, operator string) error
+}

@@ -52,6 +52,13 @@ func (k msgServer) EmergencyFreeze(ctx context.Context, msg *types.MsgEmergencyF
 	// ombudsman, which catches the appointment order — and this check catches the
 	// other one, a grant made to a sitting ombudsman afterwards, which the
 	// parameters could never have caught even when the field existed.
+	// Within the constitutional concentration ceilings AT THIS MOMENT, not as
+	// of the last epoch sweep. A freeze lands in one block and is not undone by
+	// the demotion that follows it, so the ceiling has to be a precondition of
+	// the power rather than a correction after its use.
+	if err := k.assertWithinCaps(ctx, msg.Authority); err != nil {
+		return nil, err
+	}
 	if err := k.assertNotOmbudsman(params, msg.Authority); err != nil {
 		return nil, err
 	}

@@ -263,6 +263,20 @@ func New(
 	// registry.
 	app.PaymsgKeeper.SetScopeKeeper(app.AliasKeeper)
 
+	// The live concentration check, handed to x/enforcement the same way and
+	// for the same reason.
+	//
+	// The ceilings are swept at an epoch boundary and enforcement does not wait
+	// for one: a freeze lands in a block, a seizure in one vote. So without
+	// this a group that had crossed a constitutional ceiling held those powers
+	// for up to a whole epoch, and a freeze imposed inside that window is not
+	// undone by the demotion that follows.
+	//
+	// Forgetting this line does not open a hole either. Until it runs,
+	// x/enforcement refuses every case, vote and freeze with an error naming
+	// the missing registry — nil reads as refuse, never as permit.
+	app.EnforcementKeeper.SetConcentrationKeeper(app.ValidatorgovKeeper)
+
 	// add to default baseapp options
 	// enable optimistic execution
 	baseAppOptions = append(baseAppOptions, baseapp.SetOptimisticExecution())
