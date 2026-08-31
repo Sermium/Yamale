@@ -10,6 +10,18 @@ against a real node.
 **You will end with:** two approved institutions, a registered customer, a
 settled payment, and the statement entry it produced.
 
+> **On a local chain, where you approve the participants yourself.** On the
+> deployed network `x/paymsg` holds **zero** approved participants and **zero**
+> payment records — measured 2026-08-31 — because no country has been enrolled
+> and only a payments authority or a foundation administrator can admit an
+> institution. So no ISO payment has ever been made on `yamale-devnet-2`, and
+> nothing described below is reachable from any deployed interface.
+>
+> In particular, the transfer at height 84,121 that is sometimes cited is **not**
+> one of these. It is a plain `MsgSend` with ISO fields packed into the memo
+> string, sent by `clients/app`, which says so on the screen. See
+> [gaps.md](../scope/gaps.md#known-defects).
+
 ---
 
 ## The shape of it

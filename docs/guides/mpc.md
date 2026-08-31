@@ -155,6 +155,13 @@ every reshare, because shares from two different sharings do not combine. Run on
 a schedule, it turns "one share stolen" from a permanent half-compromise into a
 race with a deadline.
 
+**They do not combine, and today they do not refuse cleanly either.** Handing
+`Sign` an old share and a new one panics inside tss-lib rather than returning an
+error — and a stale device share is exactly what a phone holds after a reset it
+did not finish. Recorded in
+[gaps.md](../scope/gaps.md#known-defects); it affects `Sign`, not
+`SigningParty`, which builds its committee from its own share.
+
 **Two things cost real time to learn and are worth carrying:**
 
 - The old peer context must contain **only the parties actually taking part**,
@@ -223,11 +230,37 @@ just more shares in one place"*.
 
 ```bash
 go run ./tools/mpc keygen --out ./account
-go run ./tools/mpc address --share ./account/device.json
+go run ./tools/mpc address --share ./account/device.share.json
+go run ./tools/mpc reshare \
+  --share ./account/custodian.share.json \
+  --share ./account/recovery.share.json --out ./account-reset
 go run ./tools/mpc pay --shares ./account \
   --to yml1... --amount 1250000uyml \
   --node http://localhost:26657 --chain-id yamale-devnet-2
 ```
+
+### Run, not transcribed
+
+Every command above except `pay` was run while writing this page, on 2026-08-31.
+What it produced, because the timings are what people ask about:
+
+- **`keygen` took 1m 5s** — 44 to 54 seconds of safe-prime search per party, in
+  parallel, then key generation. That is with no pre-parameter pool, which is
+  why the design has one.
+- **All three shares print the same address**,
+  `yml1whvhalj2xmqxkmwjwmv2lrurlg9y35gyx9w4pe`, each derived locally from the
+  joint public key rather than taken from anybody's word for it.
+- **One share refuses:** `1 share(s) cannot sign: 2 of 3 are needed`.
+- **`reshare` from `custodian + recovery`** — without the device share, which is
+  the password-reset path — took **1m 21s** and printed the **same address**.
+  The two new shares then signed for it; an old share and a new one
+  [do not combine](#resharing-a-password-reset-that-does-not-move-the-account).
+- The tool says the quiet part on the way out: *"the old shares still sign until
+  you delete them: retiring them is your decision and the protocol will not make
+  it for you."*
+
+`pay` was not run here — it needs a funded account on a chain, and the two
+payments in the table above are what it produced when it was.
 
 `tools/mpc` was written because `mpc` had no caller at all, which is the same
 shape as the two dead load-bearing functions found in `x/tokenisation` on

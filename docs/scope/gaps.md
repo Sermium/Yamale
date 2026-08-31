@@ -341,6 +341,35 @@ against `AppliedPlan`. A row here now says both dates when they differ.
   in this module after `FinaliseSale`, and both were found the same way: by
   driving the thing rather than reading it.
 
+- **`mpc.Sign` panics when handed shares from two different sharings.** Found
+  2026-08-31 while verifying the reshare claim by running the tool. An account
+  was generated, resharded from `custodian + recovery` without the device share
+  — the password-reset path — and the resulting address was identical, which is
+  the property working as designed. Signing with the **old** device share and the
+  **new** custodian share then crashes the process:
+
+      panic: BuildLocalSaveDataSubset: unable to find a signer party in the
+      local save data
+      … tss-lib/ecdsa/keygen/save_data.go:92
+      … mpc.Sign at mpc/mpc.go:296
+
+  The refusal is correct — shares from two sharings must not combine — but a
+  panic is the wrong way to deliver it, and the input is not exotic: a stale
+  device share is exactly what a customer's phone holds after a reset it did not
+  finish. `Sign` validates the share count and the digest length and then hands
+  the set to tss-lib without checking that every share agrees on the same `Ks`,
+  which is the check that would turn this into an error somebody can read.
+
+  **Scope, stated because it was measured and not reasoned:** this is `Sign`, the
+  all-in-one-process path used by `tools/mpc` and the tests.
+  `NewSigningParty` — the production path, and the one `tools/custodian` uses —
+  builds its committee from its *own* share's `Ks`, so it does not reach this
+  construction with a mixed set and cannot panic here. What it does instead when
+  its peer is on a different sharing was **not tested**, and should be: the
+  plausible answers are a protocol that hangs and a signature that verifies
+  against nothing, and neither is a good thing for a service to do on input a
+  stranger controls.
+
 - **x/tokenisation credits a sale's proceeds that never arrive.** `FinaliseSale`
   puts the whole reported price through the income index while moving no coins,
   and the only message that does move coins — `FundVault` — accrues them a second
