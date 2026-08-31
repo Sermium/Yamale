@@ -956,10 +956,14 @@ function emptyRatesHtml(p, ms, vals) {
         validators have missed <em>every</em> one of ${groupDigits(String(rounds))} voting rounds since genesis,
         so no feeder has ever submitted a price.</p>
       <p class="small">Anything that asks x/oracle what something is worth gets nothing back, and — correctly —
-        stops. That is the module working, not failing. What is missing is a feeder process on each validator
-        host, reporting every ${esc(p.vote_period)} blocks.</p>
+        stops. That is the module working, not failing. What is missing is a feeder process on each validator host,
+        reporting every ${esc(p.vote_period)} blocks.</p>
+      <p class="small"><strong>The program that does this already exists in this repository</strong>, at
+        <code>tools/feeder</code>. It has never been started on either validator. One per validator, and
+        deliberately not all on the same price source — a median of four reports drawn from one endpoint is one
+        source counted four times.</p>
       ${command(
-        'What starts a feed',
+        'What a feeder sends, each round',
         MESSAGES.submitRates,
         submitRatesCommand({
           validator: ms[0]?.validator || 'ymlvaloper1…',

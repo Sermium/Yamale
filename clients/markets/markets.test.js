@@ -68,6 +68,67 @@ function bleedingForm(reserveIn, reserveOut, amountIn, feeBps) {
   return rOut - (rIn * rOut) / (rIn + afterFee);
 }
 
+/**
+ * What x/amm's keeper actually pays out, produced by running its own
+ * expression through cosmossdk.io/math.
+ *
+ * Not hand-computed and not derived from reading the Go: `go run
+ * ./tools/ammparity` evaluates the keeper's line verbatim in the same
+ * arbitrary-precision integer type and prints these rows. A disagreement here
+ * is therefore a disagreement between the console and the chain, not between
+ * two readings of the same source.
+ *
+ * Rows are [reserveIn, reserveOut, amountIn, feeBps, out]. They include the
+ * live pool 1 on yamale-devnet-2, reserves whose product leaves a remainder,
+ * inputs of a few base units where truncation is the entire answer, and a trade
+ * of half the input reserve where the curve dominates the fee.
+ */
+const KEEPER = [
+  ['20000000000', '30000000000', '1000000000', 0, '1428571428'],
+  ['20000000000', '30000000000', '1000000000', 30, '1424489212'],
+  ['20000000000', '30000000000', '1000000000', 500, '1360381861'],
+  ['1000000', '3000001', '7', 0, '20'],
+  ['1000000', '3000001', '7', 30, '17'],
+  ['1000000', '3000001', '7', 500, '17'],
+  ['999999', '1000003', '13', 0, '12'],
+  ['999999', '1000003', '13', 30, '11'],
+  ['999999', '1000003', '13', 500, '11'],
+  ['20000000000', '30000000000', '1', 0, '1'],
+  ['20000000000', '30000000000', '1', 30, '0'],
+  ['20000000000', '30000000000', '1', 500, '0'],
+  ['20000000000', '30000000000', '10000000000', 0, '10000000000'],
+  ['20000000000', '30000000000', '10000000000', 30, '9979979979'],
+  ['20000000000', '30000000000', '10000000000', 500, '9661016949'],
+  ['10000000000', '15000000000', '123456789', 0, '182926827'],
+  ['10000000000', '15000000000', '123456789', 30, '182384718'],
+  ['10000000000', '15000000000', '123456789', 500, '173886513'],
+  ['7', '11', '999999', 0, '10'],
+  ['7', '11', '999999', 30, '10'],
+  ['7', '11', '999999', 500, '10'],
+  ['1000', '1001', '3', 0, '2'],
+  ['1000', '1001', '3', 30, '1'],
+  ['1000', '1001', '3', 500, '1'],
+];
+
+test('the quote equals what the keeper pays, on every fixture row', () => {
+  // The test this file exists for. Nothing else here proves the console and the
+  // chain agree; this does, against the chain's own arithmetic.
+  for (const [rIn, rOut, aIn, fee, expected] of KEEPER) {
+    assert.equal(
+      String(swapOut(rIn, rOut, aIn, fee)),
+      expected,
+      `keeper pays ${expected} for ${aIn} into ${rIn}/${rOut} at ${fee} bps`,
+    );
+  }
+  assert.equal(KEEPER.length, 24);
+
+  // And the rejected form disagrees with the keeper on rows where the keeper's
+  // truncation actually bit — proof that matching the formula is not automatic.
+  const differing = KEEPER.filter(([rIn, rOut, aIn, fee, expected]) =>
+    bleedingForm(rIn, rOut, aIn, fee) !== BigInt(expected));
+  assert.ok(differing.length >= 5, `only ${differing.length} rows distinguish the two forms`);
+});
+
 test('swapOut reproduces the keeper formula step for step', () => {
   // Pool 1 on yamale-devnet-2 at height 119299: 20,000 YML against 30,000 NGN,
   // 30 bps. Worked by hand:
