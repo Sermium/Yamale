@@ -223,7 +223,7 @@ test('a non-numeric amount is refused rather than rendered as NaN', () => {
 test('an elided address keeps both ends so two can be compared by eye', () => {
   const a = 'yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97';
   const short = elide(a);
-  assert.equal(short, 'yml1ael7jx…t6w8nmml6a97'.replace('t6w8nmml6a97', a.slice(-10)));
+  assert.equal(short, 'yml1ael7jx…w8nmml6a97');
   assert.ok(short.startsWith(a.slice(0, 10)), 'the head must survive');
   assert.ok(short.endsWith(a.slice(-10)), 'the tail must survive — one end alone cannot be compared');
   assert.ok(short.includes('…'));
