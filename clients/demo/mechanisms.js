@@ -183,19 +183,41 @@ export const MECHANISMS = [
     module: 'x/netting',
     name: 'Multilateral netting',
     does: 'Collects obligations between participants over a cycle and settles the net position, so a hundred bilateral payments move a handful of balances.',
-    refuses: 'Settling a cycle while an obligation in it is held. A held obligation stops the cycle rather than being skipped over — netting around a disputed leg is how a net position stops matching the gross one.',
+    refuses: 'Being switched half on. The cycle length is the divisor that decides where a window closes, and a zero is read as "netting is off" everywhere at once — every obligation settles gross and the end blocker returns before it computes anything. The alternative reading, zero meaning every block, divides by zero inside an end blocker, and that is not a failed transaction: it is a chain that produces no further blocks.',
     surface: 'oversight',
-    watch: 'The module\'s own parameters, read from the chain.',
-    async read() {
+    watch: 'The cycle length, and therefore whether netting is running on this chain at all.',
+    async read(ctx) {
       try {
-        const { bytes, height } = await abci(`${NETTING}/Params`);
-        const params = read(read(bytes).get(1)?.[0] ?? new Uint8Array());
-        const fields = [...params.keys()].length;
-        return proven(height, [
-          { label: 'Module present on chain', value: 'yes — it answered' },
-          { label: 'Parameters set', value: fields === 0 ? 'all at their proto3 defaults' : count(fields, 'field') },
-        ], 'The module is deployed and answering. No cycle has been run on this devnet, so there is no settled '
-          + 'net position to show. The oversight console that drives it is still being written.');
+        const [params, cycle] = await Promise.all([
+          abci(`${NETTING}/Params`),
+          abci(`${NETTING}/CurrentCycle`),
+        ]);
+        // params.proto: Params { uint64 cycle_blocks = 1 }, inside
+        // QueryParamsResponse { Params params = 1 }.
+        const cycleBlocks = num(read(read(params.bytes).get(1)?.[0] ?? new Uint8Array()), 1);
+        // query.proto: QueryCurrentCycleResponse { Cycle cycle = 1,
+        // int64 closes_at_height = 2 }. Zero when netting is off, because then
+        // no block ever will close it.
+        const closesAt = num(read(cycle.bytes), 2);
+        const on = cycleBlocks > 0;
+        return proven(params.height, [
+          { label: 'Module answering on this chain', value: 'yes' },
+          {
+            label: 'Cycle length',
+            value: on ? blocksAbout(cycleBlocks, ctx?.secondsPerBlock) : '0 blocks — netting is switched off',
+            emphasis: true,
+          },
+          {
+            label: 'Current window closes at',
+            value: closesAt ? `block ${closesAt.toLocaleString('en')}` : 'no block will close it',
+            mono: true,
+          },
+        ], on
+          ? ''
+          : 'Read from the chain, and not a failure to read it: netting is deliberately off here. Nought is a '
+            + 'meaningful setting rather than an unset one, and the module treats it as "off everywhere" rather '
+            + 'than guessing — which is the difference between a feature nobody turned on and an end blocker '
+            + 'that divides by zero and stops the chain. The oversight console that drives cycles is still being written.');
       } catch (e) { return describeFailure(e); }
     },
   },
