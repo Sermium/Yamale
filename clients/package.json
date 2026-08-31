@@ -12,7 +12,8 @@
     "app",
     "ceremony",
     "foundation",
-    "governance"
+    "governance",
+    "demo"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

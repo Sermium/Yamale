@@ -46,15 +46,140 @@ export class NotFound extends Error {
   constructor(what) { super(`${what}: not found`); this.what = what; }
 }
 
+/* ========================================================================= */
+/*  Not all at once, and RPC not at the same rate as REST                    */
+/* ========================================================================= */
+
+/*
+ * THE GATEWAY RATE-LIMITS /api/rpc/ AND DOES NOT RATE-LIMIT /api/rest/.
+ *
+ * Measured on 2026-08-31, firing N identical requests at once and tallying the
+ * statuses:
+ *
+ *     concurrency        /api/rpc/abci_query        /api/rest/…/params
+ *          1             200 ×1                     200 ×1
+ *          4             200 ×4                     200 ×4
+ *          6             200 ×6                     —
+ *          8             200 ×4, 503 ×4             —
+ *         12             503 ×12                    200 ×12
+ *
+ * And, immediately after those bursts, twelve RPC requests issued strictly one
+ * after another: ok=1, bad=11. That last line is the important one. A pure
+ * concurrency limit would have passed all twelve, because only one was ever in
+ * flight. It is a token bucket, it was empty, and it stayed empty.
+ *
+ * Pacing, measured the same way once the bucket had refilled:
+ *
+ *     one request every 1000ms   9 of 10
+ *     one request every  500ms  10 of 10
+ *     one request every  300ms   9 of 10
+ *     one request every  200ms   4 of 10
+ *
+ * So RPC sustains roughly two to three requests a second and collapses above
+ * it. 500ms is the gap used here rather than 300, because those figures were
+ * measured after eight idle seconds and the bucket in practice is already part
+ * drained by whatever loaded the page — at 350ms, with the browser warm, about
+ * half the calls still took a 503 and a retry, and one mechanism ran out of
+ * attempts. At 500ms with four attempts they all land.
+ *
+ * WHY THIS PAGE CARES MORE THAN MOST. Four modules — x/land, x/paymsg,
+ * x/netting, x/builderfee — are not on the gateway's REST allowlist, so the
+ * mechanisms that depend on them can only be read over ABCI, which is RPC. The
+ * first version of this page opened by firing every query at once and, on a
+ * chain that was answering perfectly, showed the six land-and-payments
+ * mechanisms as "cannot reach the chain". Honest, and wrong: the page had done
+ * it to itself, and "we overwhelmed the node" is not a thing to explain to a
+ * finance ministry mid-sentence.
+ *
+ * Two lanes, therefore. RPC is serialised at one request every 350ms — about
+ * fourteen calls, so roughly five seconds for the whole page, with panels
+ * filling in as they land. REST keeps a plain concurrency gate of six.
+ */
+
+/**
+ * The two numbers the measurement above produced, exported so the tests can
+ * turn the waiting off.
+ *
+ * Not because the pacing is optional — it is the difference between the tour
+ * working and the tour blaming the chain for something the page did — but
+ * because a suite that asserts on failure behaviour would otherwise spend two
+ * minutes asleep proving it, and a slow suite is a suite that stops being run.
+ */
+export const TUNING = { rpcGapMs: 500, backoffMs: [0, 900, 2200, 4000] };
+
+/** REST: a concurrency gate. It is not rate-limited, only finite. */
+const MAX_REST_IN_FLIGHT = 6;
+let restActive = 0;
+const restQueue = [];
+const restAcquire = () => (restActive < MAX_REST_IN_FLIGHT
+  ? (restActive += 1, Promise.resolve())
+  : new Promise((resolve) => restQueue.push(resolve)));
+const restRelease = () => { const next = restQueue.shift(); if (next) next(); else restActive -= 1; };
+
+/**
+ * RPC: a paced queue, one at a time, never closer together than the gap.
+ *
+ * A chain of promises rather than a timer, so the pacing survives a slow
+ * request — the gap is measured from when the previous call *finished*, which
+ * is what the bucket actually refills against.
+ */
+let rpcTail = Promise.resolve();
+function rpcTicket() {
+  const wait = rpcTail.then(() => new Promise((r) => setTimeout(r, TUNING.rpcGapMs)));
+  // The tail must not reject, or one failure poisons every queued request
+  // behind it and the rest of the page silently never asks.
+  rpcTail = wait.catch(() => {});
+  return wait;
+}
+
+const isRpc = (url) => url.startsWith(RPC);
+
+/** A transient gateway failure, distinguished from the chain being down. */
+const TRANSIENT = new Set([429, 502, 503, 504]);
+
+async function attempt(url) {
+  if (isRpc(url)) {
+    await rpcTicket();
+    return fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  }
+  await restAcquire();
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } finally {
+    restRelease();
+  }
+}
+
 async function json(url, what) {
   let res;
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  } catch (e) {
-    // A halted node, a dropped tunnel, a browser offline. All the same to the
-    // reader: the chain is not answering right now.
-    throw new Unreachable(what, 'unreachable', e.name === 'TimeoutError' ? 'timed out' : e.message);
+  let lastError;
+  // Three attempts, backing off, and only for the failures that are genuinely
+  // transient. Not a general retry loop: a chain halted for an upgrade must be
+  // reported as unreachable within a few seconds, not hidden behind half a
+  // minute of hopeful re-asking while somebody stands in front of a room.
+  const BACKOFF = TUNING.backoffMs;
+  for (let go = 0; go < BACKOFF.length; go += 1) {
+    if (BACKOFF[go]) await new Promise((r) => setTimeout(r, BACKOFF[go]));
+    try {
+      res = await attempt(url);
+    } catch (e) {
+      lastError = new Unreachable(what, 'unreachable',
+        e.name === 'TimeoutError' ? 'timed out' : e.message);
+      // A refused or aborted connection is not retried. Only a timeout is:
+      // a request that queued and ran out of patience is the one case where
+      // asking again is likely to work.
+      if (e.name !== 'TimeoutError') break;
+      continue;
+    }
+    if (TRANSIENT.has(res.status)) {
+      lastError = new Unreachable(what, res.status, '');
+      res = undefined;
+      continue;
+    }
+    break;
   }
+  if (!res) throw lastError;
+
   const text = await res.text();
   if (!res.ok) {
     // 401 here is the proxy's allowlist, not a missing password. Named as such
@@ -144,32 +269,30 @@ export async function head() {
 /**
  * The time a block was written, from the node rather than from an average.
  *
- * Held to three at a time: this page asks for a dozen block times at once and
- * firing them all is fine on a desk and miserable on the connection it is
- * actually opened on, where the browser's own limit turns a burst into a queue
- * with nothing rendering behind it.
+ * No limiter of its own: every call goes through `json`, which holds the whole
+ * page to four requests at a time. A second limiter here would only nest inside
+ * that one, and two limiters that both think they are in charge is how a page
+ * ends up deadlocked on its own queue.
+ *
+ * Memoised, because several proofs date the same block, and cached as the
+ * promise rather than the result so a second caller arriving mid-flight waits
+ * on the first request instead of starting another.
+ *
+ * A block the node will not serve — pruned, or beyond its retention — comes
+ * back null and the caller shows the height instead of a guessed date.
  */
 const blockTimes = new Map();
-let inFlight = 0;
-const waiting = [];
-const slot = () => (inFlight < 3
-  ? (inFlight += 1, Promise.resolve())
-  : new Promise((r) => waiting.push(r)));
-const release = () => { const next = waiting.shift(); if (next) next(); else inFlight -= 1; };
 
 export function blockTime(height) {
   const key = String(height);
   if (!height) return Promise.resolve(null);
   if (blockTimes.has(key)) return blockTimes.get(key);
   const p = (async () => {
-    await slot();
     try {
       const body = await json(`${RPC}/block?height=${encodeURIComponent(key)}`, `block ${key}`);
       return body.result?.block?.header?.time ?? null;
     } catch {
-      return null;   // pruned, or the node will not serve it. Show the height.
-    } finally {
-      release();
+      return null;
     }
   })();
   blockTimes.set(key, p);

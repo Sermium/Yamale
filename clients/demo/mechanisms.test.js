@@ -17,7 +17,18 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
+import { TUNING } from './chain.js';
 import { ACTS, MECHANISMS, NOT_BUILT, SURFACES, THRESHOLD_ACCOUNT } from './mechanisms.js';
+
+/**
+ * The real pacing is measured against a gateway that rate-limits RPC, and it
+ * makes the failure tests below spend two minutes asleep proving a point they
+ * prove just as well at zero. The pacing itself has its own test, which puts
+ * the real numbers back for the duration.
+ */
+const REAL_TUNING = { rpcGapMs: TUNING.rpcGapMs, backoffMs: TUNING.backoffMs };
+TUNING.rpcGapMs = 0;
+TUNING.backoffMs = [0];
 
 /* ========================================================================= */
 /*  Shape                                                                    */
@@ -203,5 +214,83 @@ test('a read survives a chain that answers with well-formed but empty JSON', asy
     }
   } finally {
     globalThis.fetch = real;
+  }
+});
+
+/* ========================================================================= */
+/*  The page must not overwhelm the node it is reporting on                  */
+/* ========================================================================= */
+
+test('RPC calls are paced and serialised; REST calls are not', async () => {
+  // The gateway rate-limits /api/rpc/ and does not rate-limit /api/rest/.
+  // Measured: RPC returns 503 for every request in a burst of twelve and stays
+  // limited for sequential requests afterwards; REST passes twelve at once.
+  // The full table is in the block comment at the top of chain.js.
+  //
+  // This test is the reason the tour does not blame the chain for a limit the
+  // page tripped itself. Before the pacing existed, six of seventeen mechanisms
+  // showed "cannot reach the chain" on a chain that was answering perfectly.
+  TUNING.rpcGapMs = REAL_TUNING.rpcGapMs;
+
+  const seen = [];
+  let concurrentRpc = 0; let peakRpc = 0;
+  let concurrentRest = 0; let peakRest = 0;
+
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const rpc = String(url).startsWith('/api/rpc');
+    if (rpc) { concurrentRpc += 1; peakRpc = Math.max(peakRpc, concurrentRpc); }
+    else { concurrentRest += 1; peakRest = Math.max(peakRest, concurrentRest); }
+    seen.push({ rpc, at: Date.now() });
+    await new Promise((r) => setTimeout(r, 5));
+    if (rpc) concurrentRpc -= 1; else concurrentRest -= 1;
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  try {
+    await Promise.all(MECHANISMS.map((m) => m.read({ secondsPerBlock: 5.4 })));
+  } finally {
+    globalThis.fetch = real;
+    TUNING.rpcGapMs = 0;
+  }
+
+  const rpcAt = seen.filter((s) => s.rpc).map((s) => s.at);
+  assert.ok(rpcAt.length >= 8, `expected the ABCI-only modules to be queried, saw ${rpcAt.length}`);
+
+  // One at a time. Two RPC requests in flight together is how the burst that
+  // tripped the limiter happened in the first place.
+  assert.equal(peakRpc, 1, `${peakRpc} RPC requests were in flight at once`);
+
+  const gaps = rpcAt.slice(1).map((t, i) => t - rpcAt[i]);
+  const tooClose = gaps.filter((g) => g < REAL_TUNING.rpcGapMs - 40);
+  assert.equal(tooClose.length, 0,
+    `${tooClose.length} RPC calls came faster than ${REAL_TUNING.rpcGapMs}ms: ${tooClose}`);
+
+  // REST is deliberately NOT held to one at a time. It is not rate-limited, and
+  // pacing it as well would make the page slower for no reason at all.
+  assert.ok(peakRest > 1, 'REST was serialised, which the gateway does not require');
+});
+
+test('a failure in one RPC call does not stop the queue behind it', async () => {
+  // The pacing chains promises. A rejected link that was not caught would
+  // poison the tail, and every mechanism queued behind the first failure would
+  // silently never ask — leaving those panels on "reading…" for ever, which is
+  // worse than either a figure or an honest error.
+  TUNING.rpcGapMs = 1;
+  let calls = 0;
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls <= 2) throw new TypeError('fetch failed');
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const proofs = await Promise.all(MECHANISMS.map((m) => m.read({ secondsPerBlock: 5.4 })));
+    proofs.forEach((p, i) => assert.ok(['proven', 'unread'].includes(p.state),
+      `${MECHANISMS[i].id} never settled`));
+    assert.ok(calls > 3, 'the queue stopped after the first failure');
+  } finally {
+    globalThis.fetch = real;
+    TUNING.rpcGapMs = 0;
   }
 });
