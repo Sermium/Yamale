@@ -665,19 +665,65 @@ export const MECHANISMS = [
     does: 'Holds shared funds in a module account with roles and an M-of-N spending policy, and locks amounts against future commitments.',
     refuses: 'Spending locked funds. The locked-versus-available split holds because the money genuinely sits in the module account rather than behind a flag on somebody\'s own balance — a flag can be ignored by a direct transfer, and a custody account cannot.',
     surface: 'safe',
-    watch: 'The treasuries on the chain, and who administers each.',
+    watch: 'A funded treasury, split into what is committed and what can still be spent — and the arithmetic between them.',
     async read() {
       try {
         const body = await rest('/yamale/blockchain/treasury/v1/treasury', 'the treasuries');
         const list = body.treasury ?? [];
-        const rows = [{ label: 'Treasuries on the chain', value: count(list.length, 'treasury', 'treasuries') }];
-        list.slice(0, 4).forEach((t) => rows.push({
-          label: t.name || `Treasury ${t.id}`,
-          value: `${t.paused ? 'paused' : 'active'} — created in block ${Number(t.created_at_height).toLocaleString('en')}`,
-          mono: true,
-        }));
-        return proven(0, rows, 'The custody accounts behind these are on the chain\'s blocked list: a direct bank '
-          + 'transfer to one is refused, because funds sent that way would be outside the treasury\'s accounting and unrecoverable.');
+        if (list.length === 0) return unread('absent', 'The chain answered, and holds no treasury.');
+
+        // The one with money in it, not simply the first. A treasury with no
+        // balance demonstrates the invariant the way an empty page demonstrates
+        // a layout: it cannot be wrong, and it cannot be right either.
+        let funded = null;
+        for (const t of list) {
+          const b = await rest(`/yamale/blockchain/treasury/v1/treasury/${t.id}/balances`, `treasury ${t.id}`);
+          if ((b.balances ?? []).length) { funded = { treasury: t, balances: b.balances }; break; }
+        }
+
+        const rows = [
+          { label: 'Treasuries on the chain', value: count(list.length, 'treasury', 'treasuries') },
+        ];
+        if (!funded) {
+          rows.push({ label: 'Holding a balance', value: 'none of them' });
+          return proven(0, rows, 'No treasury on this chain holds funds, so the locked-against-available split '
+            + 'cannot be shown working. Said rather than illustrated with an empty table.');
+        }
+
+        const locks = await rest(
+          `/yamale/blockchain/treasury/v1/treasury/${funded.treasury.id}/locks`,
+          'the treasury commitments',
+        );
+        rows.push({ label: 'Shown', value: funded.treasury.name || `Treasury ${funded.treasury.id}`, mono: true });
+        rows.push({ label: 'Standing commitments', value: count((locks.lock ?? []).length, 'lock') });
+
+        // Every currency, with the arithmetic spelled out. The invariant is
+        // total = locked + available, and it holds because the money is in a
+        // module account rather than behind a flag on somebody's own balance —
+        // a flag is ignored by an ordinary transfer, a custody account is not.
+        let holds = true;
+        funded.balances.forEach((b) => {
+          const total = BigInt(b.total); const locked = BigInt(b.locked); const available = BigInt(b.available);
+          if (locked + available !== total) holds = false;
+          rows.push({
+            label: `${b.denom.slice(1).toUpperCase()} — committed / spendable`,
+            value: `${amount(b.locked, b.denom)} / ${amount(b.available, b.denom)} of ${amount(b.total, b.denom)}`,
+            mono: true,
+          });
+        });
+        rows.push({
+          label: 'Committed plus spendable equals the balance',
+          value: holds ? 'yes, for every currency' : 'NO — the figures do not reconcile',
+          emphasis: true,
+        });
+
+        return proven(0, rows, holds
+          ? 'The arithmetic is checked here rather than trusted: the page adds the two figures and compares them '
+            + 'with the balance the chain reports. The custody accounts behind these are also on the chain\'s '
+            + 'blocked list, so a direct bank transfer to one is refused — money sent that way would sit outside '
+            + 'the treasury\'s accounting and be unrecoverable.'
+          : 'The committed and spendable figures do not add up to the reported balance. That is worth '
+            + 'investigating before this is shown to anybody.');
       } catch (e) { return describeFailure(e); }
     },
   },
