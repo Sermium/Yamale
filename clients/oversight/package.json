@@ -1,0 +1,10 @@
+{
+  "name": "@yamale/oversight",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The oversight console: what x/enforcement has frozen and what it refuses, and where x/netting's settlement window stands.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

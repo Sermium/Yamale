@@ -61,6 +61,17 @@ clients/governance/**  text eol=lf
 clients/land/**        text eol=lf
 clients/validator/**   text eol=lf
 
+# The oversight console, for the same reason and one more. It composes the
+# enforcement and netting commands rather than offering them as buttons — an
+# ombudsman's veto and a validator's vote are both meant to be pasted into a
+# terminal — so a CRLF checkout puts a carriage return inside a command somebody
+# runs against a frozen account. The extra reason is the digit-group separator:
+# this console groups amounts with U+202F, and its tests assert the exact
+# codepoint. A checkout filter that rewrites line endings is the same class of
+# transformation that silently normalises that character, and the pin keeps the
+# bytes the tests measure identical to the bytes the browser renders.
+clients/oversight/**   text eol=lf
+
 # The hosted ceremony's HTML shell. Vite copies this file into
 # tools/ceremony/hosted/ almost verbatim, and that output is the bundle whose
 # bytes the host hashes so a custodian's page can verify itself against a digest

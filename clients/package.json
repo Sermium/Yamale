@@ -16,7 +16,8 @@
     "governance",
     "land",
     "markets",
-    "keys"
+    "keys",
+    "oversight"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
