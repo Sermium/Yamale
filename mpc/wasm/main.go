@@ -18,6 +18,7 @@
 //
 //	yamaleMPC.startSign(digestB64, shareJSON, signersCSV) -> {session, outbound}
 //	yamaleMPC.handle(session, outboundJSON)               -> {outbound}
+//	yamaleMPC.outbound(session)                           -> {outbound}
 //	yamaleMPC.signature(session)                          -> {signature} | {pending:true}
 //	yamaleMPC.publicKey(session)                          -> {x, y}
 //	yamaleMPC.close(session)
@@ -74,6 +75,7 @@ func main() {
 		"version":   js.FuncOf(version),
 		"startSign": js.FuncOf(startSign),
 		"handle":    js.FuncOf(handle),
+		"outbound":  js.FuncOf(outbound),
 		"signature": js.FuncOf(signature),
 		"publicKey": js.FuncOf(publicKey),
 		"close":     js.FuncOf(closeSession),
@@ -147,6 +149,29 @@ func handle(this js.Value, args []js.Value) any {
 	}
 	if err := party.Handle(in); err != nil {
 		return fail(err.Error())
+	}
+	out, err := party.Outbound()
+	if err != nil {
+		return fail(err.Error())
+	}
+	return map[string]any{"outbound": encode(out)}
+}
+
+// outbound polls for messages the party has produced on its own.
+//
+// Necessary, and its absence deadlocked the first browser run. A tss-lib party
+// does its work in a goroutine, and under WebAssembly goroutines are scheduled
+// cooperatively on one thread — so at the moment startSign returns, the party
+// has not run at all and has nothing to send. A caller that only ever collected
+// messages as replies to handle() would sit forever waiting to be given the
+// first one.
+func outbound(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("outbound needs a session")
+	}
+	party, ok := lookup(args[0].String())
+	if !ok {
+		return fail("no such session")
 	}
 	out, err := party.Outbound()
 	if err != nil {

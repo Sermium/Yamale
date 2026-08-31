@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threshold accounts — Yamale</title>
+<meta name="description" content="A consumer key that exists in three shares and nowhere else, so the operator cannot move a customer's money.">
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/yamale.css">
+<style>
+/* Local to this page. Everything shared lives in /yamale.css, and every colour
+   below is a token defined for BOTH themes at :root — a colour whose only
+   definition sits inside a media query renders one theme's text on the other
+   theme's ground, which has shipped in this repo before. */
+:root {
+  --k-ground: #ffffff;
+  --k-panel: #f7f8fa;
+  --k-ink: #14181f;
+  --k-soft: #565f6d;
+  --k-line: #d9dee6;
+  --k-device: #1f5f8b;
+  --k-custodian: #7a4f9c;
+  --k-recovery: #8a6a2f;
+  --k-refuse: #9a2d2d;
+  --k-refuse-ink: #7a1f1f;
+  --k-ok: #1f6b4a;
+  --k-wash: rgba(31, 95, 139, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --k-ground: #0e1116;
+    --k-panel: #161b23;
+    --k-ink: #e9edf3;
+    --k-soft: #9aa5b4;
+    --k-line: #2a323d;
+    --k-device: #6fb2dd;
+    --k-custodian: #bb96db;
+    --k-recovery: #d4ac63;
+    --k-refuse: #e08585;
+    --k-refuse-ink: #f0b0b0;
+    --k-ok: #6fc79c;
+    --k-wash: rgba(111, 178, 221, 0.12);
+  }
+}
+:root[data-theme="dark"] {
+  --k-ground: #0e1116;
+  --k-panel: #161b23;
+  --k-ink: #e9edf3;
+  --k-soft: #9aa5b4;
+  --k-line: #2a323d;
+  --k-device: #6fb2dd;
+  --k-custodian: #bb96db;
+  --k-recovery: #d4ac63;
+  --k-refuse: #e08585;
+  --k-refuse-ink: #f0b0b0;
+  --k-ok: #6fc79c;
+  --k-wash: rgba(111, 178, 221, 0.12);
+}
+
+body { background: var(--k-ground); color: var(--k-ink); margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+header.top { border-bottom: 1px solid var(--k-line); padding: 1rem 0; }
+header.top .wrap { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.brand { font-weight: 700; letter-spacing: -0.01em; }
+.brand a { color: inherit; text-decoration: none; }
+.top nav { margin-left: auto; display: flex; gap: 1rem; flex-wrap: wrap; }
+.top nav a { color: var(--k-soft); text-decoration: none; font-size: 0.9rem; }
+.top nav a:hover, .top nav a:focus-visible { color: var(--k-ink); text-decoration: underline; }
+
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--k-line); }
+.hero h1 { font-size: clamp(1.9rem, 4vw, 2.9rem); line-height: 1.1; margin: 0 0 0.9rem; text-wrap: balance; max-width: 22ch; }
+.lede { font-size: 1.08rem; color: var(--k-soft); max-width: 62ch; margin: 0; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--k-soft); margin: 0 0 0.6rem; }
+
+section { padding: 2.5rem 0; border-bottom: 1px solid var(--k-line); }
+h2 { font-size: 1.45rem; margin: 0 0 0.4rem; text-wrap: balance; }
+h3 { font-size: 1.02rem; margin: 0 0 0.35rem; }
+.sub { color: var(--k-soft); max-width: 66ch; margin: 0 0 1.4rem; }
+
+.shares { display: grid; gap: 0.9rem; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .shares { grid-template-columns: repeat(3, 1fr); } }
+.share { border: 1px solid var(--k-line); border-radius: 6px; padding: 1rem; background: var(--k-panel); border-top-width: 3px; }
+.share--device { border-top-color: var(--k-device); }
+.share--custodian { border-top-color: var(--k-custodian); }
+.share--recovery { border-top-color: var(--k-recovery); }
+.share .who { font-weight: 650; margin-bottom: 0.25rem; }
+.share p { margin: 0; color: var(--k-soft); font-size: 0.92rem; }
+
+.rule { border: 1px solid var(--k-line); border-left: 3px solid var(--k-refuse); border-radius: 6px;
+        background: var(--k-panel); padding: 0.9rem 1rem; margin: 1.2rem 0 0; }
+.rule .k { font-weight: 650; color: var(--k-refuse-ink); }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
+th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--k-line); vertical-align: top; }
+th { font-weight: 600; color: var(--k-soft); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+
+.mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
+.addr { word-break: break-all; }
+
+button { font: inherit; border-radius: 5px; border: 1px solid var(--k-line);
+         background: var(--k-panel); color: var(--k-ink); padding: 0.5rem 0.9rem; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--k-device); }
+button:disabled { opacity: 0.55; cursor: default; }
+button.primary { background: var(--k-device); border-color: var(--k-device); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] button.primary, :root:not([data-theme="light"]) button.primary { color: #08101a; }
+.actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0 0 1rem; }
+
+.status { color: var(--k-soft); font-size: 0.92rem; margin: 0 0 0.9rem; min-height: 1.4em; }
+.verdict { border-radius: 6px; padding: 0.85rem 1rem; margin: 1rem 0 0; border: 1px solid var(--k-line); background: var(--k-panel); }
+.verdict--ok { border-left: 3px solid var(--k-ok); }
+.verdict--no { border-left: 3px solid var(--k-refuse); }
+.verdict .head { font-weight: 650; margin-bottom: 0.25rem; }
+
+.wires { border: 1px solid var(--k-line); border-radius: 6px; background: var(--k-panel);
+         max-height: 17rem; overflow-y: auto; padding: 0.4rem 0; }
+.wire { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.6rem; align-items: baseline;
+        padding: 0.28rem 0.9rem; font-size: 0.86rem; }
+.wire .r { color: var(--k-soft); font-variant-numeric: tabular-nums; }
+.wire .b { color: var(--k-soft); font-variant-numeric: tabular-nums; }
+.tag { font-weight: 600; }
+.tag--device { color: var(--k-device); }
+.tag--custodian { color: var(--k-custodian); }
+
+.note { color: var(--k-soft); font-size: 0.9rem; max-width: 66ch; }
+.gone { color: var(--k-soft); font-style: italic; }
+footer { padding: 2rem 0 3rem; color: var(--k-soft); font-size: 0.9rem; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <span class="brand"><a href="/">Yamale</a></span>
+    <nav>
+      <a href="/app/">Payments</a>
+      <a href="/land/">Land</a>
+      <a href="/rwa/">Vehicles</a>
+      <a href="/explorer/">Explorer</a>
+      <a href="/docs/">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Threshold accounts</p>
+    <h1>The operator cannot move your money.</h1>
+    <p class="lede">
+      Not as a policy, and not as a promise anybody has to take on trust. A consumer's
+      key on this chain exists in three shares and in no other form, anywhere, ever —
+      and no single share can produce a signature. The page below runs the protocol in
+      front of you, refuses in front of you, and reads the consequences off the public
+      chain.
+    </p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>Three shares, any two of which sign</h2>
+    <p class="sub">
+      A password cannot authorise a transaction; only a key can. So every account design
+      is an answer to where the key lives and who can use it. Holding it server-side makes
+      the operator a custodian of everybody's money. Holding it on the phone under a
+      password makes a forgotten password a lost account, which is not viable for a
+      national system serving people who lose phones. This is the third answer.
+    </p>
+    <div class="shares">
+      <div class="share share--device">
+        <div class="who">Device</div>
+        <p>On the customer's own hardware, wrapped by their password. Never leaves it, and
+          is generated there rather than sent to it — a share the server saw for a moment
+          is a share the server had.</p>
+      </div>
+      <div class="share share--custodian">
+        <div class="who">Custodian</div>
+        <p>The operator's service. It is one share. It signs nothing on its own, which is
+          the whole of what this design buys.</p>
+      </div>
+      <div class="share share--recovery">
+        <div class="who">Recovery</div>
+        <p>The foundation's offline custody — the same three-of-five the constitution
+          pins as the destination for anything seized. Deliberately not the operator: one
+          party holding custodian and recovery would be a custodian again.</p>
+      </div>
+    </div>
+    <div class="rule">
+      <span class="k">Refuses </span>
+      Any one share, acting alone. Ordinary payments are device plus custodian. A person
+      who has lost their password and their phone is recovered by recovery plus custodian,
+      and only after two approvers, a delay, and notice to every enrolled device. If the
+      operator disappeared entirely, device plus recovery still signs.
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Watch two parties sign something neither could sign alone</h2>
+    <p class="sub">
+      Below, the protocol runs for real: two parties, each holding one share, exchanging
+      messages until a signature exists. Every message is listed as it passes. Neither
+      party ever sees the other's share, and the signature both arrive at is byte-identical
+      — which is what lets a phone check what it is about to broadcast rather than trusting
+      the server to hand back the signature it helped make.
+    </p>
+    <p class="note" style="margin-bottom:1.2rem">
+      <strong>Staged, and worth saying so.</strong> Both parties run inside this one page,
+      which is exactly the arrangement the design forbids — it is what lets you watch the
+      traffic. In production they are a phone and a server that never meet. The shares used
+      here belong to a throwaway account that holds nothing and whose share files are
+      published on purpose; nothing on this page can move real money.
+    </p>
+
+    <div class="actions">
+      <button id="go" class="primary" type="button">Sign with two shares</button>
+      <button id="one" type="button">Try it with one share</button>
+    </div>
+    <p class="status" id="status">The protocol module is several megabytes and loads only when you ask.</p>
+
+    <div id="verdict"></div>
+
+    <h3 style="margin-top:1.6rem">Messages exchanged</h3>
+    <div class="wires" id="wires"><p class="wire gone" style="grid-template-columns:1fr">Nothing yet.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What it did on the real chain</h2>
+    <p class="sub">
+      Two payments from one account whose key has never existed in one piece. The second
+      was signed by shares that did not exist when the first was sent — created by a
+      password reset that did not move the address. Read live from
+      <span class="mono">yamale-devnet-2</span>, not written into this page.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Transaction</th><th class="num">Block</th><th>Signed by</th><th>Result</th></tr>
+        </thead>
+        <tbody id="chain">
+          <tr><td colspan="4" class="gone">Reading the chain…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" id="account" style="margin-top:0.9rem"></p>
+    <div class="rule" style="border-left-color: var(--k-ok)">
+      <span class="k" style="color:var(--k-ok)">Why the address did not move </span>
+      A password reset re-splits the key under the same public key. On a multi-signature
+      account it would change the address instead — and on this chain an address carries
+      the account's identifier, so resetting a password would retire the handle its owner
+      had given to everyone who pays them.
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What is not built</h2>
+    <p class="sub">
+      Being exact about this is worth more than looking finished.
+    </p>
+    <ul class="note" style="line-height:1.7">
+      <li>There is <strong>no account service</strong>. The custodian that would hold the
+        second share, authenticate a person and co-sign does not exist yet; the protocol
+        does, and a command-line tool drives it.</li>
+      <li>The payments app still generates an ordinary twelve-word key. Nothing in the
+        shipped apps uses threshold signing yet.</li>
+      <li>The recovery workflow — two approvers, a delay, notice, a freeze on outbound
+        payments afterwards — is specified and not implemented.</li>
+      <li>None of this has been audited.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Read live from <span class="mono">yamale-devnet-2</span>. The protocol is threshold
+      ECDSA over secp256k1; a signature it produces is an ordinary signature and an account
+      holding one is indistinguishable on chain from a self-custodied account.</p>
+  </div>
+</footer>
+
+<script src="./wasm_exec.js"></script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

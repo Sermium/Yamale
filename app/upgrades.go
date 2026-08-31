@@ -256,6 +256,59 @@ var upgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// x/tokenisation could not pay anybody and could not be exited.
+		//
+		// Five defects, four of which lost money silently and none of which any
+		// test had ever exercised, because the sale pipeline had no test at all.
+		// The two that matter here changed behaviour rather than state, which is
+		// why they need an upgrade and not a migration: every validator has to
+		// start applying the new rules at the same height, or they disagree
+		// about what a block did.
+		//
+		//   - SendRestrictionFn is registered now, so a share transfer settles
+		//     both sides. It was written and referenced nowhere, so no transfer
+		//     ever settled and every holder's entitlement read zero however much
+		//     the vault held.
+		//   - Fractionalise seeds the first holder's position, so somebody who
+		//     never transfers is not treated as a newcomer on the way out and
+		//     paid nothing for the whole life of the vehicle.
+		//   - AttestSale checks that the attestor is appointed. Any address
+		//     could attest, so a sponsor met any threshold with fresh keys and
+		//     the one guard between a shareholder and a falsified sale price was
+		//     decorative.
+		//   - MsgFinaliseSale exists, so an asset can reach REALISED and Redeem
+		//     can succeed. Without it every fractionalised vehicle was a one-way
+		//     door.
+		//   - DisputeSale's refusal after the window said the window was open.
+		//
+		// No store changes and no state migration. What is NOT fixed by this
+		// upgrade is worth stating: a vehicle fractionalised BEFORE it has no
+		// seeded positions, and income already paid into its vault stays owed to
+		// nobody. Reconstructing who held what across funding events that were
+		// never recorded is not something a handler can honestly do, so the
+		// pre-existing vehicle on this chain keeps its stranded balance and the
+		// demonstration uses one minted after this height.
+		Name: "income-that-arrives",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"x/tokenisation can pay its shareholders now",
+				"settlement", "a share transfer settles both sides; before this, no transfer settled and "+
+					"every entitlement read zero however much the vault held",
+				"issuance", "the first holder gets a position at issuance rather than at the index "+
+					"prevailing when they finally move",
+				"attestation", "an attestor must be appointed by governance; before this any address could attest",
+				"exit", "MsgFinaliseSale opens redemption, which nothing could reach before",
+				"note", "vehicles fractionalised before this height have no seeded positions and income "+
+					"already in their vaults remains owed to nobody",
+			)
+			return vm, nil
+		},
+	},
 }
 
 // setupUpgradeHandlers registers every upgrade with the upgrade keeper and
