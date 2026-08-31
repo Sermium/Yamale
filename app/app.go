@@ -327,6 +327,27 @@ func New(
 		if err := json.Unmarshal(req.AppStateBytes, &appState); err != nil {
 			return nil, fmt.Errorf("genesis app_state is not a JSON object: %w", err)
 		}
+		// Undeclared validators are LOGGED here and REFUSED by
+		// `genesis validate`, and the asymmetry is deliberate.
+		//
+		// An undeclared validator sits outside every concentration ceiling, and
+		// gentx is exactly the path that produces one — so a ceremony must not
+		// be able to ship such a file, which is what the CLI check enforces.
+		//
+		// Refusing to start on one is a different question and the answer is
+		// no. This chain's own genesis has two undeclared founders; that fact
+		// is baked into a history a hundred thousand blocks long and cannot be
+		// corrected by declining to replay it. A node that refused would make
+		// re-syncing impossible while fixing nothing, so the defect is reported
+		// at the top of every node's log, every start, and the operator decides.
+		if err := CheckGenesisDeclarations(appState); err != nil {
+			ctx.Logger().Error("this genesis exempts validators from the concentration ceilings",
+				"detail", err.Error(),
+				"consequence", "those validators are counted in the power every ceiling is measured "+
+					"against and can never be demoted for exceeding one",
+				"remedy", "a new chain must declare them at genesis; an existing one can only approve "+
+					"them afterwards, which does not retroactively bound the founding set")
+		}
 		if err := CheckGenesisSections(appState, app.ModuleManager.ModuleNames()); err != nil {
 			return nil, err
 		}

@@ -51,6 +51,12 @@ func withProfileAwareGenesisValidation(genesisCmd *cobra.Command, basicManager m
 				// a file that is malformed rather than mismatched.
 				return sdkRunE(cmd, args)
 			}
+			// Asked here as well as at startup, for the reason this whole file
+			// exists: one binary answering "valid" and "cannot start" about one
+			// file is how a ceremony ships the wrong genesis.
+			if err := app.CheckGenesisDeclarations(genState); err != nil {
+				return err
+			}
 			if err := app.CheckGenesisSections(genState, known); err != nil {
 				return fmt.Errorf("%s: %w", genesisFile, err)
 			}
