@@ -453,3 +453,13 @@ test('a vetoed or reversed case is toned as a check that worked', () => {
   assert.equal(O.statusTone(2), 'bad'); // PASSED — a seizure was decided
   assert.equal(O.statusTone(1), 'warn'); // VOTING — live
 });
+
+test('every refusal is attributed to the module it belongs to', () => {
+  // Each half of the console shows its own refusals. An untagged one would
+  // silently vanish from both.
+  for (const r of O.REFUSALS) {
+    assert.ok(['enforcement', 'netting'].includes(r.module), 'untagged: ' + r.what);
+  }
+  assert.ok(O.REFUSALS.some((r) => r.module === 'netting'));
+  assert.ok(O.REFUSALS.some((r) => r.module === 'enforcement'));
+});

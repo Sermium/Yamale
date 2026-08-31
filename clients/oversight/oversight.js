@@ -396,6 +396,7 @@ export const REFUSALS = [
       + 'that blocks a frozen account makes exactly one exception — that same '
       + 'address. No case can pay whoever opened it.',
     where: 'x/enforcement/keeper/execute.go, restriction.go',
+    module: 'enforcement',
     pinned: true,
     pinNote: 'Pinned to x/constitution: changing it needs a constitutional amendment, '
       + 'not a parameter change.',
@@ -405,6 +406,7 @@ export const REFUSALS = [
     how: 'threshold_bps must be greater than 5000 and at most 10000. Parameter '
       + 'validation refuses anything lower, including via a governance amendment.',
     where: 'x/enforcement/types/params.go',
+    module: 'enforcement',
     pinned: true,
     pinNote: 'Pinned to x/constitution alongside the voting period and the '
       + 'provisional freeze length.',
@@ -414,6 +416,7 @@ export const REFUSALS = [
     how: 'There is no parameter that turns this off. A requirement governance can '
       + 'vote away is a default, not a requirement.',
     where: 'x/enforcement/keeper/msg_server_case.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: 'Enforced in the handler, so it cannot be relaxed by a parameter — '
       + 'only by a binary upgrade.',
@@ -424,6 +427,7 @@ export const REFUSALS = [
       + 'sweeping all refuse that signer outright, so appointing an ombudsman adds '
       + 'a check without adding a power.',
     where: 'x/enforcement/keeper/msg_server_ombudsman.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: 'The ombudsman address is an ordinary parameter today. The module guide '
       + 'intends it to become a constitutional invariant; it is not one yet.',
@@ -434,6 +438,7 @@ export const REFUSALS = [
       + 'that has already executed it is refused. The delay before execution is the '
       + 'entire window in which the veto exists.',
     where: 'x/enforcement/keeper/msg_server_ombudsman.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: '',
   },
@@ -443,6 +448,7 @@ export const REFUSALS = [
       + 'of seizures whatever they are worth. The count cap is what stops the value '
       + 'cap being walked around by choosing a currency nobody thought to price.',
     where: 'x/enforcement/keeper/window.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: 'Parameters today. The guide intends them to become invariants; they are '
       + 'not yet, so a governance proposal could raise them.',
@@ -452,6 +458,7 @@ export const REFUSALS = [
     how: 'MsgReverseCase lifts the freeze and marks the case reversed. There is no '
       + 'message anywhere in the module that returns seized funds.',
     where: 'x/enforcement/keeper/execute.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: 'Restitution is the recovery destination\'s job, off this module.',
   },
@@ -460,6 +467,7 @@ export const REFUSALS = [
     how: 'The restriction blocks sending only. Freezing stops somebody moving money; '
       + 'it does not stop their salary arriving.',
     where: 'x/enforcement/keeper/restriction.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: '',
   },
@@ -468,6 +476,7 @@ export const REFUSALS = [
     how: 'Every freeze path checks the target against the blocked-address set and the '
       + 'module-account types before it does anything.',
     where: 'x/enforcement/keeper/msg_server_case.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: '',
   },
@@ -477,6 +486,7 @@ export const REFUSALS = [
       + 'than accepted from any signer. The same fail-closed rule applies to the '
       + 'scope registry: if it is unwired, every freeze is refused.',
     where: 'x/enforcement/keeper/msg_server_ombudsman.go, keeper.go',
+    module: 'enforcement',
     pinned: false,
     pinNote: '',
   },
@@ -486,6 +496,7 @@ export const REFUSALS = [
       + 'obligation, position or closed cycle. A slice that does not clear is retried '
       + 'unchanged at every boundary, forever.',
     where: 'x/netting/keeper/',
+    module: 'netting',
     pinned: false,
     pinNote: 'A property of the message set, so changing it takes a binary upgrade.',
   },
@@ -494,6 +505,7 @@ export const REFUSALS = [
     how: 'The cap is checked on the net position rather than on the obligation, at '
       + 'submission time. Collateral is posted before anything can be owed.',
     where: 'x/netting/keeper/msg_server_obligation.go',
+    module: 'netting',
     pinned: false,
     pinNote: '',
   },
