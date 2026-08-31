@@ -30,6 +30,7 @@ import {
   groupDigits,
   impactVerdict,
   mintability,
+  isOwnAccount,
   ratio,
   reporting,
   resolveDenom,
@@ -260,6 +261,22 @@ test('toBaseUnits refuses what it cannot parse rather than guessing', () => {
 
 test('a dash is not a zero', () => {
   assert.notEqual(EMPTY_AMOUNT, '0');
+});
+
+test('a validator voting through its own key is not a delegated feeder', () => {
+  // Both addresses from yamale-devnet-2. x/oracle returns the validator's own
+  // account when nothing has been delegated, so this is the only thing that
+  // separates "has a hot key" from "is signing every vote with the operator
+  // key" — and the naive prefix comparison this replaces got both wrong.
+  const valoper = 'ymlvaloper1cgguvt0hvdg2602flzan9shg0g56ruje62ug5j';
+  const own = 'yml1cgguvt0hvdg2602flzan9shg0g56rujev5see4';
+  assert.equal(isOwnAccount(valoper, own), true);
+  assert.equal(isOwnAccount(valoper, 'yml1m9xhc6zy7fxfax9t5fnykh9k2e29faj7htmqms'), false);
+  assert.equal(isOwnAccount(valoper, null), false);
+  assert.equal(isOwnAccount('', ''), false);
+
+  // The form that shipped and was wrong, kept as a reminder of what it claimed.
+  assert.equal(own.startsWith(valoper.slice(0, 6)), false, 'no shared six-character prefix exists');
 });
 
 // ---------------------------------------------------------------------------

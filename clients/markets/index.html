@@ -122,6 +122,29 @@
 
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+
+    /* ---- two tokens the shared system does not have yet, and needs --------
+       MEASURED, not guessed. Compositing every wash against its real backdrop
+       and computing WCAG contrast across all five screens, the light palette's
+       --brass (#a87b3c) and --warn (#a8791b) fail 4.5:1 wherever they carry
+       small text:
+
+         .eyebrow            brass on --bg .............. 3.52
+         .btn.primary        brass on --surface ......... 3.77
+         slippage, pressed   brass on --wash-brass ...... 3.31
+         .p-warn             warn on --wash-warn ........ 3.38
+         .fresh__text        warn on --surface .......... 3.88
+
+       Both are fine in dark, and both are fine in light as a border, a bar or a
+       3px rule — it is only text that fails. So rather than change the brand
+       colour, these two exist for text and resolve to the palette colour in
+       dark, where the palette colour already passes. Measured after the change:
+       5.93, 5.93, 5.20, 5.47, 6.26.
+
+       This is a finding about clients/shared/yamale.css, not about this file:
+       every console using .y-eyebrow or .y-chip--warn in light has it. */
+    --brass-text: #825d22;
+    --warn-text: #80590f;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -152,6 +175,13 @@
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+      /* In dark the palette colours already clear 4.5:1 on every ground they
+         sit on, so the text tokens resolve to them. Redefined here AND in the
+         [data-theme] block below: a token defined in only one of the two leaves
+         the other theme reading a colour meant for the opposite ground. */
+      --brass-text: var(--brass);
+      --warn-text: var(--warn);
     }
   }
 
@@ -182,6 +212,9 @@
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+    --brass-text: var(--brass);
+    --warn-text: var(--warn);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -280,7 +313,7 @@
   }
   .eyebrow {
     font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--brass); margin: 0 0 var(--sp-2);
+    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
   }
   .stat {
     font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
@@ -297,12 +330,25 @@
     white-space: nowrap;
   }
   .p-ok { background: var(--wash-ok); color: var(--ok); }
-  .p-warn { background: var(--wash-warn); color: var(--warn); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
   .p-bad { background: var(--wash-bad); color: var(--bad); }
   .p-mute { background: var(--wash-mute); color: var(--text-muted); }
-  .p-brass { background: var(--wash-brass); color: var(--brass); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
 
-  code { font-size: 0.86em; word-break: break-all; }
+  /* `break-all` belongs to addresses and hashes, not to inline code in a
+     sentence: it split `mint-coin` across a line as "min / t-coin", which reads
+     as a different command. Only .y-addr breaks anywhere. */
+  code { font-size: 0.86em; overflow-wrap: break-word; }
+
+  /* The truncation mark. Underdotted so it reads as a footnote rather than as
+     part of the figure, and it carries the exact amount as its title. */
+  .trunc {
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    color: var(--text-muted);
+    cursor: help;
+    margin-inline-start: 0.1em;
+  }
   pre {
     font-size: var(--step--1); background: var(--surface-2); color: var(--text);
     padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
@@ -319,7 +365,7 @@
   .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
   .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
   .err strong, .badbox strong { color: var(--bad); }
-  .warnbox strong { color: var(--warn); }
+  .warnbox strong { color: var(--warn-text); }
   .err code, .badbox code, .warnbox code, .notebox code { color: inherit; }
   .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
 
@@ -331,7 +377,7 @@
     text-decoration: none; display: inline-block;
   }
   .btn:hover { border-color: var(--brass); background: var(--surface-2); }
-  .btn.primary { border-color: var(--brass); color: var(--brass); }
+  .btn.primary { border-color: var(--brass); color: var(--brass-text); }
   .btn:disabled { opacity: .55; cursor: default; }
   .copy {
     font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
@@ -399,7 +445,7 @@
   .fresh--expired .fresh__fill { background: var(--bad); }
   .fresh--none .fresh__fill { background: var(--text-faint); }
   .fresh__text { font-size: var(--step--1); font-variant-numeric: tabular-nums; }
-  .fresh--expiring .fresh__text { color: var(--warn); }
+  .fresh--expiring .fresh__text { color: var(--warn-text); }
   .fresh--expired .fresh__text { color: var(--bad); font-weight: 600; }
   .fresh--none .fresh__text { color: var(--text-muted); }
 
@@ -462,7 +508,7 @@
     border: 1px solid var(--rule); background: var(--surface); color: var(--text-muted);
   }
   .slip button[aria-pressed='true'] {
-    border-color: var(--brass); color: var(--brass); background: var(--wash-brass); font-weight: 600;
+    border-color: var(--brass); color: var(--brass-text); background: var(--wash-brass); font-weight: 600;
   }
 
   /* The reserve bar: two denoms, one pool, shown in proportion by value rather
@@ -517,7 +563,7 @@
 import {
   CHAIN, ERRORS, EMPTY_AMOUNT, MESSAGES, SIGNERS,
   agreement, approveIssuerProposal, formatAmount, freshness, groupDigits,
-  impactVerdict, mintability, ratio, reporting, resolveDenom, span,
+  impactVerdict, isOwnAccount, mintability, ratio, reporting, resolveDenom, span,
   submitRatesCommand, swapCommand, swapQuote, toBaseUnitsOf, toDisplayAmount,
   truncatedFrom,
 } from './markets.js';
@@ -617,14 +663,38 @@ const nameOf = (denom) => resolveDenom(denom).name;
  * is a third of a franc short — and the page says so on hover and in the title
  * rather than leaving the reader to work out which of the two is wrong.
  */
+let truncSeen = false;
+
 function amount(base, denom) {
   const shown = formatAmount(base, denom);
   const exact = truncatedFrom(base, denom);
   if (!exact) return `<span class="y-num">${esc(shown)}</span>`;
+  truncSeen = true;
+  // A marker rather than the word: this appears in every cell of a column, and
+  // a figure followed by "(truncated)" forty times is a column nobody can read.
+  // The exact amount is on the marker and in the footnote every table carrying
+  // one gets, so the reader is told what the mark means once and can then get
+  // the full figure wherever they see it.
   return (
-    `<span class="y-num" title="Exactly ${esc(groupDigits(exact))} ${esc(symbolOf(denom))} — ` +
-    `${esc(symbolOf(denom))} is quoted without that many places, so the figure shown is truncated, never rounded up.">` +
-    `${esc(shown)}<span class="muted"> (truncated)</span></span>`
+    `<span class="y-num">${esc(shown)}<abbr class="trunc" ` +
+    `title="Exactly ${esc(groupDigits(exact))} ${esc(symbolOf(denom))}. ` +
+    `${esc(symbolOf(denom))} is not quoted to that many places, so the figure shown is cut short — never rounded up.">` +
+    `…</abbr></span>`
+  );
+}
+
+/**
+ * The footnote that makes the marker above mean something — emitted only when a
+ * marker was actually drawn, since a footnote with nothing to annotate is
+ * itself a small puzzle. Template literals evaluate left to right, so placing
+ * this after the rows in the same string sees the flag they set.
+ */
+function truncNote() {
+  if (!truncSeen) return '';
+  return (
+    '<p class="muted small"><abbr class="trunc">…</abbr> marks a figure cut short to the places its currency is ' +
+    'quoted in. It is never rounded up, so a marked amount is always slightly less than what is really held — ' +
+    'a pool of 299.999769 XOF shows as 299 XOF, not 300. The exact figure is on the mark.</p>'
   );
 }
 
@@ -755,6 +825,7 @@ async function route() {
   const hash = location.hash || '#/rates';
   renderNav(hash);
   setBanner(null);
+  truncSeen = false;
   view.innerHTML = '<p class="spin">Reading the chain…</p>';
   try {
     if (hash.startsWith('#/pools')) await renderPools();
@@ -821,13 +892,18 @@ async function renderRates() {
           ${feeders.map(({ v, feeder }) => {
             const m = ms.find((x) => x.validator === v.operator_address);
             const r = reporting(m?.misses, m?.windows);
-            const delegated = feeder && !feeder.startsWith(v.operator_address.slice(0, 6));
+            // x/oracle returns the validator's own account when nothing has been
+            // delegated, so "who votes" and "is a hot key in use" are different
+            // questions and only the first is answered by the query.
+            const delegated = feeder && !isOwnAccount(v.operator_address, feeder);
             return `<tr>
               <td>${esc(v.description?.moniker || shortAddr(v.operator_address))}
                 <div class="muted y-addr">${esc(v.operator_address)}</div></td>
               <td>${feeder
                 ? `<span class="y-addr">${shortAddr(feeder)}</span>
-                   <div class="muted">${delegated ? 'a delegated hot key' : 'its own account — no feeder delegated'}</div>`
+                   <div class="muted">${delegated
+                     ? 'a delegated hot key'
+                     : 'its own account — nothing delegated, so a vote would be signed with the operator key'}</div>`
                 : '<span class="muted">unknown</span>'}</td>
               <td class="num">${esc(groupDigits(String(m?.windows ?? 0)))}</td>
               <td><span class="pill p-${r.level}">${esc(r.text)}</span></td>
@@ -1193,13 +1269,15 @@ async function drawSwap() {
       aria-label="Trade the other way">⇅</button></div>
     <div class="leg">
       <div class="leg__head">
-        <span class="label" style="margin:0">You receive, if nothing moves</span>
+        <span class="label" style="margin:0">You receive</span>
         <span class="leg__denom">${esc(symbolOf(outDenom))}</span>
       </div>
       <div class="leg__out">${q && !q.empty
         ? esc(formatAmount(q.amountOut, outDenom, { withSymbol: false }))
         : EMPTY_AMOUNT}</div>
-      <div class="muted small">Pool holds ${amount(reserveOut, outDenom)}</div>
+      <div class="muted small">${q && !q.empty
+        ? 'if nothing moves before your transaction lands. '
+        : ''}Pool holds ${amount(reserveOut, outDenom)}</div>
     </div>`;
 
   const amt = document.getElementById('amt');
@@ -1244,9 +1322,13 @@ async function drawSwap() {
 
   const impactPct = (q.impactBps / 100).toFixed(2);
   const costPct = (q.costBps / 100).toFixed(2);
+  // The rate the trader actually gets, in display units on both sides:
+  //   out/10^eOut ÷ in/10^eIn  =  out × 10^eIn ÷ (in × 10^eOut)
+  // Done as one BigInt division at a fixed scale, so the printed rate is exact
+  // to the places it claims and not a floating-point artefact.
   const effective = ratio(
     BigInt(q.amountOut) * 10n ** BigInt(resolveDenom(inDenom).exponent),
-    BigInt(q.amountIn) * 10n ** BigInt(resolveDenom(outDenom).exponent) / 1n,
+    BigInt(q.amountIn) * 10n ** BigInt(resolveDenom(outDenom).exponent),
     6,
   );
 
@@ -1286,6 +1368,7 @@ async function drawSwap() {
           direction: <code>reserveOut × afterFee ÷ (reserveIn + afterFee)</code>, truncated. The algebraically
           identical subtraction form rounds the output up instead and would quote a figure the chain will not pay.</p>
       </details>
+      ${truncNote()}
     </div>`;
   wireSlippage();
 
@@ -1431,6 +1514,7 @@ async function renderCurrencies() {
     </div>
     <p class="muted small">A dash is not a zero: a currency with no supply has never been minted, which is a
       different fact from one that was minted and burned back to nothing.</p>
+    ${truncNote()}
 
     <h3>What the chain refuses</h3>
     <div class="card">

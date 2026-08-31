@@ -276,6 +276,41 @@ export function toBaseUnitsOf(input, denom, registry = KNOWN_DENOMS) {
 }
 
 // ---------------------------------------------------------------------------
+// Addresses
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a feeder address is the validator's own account rather than a
+ * delegated hot key.
+ *
+ * x/oracle's FeederDelegation query returns the validator's own account when no
+ * delegation has been made, so "who votes for this validator" and "has this
+ * validator delegated" are different questions and the query answers only the
+ * first. Getting the second wrong tells an operator they have a hot key set up
+ * when their operator key is the one signing every vote period — which is the
+ * exact risk feeder delegation exists to remove.
+ *
+ * A valoper address and its account address are the same 20 bytes under two
+ * bech32 prefixes, so the encoded data section is identical and only the
+ * human-readable part and the 6-character checksum differ. Comparing the middle
+ * is therefore an exact test, and it needs no bech32 decoder in a page that has
+ * no dependencies. A prefix-length guess — `startsWith(valoper.slice(0, 6))` —
+ * is not: `ymlvaloper1cggu…` and `yml1cggu…` share no six-character prefix, so
+ * that form calls every validator delegated. It did here.
+ */
+export function isOwnAccount(valoper, feeder) {
+  if (!valoper || !feeder) return false;
+  const dataOf = (addr) => {
+    const sep = addr.lastIndexOf('1');
+    if (sep < 1 || addr.length - sep < 8) return null;
+    return addr.slice(sep + 1, -6);
+  };
+  const a = dataOf(String(valoper));
+  const b = dataOf(String(feeder));
+  return a !== null && a === b;
+}
+
+// ---------------------------------------------------------------------------
 // x/amm — the swap curve
 // ---------------------------------------------------------------------------
 
