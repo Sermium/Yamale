@@ -10,6 +10,11 @@ person's money.
 
 **Read first:** [mpc.md](mpc.md), for the three shares and why any two sign.
 
+**Not to be confused with [custody.md](custody.md)**, which is `x/custody` —
+issuing on-chain claims against outside assets somebody else is holding. This
+page is `tools/custodian`, a service holding one share of a consumer key. The two
+share a word and nothing else.
+
 ---
 
 ## What it is actually protecting

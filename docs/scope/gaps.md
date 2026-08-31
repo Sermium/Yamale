@@ -111,8 +111,8 @@ What was verified on the chain, and it is the claim the design was chosen for:
 
 | | Height | Transaction | Memo |
 |---|---|---|---|
-| | 118,885 | `A8F18CAB…B15C3C` | `threshold signed: device + custodian` |
-| | 118,968 | `6C784D06…4AFCFE` | `after a password reset: new shares, same address` |
+| Before the reset | 118,885 | `A8F18CAB…B15C3C` | `threshold signed: device + custodian` |
+| After it | 118,968 | `6C784D06…4AFCFE` | `after a password reset: new shares, same address` |
 
 Both `code 0`, both `MsgSend` from
 `yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97`, sequences 0 and 1 — and both
@@ -215,7 +215,15 @@ nothing else on that list. Plus USSD and feature-phone access, without which mos
 African transaction volume is unreachable, and agent-network and mobile-money
 integration.
 
-**A legal entity able to sign an indemnity.**
+**A legal entity able to sign an indemnity.** A `LICENSE` now exists —
+proprietary, with reading, compiling, running on a test network and publishing
+security findings explicitly permitted, and production or distribution requiring
+a written agreement. That removes the "no licence at all" blocker that stopped a
+counterparty's legal team from opening the repository, and it is not the same
+thing as being able to contract. The file itself flags what is unsettled: the
+registered entity, named "Sermium" on the basis of the repository's own naming,
+and the governing law, which it deliberately does not assert. It was drafted for
+clarity rather than by a lawyer and has not been reviewed by one.
 
 ## Open decisions
 
