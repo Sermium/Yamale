@@ -343,9 +343,14 @@
   /* The truncation mark. Underdotted so it reads as a footnote rather than as
      part of the figure, and it carries the exact amount as its title. */
   .trunc {
+    /* The mark inherits the figure's colour rather than being greyed: measured
+       on the brass wash behind the minimum-received panel, --text-muted came to
+       4.25:1 and failed. It is set apart by the dotted rule, which is a shape,
+       not a contrast. */
     text-decoration: underline dotted;
+    text-decoration-color: var(--text-faint);
     text-underline-offset: 2px;
-    color: var(--text-muted);
+    color: inherit;
     cursor: help;
     margin-inline-start: 0.1em;
   }
@@ -640,7 +645,10 @@ const supply = () =>
     const s = (await get(`${COSMOS}/bank/v1beta1/supply?pagination.limit=500`)).supply || [];
     return new Map(s.map((c) => [c.denom, c.amount]));
   });
-const latest = () => once('latest', async () => (await get(`${COSMOS}/base/tendermint/v1beta1/blocks/latest`)).block);
+// Deliberately not cached. Every staleness figure on this page is measured
+// against block time, so this is the one query whose answer must be the current
+// one — a cached "now" would age a price by however long the tab has been open.
+const latest = async () => (await get(`${COSMOS}/base/tendermint/v1beta1/blocks/latest`)).block;
 
 // ---------------------------------------------------------------------------
 // Small renderers
@@ -699,7 +707,7 @@ function truncNote() {
 }
 
 /** The freshness component: a bar that drains, words that say the same thing. */
-function freshnessHtml(f, { maxAge } = {}) {
+function freshnessHtml(f, { maxAge, live } = {}) {
   const pct = Math.round((1 - (f.fraction ?? 0)) * 100);
   let text;
   if (f.state === 'none') text = 'never reported';
@@ -710,13 +718,53 @@ function freshnessHtml(f, { maxAge } = {}) {
   const age = f.ageSeconds === null || f.clockSkew ? '' :
     `<span class="muted">agreed ${esc(span(f.ageSeconds))} ago${maxAge ? `, of ${esc(span(maxAge))} allowed` : ''}</span>`;
 
+  // `updatedAt` and `maxAge` are stamped on the node so the bar can be
+  // recomputed in place by the ticker below. A rate that is running out should
+  // be seen running out, not only be described as doing so at the moment the
+  // page happened to load — the whole claim this page makes about x/oracle is
+  // that expiry is a live property, and a bar frozen at page load quietly says
+  // the opposite.
+  const stamp = live && live.updatedAt
+    ? ` data-updated="${Number(live.updatedAt)}" data-maxage="${Number(maxAge || 0)}"`
+    : '';
   return `
-    <div class="fresh fresh--${f.state}">
+    <div class="fresh fresh--${f.state}"${stamp}>
       <div class="fresh__bar"><span class="fresh__fill" style="width:${f.state === 'expired' ? 100 : Math.max(pct, 2)}%"></span></div>
       <div class="fresh__text">${esc(text)}</div>
-      ${age}
+      <div class="fresh__age">${age}</div>
     </div>`;
 }
+
+/**
+ * Redraws every stamped freshness bar against the current clock.
+ *
+ * Pure recomputation — nothing is refetched, because freshness is a function of
+ * (updated_at, now, max_age) and only one of the three moves between blocks.
+ * The legend on the empty state carries no stamp, so it stays put: it is a key,
+ * not a price, and a key that animated would be claiming to be one.
+ */
+function retickFreshness() {
+  const nodes = document.querySelectorAll('.fresh[data-updated]');
+  if (!nodes.length) return;
+  const now = Math.floor(Date.now() / 1000) + chainClockOffset;
+  nodes.forEach((el) => {
+    const f = freshness(Number(el.dataset.updated), now, Number(el.dataset.maxage));
+    const fresh = freshnessHtml(f, { maxAge: Number(el.dataset.maxage), live: { updatedAt: el.dataset.updated } });
+    const next = document.createElement('div');
+    next.innerHTML = fresh.trim();
+    el.className = next.firstElementChild.className;
+    el.innerHTML = next.firstElementChild.innerHTML;
+  });
+}
+
+/**
+ * How far this browser's clock is from the chain's, in seconds.
+ *
+ * Freshness is judged against block time, not against the reader's laptop. A
+ * machine ten minutes fast would otherwise show every rate as expired, which is
+ * the one wrong answer that looks exactly like the right one.
+ */
+let chainClockOffset = 0;
 
 /** Copy buttons, one delegated listener for the whole page. */
 document.addEventListener('click', (e) => {
@@ -846,6 +894,11 @@ async function tick() {
     const t = new Date(b.block.header.time);
     document.getElementById('clock').textContent =
       `${CHAIN.id} · height ${groupDigits(String(h))} · ${t.toISOString().slice(11, 19)}Z`;
+    // Block time against this browser's clock. Every freshness figure on the
+    // page is measured from the chain's, so a laptop running fast must not be
+    // allowed to declare a live price expired.
+    chainClockOffset = Math.round((t.getTime() - Date.now()) / 1000);
+    retickFreshness();
   } catch {
     document.getElementById('clock').textContent = 'chain not answering';
   }
@@ -1019,7 +1072,7 @@ function ratesTableHtml(list, now, maxAge, p) {
                 <div class="muted">${esc(nameOf(r.denom))}</div></td>
               <td class="num"><span class="y-num" style="font-size:var(--step-1)">${esc(r.rate)}</span>
                 <div class="muted">${esc(p.quote_symbol)} per ${esc(symbolOf(r.denom))}</div></td>
-              <td>${freshnessHtml(f, { maxAge })}</td>
+              <td>${freshnessHtml(f, { maxAge, live: { updatedAt: r.updated_at } })}</td>
               <td><span class="pill p-${ag.level}">${esc(ag.text)}</span></td>
               <td class="num">${esc(groupDigits(String(r.updated_height || 0)))}</td>
             </tr>`;
