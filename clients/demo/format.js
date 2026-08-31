@@ -161,6 +161,42 @@ export const whenUnix = (seconds) =>
   (Number(seconds) > 0 ? when(new Date(Number(seconds) * 1000).toISOString()) : null);
 
 /**
+ * Whether a chain that is answering has nevertheless stopped.
+ *
+ * OBSERVED, at the scheduled upgrade halt on 2026-08-31. The node stopped
+ * producing blocks at height 119,900 and went on answering every query
+ * correctly at that height for the fifteen minutes it took to come back on the
+ * new binary. `catching_up` stayed false, nothing errored, and every figure the
+ * page showed was still true — and none of it was still current. A green
+ * indicator there is the most misleading thing this page could display, because
+ * it is wrong in the one direction that flatters the system.
+ *
+ * So it is derived from the block time rather than trusted to a flag. Two
+ * minutes is about twenty blocks at this chain's measured rate: long enough not
+ * to fire on one slow block, short enough to catch a halt while somebody is
+ * still looking at the page.
+ *
+ * `now` is a parameter so this is testable without waiting two minutes.
+ */
+export const STALE_AFTER_MS = 120000;
+
+export function hasStopped(at, now = Date.now()) {
+  // A missing or unparseable block time is not evidence of a halt. Saying "the
+  // chain has stopped" because a timestamp did not arrive is a false alarm
+  // about the most alarming thing this page can say.
+  //
+  // The typeof check is load-bearing and was put here by a failing test:
+  // `new Date(null)` is the Unix epoch, not an invalid date, so a null block
+  // time is finite, fifty-six years old, and reads as a halt. Every other
+  // absent value gives NaN and would have been caught; null alone sails
+  // through into the most alarming branch on the page.
+  if (typeof at !== 'string' || at === '') return false;
+  const t = new Date(at).getTime();
+  if (!Number.isFinite(t) || t <= 0) return false;
+  return now - t > STALE_AFTER_MS;
+}
+
+/**
  * Seconds per block, measured across a real span rather than assumed.
  *
  * Returns null when the span is too short to mean anything: two adjacent blocks

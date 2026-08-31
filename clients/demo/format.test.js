@@ -18,8 +18,8 @@ import { test } from 'node:test';
 
 import { NotFound, Unreachable } from './chain.js';
 import {
-  amount, blocksAbout, bps, count, describeFailure, duration, elide, isProven,
-  proven, secondsPerBlock, unread, when, whenUnix,
+  STALE_AFTER_MS, amount, blocksAbout, bps, count, describeFailure, duration,
+  elide, hasStopped, isProven, proven, secondsPerBlock, unread, when, whenUnix,
 } from './format.js';
 
 /* ========================================================================= */
@@ -267,6 +267,59 @@ test('two adjacent blocks are refused as a measurement', () => {
   // proposer's clock did, presented to three decimal places.
   assert.equal(secondsPerBlock({ height: 100, at: '2026-01-01T00:00:00Z' },
     { height: 101, at: '2026-01-01T00:00:07Z' }), null);
+});
+
+/* ========================================================================= */
+/*  A chain that answers but has stopped                                     */
+/* ========================================================================= */
+
+test('a node still answering at a height it stopped at is reported as stopped', () => {
+  // OBSERVED at the scheduled upgrade halt on 2026-08-31. The node stopped
+  // producing blocks at 119,900 and kept answering every query correctly at
+  // that height for the fifteen minutes it took to come back on the new
+  // binary. catching_up stayed false and nothing errored, so the page showed a
+  // green indicator on a chain that had stopped — every figure still true and
+  // none of it still current. This is the check that replaces trusting a flag.
+  const halted = '2026-08-31T11:24:17Z';
+  const fiveMinutesLater = new Date('2026-08-31T11:29:17Z').getTime();
+  assert.equal(hasStopped(halted, fiveMinutesLater), true);
+});
+
+test('an ordinary slow block is not a halt', () => {
+  // The chain runs at about five seconds. A single slow block, or a handful,
+  // must not raise the most alarming statement this page can make.
+  const at = '2026-08-31T11:24:17Z';
+  const thirtySeconds = new Date('2026-08-31T11:24:47Z').getTime();
+  const ninetySeconds = new Date('2026-08-31T11:25:47Z').getTime();
+  assert.equal(hasStopped(at, thirtySeconds), false);
+  assert.equal(hasStopped(at, ninetySeconds), false);
+});
+
+test('the threshold is about twenty blocks, not an arbitrary number', () => {
+  // Two minutes at the ~5.4s this chain measured. Stated as a test so that
+  // changing it is a deliberate act rather than a tweak.
+  assert.equal(STALE_AFTER_MS, 120000);
+  assert.ok(STALE_AFTER_MS / 5400 > 15, 'shorter than fifteen blocks would fire on a slow patch');
+  assert.ok(STALE_AFTER_MS / 5400 < 30, 'longer than thirty blocks is too slow to catch a halt in a room');
+});
+
+test('an unreadable block time is not evidence of a halt', () => {
+  // Saying "the chain has stopped" because a timestamp failed to parse is a
+  // false alarm about the single most alarming thing this page says.
+  assert.equal(hasStopped('not a date'), false);
+  assert.equal(hasStopped(''), false);
+  assert.equal(hasStopped(undefined), false);
+  // null is the one that got through. `new Date(null)` is the Unix epoch, not
+  // an invalid date — so it is finite, fifty-six years old, and read as a halt.
+  // Every other absent value gives NaN and was already handled.
+  assert.equal(hasStopped(null), false);
+  assert.equal(hasStopped(0), false);
+});
+
+test('a block stamped in the future is not a halt either', () => {
+  const at = '2026-08-31T12:00:00Z';
+  const earlier = new Date('2026-08-31T11:30:00Z').getTime();
+  assert.equal(hasStopped(at, earlier), false);
 });
 
 test('a missing or backwards span is refused', () => {

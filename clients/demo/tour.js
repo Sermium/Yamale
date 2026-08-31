@@ -10,7 +10,7 @@
 // halt mid-demonstration, "all or nothing" means nothing.
 
 import { blockTime, head } from './chain.js';
-import { isProven, secondsPerBlock, when } from './format.js';
+import { hasStopped, isProven, secondsPerBlock, when } from './format.js';
 import { ACTS, MECHANISMS, NOT_BUILT, SURFACES } from './mechanisms.js';
 
 /* ------------------------------------------------------------------ DOM */
@@ -213,12 +213,38 @@ function drawHead(state, text, title) {
  */
 async function readHead() {
   const now = await head();
-  drawHead(now.catchingUp ? 'warn' : 'ok',
-    `${now.network} · height ${now.height.toLocaleString('en')}`,
-    `${when(now.at) ?? ''}${now.catchingUp ? ' — this node is still catching up' : ''}`);
+  const stopped = hasStopped(now.at);
+
+  drawHead(
+    now.catchingUp || stopped ? 'warn' : 'ok',
+    stopped
+      ? `${now.network} · stopped at ${now.height.toLocaleString('en')}`
+      : `${now.network} · height ${now.height.toLocaleString('en')}`,
+    stopped
+      ? `The node is answering, but it has produced no block since ${when(now.at)}. `
+        + 'Everything below was true at that height and none of it is current.'
+      : `${when(now.at) ?? ''}${now.catchingUp ? ' — this node is still catching up' : ''}`,
+  );
 
   document.getElementById('hero-network').textContent = now.network;
   document.getElementById('hero-height').textContent = now.height.toLocaleString('en');
+
+  // Said in the hero as well as in the masthead. A reader who scrolls straight
+  // to a mechanism should not have to have noticed a coloured dot to know that
+  // every figure on the page is frozen at a height the chain stopped at.
+  if (stopped) {
+    const banner = document.querySelector('.hero__caveat');
+    if (banner) {
+      banner.replaceChildren();
+      banner.classList.add('hero__caveat--stopped');
+      banner.appendChild(el('strong', null,
+        `The chain has stopped at block ${now.height.toLocaleString('en')}. `));
+      banner.appendChild(el('span', null,
+        `No block since ${when(now.at)} — this is the scheduled upgrade halt. `
+        + 'Every figure below was true at that height, and none of it is moving. '
+        + 'The node is still answering queries, which is why the proofs still read.'));
+    }
+  }
 
   const span = Math.min(2000, now.height - 1);
   let interval = null;

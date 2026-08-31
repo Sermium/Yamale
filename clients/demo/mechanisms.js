@@ -640,11 +640,21 @@ export const MECHANISMS = [
         const rows = [
           { label: 'Upgrades applied', value: count(applied.length, 'upgrade'), emphasis: true },
         ];
-        applied.forEach((u) => rows.push({
-          label: u.name,
-          value: `at block ${u.height.toLocaleString('en')}${now ? ` — ${(now - u.height).toLocaleString('en')} blocks ago` : ''}`,
-          mono: true,
-        }));
+        applied.forEach((u) => {
+          const since = now - u.height;
+          // "0 blocks ago" is what an upgrade reads as at the moment it lands,
+          // and it is the moment somebody is most likely to be looking: the
+          // chain halts at exactly that height and waits for the new binary.
+          const when_ = !now ? ''
+            : since === 0 ? ' — this block, the chain is halted here now'
+              : ` — ${since.toLocaleString('en')} blocks ago`;
+          rows.push({
+            label: u.name,
+            value: `at block ${u.height.toLocaleString('en')}${when_}`,
+            mono: true,
+            emphasis: since === 0,
+          });
+        });
         pending.forEach((u) => rows.push({
           label: `${u.name} — scheduled`,
           value: now

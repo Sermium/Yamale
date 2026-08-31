@@ -207,6 +207,14 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   border-left: 2px solid var(--warn);
   padding-left: var(--sp-4);
 }
+/* When the chain has actually stopped this stops being a caveat about
+   something that might happen and becomes a statement about what has. */
+.hero__caveat--stopped {
+  border-left-color: var(--bad);
+  color: var(--text);
+  font-size: var(--step-1);
+}
+.hero__caveat--stopped strong { color: var(--bad); }
 
 /* ---------------------------------------------------------------- sections */
 
