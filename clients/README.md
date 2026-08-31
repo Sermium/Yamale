@@ -216,3 +216,42 @@ bank reads, a balance and a supply, which the allowlist does serve.
 It is a harness, not app code and not imported by it: the chain has held zero
 collections throughout this work, and an app that only looks right once
 populated is the failure this one was written against.
+## The guided tour
+
+`clients/demo` — the page that makes the rest of this demonstrable in a room.
+
+Eighteen mechanisms in five acts. Each one gets a sentence on what it does, the
+thing it **refuses** to do, a query against the running chain that would come
+back different if the refusal were decorative, and a link into the surface where
+you can see it working. The refusal leads, because a finance ministry is not
+asking whether this is clever — it is asking what the operator of it cannot do
+to a citizen's money.
+
+It is buildless: one HTML file, four ES modules, no npm install. It gets opened
+in front of people, and a page that needs a toolchain to render a paragraph is a
+page that will not be open at the moment it matters.
+
+```bash
+npm test --workspace @yamale/demo    # 71 tests, no node required
+node clients/demo/serve.mjs          # http://localhost:5180, /api proxied
+```
+
+Two things it is arranged around.
+
+**A proof that could not be read must say so.** Not zero, not blank, not a dash.
+"Nought approved participants" and "the chain did not answer" are opposite facts
+about whether an institution can move money. So a proof is a tagged value and
+there is no path in `format.js` from an error to a numeral, and the catalogue is
+tested against the four ways this deployment actually fails — a timeout, the
+gateway's 401, the 503 a halted node returns, and an HTML error page where JSON
+was expected. Every mechanism must come back unread from all four.
+
+**The gateway rate-limits `/api/rpc/` and does not rate-limit `/api/rest/`.**
+Measured: twelve concurrent RPC requests all return 503, and the limiter stays
+tripped for sequential requests afterwards, while twelve concurrent REST
+requests all succeed. This page feels it more than any other client, because the
+four modules the REST allowlist denies — land, paymsg, netting, builderfee — can
+only be read over ABCI. RPC therefore goes through a serialised queue at one
+request every 500ms; REST keeps a plain concurrency gate. Without it the tour
+opened, on a chain answering perfectly, showing six of its mechanisms as "cannot
+reach the chain".
