@@ -1598,16 +1598,64 @@ $('tab-net').addEventListener('click', () => showTab('net'));
 // Load.
 // ---------------------------------------------------------------------------
 
+/**
+ * A refresh must not wipe what the reader was looking at.
+ *
+ * The panels are re-rendered wholesale every thirty seconds, which throws away
+ * the result of any lookup the reader has run. Somebody who has just checked
+ * whether an account is frozen watches the answer disappear half a minute
+ * later, on a page whose entire job is to answer that question. So the lookup
+ * panes are lifted out before the re-render and put back after.
+ */
+function keepLookups(fn) {
+  const ids = ['frz-input', 'frz-out', 'pos-input', 'pos-out'];
+  const saved = {};
+  for (const id of ids) {
+    const el = $(id);
+    if (!el) continue;
+    saved[id] = el.tagName === 'INPUT' ? el.value : el.innerHTML;
+  }
+  fn();
+  for (const id of ids) {
+    const el = $(id);
+    if (!el || saved[id] === undefined) continue;
+    if (el.tagName === 'INPUT') el.value = saved[id];
+    else if (saved[id]) el.innerHTML = saved[id];
+  }
+}
+
 async function load() {
   try {
     state.status = await C.status(RPC);
   } catch (e) {
-    $('boot').className = 'failed';
-    $('boot').innerHTML = `<h4>The node did not answer.</h4>
-      <p class="small">Nothing on this page can be drawn without it, and nothing will be invented to
-        fill the space.</p><p class="why">${esc(e.message)}</p>`;
+    // Reset rather than keep the last good height. A page that goes on showing
+    // a height from four minutes ago while the node is unreachable is telling
+    // the reader that the register is live when it is not — and on this page
+    // "nothing is frozen" being four minutes stale is the whole problem.
+    //
+    // The boot panel is un-hidden here because after the first successful load
+    // it is hidden, and writing a failure into a hidden element is how an
+    // outage becomes invisible. This one was found by watching the devnet halt
+    // for its scheduled upgrade with the console open.
+    state.status = null;
+    const boot = $('boot');
+    boot.hidden = false;
+    boot.className = 'failed';
+    boot.innerHTML = `<h4>The node is not answering.</h4>
+      <p class="small">Everything below was last read successfully some time ago and may no longer
+        be true. Nothing on this page can be refreshed without the node, and nothing will be
+        invented to fill the space.</p><p class="why">${esc(e.message)}</p>`;
     renderMeta();
     return;
+  }
+  // The node answered again. Put the boot panel back to its reading state, but
+  // leave it visible until the module reads land — on a first visit the mains
+  // are still empty at this point, and hiding it here would show a blank page
+  // in the gap.
+  if ($('boot').className === 'failed') {
+    $('boot').className = 'empty';
+    $('boot').innerHTML = '<h4>Reading the chain</h4><p>The node is answering again. '
+      + 'Re-reading x/enforcement and x/netting.</p>';
   }
 
   // Independent, deliberately. A netting query that fails must not blank the
@@ -1629,14 +1677,19 @@ async function load() {
     }),
   ]);
 
-  state.validators = vals;
-  state.secondsPerBlock = secs;
+  // Keep the last good measurement of each. A transient failure on the block
+  // or validator queries would otherwise drop the block interval to zero and
+  // the validator set to empty — which silently removes every duration from
+  // the page and reports the asymmetry as "0 of 0". A stale interval is a fine
+  // basis for an estimate that is labelled as one; a missing interval quietly
+  // deletes information the reader had a moment ago.
+  if (vals.length) state.validators = vals;
+  if (secs > 0) state.secondsPerBlock = secs;
   state.reads = reads;
 
   renderMeta();
   $('boot').hidden = true;
-  renderEnforcement();
-  renderNetting();
+  keepLookups(() => { renderEnforcement(); renderNetting(); });
 
   let tab = 'enf';
   try { tab = localStorage.getItem('yamale.oversight.tab') || 'enf'; } catch { /* blocked */ }
