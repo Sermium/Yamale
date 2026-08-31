@@ -27,7 +27,7 @@ import {
   decodeTransfer, num, read, statusName, str,
 } from './proto.js';
 import {
-  amount, blocksAbout, bps, count, describeFailure, elide, proven, unread, whenUnix,
+  amount, blocksAbout, bps, count, describeFailure, duration, elide, proven, unread, whenUnix,
 } from './format.js';
 
 /* ========================================================================= */
@@ -290,7 +290,14 @@ export const MECHANISMS = [
           { label: 'Transfer 0, parcel', value: String(t.parcelId), mono: true },
           { label: 'Validated by the local office', value: t.validated ? `yes — ${elide(t.validatedBy)}` : 'no', mono: true },
           { label: 'Attested by', value: count(t.attestors.length, 'independent office') },
-          { label: 'Challenge window', value: `${count(p.challengeWindowSeconds, 'second')} from quorum` },
+          // Spoken, not counted in seconds. "600 seconds" is a number somebody
+          // has to divide in their head while being talked to; "10 minutes" is
+          // the fact. The raw figure stays beside it because it is the one that
+          // is actually in the chain's parameters.
+          {
+            label: 'Challenge window',
+            value: `${duration(p.challengeWindowSeconds) ?? '—'} from quorum (${count(p.challengeWindowSeconds, 'second')})`,
+          },
           {
             label: 'Completed',
             value: completedAt
@@ -401,7 +408,10 @@ export const MECHANISMS = [
           { label: 'Collection', value: c.id, mono: true },
           { label: 'Who verifies a sale', value: c.verification, mono: true },
           { label: 'Attestations required', value: count(Number(c.attestation_threshold ?? 0), 'attestor') },
-          { label: 'Challenge window', value: count(Number(c.challenge_window_seconds ?? 0), 'second') },
+          {
+            label: 'Challenge window',
+            value: `${duration(Number(c.challenge_window_seconds ?? 0)) ?? '—'} (${count(Number(c.challenge_window_seconds ?? 0), 'second')})`,
+          },
           { label: 'Cost of disputing', value: `${bps(c.dispute_bond_bps) ?? '—'} of the sale, posted as a bond` },
           { label: 'Authority', value: c.authority, mono: true, full: true },
         ], Number(c.attestation_threshold ?? 0) === 0
