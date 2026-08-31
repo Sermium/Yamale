@@ -808,6 +808,25 @@ function failure(what, err) {
   </div>`;
 }
 
+/**
+ * The banner on a panel whose answer is real but no longer fresh.
+ *
+ * It names the height the answer was actually read at, because "a while ago"
+ * is not a unit anybody can act on and the height is the chain's own clock.
+ */
+function staleNote(read) {
+  if (!read || !read.stale) return '';
+  return `<div class="notice" style="margin-bottom:var(--sp-3)">
+    <strong>Read at height ${esc(String(read.at))}, and not since.</strong>
+    <p class="small" style="margin-top:var(--sp-1)">The node has stopped answering this query, so
+      what follows is the last answer it gave rather than a statement about now. It is kept
+      because losing it to one refused request would be worse — but it is not current, and on this
+      page that distinction is the point.</p>
+    <p class="why small mono" style="margin-top:var(--sp-1);color:var(--bad)">${
+      esc(read.staleError && read.staleError.message ? read.staleError.message : '')}</p>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // State.
 // ---------------------------------------------------------------------------
@@ -1382,7 +1401,7 @@ function nettingHtml(reads) {
     <section class="block">
       <p class="y-eyebrow">The settlement window</p>
       <h2>Where the cycle stands</h2>
-      ${banner}
+      ${staleNote(netParams)}${staleNote(cycle)}${banner}
       ${gap}
     </section>
 
@@ -1419,7 +1438,7 @@ function nettingHtml(reads) {
 
     <section class="block">
       <h2>The day a window does not clear</h2>
-      ${heldCard}
+      ${staleNote(slices)}${heldCard}
     </section>
 
     <section class="block">
@@ -1534,7 +1553,7 @@ function renderEnforcement() {
       <h2>What is frozen right now</h2>
       <p class="lede">A freeze stops an account sending. It does not stop it receiving, and it never
         takes anything.</p>
-      ${freezesHtml(r.freezes, params)}
+      ${staleNote(r.freezes)}${freezesHtml(r.freezes, params)}
       <div class="card" style="margin-top:var(--sp-3)">
         <form class="lookup" id="frz-form">
           <input id="frz-input" type="text" spellcheck="false"
@@ -1551,19 +1570,19 @@ function renderEnforcement() {
       <h2>Cases, and where each stands</h2>
       <p class="lede">Opening a case freezes the target immediately. Whether anything is taken is
         decided by the validators afterwards, against the bar below.</p>
-      ${casesHtml(r.open, r.held, r.cases, r.recovered, params)}
+      ${staleNote(r.open)}${casesHtml(r.open, r.held, r.cases, r.recovered, params)}
     </section>
 
     <section class="block">
       <h2>The rolling cap</h2>
       <p class="lede">The limit that makes mass expropriation arithmetically impossible rather than
         merely unpopular.</p>
-      ${windowHtml(r.window, params)}
+      ${staleNote(r.window)}${windowHtml(r.window, params)}
     </section>
 
     <section class="block">
       <h2>The offices, and the parameters that bind them</h2>
-      ${officesHtml(params)}
+      ${staleNote(r.enfParams)}${officesHtml(params)}
     </section>
 
     <section class="block">
@@ -1722,6 +1741,37 @@ async function load() {
   // deletes information the reader had a moment ago.
   if (vals.length) state.validators = vals;
   if (secs > 0) state.secondsPerBlock = secs;
+
+  /*
+   * Keep the last good answer per panel, and say that it is old.
+   *
+   * MEASURED on this deployment: thirteen concurrent queries all returned 200
+   * while a SEQUENTIAL run of the same ten started failing at the fourth and
+   * stayed failing. So the node flaps in and out on a multi-second cycle, and
+   * it is not a burst limit — the concurrent burst is the one that succeeds.
+   *
+   * That makes blanking a panel on a single refusal the wrong behaviour here.
+   * The reader loses the freeze register they were reading because one request
+   * in ten landed in a bad two seconds, on a page whose whole job is to have
+   * an answer available when somebody needs one.
+   *
+   * The honest middle is to keep the answer and label it: the panel still
+   * carries the height it was actually read at, and a notice says the node has
+   * stopped answering since. That is strictly better than a blank, and it is
+   * still not a claim about now — which matters more on this page than any
+   * other, because "nothing is frozen" going quietly stale is the failure the
+   * whole console exists to prevent.
+   *
+   * A read that has NEVER succeeded still renders as a failure. There is
+   * nothing to keep, and inventing an empty result would be the lie.
+   */
+  for (const key of Object.keys(reads)) {
+    const now = reads[key];
+    const before = state.reads[key];
+    if (!now.ok && before && before.ok) {
+      reads[key] = { ...before, stale: true, staleError: now.error };
+    }
+  }
   state.reads = reads;
 
   renderMeta();
