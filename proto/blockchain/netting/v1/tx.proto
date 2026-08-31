@@ -35,6 +35,9 @@ service Msg {
 
   // SubmitObligation records what one participant owes another.
   rpc SubmitObligation(MsgSubmitObligation) returns (MsgSubmitObligationResponse);
+
+  // Governance only, and the last resort for a slice that will never settle.
+  rpc AbandonHeldSlice(MsgAbandonHeldSlice) returns (MsgAbandonHeldSliceResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -153,4 +156,49 @@ message MsgSubmitObligationResponse {
   uint64 id = 1;
   uint64 cycle_id = 2;
   SettlementMode mode = 3;
+}
+
+// MsgAbandonHeldSlice releases the collateral locked behind a slice that cannot
+// settle, and gives up on settling it.
+//
+// # Why this exists and why it is deliberately ugly
+//
+// A held slice locks its participants' reserve indefinitely. That is the right
+// behaviour for a slice that might yet settle and an unacceptable one for a
+// slice that never will, and nothing else in this module can tell the
+// difference — which is why this is governance's decision and not a keeper's.
+//
+// # What it does NOT do
+//
+// It does not touch the obligations. Not one is edited, cancelled, reassigned
+// or recomputed, and that restraint is the whole reason this message is safe to
+// have. The institutions in the slice were told what they owed each other; that
+// record stands, and abandoning the on-chain settlement of it does not make the
+// debt go away. It moves the debt off this ledger and into whatever agreement
+// the participants have between them, which is exactly what a central bank does
+// when a settlement system cannot complete a cycle.
+//
+// Stated plainly for whoever proposes one: this releases collateral from
+// debtors who still owe money to creditors who have not been paid. It should be
+// the end of a documented failure investigation, not a way to clear a stuck
+// screen.
+message MsgAbandonHeldSlice {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/netting/MsgAbandonHeldSlice";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  uint64 cycle_id = 2;
+  string denom = 3;
+
+  // reason is recorded on the event and is required. A release of somebody
+  // else's collateral with no stated grounds is not one anybody can argue with
+  // afterwards.
+  string reason = 4;
+}
+
+message MsgAbandonHeldSliceResponse {
+  // released is what went back to each debtor, so the proposal's effect is
+  // legible in the response rather than only in the state it changed.
+  repeated string released = 1;
 }

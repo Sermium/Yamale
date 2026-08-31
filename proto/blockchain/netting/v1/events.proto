@@ -84,3 +84,44 @@ message EventReserveChanged {
   ];
   bool deposited = 4;
 }
+
+// EventHoldOverdue is emitted at every cycle boundary for a slice that has been
+// held longer than max_hold_cycles.
+//
+// It is a repeated alarm and not a one-off, because an event emitted once at
+// the moment a bound is crossed is one an operator can be on leave for, and the
+// state it describes — somebody's collateral locked with no settlement in
+// sight — does not go away while nobody is looking.
+//
+// The chain does nothing else about it. Releasing collateral automatically once
+// a timer expired would be a settlement system quietly giving up on paying
+// people, and the reason held slices are retried unchanged is that nobody
+// wanted obligations resolved by anything but a decision. So this event exists
+// to make sure somebody knows, and MsgAbandonHeldSlice is where the decision
+// is taken.
+message EventHoldOverdue {
+  uint64 cycle_id = 1;
+  string denom = 2;
+  // held_since is the cycle at which this slice was FIRST held. It does not
+  // move when a retry fails, so the age below is real.
+  uint64 held_since = 3;
+  uint64 cycles_held = 4;
+  uint64 bound = 5;
+}
+
+// EventHeldSliceAbandoned records governance giving up on settling a slice and
+// releasing the collateral behind it.
+//
+// Worth reading carefully if you find one of these in a log: it means debtors
+// got their collateral back while creditors in the same slice were never paid.
+// The obligations are untouched and still record who owed what — the debt did
+// not disappear, it left this ledger.
+message EventHeldSliceAbandoned {
+  uint64 cycle_id = 1;
+  string denom = 2;
+  uint64 cycles_held = 3;
+  string reason = 4;
+  // released names each debtor and what returned to them, so the effect is in
+  // the log rather than only in the state it changed.
+  repeated string released = 5;
+}

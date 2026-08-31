@@ -99,3 +99,30 @@ func (p Params) GrossThresholdFor(denom string) (sdkmath.Int, bool) {
 func (p Params) NettingEnabled() bool {
 	return p.CycleBlocks > 0 && p.CycleBlocks <= MaxCycleBlocks && p.CycleBlocks <= math.MaxInt64
 }
+
+// AggregateGrossThresholdFor reports the total value one participant may net in
+// this currency in one cycle before further obligations settle gross.
+//
+// Zero means the aggregate check is off, which is what every chain configured
+// before the field existed already had. Reported as a bool rather than left for
+// the caller to compare against zero, so that "governance turned this off" and
+// "governance has never set it" are the same answer at the one call site that
+// cares, and neither is mistaken for a ceiling of nothing.
+func (p Params) AggregateGrossThresholdFor(denom string) (sdkmath.Int, bool) {
+	for _, policy := range p.DenomPolicies {
+		if policy.Denom != denom {
+			continue
+		}
+		if policy.AggregateGrossThreshold.IsNil() || !policy.AggregateGrossThreshold.IsPositive() {
+			return sdkmath.ZeroInt(), false
+		}
+		return policy.AggregateGrossThreshold, true
+	}
+	return sdkmath.ZeroInt(), false
+}
+
+// HoldBound reports how many cycles a slice may stay held before it is
+// escalated, and whether a bound is set at all.
+func (p Params) HoldBound() (uint64, bool) {
+	return p.MaxHoldCycles, p.MaxHoldCycles > 0
+}

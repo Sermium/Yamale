@@ -61,6 +61,17 @@ type Keeper struct {
 	// HeldSlice is the retry queue: the (cycle, denom) slices that refused to
 	// settle. Empty on a healthy chain, and walked every cycle boundary.
 	HeldSlice collections.KeySet[collections.Pair[uint64, string]]
+
+	// HeldSince is the cycle at which each held slice was first held, so a hold
+	// has an age. A retry queue with no clock cannot tell anybody that
+	// somebody's collateral has been locked since April.
+	HeldSince collections.Map[collections.Pair[uint64, string], uint64]
+
+	// NettedTotal is what each participant has put into the window as a debtor,
+	// per (cycle, denom). Read by the aggregate gross threshold and by nothing
+	// else; settlement does not consult it, because the money that settles is
+	// still decided by Position.
+	NettedTotal collections.Map[collections.Triple[uint64, string, string], math.Int]
 }
 
 func NewKeeper(
@@ -110,6 +121,14 @@ func NewKeeper(
 			collections.PairKeyCodec(collections.StringKey, collections.StringKey), sdk.IntValue),
 		Locked: collections.NewMap(sb, types.LockedKey, "locked",
 			collections.PairKeyCodec(collections.StringKey, collections.StringKey), sdk.IntValue),
+
+		HeldSince: collections.NewMap(sb, types.HeldSinceKey, "heldSince",
+			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
+			collections.Uint64Value),
+
+		NettedTotal: collections.NewMap(sb, types.NettedTotalKey, "nettedTotal",
+			collections.TripleKeyCodec(collections.Uint64Key, collections.StringKey, collections.StringKey),
+			sdk.IntValue),
 
 		HeldSlice: collections.NewKeySet(sb, types.HeldSliceKey, "heldSlice",
 			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey)),

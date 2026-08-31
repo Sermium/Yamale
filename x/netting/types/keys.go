@@ -97,4 +97,18 @@ var (
 	// Derived from the cycles' own recorded outcomes, so it too is rebuilt at
 	// import rather than carried in genesis.
 	HeldSliceKey = collections.NewPrefix("held/value/")
+
+	// HeldSinceKey records the cycle at which a slice was FIRST held, so the
+	// age of a hold is a fact rather than an inference. Without it a slice
+	// retried for a year is indistinguishable from one held this morning.
+	HeldSinceKey = collections.NewPrefix("held/since/")
+
+	// NettedTotalKey is the cumulative value one participant has put into the
+	// netting window for one currency in one cycle, as the debtor.
+	//
+	// Keyed the same way as a position and reset the same way, by being scoped
+	// to a cycle id that never repeats. It exists only to make the aggregate
+	// gross threshold enforceable — a per-obligation threshold is defeated by
+	// splitting a payment, and nothing else in this module was counting.
+	NettedTotalKey = collections.NewPrefix("netted/total/")
 )

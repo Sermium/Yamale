@@ -53,6 +53,13 @@ func (k Keeper) EndBlocker(ctx context.Context) error {
 	if err := k.closeCycle(ctx, height); err != nil {
 		return err
 	}
+
+	// After the retry and the close, so the alarm reflects what is still stuck
+	// once this boundary has done everything it can. Raising it beforehand
+	// would report a slice as overdue in the same block it settled.
+	if err := k.escalateOldHolds(ctx); err != nil {
+		return err
+	}
 	return k.openCycle(ctx, height+1)
 }
 
@@ -100,6 +107,13 @@ func (k Keeper) closeCycle(ctx context.Context, height int64) error {
 		outcome.HoldReason = reason
 		cycle.Status = types.CYCLE_STATUS_HELD
 		if err := k.HeldSlice.Set(ctx, collections.Join(cycleID, group.denom)); err != nil {
+			return err
+		}
+		// Stamp the hold, once. A slice already held keeps its original stamp,
+		// so retrying does not reset the clock — a hold that renewed its own
+		// age on every attempt could never be reported as old, which is the
+		// one thing the stamp exists to make possible.
+		if err := k.stampHold(ctx, cycleID, group.denom); err != nil {
 			return err
 		}
 		if err := sdk.UnwrapSDKContext(ctx).EventManager().EmitTypedEvent(&types.EventCycleHeld{
@@ -202,6 +216,9 @@ func (k Keeper) retryHeldSlices(ctx context.Context) error {
 // markRetried records that a held slice finally cleared.
 func (k Keeper) markRetried(ctx context.Context, cycleID uint64, denom string, netAmount math.Int, group *positionGroup) error {
 	if err := k.HeldSlice.Remove(ctx, collections.Join(cycleID, denom)); err != nil {
+		return err
+	}
+	if err := k.HeldSince.Remove(ctx, collections.Join(cycleID, denom)); err != nil {
 		return err
 	}
 
@@ -430,4 +447,80 @@ func (k Keeper) settleGroup(ctx sdk.Context, group positionGroup) (math.Int, err
 	}
 
 	return debits, nil
+}
+
+// stampHold records the cycle a slice was first held at, and leaves an existing
+// stamp alone.
+func (k Keeper) stampHold(ctx context.Context, cycleID uint64, denom string) error {
+	key := collections.Join(cycleID, denom)
+	if has, err := k.HeldSince.Has(ctx, key); err != nil {
+		return err
+	} else if has {
+		return nil
+	}
+	current, err := k.CurrentCycle.Get(ctx)
+	if err != nil {
+		return err
+	}
+	return k.HeldSince.Set(ctx, key, current)
+}
+
+// escalateOldHolds emits an event for every slice held longer than the bound.
+//
+// An event and nothing else, deliberately. The alternative — releasing
+// collateral automatically once a timer runs out — would mean a settlement
+// system that quietly gives up on paying people at 3am, and the whole reason
+// held slices are retried unchanged is that nobody wanted obligations resolved
+// by anything other than a decision. So the chain's job here is to make sure
+// somebody KNOWS, and the decision stays with governance in
+// MsgAbandonHeldSlice.
+//
+// Emitted every cycle rather than once. A single event at the moment a bound is
+// crossed is one an operator can miss while on leave; a repeating one is in
+// front of whoever is looking today.
+func (k Keeper) escalateOldHolds(ctx context.Context) error {
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return err
+	}
+	bound, set := params.HoldBound()
+	if !set {
+		return nil
+	}
+	current, err := k.CurrentCycle.Get(ctx)
+	if err != nil {
+		return err
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	var stale []collections.Pair[uint64, string]
+	if err := k.HeldSince.Walk(ctx, nil, func(key collections.Pair[uint64, string], since uint64) (bool, error) {
+		if current <= since || current-since < bound {
+			return false, nil
+		}
+		stale = append(stale, key)
+		return false, nil
+	}); err != nil {
+		return err
+	}
+
+	// Collected before emitting, for the same reason work is collected before
+	// mutation everywhere else in this file: an iterator is not a place to do
+	// anything that might touch the store beneath it.
+	for _, key := range stale {
+		since, err := k.HeldSince.Get(ctx, key)
+		if err != nil {
+			return err
+		}
+		if err := sdkCtx.EventManager().EmitTypedEvent(&types.EventHoldOverdue{
+			CycleId:    key.K1(),
+			Denom:      key.K2(),
+			HeldSince:  since,
+			CyclesHeld: current - since,
+			Bound:      bound,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -309,6 +309,51 @@ var upgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// Two findings from an independent review on 2026-08-31, both in
+		// x/netting and both cases where a control's intent was weaker than its
+		// implementation suggested.
+		//
+		// The gross-settlement threshold looked at one obligation at a time, so
+		// splitting a payment put the whole of it inside the deferred window —
+		// transaction structuring, and the first thing a supervisor tests for.
+		// It was never a solvency hole, since the net debit cap still bound;
+		// what it defeated was the reason high-value flows are kept out of that
+		// window at all. Denom policies gain an aggregate ceiling per
+		// participant per cycle, and an obligation crossing it settles gross
+		// rather than being refused: the payer is entitled to pay, just not to
+		// defer.
+		//
+		// And a slice that would not settle was retried forever with its
+		// participants' collateral locked, with no timeout, no escalation and
+		// no message able to release it. Holds now carry the cycle they began
+		// at, an overdue one raises an event every boundary, and governance can
+		// abandon one — releasing collateral WITHOUT touching a single
+		// obligation, because the record of who owed what is the thing that
+		// must survive.
+		//
+		// No migration. Both new params default to zero, which disables both
+		// behaviours and leaves this chain exactly as it was until governance
+		// sets them; and there are no held slices to stamp, on this chain or
+		// any other, because none has ever failed to settle.
+		Name: "structuring-and-stuck-slices",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"x/netting gained an aggregate ceiling and a clock on held slices",
+				"structuring", "a participant's total netted value per cycle is now capped per currency; "+
+					"crossing it settles gross rather than refusing, and the cap is OFF until governance sets it",
+				"holds", "a held slice records when it was first held and raises an event every cycle once "+
+					"past max_hold_cycles; governance may abandon one, which releases collateral and "+
+					"edits no obligation",
+				"defaults", "both are zero, so nothing changes on this chain until a proposal sets them",
+			)
+			return vm, nil
+		},
+	},
 }
 
 // setupUpgradeHandlers registers every upgrade with the upgrade keeper and

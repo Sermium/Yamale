@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
@@ -68,6 +69,32 @@ func (k msgServer) SubmitObligation(ctx context.Context, msg *types.MsgSubmitObl
 
 	mode := settlementModeFor(params, msg.Denom, msg.Amount)
 
+	// The aggregate ceiling, which is what makes the per-obligation threshold
+	// mean anything.
+	//
+	// settlementModeFor looks at one obligation. A participant with a large
+	// payment to make can therefore submit a series each one unit below the
+	// threshold and put the whole of it inside the deferred window — which is
+	// transaction structuring, and it defeats the reason high-value flows are
+	// kept out of that window at all.
+	//
+	// Checked here rather than inside settlementModeFor because the answer
+	// depends on state, and keeping that function pure is what lets it be
+	// reasoned about and tested without a store.
+	if mode == types.SETTLEMENT_MODE_NET {
+		over, err := k.wouldExceedAggregate(ctx, params, cycleID, msg.Denom, msg.FromParticipant, msg.Amount)
+		if err != nil {
+			return nil, err
+		}
+		if over {
+			// Gross, not refused. The participant is entitled to make the
+			// payment; what they are not entitled to is deferring it. Refusing
+			// would turn a systemic-risk control into an availability problem
+			// for somebody whose money is good.
+			mode = types.SETTLEMENT_MODE_GROSS
+		}
+	}
+
 	id, err := k.ObligationSeq.Next(ctx)
 	if err != nil {
 		return nil, err
@@ -102,6 +129,12 @@ func (k msgServer) SubmitObligation(ctx context.Context, msg *types.MsgSubmitObl
 			return nil, err
 		}
 		if err := k.recordSubmission(ctx, cycleID, msg.Denom, msg.Amount); err != nil {
+			return nil, err
+		}
+		// Counted only for what actually nets. An obligation pushed to gross by
+		// the ceiling above must not also raise the counter, or one large
+		// payment would consume the allowance twice.
+		if err := k.addNettedTotal(ctx, cycleID, msg.Denom, msg.FromParticipant, msg.Amount); err != nil {
 			return nil, err
 		}
 	default:
@@ -247,4 +280,57 @@ func (k Keeper) recordSubmission(ctx context.Context, cycleID uint64, denom stri
 		ObligationCount: 1,
 	})
 	return k.Cycle.Set(ctx, cycleID, cycle)
+}
+
+// wouldExceedAggregate reports whether netting this obligation would push the
+// participant past what it may defer in this currency this cycle.
+//
+// Measured on the DEBTOR side only. A creditor's incoming obligations create no
+// deferred exposure for it — the exposure belongs to whoever owes — so counting
+// them would push honest recipients to gross settlement for other people's
+// payments.
+//
+// Measured GROSS rather than net, which is the decision worth arguing with. The
+// net position is what solvency depends on and the net debit cap already
+// enforces it; this counter is about how much value is sitting inside a
+// deferred window, and a participant who owes a hundred and is owed a hundred
+// still has a hundred in the window that a settlement disruption would reach.
+func (k Keeper) wouldExceedAggregate(
+	ctx context.Context, params types.Params, cycleID uint64, denom, participant string, amount math.Int,
+) (bool, error) {
+	ceiling, set := params.AggregateGrossThresholdFor(denom)
+	if !set {
+		return false, nil
+	}
+	sofar, err := k.GetNettedTotal(ctx, cycleID, denom, participant)
+	if err != nil {
+		return false, err
+	}
+	return sofar.Add(amount).GTE(ceiling), nil
+}
+
+// GetNettedTotal reports what a participant has already netted as debtor in
+// this currency this cycle. Absent is zero.
+func (k Keeper) GetNettedTotal(ctx context.Context, cycleID uint64, denom, participant string) (math.Int, error) {
+	total, err := k.NettedTotal.Get(ctx, collections.Join3(cycleID, denom, participant))
+	if errors.Is(err, collections.ErrNotFound) {
+		return math.ZeroInt(), nil
+	}
+	if err != nil {
+		return math.ZeroInt(), err
+	}
+	return total, nil
+}
+
+// addNettedTotal accumulates what a participant has put into the window.
+//
+// Never removed at zero the way a position is, because it is not a position: it
+// is a high-water mark for one cycle, and a cycle id is never reused. It falls
+// out of the store with everything else keyed to that cycle.
+func (k Keeper) addNettedTotal(ctx context.Context, cycleID uint64, denom, participant string, amount math.Int) error {
+	sofar, err := k.GetNettedTotal(ctx, cycleID, denom, participant)
+	if err != nil {
+		return err
+	}
+	return k.NettedTotal.Set(ctx, collections.Join3(cycleID, denom, participant), sofar.Add(amount))
 }

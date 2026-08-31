@@ -49,6 +49,27 @@ message Params {
   // holding. Netting is a deliberate governance act, taken currency by
   // currency, never a default that arrives with a new denom.
   repeated DenomPolicy denom_policies = 2 [(gogoproto.nullable) = false];
+
+  // max_hold_cycles bounds how long a slice that will not settle may sit held
+  // with its participants' collateral locked.
+  //
+  // A slice that fails settlement is written to HeldSlice and retried unchanged
+  // at every subsequent cycle boundary. Refusing to recompute, reassign or
+  // cancel obligations institutions were already told they owed is correct, and
+  // it is what prevents unwinding risk. What was missing is a bound: with no
+  // timeout and no escalation, a state exists in which participant funds are
+  // locked in a module account indefinitely and no message can release them.
+  //
+  // Reaching this bound is not expected. Settlement moves no coins, and every
+  // debit is covered by reserve checked when the obligation was submitted, so a
+  // hold means state this module did not build itself — an imported genesis, a
+  // migration, a bug in the cap. This field exists so that if that ever
+  // happens somebody is told, rather than left to discover it from a support
+  // call about locked collateral.
+  //
+  // Zero disables the bound and restores the previous behaviour of retrying
+  // forever in silence.
+  uint64 max_hold_cycles = 3;
 }
 
 // DenomPolicy is the netting rule for one currency.
@@ -74,6 +95,34 @@ message DenomPolicy {
   // entirely gross. Same reasoning as an absent policy, and the same safe
   // direction.
   string gross_threshold = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // aggregate_gross_threshold is the total value one participant may put into
+  // the netting window for this currency in a single cycle before further
+  // obligations settle gross regardless of their individual size.
+  //
+  // # Why a per-obligation threshold is not enough
+  //
+  // gross_threshold above looks at one obligation at a time, so a participant
+  // with a large payment to make submits a series of obligations each one unit
+  // below it and converts an immediate, fully funded transfer into deferred
+  // exposure inside the window. This is transaction structuring, it is the
+  // first thing a supervisor will test for, and it defeats the entire purpose
+  // of the per-obligation threshold: high-value flows are put outside the
+  // deferred window precisely so that a settlement disruption cannot reach
+  // them.
+  //
+  // It was never a solvency hole. The net debit cap still binds, so the sender
+  // must hold reserve covering its aggregate position either way. What
+  // structuring defeats is systemic-risk containment, which is a different and
+  // less visible property than solvency.
+  //
+  // Zero or unset disables the aggregate check, which is the behaviour every
+  // chain configured before this field existed already had.
+  string aggregate_gross_threshold = 3 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
