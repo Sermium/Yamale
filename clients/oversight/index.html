@@ -1,0 +1,1794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Oversight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  Oversight: what x/enforcement has frozen, what it refuses, and where
+  x/netting's settlement window stands.
+
+  These are the two mechanisms on this chain that have never had an interface.
+  That matters differently for each. Enforcement is the most politically
+  sensitive thing the chain does — a state can freeze and then take a citizen's
+  money — and until now there was no way to see it, audit it, or demonstrate
+  that it is constrained. Netting is the settlement plumbing a central bank
+  asks about first. Both were built and tested and invisible, and a constraint
+  nobody can see is not a constraint anybody is relying on.
+
+  WHO THIS IS FOR, AND WHAT THAT DECIDES
+
+  A supervisor, a journalist, a central bank's operations desk, and the person
+  whose account has been frozen. None of them holds a key that matters here and
+  all of them need the same thing: the ability to check. So this console reads
+  and never writes. See oversight.js SIGNING for the per-message reasoning —
+  the short version is that every authority in x/enforcement is a validator
+  operator key or an x/group policy account, and a freeze button in a web page
+  collapses an office's procedure into a click nobody can audit afterwards.
+
+  THE EMPTY STATE IS THE DESIGN
+
+  There are no cases on this chain, no freezes, and netting is switched off, so
+  an empty page is what a visitor gets today — and an empty page that renders
+  perfectly while the queries behind it are failing is a failure this project
+  has already had. Every panel therefore distinguishes three things that look
+  identical on a blank screen: nothing has happened, the chain did not answer,
+  and this console cannot read that. The panels also fail independently: a
+  netting query that errors must not blank the enforcement half.
+
+  What fills the space instead is the arithmetic. The asymmetry at the top is
+  computed from the live validator set and the live threshold parameter, not
+  asserted, because the claim that one validator can stop money and two thirds
+  are needed to take it is the product — and a page that asserts it without
+  showing the numbers is asking to be believed.
+
+  Deliberately one file plus three modules, no build step, like the land,
+  governance, foundation and validator consoles. This gets opened when
+  something is wrong.
+-->
+<style>
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
+
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+  }
+
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+
+  .y-scroll { overflow-x: auto; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ==========================================================================
+     THIS CONSOLE.
+
+     Everything below is scoped to this page and kept OUT of the shared file.
+     The theming rule the shared block establishes is followed here too and is
+     worth restating because breaking it has shipped on this project before:
+     every colour gets its full LIGHT definition on bare :root, and the dark
+     blocks redefine TOKENS ONLY. A colour whose sole definition sits inside a
+     media query or a [data-theme] block renders one theme's text on the other
+     theme's ground in the un-stamped, system-preference state.
+     ========================================================================== */
+
+  /* --------------------------------------------------- a fix, and a defect
+     MEASURED DEFECT IN THE SHARED PALETTE, worked around here rather than
+     silently inherited.
+
+     `--brass` is #a87b3c, and the shared system uses it for `.y-eyebrow` and
+     `.y-chip--brass` — small uppercase text, which is where contrast matters
+     most. Composited against the real backdrops in the LIGHT theme (each wash
+     flattened against what is actually behind it, not assumed opaque) it
+     measures:
+
+        .y-chip--brass on --wash-brass over --surface   3.31 : 1
+        .y-eyebrow on --bg                              3.53 : 1
+        .brand span on --surface                        3.77 : 1
+
+     WCAG AA wants 4.5 for text this size. The dark theme's brass (#c49856) is
+     fine — it measures 4.88 — so this is a light-theme defect only, which is
+     exactly the kind that survives review when the reviewer's machine is in
+     dark mode.
+
+     Fixed with a separate ink token rather than by changing --brass, because
+     --brass is also a border and rule colour where it is doing no contrast
+     work and is correct as it is. The token follows the same three-state rule
+     as everything else: full LIGHT value on bare :root, tokens only in the two
+     dark blocks.
+
+     This defect is in clients/shared/yamale.css and therefore in the four
+     sibling consoles too. It is NOT fixed there from here — a shared palette
+     change belongs in its own change against all of them. */
+     The same measurement caught two more of the same shape, so all three are
+     corrected together:
+
+        .y-chip--warn  (--warn on --wash-warn)          3.38 : 1
+        .y-chip--mute  (--text-muted on --wash-mute)     4.28 : 1
+        .y-chip--ok    (--ok on --wash-ok)               4.39 : 1
+
+     Note the pattern: it is always a semantic colour sitting on its OWN wash.
+     The wash is that colour at ten or twelve percent over the surface, so it
+     lightens the ground far less than it dims the contrast, and a probe that
+     treated the wash as opaque — or ignored it and measured against the white
+     behind it — would report all three as passing. That naive probe has
+     reported 1.00 on this project before. Every figure above composites each
+     rgba layer against what is actually behind it. */
+  :root {
+    --brass-ink: #80591c;
+    --warn-ink: #8a6110;
+    --mute-ink: #4a5a72;
+    --ok-ink: #0a6740;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --brass-ink: #c49856;
+      --warn-ink: #d2a65e;
+      --mute-ink: #8fa4c4;
+      --ok-ink: #6fbfa5;
+    }
+  }
+  :root[data-theme='dark'] {
+    --brass-ink: #c49856;
+    --warn-ink: #d2a65e;
+    --mute-ink: #8fa4c4;
+    --ok-ink: #6fbfa5;
+  }
+
+  .y-eyebrow, .y-chip--brass, .brand span { color: var(--brass-ink); }
+  .y-chip--warn { color: var(--warn-ink); }
+  .y-chip--mute { color: var(--mute-ink); }
+  .y-chip--ok { color: var(--ok-ink); }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 var(--sp-5) var(--sp-8);
+  }
+
+  /* --------------------------------------------------------------- header */
+
+  header.top {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .top__in {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: var(--sp-3) var(--sp-5);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--step-1);
+    letter-spacing: -0.02em;
+    margin-right: auto;
+  }
+  /* --brass-ink, not --brass: see the defect note above. This rule sits after
+     the override block, so it has to name the corrected token itself. */
+  .brand span { color: var(--brass-ink); }
+
+  .top__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  .btn {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-3); }
+
+  /* ----------------------------------------------------------------- tabs */
+
+  nav.tabs {
+    display: flex;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin: 0 0 var(--sp-6);
+    padding-top: var(--sp-5);
+    overflow-x: auto;
+  }
+  .tab {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    font-weight: 500;
+    padding: var(--sp-2) var(--sp-4);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tab[aria-selected='true'] {
+    color: var(--text);
+    border-bottom-color: var(--brass);
+  }
+
+  /* --------------------------------------------------------------- layout */
+
+  section.block { margin-bottom: var(--sp-7); }
+  section.block > h2 { margin-bottom: var(--sp-2); }
+  section.block > p.lede {
+    color: var(--text-muted);
+    margin-bottom: var(--sp-4);
+    max-width: var(--measure);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-4) var(--sp-5);
+  }
+  .card + .card { margin-top: var(--sp-3); }
+
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .muted { color: var(--text-muted); }
+  .small { font-size: var(--step--1); }
+  .mono { font-family: var(--font-mono); }
+
+  /* ------------------------------------------------------------ the hero */
+  /* The asymmetry. Two facts side by side, because the whole point is the gap
+     between them, and a reader who has to scroll from one to the other has to
+     hold the first in their head to see it. */
+
+  .asym {
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+  .asym__cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-4) var(--sp-5);
+  }
+  .asym__cell--stop { border-left-color: var(--warn); }
+  .asym__cell--take { border-left-color: var(--bad); }
+
+  .asym__n {
+    font-family: var(--font-display);
+    font-size: var(--step-5);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    margin: var(--sp-2) 0 var(--sp-1);
+  }
+  .asym__cell--stop .asym__n { color: var(--warn); }
+  .asym__cell--take .asym__n { color: var(--bad); }
+  .asym__u { font-size: var(--step-1); color: var(--text-muted); font-weight: 500; }
+
+  /* The digit-group gap, drawn rather than typed. See bigAmount() for the
+     measurement that made this necessary. */
+  .grp { display: inline-block; width: 0.26em; }
+
+  /* ---------------------------------------------------------- power meter */
+
+  .meter {
+    position: relative;
+    height: 20px;
+    background: var(--surface-3);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: var(--sp-2) 0;
+  }
+  .meter__seg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-right: 1px solid var(--surface);
+  }
+  .meter__mark {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--text);
+    z-index: 2;
+  }
+  .meter__wrap { position: relative; padding-top: 6px; }
+  .meter__marklabel {
+    position: absolute;
+    top: -2px;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  /* A vote bar: yes / no / abstain against the bar the chain applies. */
+  .vote { position: relative; height: 14px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+  .vote__yes { position: absolute; top: 0; bottom: 0; left: 0; background: var(--ok); }
+  .vote__no { position: absolute; top: 0; bottom: 0; background: var(--bad); }
+  .vote__abstain { position: absolute; top: 0; bottom: 0; background: var(--text-faint); }
+
+  /* ---------------------------------------------------------- empty state */
+  /* The most important component on the page today, and the one most likely to
+     be mistaken for a bug. It says what IS true, not what is missing. */
+
+  .empty {
+    background: var(--surface-2);
+    border: 1px dashed var(--rule);
+    border-radius: var(--radius);
+    padding: var(--sp-4) var(--sp-5);
+  }
+  .empty h4 { margin-bottom: var(--sp-1); }
+  .empty p { color: var(--text-muted); font-size: var(--step--1); }
+  .empty p + p { margin-top: var(--sp-2); }
+
+  /* A failed read is NOT an empty state and must never look like one. */
+  .failed {
+    background: var(--wash-bad);
+    border: 1px solid var(--bad);
+    border-radius: var(--radius);
+    padding: var(--sp-3) var(--sp-4);
+    color: var(--text);
+  }
+  /* `/blockchain.enforcement.v1.Query/SeizureWindow` is 45 unbroken characters
+     — about 351px of mono at this size, which takes a 375px layout sideways on
+     its own. Found by watching the devnet 503 on a phone-width viewport, and
+     worth recording HOW: an element-rectangle scan does not catch it, because
+     overflowing text does not widen its block's box. Compare
+     documentElement.scrollWidth against clientWidth instead. */
+  .failed .why { font-family: var(--font-mono); font-size: var(--step--1); color: var(--bad);
+    overflow-wrap: anywhere; }
+
+  .notice {
+    background: var(--wash-warn);
+    border-left: 3px solid var(--warn);
+    border-radius: var(--radius);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .notice--bad { background: var(--wash-bad); border-left-color: var(--bad); }
+  .notice--ok { background: var(--wash-ok); border-left-color: var(--ok); }
+
+  /* --------------------------------------------------------------- tables */
+
+  table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td {
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* -------------------------------------------------------------- refusals */
+
+  .refusal {
+    border-left: 3px solid var(--ok);
+    padding: var(--sp-1) 0 var(--sp-1) var(--sp-4);
+    margin-bottom: var(--sp-4);
+  }
+  .refusal--soft { border-left-color: var(--text-faint); }
+  .refusal h4 { margin-bottom: var(--sp-1); }
+  .refusal p { font-size: var(--step--1); color: var(--text-muted); }
+  .refusal .pin { margin-top: var(--sp-2); }
+  /* A file path and a type URL contain no spaces, so on a narrow screen they
+     take the whole layout sideways with them — measured at 375px, where the
+     document scrolled to 392px on the strength of one keeper path. These are
+     reference strings rather than data to be compared by eye, so breaking them
+     mid-token costs nothing; the addresses that DO get compared keep their own
+     .y-addr treatment. */
+  .refusal .pin span, .small.mono { overflow-wrap: anywhere; }
+
+  /* ---------------------------------------------------------------- lookup */
+
+  .lookup { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+  .lookup input {
+    flex: 1 1 320px;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    padding: 0.45rem 0.6rem;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .lookup input::placeholder { color: var(--text-faint); }
+
+  /* ---------------------------------------------------------------- misc */
+
+  dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-2) var(--sp-4); margin: 0; }
+  dl.facts dt { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-muted); }
+  dl.facts dd { margin: 0; font-size: var(--step--1); }
+
+  code.cmd {
+    display: block;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--step--1);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  footer.foot {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-8);
+    padding-top: var(--sp-4);
+    color: var(--text-muted);
+    font-size: var(--step--1);
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 640px) {
+    .wrap { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    .top__in { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    dl.facts { grid-template-columns: 1fr; gap: var(--sp-1) 0; }
+    dl.facts dd { margin-bottom: var(--sp-2); }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top__in">
+    <div class="brand">Yamale <span>·</span> Oversight</div>
+    <div class="top__meta" id="meta">
+      <span class="y-chip y-chip--mute" id="chip-chain">reading…</span>
+    </div>
+    <button class="btn" id="theme" type="button">Theme</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="Mechanism">
+    <button class="tab" role="tab" id="tab-enf" aria-selected="true" aria-controls="view-enf" type="button">
+      Freezing and seizing
+    </button>
+    <button class="tab" role="tab" id="tab-net" aria-selected="false" aria-controls="view-net" type="button">
+      Tiered settlement
+    </button>
+  </nav>
+
+  <!-- Drawn rather than left blank. "Nothing is frozen" and "this page has not
+       read the chain yet" are opposite facts that look identical on an empty
+       screen. -->
+  <div id="boot" class="empty">
+    <h4>Reading the chain</h4>
+    <p>Nothing below is drawn until x/enforcement and x/netting answer. An empty page
+      is not an answer.</p>
+  </div>
+
+  <main id="view-enf" role="tabpanel" aria-labelledby="tab-enf" hidden></main>
+  <main id="view-net" role="tabpanel" aria-labelledby="tab-net" hidden></main>
+
+  <footer class="foot">
+    <p>Read over ABCI at <code id="foot-rpc" class="mono"></code>, unauthenticated, with no key
+      and no account. This console cannot sign anything — see “who may sign what”.</p>
+  </footer>
+</div>
+
+<script type="module">
+import * as C from './chain.js';
+import * as O from './oversight.js';
+import { CYCLE_STATUS, DENOM_STATUS } from './proto.js';
+
+// ---------------------------------------------------------------------------
+// Where the node is.
+//
+// Overridable with ?rpc= so this page can be pointed at a local node or a
+// different network. A console with the endpoint compiled in reads one chain
+// and claims to be reading whichever one you opened it against.
+// ---------------------------------------------------------------------------
+const RPC = new URLSearchParams(location.search).get('rpc') || C.DEFAULT_RPC;
+document.getElementById('foot-rpc').textContent = RPC;
+const opts = { rpc: RPC };
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+const $ = (id) => document.getElementById(id);
+
+/** An address, shown whole in a monospace face. These get compared by eye and
+ *  copied into commands; truncating one to look tidy is how somebody freezes
+ *  the wrong account. */
+const addr = (a) => a
+  ? `<span class="y-addr mono">${esc(a)}</span>`
+  : '<span class="muted">—</span>';
+
+const chip = (tone, text) => `<span class="y-chip y-chip--${tone}">${esc(text)}</span>`;
+
+/**
+ * A grouped number for the display face, with the group gap drawn rather than
+ * typed.
+ *
+ * MEASURED: the narrow no-break space that groups digits everywhere else is
+ * 0.165 em wide in Archivo and 0.50 em in IBM Plex Mono. In a table at 13px
+ * that is a visible gap; in the hero at 46px it is 4.7px against a 28.6px
+ * digit, which reads as no gap at all — so the single most important number on
+ * the page, the voting power needed to take somebody's money, was rendering as
+ * an unbroken run of six digits.
+ *
+ * Fixed by making the separator an element with an em-relative width instead of
+ * a character, so it is the same fraction of the type size in any face. The
+ * data function keeps returning the real space: this is a rendering concern and
+ * belongs here, not in oversight.js.
+ */
+const bigAmount = (n) => esc(O.amount({ amount: String(n) }))
+  .split(O.GROUP_SEPARATOR)
+  .join('<span class="grp"></span>');
+
+/**
+ * A read that failed, rendered as a failure.
+ *
+ * Never as an empty state. The distinction is the whole reason this console is
+ * trustworthy: a supervisor who cannot tell "nothing is frozen" from "the
+ * query did not answer" has learned nothing by opening the page.
+ */
+function failure(what, err) {
+  const kind = {
+    unreachable: 'The node could not be reached.',
+    http: 'The node answered with an HTTP error.',
+    rpc: 'The node refused the query.',
+    abci: 'The module refused the query.',
+    decode: 'The answer could not be decoded.',
+  }[err && err.kind] || 'The query failed.';
+  return `<div class="failed">
+    <h4>${esc(what)} could not be read.</h4>
+    <p class="small">${esc(kind)} This is not the same as “there is nothing to show”, and
+      this console will not pretend it is.</p>
+    <p class="why">${esc(err && err.message ? err.message : String(err))}</p>
+  </div>`;
+}
+
+/**
+ * The banner on a panel whose answer is real but no longer fresh.
+ *
+ * It names the height the answer was actually read at, because "a while ago"
+ * is not a unit anybody can act on and the height is the chain's own clock.
+ */
+function staleNote(read) {
+  if (!read || !read.stale) return '';
+  return `<div class="notice" style="margin-bottom:var(--sp-3)">
+    <strong>Read at height ${esc(String(read.at))}, and not since.</strong>
+    <p class="small" style="margin-top:var(--sp-1)">The node has stopped answering this query, so
+      what follows is the last answer it gave rather than a statement about now. It is kept
+      because losing it to one refused request would be worse — but it is not current, and on this
+      page that distinction is the point.</p>
+    <p class="why small mono" style="margin-top:var(--sp-1);color:var(--bad)">${
+      esc(read.staleError && read.staleError.message ? read.staleError.message : '')}</p>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// State.
+// ---------------------------------------------------------------------------
+
+const state = {
+  status: null,
+  validators: [],
+  secondsPerBlock: 0,
+  reads: {},
+  tab: 'enf',
+};
+
+/**
+ * The measured block interval.
+ *
+ * Two block timestamps a thousand blocks apart, divided. Measured rather than
+ * assumed, because every duration this page states is derived from it, and an
+ * assumed five-second block turns "your account is frozen for another 12
+ * hours" into a number nobody checked.
+ */
+async function measureBlockInterval(height) {
+  const span = Math.min(1000, Math.max(1, height - 2));
+  const [a, b] = await Promise.all([
+    C.blockTime(height - span, RPC), C.blockTime(height - 1, RPC),
+  ]);
+  if (!a || !b) return 0;
+  const secs = (Date.parse(b) - Date.parse(a)) / 1000 / (span - 1);
+  return Number.isFinite(secs) && secs > 0 ? secs : 0;
+}
+
+// ---------------------------------------------------------------------------
+// The header strip.
+// ---------------------------------------------------------------------------
+
+function renderMeta() {
+  const s = state.status;
+  if (!s) {
+    $('meta').innerHTML = chip('bad', 'the node did not answer');
+    return;
+  }
+  const secs = state.secondsPerBlock;
+  $('meta').innerHTML = [
+    chip('brass', s.chainId),
+    `<span>height <strong class="y-num">${esc(String(s.height))}</strong></span>`,
+    secs ? `<span>${esc(secs.toFixed(2))}s per block, measured</span>` : '',
+    s.catchingUp ? chip('warn', 'node is catching up') : '',
+  ].filter(Boolean).join('');
+}
+
+// ---------------------------------------------------------------------------
+// The asymmetry. The most important thing on the page.
+// ---------------------------------------------------------------------------
+
+function asymmetryHtml(params) {
+  const c = O.seizureCoalition(state.validators, params.threshold_bps);
+  const total = c.totalPower;
+
+  // Each validator drawn as a segment of the bonded total, with the threshold
+  // marked where the chain applies it. This is what turns "two thirds" from a
+  // phrase into something a reader can see two validators failing to reach
+  // separately and reaching together.
+  let acc = 0;
+  const segs = state.validators.map((v, i) => {
+    const left = total > 0 ? (acc / total) * 100 : 0;
+    const width = total > 0 ? (v.power / total) * 100 : 0;
+    acc += v.power;
+    const tone = i === 0 ? 'var(--accent)' : 'var(--slate)';
+    return `<span class="meter__seg" style="left:${left}%;width:${width}%;background:${tone}"
+      title="${esc(v.address)} — ${esc(String(v.power))}"></span>`;
+  }).join('');
+
+  const markPct = Math.min(100, c.thresholdBps / 100);
+
+  const seizeLine = c.minimumToSeize === null
+    ? 'No combination of the current validator set reaches the threshold.'
+    : c.largestCanSeizeAlone
+      ? `<strong>One validator alone holds enough power to reach it.</strong>
+         The threshold is doing less work than it looks like it is doing, and that is a
+         fact about this validator set rather than about the module.`
+      : `The smallest group that could reach it is
+         <strong>${esc(String(c.minimumToSeize))} of ${esc(String(c.validators))}</strong>
+         — taking the largest first, which is the most favourable arithmetic a
+         coalition could hope for.`;
+
+  return `
+  <section class="block">
+    <p class="y-eyebrow">The asymmetry</p>
+    <h2>One signature stops money. Taking it needs two thirds.</h2>
+    <p class="lede">Everything below is computed from the validator set and the threshold
+      parameter this chain is running right now, not from a description of how the module
+      is supposed to work.</p>
+
+    <div class="asym">
+      <div class="asym__cell asym__cell--stop">
+        <p class="y-label">To stop money moving</p>
+        <div class="asym__n">${esc(String(c.toFreeze))} <span class="asym__u">signature${c.toFreeze === 1 ? '' : 's'}</span></div>
+        <p class="small muted">Any one bonded validator can open a case, and opening a case
+          freezes the target in the same block. So can a holder of the enforcement authority
+          role for the country the account is recorded in. The freeze is provisional: it lapses
+          by itself after ${esc(String(params.provisional_freeze_blocks))} blocks
+          ${estimate(params.provisional_freeze_blocks)} unless the validators confirm it, and it
+          can never take anything.</p>
+      </div>
+      <div class="asym__cell asym__cell--take">
+        <p class="y-label">To take it</p>
+        <div class="asym__n">${bigAmount(c.required)}
+          <span class="asym__u">of ${bigAmount(total)}</span></div>
+        <p class="small muted">${esc(O.bpsPercent(c.thresholdBps))} of the voting power bonded when
+          the case opened — measured against the bonded total, not against whoever turned up to
+          vote, because “most of those who voted” is a bar two validators clear on a quiet night.
+          ${seizeLine}</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:var(--sp-3)">
+      <p class="y-label">Bonded voting power, and where the bar sits</p>
+      <div class="meter__wrap">
+        <span class="meter__marklabel" style="left:${markPct}%">${esc(O.bpsPercent(c.thresholdBps))}</span>
+        <div class="meter">
+          ${segs}
+          <span class="meter__mark" style="left:${markPct}%"></span>
+        </div>
+      </div>
+      <div class="y-scroll">
+        <table>
+          <thead><tr><th>Validator</th><th class="y-num">Power</th><th class="y-num">Share</th>
+            <th>Alone, could it…</th></tr></thead>
+          <tbody>${state.validators.map((v) => {
+            const share = total > 0 ? Math.round((v.power * 10000) / total) : 0;
+            return `<tr>
+              <td>${addr(v.address)}</td>
+              <td class="y-num mono">${esc(O.amount({ amount: String(v.power) }))}</td>
+              <td class="y-num mono">${esc(O.bpsPercent(share))}</td>
+              <td>${chip('warn', 'freeze — yes')}
+                  ${v.power >= c.required ? chip('bad', 'seize — yes') : chip('ok', 'seize — no')}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+      <p class="small muted" style="margin-top:var(--sp-3)">Consensus voting power, read from the
+        node at height ${esc(String(state.status ? state.status.height : '—'))}. The module measures a
+        case against the power bonded at the moment that case opened, so a case opened today would
+        use these figures; a case opened last week carries its own.</p>
+    </div>
+  </section>`;
+}
+
+function estimate(blocks) {
+  const d = O.blocksAsDuration(blocks, state.secondsPerBlock);
+  return d ? `(${esc(d)})` : '';
+}
+
+// ---------------------------------------------------------------------------
+// Freezes.
+// ---------------------------------------------------------------------------
+
+function freezesHtml(read, params) {
+  if (!read.ok) return failure('The list of frozen accounts', read.error);
+  const list = read.value.freeze || [];
+  const h = state.status ? state.status.height : 0;
+
+  if (!list.length) {
+    return `<div class="empty">
+      <h4>No account is frozen.</h4>
+      <p>The chain answered at height ${esc(String(read.at))} and returned an empty freeze
+        register. That is a positive answer, not a missing one: this panel is drawn from
+        <code class="mono">ListFreeze</code>, which enumerates every freeze the module holds.</p>
+      <p>If an account were frozen it would appear here with the case that froze it, the height
+        it was frozen at, and how long it has left before it lapses on its own.</p>
+    </div>`;
+  }
+
+  return `<div class="y-scroll"><table>
+    <thead><tr><th>Account</th><th>Under case</th><th class="y-num">Frozen at</th>
+      <th>Lapses</th></tr></thead>
+    <tbody>${list.map((f) => {
+      const cd = O.freezeCountdown(f, h, state.secondsPerBlock);
+      const left = cd.permanent
+        ? `${chip('bad', 'permanent')} <span class="small muted">A case passed, so this freeze
+            no longer expires by itself.</span>`
+        : cd.lapsed
+          ? `${chip('warn', 'due to lift')} <span class="small muted">Past height
+              ${esc(String(f.expires_at_height))}; the end blocker lifts it at or before this block.</span>`
+          : `<strong class="y-num mono">${esc(O.amount({ amount: String(cd.blocksLeft) }))}</strong>
+             blocks <span class="small muted">${esc(O.blocksAsDuration(cd.blocksLeft, state.secondsPerBlock) || '')}</span>`;
+      return `<tr>
+        <td>${addr(f.address)}</td>
+        <td>${O.freezeHasCase(f)
+          ? `<span class="mono">case ${esc(String(f.case_id))}</span>`
+          : `${chip('bad', 'no case')} <span class="small muted">Case ids start at 1, so a
+              zero here means this freeze names no case at all.</span>`}</td>
+        <td class="y-num mono">${esc(String(f.frozen_at_height))}</td>
+        <td>${left}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Cases.
+// ---------------------------------------------------------------------------
+
+function caseCard(c, params) {
+  const s = O.caseStanding(c, params);
+  const w = (bps) => `${Math.min(100, bps / 100)}%`;
+  const markPct = Math.min(100, s.thresholdBps / 100);
+
+  const verdict = s.met
+    ? chip('bad', 'threshold reached')
+    : !s.reachable
+      ? chip('ok', 'threshold no longer reachable')
+      : chip('warn', `short by ${O.amount({ amount: String(s.shortBy) })}`);
+
+  return `<div class="card">
+    <div style="display:flex;gap:var(--sp-3);align-items:baseline;flex-wrap:wrap">
+      <h3>Case ${esc(String(c.id))}</h3>
+      ${chip(O.statusTone(c.status), O.statusName(c.status))}
+      ${chip(c.action === 2 ? 'bad' : 'warn', O.actionName(c.action))}
+      ${c.emergency ? chip('bad', 'emergency') : ''}
+    </div>
+    <dl class="facts" style="margin-top:var(--sp-3)">
+      <dt>Against</dt><dd>${addr(c.target)}</dd>
+      <dt>Opened by</dt><dd>${addr(c.opener)}</dd>
+      <dt>Opened at</dt><dd class="mono">height ${esc(String(c.opened_at_height))}</dd>
+      <dt>Voting ends</dt><dd class="mono">height ${esc(String(c.voting_ends_at_height))}</dd>
+      ${c.reason ? `<dt>Stated grounds</dt><dd>${esc(c.reason)}</dd>` : ''}
+      ${c.evidence_uri ? `<dt>Evidence</dt><dd class="y-addr mono">${esc(c.evidence_uri)}</dd>` : ''}
+      ${c.execute_at_height ? `<dt>Executes at</dt><dd class="mono">height
+        ${esc(String(c.execute_at_height))} ${estimate(c.execute_at_height - (state.status ? state.status.height : 0))}</dd>` : ''}
+      ${(c.assessed_value || []).length ? `<dt>Assessed</dt><dd class="mono">${
+        c.assessed_value.map((x) => esc(O.amount(x))).join(', ')}</dd>` : ''}
+      ${(c.recovered || []).length ? `<dt>Taken</dt><dd class="mono">${
+        c.recovered.map((x) => esc(O.amount(x))).join(', ')}</dd>` : ''}
+    </dl>
+
+    <div style="margin-top:var(--sp-4)">
+      <div style="display:flex;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap">
+        <span class="y-label">Against the two-thirds bar</span>${verdict}
+      </div>
+      <div class="meter__wrap">
+        <span class="meter__marklabel" style="left:${markPct}%">${esc(O.bpsPercent(s.thresholdBps))}</span>
+        <div class="vote" style="margin-top:8px">
+          <span class="vote__yes" style="width:${w(s.yesBps)}"></span>
+          <span class="vote__no" style="left:${w(s.yesBps)};width:${w(s.noBps)}"></span>
+          <span class="vote__abstain" style="left:${w(s.yesBps + s.noBps)};width:${w(s.abstainBps)}"></span>
+          <span class="meter__mark" style="left:${markPct}%"></span>
+        </div>
+      </div>
+      <p class="small muted">
+        ${esc(O.amount({ amount: String(s.yes) }))} for,
+        ${esc(O.amount({ amount: String(s.no) }))} against,
+        ${esc(O.amount({ amount: String(s.abstain) }))} abstaining, of
+        ${esc(O.amount({ amount: String(s.total) }))} bonded when the case opened.
+        ${esc(O.amount({ amount: String(s.required) }))} is needed.
+        ${!s.reachable && !s.met
+          ? ' Enough power has been spent against or abstained that the bar can no longer be reached — the chain rejects a case at this point rather than letting it run.'
+          : ''}</p>
+    </div>
+  </div>`;
+}
+
+function casesHtml(open, held, all, recovered, params) {
+  if (!open.ok) return failure('Open enforcement cases', open.error);
+
+  const live = open.value.case || [];
+  const waiting = held.ok ? (held.value.case || []) : [];
+  const everOpened = recovered.ok ? Number(recovered.value.cases_opened) : null;
+
+  if (!live.length && !waiting.length) {
+    const history = all.ok ? (all.value.case || []) : [];
+    const never = everOpened === 0;
+    return `<div class="empty">
+      <h4>${never ? 'No enforcement case has ever been opened on this chain.'
+                   : 'No case is open.'}</h4>
+      <p>The chain answered at height ${esc(String(open.at))}.
+        ${everOpened === null ? ''
+          : `<code class="mono">Recovered</code> reports
+             <strong>${esc(String(everOpened))}</strong> case${everOpened === 1 ? '' : 's'} opened
+             and <strong>${esc(String(recovered.value.cases_passed))}</strong> passed since genesis.`}
+        ${history.length ? `The register holds ${esc(String(history.length))} closed
+          case${history.length === 1 ? '' : 's'}, listed below.` : ''}</p>
+      <p>Nothing has been seized: the recovery total is
+        ${recovered.ok && (recovered.value.total || []).length
+          ? esc(recovered.value.total.map((t) => O.amount(t)).join(', '))
+          : 'empty'}.
+        ${never ? 'The machinery below has never been exercised on this network, which is worth '
+                + 'knowing when reading the parameters as a promise.' : ''}</p>
+    </div>${history.length ? `<div style="margin-top:var(--sp-3)">${
+      history.map((c) => caseCard(c, params)).join('')}</div>` : ''}`;
+  }
+
+  return [
+    waiting.length ? `<div class="notice notice--bad" style="margin-bottom:var(--sp-3)">
+      <strong>${esc(String(waiting.length))} seizure${waiting.length === 1 ? ' has' : 's have'}
+      been decided and ${waiting.length === 1 ? 'is' : 'are'} waiting out the delay.</strong>
+      <p class="small">Nothing has moved yet. Until the execution height passes, the decision can
+      still be undone at no cost to anybody — that window is what the delay is for.</p></div>` : '',
+    ...waiting.map((c) => caseCard(c, params)),
+    ...live.map((c) => caseCard(c, params)),
+  ].join('');
+}
+
+// ---------------------------------------------------------------------------
+// The rolling window.
+// ---------------------------------------------------------------------------
+
+function windowHtml(read, params) {
+  if (!read.ok) return failure('The seizure window', read.error);
+  const h = O.windowHeadroom(read.value);
+
+  return `<div class="card">
+    <dl class="facts">
+      <dt>Window</dt><dd class="mono">heights ${esc(String(h.startHeight))} –
+        ${esc(String(h.currentHeight))} <span class="muted">(${esc(String(params.seizure_window_blocks))}
+        blocks ${estimate(params.seizure_window_blocks)}, rolling)</span></dd>
+      <dt>Seizures</dt><dd><strong class="y-num mono">${esc(String(h.count))}</strong> of
+        ${esc(String(h.maxCount))} ${h.countExhausted ? chip('bad', 'exhausted') : chip('ok', 'headroom')}</dd>
+    </dl>
+    <div class="y-scroll" style="margin-top:var(--sp-3)">
+      <table>
+        <thead><tr><th>Currency</th><th class="y-num">Taken this window</th>
+          <th class="y-num">Cap</th><th class="y-num">Remaining</th></tr></thead>
+        <tbody>${h.denoms.map((d) => `<tr>
+          <td class="mono">${esc(d.denom)}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: d.seized }))}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: d.cap }))}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: d.remaining }))}</td>
+        </tr>`).join('')}
+        ${h.uncapped.map((u) => `<tr>
+          <td class="mono">${esc(u.denom)} ${chip('warn', 'no value cap')}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: u.seized }))}</td>
+          <td colspan="2" class="small muted">This currency is not named in the cap, so it is
+            limited only by the count of seizures — which binds every currency, including one
+            issued after the parameters were last set.</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:var(--sp-3)">Rolling, not periodic. A window that reset
+      on a fixed boundary would let twice the cap through by placing half the seizures either side of
+      it. The count cap is checked before the value cap, and both are checked when a seizure is
+      carried out rather than when it is decided — so a decision that would breach the cap is
+      deferred to the next opening, with the account still frozen, rather than squeezed through.</p>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// The offices, and the one that is vacant.
+// ---------------------------------------------------------------------------
+
+function officesHtml(params) {
+  const noOmbudsman = !params.ombudsman;
+  return `<div class="card">
+    <dl class="facts">
+      <dt>Seized funds go to</dt>
+      <dd>${addr(params.recovery_destination)}
+        <p class="small muted" style="margin-top:var(--sp-1)">Nothing in the module accepts a
+          destination, so no case can send anything anywhere else. This address is pinned to
+          x/constitution: moving it needs a constitutional amendment, not a parameter change.</p></dd>
+      <dt>Ombudsman</dt>
+      <dd>${params.ombudsman ? addr(params.ombudsman)
+        : `${chip('warn', 'nobody appointed')}`}
+        <p class="small muted" style="margin-top:var(--sp-1)">${noOmbudsman
+          ? 'The ombudsman is the office that can stop a case and can never start one — an oversight '
+            + 'check that adds no power. No address is set on this chain, so the veto message is '
+            + 'refused outright rather than accepted from anybody: unset means nobody, never anybody. '
+            + 'It follows that the veto described in the module guide is not currently available here, '
+            + 'and the delay before a seizure executes is presently a window for governance reversal '
+            + 'alone.'
+          : 'Can veto a case that is voting or held, and can sign nothing else. It may not be the '
+            + 'recovery destination and may not hold the enforcement authority role.'}</p></dd>
+      <dt>Voting period</dt>
+      <dd class="mono">${esc(String(params.voting_period_blocks))} blocks ${estimate(params.voting_period_blocks)}</dd>
+      <dt>Provisional freeze</dt>
+      <dd class="mono">${esc(String(params.provisional_freeze_blocks))} blocks ${estimate(params.provisional_freeze_blocks)}
+        <p class="small muted">Comfortably longer than the voting period, so a freeze cannot lapse
+          mid-vote and hand the account back before the chain has decided anything.</p></dd>
+      <dt>Evidence</dt>
+      <dd>${params.seize_requires_evidence
+        ? chip('ok', 'required for a seizure') : chip('bad', 'not required')}</dd>
+    </dl>
+
+    <p class="y-label" style="margin-top:var(--sp-5)">How long a seizure waits before it is carried out</p>
+    <p class="small muted">Every seizure waits at least
+      ${esc(String(params.seizure_delay_blocks))} blocks ${estimate(params.seizure_delay_blocks)}. The
+      wait scales with what is being taken, and a case takes the <em>longest</em> tier it matches —
+      longest rather than first, so the schedule does not depend on the order governance wrote it in.</p>
+    <div class="y-scroll">
+      <table>
+        <thead><tr><th class="y-num">From</th><th class="y-num">Waits</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="mono">any amount</td>
+            <td class="y-num mono">${esc(String(params.seizure_delay_blocks))} blocks</td>
+            <td class="small muted">${esc(O.blocksAsDuration(params.seizure_delay_blocks, state.secondsPerBlock) || '')}</td></tr>
+          ${(params.seizure_delay_tiers || []).map((t) => `<tr>
+            <td class="y-num mono">${esc(O.amount(t.threshold))}</td>
+            <td class="y-num mono">${esc(String(t.delay_blocks))} blocks</td>
+            <td class="small muted">${esc(O.blocksAsDuration(t.delay_blocks, state.secondsPerBlock) || '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Refusals and signing.
+// ---------------------------------------------------------------------------
+
+function refusalsHtml(module) {
+  return O.REFUSALS.filter((r) => r.module === module).map((r) => `
+    <div class="refusal${r.pinned ? '' : ' refusal--soft'}">
+      <h4>${esc(r.what)}</h4>
+      <p>${esc(r.how)}</p>
+      <div class="pin">
+        ${r.pinned ? chip('ok', 'constitutional') : chip('mute', 'module rule')}
+        <span class="small muted mono">${esc(r.where)}</span>
+      </div>
+      ${r.pinNote ? `<p class="small" style="margin-top:var(--sp-1)">${esc(r.pinNote)}</p>` : ''}
+    </div>`).join('');
+}
+
+function signingHtml(module) {
+  const rows = O.SIGNING.filter((s) => s.type.includes(`.${module}.`));
+  return rows.map((s) => `<div class="card">
+    <div style="display:flex;gap:var(--sp-2);align-items:baseline;flex-wrap:wrap">
+      <code class="mono">${esc(s.type.split('.').pop())}</code>
+      ${chip(s.decision === 'propose' ? 'brass' : 'mute',
+        s.decision === 'propose' ? 'governance proposal' : 'command, not a button')}
+      <span class="small muted mono">signer: ${esc(s.signer)}</span>
+    </div>
+    <p class="small" style="margin-top:var(--sp-2)"><strong>${esc(s.who)}</strong></p>
+    <p class="small muted" style="margin-top:var(--sp-1)">${esc(s.why)}</p>
+    <code class="cmd" style="margin-top:var(--sp-2)">${esc(s.command)}</code>
+  </div>`).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Settlement.
+// ---------------------------------------------------------------------------
+
+function nettingHtml(reads) {
+  const { netParams, cycle, slices } = reads;
+  if (!netParams.ok) return failure('The netting parameters', netParams.error);
+  if (!cycle.ok) return failure('The current settlement cycle', cycle.error);
+
+  const params = netParams.value.params;
+  const cy = cycle.value.cycle;
+  const held = slices.ok ? (slices.value.held || []) : [];
+  const h = state.status ? state.status.height : 0;
+
+  const w = O.nettingWindowState({
+    params, cycle: cy, closesAtHeight: cycle.value.closes_at_height, held, height: h,
+  });
+
+  const tone = { off: 'notice', open: 'notice notice--ok', held: 'notice notice--bad', stalled: 'notice notice--bad' }[w.state];
+
+  const banner = `<div class="${tone}">
+    <h3>${esc(w.headline)}</h3>
+    <p class="small" style="margin-top:var(--sp-2)">${esc(w.detail)}</p>
+    ${w.state === 'stalled' ? `<p class="small" style="margin-top:var(--sp-2)">
+      Open for <strong class="y-num">${esc(String(w.stalledForBlocks))}</strong> blocks and counting.
+      ${w.trappedDenoms.length ? `Trapped: <span class="mono">${esc(w.trappedDenoms.join(', '))}</span>.` : ''}
+      ${w.frozenHeldSlices ? `${esc(String(w.frozenHeldSlices))} held slice(s) are no longer being retried.` : ''}
+      </p>` : ''}
+  </div>`;
+
+  // The gap this console exists partly to make visible. Shown whether or not
+  // the chain is currently in it, because a reader needs to know the console
+  // would catch it — a warning that only ever appears when it is too late is a
+  // warning nobody has calibrated.
+  const gap = `<div class="card" style="margin-top:var(--sp-3)">
+    <p class="y-label">The state this console is watching for</p>
+    <p class="small muted" style="margin-top:var(--sp-2)">Setting <code class="mono">cycle_blocks</code>
+      to zero makes the end blocker return before it closes anything. If it is set to zero while a
+      window has obligations in it, that window never settles, held slices stop being retried, and
+      every participant in it has an exposure with no settlement date until a second proposal passes.
+      This is recorded as an open question in <code class="mono">docs/scope/gaps.md</code> and is
+      deliberately undecided — the choice is between refusing the proposal and closing the window
+      immediately, and it is a settlement-policy call.</p>
+    <p class="small muted" style="margin-top:var(--sp-2)">The detection is not the obvious one. An end
+      height in the past is not evidence: when netting is off the query reports zero rather than a
+      computed height, and when it is on, shortening the cycle mid-window legitimately produces a
+      height already passed. What separates a stall from a clean shutdown is whether the frozen window
+      has anything trapped in it.</p>
+    <p class="small" style="margin-top:var(--sp-2)">${w.state === 'stalled'
+      ? `${chip('bad', 'the chain is in this state')}`
+      : w.state === 'off'
+        ? `${chip('ok', 'not in this state')} Netting is off and the open window holds no
+           obligations, so nothing is trapped.`
+        : `${chip('ok', 'not in this state')} Netting is running.`}</p>
+  </div>`;
+
+  const cycleCard = `<div class="card">
+    <dl class="facts">
+      <dt>Cycle</dt><dd class="mono">${esc(String(cy.id))}
+        ${chip(Number(cy.status) === 1 ? 'ok' : Number(cy.status) === 3 ? 'bad' : 'mute',
+          O.cycleStatusName(cy.status))}
+        <span class="small muted">Cycle ids start at 1; cycle 1 exists from genesis and is never
+          handed out by the sequence.</span></dd>
+      <dt>Opened at</dt><dd class="mono">height ${esc(String(cy.opened_at_height))}</dd>
+      <dt>Closes at</dt><dd class="mono">${cycle.value.closes_at_height
+        ? `height ${esc(String(cycle.value.closes_at_height))}`
+        : `<span class="muted">— netting is off, so the query reports no closing height rather than
+           computing one</span>`}</dd>
+      <dt>Cycle length</dt><dd class="mono">${params.cycle_blocks
+        ? `${esc(String(params.cycle_blocks))} blocks ${estimate(params.cycle_blocks)}`
+        : '<span class="muted">0 — netting disabled</span>'}</dd>
+    </dl>
+    ${(cy.outcomes || []).length ? `<div class="y-scroll" style="margin-top:var(--sp-3)">
+      <table><thead><tr><th>Currency</th><th>State</th><th class="y-num">Gross</th>
+        <th class="y-num">Net</th><th class="y-num">Obligations</th><th>Why held</th></tr></thead>
+        <tbody>${cy.outcomes.map((o) => `<tr>
+          <td class="mono">${esc(o.denom)}</td>
+          <td>${chip(Number(o.status) === 3 ? 'bad' : Number(o.status) === 2 ? 'ok' : 'mute',
+            O.denomStatusName(o.status))}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: o.gross_amount }))}</td>
+          <td class="y-num mono">${esc(O.amount({ amount: o.net_amount }))}</td>
+          <td class="y-num mono">${esc(String(o.obligation_count))}</td>
+          <td class="small">${esc(o.hold_reason || '')}</td>
+        </tr>`).join('')}</tbody></table></div>`
+      : `<div class="empty" style="margin-top:var(--sp-3)">
+          <h4>No obligation has entered this window.</h4>
+          <p>The cycle record holds no per-currency outcome, which means nothing has been submitted
+            for netting into it. With netting off, every obligation submitted settles gross out of
+            the sender's own balance instead, and takes no part in a cycle.</p>
+        </div>`}
+  </div>`;
+
+  const policies = `<div class="card">
+    <p class="y-label">Which currencies are netted</p>
+    ${(params.denom_policies || []).length
+      ? `<div class="y-scroll" style="margin-top:var(--sp-2)"><table>
+          <thead><tr><th>Currency</th><th class="y-num">Gross above</th><th></th></tr></thead>
+          <tbody>${params.denom_policies.map((p) => `<tr>
+            <td class="mono">${esc(p.denom)}</td>
+            <td class="y-num mono">${esc(O.amount({ amount: p.gross_threshold }))}</td>
+            <td class="small muted">At or above this the payment settles one by one; below it, it
+              joins the netting cycle.</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="empty" style="margin-top:var(--sp-2)">
+          <h4>No currency is configured for netting.</h4>
+          <p>The parameter list is empty, so every payment settles gross. Enabling netting per
+            currency is a deliberate decision: no policy means gross, and the chain will not infer
+            one. The sender never chooses the tier — the chain decides from the policy and the
+            amount, and reports which it used.</p>
+        </div>`}
+  </div>`;
+
+  const heldCard = held.length
+    ? `<div class="y-scroll"><table>
+        <thead><tr><th class="y-num">Cycle</th><th>Currency</th><th class="y-num">Held since</th>
+          <th>Reason given</th></tr></thead>
+        <tbody>${held.map((s) => `<tr>
+          <td class="y-num mono">${esc(String(s.cycle_id))}</td>
+          <td class="mono">${esc(s.denom)}</td>
+          <td class="y-num mono">${esc(String(s.held_since_height))}
+            <span class="small muted">${esc(O.blocksAsDuration(h - s.held_since_height, state.secondsPerBlock) || '')} ago</span></td>
+          <td class="small">${esc(s.reason)}</td>
+        </tr>`).join('')}</tbody></table>
+        <p class="small muted" style="margin-top:var(--sp-3)">The reason shown is the one recorded
+          when the slice first failed. A retry that fails again does not overwrite it, so this text
+          describes the original failure rather than the most recent one.</p></div>`
+    : !slices.ok ? failure('Held settlement slices', slices.error)
+    : `<div class="empty">
+        <h4>No settlement slice is held.</h4>
+        <p>The chain answered at height ${esc(String(slices.at))} with an empty held set — which is
+          what a healthy chain shows. A slice is held when its currency's positions cannot be
+          settled, most often because a participant's reserve does not cover what they owe.</p>
+        <p>A held slice is retried unchanged at every cycle boundary. It is never recomputed,
+          reassigned or cancelled, and there is no path that gives up on it.</p>
+      </div>`;
+
+  return `
+    <section class="block">
+      <p class="y-eyebrow">The settlement window</p>
+      <h2>Where the cycle stands</h2>
+      ${staleNote(netParams)}${staleNote(cycle)}${banner}
+      ${gap}
+    </section>
+
+    <section class="block">
+      <h2>The current cycle</h2>
+      ${cycleCard}
+    </section>
+
+    <section class="block">
+      <h2>Tiers</h2>
+      <p class="lede">Two tiers, and the sender never picks. A payment at or above the threshold for
+        its currency settles gross, immediately, out of the sender's own balance. Below it, the
+        payment joins the cycle and settles net against everything else at the close.</p>
+      ${policies}
+    </section>
+
+    <section class="block">
+      <h2>Collateral and exposure</h2>
+      <p class="lede">Collateral is posted before anything can be owed, and what a participant may owe
+        is bounded by what they have posted. The cap is on the net position rather than on the
+        individual payment.</p>
+      <div class="card">
+        <form class="lookup" id="pos-form">
+          <input id="pos-input" type="text" spellcheck="false"
+            placeholder="A participant address, to read their posted collateral and exposure"
+            aria-label="Participant address">
+          <button class="btn" type="submit">Read position</button>
+        </form>
+        <div id="pos-out"><p class="small muted">Nothing is read until an address is given. There is
+          no participant directory in this module's query service, so this console cannot list them —
+          it can only answer about one you name.</p></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>The day a window does not clear</h2>
+      ${staleNote(slices)}${heldCard}
+    </section>
+
+    <section class="block">
+      <h2>What the chain refuses</h2>
+      ${refusalsHtml('netting')}
+    </section>
+
+    <section class="block">
+      <h2>Who may sign what</h2>
+      <p class="lede">This console reads and never writes.</p>
+      ${signingHtml('netting')}
+    </section>`;
+}
+
+// ---------------------------------------------------------------------------
+// Lookups.
+// ---------------------------------------------------------------------------
+
+async function lookupFreeze(address) {
+  const out = $('frz-out');
+  out.innerHTML = '<p class="small muted">Asking the chain…</p>';
+  try {
+    const { value, at } = await C.enforcement.freezeStatus(address, opts);
+    if (!value.frozen) {
+      out.innerHTML = `<div class="notice notice--ok">
+        <strong>This account is not frozen.</strong>
+        <p class="small" style="margin-top:var(--sp-1)">Answered at height ${esc(String(at))}.
+          Note that the module always emits the freeze and case records alongside the answer, so a
+          console reading their presence instead of the <code class="mono">frozen</code> flag would
+          report every account as frozen. This one reads the flag.</p></div>`;
+      return;
+    }
+    const cd = O.freezeCountdown(value.freeze, state.status.height, state.secondsPerBlock);
+    out.innerHTML = `<div class="notice notice--bad">
+      <strong>This account is frozen.</strong>
+      <p class="small" style="margin-top:var(--sp-1)">Frozen at height
+        ${esc(String(value.freeze.frozen_at_height))} under case
+        ${esc(String(value.freeze.case_id))}.
+        ${cd.permanent ? 'It does not expire by itself: a case has passed.'
+          : `It lapses at height ${esc(String(value.freeze.expires_at_height))} —
+             ${esc(String(cd.blocksLeft))} blocks
+             ${esc(O.blocksAsDuration(cd.blocksLeft, state.secondsPerBlock) || '')}.`}</p>
+      <p class="small" style="margin-top:var(--sp-1)">A frozen account cannot send. It can still be
+        paid: the restriction blocks sending only.</p></div>
+      ${value.case && Number(value.case.id) ? caseCard(value.case, state.reads.enfParams.value.params) : ''}`;
+  } catch (e) {
+    out.innerHTML = failure('The freeze status of that account', e);
+  }
+}
+
+async function lookupPosition(participant) {
+  const out = $('pos-out');
+  out.innerHTML = '<p class="small muted">Asking the chain…</p>';
+  try {
+    const { value, at } = await C.netting.position(participant, opts);
+    const rows = O.exposure(value.entries);
+    if (!rows.length) {
+      out.innerHTML = `<div class="empty">
+        <h4>This address holds no netting position.</h4>
+        <p>Answered at height ${esc(String(at))}. Either no collateral has been posted under it, or
+          it is not an approved participant. Those are different facts and this query cannot tell
+          them apart — the position query answers about balances, not about approval.</p></div>`;
+      return;
+    }
+    out.innerHTML = `<div class="y-scroll"><table>
+      <thead><tr><th>Currency</th><th class="y-num">Posted</th><th class="y-num">Committed</th>
+        <th class="y-num">Free to withdraw</th><th class="y-num">Net position</th></tr></thead>
+      <tbody>${rows.map((r) => (r.unreadable ? `<tr>
+        <td class="mono">${esc(r.denom)}</td>
+        <td colspan="4">${chip('bad', 'could not be read')}
+          <span class="small muted">The chain returned an amount in this currency that is not a
+          decimal integer. It is shown as unreadable rather than as zero — those are opposite
+          answers to the only question this table is asked.</span></td>
+      </tr>` : `<tr>
+        <td class="mono">${esc(r.denom)}</td>
+        <td class="y-num mono">${esc(O.amount({ amount: r.reserve }))}</td>
+        <td class="y-num mono">${esc(O.amount({ amount: r.locked }))}
+          <span class="small muted">${esc(O.bpsPercent(r.utilisationBps))}</span>
+          ${r.fullyCommitted ? chip('bad', 'fully committed') : ''}</td>
+        <td class="y-num mono">${esc(O.amount({ amount: r.available }))}</td>
+        <td class="y-num mono">${esc(O.amount({ amount: r.net }))}
+          ${r.owes ? chip('warn', 'owes') : ''}</td>
+      </tr>`)).join('')}</tbody></table>
+      <p class="small muted" style="margin-top:var(--sp-3)">Read at height ${esc(String(at))}.
+        Committed collateral is released as a position improves, not at the close, so a participant
+        whose counterparties pay them gets their headroom back immediately.</p></div>`;
+  } catch (e) {
+    out.innerHTML = failure('That participant\'s position', e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rendering.
+// ---------------------------------------------------------------------------
+
+function renderEnforcement() {
+  const r = state.reads;
+  if (!r.enfParams.ok) {
+    $('view-enf').innerHTML = `<section class="block">${
+      failure('The enforcement parameters', r.enfParams.error)}
+      <p class="lede" style="margin-top:var(--sp-3)">Without the parameters this console cannot state
+        the threshold, the delays or where seized funds go, and it will not guess at them: a
+        plausible default printed as this chain's rule is worse than no page.</p></section>`;
+    return;
+  }
+  const params = r.enfParams.value.params;
+
+  $('view-enf').innerHTML = `
+    ${asymmetryHtml(params)}
+
+    <section class="block">
+      <h2>What is frozen right now</h2>
+      <p class="lede">A freeze stops an account sending. It does not stop it receiving, and it never
+        takes anything.</p>
+      ${staleNote(r.freezes)}${freezesHtml(r.freezes, params)}
+      <div class="card" style="margin-top:var(--sp-3)">
+        <form class="lookup" id="frz-form">
+          <input id="frz-input" type="text" spellcheck="false"
+            placeholder="Check any account address" aria-label="Account address">
+          <button class="btn" type="submit">Check</button>
+        </form>
+        <div id="frz-out"><p class="small muted">Anyone can check any account, without a key and
+          without an account. The register of who has been stopped from moving their own money is
+          not a thing this chain keeps private.</p></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Cases, and where each stands</h2>
+      <p class="lede">Opening a case freezes the target immediately. Whether anything is taken is
+        decided by the validators afterwards, against the bar below.</p>
+      ${staleNote(r.open)}${casesHtml(r.open, r.held, r.cases, r.recovered, params)}
+    </section>
+
+    <section class="block">
+      <h2>The rolling cap</h2>
+      <p class="lede">The limit that makes mass expropriation arithmetically impossible rather than
+        merely unpopular.</p>
+      ${staleNote(r.window)}${windowHtml(r.window, params)}
+    </section>
+
+    <section class="block">
+      <h2>The offices, and the parameters that bind them</h2>
+      ${staleNote(r.enfParams)}${officesHtml(params)}
+    </section>
+
+    <section class="block">
+      <h2>What the chain refuses</h2>
+      <p class="lede">Each of these is enforced somewhere specific, and the badge says how strongly.
+        A rule pinned to x/constitution cannot be moved by a governance proposal; a module rule can be
+        changed by a binary upgrade, and a parameter by a vote. Flattening those into “the chain
+        refuses” would overstate the weakest of them.</p>
+      ${refusalsHtml('enforcement')}
+    </section>
+
+    <section class="block">
+      <h2>Who may sign what</h2>
+      <p class="lede">This console reads and never writes. Every authority here is a validator's
+        operator key or an x/group policy account, and a button in a web page collapses an office's
+        procedure into a click nobody can audit afterwards.</p>
+      ${signingHtml('enforcement')}
+    </section>`;
+
+  const f = $('frz-form');
+  if (f) f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('frz-input').value.trim();
+    if (v) lookupFreeze(v);
+  });
+}
+
+function renderNetting() {
+  $('view-net').innerHTML = nettingHtml(state.reads);
+  const f = $('pos-form');
+  if (f) f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('pos-input').value.trim();
+    if (v) lookupPosition(v);
+  });
+}
+
+function showTab(which) {
+  state.tab = which;
+  $('tab-enf').setAttribute('aria-selected', String(which === 'enf'));
+  $('tab-net').setAttribute('aria-selected', String(which === 'net'));
+  $('view-enf').hidden = which !== 'enf';
+  $('view-net').hidden = which !== 'net';
+  try { localStorage.setItem('yamale.oversight.tab', which); } catch { /* private window */ }
+}
+
+$('tab-enf').addEventListener('click', () => showTab('enf'));
+$('tab-net').addEventListener('click', () => showTab('net'));
+
+// ---------------------------------------------------------------------------
+// Theme. Three states: the explicit choice in either direction, and the
+// system preference when nothing is stamped.
+// ---------------------------------------------------------------------------
+(() => {
+  let saved = null;
+  try { saved = localStorage.getItem('yamale.oversight.theme'); } catch { /* blocked */ }
+  if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+  $('theme').addEventListener('click', () => {
+    const dark = document.documentElement.dataset.theme === 'dark'
+      || (!document.documentElement.dataset.theme
+          && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const next = dark ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('yamale.oversight.theme', next); } catch { /* blocked */ }
+  });
+})();
+
+// ---------------------------------------------------------------------------
+// Load.
+// ---------------------------------------------------------------------------
+
+/**
+ * A refresh must not wipe what the reader was looking at.
+ *
+ * The panels are re-rendered wholesale every thirty seconds, which throws away
+ * the result of any lookup the reader has run. Somebody who has just checked
+ * whether an account is frozen watches the answer disappear half a minute
+ * later, on a page whose entire job is to answer that question. So the lookup
+ * panes are lifted out before the re-render and put back after.
+ */
+function keepLookups(fn) {
+  const ids = ['frz-input', 'frz-out', 'pos-input', 'pos-out'];
+  const saved = {};
+  for (const id of ids) {
+    const el = $(id);
+    if (!el) continue;
+    saved[id] = el.tagName === 'INPUT' ? el.value : el.innerHTML;
+  }
+  fn();
+  for (const id of ids) {
+    const el = $(id);
+    if (!el || saved[id] === undefined) continue;
+    if (el.tagName === 'INPUT') el.value = saved[id];
+    else if (saved[id]) el.innerHTML = saved[id];
+  }
+}
+
+async function load() {
+  try {
+    state.status = await C.status(RPC);
+  } catch (e) {
+    // Reset rather than keep the last good height. A page that goes on showing
+    // a height from four minutes ago while the node is unreachable is telling
+    // the reader that the register is live when it is not — and on this page
+    // "nothing is frozen" being four minutes stale is the whole problem.
+    //
+    // The boot panel is un-hidden here because after the first successful load
+    // it is hidden, and writing a failure into a hidden element is how an
+    // outage becomes invisible. This one was found by watching the devnet halt
+    // for its scheduled upgrade with the console open.
+    state.status = null;
+    const boot = $('boot');
+    boot.hidden = false;
+    boot.className = 'failed';
+    boot.innerHTML = `<h4>The node is not answering.</h4>
+      <p class="small">Everything below was last read successfully some time ago and may no longer
+        be true. Nothing on this page can be refreshed without the node, and nothing will be
+        invented to fill the space.</p><p class="why">${esc(e.message)}</p>`;
+    renderMeta();
+    return;
+  }
+  // The node answered again. Put the boot panel back to its reading state, but
+  // leave it visible until the module reads land — on a first visit the mains
+  // are still empty at this point, and hiding it here would show a blank page
+  // in the gap.
+  if ($('boot').className === 'failed') {
+    $('boot').className = 'empty';
+    $('boot').innerHTML = '<h4>Reading the chain</h4><p>The node is answering again. '
+      + 'Re-reading x/enforcement and x/netting.</p>';
+  }
+
+  // Independent, deliberately. A netting query that fails must not blank the
+  // enforcement half, and vice versa.
+  const [vals, secs, reads] = await Promise.all([
+    C.validators(RPC).catch(() => []),
+    measureBlockInterval(state.status.height).catch(() => 0),
+    C.settleAll({
+      enfParams: C.enforcement.params(opts),
+      open: C.enforcement.openCases(opts),
+      held: C.enforcement.heldCases(opts),
+      recovered: C.enforcement.recovered(opts),
+      window: C.enforcement.seizureWindow(opts),
+      cases: C.enforcement.listCases(20, opts),
+      freezes: C.enforcement.listFreezes(100, opts),
+      netParams: C.netting.params(opts),
+      cycle: C.netting.currentCycle(opts),
+      slices: C.netting.heldSlices(opts),
+    }),
+  ]);
+
+  // Keep the last good measurement of each. A transient failure on the block
+  // or validator queries would otherwise drop the block interval to zero and
+  // the validator set to empty — which silently removes every duration from
+  // the page and reports the asymmetry as "0 of 0". A stale interval is a fine
+  // basis for an estimate that is labelled as one; a missing interval quietly
+  // deletes information the reader had a moment ago.
+  if (vals.length) state.validators = vals;
+  if (secs > 0) state.secondsPerBlock = secs;
+
+  /*
+   * Keep the last good answer per panel, and say that it is old.
+   *
+   * MEASURED on this deployment: thirteen concurrent queries all returned 200
+   * while a SEQUENTIAL run of the same ten started failing at the fourth and
+   * stayed failing. So the node flaps in and out on a multi-second cycle, and
+   * it is not a burst limit — the concurrent burst is the one that succeeds.
+   *
+   * That makes blanking a panel on a single refusal the wrong behaviour here.
+   * The reader loses the freeze register they were reading because one request
+   * in ten landed in a bad two seconds, on a page whose whole job is to have
+   * an answer available when somebody needs one.
+   *
+   * The honest middle is to keep the answer and label it: the panel still
+   * carries the height it was actually read at, and a notice says the node has
+   * stopped answering since. That is strictly better than a blank, and it is
+   * still not a claim about now — which matters more on this page than any
+   * other, because "nothing is frozen" going quietly stale is the failure the
+   * whole console exists to prevent.
+   *
+   * A read that has NEVER succeeded still renders as a failure. There is
+   * nothing to keep, and inventing an empty result would be the lie.
+   */
+  for (const key of Object.keys(reads)) {
+    const now = reads[key];
+    const before = state.reads[key];
+    if (!now.ok && before && before.ok) {
+      reads[key] = { ...before, stale: true, staleError: now.error };
+    }
+  }
+  state.reads = reads;
+
+  renderMeta();
+  $('boot').hidden = true;
+  keepLookups(() => { renderEnforcement(); renderNetting(); });
+
+  let tab = 'enf';
+  try { tab = localStorage.getItem('yamale.oversight.tab') || 'enf'; } catch { /* blocked */ }
+  showTab(tab === 'net' ? 'net' : 'enf');
+}
+
+load();
+
+// Re-read on a timer. The height in the header is the honest signal that this
+// is a live register rather than a screenshot of one, which is the difference
+// that matters when the answer is "nothing is frozen".
+setInterval(() => { load(); }, 30000);
+</script>
+</body>
+</html>
