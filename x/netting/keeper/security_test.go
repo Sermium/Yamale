@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	_ "embed"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -122,3 +123,42 @@ func TestRecordedReservesAlwaysEqualCustody(t *testing.T) {
 	require.NoError(t, err)
 	f.requireCustodyBalances(t, eur)
 }
+
+// Settlement sends nothing, so nobody can stall a cycle.
+//
+// Raised by an independent review on 2026-08-31, which could not tell from the
+// code it read whether a frozen participant could move value through this
+// module. The answer has two halves and this is the stronger one: the netted
+// path moves no coins at all. It rearranges claims inside a module account
+// whose balance does not change, so there is no send for anything to refuse —
+// which is also why a frozen CREDITOR cannot stall a cycle, and neither can a
+// blocked address nor a participant whose approval lapsed this morning.
+//
+// Asserted structurally rather than behaviourally, because the property is the
+// ABSENCE of a call and no amount of passing test cases demonstrates that. A
+// later change that helpfully moved coins here would reintroduce every way an
+// external account can refuse, and the failure would surface as a stuck cycle
+// in production rather than as a red test.
+//
+// The other half — that the GROSS path is covered, because the freeze is a bank
+// send restriction rather than an ante decorator — is asserted in app, where
+// the wiring lives. An ante decorator would only see messages arriving as
+// transactions and a module calling SendCoins directly would walk past it,
+// which is the same bypass this project already documents for interchain
+// accounts.
+func TestSettlementSendsNothingSoNobodyCanStallACycle(t *testing.T) {
+	for _, forbidden := range []string{
+		"SendCoins",
+		"SendCoinsFromModuleToAccount",
+		"SendCoinsFromAccountToModule",
+	} {
+		require.NotContains(t, abciSource, forbidden,
+			"settlement moves coins now, so a frozen or blocked account can stall a whole cycle")
+	}
+}
+
+// Embedded rather than read at run time, so the assertion holds wherever the
+// test binary is executed from.
+//
+//go:embed abci.go
+var abciSource string
