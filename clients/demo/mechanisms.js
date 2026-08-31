@@ -577,6 +577,55 @@ export const MECHANISMS = [
     },
   },
   {
+    id: 'upgrades',
+    act: 'institutions',
+    module: 'x/upgrade',
+    name: 'Upgrades that cannot silently diverge',
+    does: 'Changes the software every node runs by governance vote, at a block height named in the proposal. Every node stops at that height and will not continue until it is running the new binary.',
+    refuses: 'Two nodes disagreeing quietly about what the rules are. Each node computes an application hash for every block, and consensus requires them to match — so a node running different code does not produce a subtly different ledger, it fails to produce a block at all. The chain stopping is the mechanism working.',
+    surface: 'validator',
+    watch: 'Upgrades already applied, how far past them the chain has run, and the one it is about to stop for.',
+    async read(ctx) {
+      try {
+        const body = await rest('/cosmos/gov/v1/proposals?pagination.limit=100', 'the proposals');
+        const upgrades = (body.proposals ?? [])
+          .flatMap((p) => (p.messages ?? [])
+            .filter((m) => m['@type'] === '/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade')
+            .map((m) => ({ id: p.id, status: p.status, name: m.plan?.name, height: Number(m.plan?.height ?? 0) })))
+          .sort((a, b) => a.height - b.height);
+        if (upgrades.length === 0) {
+          return unread('absent', 'The chain answered, and records no software upgrade proposal.');
+        }
+        const now = ctx?.head?.height ?? 0;
+        const applied = upgrades.filter((u) => u.height <= now);
+        const pending = upgrades.filter((u) => u.height > now);
+        const rows = [
+          { label: 'Upgrades applied', value: count(applied.length, 'upgrade'), emphasis: true },
+        ];
+        applied.forEach((u) => rows.push({
+          label: u.name,
+          value: `at block ${u.height.toLocaleString('en')}${now ? ` — ${(now - u.height).toLocaleString('en')} blocks ago` : ''}`,
+          mono: true,
+        }));
+        pending.forEach((u) => rows.push({
+          label: `${u.name} — scheduled`,
+          value: now
+            ? `at block ${u.height.toLocaleString('en')} — ${blocksAbout(u.height - now, ctx?.secondsPerBlock)} from now`
+            : `at block ${u.height.toLocaleString('en')}`,
+          mono: true,
+          emphasis: true,
+        }));
+        return proven(now, rows,
+          applied.length
+            ? 'Every block since those heights is the proof. Had the nodes computed different application hashes '
+              + 'at an upgrade the chain would have halted there and stayed halted — it cannot proceed on a '
+              + 'majority view of the state. It is '
+              + `${now && applied.length ? (now - applied[0].height).toLocaleString('en') : 'many'} blocks past the first one.`
+            : '');
+      } catch (e) { return describeFailure(e); }
+    },
+  },
+  {
     id: 'treasury',
     act: 'institutions',
     module: 'x/treasury',
