@@ -1,0 +1,10 @@
+{
+  "name": "@yamale/markets",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The markets console: what a currency is worth (x/oracle), what a trade costs (x/amm), and which currencies the chain will let anybody mint (x/stablecoin).",
+  "scripts": {
+    "test": "node --test markets.test.js"
+  }
+}
