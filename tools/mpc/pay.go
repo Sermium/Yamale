@@ -16,6 +16,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -93,6 +94,14 @@ func runPay(args []string) error {
 	registry := codectypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
 	banktypes.RegisterInterfaces(registry)
+	// The crypto types, without which unpacking an account fails with "no
+	// concrete type registered for /cosmos.crypto.secp256k1.PubKey".
+	//
+	// Missing this is invisible until the SECOND payment: a fresh account
+	// carries no public key, so the first transaction unpacks fine and the
+	// account only gains one once it has signed something. Found exactly that
+	// way, against a real chain, after the first payment had already succeeded.
+	cryptocodec.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 
 	accNum, seq, err := accountOf(*node, cdc, from)
