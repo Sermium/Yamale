@@ -45,25 +45,125 @@ export interface RoleAssignment {
 }
 
 /**
- * A spending policy for one denom: how much may leave, per period.
+ * A spending policy for one denom: how much may leave, how often, and to whom.
  *
  * A limit that has been reached is not an error state. It is the policy doing
  * its job, and an interface should say so in those terms rather than reporting
  * a failure.
+ *
+ * The fields are the chain's. This interface previously declared `limit`,
+ * `periodBlocks` and `requiresApproval`, none of which exist in
+ * `blockchain.treasury.v1.SpendPolicy` — the real policy is a per-transaction
+ * cap, a per-window cap with the window in **seconds**, and two destination
+ * lists. Nothing read it, so the mismatch cost nothing; the first screen to
+ * trust it would have rendered `undefined` in every field.
+ *
+ * Every cap is optional, and absent is not zero. An empty `perTransaction`
+ * means a spender is bounded only by the balance, which is the opposite of a
+ * cap of nothing.
  */
 export interface SpendPolicy {
+  treasuryId: string;
   denom: string;
-  limit: string;
-  periodBlocks: number;
-  requiresApproval: boolean;
+  /** Cap on one payment, in base units. Absent means uncapped. */
+  perTransaction?: string;
+  /** Cap on everything paid within one window, in base units. Absent means uncapped. */
+  perPeriod?: string;
+  /** The window length in seconds. Meaningless without `perPeriod`. */
+  periodSeconds?: number;
+  /** When non-empty, the only destinations this treasury may pay. */
+  allowlist: string[];
+  /** Destinations refused outright. Checked after the allowlist, so both means denied. */
+  blocklist: string[];
 }
 
-/** How much of the current period's allowance is left. */
+/**
+ * How much of the current window's allowance is left, and what else bounds a
+ * payment right now.
+ *
+ * Both figures are reported because a spend is bounded by whichever is smaller,
+ * and a screen showing only one of them will eventually tell a treasurer they
+ * may spend money the treasury does not have — or that they may not spend money
+ * that is sitting there.
+ */
 export interface SpendCapacity {
   denom: string;
-  remaining: string;
-  limit: string;
-  periodEndsAtHeight: number;
+  /** What the period limit still allows, in base units. */
+  remainingThisPeriod: string;
+  /** What the treasury actually holds unlocked, in base units. */
+  available: string;
+  /** Cap on a single payment, when there is one. */
+  perTransactionLimit?: string;
+  /** Unix seconds at which the window resets, when there is a window. */
+  periodResetsAt?: number;
+}
+
+export function toSpendPolicy(raw: any): SpendPolicy {
+  const optional = (value: unknown) =>
+    typeof value === 'string' && value !== '' && value !== '0' ? value : undefined;
+  return {
+    treasuryId: String(raw?.treasury_id ?? '0'),
+    denom: raw?.denom ?? '',
+    perTransaction: optional(raw?.per_transaction_limit),
+    perPeriod: optional(raw?.period_limit),
+    periodSeconds: Number(raw?.period_seconds ?? 0) || undefined,
+    allowlist: Array.isArray(raw?.allowlist) ? raw.allowlist : [],
+    blocklist: Array.isArray(raw?.blocklist) ? raw.blocklist : [],
+  };
+}
+
+/**
+ * What a policy refuses, as catalogue keys rather than as sentences.
+ *
+ * Written as refusals rather than as permissions on purpose. "Up to 5,000 YML
+ * a day" and "refuses anything over 5,000 YML in a day" are the same rule, but
+ * only the second answers the question a treasurer actually has when a payment
+ * will not go through.
+ *
+ * Returning keys rather than English is the difference between a Limits tab
+ * that is translated and one that is in English on a French console. The
+ * amounts are formatted by the caller, because formatting needs the denom
+ * registry and this module has no business holding one.
+ */
+export interface PolicyRefusal {
+  key: string;
+  vars: Record<string, string>;
+}
+
+export function policyRefusals(
+  policy: SpendPolicy | null,
+  format: (amount: string, denom: string) => string,
+  duration: (seconds: number) => string,
+): PolicyRefusal[] {
+  if (!policy) return [];
+  const out: PolicyRefusal[] = [];
+
+  if (policy.perTransaction) {
+    out.push({ key: 'safe.refusePerTx', vars: { limit: format(policy.perTransaction, policy.denom) } });
+  }
+  if (policy.perPeriod) {
+    const limit = format(policy.perPeriod, policy.denom);
+    out.push(
+      policy.periodSeconds
+        ? { key: 'safe.refusePerPeriod', vars: { limit, window: duration(policy.periodSeconds) } }
+        : { key: 'safe.refusePerPeriodNoWindow', vars: { limit } },
+    );
+  }
+  // Singular and plural as separate keys rather than an inflected English
+  // string: "one of the 1 approved address" is what the arithmetic version
+  // produced, and half the languages here do not pluralise the way English
+  // does anyway.
+  if (policy.allowlist.length === 1) {
+    out.push({ key: 'safe.refuseAllowlistOne', vars: {} });
+  } else if (policy.allowlist.length > 1) {
+    out.push({ key: 'safe.refuseAllowlistMany', vars: { n: String(policy.allowlist.length) } });
+  }
+  if (policy.blocklist.length === 1) {
+    out.push({ key: 'safe.refuseBlocklistOne', vars: {} });
+  } else if (policy.blocklist.length > 1) {
+    out.push({ key: 'safe.refuseBlocklistMany', vars: { n: String(policy.blocklist.length) } });
+  }
+  return out;
 }
 
 export const ROLE_LABELS: Record<string, string> = {

@@ -69,6 +69,16 @@ func (m msgServer) AttestSale(ctx context.Context, msg *types.MsgAttestSale) (*t
 		return nil, types.ErrWrongStatus
 	}
 
+	// Who is signing, which went unchecked until an app built over this module
+	// asked what the threshold actually protects. It protected nothing: any
+	// address could attest, so a sponsor met any threshold with N fresh keys
+	// for the cost of the gas, and the one guard standing between a shareholder
+	// and a sale reported below what was received was decorative.
+	if !appointedAttestor(c.Attestors, msg.Attestor) {
+		return nil, types.ErrNotAttestor.Wrapf(
+			"%s is not appointed to attest for collection %s", msg.Attestor, asset.CollectionId)
+	}
+
 	report, err := m.Sales.Get(ctx, msg.AssetId)
 	if err != nil {
 		return nil, types.ErrNoSaleReported
@@ -107,8 +117,11 @@ func (m msgServer) DisputeSale(ctx context.Context, msg *types.MsgDisputeSale) (
 	if report.Disputed {
 		return nil, types.ErrAlreadyDisputed
 	}
+	// Past the window, not inside it. The guard is right and its error was
+	// exactly backwards, which would send whoever debugs a refused dispute
+	// looking for a window that has already closed.
 	if sdk.UnwrapSDKContext(ctx).BlockTime().After(report.ClaimableAt) {
-		return nil, types.ErrStillInWindow
+		return nil, types.ErrWindowClosed
 	}
 
 	c, err := m.Collections.Get(ctx, asset.CollectionId)
@@ -212,4 +225,19 @@ func (k Keeper) FinaliseSale(ctx context.Context, assetID uint64) error {
 
 	asset.Status = types.STATUS_REALISED
 	return k.Assets.Set(ctx, assetID, asset)
+}
+
+// appointedAttestor reports whether an account sits in a collection's register.
+//
+// A linear scan, and deliberately so: the register is small by construction —
+// it is a list of institutions somebody voted for, not a user table — and a
+// scan over it keeps the check next to the data it checks rather than behind an
+// index that has to be kept in step.
+func appointedAttestor(register []string, who string) bool {
+	for _, a := range register {
+		if a == who {
+			return true
+		}
+	}
+	return false
 }

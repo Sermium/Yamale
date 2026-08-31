@@ -112,6 +112,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					// works: an office that could admit another office would be able
 					// to manufacture the independent attestors the quorum rests on.
 					// Admission is a governance proposal.
+					//
+					// And it is only half of admitting an office. The other half is a
+					// ROLE_REGISTRY_AUTHORITY grant in x/alias covering the same
+					// country, without which the office is listed by
+					// `query land authorities` and refused by every message it sends.
 					RpcMethod: "RegisterAuthority",
 					Skip:      true,
 				},
@@ -124,6 +129,12 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						"office's jurisdiction from here on. Offices are x/group accounts, so in\n" +
 						"practice this is generated with --generate-only and submitted as a group\n" +
 						"proposal rather than broadcast from a terminal.\n\n" +
+						"An office admitted by RegisterAuthority and nothing else is refused here.\n" +
+						"It also needs ROLE_REGISTRY_AUTHORITY covering the country, granted in\n" +
+						"x/alias by governance or the foundation, because that is the grant\n" +
+						"AssertScope consults. The refusal names the missing grant rather than the\n" +
+						"admission, which reads as a bug in the admission and is not one. Check\n" +
+						"both: `query land authorities` and `query alias role-holders <country>`.\n\n" +
 						"geometry-hash is the hash of the surveyed boundary, not the survey — the\n" +
 						"survey is too large for a block and often too sensitive to publish. It must\n" +
 						"be unique, and that refusal is the whole \"cannot be owned twice\" guarantee.\n" +

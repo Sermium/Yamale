@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { EMPTY_AMOUNT, formatAmount, formatCoins, poolIdFromDenom, resolveDenom, toDisplayAmount } from './denom.ts';
+import {
+  EMPTY_AMOUNT,
+  formatAmount,
+  formatCoins,
+  fractionDenomParts,
+  isFractionShare,
+  poolIdFromDenom,
+  resolveDenom,
+  toDisplayAmount,
+} from './denom.ts';
 import { describeThroughput, measure } from './performance.ts';
 import { decodeMessage, describeProposalAction, summariseTransaction } from './decode.ts';
 import { translateError } from './errors.ts';
@@ -40,6 +49,38 @@ test('pool share denoms are recognised and named', () => {
   assert.equal(poolIdFromDenom('amm/pool/7'), 7);
   assert.equal(poolIdFromDenom('uyml'), null);
   assert.equal(resolveDenom('amm/pool/7').symbol, 'Pool 7 shares');
+});
+
+test('a shareholding denom is taken apart into the two halves that matter', () => {
+  // x/tokenisation mints these as tok/<asset id>/<SYMBOL>. The symbol is what a
+  // holder calls their shares; the asset id is the only thing linking a balance
+  // in a wallet back to the vehicle it is a share of.
+  assert.deepEqual(fractionDenomParts('tok/3/KEFARM'), { assetId: '3', symbol: 'KEFARM' });
+  assert.equal(isFractionShare('tok/3/KEFARM'), true);
+
+  // A uint64 asset id beyond what a double holds exactly stays a string.
+  assert.deepEqual(
+    fractionDenomParts('tok/18446744073709551615/X'),
+    { assetId: '18446744073709551615', symbol: 'X' },
+  );
+});
+
+test('anything that is not a shareholding gets no partial answer', () => {
+  // A partial answer is how an ordinary balance ends up rendered as a holding.
+  assert.equal(fractionDenomParts('uyml'), null);
+  assert.equal(fractionDenomParts('tok/3'), null, 'no symbol');
+  assert.equal(fractionDenomParts('tok/3/'), null, 'an empty symbol names no instrument');
+  assert.equal(fractionDenomParts('tok//KEFARM'), null, 'no asset id');
+  assert.equal(fractionDenomParts('tok/abc/KEFARM'), null, 'the id must be a number');
+  assert.equal(isFractionShare('amm/pool/7'), false);
+});
+
+test('shares are counted whole, never in millionths', () => {
+  const info = resolveDenom('tok/3/KEFARM');
+  assert.equal(info.symbol, 'KEFARM');
+  assert.equal(info.exponent, 0,
+    'six decimal places would render a holding of a million shares as one');
+  assert.equal(formatAmount('1000000', 'tok/3/KEFARM'), '1,000,000 KEFARM');
 });
 
 test('coin lists read as a phrase', () => {
@@ -223,6 +264,53 @@ test('an account the chain has never seen is explained, not reported as missing'
   assert.match(t.nextStep ?? '', /send it any amount|test funds/i);
   // Not conflated with having a balance that is too small: the remedy differs.
   assert.notEqual(t.message, 'Not enough funds');
+});
+
+test('a proposal naming a plain account says which field is wrong', () => {
+  // Verbatim from yamale-devnet-2, code 38 in block 94,512. Caught by the
+  // generic "not found" rule this reads as "the thing this transaction refers
+  // to does not exist" — which sends somebody looking at the treasury id when
+  // the fault is in the policy address.
+  const t = translateError(
+    'failed to execute message; message index: 0: load group policy: yml1ywwjfdlwnhh5x50ju4yav35n762ax4pg9fz7j0: not found',
+  );
+  assert.equal(t.message, 'That is not a shared account');
+  assert.match(t.reason ?? '', /policy address/);
+  // Truncated, like every other identifier: a full bech32 mid-sentence wraps
+  // three times on a phone and pushes the amount above it off screen.
+  assert.match(t.reason ?? '', /yml1ywwjfd…/);
+  assert.doesNotMatch(t.reason ?? '', /yml1ywwjfdlwnhh5x50ju4yav35n762ax4pg9fz7j0/);
+});
+
+test('a request that never reached the node is not reported as the chain refusing', () => {
+  // The single most common failure on any of these screens, and the one that
+  // most misleads: the chain has done nothing, and a treasury that cannot be
+  // read is not a treasury that is empty.
+  const t = translateError('TypeError: Failed to fetch');
+  assert.equal(t.message, 'The node could not be reached');
+  assert.equal(t.retryable, true);
+  assert.match(t.reason ?? '', /nothing on the chain has changed/i);
+});
+
+test('a node answering with a server error is separated from a node not answering', () => {
+  const t = translateError('Request failed with 503');
+  assert.equal(t.message, 'The node is not answering');
+  assert.equal(t.retryable, true);
+});
+
+test('a 404 is an answer, not a failure', () => {
+  // The distinction a screen needs in order to choose between "there is none"
+  // and "unknown". Conflating the two is how an empty page gets rendered over a
+  // question nobody managed to ask.
+  const t = translateError('Request failed with 404');
+  assert.equal(t.message, 'There is no such record');
+  assert.equal(t.retryable, false);
+});
+
+test('a gateway refusing an endpoint does not read as missing data', () => {
+  const t = translateError('Request failed with 401');
+  assert.equal(t.message, 'This node refuses that query');
+  assert.match(t.reason ?? '', /configuration decision/i);
 });
 
 test('an unrecognised error is surfaced verbatim, not hidden', () => {

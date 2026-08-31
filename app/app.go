@@ -112,6 +112,7 @@ type App struct {
 	ammKeepers
 	builderfeeKeepers
 	custodyKeepers
+	tokenisationKeepers
 
 	// simulation manager
 	sm                 *module.SimulationManager
@@ -226,6 +227,7 @@ func New(
 		app.ammDepinjectOutputs(),
 		app.builderfeeDepinjectOutputs(),
 		app.custodyDepinjectOutputs(),
+		app.tokenisationDepinjectOutputs(),
 	)...)
 
 	if err := depinject.Inject(appConfig, outputs...); err != nil {
@@ -239,6 +241,12 @@ func New(
 	// in a bank transfer. This is the one place every one of them passes
 	// through.
 	app.BankKeeper.AppendSendRestriction(app.EnforcementKeeper.SendRestriction)
+
+	// The shareholding settles on the way through, for the same reason and in
+	// the same place. Behind a profile hook because the module is not linked
+	// into the settlement build; see profile_tokenisation_on.go for why it
+	// has to be a send restriction and not a handler.
+	app.registerTokenisationSendRestriction()
 
 	// The jurisdictional perimeter, handed to x/paymsg after the graph is built.
 	//

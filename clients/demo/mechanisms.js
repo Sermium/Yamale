@@ -37,9 +37,15 @@ import {
 /**
  * Every place this page can send somebody, and whether it is up.
  *
- * `building` is stated rather than hidden. Two of these are being written right
- * now; linking them and saying so is honest, and quietly omitting them would
- * make the tour look complete in a way it is not.
+ * `status` is deployment state, not code state, and it is checked by fetching
+ * the URL rather than by looking in the repository. Oversight and markets were
+ * marked 'building' here and answered 404 for most of the time this page was
+ * written; both went live before it was finished. A surface whose code has
+ * merged but whose deployment has not is still a dead click in a room.
+ *
+ * A 'building' surface is still LINKED, and mechanisms.test.js requires that it
+ * also be named in NOT_BUILT. Hiding it would make the tour look complete when
+ * it is not; linking it silently sends somebody to a 404 with no warning.
  */
 export const SURFACES = {
   site: { href: '/', label: 'Yamale', blurb: 'What the network is', status: 'live' },
@@ -53,8 +59,8 @@ export const SURFACES = {
   foundation: { href: '/foundation/', label: 'Foundation', blurb: 'The 3-of-5 custodian group', status: 'live' },
   validator: { href: '/validator/', label: 'Validators', blurb: 'Who produces blocks, and on what terms', status: 'live' },
   docs: { href: '/docs/', label: 'Documentation', blurb: 'Every module, generated from the protos', status: 'live' },
-  oversight: { href: '/oversight/', label: 'Oversight', blurb: 'Enforcement cases and netting cycles', status: 'building' },
-  markets: { href: '/markets/', label: 'Markets', blurb: 'Prices, pools, currency issuance', status: 'building' },
+  oversight: { href: '/oversight/', label: 'Oversight', blurb: 'Enforcement cases and netting cycles', status: 'live' },
+  markets: { href: '/markets/', label: 'Markets', blurb: 'Prices, pools, currency issuance', status: 'live' },
 };
 
 /* ========================================================================= */
@@ -819,7 +825,7 @@ export const NOT_BUILT = [
   'There is no account service. Opening an account for a real customer, with the identity checks that implies, is not built.',
   'Two validators produce every block, on a development network. Losing one stops the chain.',
   'No participant is approved in x/paymsg on this chain, so there is no completed institutional payment to show. The refusal is live; the happy path is not.',
-  'No exchange rate is live, because neither validator runs a price feeder.',
-  'The oversight and markets consoles are being written now. Their links here will be dead until they are deployed.',
+  'No exchange rate is live, because neither validator runs a price feeder, so the oracle serves nothing rather than something stale.',
+  'Netting is switched off: the cycle length is nought, so every obligation settles gross.',
   'Nothing on this chain has been through an external security audit.',
 ];

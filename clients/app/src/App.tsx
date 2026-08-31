@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { t, LanguagePicker, useLocale, formatUserId } from '@yamale/chain';
+import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 
 import { signIn, signUp, signOut, lastEmail, revealPhrase, eraseEverything, type Signer } from './account.ts';
 import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
@@ -8,6 +8,13 @@ import { encodeSigned, shortCodeSigned, readSigned, describe,
          type PaymentRequest, type Recurrence } from './request.ts';
 import { QrCode, QrPanel } from './qr.tsx';
 import { Scanner } from './scan.tsx';
+// Paying somebody, and the identifier controls it uses, both live in their own
+// files now. This module was 2,556 lines holding twenty-three components; the
+// screen the whole product exists for should not have been one of them.
+import { Pay } from './Pay.tsx';
+import { Desk } from './Desk.tsx';
+import { CopyRow } from './copy.tsx';
+import { PayableNote } from './Identifier.tsx';
 import * as book from './book.ts';
 import * as biometric from './biometric.ts';
 import { DIRECTORY, matches } from './directory.ts';
@@ -70,6 +77,10 @@ export function App() {
         <a className="stage__link" href="/">{t("app.backToSite")}</a>
       </header>
 
+      {/* A phone and, on a screen wide enough to have room for it, the same
+          payment as the ledger records it. See Desk.tsx for why the desktop case
+          got a second column rather than a stretched app. */}
+      <div className="stage__two">
     <div className="phone">
       <div className="phone__notch" />
       <div className="phone__screen">
@@ -90,6 +101,8 @@ export function App() {
         )}
       </div>
     </div>
+      <Desk />
+      </div>
     </div>
   );
 }
@@ -310,9 +323,13 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
  * is a convenience and never the record.
  */
 function downloadStatement(st: ledger.MonthlyStatement, holder: string) {
+  // Dates take the app's locale, not the browser's. `undefined` here meant a
+  // statement whose headings were in English and whose dates were in French,
+  // on the same page, for anyone whose operating system disagreed with their
+  // chosen language — which on this product is most of the intended audience.
   const c = currencyOf(st.denom);
   const money = (v: bigint) => display(v.toString(), st.denom);
-  const when = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(st.from);
+  const when = new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(st.from);
 
   const lines = [
     `YAMALE — ${t('app.statement')} — ${when}`,
@@ -325,10 +342,13 @@ function downloadStatement(st: ledger.MonthlyStatement, holder: string) {
     '',
     t('app.movements'),
     ...st.movements.map((m) => {
-      const d = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit' }).format(new Date(m.at));
+      const d = new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit' }).format(new Date(m.at));
       const sign = m.amount > 0n ? '+' : '-';
       const abs = m.amount < 0n ? -m.amount : m.amount;
-      return `  ${d}  ${sign}${money(abs)}  ${book.displayName(m.counterparty)}`;
+      // The reference and the purpose code on the line, because a statement
+      // that omits them is a statement nobody can reconcile against a ledger.
+      const ref = [m.reference.purpose, m.reference.remittance].filter(Boolean).join(' ');
+      return `  ${d}  ${sign}${money(abs)}  ${book.displayName(m.counterparty)}${ref ? `  — ${ref}` : ''}`;
     }),
     '',
     `${t('app.statementNote')}`,
@@ -417,7 +437,7 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
             <button key={m} type="button"
                     className={m === month ? 'months__on' : undefined}
                     onClick={() => setMonth(m)}>
-              {new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' })
+              {new Intl.DateTimeFormat(getLocale(), { month: 'short', year: '2-digit' })
                 .format(new Date(new Date().getFullYear(), new Date().getMonth() - m, 1))}
             </button>
           ))}
@@ -444,8 +464,17 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
               </span>
               <span className="acct-row__name">
                 {names[m.counterparty] ?? t('app.unknownParty')}
+                {/* The reference, on the line it belongs on. This is what
+                    somebody matches against an invoice, and until now it went
+                    out with every payment and never came back. */}
+                {m.reference.remittance && (
+                  <span className="movement__ref y-mono" title={m.reference.remittance}>
+                    {m.reference.remittance}
+                  </span>
+                )}
                 <span className="muted movement__date">
-                  {new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(new Date(m.at))}
+                  {m.reference.purpose && <span className="movement__purp">{m.reference.purpose}</span>}
+                  {new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short' }).format(new Date(m.at))}
                 </span>
               </span>
               <span className="acct-row__amount">
@@ -466,6 +495,12 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
           <span>{t('app.toppingUp')}</span>
         </div>
       )}
+
+      {/* Says nothing at all unless the chain has refused this account an
+          identifier, which on this network it does — see Identifier.tsx. An
+          account nobody can pay is the one thing a payments app must not be
+          quiet about. */}
+      <PayableNote signer={signer} />
 
       {balances === null && <p className="muted">{t('app.loading')}</p>}
 
@@ -501,390 +536,6 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
       {/* No fee note anywhere on this screen. Fees are paid by a grant, so the
           number a person sees leaving their account is the number they sent. */}
     </>
-  );
-}
-
-/**
- * Paying somebody.
- *
- * This screen used to render a success receipt without broadcasting anything:
- * `complete()` wrote the payee into the address book and set `sent`, and no
- * transaction was ever built. Somebody could show a tick, a name and an amount
- * to the person they were paying while their balance had not moved by a unit.
- *
- * It now signs and waits for the block, and it reports execution rather than
- * acceptance — see chain.ts, which also documents why the transaction is a bank
- * transfer carrying the reference in its memo rather than an ISO 20022
- * `MsgSendPayment`. The short version: the chain requires both named
- * participants to be governance-approved and the payer to be a registered
- * customer of the one it names, and `yamale-devnet-2` has no approved
- * participants at all. The receipt says which rails carried it.
- */
-function Pay({ signer }: { signer: Signer }) {
-  const [to, setTo] = useState('');
-  const [amount, setAmount] = useState('');
-  const [reference, setReference] = useState('');
-  const [denom, setDenom] = useState(defaultDenom());
-  const [code, setCode] = useState('');
-  const [checking, setChecking] = useState(false);
-  const [verdict, setVerdict] = useState<'none' | 'trusted' | 'untrusted' | 'unreadable'>('none');
-  const [incoming, setIncoming] = useState<PaymentRequest | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [confirmingNew, setConfirmingNew] = useState(false);
-
-  // What the account actually holds, so the action can be disabled with the
-  // precondition stated rather than the payment refused after signing.
-  const [held, setHeld] = useState<Map<string, string> | null>(null);
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      const address = await signer.internalAddress();
-      const map = await balances(address);
-      if (live) setHeld(map);
-    })();
-    return () => { live = false; };
-  }, [signer]);
-
-  // Who the typed id resolves to on the chain. Resolved before the money
-  // moves, because "no account answers to that" is a thing to say now and not
-  // after a failed transaction.
-  const [payee, setPayee] = useState<{ id: string; address: string | null; looking: boolean }>({
-    id: '', address: null, looking: false,
-  });
-  useEffect(() => {
-    const id = to.trim();
-    if (id === '') { setPayee({ id: '', address: null, looking: false }); return; }
-    let live = true;
-    setPayee({ id, address: null, looking: true });
-    void book.resolve(id).then((address) => {
-      if (live) setPayee({ id, address, looking: false });
-    });
-    return () => { live = false; };
-  }, [to]);
-
-  const [stage, setStage] = useState<'compose' | 'sending' | 'done'>('compose');
-  const [outcome, setOutcome] = useState<chain.PaymentOutcome | null>(null);
-
-  const currency = currencyOf(denom);
-  const parsed = amount.trim() === '' ? null : parseAmount(amount, denom);
-  const unreadableAmount = amount.trim() !== '' && parsed === null;
-  const balance = held?.get(denom) ?? '0';
-  const enough = parsed !== null && BigInt(parsed.base) > 0n && BigInt(parsed.base) <= BigInt(balance);
-  const ready = payee.address !== null && enough && stage === 'compose';
-
-  /**
-   * Sign it, wait for the block, and report what the chain did.
-   *
-   * The address book is written *after* success. Recording a payee for a
-   * payment that failed is how a "recent" list fills up with people who were
-   * never paid.
-   */
-  async function send() {
-    if (!payee.address || !parsed) return;
-    setStage('sending');
-    const result = await chain.pay(signer, payee.address, parsed.base, denom, reference);
-    setOutcome(result);
-    if (result.ok) book.remember(payee.id, incoming?.payeeName);
-    setStage('done');
-  }
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!ready) return;
-    if (!book.isKnown(to)) { setConfirmingNew(true); return; }
-    void send();
-  }
-
-  /**
-   * Read a code somebody sent, and say plainly whether it can be trusted.
-   *
-   * A code travels over channels nobody controls — a forwarded message, a
-   * photographed poster, a number read down a phone. None of those can be made
-   * private, and none of them need to be: what matters is that a tampered or
-   * impersonated code is detectable here, before any money moves.
-   */
-  async function readCode() {
-    setChecking(true);
-    setVerdict('none');
-    try {
-      const result = await readSigned(code, book.resolve);
-      if (!result) { setVerdict('unreadable'); return; }
-      setIncoming(result.request);
-      setVerdict(result.trusted ? 'trusted' : 'untrusted');
-      if (result.trusted) {
-        setTo(result.request.to);
-        if (result.request.amount) setAmount(result.request.amount);
-        const c = CURRENCIES.find((x) => x.code === result.request.currency);
-        if (c) setDenom(c.denom);
-      }
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  if (stage === 'sending') {
-    return (
-      <div className="done">
-        {/* Pending, with the figure already visible. A spinner with nothing
-            beside it leaves somebody unsure whether they pressed the button. */}
-        <div className="done__pending" aria-hidden="true"><i /><i /><i /></div>
-        <h2>{display(parsed?.base ?? '0', denom)}</h2>
-        <p className="muted" role="status">{t('app.paySending')}</p>
-      </div>
-    );
-  }
-
-  if (stage === 'done' && outcome) {
-    return (
-      <div className="done">
-        {/* The tick is set from execution, never from broadcast. A node
-            accepting a transaction into its mempool has moved nothing. */}
-        <div className={outcome.ok ? 'done__tick' : 'done__cross'} aria-hidden="true">
-          {outcome.ok ? '✓' : '!'}
-        </div>
-        <h2>{outcome.ok ? t('app.paymentSent') : t('app.payFailed')}</h2>
-
-        {outcome.ok ? (
-          <>
-            <p className="done__amount">{display(parsed?.base ?? '0', denom)}</p>
-            <p className="muted">{book.displayName(payee.id)}</p>
-            <p className="small-note muted">{t('app.paySettled', { height: outcome.height })}</p>
-
-            {/* What this screen actually did, and what it did not. The old
-                version showed this tick without broadcasting anything at all;
-                the least it owes anybody now is an accurate account of which
-                rails carried the money and where the reference went. */}
-            <p className="small-note muted">
-              {t('app.payViaTransfer')}
-              {outcome.reference.on === 'none' && <> {t('app.payNoReference')}</>}
-            </p>
-            {outcome.reference.on === 'memo' && (
-              <p className="ref-shown y-mono">{outcome.reference.value}</p>
-            )}
-          </>
-        ) : (
-          <>
-            {/* What happened, why, and the one next action — with the raw text
-                behind a disclosure. */}
-            <p><strong>{outcome.error?.message}</strong></p>
-            {outcome.error?.reason && <p className="muted">{outcome.error.reason}</p>}
-            {outcome.error?.nextStep && <p>{outcome.error.nextStep}</p>}
-            {outcome.error?.raw && outcome.error.raw !== outcome.error.message && (
-              <details className="raw">
-                <summary className="muted">{t('app.reveal')}</summary>
-                <pre>{outcome.error.raw}</pre>
-              </details>
-            )}
-          </>
-        )}
-
-        <button
-          className="primary"
-          onClick={() => {
-            setStage('compose');
-            setOutcome(null);
-            if (outcome.ok) { setTo(''); setAmount(''); setReference(''); }
-          }}
-        >
-          {outcome.ok ? t('app.payAgain') : t('app.done')}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <h2 className="screen__title">{t('app.sendMoney')}</h2>
-
-      <div className="form">
-        <label>
-          <span>{t('app.pasteCode')}</span>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t('app.pasteHint')} />
-        </label>
-        <button type="button" className="ghost" onClick={readCode} disabled={!code || checking}>
-          {checking ? t('app.checking') : t('app.readCode')}
-        </button>
-        {!scanning && (
-          <button type="button" className="ghost" onClick={() => setScanning(true)}>
-            {t('app.scanCode')}
-          </button>
-        )}
-      </div>
-
-      {scanning && (
-        <Scanner
-          onRead={(raw) => { setScanning(false); setCode(raw); }}
-          onClose={() => setScanning(false)}
-        />
-      )}
-
-      {/* The verdict is stated in the payer's own terms. "Signature invalid"
-          tells somebody nothing they can act on; "this code was not made by the
-          person it claims to pay" tells them to stop. */}
-      {verdict === 'trusted' && incoming && (
-        <p className="notice notice--good">
-          {t('app.codeTrusted', { name: incoming.payeeName ?? incoming.to })} · {describe(incoming)}
-        </p>
-      )}
-      {verdict === 'untrusted' && (
-        <p className="notice notice--bad">{t('app.codeUntrusted')}</p>
-      )}
-      {verdict === 'unreadable' && (
-        <p className="notice notice--bad">{t('app.codeUnreadable')}</p>
-      )}
-
-      {/* Paying somebody for the first time gets one deliberate pause. Most
-          wrong payments are not fraud, they are a mistyped id or the wrong row
-          tapped in a hurry, and both are caught by being asked once. Paying a
-          known contact is not interrupted — a warning shown every time is a
-          warning nobody reads. */}
-      {confirmingNew && (
-        <div className="confirm">
-          <p><strong>{t('app.firstTimePaying')}</strong></p>
-          <p className="muted">{t('app.firstTimeDetail', { id: to })}</p>
-          <div className="confirm__row">
-            <button type="button" className="ghost" onClick={() => setConfirmingNew(false)}>
-              {t('app.cancel')}
-            </button>
-            <button type="button" className="primary" onClick={() => { setConfirmingNew(false); void send(); }}>
-              {t('app.payAnyway')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <form className="form" onSubmit={submit}>
-        <label>
-          {/* Never "address". A person pays a person, identified by the id the
-              chain assigned them or the name they saved. */}
-          <span>{t('app.payTo')}</span>
-          <input value={to} onChange={(e) => setTo(e.target.value)} placeholder={t('app.payToHint')} required />
-        </label>
-        {/* Resolved before anything moves, and named. "No account answers to
-            that" is worth saying while the money is still here. */}
-        {payee.looking && <p className="small-note muted">{t('app.searching')}</p>}
-        {!payee.looking && payee.id !== '' && payee.address === null && (
-          <p className="notice notice--bad">{t('app.unknownId')}</p>
-        )}
-        {payee.address && (
-          <p className="notice notice--good">{book.displayName(payee.id)}</p>
-        )}
-
-        <label>
-          <span>{t('app.currency')}</span>
-          <select value={denom} onChange={(e) => setDenom(e.target.value)}>
-            {CURRENCIES.map((c) => <option key={c.denom} value={c.denom}>{c.name}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>{t('app.amount')}</span>
-          <input className="y-num" inputMode="decimal" value={amount}
-                 /* The decimal comma survives. A field allowing only [0-9.]
-                    turns the 1250,50 a French or Portuguese reader types into
-                    125050 — a hundred times the payment they meant. */
-                 onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,\s  ]/g, ''))}
-                 required />
-        </label>
-
-        {/* Prevention rather than error handling: the balance, one tap to use
-            all of it, and the action disabled with the reason stated. */}
-        {held !== null && BigInt(balance) > 0n && (
-          <button type="button" className="linkish available"
-                  onClick={() => setAmount(rawAmount(balance, denom))}>
-            {t('app.available', { amount: display(balance, denom) })}
-          </button>
-        )}
-        {held !== null && BigInt(balance) === 0n && (
-          <p className="small-note muted">{t('app.emptyBalance')}</p>
-        )}
-        {unreadableAmount && <p className="notice notice--bad">{t('app.payNotAnAmount')}</p>}
-        {parsed?.truncated && currency && (
-          <p className="notice">
-            {t('app.payTruncated', {
-              code: currency.code,
-              places: currency.exponent,
-              amount: display(parsed.base, denom),
-            })}
-          </p>
-        )}
-        {parsed !== null && BigInt(parsed.base) > BigInt(balance) && (
-          <p className="notice notice--bad">{t('app.payTooMuch')}</p>
-        )}
-
-        {/* The reference, as first-class content rather than an afterthought.
-            This is a payments surface, and reconciliation is the thing the
-            reference exists for — so it sits in the form beside the amount,
-            not behind a disclosure. */}
-        <label>
-          <span>{t('app.reference')}</span>
-          <input value={reference} onChange={(e) => setReference(e.target.value)}
-                 placeholder={t('app.referenceHint')} maxLength={64} />
-        </label>
-
-        <button className="primary" disabled={!ready}>{t('app.sendNow')}</button>
-      </form>
-    </>
-  );
-}
-
-/**
- * Ask to be paid. Everything a payer needs is packed into one code: who, how
- * much, in what, and whether it repeats.
- *
- * Both forms are shown together, deliberately. A market trader tapes the square
- * to their stall; a customer with a feature phone reads the letters down the
- * line. A QR-only design serves only the first of them.
- */
-/**
- * A code on one line, with the whole of it one tap away.
- *
- * The full code is long because it carries a signature, and a signature is what
- * makes it safe to send over a channel nobody controls. But nobody reads it
- * aloud and nobody types it — they copy it. So the display is truncated to fit
- * a line and the *untruncated* value is what reaches the clipboard; showing all
- * of it only cost four lines of wrapping and made the screen look broken.
- */
-function CopyRow({ value }: { value: string }) {
-  const [done, setDone] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // Clipboard access is refused on insecure origins and by some in-app
-      // browsers. Selecting the text is the fallback that always works.
-      const el = document.createElement('textarea');
-      el.value = value;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      el.remove();
-    }
-    setDone(true);
-    setTimeout(() => setDone(false), 1600);
-  };
-
-  const shown = value.length > 22 ? `${value.slice(0, 12)}…${value.slice(-6)}` : value;
-
-  return (
-    <button type="button" className="copyrow" onClick={copy} title={value}>
-      <span className="copyrow__code">{shown || '…'}</span>
-      <span className="copyrow__icon" aria-hidden="true">
-        {done ? (
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-               stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-               stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="9" width="11" height="11" rx="2" />
-            <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-          </svg>
-        )}
-      </span>
-      <span className="sr-only">{done ? t('app.copied') : t('app.copy')}</span>
-    </button>
   );
 }
 

@@ -136,6 +136,42 @@ Two consequences worth stating plainly:
   describe overlapping ground, only a surveyor can say so. The module gives them
   a way to say it (`MsgObject`) and refuses to pretend it knows.
 
+## Admitting a registry office takes two acts, and one is easy to miss
+
+An office cannot register anything until **both** have happened, and they live in
+different modules:
+
+1. **`MsgRegisterAuthority` in `x/land`** — a governance proposal naming the
+   office, its jurisdiction and its human name. This is what `query land
+   authorities` lists. The office must already be an `x/group` account:
+   `assertGroupAccount` refuses an ordinary address, because an office that is
+   one key is a quorum of one.
+
+2. **`ROLE_REGISTRY_AUTHORITY` in `x/alias`, covering that country** — granted by
+   governance or by the foundation. This is what `AssertScope` consults on every
+   office action.
+
+Doing only the first produces an office that appears in `query land authorities`
+and is refused by every message it tries to send:
+
+```
+yml1c799jd… holds no grant of ROLE_REGISTRY_AUTHORITY covering CD:
+this account holds no grant of that role covering that jurisdiction
+```
+
+That reads as a bug in the admission and is not one. The two are separate on
+purpose: the first records that a country has an office, and the second records
+what that office may do inside a perimeter — and the perimeter is enforced by one
+mechanism for every module rather than each module inventing its own. The cost is
+this failure mode, which is why it is written here.
+
+**Check both before believing an office is live:**
+
+```bash
+blockchaind query land authorities
+blockchaind query alias role-holders CD
+```
+
 ## Messages
 
 | Message | Signer | Effect |

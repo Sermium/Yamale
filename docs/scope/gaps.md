@@ -4,11 +4,19 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-Last verified 2026-08-24, against `yamale-devnet-2` at block 52,356.
+Last verified 2026-08-27, against `yamale-devnet-2` at block 94,519.
+
+**Three states, not one.** This document once headed a single table "built,
+merged, and live on the chain", and that phrasing hid a real gap for two days:
+rows that were merged sat beside rows that were running, and a row reading "land
+registry - module, CLI, client" concealed that `x/tokenisation` had no CLI at all
+and the land client could send two of twelve messages. So the states are now
+separated, and a row may only move down the page when somebody has checked the
+running chain rather than the tree.
 
 ---
 
-## Built, merged, and live on the chain
+## Live on the chain, and verified there
 
 | | |
 |---|---|
@@ -24,18 +32,73 @@ Last verified 2026-08-24, against `yamale-devnet-2` at block 52,356.
 | Build profiles | `settlement` compiles out the token and five modules; IBC opt-in |
 | Fees in issued currency | ante gate on denom, swept to a treasury operating account |
 | Validator key rotation | planned rotation, recovery quorum, veto-by-signing |
-| Land registry | module, CLI, client; tokenisation refuses unauthorised fractionalisation |
+| Land registry - the module | 12 messages, four-party transfer, 31 tests; `x/tokenisation` refuses unauthorised fractionalisation |
 | Tiered netting | `x/netting`: collateral posted first, hold-and-retry, no recompute path |
 | Foundation console | `/foundation/` — the 3-of-5 has an interface, with the limits below |
 | Roles and the perimeter | `x/alias` role grants, and `AssertScope` consulted by four modules |
-| All five roles confer something | supervisors are payload readers; an enforcement office can open a case and freeze in an emergency |
-| Administrators and the emergency authority are grants | two parameter lists retired, their fields reserved, and both carried across by the `roles-that-do-something` upgrade |
-| An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action |
-| Country enrolment | `ceremony country` — offices, grants and jurisdictions, approved by the foundation |
-| Administrator appointment | `ceremony administrators` plus a governance console that composes it |
 | Coordinated upgrade | proposed, voted, halted at height, binaries swapped, applied — on the live chain |
 | Signing-request decoding | the wallet reads a `TxBody` and says what it does, instead of naming a type URL |
 | Visual system | `clients/shared/yamale.css` — real typefaces, a scale, elevation, semantic colour |
+
+## Merged, but not yet running
+
+The distinction this document previously lost. Everything here is in `main` and
+none of it is in the state machine the validators are executing, so a query
+against the live chain returns nothing for any of it.
+
+| | | |
+|---|---|---|
+| All five roles confer something | supervisors are payload readers; an enforcement office can open a case and freeze in an emergency | ships in `roles-that-do-something` |
+| Administrators and the emergency authority are grants | two parameter lists retired, their fields reserved, both carried across by the upgrade handler | ships in `roles-that-do-something` |
+| An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action | ships in `roles-that-do-something` |
+| `x/tokenisation` has a CLI | 5 queries, 11 transactions; `UpdateParams` and `ResolveDispute` deliberately skipped | client-side only, rides the same binary |
+| Country enrolment | `ceremony country` - offices, grants, jurisdictions, approved by the foundation | tool complete, **never run** |
+| Administrator appointment | `ceremony administrators`, and a governance console that composes it | tool complete, **never run** |
+
+**How this was found, and it is the reason for the split.** On 2026-08-27 the
+running binary on both hosts was four days old. `query alias chain-wide-grants`
+returned `{}`, so no account held `ROLE_FOUNDATION_ADMINISTRATOR` - not because a
+grant was missing but because the state machine had no such role. The symptom
+surfaced two modules away: an account created in the payments app could send
+money and could never be addressed, because `MsgRegisterAlias` needs a recorded
+jurisdiction and only an approved participant or a foundation administrator can
+record one. **A binary's build date is now part of verifying this document.**
+
+## The account model - decided, specified, and the largest unbuilt thing
+
+Separated out because it keeps being asked about, and because "designed" reads
+too much like "nearly done".
+
+**Decided 2026-08-20: threshold key custody, built in house rather than bought.**
+The design is complete in [accounts.md](../guides/accounts.md): the key is split,
+the server holds one share and the device the other, and neither can sign alone -
+so "the operator cannot move your money" is a statement about mathematics rather
+than about policy. Operator custody was chosen first and reversed, because on a
+state-operated system "the authority can spend any citizen's balance" is a very
+different political object from "the authority runs the payment rails". Recovery
+is specified to the same depth: two approvers from different teams, a 72-hour
+delay with notice to email and every enrolled device, outbound payments frozen
+for 24 hours afterwards, proof that is not public knowledge, and recoveries
+published in aggregate so an unusual rate is visible without exposing who.
+
+**None of it is built. There is no share protocol, no server, and no account
+service.** What ships is the model the design explicitly rejected: a CosmJS
+password-wrapped key in `localStorage`. `clients/app/src/account.ts` says so in
+its own header and calls itself not acceptable in production, which is the right
+way to carry a proof of concept - but it means a forgotten password is a lost
+account today.
+
+Two divergences worth recording rather than leaving only in the code:
+
+- **The blind index is not one.** `emailKey()` is a bare `SHA-256` of the
+  address. The design specifies `HMAC(email, pepper)` with the pepper held
+  outside the store, and the difference is the whole property: a bare hash can be
+  tested against any list of email addresses, so a dump yields the membership it
+  was supposed to hide. Local-only storage makes it less severe than the same
+  mistake server-side; it does not make the code's claim true.
+- **`crypto.subtle` is undefined outside a secure context**, so on the plain-HTTP
+  tailnet host account creation throws and reaches the user as "That password is
+  not right."
 
 ## Designed, documented, not built
 
@@ -81,10 +144,11 @@ testing on every value-moving path, written invariant specifications produced
 HSM custody, a documented upgrade rollback.
 
 **The account service**, which the scope calls the actual commercial critical
-path: authentication, threshold key custody, recovery with two approvers and a
-delay, second factor. Plus USSD and feature-phone access, without which most
-African transaction volume is unreachable, and agent-network and mobile-money
-integration.
+path. Its key custody has its own section above, because it is decided and
+specified rather than merely absent; what is untouched around it is the service
+that would host it - authentication, the recovery workflow, second factor. Plus
+USSD and feature-phone access, without which most African transaction volume is
+unreachable, and agent-network and mobile-money integration.
 
 **A legal entity able to sign an indemnity.**
 
@@ -193,6 +257,35 @@ could reasonably have gone the other way:
 
 ## Known defects
 
+- ~~**No shareholder in x/tokenisation could ever be paid anything.**~~ Closed
+  2026-08-27. `SendRestrictionFn` settles both sides of a share transfer, which
+  the income index requires — a holder earns the movement in the index across
+  the period they held, so a position has to be settled the moment a balance
+  changes. It was written, commented, and **registered nowhere**: `app.go`
+  appended only the enforcement restriction, and a repository-wide search found
+  the function referenced by nothing at all, not even a test. So no transfer
+  settled, no position was created by one, and every entitlement read zero.
+  Found against a live vehicle holding 72 YML against 1,000,000 shares which the
+  chain's own query said was owed to nobody. Second dead load-bearing function
+  in this module after `FinaliseSale`, and both were found the same way: by
+  driving the thing rather than reading it.
+
+- **x/tokenisation credits a sale's proceeds that never arrive.** `FinaliseSale`
+  puts the whole reported price through the income index while moving no coins,
+  and the only message that does move coins — `FundVault` — accrues them a second
+  time on the way in. So the proceeds of a sale have no funding path that does
+  not double-count, every holder is credited money the vault does not hold, and
+  redemption fails with `insufficient funds` for everybody after the first.
+  Found 2026-08-27 while writing the pipeline's first test. **Not fixed, because
+  the fix is a decision rather than a mechanism:** either finalising pulls the
+  price from the reporter — which makes a reported price binding, and closes the
+  report-low-and-keep-the-difference attack a second way — or funding stops
+  accruing once a sale is reported and the proceeds are simply the last
+  `FundVault`. The first is stronger and assumes the sponsor holds the money on
+  chain; the second is weaker and assumes nothing.
+  `TestAVehicleCanBeExited` asserts the broken behaviour deliberately, so
+  whoever decides this will see it fail and have to look.
+
 - **A sender is not obliged to seal a payload to the readers the chain names.**
   `ROLE_SUPERVISOR` now confers an entitlement — a holder covering a country is
   a viewing-key recipient for every payload settling there, published by
@@ -226,10 +319,16 @@ could reasonably have gone the other way:
   one authority that can correct a country rather than carrying it. Both are
   closed by re-granting deliberately, per grant, and the guide says how. Until
   then this is the same class of defect as the unpinned grants above.
-- **No payment has been pushed through the Pay screen end to end.** The screen no
-  longer forges a receipt — it signs, waits for the block, and reports from
-  execution rather than acceptance — but that path is verified by reading and by
-  tests, not by moving money.
+- ~~**No payment has been pushed through the Pay screen end to end.**~~ Closed
+  2026-08-26: 12.50 XOF at block 84,121, tx `336F01BA…`, code 0, carrying
+  `ym1;e2e=YML-20260826-PM1SJCMM;purp=GDDS;rmt=Invoice 4471` on the ledger, and
+  the reference decoded back onto the history row.
+- **No account created in the app can be paid, and for a while nothing said so.**
+  `MsgRegisterAlias` lands in a block and fails there — `this account has no
+  recorded jurisdiction`, codespace `alias`, code 9 — because the chain has
+  neither an approved participant nor a foundation administrator. The app now
+  says this on the account screen instead of returning null and carrying on. The
+  fix is chain state, not client code.
 - **`clients/app` sends `MsgSend`, not `MsgSendPayment`.** `x/paymsg` requires
   both named participants to be governance-approved and the debtor to be a
   registered customer of the one it names, and this chain has **zero** approved
@@ -243,6 +342,25 @@ could reasonably have gone the other way:
 - **`x/tokenisation` is served under `/yamale/` and the nginx allowlist names it
   under neither prefix**, so it falls through to deny-by-default. Correct today,
   a trap when somebody opens it up.
+- ~~**`FinaliseSale` has no caller.**~~ Closed 2026-08-27. It was a keeper method
+  nothing invoked — no message, no EndBlocker, not one test — so no asset reached
+  `STATUS_REALISED` and `Redeem`, which requires it, could never succeed for
+  anybody: every fractionalised vehicle was a one-way door. `MsgFinaliseSale` is
+  the caller, permissionless because a crank only the sponsor could turn is one
+  the sponsor can decline to turn.
+- ~~**`AttestSale` never checked who was attesting.**~~ Closed 2026-08-27.
+  `ErrNotAttestor` was registered as code 17 and returned from nowhere, and
+  `Collection` carried no register to check against, so a sponsor met any
+  threshold with fresh addresses at the cost of the gas — leaving the guide's
+  own "the sale price is the attack" defended by nothing. Collections now carry
+  an attestor register that **governance** appoints, not the seller.
+- ~~**A holder who never transferred was paid nothing.**~~ Closed 2026-08-27.
+  `Fractionalise` created the vault and no position for the owner, so `Settle`
+  treated them as a first-time holder on the way out and started them at an
+  index that had already moved. Hidden because any transfer settles both sides,
+  so the ordinary issue-then-distribute path created the position by accident.
+- ~~**`DisputeSale` returned `ErrStillInWindow` for a window that had closed.**~~
+  Closed 2026-08-27; `ErrWindowClosed` is code 34.
 
 ## Operational loose ends
 

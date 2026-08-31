@@ -9,10 +9,13 @@
  */
 
 export {
+  EMPTY_AMOUNT,
   KNOWN_DENOMS,
   formatAmount,
   formatCoins,
   groupDigits,
+  fractionDenomParts,
+  isFractionShare,
   isPoolShare,
   parseCoin,
   poolIdFromDenom,
@@ -24,6 +27,7 @@ export {
   type Coin,
   type DenomInfo,
   type FormatAmountOptions,
+  type FractionDenom,
 } from './denom.ts';
 
 /**
@@ -35,6 +39,7 @@ export {
   describeFee,
   headline,
   summariseSigningRequest,
+  transactionHash,
   type RequestFee,
   type RequestMessage,
   type SigningRequestSummary,
@@ -113,8 +118,10 @@ export {
   ROLE_LABELS,
   checkSpend,
   committed,
+  policyRefusals,
   spendable,
   toRoleAssignment,
+  toSpendPolicy,
   toTreasury,
   toTreasuryBalance,
   type RoleAssignment,
@@ -123,6 +130,25 @@ export {
   type Treasury,
   type TreasuryBalance,
 } from './treasury.ts';
+
+/**
+ * What signing something will do to the account that signs it — as distinct
+ * from what is in the bytes, which is `signrequest.ts` above.
+ */
+export {
+  REVERSIBILITY,
+  REVERSIBILITY_NOTE,
+  arriving,
+  consequencesOf,
+  leaving,
+  locking,
+  totalCoins,
+  type AuthorityEffect,
+  type LockEffect,
+  type Movement,
+  type Reversibility,
+  type SigningConsequences,
+} from './consequence.ts';
 
 export {
   describeCase,
@@ -181,6 +207,7 @@ export {
   type Commitment,
   type Transaction,
   type TreasuryLock,
+  type TxStatus,
 } from './client.ts';
 
 export { CHAIN_MESSAGE_TYPES, chainRegistry } from './registry.ts';

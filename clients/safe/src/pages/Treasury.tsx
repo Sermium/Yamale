@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
+  EMPTY_AMOUNT,
   ROLE_LABELS,
   checkSpend,
   committed,
   formatAmount,
   formatCoins,
+  formatDuration,
+  policyRefusals,
   resolveDenom,
   spendable,
   timeAgo,
   timeUntil,
   toBaseUnitsOf,
   t as tr,
+  type SpendPolicy,
   type TreasuryLock,
   type RoleAssignment,
   type TreasuryBalance,
@@ -20,15 +24,25 @@ import {
 
 import { client } from '../chain.ts';
 import { Address } from '../Address.tsx';
+import { DenomRow, Split } from '../Custody.tsx';
+import { Unknown } from '../Unknown.tsx';
 
-type Tab = 'assets' | 'spend' | 'members' | 'commitments';
+type Tab = 'assets' | 'spend' | 'limits' | 'members' | 'commitments';
 
 /**
- * One treasury, in four views.
+ * One treasury, in five views.
  *
  * The tabs are ordered the way a treasurer's questions arrive: what is in here,
- * can I pay somebody, who else can, and what is already promised. The last one
- * is not an afterthought — it is the explanation for the first.
+ * can I pay somebody, what would stop me, who else can, and what is already
+ * promised. The last one is not an afterthought — it is the explanation for the
+ * first.
+ *
+ * "Limits" is new, and it was the largest hole in this console. A treasury's
+ * spending policy is the whole reason a spender role is safe to hand out — it
+ * bounds a compromised operational key to one period's limit rather than to the
+ * treasury — and the chain has always served it. Nothing read it, so a
+ * treasurer discovered a limit by hitting it, which is the one way to find out
+ * that costs a round of signatures.
  */
 export function TreasuryPage({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>('assets');
@@ -45,7 +59,7 @@ export function TreasuryPage({ id }: { id: string }) {
     return (
       <section className="card" aria-busy="true">
         <div className="skeleton"><i /><i /><i /></div>
-        <p className="small muted" role="status">Reading treasury {id}…</p>
+        <p className="small muted" role="status">{tr('safe.readingTreasury', { id })}</p>
       </section>
     );
   }
@@ -54,13 +68,11 @@ export function TreasuryPage({ id }: { id: string }) {
     return (
       <section className="card">
         <h1>{tr('safe.cannotReach')}</h1>
-        <p className="muted">
-          The node did not answer, so this page cannot say whether treasury {id} exists. That is
-          different from it not existing.
-        </p>
-        <p>
-          <button type="button" className="chip" onClick={() => treasury.refetch()}>Try again</button>
-        </p>
+        <Unknown
+          what={tr('safe.existenceUnknown', { id })}
+          error={treasury.error}
+          onRetry={() => treasury.refetch()}
+        />
       </section>
     );
   }
@@ -68,13 +80,9 @@ export function TreasuryPage({ id }: { id: string }) {
   if (!treasury.data) {
     return (
       <section className="empty">
-        <h1>No treasury {id}</h1>
-        <p>
-          The chain answered, and there is no treasury with that number. Treasury ids start at
-          zero and are handed out in order, so a number above the count has simply not been
-          created yet.
-        </p>
-        <p><Link to="/">Back to the list</Link></p>
+        <h1>{tr('safe.noSuchTreasury', { id })}</h1>
+        <p>{tr('safe.noSuchTreasuryBody')}</p>
+        <p><Link to="/">{tr('safe.backToList')}</Link></p>
       </section>
     );
   }
@@ -85,35 +93,35 @@ export function TreasuryPage({ id }: { id: string }) {
   return (
     <>
       <p className="crumb">
-        <Link to="/">{tr('safe.treasuries')}</Link> / {t.name || `Treasury ${id}`}
+        <Link to="/">{tr('safe.treasuries')}</Link> / {t.name || tr('safe.treasuryN', { id })}
       </p>
 
       <div className="page-head">
-        <h1>{t.name || `Treasury ${id}`}</h1>
+        <h1>{t.name || tr('safe.treasuryN', { id })}</h1>
         {t.paused && <span className="badge badge-paused">{tr('safe.paused')}</span>}
       </div>
       <p className="small muted">
-        {tr('safe.admin')} <Address address={t.admin} /> · opened{' '}
+        {tr('safe.admin')} <Address address={t.admin} /> ·{' '}
         {/* A block height is not a time. Somebody asking how old a treasury is
             wants "three months ago", and the height stays available for anybody
             who wants to look the block up. */}
         <span title={`block ${t.createdAtHeight.toLocaleString()}`}>
-          at block {t.createdAtHeight.toLocaleString()}
+          {tr('safe.openedAtBlock', { height: t.createdAtHeight.toLocaleString() })}
         </span>
       </p>
 
       {t.paused && (
         <div className="notice notice--bad">
-          <strong>Frozen.</strong> Nothing can leave this treasury until an admin unfreezes it.
-          Proposals can still be made and will fail at execution, so it is worth unfreezing first.
+          <strong>{tr('safe.frozenTitle')}</strong> {tr('safe.frozenBody')}
         </div>
       )}
 
       <nav className="tabs" role="tablist">
         {(
           [
-            ['assets', 'Assets'],
+            ['assets', tr('safe.assets')],
             ['spend', tr('safe.paySomeone')],
+            ['limits', tr('safe.limits')],
             ['members', tr('safe.members')],
             ['commitments', tr('safe.commitments')],
           ] as [Tab, string][]
@@ -131,17 +139,50 @@ export function TreasuryPage({ id }: { id: string }) {
         ))}
       </nav>
 
-      {tab === 'assets' && <Assets balances={list} pending={balances.isPending} />}
+      {tab === 'assets' && (
+        <Assets
+          balances={list}
+          pending={balances.isPending}
+          error={balances.isError ? balances.error : null}
+          onRetry={() => balances.refetch()}
+        />
+      )}
       {tab === 'spend' && (
         <Spend treasuryId={id} balances={list} paused={t.paused} name={t.name} admin={t.admin} />
       )}
-      {tab === 'members' && <Members admin={t.admin} roles={roles.data ?? []} />}
-      {tab === 'commitments' && <Commitments locks={locks.data ?? []} pending={locks.isPending} />}
+      {tab === 'limits' && <Limits treasuryId={id} balances={list} />}
+      {tab === 'members' && (
+        <Members
+          admin={t.admin}
+          roles={roles.data ?? []}
+          pending={roles.isPending}
+          error={roles.isError ? roles.error : null}
+          onRetry={() => roles.refetch()}
+        />
+      )}
+      {tab === 'commitments' && (
+        <Commitments
+          locks={locks.data ?? []}
+          pending={locks.isPending}
+          error={locks.isError ? locks.error : null}
+          onRetry={() => locks.refetch()}
+        />
+      )}
     </>
   );
 }
 
-function Assets({ balances, pending }: { balances: TreasuryBalance[]; pending: boolean }) {
+function Assets({
+  balances,
+  pending,
+  error,
+  onRetry,
+}: {
+  balances: TreasuryBalance[];
+  pending: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
   if (pending) {
     return (
       <section className="card" aria-busy="true">
@@ -150,14 +191,28 @@ function Assets({ balances, pending }: { balances: TreasuryBalance[]; pending: b
     );
   }
 
+  // Before the empty state, never after it. `balances.data ?? []` rendered a
+  // node that did not answer as a treasury with nothing in it, which is a
+  // different and much more alarming fact than the one that was true.
+  if (error) {
+    return (
+      <section className="card">
+        <h2>{tr('safe.assets')}</h2>
+        <Unknown what={tr('safe.balancesUnknown')} error={error} onRetry={onRetry} />
+      </section>
+    );
+  }
+
   if (balances.length === 0) {
     return (
       <section className="empty">
-        <h2>Nothing in it</h2>
+        <h2>{tr('safe.nothingInIt')}</h2>
         <p>{tr('msg.emptyTreasury')}</p>
       </section>
     );
   }
+
+  const anyLocked = balances.some((b) => b.locked !== '0');
 
   return (
     <section className="card" role="region" aria-label="Assets">
@@ -168,36 +223,25 @@ function Assets({ balances, pending }: { balances: TreasuryBalance[]; pending: b
           <thead>
             <tr>
               <th>{tr('safe.currency')}</th>
-              <th className="num">Available</th>
+              <th className="num">{tr('safe.available')}</th>
               <th className="num">{tr('safe.committed')}</th>
-              <th className="num">Total</th>
+              <th className="num">{tr('safe.total')}</th>
             </tr>
           </thead>
           <tbody>
-            {balances.map((b) => {
-              const info = resolveDenom(b.denom);
-              return (
-                <tr key={b.denom}>
-                  <td>
-                    {/* The symbol and the name, not the base denom. `uxof` is
-                        what the chain stores; "XOF — West African CFA franc" is
-                        what a treasurer reconciles against. */}
-                    <strong>{info.symbol}</strong>
-                    <span className="small muted"> {info.name}</span>
-                  </td>
-                  <td className="num strong">{formatAmount(b.available, b.denom, { withSymbol: false })}</td>
-                  <td className="num muted">{formatAmount(b.locked, b.denom, { withSymbol: false })}</td>
-                  <td className="num muted">{formatAmount(b.total, b.denom, { withSymbol: false })}</td>
-                </tr>
-              );
-            })}
+            {balances.map((b) => (
+              <DenomRow key={b.denom} balance={b} />
+            ))}
           </tbody>
         </table>
       </div>
 
-      <p className="small muted card__foot">
-        Committed funds are promised to a beneficiary and cannot be spent by any proposal, including
-        one that reaches the signing threshold. That is enforced by the chain, not by this page.
+      {/* Stated only when it is true of this treasury. A claim about committed
+          funds printed under a table with nothing committed is a claim nobody
+          can check, and the ones that can be checked are worth more. */}
+      <p className={anyLocked ? 'refuses' : 'small muted card__foot'}>
+        {anyLocked && <span className="refuses__k">{tr('safe.refuses')}</span>}
+        {anyLocked ? tr('safe.refusesCommitted') : tr('safe.nothingCommittedHere')}
       </p>
     </section>
   );
@@ -235,6 +279,14 @@ function Spend({
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
 
+  // The policy for the chosen denom, read from the chain rather than assumed
+  // absent. A payment that fits the balance and breaks the limit is refused at
+  // execution, after the signatures — which is the expensive way to find out.
+  const policy = useQuery({
+    queryKey: ['treasury-policy', treasuryId, denom],
+    queryFn: () => client.treasurySpendPolicy(treasuryId, denom),
+  });
+
   const info = resolveDenom(denom);
   const parsed = amount.trim() === '' ? null : toBaseUnitsOf(amount, denom);
   const typedButUnreadable = amount.trim() !== '' && parsed === null;
@@ -244,6 +296,16 @@ function Spend({
     balances,
     parsed ? [{ denom, amount: parsed.base }] : [],
   );
+
+  const overPerTransaction =
+    parsed && policy.data?.perTransaction
+      ? BigInt(parsed.base) > BigInt(policy.data.perTransaction)
+      : false;
+  const offAllowlist =
+    recipient.trim() !== '' &&
+    (policy.data?.allowlist.length ?? 0) > 0 &&
+    !policy.data!.allowlist.includes(recipient.trim());
+  const onBlocklist = recipient.trim() !== '' && (policy.data?.blocklist ?? []).includes(recipient.trim());
 
   const message = {
     '@type': '/blockchain.treasury.v1.MsgSpend',
@@ -259,7 +321,7 @@ function Spend({
       <h2>{tr('safe.paySomeone')}</h2>
 
       <label className="field">
-        <span>Recipient</span>
+        <span>{tr('safe.recipient')}</span>
         <input
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
@@ -271,7 +333,7 @@ function Spend({
 
       <div className="field-row">
         <label className="field amount-field">
-          <span>Amount in {info.symbol}</span>
+          <span>{tr('safe.amountIn', { symbol: info.symbol })}</span>
           <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" inputMode="decimal" />
         </label>
         <label className="field">
@@ -286,27 +348,49 @@ function Spend({
         </label>
       </div>
 
+      <label className="field">
+        <span>{tr('safe.memo')}</span>
+        <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="March payroll" />
+      </label>
+
       {/* Refused at the field rather than at execution. An amount that cannot
           be parsed must never quietly become zero in the payload below. */}
       {typedButUnreadable && (
-        <p className="field-note field-note--bad">
-          That is not an amount. Digits and one decimal separator — a group separator
-          (<code>1 250,50</code>) is fine, both separators at once is ambiguous.
-        </p>
+        <p className="field-note field-note--bad">{tr('safe.notAnAmount')}</p>
       )}
       {parsed?.truncated && (
         <p className="field-note field-note--warn">
-          {info.symbol} is held to {info.exponent} decimal places on this chain, so the digits past
-          that are not in the amount that will move: {formatAmount(parsed.base, denom)}.
+          {tr('safe.truncated', {
+            symbol: info.symbol,
+            places: String(info.exponent),
+            amount: formatAmount(parsed.base, denom),
+          })}
         </p>
       )}
 
       {parsed && !verdict.ok && <div className="notice notice--bad">{verdict.reason}</div>}
-      {parsed && verdict.ok && (
+
+      {/* The policy checks, separate from the balance check. "You have enough
+          but the policy says no" and "you do not have enough" are different
+          problems with different remedies, and merging them sends a treasurer
+          looking for money that is already there. */}
+      {overPerTransaction && (
+        <div className="notice notice--bad">
+          {tr('safe.overPerTransaction', {
+            limit: formatAmount(policy.data!.perTransaction!, denom),
+          })}
+        </div>
+      )}
+      {offAllowlist && <div className="notice notice--bad">{tr('safe.offAllowlist')}</div>}
+      {onBlocklist && <div className="notice notice--bad">{tr('safe.onBlocklist')}</div>}
+
+      {parsed && verdict.ok && !overPerTransaction && !offAllowlist && !onBlocklist && (
         <div className="notice notice--ok">
-          This treasury can pay {formatAmount(parsed.base, denom)}.{' '}
-          {formatCoins(spendable(balances))} available
-          {committed(balances).length > 0 && <> · {formatCoins(committed(balances))} committed</>}.
+          {tr('safe.canPay', { amount: formatAmount(parsed.base, denom) })}{' '}
+          {tr('safe.availableNow', { amount: formatCoins(spendable(balances)) })}
+          {committed(balances).length > 0 && (
+            <> · {tr('safe.committedNow', { amount: formatCoins(committed(balances)) })}</>
+          )}
         </div>
       )}
 
@@ -314,47 +398,193 @@ function Spend({
           spend should be able to read exactly what they are approving, and an
           M-of-N group needs this JSON to submit it. */}
       <details className="payload">
-        <summary>The message this produces</summary>
+        <summary>{tr('safe.theMessage')}</summary>
         <pre className="payload__pre">{JSON.stringify(message, null, 2)}</pre>
-        <p className="small muted">
-          Sign it directly if you hold a spender role, or put it inside an x/group proposal for an
-          M-of-N treasury. Either way the chain checks the same policy.
-        </p>
+        <p className="small muted">{tr('safe.theMessageNote')}</p>
       </details>
     </section>
   );
 }
 
-function Members({ admin, roles }: { admin: string; roles: RoleAssignment[] }) {
+/**
+ * What this treasury refuses, per currency.
+ *
+ * Written as refusals rather than as permissions, because that is the question
+ * somebody arrives with: not "what may I do" but "why did that not go
+ * through". A treasury with no policy for a currency is not one with a limit of
+ * zero — it is one where a spender is bounded only by the balance, and saying
+ * so plainly is worth a row of its own.
+ */
+function Limits({ treasuryId, balances }: { treasuryId: string; balances: TreasuryBalance[] }) {
+  const denoms = balances.length > 0 ? balances.map((b) => b.denom) : ['uyml'];
+
   return (
     <section className="card">
-      <h2>{tr('safe.members')}</h2>
-      <div className="y-scroll">
-        <table className="table">
-          <tbody>
-            <tr>
-              <td><Address address={admin} /></td>
-              <td><span className="badge">{tr('safe.admin')}</span></td>
-            </tr>
-            {roles.map((r) => (
-              <tr key={`${r.address}-${r.role}`}>
-                <td><Address address={r.address} /></td>
-                <td><span className="badge">{ROLE_LABELS[r.role] ?? r.role}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="small muted card__foot">
-        For an M-of-N treasury the admin is a group policy address rather than a person, and the
-        signers are that group's members. The threshold lives in x/group; the spending limits live
-        here.
-      </p>
+      <h2>{tr('safe.limits')}</h2>
+      <p className="small muted">{tr('safe.limitsLede')}</p>
+      {denoms.map((denom) => (
+        <LimitRow key={denom} treasuryId={treasuryId} denom={denom} />
+      ))}
     </section>
   );
 }
 
-function Commitments({ locks, pending }: { locks: TreasuryLock[]; pending: boolean }) {
+function LimitRow({ treasuryId, denom }: { treasuryId: string; denom: string }) {
+  const policy = useQuery({
+    queryKey: ['treasury-policy', treasuryId, denom],
+    queryFn: () => client.treasurySpendPolicy(treasuryId, denom),
+  });
+  const capacity = useQuery({
+    queryKey: ['treasury-capacity', treasuryId, denom],
+    queryFn: () => client.spendCapacity(treasuryId, denom),
+  });
+
+  const info = resolveDenom(denom);
+
+  if (policy.isPending) {
+    return (
+      <div className="limit">
+        <h3 className="limit__k">{info.symbol}</h3>
+        <div className="skeleton"><i /></div>
+      </div>
+    );
+  }
+
+  if (policy.isError) {
+    return (
+      <div className="limit">
+        <h3 className="limit__k">{info.symbol}</h3>
+        <Unknown
+          what={tr('safe.limitsUnknown')}
+          error={policy.error}
+          onRetry={() => policy.refetch()}
+        />
+      </div>
+    );
+  }
+
+  const refusals = policyRefusals(
+    policy.data as SpendPolicy | null,
+    (amount, d) => formatAmount(amount, d),
+    (seconds) => formatDuration(seconds),
+  );
+
+  return (
+    <div className="limit">
+      <h3 className="limit__k">
+        {info.symbol} <span className="small muted">{info.name}</span>
+      </h3>
+
+      {refusals.length === 0 ? (
+        <p className="muted">{tr('safe.noPolicy')}</p>
+      ) : (
+        <>
+          <p className="refuses">
+            <span className="refuses__k">{tr('safe.refuses')}</span>
+          </p>
+          <ul className="limit__list">
+            {refusals.map((refusal, i) => (
+              <li key={i}>{tr(refusal.key, refusal.vars)}</li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* The live figure: what is actually left in this window. A limit without
+          it answers "how much per day"; a treasurer is asking "how much now". */}
+      {capacity.data && policy.data?.perPeriod && (
+        <p className="limit__now">
+          <span className="y-label">{tr('safe.leftThisPeriod')}</span>{' '}
+          <span className="y-num">{formatAmount(capacity.data.remainingThisPeriod, denom)}</span>
+          {/* formatDuration, not timeUntil. timeUntil returns a whole phrase
+              ("23 hours left"), which inside "resets {when}" reads as
+              "resets 23 hours left". A duration is the part that belongs in
+              this sentence. */}
+          {capacity.data.periodResetsAt ? (
+            <span className="small muted">
+              {' '}
+              ·{' '}
+              {tr('safe.resets', {
+                when: formatDuration(
+                  Math.max(0, capacity.data.periodResetsAt - Math.floor(Date.now() / 1000)),
+                ),
+              })}
+            </span>
+          ) : null}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Members({
+  admin,
+  roles,
+  pending,
+  error,
+  onRetry,
+}: {
+  admin: string;
+  roles: RoleAssignment[];
+  pending: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="card">
+      <h2>{tr('safe.members')}</h2>
+
+      {pending && <div className="skeleton"><i /><i /></div>}
+
+      {/* An unread role list rendered as "only the admin" would understate who
+          can move money out of this treasury, which is the worst direction for
+          this particular error to be wrong in. */}
+      {error ? <Unknown what={tr('safe.rolesUnknown')} error={error} onRetry={onRetry} /> : null}
+
+      {!pending && !error && (
+        <div className="y-scroll">
+          <table className="table">
+            <tbody>
+              <tr>
+                <td><Address address={admin} /></td>
+                <td><span className="badge">{tr('safe.admin')}</span></td>
+              </tr>
+              {roles.map((r) => (
+                <tr key={`${r.address}-${r.role}`}>
+                  <td><Address address={r.address} /></td>
+                  <td><span className="badge">{ROLE_LABELS[r.role] ?? r.role}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="small muted card__foot">{tr('safe.membersNote')}</p>
+    </section>
+  );
+}
+
+/**
+ * What has been promised, and how far along each promise is.
+ *
+ * A commitment is not one number either. Part of it has been released and
+ * claimed, part has been released and is sitting there for the beneficiary to
+ * take, and part is still ahead of the schedule — and only the last part is
+ * what "committed" means on the assets tab. A table of totals hides all three
+ * distinctions, so each row carries its own progress.
+ */
+function Commitments({
+  locks,
+  pending,
+  error,
+  onRetry,
+}: {
+  locks: TreasuryLock[];
+  pending: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
   if (pending) {
     return (
       <section className="card" aria-busy="true">
@@ -363,11 +593,23 @@ function Commitments({ locks, pending }: { locks: TreasuryLock[]; pending: boole
     );
   }
 
+  // Before the empty state. "Nothing committed — every coin this treasury holds
+  // is available to spend" printed because a request failed is a false
+  // statement about somebody's money in the place they went to check it.
+  if (error) {
+    return (
+      <section className="card">
+        <h2>{tr('safe.commitments')}</h2>
+        <Unknown what={tr('safe.commitmentsUnknown')} error={error} onRetry={onRetry} />
+      </section>
+    );
+  }
+
   if (locks.length === 0) {
     return (
       <section className="empty">
-        <h2>Nothing committed</h2>
-        <p>Every coin this treasury holds is available to spend.</p>
+        <h2>{tr('safe.nothingCommitted')}</h2>
+        <p>{tr('safe.nothingCommittedBody')}</p>
       </section>
     );
   }
@@ -375,9 +617,9 @@ function Commitments({ locks, pending }: { locks: TreasuryLock[]; pending: boole
   return (
     <section className="card">
       <h2>{tr('safe.commitments')}</h2>
-      <p className="small muted">
-        Funds promised to somebody. They have left the spendable balance and cannot be redirected —
-        a later proposal that tried would be refused by the chain.
+      <p className="refuses">
+        <span className="refuses__k">{tr('safe.refuses')}</span>
+        {tr('safe.refusesCommitted')}
       </p>
 
       <div className="y-scroll">
@@ -385,26 +627,15 @@ function Commitments({ locks, pending }: { locks: TreasuryLock[]; pending: boole
           <thead>
             <tr>
               <th>{tr('safe.beneficiary')}</th>
-              <th className="num">Amount</th>
-              <th className="num">Claimed</th>
-              <th>Releases</th>
-              <th>Revocable</th>
+              <th>{tr('safe.progress')}</th>
+              <th className="num">{tr('safe.stillLocked')}</th>
+              <th>{tr('safe.releases')}</th>
+              <th>{tr('safe.revocable')}</th>
             </tr>
           </thead>
           <tbody>
             {locks.map((l) => (
-              <tr key={l.id} className={l.revoked ? 'row--off' : undefined}>
-                <td><Address address={l.beneficiary} /></td>
-                <td className="num">{formatAmount(l.amount, l.denom)}</td>
-                <td className="num muted">{formatAmount(l.claimed, l.denom, { withSymbol: false })}</td>
-                {/* Human time. "Releases in 12 days" is what a beneficiary is
-                    asking; the date stays in the title for anybody reconciling
-                    against a contract. */}
-                <td className="small">{releaseWhen(l.endTime)}</td>
-                <td className="small muted">
-                  {l.revoked ? 'Revoked' : l.revocable ? 'Yes' : 'No'}
-                </td>
-              </tr>
+              <LockRow key={l.id} lock={l} />
             ))}
           </tbody>
         </table>
@@ -413,12 +644,67 @@ function Commitments({ locks, pending }: { locks: TreasuryLock[]; pending: boole
   );
 }
 
+function LockRow({ lock }: { lock: TreasuryLock }) {
+  // Still locked = committed minus what the beneficiary has already taken. This
+  // is the figure that appears in the treasury's `locked` balance, so a row
+  // showing only the total would not reconcile against the assets tab.
+  let remaining = '0';
+  try {
+    const left = BigInt(lock.amount) - BigInt(lock.claimed);
+    remaining = (left > 0n ? left : 0n).toString();
+  } catch {
+    remaining = '0';
+  }
+
+  return (
+    <tr className={lock.revoked ? 'row--off' : undefined}>
+      <td><Address address={lock.beneficiary} /></td>
+      <td className="lock__cell">
+        <span className="lock__total">{formatAmount(lock.amount, lock.denom)}</span>
+        {/* The bar is drawn the other way round from the treasury's: here the
+            claimed part is the part that has *gone*, so the hatched remainder
+            is what is still held. Same visual grammar, same meaning — hatched
+            is what nobody can spend. */}
+        <Split
+          total={lock.amount}
+          locked={remaining}
+          label={tr('safe.lockAlt', {
+            claimed: formatAmount(lock.claimed, lock.denom),
+            remaining: formatAmount(remaining, lock.denom),
+          })}
+        />
+        <span className="small muted">
+          {tr('safe.claimedSoFar', { amount: formatAmount(lock.claimed, lock.denom) })}
+        </span>
+      </td>
+      <td className="num">
+        <span className="num--lock">{formatAmount(remaining, lock.denom, { withSymbol: false })}</span>
+      </td>
+      {/* Human time. "Releases in 12 days" is what a beneficiary is asking; the
+          date stays in the title for anybody reconciling against a contract. */}
+      <td className="small">{releaseWhen(lock.endTime)}</td>
+      <td className="small muted">
+        {lock.revoked
+          ? tr('safe.revoked')
+          : lock.revocable
+            ? tr('safe.revocableYes')
+            : tr('safe.revocableNo')}
+      </td>
+    </tr>
+  );
+}
+
 function releaseWhen(endTime: number | undefined) {
-  if (!endTime) return <span className="muted">—</span>;
+  if (!endTime) return <span className="muted">{EMPTY_AMOUNT}</span>;
   const at = new Date(endTime * 1000);
-  const iso = at.toISOString();
   const future = at.getTime() > Date.now();
   return (
-    <span title={at.toLocaleString()}>{future ? `in ${timeUntil(iso)}` : timeAgo(iso)}</span>
+    <span title={at.toLocaleString()}>
+      {future
+        ? tr('safe.releasesIn', {
+            when: formatDuration(Math.round((at.getTime() - Date.now()) / 1000)),
+          })
+        : timeAgo(at.toISOString())}
+    </span>
   );
 }

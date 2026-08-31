@@ -8,6 +8,8 @@
  * support and debugging.
  */
 
+import { truncateAddress } from './format.ts';
+
 export interface TranslatedError {
   /** One line, in plain language. */
   message: string;
@@ -32,6 +34,70 @@ interface Rule {
  * same error.
  */
 const RULES: Rule[] = [
+  {
+    // Not a chain error at all: the request never reached a node. It arrives
+    // here anyway because every interface funnels its failures through one
+    // translator, and `fetch` rejecting with the word "Failed" is the single
+    // most common thing a reader of these screens will ever see. Left
+    // untranslated it reads as the chain refusing them, which is the opposite
+    // of what happened — and it matters, because a treasury that cannot be read
+    // is not a treasury that is empty.
+    match: /failed to fetch|networkerror|network request failed|load failed|err_(?:connection|network|name_not_resolved)/i,
+    translate: () => ({
+      message: 'The node could not be reached',
+      reason:
+        'The request never arrived. That is a fault between this device and the node — nothing on the chain has changed, and nothing shown as missing is known to be missing.',
+      nextStep: 'Check the connection and try again.',
+      retryable: true,
+    }),
+  },
+  {
+    // The client throws `Request failed with 503` out of its own `get`. The
+    // number is meaningless to a reader and the distinction between "the node
+    // is not answering" and "the node answered, and said no" is the whole of
+    // what they need.
+    match: /request failed with (5\d\d)|\b(?:502|503|504) (?:bad gateway|service unavailable|gateway time-?out)/i,
+    translate: (m) => ({
+      message: 'The node is not answering',
+      reason: `It replied ${m[1] ?? 'with a server error'} rather than with data. The chain itself may be perfectly healthy; this particular node is not serving.`,
+      nextStep: 'Try again shortly, or point this interface at another node.',
+      retryable: true,
+    }),
+  },
+  {
+    // Deny-by-default on /api/rest returns 401 with an auth challenge, which a
+    // browser turns into a login box. See the note in the ops docs: the fix is
+    // never a password, it is a path the gateway was not told to allow.
+    match: /request failed with 40[13]|unauthori[sz]ed request|forbidden/i,
+    translate: () => ({
+      message: 'This node refuses that query',
+      reason:
+        'The node answered, but its gateway does not expose this endpoint to the public. It is a configuration decision, not a fault in the data.',
+      nextStep: 'Ask whoever runs the node to allow this query, or use a node that serves it.',
+      retryable: false,
+    }),
+  },
+  {
+    // The node answered and said there is no such thing. Distinct from every
+    // other failure above: this one is an *answer*, and a screen may safely
+    // render "there is none" rather than "unknown".
+    match: /request failed with 404/i,
+    translate: () => ({
+      message: 'There is no such record',
+      reason: 'The node answered, and it holds nothing under that identifier.',
+      nextStep: 'Check the number or the address.',
+      retryable: false,
+    }),
+  },
+  {
+    match: /aborted|timeout|timed out/i,
+    translate: () => ({
+      message: 'The node took too long',
+      reason: 'The request was given up on before an answer came back.',
+      nextStep: 'Try again.',
+      retryable: true,
+    }),
+  },
   {
     // Fee grants are how an institution pays the network fee for its customers,
     // so a customer holding only their own currency can still transact. When
@@ -223,6 +289,21 @@ const RULES: Rule[] = [
       message: 'Not allowed',
       reason: 'This account does not have permission to do that.',
       nextStep: 'Use an account with the right role, or ask an administrator to grant it.',
+      retryable: false,
+    }),
+  },
+  {
+    // Seen on the devnet, code 38 in block 94,512: a group proposal naming an
+    // ordinary account where a group policy address belongs. The generic "not
+    // found" rule below caught it and said "the thing this transaction refers
+    // to does not exist" — true, useless, and it sends somebody looking at the
+    // treasury id when the fault is in a different field.
+    match: /load group policy: (\S+?):? not found/i,
+    translate: (m) => ({
+      message: 'That is not a shared account',
+      reason: `The chain has no group policy at ${truncateAddress(m[1])}. A proposal must name the policy address of the group that will decide it, which is not the same as any member's own address — and not the same as the treasury's id either.`,
+      nextStep:
+        "Use the group's policy address: it is the account the treasury is administered by, shown as the admin on the treasury's page.",
       retryable: false,
     }),
   },

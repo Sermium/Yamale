@@ -54,3 +54,10 @@ blockchaind.exe
 # .devnet, because both scripts clear their root on startup and one would wipe
 # the other's chain out from under it.
 .devnet-netting/
+
+# The threshold-signing protocol compiled for the browser: 18 MB, and
+# reproducible from source with
+#   GOOS=js GOARCH=wasm go build -o clients/keys/mpc.wasm ./mpc/wasm
+# A binary that large in history costs every clone forever, and one built from
+# a commit nobody can identify is worse than one built at deploy time.
+clients/keys/mpc.wasm

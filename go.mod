@@ -3,6 +3,12 @@ module yamale/blockchain
 go 1.25.10
 
 replace (
+	// tss-lib depends on github.com/agl/ed25519, which was withdrawn and whose
+	// module no longer contains the packages it imports, so the graph cannot be
+	// resolved without this. Binance's fork is the one tss-lib itself points at.
+	// We use tss-lib's ECDSA path only; this is here to make the module graph
+	// resolve, not because anything on this chain signs with Ed25519.
+	github.com/agl/ed25519 => github.com/binance-chain/edwards25519 v0.0.0-20200305024217-f36fc4b53d43
 	// support for go 1.26 (remove when cosmossdk.io/log is updated)
 	github.com/bytedance/sonic => github.com/bytedance/sonic v1.15.0
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.
@@ -29,6 +35,7 @@ require (
 	cosmossdk.io/x/feegrant v0.1.1
 	cosmossdk.io/x/nft v0.1.0
 	cosmossdk.io/x/upgrade v0.2.0
+	github.com/bnb-chain/tss-lib/v2 v2.0.2
 	github.com/cometbft/cometbft v0.38.21
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
@@ -37,6 +44,7 @@ require (
 	github.com/cosmos/gogogateway v1.2.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/cosmos/ibc-go/v10 v10.4.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -46,6 +54,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.54.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260715232425-e75dac1f907d
 	google.golang.org/grpc v1.81.0
@@ -101,6 +110,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect
+	github.com/agl/ed25519 v0.0.0-20200225211852-fd4d107ace12 // indirect
 	github.com/alecthomas/go-check-sumtype v0.3.1 // indirect
 	github.com/alexkohler/nakedret/v2 v2.0.5 // indirect
 	github.com/alexkohler/prealloc v1.0.0 // indirect
@@ -119,6 +129,10 @@ require (
 	github.com/bombsimon/wsl/v4 v4.5.0 // indirect
 	github.com/breml/bidichk v0.3.2 // indirect
 	github.com/breml/errchkjson v0.4.0 // indirect
+	github.com/btcsuite/btcd v0.23.4 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
+	github.com/btcsuite/btcutil v1.0.2 // indirect
 	github.com/bufbuild/buf v1.72.0 // indirect
 	github.com/bufbuild/protocompile v0.14.2-0.20260716165721-bb5762d29672 // indirect
 	github.com/bufbuild/protoplugin v0.0.0-20260414125817-25d1d281b46b // indirect
@@ -159,7 +173,7 @@ require (
 	github.com/daixiang0/gci v0.13.5 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
+	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.3 // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
 	github.com/desertbit/timer v1.0.1 // indirect
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect
@@ -237,12 +251,14 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-getter v1.7.8 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.3 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
@@ -256,6 +272,8 @@ require (
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/ipfs/go-log v1.0.5 // indirect
+	github.com/ipfs/go-log/v2 v2.1.3 // indirect
 	github.com/jdx/go-netrc v1.0.0 // indirect
 	github.com/jgautheron/goconst v1.7.1 // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
@@ -310,6 +328,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/otiai10/primes v0.0.0-20210501021515-f1b2be525a11 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/petermattis/goid v0.0.0-20260716134002-a9b348f0a2b9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -411,7 +431,6 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260708182218-49f421fb7959 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.12.0 // indirect

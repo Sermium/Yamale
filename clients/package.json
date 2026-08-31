@@ -10,9 +10,13 @@
     "safe",
     "wallet",
     "app",
+    "rwa",
     "ceremony",
     "foundation",
     "governance",
+    "land",
+    "markets",
+    "keys",
     "demo"
   ],
   "scripts": {
