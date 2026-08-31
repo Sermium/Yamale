@@ -14,6 +14,9 @@ before publishing.
 | [Enrolling a country](country-enrolment.md) | A country's offices, their M-of-N accounts and the powers they hold inside their own borders. |
 | [Appointing a foundation administrator](foundation-administrators.md) | The one account that can move a customer out from under the authority investigating them, and why only a governance vote can grant it. |
 | [Netting and settlement](settlement.md) | What the chain settles between institutions, and what to do when a window does not clear. |
+| [Threshold accounts](mpc.md) | A consumer key that exists in three shares and nowhere else, and the password reset that does not move the address. |
+| [The custodian](custodian.md) | The service holding the operator's share — what it refuses, and the longer list of what it does not do. |
+| [Accounts without a wallet](accounts.md) | The design the two above were built from, and the parts of it that are still only a design. |
 
 For exhaustive detail on any message, query, parameter or error code, see the
 [reference](../reference/), which is generated from the code and cannot drift
