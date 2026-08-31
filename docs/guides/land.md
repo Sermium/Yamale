@@ -3,8 +3,22 @@
 How a parcel of land becomes a record that cannot be owned twice, and how it
 changes hands without anybody being able to buy the outcome.
 
-**Status:** design. The module (`x/land`) is specified here and not yet
-implemented. This document is the specification the implementation must satisfy.
+**Status: built and running.** This page began as the specification and the
+module now satisfies it — 12 messages, a four-party transfer, and supervised
+fractionalisation. On `yamale-devnet-2`, read 2026-08-31, `x/land` holds four
+registry authorities in CD (Kinshasa, Lubumbashi, Goma, Mbuji-Mayi) and four
+parcels, the most recent registered at height 119,926. There is a console at
+`/land/`.
+
+The objection path has been exercised there: parcel 2, `CD-KIN-2026-00413`,
+sits at `STATUS_DISPUTED`. Parcel 1 carries a mortgage encumbrance, a 1974 grant
+deed and a 49% foreign-ownership restriction, which is the shape this page argues
+for — a title that records what constrains it rather than only who holds it. No
+transfer is pending on the chain as read.
+
+What the live chain does not demonstrate is scale or adversarial use. The
+refusals below are covered by tests; most of them have not been provoked by
+somebody trying.
 
 ## The problem this solves
 

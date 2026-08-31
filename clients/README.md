@@ -5,8 +5,18 @@ Everything user-facing, built on one shared abstraction of the chain.
 ```
 clients/
 ├── sdk/        @yamale/chain — the abstraction layer
-└── explorer/   @yamale/explorer — block explorer, simple and detailed views
+├── explorer/   @yamale/explorer — block explorer, simple and detailed views
+├── wallet/     watching an account, and creating one
+├── rwa/        the investor-facing app for tokenised vehicles
+├── keys/       threshold accounts, running the protocol in a browser
+├── markets/    the oracle, the AMM and the stablecoin registry
+├── oversight/  enforcement cases and netting cycles
+└── demo/       an eighteen-mechanism guided tour
 ```
+
+All of the above are deployed under `https://pay.yamalelegal.com/<name>/`, along
+with `app/`, `foundation/` and `land/`. Every one answered 200 when checked on
+2026-08-31.
 
 ## The abstraction layer
 
@@ -216,6 +226,97 @@ bank reads, a balance and a supply, which the allowlist does serve.
 It is a harness, not app code and not imported by it: the chain has held zero
 collections throughout this work, and an app that only looks right once
 populated is the failure this one was written against.
+## Threshold accounts
+
+`clients/keys` — the page that runs the protocol in front of you.
+
+The claim it exists to make is one sentence: the operator cannot move a
+customer's money. Every payments system says something like it and almost all of
+them mean *we have a policy about that*. Here it is a statement about arithmetic
+— the key exists in three shares and no one of them can produce a signature —
+and the difference between those two things is the entire product. So the page
+does not assert it. It runs the protocol, refuses in front of you, and reads the
+consequences off a public chain.
+
+`mpc/wasm` compiled to WebAssembly is what runs. The page is explicit about
+which half of what you are watching is real:
+
+- **Real:** the account on the chain, its transactions, their heights, and the
+  fact that the second was signed by shares that did not exist when the first
+  was — created in a password reset that did not move the address. Checkable
+  against any block explorer.
+- **Staged:** the live demonstration runs **both** parties inside this one page.
+  In production they are a phone and a server that never meet, exchanging the
+  messages you can see in the transcript. Running them together is what lets you
+  watch the traffic; it is also precisely the arrangement the design forbids, so
+  it uses a throwaway account that holds nothing and whose share files are
+  published on purpose.
+
+Being exact about that matters more than looking impressive. See
+[docs/guides/mpc.md](../docs/guides/mpc.md).
+
+## Markets
+
+`clients/markets` — the oracle, the AMM and the stablecoin registry.
+
+Three modules on this chain put a price on something and none of them had an
+interface. `markets.js` is everything the console decides; `index.html` is
+everything it draws — and the split is not tidiness. Every function in the first
+file is a number somebody is about to act on, and a rendered page cannot be
+checked.
+
+Everything is `BigInt`. Reserves on this chain are already 3×10^10 base units and
+a product of two reserves passes 2^53 immediately, so a swap quote computed in
+doubles is wrong before anybody has done anything unusual.
+
+The swap quote is the keeper's arithmetic byte for byte, including the rounding
+direction, which is the protection: truncating leaves the fractional remainder in
+the pool, and the algebraically equivalent subtraction form rounds the output
+*up* and bleeds the pool one unit at a time. A test named `swap output never
+exceeds the curve` is what stops somebody "simplifying" it.
+
+The oracle panel shows how long a price has **left** rather than how long ago it
+was set, because `max_rate_age_seconds` is not a display hint: past it, a value
+too old to trust is not a value, and consumers must stop rather than proceed on
+the last number anybody reported. It shows the same fact as a bar that empties,
+because expiring is a thing that should look like it is happening.
+
+**On this chain that panel is currently empty, and correctly so.** No rate has
+ever been agreed on `yamale-devnet-2` — both validators have missed every oracle
+window and no feeder is running. See
+[gaps.md](../docs/scope/gaps.md#operational-loose-ends).
+
+## Oversight
+
+`clients/oversight` — enforcement cases and netting cycles.
+
+Every function in `oversight.js` is a pure function of chain state, because the
+console makes a claim — one validator can stop money in a block, and taking it
+needs two thirds — and a claim like that has to be checkable. Where it
+reimplements a keeper rule it names the file it is mirroring, and the test
+asserts the mirror. A console that computes its own answer and quietly disagrees
+with the chain is worse than one that says nothing: the moment it disagrees is
+the moment somebody acts on the wrong number.
+
+Three judgements worth naming:
+
+- **The seizure threshold rounds up**, and it is measured against the power
+  bonded when the case *opened* — not against turnout, which two validators pass
+  on a quiet night, and not against the live set, which moves under the vote as
+  validators unbond.
+- **A case is shown as reachable or not**, because the keeper rejects eagerly the
+  moment `total - no` falls below the bar. A progress bar alone would keep
+  filling for a case that is already lost.
+- **A freeze's clock is block height, never wall time**, and a permanent freeze
+  is a zeroed field rather than a distant one.
+
+It also detects the netting state this project has
+[an open decision about](../docs/scope/gaps.md#open-decisions): `cycle_blocks = 0`
+returns before closing anything, so the open window never settles. An end height
+in the past is not the test — that is an ordinary window waiting for its
+EndBlocker — so the disabled marker is what separates a stalled window from a
+slow one.
+
 ## The guided tour
 
 `clients/demo` — the page that makes the rest of this demonstrable in a room.

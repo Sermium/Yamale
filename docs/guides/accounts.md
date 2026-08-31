@@ -1,8 +1,20 @@
 # Accounts without a wallet
 
-**Status: designed, not built.** The goal: a person signs up with a name, an
-email and a password, adds a second factor, and uses the network without ever
-seeing a seed phrase, an address, or the word "wallet". The chain is plumbing.
+**This is the design document. The key it specifies is now built.**
+
+> The split key of Part 1 exists as `mpc` — 2-of-3 threshold ECDSA — and has
+> signed two payments on the live chain, the second after a password reset that
+> did not move the address. See **[mpc.md](mpc.md)** for what was built and
+> **[custodian.md](custodian.md)** for the service holding the operator's share.
+>
+> **Everything else here is still a specification.** No enrolment, no recovery
+> workflow, no second factor, no notification. Part 5 — the part that actually
+> gets robbed — is written and unbuilt. This page argues the design; those two
+> say what exists.
+
+**The goal:** a person signs up with a name, an email and a password, adds a
+second factor, and uses the network without ever seeing a seed phrase, an
+address, or the word "wallet". The chain is plumbing.
 
 This is achievable. It is also the single largest decision in the product,
 because of one fact that cannot be designed around:
@@ -67,8 +79,23 @@ key.
 
 The cost, stated plainly: this is materially more complex than either
 alternative, and in practice it means a vendor (Turnkey, Privy, Web3Auth) or a
-serious in-house cryptography effort. **That is a build-versus-buy decision, and
-it is the largest open question in the account model.**
+serious in-house cryptography effort.
+
+**That build-versus-buy question is answered: built in house.** The result is
+`mpc`, and it differs from the sketch above in one way worth carrying back here.
+This section says "the server holds one share and the device another" — two
+shares. Two gives the security property and nothing else: if the password is
+gone the device share is gone, and the account is dead with the money in it.
+The reset specified below is impossible with two. So there are **three** —
+device, custodian, and a recovery share held by the foundation's offline 3-of-5,
+deliberately not by the operator — and any two of them sign.
+
+Why threshold ECDSA rather than a 2-of-3 `x/group` account, which would have
+needed no new cryptography: a multisig address derives from its member keys, so
+rotating a share changes the address, and on this chain that retires the
+account's `x/alias` identifier and breaks every saved payee. Resharing rotates
+every share under the same public key. [mpc.md](mpc.md) has the argument and the
+two transactions that demonstrate it.
 
 Institutions keep self-custody, and treasuries keep multi-signature through
 `x/group`. A single credential must never move institutional funds. Custody is a
@@ -227,7 +254,17 @@ name from your contacts, confirm with a second factor. No phrase, no address, no
 "connect wallet". The transfer app already resolves user IDs and names, so most
 of that screen exists; what does not exist is the account service behind it.
 
-**Nothing in this document is built.** It needs an auth service, a key-wrapping
-scheme, an encrypted profile store, a 2FA enrolment flow, and a recovery
-process — none of which is on the chain, and all of which is the larger half of
-the product from here.
+**The key is built; the service is not.** `mpc` is the split key and
+`tools/custodian` is authentication plus the decision to co-sign — see
+[mpc.md](mpc.md) and [custodian.md](custodian.md). What is still needed is an
+enrolment path a member of the public can use, an encrypted profile store, a 2FA
+enrolment flow, notification, and the recovery process specified in Part 5 —
+none of which is on the chain, and all of which is the larger half of the product
+from here.
+
+The blind index of Part 2 is worth a specific note. `tools/custodian` implements
+it as specified: `HMAC(email, pepper)` with the pepper held outside the store and
+refused if it is short or if it sits inside the directory it protects.
+`clients/app` does not — it uses a bare `SHA-256` and calls the result a blind
+index. That divergence is recorded in
+[gaps.md](../scope/gaps.md#the-account-model---the-key-is-built-the-service-around-it-is-not).
