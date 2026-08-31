@@ -4,7 +4,9 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-Last verified 2026-08-27, against `yamale-devnet-2` at block 94,519.
+Last verified 2026-08-31, against `yamale-devnet-2` at block 124,691 — queried
+over `https://pay.yamalelegal.com/api/rpc/`, and every figure below that reads
+as chain state was read from that node on that day.
 
 **Three states, not one.** This document once headed a single table "built,
 merged, and live on the chain", and that phrasing hid a real gap for two days:
@@ -39,21 +41,36 @@ running chain rather than the tree.
 | Coordinated upgrade | proposed, voted, halted at height, binaries swapped, applied — on the live chain |
 | Signing-request decoding | the wallet reads a `TxBody` and says what it does, instead of naming a type URL |
 | Visual system | `clients/shared/yamale.css` — real typefaces, a scale, elevation, semantic colour |
+| All five roles confer something | `roles-that-do-something` applied at **95,400**; two chain-wide `ROLE_FOUNDATION_ADMINISTRATOR` grants exist, made at **95,758**, both pinned (3-of-5 and 3-of-4) |
+| Threshold consumer accounts | `mpc` — 2-of-3 ECDSA. Two payments from one such account at **118,885** and **118,968**, the second after a reshare, under a byte-identical public key |
+| The custodian service | `tools/custodian` — holds one share, authenticates, co-signs, refuses. Not deployed against anybody's money |
+| `x/tokenisation` pays its shareholders | `income-that-arrives` applied at **119,900**; a vehicle minted after it owes 18 YML to its majority holder where the one minted before owes nobody anything against a 72 YML vault |
+| Four more client surfaces | `/keys/`, `/markets/`, `/oversight/`, `/demo/` — all answering 200 on 2026-08-31 |
 
 ## Merged, but not yet running
 
 The distinction this document previously lost. Everything here is in `main` and
-none of it is in the state machine the validators are executing, so a query
-against the live chain returns nothing for any of it.
+has never been exercised against the network the validators are running, so a
+query against the live chain returns nothing for any of it.
 
 | | | |
 |---|---|---|
-| All five roles confer something | supervisors are payload readers; an enforcement office can open a case and freeze in an emergency | ships in `roles-that-do-something` |
-| Administrators and the emergency authority are grants | two parameter lists retired, their fields reserved, both carried across by the upgrade handler | ships in `roles-that-do-something` |
-| An office's M-of-N | recorded on the grant as `required_shape`, re-checked on every authority action | ships in `roles-that-do-something` |
-| `x/tokenisation` has a CLI | 5 queries, 11 transactions; `UpdateParams` and `ResolveDispute` deliberately skipped | client-side only, rides the same binary |
-| Country enrolment | `ceremony country` - offices, grants, jurisdictions, approved by the foundation | tool complete, **never run** |
-| Administrator appointment | `ceremony administrators`, and a governance console that composes it | tool complete, **never run** |
+| Country enrolment | `ceremony country` - offices, grants, jurisdictions, approved by the foundation | tool complete, **never run**: `RoleHolders` is empty for every country asked |
+| Enrolment for a threshold account | `tools/custodian --import` takes a share file an operator produced with `tools/mpc keygen` | there is no path by which a member of the public gets an account |
+| Distributed key generation | `mpc.Keygen` runs all three parties in one process | correct for a ceremony on one machine; in production the device's share must be generated on the device and never leave it |
+
+**Three rows left this table on 2026-08-31, and one of them had been wrong for
+four days.** `roles-that-do-something` was applied at height **95,400** — all
+five roles confer something, the retired parameter lists are grants, and
+`required_shape` is checked on every authority action. Administrator appointment
+was listed as "tool complete, never run" and had in fact been run:
+`ChainWideGrants` returns two `ROLE_FOUNDATION_ADMINISTRATOR` grants made at
+height **95,758**, both to `x/group` accounts and both pinned, at 3-of-5 and
+3-of-4. `x/tokenisation`'s CLI rides the same binary and is therefore live too.
+
+That is the same failure this document was restructured to prevent, in the
+opposite direction: a row stayed pessimistic because nobody re-read the chain
+after the upgrade landed. **Reading the chain has to happen in both directions.**
 
 **How this was found, and it is the reason for the split.** On 2026-08-27 the
 running binary on both hosts was four days old. `query alias chain-wide-grants`
@@ -64,10 +81,11 @@ money and could never be addressed, because `MsgRegisterAlias` needs a recorded
 jurisdiction and only an approved participant or a foundation administrator can
 record one. **A binary's build date is now part of verifying this document.**
 
-## The account model - decided, specified, and the largest unbuilt thing
+## The account model - the key is built, the service around it is not
 
-Separated out because it keeps being asked about, and because "designed" reads
-too much like "nearly done".
+Separated out because it keeps being asked about. This section previously read
+"decided, specified, and the largest unbuilt thing", and the first half of that
+stopped being true on 2026-08-31.
 
 **Decided 2026-08-20: threshold key custody, built in house rather than bought.**
 The design is complete in [accounts.md](../guides/accounts.md): the key is split,
@@ -81,21 +99,65 @@ delay with notice to email and every enrolled device, outbound payments frozen
 for 24 hours afterwards, proof that is not public knowledge, and recoveries
 published in aggregate so an unusual rate is visible without exposing who.
 
-**None of it is built. There is no share protocol, no server, and no account
-service.** What ships is the model the design explicitly rejected: a CosmJS
-password-wrapped key in `localStorage`. `clients/app/src/account.ts` says so in
-its own header and calls itself not acceptable in production, which is the right
-way to carry a proof of concept - but it means a forgotten password is a lost
-account today.
+**The share protocol is built, and it has signed on this chain.** `mpc` is
+2-of-3 threshold ECDSA over secp256k1 on tss-lib: three shares named `device`,
+`custodian` and `recovery`, any two of which sign, none of which signs alone. It
+is documented in [mpc.md](../guides/mpc.md). `tools/custodian` holds the second
+share and decides whether to co-sign — [custodian.md](../guides/custodian.md).
+`mpc/wasm` is the device's half compiled for the browser, and `clients/keys` runs
+the protocol in front of an audience at `/keys/`.
+
+What was verified on the chain, and it is the claim the design was chosen for:
+
+| | Height | Transaction | Memo |
+|---|---|---|---|
+| | 118,885 | `A8F18CAB…B15C3C` | `threshold signed: device + custodian` |
+| | 118,968 | `6C784D06…4AFCFE` | `after a password reset: new shares, same address` |
+
+Both `code 0`, both `MsgSend` from
+`yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97`, sequences 0 and 1 — and both
+carrying the **byte-identical** compressed public key
+`0320ddc3…3c34`, which derives to that address. The second was signed by shares
+that did not exist when the first was signed. A Cosmos multisig could not have
+done that: rotating a member changes the address, which retires the account's
+`x/alias` identifier and silently breaks every saved payee.
+
+Two honest limits on that. The chain sees an ordinary single-signature account
+and cannot tell you the signature was produced jointly — that
+indistinguishability is deliberate, and it is also why the transaction alone is
+not proof of the arrangement. And the shares in that rehearsal were three files
+on one machine driven by `tools/mpc`, which is precisely the arrangement the
+design exists to avoid; the CLI's own header says so.
+
+**The service around it is not built, and that is still the commercial critical
+path.** No enrolment over HTTP, no recovery workflow, no second factor, no
+notification, no distributed key generation, no pre-parameter pool. An account is
+created by an operator running `keygen` and `--import`. Everything in Part 5 of
+[accounts.md](../guides/accounts.md) — two approvers from different teams, the
+72-hour delay, notice to email and every enrolled device, the 24-hour outbound
+freeze, the standard of proof — is specified and none of it exists. `Reshare` is
+the mechanism a reset would use and nothing calls it in anger.
+
+**And the consumer app still ships the model the design rejected.** `clients/app`
+holds a CosmJS password-wrapped key in `localStorage`.
+`clients/app/src/account.ts` says so in its own header and calls itself not
+acceptable in production, which is the right way to carry a proof of concept —
+but it means a forgotten password is a lost account today, and the threshold work
+above is not wired into any interface a person could use.
 
 Two divergences worth recording rather than leaving only in the code:
 
-- **The blind index is not one.** `emailKey()` is a bare `SHA-256` of the
-  address. The design specifies `HMAC(email, pepper)` with the pepper held
-  outside the store, and the difference is the whole property: a bare hash can be
-  tested against any list of email addresses, so a dump yields the membership it
-  was supposed to hide. Local-only storage makes it less severe than the same
-  mistake server-side; it does not make the code's claim true.
+- **The blind index in `clients/app` is not one.** `emailKey()` is a bare
+  `SHA-256` of the address. The design specifies `HMAC(email, pepper)` with the
+  pepper held outside the store, and the difference is the whole property: a bare
+  hash can be tested against any list of email addresses, so a dump yields the
+  membership it was supposed to hide. Local-only storage makes it less severe
+  than the same mistake server-side; it does not make the code's claim true.
+  **`tools/custodian` now does it correctly** — HMAC with a pepper the service
+  refuses to start without, refuses below 32 bytes, and refuses to read from
+  inside the directory it protects. So the divergence is now between two places
+  in this repository rather than between the code and the spec, which makes it
+  cheaper to close and no less wrong until somebody does.
 - **`crypto.subtle` is undefined outside a secure context**, so on the plain-HTTP
   tailnet host account creation throws and reaches the user as "That password is
   not right."
@@ -144,11 +206,14 @@ testing on every value-moving path, written invariant specifications produced
 HSM custody, a documented upgrade rollback.
 
 **The account service**, which the scope calls the actual commercial critical
-path. Its key custody has its own section above, because it is decided and
-specified rather than merely absent; what is untouched around it is the service
-that would host it - authentication, the recovery workflow, second factor. Plus
-USSD and feature-phone access, without which most African transaction volume is
-unreachable, and agent-network and mobile-money integration.
+path. Its key custody has its own section above, because it is now built rather
+than merely specified. What remains untouched around it is most of the service:
+enrolment for a member of the public, the recovery workflow, second-factor
+enrolment, notification, and rate limiting or lockout on the custodian's password
+check. `tools/custodian` covers authentication and the decision to co-sign, and
+nothing else on that list. Plus USSD and feature-phone access, without which most
+African transaction volume is unreachable, and agent-network and mobile-money
+integration.
 
 **A legal entity able to sign an indemnity.**
 
@@ -257,8 +322,14 @@ could reasonably have gone the other way:
 
 ## Known defects
 
+**Closed in the tree is not closed on the chain.** The five `x/tokenisation`
+defects struck through below were fixed on 2026-08-27 and were still being
+executed in their broken form by the validators for four more days. They became
+live with the `income-that-arrives` upgrade at height **119,900**, verified
+against `AppliedPlan`. A row here now says both dates when they differ.
+
 - ~~**No shareholder in x/tokenisation could ever be paid anything.**~~ Closed
-  2026-08-27. `SendRestrictionFn` settles both sides of a share transfer, which
+  2026-08-27, live at 119,900. `SendRestrictionFn` settles both sides of a share transfer, which
   the income index requires — a holder earns the movement in the index across
   the period they held, so a position has to be settled the moment a balance
   changes. It was written, commented, and **registered nowhere**: `app.go`
@@ -335,6 +406,14 @@ could reasonably have gone the other way:
   participants. So the app sends a real transfer with the reference in the memo
   and says which rails carried it. The ISO message stays unreachable from any
   interface until a country is enrolled.
+
+  Re-measured 2026-08-31: `ListApprovedParticipant` and `ListPaymentRecord` both
+  return an empty page, and `RoleHolders` is empty for every country asked. **So
+  the payment at height 84,121 is not an ISO 20022 payment and must never be
+  described as one.** It is a `/cosmos.bank.v1beta1.MsgSend` of 12,500,000
+  `uxof` carrying `ym1;e2e=YML-20260826-PM1SJCMM;purp=GDDS;rmt=Invoice 4471` in
+  the memo — read back from the transaction, not from the release note. The ISO
+  fields travel in a memo string; `x/paymsg` was not involved and holds nothing.
 - **The OpenAPI merge collapses every module's `Params` into one definition**,
   currently holding only `x/validatorgov`'s fields.
 - **`TestGenesisRoundTrips` in `x/alias` still has a vacuous `Owners` check** —
@@ -342,27 +421,46 @@ could reasonably have gone the other way:
 - **`x/tokenisation` is served under `/yamale/` and the nginx allowlist names it
   under neither prefix**, so it falls through to deny-by-default. Correct today,
   a trap when somebody opens it up.
-- ~~**`FinaliseSale` has no caller.**~~ Closed 2026-08-27. It was a keeper method
+- ~~**`FinaliseSale` has no caller.**~~ Closed 2026-08-27, live at 119,900. It was a keeper method
   nothing invoked — no message, no EndBlocker, not one test — so no asset reached
   `STATUS_REALISED` and `Redeem`, which requires it, could never succeed for
   anybody: every fractionalised vehicle was a one-way door. `MsgFinaliseSale` is
   the caller, permissionless because a crank only the sponsor could turn is one
   the sponsor can decline to turn.
-- ~~**`AttestSale` never checked who was attesting.**~~ Closed 2026-08-27.
+- ~~**`AttestSale` never checked who was attesting.**~~ Closed 2026-08-27, live
+  at 119,900.
   `ErrNotAttestor` was registered as code 17 and returned from nowhere, and
   `Collection` carried no register to check against, so a sponsor met any
   threshold with fresh addresses at the cost of the gas — leaving the guide's
   own "the sale price is the attack" defended by nothing. Collections now carry
   an attestor register that **governance** appoints, not the seller.
-- ~~**A holder who never transferred was paid nothing.**~~ Closed 2026-08-27.
+- ~~**A holder who never transferred was paid nothing.**~~ Closed 2026-08-27, live
+  at 119,900.
   `Fractionalise` created the vault and no position for the owner, so `Settle`
   treated them as a first-time holder on the way out and started them at an
   index that had already moved. Hidden because any transfer settles both sides,
   so the ordinary issue-then-distribute path created the position by accident.
 - ~~**`DisputeSale` returned `ErrStillInWindow` for a window that had closed.**~~
-  Closed 2026-08-27; `ErrWindowClosed` is code 34.
+  Closed 2026-08-27, live at 119,900; `ErrWindowClosed` is code 34.
 
 ## Operational loose ends
+
+- **The oracle has never agreed a price on this chain, and nothing said so.**
+  Found 2026-08-31. `Query/ExchangeRates` returns an empty set, and
+  `Query/ExchangeRate` for every denomination asked answers *"no rate has ever
+  been agreed"* — not a stale rate, never one. `Query/MissCounters` says why:
+  both validators have missed **every** window they have been eligible for,
+  10,188 of 10,188 and 10,394 of 10,394. No feeder is running. The vote period is
+  12 blocks and the threshold 50%, so with two validators a single feeder cannot
+  produce a rate on its own; two feeders are needed and there are none.
+
+  This is worth more than its size. `/markets/` is listed above as live and it
+  is — the console renders, the AMM pools behind it are real, and its oracle
+  panel is correctly showing that there is nothing to show. But "the module
+  works" and "the module has ever produced its output on this network" are
+  different claims, and only the first of them was being made. Anything that
+  consumes a rate — fee conversion, the appointed-valuer path, a stablecoin
+  peg check — has never been exercised end to end here.
 
 - **A validator above two thirds silently excludes every other validator.**
   Found and fixed 2026-08-21. `pi-2` signed 5 of 40 blocks, was jailed for
@@ -374,7 +472,10 @@ could reasonably have gone the other way:
   it from 5 of 40 to **25 of 25** with nothing else changed. The cost is that
   neither node can now commit alone, so either one's outage stops the chain —
   which two validators could never avoid. Four is the number that gets both
-  properties.
+  properties. The split has drifted since and reads **57.18% / 42.82%** on
+  2026-08-31 — 100,000 and 74,900 of 174,900 bonded. Neither holds two thirds,
+  which is the property that matters, and the chain was not catching up when
+  read.
 - **The ops signing service is still running** with two htpasswd files. It was
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both
