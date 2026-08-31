@@ -1,0 +1,1643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Markets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  The markets console: what a currency is worth, what a trade costs, and which
+  currencies the chain will let anybody mint.
+
+  Three modules on this chain put a price on something and none of them had an
+  interface. x/oracle agrees exchange rates by validator vote and records signed
+  appraisals from appointed valuers; x/amm prices a trade against a constant
+  product curve; x/stablecoin decides who may bring a currency into existence.
+  What they have in common is that each of them can be wrong in a way that is
+  invisible on a page that just prints the number.
+
+  The three things this page exists to make visible:
+
+    1. A price with an age. x/oracle's rule is that a value too old to trust is
+       not a value — past max_rate_age_seconds a consumer must treat the price
+       as unknown and stop, rather than act on the last number anybody happened
+       to report. So no rate is ever shown here without how long it has left,
+       and a rate close to expiring is drawn as a thing that is running out.
+
+    2. The worst case of a trade, not its quote. Everything on a swap screen
+       except the minimum received is an estimate against reserves that the next
+       block may move. So the minimum received is the large number and the quote
+       is the small one, and the price impact warning appears before the command
+       to sign, not after it.
+
+    3. Registered is not approved. `register-currency` succeeds, returns code 0,
+       and leaves a currency that cannot be minted. Only a governance proposal
+       carrying MsgApproveIssuer makes it mintable, and until one passes the
+       mint fails with code 1104 — a message that reads like "wrong key" and
+       means "no proposal has passed". Those are two separate columns here, and
+       they are never collapsed into one.
+
+  Deliberately one file with no build step and no dependencies, like the land,
+  validator, governance and foundation consoles. Read-only against the public
+  REST surface, unauthenticated. Nothing here holds a key: see the "who signs
+  this" panel on every action for what that means per message, and markets.js
+  for the reasoning, which is read off `cosmos.msg.v1.signer` in each tx.proto
+  rather than guessed.
+-->
+<style>
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked for the reason the other four consoles inline
+     it: one file, no build step, and no second request standing between the
+     reader and a page that has to say whether a price is still usable.
+
+     The three-state theming is the part that must not be improvised. `:root`
+     carries the complete light palette; the dark blocks redefine TOKENS ONLY,
+     never a component rule — a colour whose sole definition sits inside a media
+     query or a [data-theme] block renders one theme's text on the other theme's
+     ground in the un-stamped state, and that bug has shipped here before.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+    --sp-8: 4.5rem;
+
+    --radius: 5px;
+    --radius-lg: 8px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+
+    /* ---- two tokens the shared system does not have yet, and needs --------
+       MEASURED, not guessed. Compositing every wash against its real backdrop
+       and computing WCAG contrast across all five screens, the light palette's
+       --brass (#a87b3c) and --warn (#a8791b) fail 4.5:1 wherever they carry
+       small text:
+
+         .eyebrow            brass on --bg .............. 3.52
+         .btn.primary        brass on --surface ......... 3.77
+         slippage, pressed   brass on --wash-brass ...... 3.31
+         .p-warn             warn on --wash-warn ........ 3.38
+         .fresh__text        warn on --surface .......... 3.88
+
+       Both are fine in dark, and both are fine in light as a border, a bar or a
+       3px rule — it is only text that fails. So rather than change the brand
+       colour, these two exist for text and resolve to the palette colour in
+       dark, where the palette colour already passes. Measured after the change:
+       5.93, 5.93, 5.20, 5.47, 6.26.
+
+       This is a finding about clients/shared/yamale.css, not about this file:
+       every console using .y-eyebrow or .y-chip--warn in light has it. */
+    --brass-text: #825d22;
+    --warn-text: #80590f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+      /* In dark the palette colours already clear 4.5:1 on every ground they
+         sit on, so the text tokens resolve to them. Redefined here AND in the
+         [data-theme] block below: a token defined in only one of the two leaves
+         the other theme reading a colour meant for the opposite ground. */
+      --brass-text: var(--brass);
+      --warn-text: var(--warn);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+    --brass-text: var(--brass);
+    --warn-text: var(--warn);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .y-num, .y-tabular { font-variant-numeric: tabular-nums; }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ======================================================== the console shell */
+
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600; }
+  header h1 a { color: inherit; text-decoration: none; }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; margin: var(--sp-6) 0 var(--sp-3); }
+  h4 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  .card--waiting { border-inline-start: 3px solid var(--brass); background: var(--wash-brass);
+                   box-shadow: var(--shadow-2); }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+
+  .grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap;
+  }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
+
+  /* `break-all` belongs to addresses and hashes, not to inline code in a
+     sentence: it split `mint-coin` across a line as "min / t-coin", which reads
+     as a different command. Only .y-addr breaks anywhere. */
+  code { font-size: 0.86em; overflow-wrap: break-word; }
+
+  /* The truncation mark. Underdotted so it reads as a footnote rather than as
+     part of the figure, and it carries the exact amount as its title. */
+  .trunc {
+    /* The mark inherits the figure's colour rather than being greyed: measured
+       on the brass wash behind the minimum-received panel, --text-muted came to
+       4.25:1 and failed. It is set apart by the dotted rule, which is a shape,
+       not a contrast. */
+    text-decoration: underline dotted;
+    text-decoration-color: var(--text-faint);
+    text-underline-offset: 2px;
+    color: inherit;
+    cursor: help;
+    margin-inline-start: 0.1em;
+  }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2; max-width: none;
+  }
+
+  .err, .badbox, .warnbox, .notebox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-3) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err, .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn-text); }
+  .err code, .badbox code, .warnbox code, .notebox code { color: inherit; }
+  .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
+
+  button { font: inherit; }
+  .btn {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    text-decoration: none; display: inline-block;
+  }
+  .btn:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn.primary { border-color: var(--brass); color: var(--brass-text); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input, select {
+    font-family: var(--font-sans); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%; max-width: 44rem;
+  }
+  input:hover, select:hover { border-color: var(--text-faint); }
+  input::placeholder { color: var(--text-faint); }
+
+  .cmdhead {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap;
+  }
+  details { margin-top: var(--sp-3); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+  /* Wide content scrolls inside its own box. The page body never scrolls
+     sideways — a horizontal scrollbar on the document is how a table takes the
+     whole layout with it. */
+  .scroll { overflow-x: auto; }
+
+  dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
+       gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
+  dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); }
+  dd { margin: 0; min-width: 0; word-break: break-word; }
+
+  /* ============================================ how much life a price has left
+
+     The bar is not decoration. x/oracle's rule is that a value older than
+     max_rate_age_seconds is not a value, so "how old" and "how long left" are
+     the same fact and the reader should not have to do the subtraction against
+     a parameter they have not seen. The bar drains; the words say the same
+     thing; the colour is third, never alone. */
+  .fresh { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 11rem; }
+  .fresh__bar {
+    height: 6px; border-radius: 3px; background: var(--surface-3);
+    overflow: hidden; border: 1px solid var(--border);
+  }
+  .fresh__fill { height: 100%; display: block; }
+  .fresh--fresh .fresh__fill { background: var(--ok); }
+  .fresh--expiring .fresh__fill { background: var(--warn); }
+  .fresh--expired .fresh__fill { background: var(--bad); }
+  .fresh--none .fresh__fill { background: var(--text-faint); }
+  .fresh__text { font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+  .fresh--expiring .fresh__text { color: var(--warn-text); }
+  .fresh--expired .fresh__text { color: var(--bad); font-weight: 600; }
+  .fresh--none .fresh__text { color: var(--text-muted); }
+
+  /* ================================================================ the swap */
+
+  .swap { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .swap { grid-template-columns: minmax(0, 1fr); } }
+
+  .leg {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--sp-3) var(--sp-4);
+  }
+  .leg + .leg { margin-top: var(--sp-2); }
+  .leg__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }
+  .leg input {
+    border: 0; background: transparent; padding: 0; max-width: none;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: var(--step-4); font-weight: 600; line-height: 1.2;
+  }
+  .leg input:hover { border: 0; }
+  .leg__out {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: var(--step-4); font-weight: 600; line-height: 1.2;
+    color: var(--text-muted); word-break: break-all;
+  }
+  .leg__denom { font-family: var(--font-mono); font-size: var(--step-0); color: var(--text); white-space: nowrap; }
+
+  .flip { display: flex; justify-content: center; margin: calc(-1 * var(--sp-2)) 0; position: relative; z-index: 1; }
+  .flip button {
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    border-radius: 50%; width: 2.1rem; height: 2.1rem; cursor: pointer;
+    font-size: var(--step-0); line-height: 1; box-shadow: var(--shadow-1);
+  }
+  .flip button:hover { border-color: var(--brass); color: var(--brass); }
+
+  /* The minimum received is the only figure on this screen that is a promise.
+     Everything else is a quote against reserves the next block may move, so the
+     promise is the one set large. */
+  .worst {
+    border: 1px solid var(--rule); border-inline-start: 3px solid var(--brass);
+    border-radius: var(--radius); padding: var(--sp-3) var(--sp-4);
+    background: var(--wash-brass); margin-top: var(--sp-3);
+  }
+  .worst__figure {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15;
+    word-break: break-all;
+  }
+  .quoteline { display: flex; justify-content: space-between; gap: var(--sp-4);
+               padding: var(--sp-2) 0; border-bottom: 1px solid var(--border);
+               font-size: var(--step--1); align-items: baseline; }
+  .quoteline:last-child { border-bottom: 0; }
+  .quoteline > span:last-child { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+                                 text-align: end; word-break: break-word; }
+
+  .slip { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+  .slip button {
+    font-family: var(--font-mono); font-size: var(--step--1);
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text-muted);
+  }
+  .slip button[aria-pressed='true'] {
+    border-color: var(--brass); color: var(--brass-text); background: var(--wash-brass); font-weight: 600;
+  }
+
+  /* The reserve bar: two denoms, one pool, shown in proportion by value rather
+     than by units — a pool of 20,000 YML and 30,000 NGN is balanced by
+     construction, and drawing the raw unit counts would say it is not. */
+  .reserves { display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+              border: 1px solid var(--border); margin: var(--sp-2) 0; }
+  .reserves span:first-child { background: var(--accent); }
+  .reserves span:last-child { background: var(--brass); }
+
+  .keyline { display: flex; gap: var(--sp-4); flex-wrap: wrap; font-size: var(--step--1); }
+  .keyline span { display: inline-flex; align-items: center; gap: var(--sp-2); }
+  .keyline i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .legend { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+
+  #banner:not(:empty) { margin-bottom: var(--sp-4); }
+
+  @media (max-width: 560px) {
+    dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    dd { margin-bottom: var(--sp-2); }
+    .leg input, .leg__out { font-size: var(--step-3); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px"
+       onerror="this.style.display='none'">
+  <h1><a href="#/rates">Markets</a></h1>
+  <nav id="nav"></nav>
+  <!-- The honest signal that this is a live chain rather than a screenshot of
+       one, which is the difference that decides whether a price on this page
+       means anything at all. -->
+  <span class="label" id="clock">reading…</span>
+  <button class="copy" id="theme" type="button">theme</button>
+</header>
+
+<div class="wrap">
+  <div id="banner"></div>
+  <!-- The pending state, drawn rather than left blank. "No feed is reporting"
+       and "this page has not asked yet" are opposite facts that look identical
+       on an empty screen. -->
+  <main id="view">
+    <p class="eyebrow">Reading the chain</p>
+    <div class="card"><p class="muted small">Nothing below is drawn until the chain answers.
+      An empty page is not an answer.</p></div>
+  </main>
+</div>
+
+<script type="module">
+import {
+  CHAIN, ERRORS, EMPTY_AMOUNT, MESSAGES, SIGNERS,
+  agreement, approveIssuerProposal, formatAmount, freshness, groupDigits,
+  impactVerdict, isOwnAccount, mintability, ratio, reporting, resolveDenom, span,
+  submitRatesCommand, swapCommand, swapQuote, toBaseUnitsOf, truncatedFrom,
+} from './markets.js';
+
+// ---------------------------------------------------------------------------
+// Reading the chain
+//
+// The public REST surface, unauthenticated. Every failure names the call that
+// failed, because "something went wrong" leaves a reader unable to tell "there
+// is no price" from "nobody asked", and on this page those are the two facts
+// that matter most.
+//
+// A 401 here is not a bug in this page: /api/rest is allowlisted per module
+// path at the edge, so a module nobody added is a login box rather than a 404.
+// The banner says so, because a browser credential prompt in front of a public
+// register is the single most confusing failure this deployment produces.
+// ---------------------------------------------------------------------------
+
+const REST = '/api/rest';
+const ORACLE = `${REST}/yamale/blockchain/oracle/v1`;
+const AMM = `${REST}/yamale/blockchain/amm/v1`;
+const STABLE = `${REST}/yamale/blockchain/stablecoin/v1`;
+const COSMOS = `${REST}/cosmos`;
+
+class CallFailed extends Error {
+  constructor(url, status, detail) {
+    super(detail ? `${url} → ${status}: ${detail}` : `${url} → ${status}`);
+    this.url = url;
+    this.status = status;
+  }
+}
+
+async function get(url) {
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    throw new CallFailed(url, 'unreachable', e.message);
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).message || ''; } catch { /* not json */ }
+    throw new CallFailed(url, res.status, detail);
+  }
+  return res.json();
+}
+
+/** Returns null for a 404 rather than throwing. "No such thing" is an answer. */
+async function getOrNull(url) {
+  try { return await get(url); }
+  catch (e) { if (e.status === 404 || e.status === 400) return null; throw e; }
+}
+
+const cache = new Map();
+const once = (key, fn) => {
+  if (!cache.has(key)) cache.set(key, fn().catch((e) => { cache.delete(key); throw e; }));
+  return cache.get(key);
+};
+
+const oracleParams = () => once('oracle-params', async () => (await get(`${ORACLE}/params`)).params);
+const rates = () => once('rates', async () => (await get(`${ORACLE}/rate`)).rates || []);
+const appraisers = () => once('appraisers', async () => (await get(`${ORACLE}/appraiser`)).appraisers || []);
+const misses = () => once('misses', async () => (await get(`${ORACLE}/miss`)).counters || []);
+const feederOf = (v) => once(`feeder-${v}`, async () => (await getOrNull(`${ORACLE}/feeder/${v}`))?.feeder || null);
+const pools = () => once('pools', async () => (await get(`${AMM}/pool`)).pool || []);
+const applications = () =>
+  once('apps', async () => (await get(`${STABLE}/issuer_application?pagination.limit=500`)).issuer_application || []);
+const approvedIssuers = () =>
+  once('approved', async () => (await get(`${STABLE}/approved_issuer?pagination.limit=500`)).approved_issuer || []);
+const validators = () =>
+  once('validators', async () => (await get(`${COSMOS}/staking/v1beta1/validators?pagination.limit=200`)).validators || []);
+const supply = () =>
+  once('supply', async () => {
+    const s = (await get(`${COSMOS}/bank/v1beta1/supply?pagination.limit=500`)).supply || [];
+    return new Map(s.map((c) => [c.denom, c.amount]));
+  });
+// Deliberately not cached. Every staleness figure on this page is measured
+// against block time, so this is the one query whose answer must be the current
+// one — a cached "now" would age a price by however long the tab has been open.
+const latest = async () => (await get(`${COSMOS}/base/tendermint/v1beta1/blocks/latest`)).block;
+
+// ---------------------------------------------------------------------------
+// Small renderers
+// ---------------------------------------------------------------------------
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+const shortAddr = (a) => (a && a.length > 20 ? `${esc(a.slice(0, 11))}…${esc(a.slice(-6))}` : esc(a || '—'));
+
+const symbolOf = (denom) => resolveDenom(denom).symbol;
+const nameOf = (denom) => resolveDenom(denom).name;
+
+/**
+ * An amount, with the exact figure kept where it was truncated.
+ *
+ * The zero-decimal currencies are why this exists. `299999769uxof` is
+ * 299.999769 XOF; the franc has no subunit, so it prints as 299 XOF and sits in
+ * a column next to a genuine 300 XOF looking like a bug. It is not a bug — it
+ * is a third of a franc short — and the page says so on hover and in the title
+ * rather than leaving the reader to work out which of the two is wrong.
+ */
+let truncSeen = false;
+
+function amount(base, denom) {
+  const shown = formatAmount(base, denom);
+  const exact = truncatedFrom(base, denom);
+  if (!exact) return `<span class="y-num">${esc(shown)}</span>`;
+  truncSeen = true;
+  // A marker rather than the word: this appears in every cell of a column, and
+  // a figure followed by "(truncated)" forty times is a column nobody can read.
+  // The exact amount is on the marker and in the footnote every table carrying
+  // one gets, so the reader is told what the mark means once and can then get
+  // the full figure wherever they see it.
+  return (
+    `<span class="y-num">${esc(shown)}<abbr class="trunc" ` +
+    `title="Exactly ${esc(groupDigits(exact))} ${esc(symbolOf(denom))}. ` +
+    `${esc(symbolOf(denom))} is not quoted to that many places, so the figure shown is cut short — never rounded up.">` +
+    `…</abbr></span>`
+  );
+}
+
+/**
+ * The footnote that makes the marker above mean something — emitted only when a
+ * marker was actually drawn, since a footnote with nothing to annotate is
+ * itself a small puzzle. Template literals evaluate left to right, so placing
+ * this after the rows in the same string sees the flag they set.
+ */
+function truncNote() {
+  if (!truncSeen) return '';
+  return (
+    '<p class="muted small"><abbr class="trunc">…</abbr> marks a figure cut short to the places its currency is ' +
+    'quoted in. It is never rounded up, so a marked amount is always slightly less than what is really held — ' +
+    'a pool of 299.999769 XOF shows as 299 XOF, not 300. The exact figure is on the mark.</p>'
+  );
+}
+
+/** The freshness component: a bar that drains, words that say the same thing. */
+function freshnessHtml(f, { maxAge, live } = {}) {
+  const pct = Math.round((1 - (f.fraction ?? 0)) * 100);
+  let text;
+  if (f.state === 'none') text = 'never reported';
+  else if (f.clockSkew) text = 'stamped in the future — the chain refuses it';
+  else if (f.state === 'expired') text = `expired ${span(-f.remaining)} ago — not usable`;
+  else text = `usable for ${span(f.remaining)} more`;
+
+  const age = f.ageSeconds === null || f.clockSkew ? '' :
+    `<span class="muted">agreed ${esc(span(f.ageSeconds))} ago${maxAge ? `, of ${esc(span(maxAge))} allowed` : ''}</span>`;
+
+  // `updatedAt` and `maxAge` are stamped on the node so the bar can be
+  // recomputed in place by the ticker below. A rate that is running out should
+  // be seen running out, not only be described as doing so at the moment the
+  // page happened to load — the whole claim this page makes about x/oracle is
+  // that expiry is a live property, and a bar frozen at page load quietly says
+  // the opposite.
+  const stamp = live && live.updatedAt
+    ? ` data-updated="${Number(live.updatedAt)}" data-maxage="${Number(maxAge || 0)}"`
+    : '';
+  return `
+    <div class="fresh fresh--${f.state}"${stamp}>
+      <div class="fresh__bar"><span class="fresh__fill" style="width:${f.state === 'expired' ? 100 : Math.max(pct, 2)}%"></span></div>
+      <div class="fresh__text">${esc(text)}</div>
+      <div class="fresh__age">${age}</div>
+    </div>`;
+}
+
+/**
+ * Redraws every stamped freshness bar against the current clock.
+ *
+ * Pure recomputation — nothing is refetched, because freshness is a function of
+ * (updated_at, now, max_age) and only one of the three moves between blocks.
+ * The legend on the empty state carries no stamp, so it stays put: it is a key,
+ * not a price, and a key that animated would be claiming to be one.
+ */
+function retickFreshness() {
+  const nodes = document.querySelectorAll('.fresh[data-updated]');
+  if (!nodes.length) return;
+  const now = Math.floor(Date.now() / 1000) + chainClockOffset;
+  nodes.forEach((el) => {
+    const f = freshness(Number(el.dataset.updated), now, Number(el.dataset.maxage));
+    const fresh = freshnessHtml(f, { maxAge: Number(el.dataset.maxage), live: { updatedAt: el.dataset.updated } });
+    const next = document.createElement('div');
+    next.innerHTML = fresh.trim();
+    el.className = next.firstElementChild.className;
+    el.innerHTML = next.firstElementChild.innerHTML;
+  });
+}
+
+/**
+ * How far this browser's clock is from the chain's, in seconds.
+ *
+ * Freshness is judged against block time, not against the reader's laptop. A
+ * machine ten minutes fast would otherwise show every rate as expired, which is
+ * the one wrong answer that looks exactly like the right one.
+ */
+let chainClockOffset = 0;
+
+/** Copy buttons, one delegated listener for the whole page. */
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-copy]');
+  if (!btn) return;
+  const pre = document.getElementById(btn.dataset.copy);
+  if (!pre) return;
+  navigator.clipboard?.writeText(pre.textContent).then(() => {
+    const was = btn.textContent;
+    btn.textContent = 'copied';
+    setTimeout(() => { btn.textContent = was; }, 1400);
+  });
+});
+
+let seq = 0;
+/** A copyable command block with its "who signs this" reasoning attached. */
+function command(title, typeUrl, text, note) {
+  const id = `cmd${seq++}`;
+  const rule = SIGNERS[typeUrl];
+  return `
+    <div class="cmdhead">
+      <span class="label">${esc(title)}</span>
+      <button class="copy" type="button" data-copy="${id}">copy</button>
+    </div>
+    <pre id="${id}">${esc(text)}</pre>
+    ${note ? `<p class="muted small">${note}</p>` : ''}
+    ${rule ? signerHtml(typeUrl, rule) : ''}`;
+}
+
+/**
+ * Who the chain requires as signer, and what this page is therefore allowed to
+ * offer. Read off `option (cosmos.msg.v1.signer)` in the module's tx.proto —
+ * see SIGNERS in markets.js for the full reasoning per message.
+ */
+function signerHtml(typeUrl, rule) {
+  const word = {
+    browser: 'One key, one person — a wallet can sign this',
+    proposal: 'The x/gov module account — only a passed proposal produces it',
+    command: 'One key, but not one that belongs in a browser',
+  }[rule.mode];
+  return `
+    <details>
+      <summary>Who signs this</summary>
+      <dl>
+        <dt>Message</dt><dd><code>${esc(typeUrl)}</code></dd>
+        <dt>Signer</dt><dd><code>${esc(rule.signer)}</code> — ${esc(word)}</dd>
+        <dt>Why</dt><dd>${esc(rule.why)}</dd>
+      </dl>
+    </details>`;
+}
+
+/**
+ * Why there is no button, said once, in the place a button would be.
+ *
+ * The swap is the one message on this page whose signer is a single person with
+ * a single key, so a browser signature is the right end state for it. It is not
+ * offered because `@yamale/connect` is TypeScript with a CosmJS dependency and
+ * this page deliberately has no build step — the same reason clients/land gives.
+ * That is a limitation of this file, not a property of the module, and saying so
+ * is better than implying the chain requires a terminal for a trade.
+ */
+const BROWSER_SIGNING_NOTE =
+  'A trader signing their own swap in the browser is the right end state for this one message, ' +
+  'and it is not here yet: the wallet library is TypeScript with a build step, and this console ' +
+  'deliberately has neither. Until then the command below is the same transaction, run where the key is.';
+
+// ---------------------------------------------------------------------------
+// Routing
+// ---------------------------------------------------------------------------
+
+const view = document.getElementById('view');
+const banner = document.getElementById('banner');
+
+const ROUTES = [
+  ['#/rates', 'Rates'],
+  ['#/valuers', 'Valuers'],
+  ['#/pools', 'Pools'],
+  ['#/swap', 'Swap'],
+  ['#/currencies', 'Currencies'],
+];
+
+function renderNav(hash) {
+  document.getElementById('nav').innerHTML = ROUTES.map(([h, label]) => {
+    const on = hash.startsWith(h);
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${label}</a>`;
+  }).join('');
+}
+
+function setBanner(e) {
+  if (!e) { banner.innerHTML = ''; return; }
+  const denied = e.status === 401 || e.status === 403;
+  banner.innerHTML = `
+    <div class="err">
+      <p><strong>${denied ? 'The chain refused to answer that question publicly.' : 'The chain did not answer.'}</strong></p>
+      <p>${denied
+        ? 'A browser login box in front of a public query means a 401: <code>/api/rest</code> is allowlisted per ' +
+          'module path at the edge, and this one is not on the list. Nothing on this page is behind a password — ' +
+          'there is no account to log in to.'
+        : 'This page shows nothing rather than showing a stale number, because a price nobody can confirm is worse ' +
+          'than no price.'}</p>
+      <p class="muted"><code>${esc(e.message)}</code></p>
+    </div>`;
+}
+
+async function route() {
+  const hash = location.hash || '#/rates';
+  renderNav(hash);
+  setBanner(null);
+  truncSeen = false;
+  view.innerHTML = '<p class="spin">Reading the chain…</p>';
+  try {
+    if (hash.startsWith('#/pools')) await renderPools();
+    else if (hash.startsWith('#/swap')) await renderSwap(hash);
+    else if (hash.startsWith('#/currencies')) await renderCurrencies();
+    else if (hash.startsWith('#/valuers')) await renderValuers();
+    else await renderRates();
+  } catch (e) {
+    setBanner(e);
+    view.innerHTML = '';
+  }
+}
+
+async function tick() {
+  try {
+    const b = await get(`${COSMOS}/base/tendermint/v1beta1/blocks/latest`);
+    const h = Number(b.block.header.height);
+    const t = new Date(b.block.header.time);
+    document.getElementById('clock').textContent =
+      `${CHAIN.id} · height ${groupDigits(String(h))} · ${t.toISOString().slice(11, 19)}Z`;
+    // Block time against this browser's clock. Every freshness figure on the
+    // page is measured from the chain's, so a laptop running fast must not be
+    // allowed to declare a live price expired.
+    chainClockOffset = Math.round((t.getTime() - Date.now()) / 1000);
+    retickFreshness();
+  } catch {
+    document.getElementById('clock').textContent = 'chain not answering';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rates — x/oracle's first mechanism: validators vote, the chain takes a median
+// ---------------------------------------------------------------------------
+
+async function renderRates() {
+  const [p, list, ms, vals, block] = await Promise.all([
+    oracleParams(), rates(), misses(), validators(), latest(),
+  ]);
+  const now = Math.floor(new Date(block.header.time).getTime() / 1000);
+  const maxAge = Number(p.max_rate_age_seconds);
+  const accepted = p.accepted_denoms || [];
+
+  const priced = new Set(list.map((r) => r.denom));
+  const usable = list.filter((r) => freshness(r.updated_at, now, maxAge).state !== 'expired');
+
+  const feeders = await Promise.all(
+    vals.map(async (v) => ({ v, feeder: await feederOf(v.operator_address).catch(() => null) })),
+  );
+
+  view.innerHTML = `
+    <p class="eyebrow">x/oracle · exchange rates</p>
+    <h2>What a currency is worth, and for how much longer</h2>
+    <p class="muted">Validators each report what they observe; the chain takes the median weighted by stake at the
+      end of every voting round. The rule that governs everything below is that
+      <strong>a value too old to trust is not a value</strong> — past
+      ${esc(span(maxAge))} a rate must be treated as unknown, and a transaction that depends on it stops
+      rather than proceeding on the last number anybody happened to report.</p>
+
+    ${list.length === 0 ? emptyRatesHtml(p, ms, vals) : ratesTableHtml(list, now, maxAge, p)}
+
+    <h3>Reporting</h3>
+    <p class="muted">x/oracle records a validator's absences rather than slashing for them, deliberately: on a
+      permissioned network an automatic slash mostly punishes the operator whose machine rebooted. That makes this
+      counter the only signal there is.</p>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>Validator</th><th>Votes through</th><th class="num">Rounds</th><th>Record</th></tr></thead>
+        <tbody>
+          ${feeders.map(({ v, feeder }) => {
+            const m = ms.find((x) => x.validator === v.operator_address);
+            const r = reporting(m?.misses, m?.windows);
+            // x/oracle returns the validator's own account when nothing has been
+            // delegated, so "who votes" and "is a hot key in use" are different
+            // questions and only the first is answered by the query.
+            const delegated = feeder && !isOwnAccount(v.operator_address, feeder);
+            return `<tr>
+              <td>${esc(v.description?.moniker || shortAddr(v.operator_address))}
+                <div class="muted y-addr">${esc(v.operator_address)}</div></td>
+              <td>${feeder
+                ? `<span class="y-addr">${shortAddr(feeder)}</span>
+                   <div class="muted">${delegated
+                     ? 'a delegated hot key'
+                     : 'its own account — nothing delegated, so a vote would be signed with the operator key'}</div>`
+                : '<span class="muted">unknown</span>'}</td>
+              <td class="num">${esc(groupDigits(String(m?.windows ?? 0)))}</td>
+              <td><span class="pill p-${r.level}">${esc(r.text)}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The parameters that decide all of this</h3>
+    <div class="card">
+      <dl>
+        <dt>Quoted in</dt><dd>${esc(p.quote_symbol)} — every rate answers “one display unit of this denom is worth how many of these”</dd>
+        <dt>Voting round</dt><dd>${esc(p.vote_period)} blocks — also how quickly the chain can react to a price move</dd>
+        <dt>Threshold</dt><dd>${(Number(p.vote_threshold_bps) / 100).toFixed(0)}% of stake must report a denom before a rate is agreed for it</dd>
+        <dt>Rate expiry</dt><dd>${esc(span(maxAge))} (<code>max_rate_age_seconds</code> = ${esc(p.max_rate_age_seconds)})</dd>
+        <dt>Appraisal expiry</dt><dd>${esc(span(Number(p.max_appraisal_age_seconds)))} — a building is appraised quarterly, not every block</dd>
+        <dt>Accepted denoms</dt><dd>${accepted.length} currencies, of which
+          <strong>${priced.size}</strong> have a rate and <strong>${usable.length}</strong> a usable one</dd>
+      </dl>
+      <details>
+        <summary>The ${accepted.length} denoms validators may report</summary>
+        <p class="small" style="max-width:none">A denom outside this list is ignored rather than counted, so one
+          validator cannot introduce a market by reporting into it.</p>
+        <p class="small y-mono" style="max-width:none">${accepted.map((d) => esc(symbolOf(d))).join(' · ')}</p>
+      </details>
+    </div>`;
+}
+
+/**
+ * The empty state, which is what a visitor sees today — and is not a blank
+ * screen but a finding.
+ *
+ * The chain is configured to price 48 currencies and prices none of them, and
+ * the miss counters say why: both validators have missed every voting round
+ * since genesis, which is not an unreliable feeder but the absence of one. A
+ * page that rendered "no rates" and stopped would have withheld the only part
+ * of that anybody can act on.
+ */
+function emptyRatesHtml(p, ms, vals) {
+  const accepted = (p.accepted_denoms || []).length;
+  const never = ms.filter((m) => Number(m.misses) >= Number(m.windows) && Number(m.windows) > 0);
+  const rounds = Math.max(0, ...ms.map((m) => Number(m.windows) || 0));
+
+  return `
+    <div class="card card--bad">
+      <p class="lede">No price on this chain is usable right now, because none has ever been agreed.</p>
+      <p>${accepted} currencies are on the accepted list and none of them has a rate. That is not a gap in
+        the feed — it is the absence of a feed: ${never.length === vals.length ? 'both' : `${never.length} of ${vals.length}`}
+        validators have missed <em>every</em> one of ${groupDigits(String(rounds))} voting rounds since genesis,
+        so no feeder has ever submitted a price.</p>
+      <p class="small">Anything that asks x/oracle what something is worth gets nothing back, and — correctly —
+        stops. That is the module working, not failing. What is missing is a feeder process on each validator host,
+        reporting every ${esc(p.vote_period)} blocks.</p>
+      <p class="small"><strong>The program that does this already exists in this repository</strong>, at
+        <code>tools/feeder</code>. It has never been started on either validator. One per validator, and
+        deliberately not all on the same price source — a median of four reports drawn from one endpoint is one
+        source counted four times.</p>
+      ${command(
+        'What a feeder sends, each round',
+        MESSAGES.submitRates,
+        submitRatesCommand({
+          validator: ms[0]?.validator || 'ymlvaloper1…',
+          rates: [{ denom: 'uusd', rate: '1.00' }, { denom: 'uzar', rate: '0.055' }],
+          from: 'FEEDER_KEY',
+        }),
+        'One <code>--rates</code> flag per denom. A JSON array fails with “unexpected token [”, which reads like a ' +
+          'malformed payload rather than the wrong shape entirely.',
+      )}
+    </div>
+
+    <h3>How to read a rate when there is one</h3>
+    <p class="muted">Three states, and they are distinguished by shape and by words as well as by colour.</p>
+    <div class="card legend">
+      <div>
+        ${freshnessHtml({ state: 'fresh', ageSeconds: 120, remaining: 780, fraction: 120 / 900 }, { maxAge: 900 })}
+        <p class="small muted">Agreed recently. Safe to act on.</p>
+      </div>
+      <div>
+        ${freshnessHtml({ state: 'expiring', ageSeconds: 780, remaining: 120, fraction: 780 / 900 }, { maxAge: 900 })}
+        <p class="small muted">Running out. Still usable, but a transaction that takes a few minutes to assemble
+          may find it is not by the time it lands.</p>
+      </div>
+      <div>
+        ${freshnessHtml({ state: 'expired', ageSeconds: 1500, remaining: -600, fraction: 1 }, { maxAge: 900 })}
+        <p class="small muted">Not a price any more. x/oracle still returns it — hiding it would leave a caller
+          unable to tell “no feed” from “feed stopped” — but nothing may act on it.</p>
+      </div>
+    </div>
+    <p class="muted small">These three are drawn from the same function that draws a real rate, with no chain data
+      behind them. They are a key to the bars above, not prices.</p>`;
+}
+
+function ratesTableHtml(list, now, maxAge, p) {
+  const rows = [...list].sort((a, b) => Number(a.updated_at) - Number(b.updated_at));
+  const dead = rows.filter((r) => freshness(r.updated_at, now, maxAge).state === 'expired').length;
+
+  return `
+    ${dead > 0 ? `<div class="warnbox"><p><strong>${dead} of ${rows.length} rates have expired.</strong>
+      They are shown because “no feed” and “feed stopped” are different facts, and because a consumer needs to see
+      which. Nothing may act on them.</p></div>` : ''}
+    <div class="card scroll">
+      <table>
+        <thead><tr>
+          <th>Currency</th><th class="num">Rate</th><th>Life left</th><th>Agreement</th><th class="num">At height</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r) => {
+            const f = freshness(r.updated_at, now, maxAge);
+            const ag = agreement(r.voting_power_bps, p.vote_threshold_bps);
+            return `<tr>
+              <td><strong>${esc(symbolOf(r.denom))}</strong>
+                <div class="muted">${esc(nameOf(r.denom))}</div></td>
+              <td class="num"><span class="y-num" style="font-size:var(--step-1)">${esc(r.rate)}</span>
+                <div class="muted">${esc(p.quote_symbol)} per ${esc(symbolOf(r.denom))}</div></td>
+              <td>${freshnessHtml(f, { maxAge, live: { updatedAt: r.updated_at } })}</td>
+              <td><span class="pill p-${ag.level}">${esc(ag.text)}</span></td>
+              <td class="num">${esc(groupDigits(String(r.updated_height || 0)))}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Valuers — x/oracle's second mechanism, which works nothing like the first
+// ---------------------------------------------------------------------------
+
+async function renderValuers() {
+  const [p, list, block] = await Promise.all([oracleParams(), appraisers(), latest()]);
+  const maxAge = Number(p.max_appraisal_age_seconds);
+
+  view.innerHTML = `
+    <p class="eyebrow">x/oracle · appointed valuers</p>
+    <h2>Who may say what a building is worth</h2>
+    <p class="muted">The rates above are market data: nobody knows the price of a currency, so validators report and
+      the chain takes a median. An appraisal is the opposite kind of fact. Nobody discovers the value of a tokenised
+      building by polling exchanges — an appointed, independent valuer inspects it and signs a number. There is no
+      median to take and no wisdom of crowds to appeal to: <strong>the value is only as good as the named party who
+      signed it</strong>, and the chain's job is to record exactly who that was and when.</p>
+
+    ${list.length === 0 ? `
+      <div class="card card--warn">
+        <p class="lede">No valuer has been appointed.</p>
+        <p>Until governance admits one, no tokenised asset on this chain has a value anything can read. Applying is
+          permissionless and commits nothing; approval is not, and cannot be — the approval message is signed by the
+          x/gov module account, for which no key exists.</p>
+        <p class="small">Independence is the whole point of the appointment: the party that values the collateral
+          must not be the party that benefits from the valuation. The chain cannot verify independence, so it does
+          the next best thing — it records who governance admitted, what they were admitted to value, and it
+          attributes every number they sign.</p>
+        ${command(
+          'Applying to be a valuer',
+          MESSAGES.applyAppraiser,
+          `${CHAIN.bin} tx oracle apply-appraiser 'Firm name' 'RICS 123456' nft-class-id \\\n` +
+            `  --from YOUR_KEY --chain-id ${CHAIN.id} --home ${CHAIN.home} \\\n` +
+            `  --fees ${CHAIN.fees} --gas ${CHAIN.gas}`,
+          'The class ids are the scope being asked for. Governance may narrow them when it approves, so an ' +
+            'applicant admitted to less than they asked for does not have to apply again.',
+        )}
+        ${signerHtml(MESSAGES.approveAppraiser, SIGNERS[MESSAGES.approveAppraiser])}
+      </div>` : `
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Valuer</th><th>Credentials</th><th>May value</th><th>Status</th></tr></thead>
+          <tbody>
+            ${list.map((a) => {
+              const st = String(a.status || '').replace('APPRAISER_STATUS_', '').toLowerCase();
+              const level = st === 'approved' ? 'ok' : st === 'rejected' ? 'bad' : 'warn';
+              const scope = (a.class_ids || []).length
+                ? (a.class_ids || []).map((c) => `<code>${esc(c)}</code>`).join(', ')
+                : '<strong>every class</strong> — governance should grant this rarely';
+              return `<tr>
+                <td><strong>${esc(a.name || '—')}</strong>
+                  <div class="muted y-addr">${esc(a.address)}</div></td>
+                <td>${esc(a.credentials || EMPTY_AMOUNT)}</td>
+                <td>${scope}</td>
+                <td><span class="pill p-${level}">${esc(st || 'unspecified')}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`}
+
+    <h3>What ages an appraisal</h3>
+    <div class="card">
+      <p>A valuation expires after <strong>${esc(span(maxAge))}</strong>, and the clock runs from the date the
+        valuation <em>reflects</em> — the inspection or the NAV — not from the day it was submitted. A monthly NAV
+        published late is still a month-end number, and treating the two as the same would overstate how current
+        it is.</p>
+      <p class="small muted">Revoking a valuer does not delete their appraisals: those were validly signed at the
+        time, and removing them would rewrite the record rather than correct it. What revocation stops is new ones,
+        and a consumer is told the signer's authority has since been withdrawn.</p>
+      <details>
+        <summary>Looking one up</summary>
+        <pre>${esc(`${CHAIN.bin} q oracle appraisal <class-id> <nft-id>`)}</pre>
+        <p class="small muted">The response carries <code>stale</code>, <code>age_seconds</code> and
+          <code>appraiser_still_approved</code> alongside the number, so a caller never has to work staleness out
+          for itself — the module's own comment says a caller that had to would eventually get it wrong.</p>
+      </details>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Pools
+// ---------------------------------------------------------------------------
+
+async function renderPools() {
+  const [list, sup] = await Promise.all([pools(), supply()]);
+
+  if (list.length === 0) {
+    view.innerHTML = `
+      <p class="eyebrow">x/amm · liquidity pools</p>
+      <h2>No pool has been created</h2>
+      <div class="card card--warn">
+        <p>There is nothing to trade against. A pool is created by its first depositor, and that first deposit sets
+          the price the pool opens at — the two amounts <em>are</em> the opening exchange rate, and getting them
+          wrong is an immediate loss to the first arbitrageur who notices.</p>
+        ${command(
+          'Creating a pool',
+          MESSAGES.createPool,
+          `${CHAIN.bin} tx amm create-pool uyml 20000000000 ungn 30000000000 30 \\\n` +
+            `  --from YOUR_KEY --chain-id ${CHAIN.id} --home ${CHAIN.home} \\\n` +
+            `  --fees ${CHAIN.fees} --gas ${CHAIN.gas}`,
+          'Amounts in base units, and the last argument is the swap fee in basis points — 30 is 0.3%.',
+        )}
+      </div>`;
+    return;
+  }
+
+  view.innerHTML = `
+    <p class="eyebrow">x/amm · liquidity pools</p>
+    <h2>${list.length} pool${list.length === 1 ? '' : 's'}</h2>
+    <p class="muted">Each pool holds exactly two currencies and prices a trade against the constant product of its
+      reserves. The fee is not taken out of the pool — the whole input joins the reserve while only the
+      post-fee part is used to price the trade, so the fee stays as liquidity and accrues to whoever deposited it.</p>
+    ${list.map(poolCardHtml).join('')}
+
+    <h3>Shares</h3>
+    <div class="card">
+      <p class="muted small">A depositor holds their share of a pool as a denom of its own, minted by the module.
+        These are ordinary balances: they can be held, and they are what <code>exit-pool</code> burns.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Pool</th><th>Share denom</th><th class="num">Shares issued</th></tr></thead>
+        <tbody>${list.map((p) => `<tr>
+          <td>#${esc(p.id)}</td>
+          <td><code>amm/pool/${esc(p.id)}</code></td>
+          <td class="num y-num">${esc(groupDigits(sup.get(`amm/pool/${p.id}`) || p.total_shares))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
+
+function poolCardHtml(p) {
+  const a = resolveDenom(p.denom_a);
+  const b = resolveDenom(p.denom_b);
+  // The spot price is the ratio of reserves, in display units on both sides. It
+  // is the price of an infinitesimal trade and nobody gets it: any real trade
+  // moves along the curve, which is what the swap screen exists to show.
+  const scale = 10n ** BigInt(Math.abs(a.exponent - b.exponent));
+  const ra = BigInt(p.reserve_a);
+  const rb = BigInt(p.reserve_b);
+  const spot = a.exponent >= b.exponent
+    ? ratio(rb * scale, ra, 6)
+    : ratio(rb, ra * scale, 6);
+
+  // Drawn 50/50, because a constant-product pool is balanced by value by
+  // construction. Drawing the raw unit counts would say a 20,000 YML / 30,000
+  // NGN pool is lopsided, which is exactly wrong.
+  return `
+    <div class="card">
+      <div class="row">
+        <div>
+          <h4>${esc(a.symbol)} · ${esc(b.symbol)} <span class="muted small">pool #${esc(p.id)}</span></h4>
+          <p class="muted small">${esc(a.name)} against ${esc(b.name)}</p>
+        </div>
+        <a class="btn primary" href="#/swap/${esc(p.id)}">Trade this pair</a>
+      </div>
+      <div class="reserves"><span style="flex:1"></span><span style="flex:1"></span></div>
+      <div class="keyline">
+        <span><i style="background:var(--accent)"></i>${amount(p.reserve_a, p.denom_a)}</span>
+        <span><i style="background:var(--brass)"></i>${amount(p.reserve_b, p.denom_b)}</span>
+      </div>
+      <dl>
+        <dt>Spot price</dt>
+        <dd>1 ${esc(a.symbol)} = <span class="y-num">${esc(spot ?? EMPTY_AMOUNT)}</span> ${esc(b.symbol)}
+          <span class="muted">— the price of an infinitesimally small trade, which nobody gets</span></dd>
+        <dt>Swap fee</dt>
+        <dd>${(Number(p.swap_fee_bps) / 100).toFixed(2).replace(/\.?0+$/, '')}%
+          (${esc(p.swap_fee_bps)} bps) <span class="muted">— retained in the pool, for its depositors</span></dd>
+      </dl>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Swap
+// ---------------------------------------------------------------------------
+
+const swapState = { poolId: null, flipped: false, input: '', slippageBps: 50 };
+
+async function renderSwap(hash) {
+  const list = await pools();
+  if (list.length === 0) { location.hash = '#/pools'; return; }
+
+  const wanted = hash.split('/')[2];
+  if (!list.some((p) => p.id === swapState.poolId)) swapState.poolId = null;
+  if (wanted && list.some((p) => p.id === wanted)) swapState.poolId = wanted;
+  if (!swapState.poolId) swapState.poolId = list[0].id;
+
+  view.innerHTML = `
+    <p class="eyebrow">x/amm · swap</p>
+    <h2>Trade one currency for another</h2>
+    <div class="swap">
+      <div>
+        <div class="card">
+          <label for="pool">Pool</label>
+          <select id="pool">
+            ${list.map((p) => `<option value="${esc(p.id)}"${p.id === swapState.poolId ? ' selected' : ''}>
+              #${esc(p.id)} — ${esc(symbolOf(p.denom_a))} · ${esc(symbolOf(p.denom_b))}
+            </option>`).join('')}
+          </select>
+          <div id="legs"></div>
+        </div>
+        <div id="verdict"></div>
+      </div>
+      <div id="detail"></div>
+    </div>
+    <div id="signing"></div>`;
+
+  document.getElementById('pool').addEventListener('change', (e) => {
+    swapState.poolId = e.target.value;
+    swapState.flipped = false;
+    drawSwap();
+  });
+  drawSwap();
+}
+
+async function drawSwap() {
+  const list = await pools();
+  const pool = list.find((p) => p.id === swapState.poolId);
+  const inDenom = swapState.flipped ? pool.denom_b : pool.denom_a;
+  const outDenom = swapState.flipped ? pool.denom_a : pool.denom_b;
+  const reserveIn = swapState.flipped ? pool.reserve_b : pool.reserve_a;
+  const reserveOut = swapState.flipped ? pool.reserve_a : pool.reserve_b;
+
+  const parsed = toBaseUnitsOf(swapState.input || '', inDenom);
+  const q = parsed
+    ? swapQuote({
+        reserveIn, reserveOut, amountIn: parsed.base,
+        swapFeeBps: Number(pool.swap_fee_bps), slippageBps: swapState.slippageBps,
+      })
+    : null;
+
+  // --- the two legs -------------------------------------------------------
+  document.getElementById('legs').innerHTML = `
+    <div class="leg">
+      <div class="leg__head">
+        <span class="label" style="margin:0">You pay</span>
+        <span class="leg__denom">${esc(symbolOf(inDenom))}</span>
+      </div>
+      <input id="amt" inputmode="decimal" autocomplete="off" placeholder="0"
+             value="${esc(swapState.input)}" aria-label="Amount to pay in ${esc(symbolOf(inDenom))}">
+      <div class="muted small">Pool holds ${amount(reserveIn, inDenom)}</div>
+    </div>
+    <div class="flip"><button type="button" id="flip" title="Trade the other way"
+      aria-label="Trade the other way">⇅</button></div>
+    <div class="leg">
+      <div class="leg__head">
+        <span class="label" style="margin:0">You receive</span>
+        <span class="leg__denom">${esc(symbolOf(outDenom))}</span>
+      </div>
+      <div class="leg__out">${q && !q.empty
+        ? esc(formatAmount(q.amountOut, outDenom, { withSymbol: false }))
+        : EMPTY_AMOUNT}</div>
+      <div class="muted small">${q && !q.empty
+        ? 'if nothing moves before your transaction lands. '
+        : ''}Pool holds ${amount(reserveOut, outDenom)}</div>
+    </div>`;
+
+  const amt = document.getElementById('amt');
+  amt.addEventListener('input', (e) => { swapState.input = e.target.value; drawSwap(); });
+  document.getElementById('flip').addEventListener('click', () => {
+    swapState.flipped = !swapState.flipped;
+    drawSwap();
+  });
+
+  // --- the warning, before anything to sign -------------------------------
+  const verdict = q && !q.empty ? impactVerdict(q.impactBps) : null;
+  document.getElementById('verdict').innerHTML =
+    verdict && verdict.level !== 'ok'
+      ? `<div class="${verdict.level === 'bad' ? 'badbox' : 'warnbox'}">
+           <p><strong>${esc(verdict.title)}</strong></p>
+           <p>${esc(verdict.detail)}</p>
+           <p>You would pay ${amount(q.amountIn, inDenom)} and receive at least
+             ${amount(q.minReceived, outDenom)}. At the pool's price before your trade, that same input was worth
+             about ${amount((BigInt(q.amountIn) * BigInt(reserveOut)) / BigInt(reserveIn), outDenom)}.</p>
+         </div>`
+      : '';
+
+  // --- the numbers --------------------------------------------------------
+  const detail = document.getElementById('detail');
+  if (!q || q.empty) {
+    detail.innerHTML = `
+      <div class="card">
+        <p class="label" style="margin-top:0">Before you trade</p>
+        <p class="small">${swapState.input && !parsed
+          ? 'That is not an amount this page can read. Digits, with at most one decimal separator.'
+          : swapState.input
+            ? `That is too small to trade: after the ${(Number(pool.swap_fee_bps) / 100)}% fee it rounds to nothing, ` +
+              'and the pool would pay out zero.'
+            : 'Type an amount and this fills in with what the pool would pay, what the trade costs you, and — the ' +
+              'number that actually goes in the transaction — the least you would accept.'}</p>
+        ${slippageHtml()}
+      </div>`;
+    wireSlippage();
+    document.getElementById('signing').innerHTML = '';
+    return;
+  }
+
+  const impactPct = (q.impactBps / 100).toFixed(2);
+  const costPct = (q.costBps / 100).toFixed(2);
+  // The rate the trader actually gets, in display units on both sides:
+  //   out/10^eOut ÷ in/10^eIn  =  out × 10^eIn ÷ (in × 10^eOut)
+  // Done as one BigInt division at a fixed scale, so the printed rate is exact
+  // to the places it claims and not a floating-point artefact.
+  const effective = ratio(
+    BigInt(q.amountOut) * 10n ** BigInt(resolveDenom(inDenom).exponent),
+    BigInt(q.amountIn) * 10n ** BigInt(resolveDenom(outDenom).exponent),
+    6,
+  );
+
+  detail.innerHTML = `
+    <div class="card">
+      <p class="label" style="margin-top:0">Before you trade</p>
+      <div class="worst">
+        <span class="label" style="margin:0">Minimum received — the only promise here</span>
+        <div class="worst__figure">${esc(formatAmount(q.minReceived, outDenom))}</div>
+        <p class="small">Everything else on this screen is a quote against reserves that the next block may move.
+          This is the number that goes in the transaction: below it the chain refuses the trade
+          (<code>ErrSlippage</code>, code 1107), you keep your ${esc(symbolOf(inDenom))}, and you pay only the
+          transaction fee.</p>
+      </div>
+      <div style="margin-top:var(--sp-3)">
+        <div class="quoteline"><span>Quoted output</span><span>${amount(q.amountOut, outDenom)}</span></div>
+        <div class="quoteline"><span>Rate you get</span>
+          <span>1 ${esc(symbolOf(inDenom))} = ${esc(effective ?? EMPTY_AMOUNT)} ${esc(symbolOf(outDenom))}</span></div>
+        <div class="quoteline"><span>Price impact <span class="muted">— how far your own trade moves the curve</span></span>
+          <span class="${q.impactBps >= 300 ? 'pill p-warn' : ''}">${esc(impactPct)}%</span></div>
+        <div class="quoteline"><span>Pool fee <span class="muted">— stays in the pool, for its depositors</span></span>
+          <span>${amount(q.feeAmount, inDenom)}</span></div>
+        <div class="quoteline"><span>Total cost against the pre-trade price</span><span>${esc(costPct)}%</span></div>
+        <div class="quoteline"><span>Slippage allowed</span><span>${(swapState.slippageBps / 100).toFixed(2)}%</span></div>
+      </div>
+      ${slippageHtml()}
+      <details>
+        <summary>The arithmetic, in base units</summary>
+        <dl>
+          <dt>In</dt><dd class="y-num">${esc(String(q.amountIn))} ${esc(inDenom)}</dd>
+          <dt>After fee</dt><dd class="y-num">${esc(String(BigInt(q.amountIn) - BigInt(q.feeAmount)))} ${esc(inDenom)}</dd>
+          <dt>Out</dt><dd class="y-num">${esc(String(q.amountOut))} ${esc(outDenom)}</dd>
+          <dt>Minimum</dt><dd class="y-num">${esc(String(q.minReceived))} ${esc(outDenom)}</dd>
+          <dt>Reserves after</dt><dd class="y-num">${esc(String(q.newReserveIn))} / ${esc(String(q.newReserveOut))}</dd>
+        </dl>
+        <p class="small muted" style="max-width:none">Computed with the keeper's own formula and its rounding
+          direction: <code>reserveOut × afterFee ÷ (reserveIn + afterFee)</code>, truncated. The algebraically
+          identical subtraction form rounds the output up instead and would quote a figure the chain will not pay.</p>
+      </details>
+      ${truncNote()}
+    </div>`;
+  wireSlippage();
+
+  // --- what to do with it -------------------------------------------------
+  document.getElementById('signing').innerHTML = `
+    <h3>Sending it</h3>
+    <div class="card">
+      <div class="notebox"><p>${BROWSER_SIGNING_NOTE}</p></div>
+      ${command(
+        'The swap',
+        MESSAGES.swap,
+        swapCommand({
+          poolId: pool.id,
+          inDenom,
+          inAmount: String(q.amountIn),
+          outDenom,
+          minOut: String(q.minReceived),
+          from: 'YOUR_KEY',
+        }),
+        'The minimum is filled in rather than left at zero. A swap sent with a minimum of 0 accepts whatever price ' +
+          'the pool happens to be at when the block lands, which is the entire failure this field exists to prevent.',
+      )}
+      <details>
+        <summary>If it fails</summary>
+        <dl>
+          <dt>code 1107</dt><dd>${esc(ERRORS['amm/1107'].what)} ${esc(ERRORS['amm/1107'].next)}</dd>
+          <dt>code 1104</dt><dd>${esc(ERRORS['amm/1104'].what)} ${esc(ERRORS['amm/1104'].next)}</dd>
+          <dt>code 1103</dt><dd>${esc(ERRORS['amm/1103'].what)} ${esc(ERRORS['amm/1103'].next)}</dd>
+        </dl>
+      </details>
+    </div>`;
+}
+
+function slippageHtml() {
+  const opts = [10, 50, 100, 300];
+  return `
+    <p class="label">Slippage tolerance</p>
+    <div class="slip">
+      ${opts.map((bps) => `<button type="button" data-slip="${bps}"
+        aria-pressed="${bps === swapState.slippageBps}">${(bps / 100).toFixed(bps % 100 ? 1 : 1)}%</button>`).join('')}
+      <span class="muted small">How far the price may move against you before the chain refuses the trade
+        rather than filling it.</span>
+    </div>`;
+}
+
+function wireSlippage() {
+  document.querySelectorAll('[data-slip]').forEach((b) =>
+    b.addEventListener('click', () => {
+      swapState.slippageBps = Number(b.dataset.slip);
+      drawSwap();
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// Currencies — registered is not approved
+// ---------------------------------------------------------------------------
+
+async function renderCurrencies() {
+  const [apps, approved, sup] = await Promise.all([applications(), approvedIssuers(), supply()]);
+  const byDenom = new Map(approved.map((a) => [a.denom, a]));
+
+  const rows = apps
+    .map((a) => ({ app: a, verdict: mintability(a.denom, a, byDenom.get(a.denom)) }))
+    .sort((x, y) => x.app.denom.localeCompare(y.app.denom));
+
+  const mintable = rows.filter((r) => r.verdict.canMint);
+  const blocked = rows.filter((r) => !r.verdict.canMint);
+  const issuers = new Set(mintable.map((r) => r.verdict.issuer));
+
+  view.innerHTML = `
+    <p class="eyebrow">x/stablecoin · issuance</p>
+    <h2>Which currencies the chain will let anybody mint</h2>
+    <p class="muted">Two facts, kept apart on purpose. <strong>Registered</strong> means an application exists for
+      the denom. <strong>Approved</strong> means a governance proposal carrying <code>MsgApproveIssuer</code> has
+      passed and a named account may mint it. Registration succeeds on its own — it returns code 0 — and changes
+      nothing about whether the currency can be minted.</p>
+
+    <div class="grid">
+      <div class="card card--ok">
+        <span class="label">Mintable today</span>
+        <div class="stat">${mintable.length}</div>
+        <p class="muted small">by ${issuers.size} approved issuer${issuers.size === 1 ? '' : 's'}</p>
+      </div>
+      <div class="card ${blocked.length ? 'card--warn' : ''}">
+        <span class="label">Registered, not mintable</span>
+        <div class="stat">${blocked.length}</div>
+        <p class="muted small">${blocked.length
+          ? 'a mint on any of these fails with code 1104'
+          : 'nothing is waiting on a proposal'}</p>
+      </div>
+      <div class="card">
+        <span class="label">In circulation</span>
+        <div class="stat stat--words">${mintable.filter((r) => (sup.get(r.app.denom) || '0') !== '0').length}
+          <span class="muted" style="font-size:var(--step-0)">of ${mintable.length} have supply</span></div>
+        <p class="muted small">approval permits minting; it does not perform one</p>
+      </div>
+    </div>
+
+    ${blocked.length ? `
+      <h3>Waiting on governance</h3>
+      ${blocked.map((r) => `
+        <div class="card card--warn">
+          <div class="row">
+            <h4>${esc(r.app.symbol || r.app.denom)} <span class="muted small">${esc(r.app.denom)}</span></h4>
+            <span class="pill p-${r.verdict.level}">${esc(r.verdict.label)}</span>
+          </div>
+          <p class="small">${esc(r.verdict.blocker)}</p>
+          <p class="muted small">Registered by ${shortAddr(r.app.creator)}</p>
+          ${approvalHtml(r.app.denom)}
+        </div>`).join('')}` : `
+      <div class="card card--ok">
+        <p><strong>Nothing is stuck.</strong> Every currency registered on this chain has been approved, so the
+          distinction above is invisible today — which is exactly when it is worth stating, because the first
+          currency that is registered and not approved will look identical to one that is, on any page that shows a
+          single list.</p>
+        <p class="small muted">What it would look like: a row marked <span class="pill p-warn">registered, not
+          approved</span>, whose issuer's <code>mint-coin</code> fails with code 1104 —
+          “sender is not the approved issuer for this denom” — however correct their key is.</p>
+      </div>`}
+
+    <h3>Approved</h3>
+    <div class="card scroll">
+      <table>
+        <thead><tr>
+          <th>Currency</th><th>Denom</th><th>Registered</th><th>Approved</th>
+          <th class="num">In circulation</th><th>Issuer</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r) => {
+            const s = sup.get(r.app.denom);
+            return `<tr>
+              <td><strong>${esc(r.app.symbol || '—')}</strong>
+                <div class="muted">${esc(r.app.name || '')}</div></td>
+              <td><code>${esc(r.app.denom)}</code></td>
+              <td><span class="pill p-ok">yes</span></td>
+              <td><span class="pill p-${r.verdict.canMint ? 'ok' : 'warn'}">${r.verdict.canMint ? 'yes' : 'no'}</span></td>
+              <td class="num">${s && s !== '0' ? amount(s, r.app.denom) : `<span class="muted">${EMPTY_AMOUNT}</span>`}</td>
+              <td class="y-addr">${r.verdict.issuer ? shortAddr(r.verdict.issuer) : `<span class="muted">${EMPTY_AMOUNT}</span>`}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">A dash is not a zero: a currency with no supply has never been minted, which is a
+      different fact from one that was minted and burned back to nothing.</p>
+    ${truncNote()}
+
+    <h3>What the chain refuses</h3>
+    <div class="card">
+      <dl>
+        <dt>code 1104</dt><dd><strong>${esc(ERRORS['stablecoin/1104'].what)}</strong>
+          ${esc(ERRORS['stablecoin/1104'].next)} This is the one that costs an afternoon: the message names the
+          sender, so it reads as “wrong key” when it means “no proposal has passed”.</dd>
+        <dt>code 1101</dt><dd>${esc(ERRORS['stablecoin/1101'].what)} ${esc(ERRORS['stablecoin/1101'].next)}</dd>
+        <dt>code 1103</dt><dd>The application is not pending — it has already been decided, so it cannot be
+          decided again.</dd>
+        <dt>code 1111</dt><dd>A transaction fee offered in a denom with no approved issuer. A fee in a currency
+          nobody may mint costs the sender nothing real, so the ante handler refuses it before the transaction is
+          considered at all.</dd>
+      </dl>
+    </div>`;
+}
+
+function approvalHtml(denom) {
+  // The x/gov module account on this chain. Derived from the module name, so it
+  // is the same on every Cosmos SDK chain with the default bech32 prefix change
+  // — but it is shown rather than assumed, because an authority field filled in
+  // with the proposer's address produces a proposal that passes and then fails
+  // to execute, which is the worst of both.
+  const { doc, submit } = approveIssuerProposal({
+    denom,
+    authority: 'yml10d07y265gmmuvt4z0w9aw880jnsr700jqvcndf',
+    from: 'YOUR_KEY',
+  });
+  const id = `prop${seq++}`;
+  return `
+    <div class="cmdhead">
+      <span class="label">The proposal that would make ${esc(denom)} mintable</span>
+      <button class="copy" type="button" data-copy="${id}">copy</button>
+    </div>
+    <pre id="${id}">${esc(doc)}</pre>
+    <pre>${esc(submit)}</pre>
+    <p class="muted small">The <code>authority</code> is the x/gov module account, not the proposer. A proposal
+      naming anyone else passes the vote and then fails to execute — the message rejects the signer with
+      code 1100.</p>
+    ${signerHtml(MESSAGES.approveIssuer, SIGNERS[MESSAGES.approveIssuer])}`;
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+
+// The theme toggle. Three states in CSS, two here: the un-stamped default
+// follows the system, and a click stamps a choice that overrides it. Wrapped in
+// try/catch because storage throws outright in a private window and in a
+// thumbnailer, and a page that cannot remember a preference must still render.
+const themeBtn = document.getElementById('theme');
+try {
+  const saved = localStorage.getItem('yamale-theme');
+  if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+} catch { /* storage unavailable */ }
+themeBtn.addEventListener('click', () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('yamale-theme', next); } catch { /* storage unavailable */ }
+});
+
+addEventListener('hashchange', route);
+route();
+tick();
+setInterval(tick, 6000);
+</script>
+</body>
+</html>

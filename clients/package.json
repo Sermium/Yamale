@@ -14,7 +14,9 @@
     "ceremony",
     "foundation",
     "governance",
-    "land"
+    "land",
+    "markets",
+    "keys"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
