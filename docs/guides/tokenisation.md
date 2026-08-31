@@ -224,6 +224,26 @@ ceremony:
 `x/custody` refuses an attestation threshold below two: one attestor is not a
 threshold, it is a single point of unlimited theft.
 
+**And the attestors are appointed by governance, not by the seller.** A
+collection carries a register, replaced by `MsgSetCollectionAttestors`, which is
+authority-gated alongside `CreateCollection` and `SetCollectionAuthority`. If the
+seller could appoint the accounts that check the seller, the register would
+restate the problem rather than fix it.
+
+Two decisions inside that are worth recording. The register **replaces** rather
+than appends, because one that could only grow would let a single careless
+proposal dilute a careful appointment for good. And attestations already recorded
+against a reported sale are **not revisited** when the register changes: they
+were made by an appointed attestor at the moment they were made, and rewriting
+history to match a later appointment would let an authority manufacture or
+destroy a quorum after the fact — a worse power than the one the message exists
+to constrain.
+
+This paragraph is newer than the rest of this section, and
+[the defect it closes](#five-defects-and-the-upgrade-that-closed-them) is the
+reason: for the module's whole life until 2026-08-27, `AttestSale` never checked
+who was attesting, so everything argued above was defended by nothing.
+
 ### A reported price needs a challenge window
 
 Verification alone is not enough, because **redemption is irreversible**. Once
@@ -293,6 +313,63 @@ That separation is what keeps a change of sponsor, custodian or operator a
 non-event for shareholders: whoever holds title inherits an obligation to pay
 in, not a balance they could walk away with.
 
+## Five defects, and the upgrade that closed them
+
+Everything above was written, reviewed and merged before any of it had been
+driven end to end. On 2026-08-27 the sale pipeline got its first test and five
+defects fell out of it, four of which lost money silently.
+
+They are recorded here rather than quietly fixed, because the guide argued a set
+of protections that were, for the module's entire life until then, not there.
+
+| | What it was | Why nobody noticed |
+|---|---|---|
+| **No shareholder could ever be paid** | `SendRestrictionFn` settles both sides of a share transfer, which the income index requires. It was written, commented, and **registered nowhere** — `app.go` appended only the enforcement restriction. So no transfer settled, no position was created by one, and every entitlement read zero however much the vault held. | A repository-wide search found the function referenced by nothing at all, not even a test. |
+| **A holder who never transferred was paid nothing** | `Fractionalise` created the vault and no position for the owner, so `Settle` treated them as a first-time holder on the way out and started them at an index that had already moved. | Any transfer settles both sides, so the ordinary issue-then-distribute path created the position by accident. |
+| **`AttestSale` never checked who was attesting** | `ErrNotAttestor` was registered as code 17 and returned from nowhere, and `Collection` carried no register to check against. A sponsor met any threshold with fresh addresses at the cost of the gas. | The one guard between a shareholder and a falsified sale price was decorative, and this guide's own *"the sale price is the attack"* section described it as if it worked. |
+| **`FinaliseSale` had no caller** | A keeper method nothing invoked — no message, no `EndBlocker`, not one test. No asset could reach `REALISED`, and `Redeem` requires it. Every fractionalised vehicle was a one-way door. | Second dead load-bearing function in this module, and both were found the same way: by driving the thing rather than reading it. |
+| **`DisputeSale` said the window was open when it had closed** | It returned `ErrStillInWindow` after the window had expired. Cosmetic beside the other four, and the kind of message that sends somebody looking in the wrong place for an hour. | Nothing exercised the post-window path. |
+
+`MsgFinaliseSale` is the caller `FinaliseSale` never had, and it is
+**permissionless**: a crank only the sponsor could turn is one the sponsor can
+decline to turn.
+
+### Verified on the chain
+
+All five shipped in the `income-that-arrives` upgrade, **applied at height
+119,900** on `yamale-devnet-2` — read back from
+`cosmos.upgrade.v1beta1.Query/AppliedPlan` rather than from the proposal.
+
+The fix is visible in the difference between two vehicles in the `cd-terres`
+collection, read on 2026-08-31:
+
+| | Asset 2, `tok/2/KIN518` | Asset 3, `tok/3/KIN777` |
+|---|---|---|
+| Fractionalised | before the upgrade | after it (parcel registered at height 119,926) |
+| Vault holds | 72,000,000 `uyml` | 40,000,000 `uyml` |
+| Owed to the 750,000-share holder | **0** | **18,000,000 `uyml`** |
+
+Both are 1,000,000 shares at `holder_share_bps = 6000`. On asset 3, 40 YML into
+the vault is 24 YML to holders, of which 75% is 18 YML — which is what
+`Query/Entitlement` says. On asset 2 the same query says nothing is owed to
+anybody, against a vault holding 72 YML.
+
+**What the upgrade deliberately does not fix**, and it is the reason asset 2 still
+reads zero: a vehicle fractionalised before that height has no seeded positions,
+and income already paid into its vault stays owed to nobody. Reconstructing who
+held what across funding events that were never recorded is not something a
+handler can honestly do, so the pre-existing vehicle keeps its stranded balance
+and the demonstration uses one minted afterwards. There is no store migration.
+
+One defect from the same investigation is **still open** and is in
+[gaps.md](../scope/gaps.md#known-defects): `FinaliseSale` puts the whole reported
+price through the income index while moving no coins, and `FundVault` accrues
+them a second time on the way in. The fix is a decision rather than a mechanism —
+either finalising pulls the price from the reporter, which makes a reported price
+binding, or funding stops accruing once a sale is reported — and
+`TestAVehicleCanBeExited` asserts the broken behaviour deliberately, so whoever
+decides it will see the test fail and have to look.
+
 ## State
 
     Offerings      Map[uint64, Offering]              // id -> record
@@ -325,6 +402,31 @@ rather than in a second index nobody maintains.
 `MsgSubscribe` carries `min_tokens_out`. The price is fixed at creation so the
 computation is not state-dependent, but pro-rata allocation under
 keep-what-you-raise is, and a user signs against a state that has moved.
+
+And the vehicle half, where the signer column is the whole argument:
+
+| Message | Signer | Effect |
+|---|---|---|
+| `MsgCreateCollection` | gov only | A collection, with its verification mode, threshold and window. |
+| `MsgSetCollectionAuthority` | gov only | Who may mint title into it. |
+| `MsgSetCollectionAttestors` | gov only | Who may attest a sale. Replaces the register; does not revisit attestations already made. |
+| `MsgResolveDispute` | gov only | Back to `ACTIVE` after a successful challenge, never automatically. |
+| `MsgMintAsset` | the collection's authority | Records title, naming its recipient. There is no self-mint-then-transfer path. |
+| `MsgFractionalise` | title holder | Fixes the supply and `holder_share_bps`, and seeds the first holder's position. |
+| `MsgTransferAsset` | title holder | |
+| `MsgFundVault` | title holder | Income arrives; `cumulative_per_token` rises. |
+| `MsgReportSale` | title holder | Opens the challenge window. The largest number in the vehicle's life, and the one it cannot verify. |
+| `MsgAttestSale` | **an appointed attestor** | Not permissionless, which is where it used to sit. |
+| `MsgDisputeSale` | anyone | Stakes the collection's bond in the same block. |
+| `MsgFinaliseSale` | anyone | `REPORTED` -> `REALISED`, opening redemption. Permissionless on purpose. |
+| `MsgClaim` | holder | Takes accrued income without giving up the shareholding. |
+| `MsgRedeem` | holder | Burns and pays out in one step. The burn *is* the claim. |
+
+Two are deliberately absent from the CLI. `UpdateParams` because it is authority
+gated. `ResolveDispute` because it is the one message that can overwrite a price
+the market has already been told, and it belongs to the collection's authority
+acting on a finding — not to a flag somebody can reach for while a dispute is
+still an argument.
 
 ## Dependencies
 
