@@ -1,51 +1,67 @@
-# The exchange-rate feeder for validator "pi".
+# The exchange-rate feeder, one instance per validator.
 #
-# One instance per validator, and deliberately not all from the same source: the
-# oracle takes a stake-weighted median, and a median of four reports drawn from
-# one endpoint is one source counted four times.
+# This file is identical on every host. What differs — which validator, which
+# key, which price source — lives in /etc/yamale/feeder.env, because it is the
+# only thing that legitimately differs and hard-coding it here produced a unit
+# that could not be copied to the second host without being edited, which is how
+# two hosts end up with two subtly different units.
 #
-# Install as /etc/systemd/system/yamale-feeder.service, then:
-#   sudo systemctl enable --now yamale-feeder
+# Install:
+#   sudo cp deploy/systemd/yamale-feeder.service /etc/systemd/system/
+#   sudo cp deploy/systemd/feeder.env.example /etc/yamale/feeder.env   # then edit
+#   sudo systemctl edit yamale-feeder        # [Service] User=<the host's user>
+#   sudo systemctl daemon-reload && sudo systemctl enable --now yamale-feeder
 #
-# `enable` is not optional and is the reason this file exists rather than a
-# nohup. The chain node was once left un-enabled and did not come back from a
-# reboot, and nobody noticed for nine hours — because a component that has
-# stopped is not producing errors either.
+# The User is a drop-in rather than a variable because systemd does not expand
+# EnvironmentFile values in User= — it is resolved before the environment is
+# loaded. Setting it here would weld this file to one host's account name, which
+# is the whole thing the env file exists to avoid, so it is the one setting that
+# lives in /etc/systemd/system/yamale-feeder.service.d/ instead.
+#
+# `enable` is not optional, and is the reason this is a unit rather than a nohup.
+# The chain node was once left un-enabled, did not come back from a reboot, and
+# nobody noticed for nine hours — because a component that has stopped is not
+# producing errors either. A feeder fails the same silent way: the oracle marks a
+# price stale rather than complaining, so the first symptom is a lending call
+# refusing a price that looks fine on a dashboard.
 
 [Unit]
-Description=Yamale oracle feeder — reports exchange rates for validator pi
-Documentation=file:///opt/yamale/docs/guides/oracle.md
+Description=Yamale oracle feeder — reports exchange rates for one validator
+Documentation=https://github.com/Sermium/Yamale/blob/main/docs/guides/oracle.md
 After=network-online.target yamale-devnet.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
+# User comes from a drop-in; see the header. Without one systemd runs this as
+# root, which would put the signing key's directory in reach of a process that
+# has no business there — so the drop-in is required, not optional.
+EnvironmentFile=/etc/yamale/feeder.env
 ExecStart=/opt/yamale/bin/yamale-feeder \
-  --binary /opt/yamale/bin/blockchaind \
-  --home /opt/yamale/node \
-  --node http://localhost:26657 \
-  --chain-id yamale-devnet-2 \
-  --keyring-backend test \
-  --from alice \
-  --validator ymlvaloper1m9xhc6zy7fxfax9t5fnykh9k2e29faj7p4h3kh \
-  --source erapi \
-  --interval 60s
+  --binary ${FEEDER_BINARY} \
+  --home ${FEEDER_HOME} \
+  --node ${FEEDER_NODE} \
+  --chain-id ${FEEDER_CHAIN_ID} \
+  --keyring-backend ${FEEDER_KEYRING} \
+  --from ${FEEDER_KEY} \
+  --validator ${FEEDER_VALIDATOR} \
+  --source ${FEEDER_SOURCE} \
+  --interval ${FEEDER_INTERVAL}
 
-# Restarted always, including after a clean exit. The feeder exits non-zero when
-# a round fails, and a round failing is ordinary — an upstream that times out, a
-# node mid-restart. What is not ordinary is the feeder being gone, because the
-# oracle marks a price stale rather than wrong and a stale price is refused by
-# everything that reads it.
+# Restarted always, including after a clean exit. A round failing is ordinary —
+# an upstream that times out, a node mid-restart — and the feeder exits non-zero
+# rather than carrying on, because a feeder that swallows its own errors is one
+# whose silence means nothing. What is not ordinary is the process being gone.
 Restart=always
 RestartSec=30s
 
-# It signs with a key and talks to two hosts; it needs nothing else.
+# It signs with a key, reads one HTTPS endpoint and talks to a local node. It
+# needs nothing else, and the key is the reason to say so.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/opt/yamale/node
+ReadWritePaths=/opt/yamale
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
