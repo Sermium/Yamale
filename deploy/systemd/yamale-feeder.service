@@ -1,0 +1,54 @@
+# The exchange-rate feeder for validator "pi".
+#
+# One instance per validator, and deliberately not all from the same source: the
+# oracle takes a stake-weighted median, and a median of four reports drawn from
+# one endpoint is one source counted four times.
+#
+# Install as /etc/systemd/system/yamale-feeder.service, then:
+#   sudo systemctl enable --now yamale-feeder
+#
+# `enable` is not optional and is the reason this file exists rather than a
+# nohup. The chain node was once left un-enabled and did not come back from a
+# reboot, and nobody noticed for nine hours — because a component that has
+# stopped is not producing errors either.
+
+[Unit]
+Description=Yamale oracle feeder — reports exchange rates for validator pi
+Documentation=file:///opt/yamale/docs/guides/oracle.md
+After=network-online.target yamale-devnet.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/opt/yamale/bin/yamale-feeder \
+  --binary /opt/yamale/bin/blockchaind \
+  --home /opt/yamale/node \
+  --node http://localhost:26657 \
+  --chain-id yamale-devnet-2 \
+  --keyring-backend test \
+  --from alice \
+  --validator ymlvaloper1m9xhc6zy7fxfax9t5fnykh9k2e29faj7p4h3kh \
+  --source erapi \
+  --interval 60s
+
+# Restarted always, including after a clean exit. The feeder exits non-zero when
+# a round fails, and a round failing is ordinary — an upstream that times out, a
+# node mid-restart. What is not ordinary is the feeder being gone, because the
+# oracle marks a price stale rather than wrong and a stale price is refused by
+# everything that reads it.
+Restart=always
+RestartSec=30s
+
+# It signs with a key and talks to two hosts; it needs nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/yamale/node
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

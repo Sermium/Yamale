@@ -167,11 +167,45 @@ raw_log: &#39;failed to execute message; message index: 0: ... may not vote for 
 <p>To take voting back, delegate to the operator account again — that removes the
 delegation rather than storing a self-delegation, so what is on the chain means
 exactly one thing: a hot key is in use.</p>
-<p><strong>Running this for real.</strong> A feeder is a small daemon: read prices from wherever
-you source them, submit once per vote period, and alert on your own miss counter.
-The chain does not ship one. What it does guarantee is that the rules a client
-applies to decide whether to show a price are the same rules the chain applies to
-decide whether to lend against it.</p>
+<p><strong>Running this for real.</strong> <code>tools/feeder</code> is the daemon: it asks the chain which
+denoms it accepts, reads prices from a source you name, submits once per vote
+period, and exits non-zero on a round it could not complete.</p>
+<pre><code class="language-bash">CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o yamale-feeder ./tools/feeder
+
+yamale-feeder \
+  --binary /opt/yamale/bin/blockchaind \
+  --home /opt/yamale/node \
+  --node http://localhost:26657 \
+  --chain-id &lt;chain-id&gt; \
+  --keyring-backend test \
+  --from &lt;feeder-key&gt; \
+  --validator &lt;ymlvaloper1...&gt; \
+  --source erapi \
+  --interval 60s
+</code></pre>
+<p><code>deploy/systemd/yamale-feeder.service</code> runs it under systemd. Use it, and
+<code>enable</code> it — a feeder that does not come back from a reboot is silent in
+exactly the way a stopped feeder is silent, and the oracle&#39;s answer to a price
+nobody is reporting is to mark it stale rather than to complain.</p>
+<p><strong>One per validator, and not all on one source.</strong> The oracle takes a
+stake-weighted median, so a median of four reports drawn from one endpoint is
+one source counted four times. <code>--source erapi</code> and <code>--source yahoo</code> are two;
+the interface is one method, so a third is a small file.</p>
+<p><strong>What it reports is what it observed, and nothing else.</strong> A round where the
+source returned nothing usable submits nothing at all, rather than resubmitting
+the last good number. That deliberately costs a miss on the validator&#39;s counter:
+a feeder that fills a gap with yesterday&#39;s price is indistinguishable from a
+working one right up until the median it fed was wrong, and the miss counter is
+the only place that difference ever becomes visible.</p>
+<p>It also waits for its transaction to be in a block before reporting success.
+That distinction is not pedantic here — an unauthorised feeder, a denom outside
+the accepted set, and an account with a stale sequence all broadcast cleanly and
+fail in the block. A feeder that logs success through all three is a feeder
+whose output means nothing, which is a poor property for the one component whose
+entire job is to be believed about what it saw.</p>
+<p>What the chain guarantees, either way, is that the rules a client applies to
+decide whether to show a price are the same rules the chain applies to decide
+whether to lend against it.</p>
 <h2>4. Have a real-world asset valued</h2>
 <p>An asset is represented by an NFT — one token per asset, because two invoices
 from the same issuer are not interchangeable and a fungible price for them would

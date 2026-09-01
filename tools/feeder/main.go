@@ -116,7 +116,10 @@ func (c config) round(source Source) error {
 		return err
 	}
 
-	fmt.Printf("%s  reported %d rates via %s", time.Now().Format(time.RFC3339), len(submissions), source.Name())
+	// Past submit, so this line means the transaction is in a block and its code
+	// was zero. "Recorded", not "reported": what the operator needs to know is
+	// whether the chain has the numbers, not whether this program sent them.
+	fmt.Printf("%s  recorded %d rates via %s", time.Now().Format(time.RFC3339), len(submissions), source.Name())
 	if len(derived) > 0 {
 		fmt.Printf(" (%d from pegs)", len(derived))
 	}
@@ -216,11 +219,75 @@ func (c config) submit(rates []rate) error {
 	var result struct {
 		Code   int    `json:"code"`
 		RawLog string `json:"raw_log"`
+		TxHash string `json:"txhash"`
 	}
-	if err := json.Unmarshal(out, &result); err == nil && result.Code != 0 {
+	if err := json.Unmarshal(out, &result); err != nil {
+		return fmt.Errorf("unreadable broadcast result: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if result.Code != 0 {
 		return fmt.Errorf("rejected at broadcast (code %d): %s", result.Code, result.RawLog)
 	}
-	return nil
+	if result.TxHash == "" {
+		return fmt.Errorf("broadcast returned no transaction hash: %s", strings.TrimSpace(string(out)))
+	}
+	return c.confirm(result.TxHash)
+}
+
+// confirm waits for the transaction to appear in a block and reports what it
+// did there.
+//
+// The paragraph above this function used to end at the broadcast check, under a
+// comment explaining precisely why that is not enough — and then returned nil
+// anyway. So the feeder printed "reported 48 rates" for a submission that had
+// only been accepted into a mempool, which is the exact thing the comment says
+// would be reporting that it sent something rather than that it worked. It was
+// wrong on 2026-09-01 for a different reason than expected: the submission did
+// succeed, and the feeder would have said the same had it not.
+//
+// This matters more here than in most tools. An unauthorised feeder, a denom
+// outside the accepted set, an account with no sequence — every one of those
+// broadcasts cleanly and fails in the block. A feeder reporting success through
+// all of them is a feeder whose output means nothing, on the one component whose
+// entire job is to be believed about what it observed.
+func (c config) confirm(hash string) error {
+	// Polled rather than waited on a subscription: a feeder holding a websocket
+	// open to its own node adds a reconnection path to a program whose whole
+	// value is that it is simple enough to trust. A block is a few seconds and
+	// this runs once a minute.
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		args := []string{"query", "tx", hash, "--node", c.node, "--output", "json"}
+		if c.home != "" {
+			args = append(args, "--home", c.home)
+		}
+		out, err := exec.Command(c.binary, args...).CombinedOutput()
+		if err == nil {
+			var result struct {
+				Code   uint32 `json:"code"`
+				Height string `json:"height"`
+				RawLog string `json:"raw_log"`
+			}
+			if err := json.Unmarshal(out, &result); err != nil {
+				return fmt.Errorf("unreadable result for %s: %w", hash, err)
+			}
+			if result.Code != 0 {
+				return fmt.Errorf("failed in block %s (code %d): %s",
+					result.Height, result.Code, result.RawLog)
+			}
+			return nil
+		}
+		// Not found yet is the ordinary case for the first second or two, and is
+		// indistinguishable from any other query error through the CLI. Treated
+		// as not-yet until the deadline, then reported as what it is: a
+		// submission whose fate is unknown, which is not the same as a failure
+		// and must not be logged as one.
+		if time.Now().After(deadline) {
+			return fmt.Errorf(
+				"submitted %s but could not read its result within 30s; the rates may or may not "+
+					"have been recorded: %s", hash, strings.TrimSpace(string(out)))
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 // acceptedDenoms asks the chain what it wants prices for, rather than carrying
