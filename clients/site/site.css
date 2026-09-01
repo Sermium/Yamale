@@ -333,7 +333,14 @@ footer p { max-width: none; }
    details/summary rather than a hover menu: keyboard-reachable and usable on a
    touch screen with no JavaScript. A hover-only menu simply does not open on a
    phone. */
-.menu { position: relative; display: inline-block; }
+/* The panel is anchored to the MASTHEAD, not to the button.
+   Anchoring it to the button makes its available width the distance from the
+   button's right edge to the viewport's left edge — a number CSS cannot name,
+   so a wide panel simply ran off the left and clipped its first column. Against
+   the masthead's inner wrap, "as wide as there is room for" is exactly
+   max-width: 100%, which is a number CSS can name. */
+.masthead__inner { position: relative; }
+.menu { display: inline-block; }
 .menu > summary {
   list-style: none; cursor: pointer; user-select: none;
   color: var(--text-muted); font-size: inherit;
@@ -357,8 +364,40 @@ footer p { max-width: none; }
 .app-link:hover { background: var(--bg); }
 .app-link strong { display: block; font-weight: 600; font-size: 0.94rem; }
 .app-link span { display: block; font-size: 0.82rem; color: var(--text-muted); }
+
+/* Fourteen consoles, grouped by who opens them.
+   A single column stopped being scannable somewhere around seven, and ten of
+   these were previously reachable only by typing the URL — which is not a menu
+   problem so much as it is the reason nobody knew the land register existed. */
+.menu__panel--wide {
+  /* Wide when there is room, and never wider than the masthead it hangs from.
+     auto-fit rather than a fixed three, so the columns collapse to two and then
+     to one on their own instead of at a breakpoint guessed from one viewport. */
+  width: 56rem; max-width: 100%;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.2rem 0.8rem; padding: 0.8rem;
+}
+.menu__group { min-width: 0; }
+/* The tour spans the row above the three groups: it is the one destination a
+   first-time visitor should take, and burying it as the fifteenth link in a
+   column would be the same mistake in a tidier form. */
+.menu__group--lead { grid-column: 1 / -1; }
+.app-link--lead {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); margin-bottom: 0.5rem;
+}
+.menu__group h4 {
+  margin: 0.5rem 0 0.15rem; padding: 0 0.7rem;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-muted);
+}
 @media (max-width: 640px) {
+  /* In the flow rather than floating: an absolutely positioned panel on a phone
+     covers the page it is a menu for. width:auto rather than a reset of
+     min-width — the wide panel sets an explicit width now, and a min-width reset
+     leaves that width in place and overflows the screen by 500px. */
   .menu__panel { position: static; min-width: 0; box-shadow: none; margin-top: 0.4rem; }
+  .menu__panel--wide { width: auto; padding: 0.4rem; }
 }
 
 /* The same destinations in the footer, as a plain column. */

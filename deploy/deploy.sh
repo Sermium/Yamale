@@ -132,11 +132,22 @@ check() { # path, expected code, what it proves
   fi
 }
 
-# Every console answers at all.
-for p in / /app/ /wallet/ /explorer/ /safe/ /rwa/ /land/ /markets/ /oversight/ \
-         /keys/ /demo/ /governance/ /foundation/ /validator/ /docs/; do
-  check "$p" 200 ""
-done
+# The site root and the documentation.
+for p in / /docs/; do check "$p" 200 ""; done
+
+# Every destination the site's own menu offers, read out of the menu rather than
+# listed here. A hard-coded list drifts the wrong way: it goes stale by keeping a
+# console that was removed, and it stays green while a console nobody links to
+# rots unreachable. Ten of the fourteen were in exactly that state until
+# 2026-09-01 — served, working, and reachable only by typing the URL, which is
+# why nobody knew the land register existed.
+menu_links=$(grep -oE 'class="app-link[^"]*" href="[^"]+"' "$ROOT/clients/site/index.html" \
+             | grep -oE 'href="[^"]+"' | sed 's/href=//;s/"//g' | sort -u)
+if [ -z "$menu_links" ]; then
+  echo "    FAIL could not read any app links out of clients/site/index.html" >&2
+  fail=1
+fi
+for p in $menu_links; do check "$p" 200 "linked from the site menu"; done
 
 # A path each router knows and the filesystem does not. This is the check that
 # would have caught /rwa/ answering 404 on every route but its own root.
