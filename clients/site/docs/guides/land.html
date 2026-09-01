@@ -16,8 +16,20 @@
 <h1>Land title deeds on Yamale</h1>
 <p>How a parcel of land becomes a record that cannot be owned twice, and how it
 changes hands without anybody being able to buy the outcome.</p>
-<p><strong>Status:</strong> design. The module (<code>x/land</code>) is specified here and not yet
-implemented. This document is the specification the implementation must satisfy.</p>
+<p><strong>Status: built and running.</strong> This page began as the specification and the
+module now satisfies it — 12 messages, a four-party transfer, and supervised
+fractionalisation. On <code>yamale-devnet-2</code>, read 2026-08-31, <code>x/land</code> holds four
+registry authorities in CD (Kinshasa, Lubumbashi, Goma, Mbuji-Mayi) and four
+parcels, the most recent registered at height 119,926. There is a console at
+<code>/land/</code>.</p>
+<p>The objection path has been exercised there: parcel 2, <code>CD-KIN-2026-00413</code>,
+sits at <code>STATUS_DISPUTED</code>. Parcel 1 carries a mortgage encumbrance, a 1974 grant
+deed and a 49% foreign-ownership restriction, which is the shape this page argues
+for — a title that records what constrains it rather than only who holds it. No
+transfer is pending on the chain as read.</p>
+<p>What the live chain does not demonstrate is scale or adversarial use. The
+refusals below are covered by tests; most of them have not been provoked by
+somebody trying.</p>
 <h2>The problem this solves</h2>
 <p>Land registries in much of the world fail in four specific ways, and each one is
 a design requirement rather than a vague aspiration:</p>
@@ -155,6 +167,34 @@ a targeting list.</li>
 describe overlapping ground, only a surveyor can say so. The module gives them
 a way to say it (<code>MsgObject</code>) and refuses to pretend it knows.</li>
 </ul>
+<h2>Admitting a registry office takes two acts, and one is easy to miss</h2>
+<p>An office cannot register anything until <strong>both</strong> have happened, and they live in
+different modules:</p>
+<ol>
+<li><p><strong><code>MsgRegisterAuthority</code> in <code>x/land</code></strong> — a governance proposal naming the
+office, its jurisdiction and its human name. This is what <code>query land authorities</code> lists. The office must already be an <code>x/group</code> account:
+<code>assertGroupAccount</code> refuses an ordinary address, because an office that is
+one key is a quorum of one.</p>
+</li>
+<li><p><strong><code>ROLE_REGISTRY_AUTHORITY</code> in <code>x/alias</code>, covering that country</strong> — granted by
+governance or by the foundation. This is what <code>AssertScope</code> consults on every
+office action.</p>
+</li>
+</ol>
+<p>Doing only the first produces an office that appears in <code>query land authorities</code>
+and is refused by every message it tries to send:</p>
+<pre><code>yml1c799jd… holds no grant of ROLE_REGISTRY_AUTHORITY covering CD:
+this account holds no grant of that role covering that jurisdiction
+</code></pre>
+<p>That reads as a bug in the admission and is not one. The two are separate on
+purpose: the first records that a country has an office, and the second records
+what that office may do inside a perimeter — and the perimeter is enforced by one
+mechanism for every module rather than each module inventing its own. The cost is
+this failure mode, which is why it is written here.</p>
+<p><strong>Check both before believing an office is live:</strong></p>
+<pre><code class="language-bash">blockchaind query land authorities
+blockchaind query alias role-holders CD
+</code></pre>
 <h2>Messages</h2>
 <table>
 <thead>

@@ -21,6 +21,18 @@ that records it is kept trustworthy.</p>
 against a real node.</p>
 <p><strong>You will end with:</strong> two approved institutions, a registered customer, a
 settled payment, and the statement entry it produced.</p>
+<blockquote>
+<p><strong>On a local chain, where you approve the participants yourself.</strong> On the
+deployed network <code>x/paymsg</code> holds <strong>zero</strong> approved participants and <strong>zero</strong>
+payment records — measured 2026-08-31 — because no country has been enrolled
+and only a payments authority or a foundation administrator can admit an
+institution. So no ISO payment has ever been made on <code>yamale-devnet-2</code>, and
+nothing described below is reachable from any deployed interface.</p>
+<p>In particular, the transfer at height 84,121 that is sometimes cited is <strong>not</strong>
+one of these. It is a plain <code>MsgSend</code> with ISO fields packed into the memo
+string, sent by <code>clients/app</code>, which says so on the screen. See
+<a href="../scope/gaps.html#known-defects">gaps.md</a>.</p>
+</blockquote>
 <hr>
 <h2>The shape of it</h2>
 <p>A payment is an ISO 20022 pacs.008 credit transfer: a real transfer of funds,

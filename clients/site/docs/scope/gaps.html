@@ -17,9 +17,18 @@
 <p>Checked against the tree and the running chain rather than against a task list —
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.</p>
-<p>Last verified 2026-08-24, against <code>yamale-devnet-2</code> at block 52,356.</p>
+<p>Last verified 2026-08-31, against <code>yamale-devnet-2</code> at block 124,691 — queried
+over <code>https://pay.yamalelegal.com/api/rpc/</code>, and every figure below that reads
+as chain state was read from that node on that day.</p>
+<p><strong>Three states, not one.</strong> This document once headed a single table &quot;built,
+merged, and live on the chain&quot;, and that phrasing hid a real gap for two days:
+rows that were merged sat beside rows that were running, and a row reading &quot;land
+registry - module, CLI, client&quot; concealed that <code>x/tokenisation</code> had no CLI at all
+and the land client could send two of twelve messages. So the states are now
+separated, and a row may only move down the page when somebody has checked the
+running chain rather than the tree.</p>
 <hr>
-<h2>Built, merged, and live on the chain</h2>
+<h2>Live on the chain, and verified there</h2>
 <table>
 <thead>
 <tr>
@@ -76,8 +85,8 @@ list is not evidence.</p>
 <td>planned rotation, recovery quorum, veto-by-signing</td>
 </tr>
 <tr>
-<td>Land registry</td>
-<td>module, CLI, client; tokenisation refuses unauthorised fractionalisation</td>
+<td>Land registry - the module</td>
+<td>12 messages, four-party transfer, 31 tests; <code>x/tokenisation</code> refuses unauthorised fractionalisation</td>
 </tr>
 <tr>
 <td>Tiered netting</td>
@@ -92,26 +101,6 @@ list is not evidence.</p>
 <td><code>x/alias</code> role grants, and <code>AssertScope</code> consulted by four modules</td>
 </tr>
 <tr>
-<td>All five roles confer something</td>
-<td>supervisors are payload readers; an enforcement office can open a case and freeze in an emergency</td>
-</tr>
-<tr>
-<td>Administrators and the emergency authority are grants</td>
-<td>two parameter lists retired, their fields reserved, and both carried across by the <code>roles-that-do-something</code> upgrade</td>
-</tr>
-<tr>
-<td>An office&#39;s M-of-N</td>
-<td>recorded on the grant as <code>required_shape</code>, re-checked on every authority action</td>
-</tr>
-<tr>
-<td>Country enrolment</td>
-<td><code>ceremony country</code> — offices, grants and jurisdictions, approved by the foundation</td>
-</tr>
-<tr>
-<td>Administrator appointment</td>
-<td><code>ceremony administrators</code> plus a governance console that composes it</td>
-</tr>
-<tr>
 <td>Coordinated upgrade</td>
 <td>proposed, voted, halted at height, binaries swapped, applied — on the live chain</td>
 </tr>
@@ -123,7 +112,163 @@ list is not evidence.</p>
 <td>Visual system</td>
 <td><code>clients/shared/yamale.css</code> — real typefaces, a scale, elevation, semantic colour</td>
 </tr>
+<tr>
+<td>All five roles confer something</td>
+<td><code>roles-that-do-something</code> applied at <strong>95,400</strong>; two chain-wide <code>ROLE_FOUNDATION_ADMINISTRATOR</code> grants exist, made at <strong>95,758</strong>, both pinned (3-of-5 and 3-of-4)</td>
+</tr>
+<tr>
+<td>Threshold consumer accounts</td>
+<td><code>mpc</code> — 2-of-3 ECDSA. Two payments from one such account at <strong>118,885</strong> and <strong>118,968</strong>, the second after a reshare, under a byte-identical public key</td>
+</tr>
+<tr>
+<td>The custodian service</td>
+<td><code>tools/custodian</code> — holds one share, authenticates, co-signs, refuses. Not deployed against anybody&#39;s money</td>
+</tr>
+<tr>
+<td><code>x/tokenisation</code> pays its shareholders</td>
+<td><code>income-that-arrives</code> applied at <strong>119,900</strong>; a vehicle minted after it owes 18 YML to its majority holder where the one minted before owes nobody anything against a 72 YML vault</td>
+</tr>
+<tr>
+<td>Four more client surfaces</td>
+<td><code>/keys/</code>, <code>/markets/</code>, <code>/oversight/</code>, <code>/demo/</code> — all answering 200 on 2026-08-31</td>
+</tr>
 </tbody></table>
+<h2>Merged, but not yet running</h2>
+<p>The distinction this document previously lost. Everything here is in <code>main</code> and
+has never been exercised against the network the validators are running, so a
+query against the live chain returns nothing for any of it.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Country enrolment</td>
+<td><code>ceremony country</code> - offices, grants, jurisdictions, approved by the foundation</td>
+<td>tool complete, <strong>never run</strong>: <code>RoleHolders</code> is empty for every country asked</td>
+</tr>
+<tr>
+<td>Enrolment for a threshold account</td>
+<td><code>tools/custodian --import</code> takes a share file an operator produced with <code>tools/mpc keygen</code></td>
+<td>there is no path by which a member of the public gets an account</td>
+</tr>
+<tr>
+<td>Distributed key generation</td>
+<td><code>mpc.Keygen</code> runs all three parties in one process</td>
+<td>correct for a ceremony on one machine; in production the device&#39;s share must be generated on the device and never leave it</td>
+</tr>
+</tbody></table>
+<p><strong>Three rows left this table on 2026-08-31, and one of them had been wrong for
+four days.</strong> <code>roles-that-do-something</code> was applied at height <strong>95,400</strong> — all
+five roles confer something, the retired parameter lists are grants, and
+<code>required_shape</code> is checked on every authority action. Administrator appointment
+was listed as &quot;tool complete, never run&quot; and had in fact been run:
+<code>ChainWideGrants</code> returns two <code>ROLE_FOUNDATION_ADMINISTRATOR</code> grants made at
+height <strong>95,758</strong>, both to <code>x/group</code> accounts and both pinned, at 3-of-5 and
+3-of-4. <code>x/tokenisation</code>&#39;s CLI rides the same binary and is therefore live too.</p>
+<p>That is the same failure this document was restructured to prevent, in the
+opposite direction: a row stayed pessimistic because nobody re-read the chain
+after the upgrade landed. <strong>Reading the chain has to happen in both directions.</strong></p>
+<p><strong>How this was found, and it is the reason for the split.</strong> On 2026-08-27 the
+running binary on both hosts was four days old. <code>query alias chain-wide-grants</code>
+returned <code>{}</code>, so no account held <code>ROLE_FOUNDATION_ADMINISTRATOR</code> - not because a
+grant was missing but because the state machine had no such role. The symptom
+surfaced two modules away: an account created in the payments app could send
+money and could never be addressed, because <code>MsgRegisterAlias</code> needs a recorded
+jurisdiction and only an approved participant or a foundation administrator can
+record one. <strong>A binary&#39;s build date is now part of verifying this document.</strong></p>
+<h2>The account model - the key is built, the service around it is not</h2>
+<p>Separated out because it keeps being asked about. This section previously read
+&quot;decided, specified, and the largest unbuilt thing&quot;, and the first half of that
+stopped being true on 2026-08-31.</p>
+<p><strong>Decided 2026-08-20: threshold key custody, built in house rather than bought.</strong>
+The design is complete in <a href="../guides/accounts.html">accounts.md</a>: the key is split,
+the server holds one share and the device the other, and neither can sign alone -
+so &quot;the operator cannot move your money&quot; is a statement about mathematics rather
+than about policy. Operator custody was chosen first and reversed, because on a
+state-operated system &quot;the authority can spend any citizen&#39;s balance&quot; is a very
+different political object from &quot;the authority runs the payment rails&quot;. Recovery
+is specified to the same depth: two approvers from different teams, a 72-hour
+delay with notice to email and every enrolled device, outbound payments frozen
+for 24 hours afterwards, proof that is not public knowledge, and recoveries
+published in aggregate so an unusual rate is visible without exposing who.</p>
+<p><strong>The share protocol is built, and it has signed on this chain.</strong> <code>mpc</code> is
+2-of-3 threshold ECDSA over secp256k1 on tss-lib: three shares named <code>device</code>,
+<code>custodian</code> and <code>recovery</code>, any two of which sign, none of which signs alone. It
+is documented in <a href="../guides/mpc.html">mpc.md</a>. <code>tools/custodian</code> holds the second
+share and decides whether to co-sign — <a href="../guides/custodian.html">custodian.md</a>.
+<code>mpc/wasm</code> is the device&#39;s half compiled for the browser, and <code>clients/keys</code> runs
+the protocol in front of an audience at <code>/keys/</code>.</p>
+<p>What was verified on the chain, and it is the claim the design was chosen for:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Height</th>
+<th>Transaction</th>
+<th>Memo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Before the reset</td>
+<td>118,885</td>
+<td><code>A8F18CAB…B15C3C</code></td>
+<td><code>threshold signed: device + custodian</code></td>
+</tr>
+<tr>
+<td>After it</td>
+<td>118,968</td>
+<td><code>6C784D06…4AFCFE</code></td>
+<td><code>after a password reset: new shares, same address</code></td>
+</tr>
+</tbody></table>
+<p>Both <code>code 0</code>, both <code>MsgSend</code> from
+<code>yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97</code>, sequences 0 and 1 — and both
+carrying the <strong>byte-identical</strong> compressed public key
+<code>0320ddc3…3c34</code>, which derives to that address. The second was signed by shares
+that did not exist when the first was signed. A Cosmos multisig could not have
+done that: rotating a member changes the address, which retires the account&#39;s
+<code>x/alias</code> identifier and silently breaks every saved payee.</p>
+<p>Two honest limits on that. The chain sees an ordinary single-signature account
+and cannot tell you the signature was produced jointly — that
+indistinguishability is deliberate, and it is also why the transaction alone is
+not proof of the arrangement. And the shares in that rehearsal were three files
+on one machine driven by <code>tools/mpc</code>, which is precisely the arrangement the
+design exists to avoid; the CLI&#39;s own header says so.</p>
+<p><strong>The service around it is not built, and that is still the commercial critical
+path.</strong> No enrolment over HTTP, no recovery workflow, no second factor, no
+notification, no distributed key generation, no pre-parameter pool. An account is
+created by an operator running <code>keygen</code> and <code>--import</code>. Everything in Part 5 of
+<a href="../guides/accounts.html">accounts.md</a> — two approvers from different teams, the
+72-hour delay, notice to email and every enrolled device, the 24-hour outbound
+freeze, the standard of proof — is specified and none of it exists. <code>Reshare</code> is
+the mechanism a reset would use and nothing calls it in anger.</p>
+<p><strong>And the consumer app still ships the model the design rejected.</strong> <code>clients/app</code>
+holds a CosmJS password-wrapped key in <code>localStorage</code>.
+<code>clients/app/src/account.ts</code> says so in its own header and calls itself not
+acceptable in production, which is the right way to carry a proof of concept —
+but it means a forgotten password is a lost account today, and the threshold work
+above is not wired into any interface a person could use.</p>
+<p>Two divergences worth recording rather than leaving only in the code:</p>
+<ul>
+<li><strong>The blind index in <code>clients/app</code> is not one.</strong> <code>emailKey()</code> is a bare
+<code>SHA-256</code> of the address. The design specifies <code>HMAC(email, pepper)</code> with the
+pepper held outside the store, and the difference is the whole property: a bare
+hash can be tested against any list of email addresses, so a dump yields the
+membership it was supposed to hide. Local-only storage makes it less severe
+than the same mistake server-side; it does not make the code&#39;s claim true.
+<strong><code>tools/custodian</code> now does it correctly</strong> — HMAC with a pepper the service
+refuses to start without, refuses below 32 bytes, and refuses to read from
+inside the directory it protects. So the divergence is now between two places
+in this repository rather than between the code and the spec, which makes it
+cheaper to close and no less wrong until somebody does.</li>
+<li><strong><code>crypto.subtle</code> is undefined outside a secure context</strong>, so on the plain-HTTP
+tailnet host account creation throws and reaches the user as &quot;That password is
+not right.&quot;</li>
+</ul>
 <h2>Designed, documented, not built</h2>
 <p><strong>Browser signing for the foundation.</strong> The console at <code>/foundation/</code> reads the
 chain and composes commands a custodian runs; it still cannot sign.</p>
@@ -159,11 +304,23 @@ testing on every value-moving path, written invariant specifications produced
 <em>before</em> audit so reviewers have something to check against, a key ceremony with
 HSM custody, a documented upgrade rollback.</p>
 <p><strong>The account service</strong>, which the scope calls the actual commercial critical
-path: authentication, threshold key custody, recovery with two approvers and a
-delay, second factor. Plus USSD and feature-phone access, without which most
+path. Its key custody has its own section above, because it is now built rather
+than merely specified. What remains untouched around it is most of the service:
+enrolment for a member of the public, the recovery workflow, second-factor
+enrolment, notification, and rate limiting or lockout on the custodian&#39;s password
+check. <code>tools/custodian</code> covers authentication and the decision to co-sign, and
+nothing else on that list. Plus USSD and feature-phone access, without which most
 African transaction volume is unreachable, and agent-network and mobile-money
 integration.</p>
-<p><strong>A legal entity able to sign an indemnity.</strong></p>
+<p><strong>A legal entity able to sign an indemnity.</strong> A <code>LICENSE</code> now exists —
+proprietary, with reading, compiling, running on a test network and publishing
+security findings explicitly permitted, and production or distribution requiring
+a written agreement. That removes the &quot;no licence at all&quot; blocker that stopped a
+counterparty&#39;s legal team from opening the repository, and it is not the same
+thing as being able to contract. The file itself flags what is unsettled: the
+registered entity, named &quot;Sermium&quot; on the basis of the repository&#39;s own naming,
+and the governing law, which it deliberately does not assert. It was drafted for
+clarity rather than by a lawyer and has not been reviewed by one.</p>
 <h2>Open decisions</h2>
 <p><strong>Answered 2026-08-20.</strong> Threshold key custody is <strong>built in house</strong>. The product
 is a <strong>vendor with support obligations</strong>, not a reference implementation — which
@@ -266,8 +423,69 @@ account, out of reach. A freeze blocks posting and withdrawing, so value
 cannot escape — but a seizure cannot reach it either.</li>
 </ol>
 <h2>Known defects</h2>
+<p><strong>Closed in the tree is not closed on the chain.</strong> The five <code>x/tokenisation</code>
+defects struck through below were fixed on 2026-08-27 and were still being
+executed in their broken form by the validators for four more days. They became
+live with the <code>income-that-arrives</code> upgrade at height <strong>119,900</strong>, verified
+against <code>AppliedPlan</code>. A row here now says both dates when they differ.</p>
 <ul>
-<li><strong>A sender is not obliged to seal a payload to the readers the chain names.</strong>
+<li><p><del><strong>No shareholder in x/tokenisation could ever be paid anything.</strong></del> Closed
+2026-08-27, live at 119,900. <code>SendRestrictionFn</code> settles both sides of a share transfer, which
+the income index requires — a holder earns the movement in the index across
+the period they held, so a position has to be settled the moment a balance
+changes. It was written, commented, and <strong>registered nowhere</strong>: <code>app.go</code>
+appended only the enforcement restriction, and a repository-wide search found
+the function referenced by nothing at all, not even a test. So no transfer
+settled, no position was created by one, and every entitlement read zero.
+Found against a live vehicle holding 72 YML against 1,000,000 shares which the
+chain&#39;s own query said was owed to nobody. Second dead load-bearing function
+in this module after <code>FinaliseSale</code>, and both were found the same way: by
+driving the thing rather than reading it.</p>
+</li>
+<li><p><strong><code>mpc.Sign</code> panics when handed shares from two different sharings.</strong> Found
+2026-08-31 while verifying the reshare claim by running the tool. An account
+was generated, resharded from <code>custodian + recovery</code> without the device share
+— the password-reset path — and the resulting address was identical, which is
+the property working as designed. Signing with the <strong>old</strong> device share and the
+<strong>new</strong> custodian share then crashes the process:</p>
+<pre><code>panic: BuildLocalSaveDataSubset: unable to find a signer party in the
+local save data
+… tss-lib/ecdsa/keygen/save_data.go:92
+… mpc.Sign at mpc/mpc.go:296
+</code></pre>
+<p>The refusal is correct — shares from two sharings must not combine — but a
+panic is the wrong way to deliver it, and the input is not exotic: a stale
+device share is exactly what a customer&#39;s phone holds after a reset it did not
+finish. <code>Sign</code> validates the share count and the digest length and then hands
+the set to tss-lib without checking that every share agrees on the same <code>Ks</code>,
+which is the check that would turn this into an error somebody can read.</p>
+<p><strong>Scope, stated because it was measured and not reasoned:</strong> this is <code>Sign</code>, the
+all-in-one-process path used by <code>tools/mpc</code> and the tests.
+<code>NewSigningParty</code> — the production path, and the one <code>tools/custodian</code> uses —
+builds its committee from its <em>own</em> share&#39;s <code>Ks</code>, so it does not reach this
+construction with a mixed set and cannot panic here. What it does instead when
+its peer is on a different sharing was <strong>not tested</strong>, and should be: the
+plausible answers are a protocol that hangs and a signature that verifies
+against nothing, and neither is a good thing for a service to do on input a
+stranger controls.</p>
+</li>
+<li><p><strong>x/tokenisation credits a sale&#39;s proceeds that never arrive.</strong> <code>FinaliseSale</code>
+puts the whole reported price through the income index while moving no coins,
+and the only message that does move coins — <code>FundVault</code> — accrues them a second
+time on the way in. So the proceeds of a sale have no funding path that does
+not double-count, every holder is credited money the vault does not hold, and
+redemption fails with <code>insufficient funds</code> for everybody after the first.
+Found 2026-08-27 while writing the pipeline&#39;s first test. <strong>Not fixed, because
+the fix is a decision rather than a mechanism:</strong> either finalising pulls the
+price from the reporter — which makes a reported price binding, and closes the
+report-low-and-keep-the-difference attack a second way — or funding stops
+accruing once a sale is reported and the proceeds are simply the last
+<code>FundVault</code>. The first is stronger and assumes the sponsor holds the money on
+chain; the second is weaker and assumes nothing.
+<code>TestAVehicleCanBeExited</code> asserts the broken behaviour deliberately, so
+whoever decides this will see it fail and have to look.</p>
+</li>
+<li><p><strong>A sender is not obliged to seal a payload to the readers the chain names.</strong>
 <code>ROLE_SUPERVISOR</code> now confers an entitlement — a holder covering a country is
 a viewing-key recipient for every payload settling there, published by
 <code>Query/PayloadReaders</code> — but the envelope is built off chain and the chain
@@ -275,8 +493,9 @@ holds only a hash of the plaintext. A sender that ignores the published set
 produces a payload the supervisor can never open, and nothing on chain
 detects it. That is a limit of where the ciphertext lives rather than a gap in
 the registry, and closing it would mean putting the recipient key ids on the
-payment record and checking them, which is a design decision nobody has taken.</li>
-<li><strong>A regulator appointed before the supervisor rule existed keeps the
+payment record and checking them, which is a design decision nobody has taken.</p>
+</li>
+<li><p><strong>A regulator appointed before the supervisor rule existed keeps the
 appointment.</strong> <code>MsgAppointRegulator</code> refuses an appointee that holds no
 <code>ROLE_SUPERVISOR</code> covering the country, checked on the write and not re-read
 afterwards. So a country appointed under the old rule, or one whose regulator&#39;s
@@ -284,43 +503,106 @@ grant is later revoked, has a sitting regulator holding no role — visible in
 <code>role-holders</code> and <code>regulator</code> disagreeing, and fixed by appointing again.
 Re-reading it on every payment was rejected because an appointment that could
 evaporate would leave a country&#39;s payments sealed to an authority the chain no
-longer lists, with nothing saying when it stopped.</li>
-<li><strong>Role grants made before <code>required_shape</code> are unpinned</strong>, so their holders
+longer lists, with nothing saying when it stopped.</p>
+</li>
+<li><p><strong>Role grants made before <code>required_shape</code> are unpinned</strong>, so their holders
 can still reduce themselves to a single key. Absent means no requirement, by
 design: the alternative disabled every authority on the upgrade block. On a
 chain still in development the fix is to re-make the grants; on one holding
-value it would need a migration somebody decided on deliberately.</li>
-<li><strong><code>x/land</code>&#39;s own admin path has the same weakness <code>required_shape</code> closes.</strong>
-It asks whether a registry office is a group, once, and never again.</li>
-<li><strong>Every foundation administrator carried across by the upgrade is unpinned and
+value it would need a migration somebody decided on deliberately.</p>
+</li>
+<li><p><strong><code>x/land</code>&#39;s own admin path has the same weakness <code>required_shape</code> closes.</strong>
+It asks whether a registry office is a group, once, and never again.</p>
+</li>
+<li><p><strong>Every foundation administrator carried across by the upgrade is unpinned and
 may not be a group.</strong> <code>Migrate2to3</code> writes each address from the retired
 parameter as a chain-wide grant with no <code>required_shape</code> and without asking
 whether the holder is an <code>x/group</code> account, because neither was true of a
 parameter entry and a migration that applied today&#39;s rule would be deleting the
 one authority that can correct a country rather than carrying it. Both are
 closed by re-granting deliberately, per grant, and the guide says how. Until
-then this is the same class of defect as the unpinned grants above.</li>
-<li><strong>No payment has been pushed through the Pay screen end to end.</strong> The screen no
-longer forges a receipt — it signs, waits for the block, and reports from
-execution rather than acceptance — but that path is verified by reading and by
-tests, not by moving money.</li>
-<li><strong><code>clients/app</code> sends <code>MsgSend</code>, not <code>MsgSendPayment</code>.</strong> <code>x/paymsg</code> requires
+then this is the same class of defect as the unpinned grants above.</p>
+</li>
+<li><p><del><strong>No payment has been pushed through the Pay screen end to end.</strong></del> Closed
+2026-08-26: 12.50 XOF at block 84,121, tx <code>336F01BA…</code>, code 0, carrying
+<code>ym1;e2e=YML-20260826-PM1SJCMM;purp=GDDS;rmt=Invoice 4471</code> on the ledger, and
+the reference decoded back onto the history row.</p>
+</li>
+<li><p><strong>No account created in the app can be paid, and for a while nothing said so.</strong>
+<code>MsgRegisterAlias</code> lands in a block and fails there — <code>this account has no recorded jurisdiction</code>, codespace <code>alias</code>, code 9 — because the chain has
+neither an approved participant nor a foundation administrator. The app now
+says this on the account screen instead of returning null and carrying on. The
+fix is chain state, not client code.</p>
+</li>
+<li><p><strong><code>clients/app</code> sends <code>MsgSend</code>, not <code>MsgSendPayment</code>.</strong> <code>x/paymsg</code> requires
 both named participants to be governance-approved and the debtor to be a
 registered customer of the one it names, and this chain has <strong>zero</strong> approved
 participants. So the app sends a real transfer with the reference in the memo
 and says which rails carried it. The ISO message stays unreachable from any
-interface until a country is enrolled.</li>
-<li><strong>The OpenAPI merge collapses every module&#39;s <code>Params</code> into one definition</strong>,
-currently holding only <code>x/validatorgov</code>&#39;s fields.</li>
-<li><strong><code>TestGenesisRoundTrips</code> in <code>x/alias</code> still has a vacuous <code>Owners</code> check</strong> —
-the same shape as three others that were fixed.</li>
-<li><strong><code>x/tokenisation</code> is served under <code>/yamale/</code> and the nginx allowlist names it
+interface until a country is enrolled.</p>
+<p>Re-measured 2026-08-31: <code>ListApprovedParticipant</code> and <code>ListPaymentRecord</code> both
+return an empty page, and <code>RoleHolders</code> is empty for every country asked. <strong>So
+the payment at height 84,121 is not an ISO 20022 payment and must never be
+described as one.</strong> It is a <code>/cosmos.bank.v1beta1.MsgSend</code> of 12,500,000
+<code>uxof</code> carrying <code>ym1;e2e=YML-20260826-PM1SJCMM;purp=GDDS;rmt=Invoice 4471</code> in
+the memo — read back from the transaction, not from the release note. The ISO
+fields travel in a memo string; <code>x/paymsg</code> was not involved and holds nothing.</p>
+</li>
+<li><p><strong>The OpenAPI merge collapses every module&#39;s <code>Params</code> into one definition</strong>,
+currently holding only <code>x/validatorgov</code>&#39;s fields.</p>
+</li>
+<li><p><strong><code>TestGenesisRoundTrips</code> in <code>x/alias</code> still has a vacuous <code>Owners</code> check</strong> —
+the same shape as three others that were fixed.</p>
+</li>
+<li><p><strong><code>x/tokenisation</code> is served under <code>/yamale/</code> and the nginx allowlist names it
 under neither prefix</strong>, so it falls through to deny-by-default. Correct today,
-a trap when somebody opens it up.</li>
+a trap when somebody opens it up.</p>
+</li>
+<li><p><del><strong><code>FinaliseSale</code> has no caller.</strong></del> Closed 2026-08-27, live at 119,900. It was a keeper method
+nothing invoked — no message, no EndBlocker, not one test — so no asset reached
+<code>STATUS_REALISED</code> and <code>Redeem</code>, which requires it, could never succeed for
+anybody: every fractionalised vehicle was a one-way door. <code>MsgFinaliseSale</code> is
+the caller, permissionless because a crank only the sponsor could turn is one
+the sponsor can decline to turn.</p>
+</li>
+<li><p><del><strong><code>AttestSale</code> never checked who was attesting.</strong></del> Closed 2026-08-27, live
+at 119,900.
+<code>ErrNotAttestor</code> was registered as code 17 and returned from nowhere, and
+<code>Collection</code> carried no register to check against, so a sponsor met any
+threshold with fresh addresses at the cost of the gas — leaving the guide&#39;s
+own &quot;the sale price is the attack&quot; defended by nothing. Collections now carry
+an attestor register that <strong>governance</strong> appoints, not the seller.</p>
+</li>
+<li><p><del><strong>A holder who never transferred was paid nothing.</strong></del> Closed 2026-08-27, live
+at 119,900.
+<code>Fractionalise</code> created the vault and no position for the owner, so <code>Settle</code>
+treated them as a first-time holder on the way out and started them at an
+index that had already moved. Hidden because any transfer settles both sides,
+so the ordinary issue-then-distribute path created the position by accident.</p>
+</li>
+<li><p><del><strong><code>DisputeSale</code> returned <code>ErrStillInWindow</code> for a window that had closed.</strong></del>
+Closed 2026-08-27, live at 119,900; <code>ErrWindowClosed</code> is code 34.</p>
+</li>
 </ul>
 <h2>Operational loose ends</h2>
 <ul>
-<li><strong>A validator above two thirds silently excludes every other validator.</strong>
+<li><p><strong>The oracle has never agreed a price on this chain, and nothing said so.</strong>
+Found 2026-08-31. <code>Query/ExchangeRates</code> returns an empty set, and
+<code>Query/ExchangeRate</code> for every denomination asked answers <em>&quot;no rate has ever
+been agreed&quot;</em> — not a stale rate, never one. <code>Query/MissCounters</code> says why:
+both validators have missed <strong>every</strong> window they have been eligible for,
+10,188 of 10,188 and 10,394 of 10,394. No feeder is running. The vote period is
+12 blocks and the threshold 50%, so with two validators a single feeder cannot
+produce a rate on its own; two feeders are needed and there are none.</p>
+<p>This is worth more than its size. <code>/markets/</code> is listed above as live and it
+is — the console renders, the AMM pools behind it are real, and its oracle
+panel is correctly showing that there is nothing to show. But &quot;the module
+works&quot; and &quot;the module has ever produced its output on this network&quot; are
+different claims, and only the first of them was being made. Anything that
+consumes a rate — fee conversion, the appointed-valuer path, a stablecoin
+peg check — has never been exercised end to end here.</p>
+</li>
+<li><p><strong>A validator above two thirds silently excludes every other validator.</strong>
 Found and fixed 2026-08-21. <code>pi-2</code> signed 5 of 40 blocks, was jailed for
 downtime and slashed 1%, on a 21ms direct link with clocks four seconds apart
 and a load average of 0.5 — nothing wrong with it. A validator holding more
@@ -330,32 +612,42 @@ cannot vote for what it has not seen. Rebalancing to <strong>64.56% / 35.44%</st
 it from 5 of 40 to <strong>25 of 25</strong> with nothing else changed. The cost is that
 neither node can now commit alone, so either one&#39;s outage stops the chain —
 which two validators could never avoid. Four is the number that gets both
-properties.</li>
-<li><strong>The ops signing service is still running</strong> with two htpasswd files. It was
+properties. The split has drifted since and reads <strong>57.18% / 42.82%</strong> on
+2026-08-31 — 100,000 and 74,900 of 174,900 bonded. Neither holds two thirds,
+which is the property that matters, and the chain was not catching up when
+read.</p>
+</li>
+<li><p><strong>The ops signing service is still running</strong> with two htpasswd files. It was
 always a devnet crutch; the plan is client-side signing through
 <code>@yamale/connect</code>, then delete <code>/api/ops/</code>, both credential files and both
-copies of <code>opsd.py</code>, and move the consoles onto the tailnet.</li>
-<li><strong>The hosted ceremony process is gone</strong>, killed by the VM&#39;s reboot on
+copies of <code>opsd.py</code>, and move the consoles onto the tailnet.</p>
+</li>
+<li><p><strong>The hosted ceremony process is gone</strong>, killed by the VM&#39;s reboot on
 2026-08-21. It had been holding a coordinator token that could still issue
-invites. Do not restart it between ceremonies.</li>
-<li><strong>There were two faucet units and only one could ever work.</strong> A faucet needs a
+invites. Do not restart it between ceremonies.</p>
+</li>
+<li><p><strong>There were two faucet units and only one could ever work.</strong> A faucet needs a
 funded key, and duplicating it duplicates custody of that key for no benefit.
 The Pi&#39;s copy was inactive and still configured for <code>yamale-devnet-1</code>, so the
 public funnel answered 502 while the real faucet answered fine on the other
 hostname — which reads as &quot;the faucet is broken&quot; rather than as &quot;you are asking
 the wrong host&quot;. The funnel now proxies to the one real faucet over the tailnet
-and the stale unit is disabled.</li>
-<li><strong>A deploy used to be invisible.</strong> nginx sent no <code>Cache-Control</code> at all, so
+and the stale unit is disabled.</p>
+</li>
+<li><p><strong>A deploy used to be invisible.</strong> nginx sent no <code>Cache-Control</code> at all, so
 browsers applied heuristic freshness and an old page after a deploy looked
 identical to a fix that did not work. That is the diagnosis that burns hours,
 not the wait. Now <code>no-cache</code> with ETag revalidation for HTML, CSS and JS, and
-<code>immutable</code> for the content-hashed bundles under <code>/assets/</code>.</li>
-<li><strong>The Pi&#39;s operator key lives on the Pi.</strong> Correct while rehearsing; the
+<code>immutable</code> for the content-hashed bundles under <code>/assets/</code>.</p>
+</li>
+<li><p><strong>The Pi&#39;s operator key lives on the Pi.</strong> Correct while rehearsing; the
 validator guide says to take it off the node once genesis is done, because a
-node needs only its consensus key to produce blocks.</li>
-<li><strong>The staging chain&#39;s custodians are one person.</strong> Its 3-of-5 is a 1-of-1 with
+node needs only its consensus key to produce blocks.</p>
+</li>
+<li><p><strong>The staging chain&#39;s custodians are one person.</strong> Its 3-of-5 is a 1-of-1 with
 four extra steps, which is fine for exercising the process and must never be
-carried into a deployment holding value.</li>
+carried into a deployment holding value.</p>
+</li>
 </ul>
 <h2>No fault tolerance, and the arithmetic that fixes it</h2>
 <p>A chain survives losing a validator only if the ones left hold more than two

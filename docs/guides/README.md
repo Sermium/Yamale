@@ -17,6 +17,7 @@ before publishing.
 | [Threshold accounts](mpc.md) | A consumer key that exists in three shares and nowhere else, and the password reset that does not move the address. |
 | [The custodian](custodian.md) | The service holding the operator's share — what it refuses, and the longer list of what it does not do. |
 | [Accounts without a wallet](accounts.md) | The design the two above were built from, and the parts of it that are still only a design. |
+| [Upgrading a running chain](upgrades.md) | Agreeing a height, swapping the binary while it is halted, and proving the nodes still agree afterwards. |
 
 For exhaustive detail on any message, query, parameter or error code, see the
 [reference](../reference/), which is generated from the code and cannot drift

@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A key that exists in three shares and nowhere else — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>A key that exists in three shares and nowhere else</h1>
+<p>How a consumer account on Yamale is held so that the operator of the network
+cannot move the money in it — not as a policy, as arithmetic.</p>
+<p><strong>Status: the protocol is built and has signed on the live chain.</strong> The account
+service around it is not. Read <a href="#what-is-not-built">what is not built</a> before
+believing anything here is a product.</p>
+<p><strong>You need:</strong> Go, and for the last section a funded account on a running chain.</p>
+<p><strong>You will end with:</strong> an account whose key never existed anywhere as a whole
+key, a payment it signed, and the same account paying again after a password
+reset that did not move its address.</p>
+<hr>
+<h2>The fact everything else follows from</h2>
+<blockquote>
+<p>A password cannot authorise a transaction. Only a key can.</p>
+</blockquote>
+<p><a href="accounts.html">accounts.md</a> is the design document, and it works through the three
+places a key can live. The short version, because the rest of this page is the
+answer rather than the argument:</p>
+<ul>
+<li><strong>Server-held.</strong> Simplest, recoverable, and the operator can spend any
+citizen&#39;s balance. On a state-operated payments network that is a different
+political object from &quot;the authority runs the rails&quot;, and the second is the
+one being sold. Rejected.</li>
+<li><strong>Password-wrapped on the device.</strong> The server never holds a usable key, and a
+forgotten password is a permanently lost account. Not viable for a national
+system serving people who lose phones. Rejected.</li>
+<li><strong>Split.</strong> No whole key exists, and a password reset is possible without any
+party ever assembling one. Chosen, on 2026-08-20.</li>
+</ul>
+<p>So the key is split three ways and any two shares sign.</p>
+<table>
+<thead>
+<tr>
+<th>Share</th>
+<th>Where it lives</th>
+<th>Wrapped by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>device</code></td>
+<td>the customer&#39;s own hardware</td>
+<td>their password</td>
+</tr>
+<tr>
+<td><code>custodian</code></td>
+<td>the operator&#39;s service — <a href="custodian.html">custodian.md</a></td>
+<td>a sealing key held outside the store</td>
+</tr>
+<tr>
+<td><code>recovery</code></td>
+<td>the foundation&#39;s offline custody: the same 3-of-5 <code>x/group</code> that <code>x/constitution</code> pins as the seizure destination</td>
+<td>the <a href="key-ceremony.html">key ceremony</a></td>
+</tr>
+</tbody></table>
+<p>Ordinary signing is <strong>device + custodian</strong>. Recovery is <strong>recovery + custodian</strong>,
+and only after the workflow in Part 5 of <a href="accounts.html">accounts.md</a>.</p>
+<h2>What it refuses</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>One share signing</strong></td>
+<td><code>Sign</code> refuses fewer than two, and <code>NewSigningParty</code> refuses a committee that is not exactly two. The refusal is the product, not an error path.</td>
+</tr>
+<tr>
+<td><strong>The operator signing alone</strong></td>
+<td>The operator holds <code>custodian</code>. Two are needed and it has one.</td>
+</tr>
+<tr>
+<td><strong>The operator holding two</strong></td>
+<td><code>recovery</code> is deliberately not the operator&#39;s. An operator holding both custodian and recovery is a custodian again, with an extra step.</td>
+</tr>
+<tr>
+<td><strong>A share travelling</strong></td>
+<td>Only protocol messages move. A <code>Share</code> is the thing that is sealed and stored, and the thing that is never transmitted.</td>
+</tr>
+<tr>
+<td><strong>Inferring who signs</strong></td>
+<td><code>Sign</code> takes the signers by name. A function that quietly used whatever shares it could reach is one that signs with custodian + recovery on the day somebody leaves both on one machine — which is the arrangement the whole design exists to prevent.</td>
+</tr>
+<tr>
+<td><strong>A high <code>S</code> value</strong></td>
+<td>Normalised to the lower half of the curve order. A signature with two valid encodings is a transaction with two hashes.</td>
+</tr>
+<tr>
+<td><strong>A reshare that moves the key</strong></td>
+<td>Asserted, not assumed. A reshare that changed the public key would silently orphan every coin in the account.</td>
+</tr>
+</tbody></table>
+<h2>Why three shares and not two</h2>
+<p>Two — device and custodian — gives the security property and nothing else. If
+the password is gone the device share is gone, and the account is dead with the
+money in it.</p>
+<p>The specification requires that a password can be reset <strong>without any party ever
+reconstructing a whole key</strong>. Two shares cannot do that: the two survivors of a
+lost device share are one, and one is below the threshold.</p>
+<p>Three shares, any two of which sign, is the smallest arrangement that gives both
+properties at once.</p>
+<h2>Why threshold ECDSA rather than a Cosmos multisig</h2>
+<p>This is the decision most worth arguing, because a 2-of-3 <code>x/group</code> or legacy
+multisig account gives the same &quot;no single party signs&quot; property with no new
+cryptography, and it was the first thing considered. Two things ruled it out.</p>
+<p><strong>The address moves.</strong> A multisig account&#39;s address is derived from the set of
+member keys, so rotating a share changes the address — and rotating a share is
+exactly what a password reset is. On this chain an address carries the account&#39;s
+<code>x/alias</code> identifier, so changing it retires that identifier: the handle a person
+has given to everyone who pays them stops resolving, and every saved payee
+silently breaks. Threshold ECDSA re-shares under the <strong>same public key</strong>, so a
+reset is invisible to everybody else.</p>
+<p><strong>The consumer base becomes countable.</strong> Every consumer account would carry the
+operator&#39;s share pubkey inside its multisig, on a public chain, making the whole
+customer base trivially enumerable and linkable by a stranger. A threshold
+signature is an ordinary secp256k1 signature, and an account holding one is
+indistinguishable from an account whose owner keeps a seed phrase in a drawer.</p>
+<p>That second property is what <code>mpc/cosmos</code> exists to deliver: <code>CosmosPubKey</code>
+returns a plain <code>secp256k1.PubKey</code>. Same address format, same ante-handler
+verification, same signature. Nothing about the account announces what it is.</p>
+<h2>The pieces</h2>
+<pre><code>mpc/                the protocol. No authentication, no transport, no policy.
+  mpc.go            Keygen, Sign, and the refusals
+  party.go          SigningParty — ONE participant, holding one share
+  reshare.go        Reshare — every share replaced, same public key
+  cosmos/address.go the joint key as a Cosmos pubkey and a bech32 address
+  wasm/main.go      the device&#39;s half, compiled for the browser
+tools/mpc           the CLI: keygen, address, sign, reshare, pay
+tools/custodian     the service that holds one share and decides whether to use it
+clients/keys        the page that runs the protocol in front of you
+</code></pre>
+<p><strong><code>mpc</code> is the protocol, not the service.</strong> It performs no authentication,
+decides nothing about who may hold a share, and moves no message between
+parties. The caller supplies the transport, because the transport is where the
+authentication lives and this package must not be the place that gets it wrong.</p>
+<h3><code>Sign</code> and <code>SigningParty</code> are not the same thing, and the difference is the security model</h3>
+<p><code>Sign</code> runs every party in one process. That is correct for a test and
+catastrophic anywhere else: a browser calling it would hold the device share
+<strong>and</strong> the custodian share, which is a whole key in all but name, and &quot;the
+operator cannot move your money&quot; would be false the moment anybody looked.</p>
+<p><code>SigningParty</code> is the type production uses. It holds one share, never sees
+another, emits protocol messages and consumes the ones addressed to it. The
+caller carries the bytes — over HTTPS to the custodian, over a QR code to an
+air-gapped recovery holder, however the deployment does it.</p>
+<p>An earlier WebAssembly build exposed <code>sign(digest, shares)</code>. It worked. It is
+the reason <code>SigningParty</code> exists, and the file that made the mistake says so in
+its own header.</p>
+<h3>Pre-parameters, and why signing up does not mean watching a phone think</h3>
+<p>Key generation&#39;s expensive half is a safe-prime search for each party&#39;s Paillier
+key — minutes per party, depending on nothing: not the other parties, not the
+account, not the user. <code>GeneratePreParams</code> splits it out so a custodian can keep
+a pool generated in advance. It is the single biggest reason a naive threshold
+implementation feels unusable.</p>
+<h2>Resharing: a password reset that does not move the account</h2>
+<p>The device share is wrapped by the user&#39;s password, so a forgotten password
+destroys it. <code>recovery</code> and <code>custodian</code> — the other two — reshare, and the device
+is handed a new share wrapped under the new password.</p>
+<p>The old share is not revoked so much as made <strong>arithmetically useless</strong>: it
+belongs to a sharing that no longer reconstructs anything.</p>
+<p>What resharing does not do is change the account. The address, the public key
+and the <code>x/alias</code> identifier are untouched, and nobody who has ever paid this
+person needs to be told anything.</p>
+<p>It is also proactive security independent of any incident. An attacker who has
+patiently obtained one share and is waiting for a second has to start again after
+every reshare, because shares from two different sharings do not combine. Run on
+a schedule, it turns &quot;one share stolen&quot; from a permanent half-compromise into a
+race with a deadline.</p>
+<p><strong>They do not combine, and today they do not refuse cleanly either.</strong> Handing
+<code>Sign</code> an old share and a new one panics inside tss-lib rather than returning an
+error — and a stale device share is exactly what a phone holds after a reset it
+did not finish. Recorded in
+<a href="../scope/gaps.html#known-defects">gaps.md</a>; it affects <code>Sign</code>, not
+<code>SigningParty</code>, which builds its committee from its own share.</p>
+<p><strong>Two things cost real time to learn and are worth carrying:</strong></p>
+<ul>
+<li>The old peer context must contain <strong>only the parties actually taking part</strong>,
+while the party count passed alongside it is the <strong>original sharing&#39;s size</strong>.
+Build the context from all three when two are present and the incoming
+committee waits forever for a third sender: no error, no timeout, a goroutine
+in <code>select</code>.</li>
+<li><code>tss-lib</code> retires an outgoing party by zeroing its <code>Xi</code> <strong>in place</strong>, and the
+save data is full of pointers. Handing it the caller&#39;s share destroys the
+caller&#39;s share. <code>Reshare</code> deep-copies. A reshare that died halfway without that
+copy would leave the custodian holding a gutted share, and an account whose
+remaining shares cannot reach the threshold is an account nobody can ever spend
+from again.</li>
+</ul>
+<h2>Verified on the live chain</h2>
+<p>Two payments from one threshold account on <code>yamale-devnet-2</code>, read back from the
+node on 2026-08-31 rather than from a test log.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Height</th>
+<th>Transaction</th>
+<th>Code</th>
+<th>Amount</th>
+<th>Memo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Before the reset</td>
+<td>118,885</td>
+<td><code>A8F18CAB…B15C3C</code></td>
+<td>0</td>
+<td>1,250,000 <code>uyml</code></td>
+<td><code>threshold signed: device + custodian</code></td>
+</tr>
+<tr>
+<td>After the reset</td>
+<td>118,968</td>
+<td><code>6C784D06…4AFCFE</code></td>
+<td>0</td>
+<td>750,000 <code>uyml</code></td>
+<td><code>after a password reset: new shares, same address</code></td>
+</tr>
+</tbody></table>
+<p>Both are <code>/cosmos.bank.v1beta1.MsgSend</code> from
+<code>yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97</code>, sequence 0 and sequence 1.</p>
+<p><strong>The claim that matters is the public key.</strong> Both transactions carry the same
+compressed secp256k1 key, byte for byte:</p>
+<pre><code>0320ddc3fc254d0c20994c0d9c59e42fb7b53a03d871f2a25909efd083c82a3c34
+</code></pre>
+<p>which derives to <code>yml1ael7jxwlvacc3daawzc2kpd6lst6w8nmml6a97</code>. The second
+payment was signed by shares that did not exist when the first was signed, and
+the account is the same account: same address, same alias, same saved payee for
+anybody who had stored it. That is the property a multisig could not have given,
+and it is checkable by anybody against a block explorer.</p>
+<p>Two honest limits on that demonstration. The chain sees an ordinary
+single-signature account and cannot tell you the signature was produced
+jointly — that indistinguishability is the point, and it is also why the
+transaction alone is not proof of the arrangement. And the shares in this
+rehearsal were files on one machine, driven by <code>tools/mpc</code>, which is exactly the
+arrangement the design exists to avoid; the CLI&#39;s own header says so.</p>
+<h2>The CLI</h2>
+<pre><code>mpc keygen  --out DIR                          create an account, three shares
+mpc address --share FILE                       the account a share belongs to
+mpc sign    --digest B64 --share A --share B   a signature from any two
+mpc reshare --share A --share B --out DIR      rotate; the address does not move
+mpc pay     --shares DIR --to ADDR --amount X  a real payment on a real chain
+</code></pre>
+<p><code>pay</code> is the one that matters. Everything above it can be satisfied by a library
+that is subtly wrong — a signature over the wrong bytes, a public key encoded the
+way this codebase does not expect, an <code>S</code> value in the upper half of the curve —
+and all of those look identical to a caller checking that <code>Sign</code> returned no
+error. A chain either accepts the transaction or it does not.</p>
+<p>It signs with <strong>exactly two</strong> shares and refuses more: <em>&quot;more is not safer, it is
+just more shares in one place&quot;</em>.</p>
+<pre><code class="language-bash">go run ./tools/mpc keygen --out ./account
+go run ./tools/mpc address --share ./account/device.share.json
+go run ./tools/mpc reshare \
+  --share ./account/custodian.share.json \
+  --share ./account/recovery.share.json --out ./account-reset
+go run ./tools/mpc pay --shares ./account \
+  --to yml1... --amount 1250000uyml \
+  --node http://localhost:26657 --chain-id yamale-devnet-2
+</code></pre>
+<h3>Run, not transcribed</h3>
+<p>Every command above except <code>pay</code> was run while writing this page, on 2026-08-31.
+What it produced, because the timings are what people ask about:</p>
+<ul>
+<li><strong><code>keygen</code> took 1m 5s</strong> — 44 to 54 seconds of safe-prime search per party, in
+parallel, then key generation. That is with no pre-parameter pool, which is
+why the design has one.</li>
+<li><strong>All three shares print the same address</strong>,
+<code>yml1whvhalj2xmqxkmwjwmv2lrurlg9y35gyx9w4pe</code>, each derived locally from the
+joint public key rather than taken from anybody&#39;s word for it.</li>
+<li><strong>One share refuses:</strong> <code>1 share(s) cannot sign: 2 of 3 are needed</code>.</li>
+<li><strong><code>reshare</code> from <code>custodian + recovery</code></strong> — without the device share, which is
+the password-reset path — took <strong>1m 21s</strong> and printed the <strong>same address</strong>.
+The two new shares then signed for it; an old share and a new one
+<a href="#resharing-a-password-reset-that-does-not-move-the-account">do not combine</a>.</li>
+<li>The tool says the quiet part on the way out: <em>&quot;the old shares still sign until
+you delete them: retiring them is your decision and the protocol will not make
+it for you.&quot;</em></li>
+</ul>
+<p><code>pay</code> was not run here — it needs a funded account on a chain, and the two
+payments in the table above are what it produced when it was.</p>
+<p><code>tools/mpc</code> was written because <code>mpc</code> had no caller at all, which is the same
+shape as the two dead load-bearing functions found in <code>x/tokenisation</code> on
+2026-08-27 — code that was written, commented, and invoked by nothing. See
+<a href="tokenisation.html">tokenisation.md</a> for what that cost.</p>
+<h2>In the browser</h2>
+<p><code>mpc/wasm</code> is the device&#39;s half compiled for WebAssembly, because the device
+share must be <strong>generated on the device and never leave it</strong>. A share generated
+server-side and sent down was known to the server for a moment, and &quot;the operator
+cannot move your money&quot; stops being true of that account forever.</p>
+<p>It exposes one object, <code>yamaleMPC</code>, and every call is local:</p>
+<pre><code>yamaleMPC.startSign(digestB64, shareJSON, signersCSV) -&gt; {session, outbound}
+yamaleMPC.handle(session, outboundJSON)               -&gt; {outbound}
+yamaleMPC.outbound(session)                           -&gt; {outbound}
+yamaleMPC.signature(session)                          -&gt; {signature} | {pending}
+yamaleMPC.publicKey(session)                          -&gt; {x, y}
+yamaleMPC.close(session)
+</code></pre>
+<p>Sessions are held in Go, not handed to JavaScript, so a share and a half-finished
+protocol state never cross into a heap the page can read. JavaScript gets an
+opaque handle.</p>
+<p>Two things it deliberately does not do. It <strong>does not store anything</strong> — sealing
+the share under the user&#39;s password belongs to the application, and a crypto
+module that reached for <code>localStorage</code> is one nobody can test. It <strong>does not do
+key generation</strong> — that is three parties and minutes of safe primes, and it needs
+the custodian&#39;s pre-parameter pool and a session that survives a page reload.</p>
+<p><code>mpc/cosmos</code> is a separate package for one blunt reason: importing <code>cosmos-sdk</code>
+drags in the whole store stack, none of which compiles for <code>GOOS=js</code>. Keeping the
+protocol free of it is what makes the WebAssembly build possible at all.</p>
+<p><code>clients/keys</code> — live at <code>/keys/</code> — runs this in front of an audience. It is
+explicit about what is real and what is staged: the account and its transactions
+are real and checkable, while the live demonstration runs <strong>both</strong> parties inside
+one page, which is precisely the arrangement the design forbids, so it uses a
+throwaway account holding nothing whose share files are published on purpose.</p>
+<h2>What is not built</h2>
+<p>The credibility of this page depends on this section being accurate.</p>
+<ul>
+<li><strong>No enrolment.</strong> An account is created by <code>tools/mpc keygen</code> on one machine
+and imported into the custodian by an operator. There is no path by which a
+member of the public gets an account, and the ceremony arrangement is the thing
+the design exists to avoid.</li>
+<li><strong>No recovery workflow.</strong> <code>Reshare</code> is the mechanism. The two approvers from
+different teams, the 72-hour delay, the notice to email and every enrolled
+device, the 24-hour outbound freeze afterwards and the standard of proof — all
+of Part 5 of <a href="accounts.html">accounts.md</a> — are specified and none of it exists.
+<code>Reshare</code> decides nothing about authorisation; by the time it is called that
+question is already answered by something that has not been written.</li>
+<li><strong>No second factor.</strong> The custodian refuses above its threshold rather than
+waving the request through, which is the right failure, but enrolment does not
+exist so the refusal is currently absolute.</li>
+<li><strong>No distributed key generation.</strong> <code>Keygen</code> runs all three parties in one
+process. That is correct for a ceremony on one machine and wrong for
+production, where the device&#39;s share must be generated on the device.
+<code>SigningParty</code> has no keygen counterpart yet.</li>
+<li><strong>No notification.</strong> Nothing tells a person that their account signed
+something, which is the cheapest defence against a stolen device that exists.</li>
+<li><strong>The device share&#39;s wrapping is the application&#39;s job</strong> and no application
+does it yet. <code>clients/app</code> still ships the model the design rejected: a CosmJS
+password-wrapped key in <code>localStorage</code>, with a forgotten password a lost
+account.</li>
+</ul>
+<h2>Where else to read</h2>
+<ul>
+<li><a href="accounts.html">accounts.md</a> — the design document. This page is what was built
+from it; that one is the argument, the recovery specification, and the parts
+that are still only a specification.</li>
+<li><a href="custodian.html">custodian.md</a> — the service holding the second share, and what
+it refuses.</li>
+<li><a href="key-ceremony.html">key-ceremony.md</a> — the 3-of-5 that holds the recovery share.</li>
+<li><a href="wallet.html">wallet.md</a> — self-custody, which is unchanged. Institutions and
+treasuries keep their own keys and their <code>x/group</code> multi-signature; a single
+credential must never move institutional funds.</li>
+</ul>
+
+</main>
+</body>
+</html>

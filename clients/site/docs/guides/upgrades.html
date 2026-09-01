@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upgrading a running chain — Yamale</title>
+<link rel="icon" type="image/svg+xml" href="../../mark.svg">
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<header class="docbar">
+  <a class="docbar__brand" href="../index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a href="../../index.html">← back to the site</a>
+</header>
+<main class="doc">
+<h1>Upgrading a running chain</h1>
+<p><strong>Before you start:</strong> a node you can reach over SSH on every host in the
+validator set, a build of the new binary for each host&#39;s architecture, and an
+account holding enough stake to meet quorum on its own or the cooperation of
+enough that do.</p>
+<p><strong>At the end:</strong> every node running the new binary, past the upgrade height, with
+the same application hash — which is the only evidence that they agree.</p>
+<p>A Cosmos chain does not upgrade itself. Governance agrees a <em>height</em>; at that
+height every node stops with an error and refuses to continue, and an operator
+replaces the binary. The chain is down between those two events. The whole
+procedure is arranged around making that window short and making it impossible
+to walk into it unprepared.</p>
+<hr>
+<h2>1. Build the binary for every architecture in the set</h2>
+<p>Not &quot;for Linux&quot;. This chain runs on an amd64 VM and an arm64 Raspberry Pi, and a
+node that cannot execute the binary is a node that stays down.</p>
+<pre><code class="language-bash">CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/blockchaind-amd64 ./cmd/blockchaind
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o /tmp/blockchaind-arm64 ./cmd/blockchaind
+sha256sum /tmp/blockchaind-amd64 /tmp/blockchaind-arm64
+</code></pre>
+<p><code>-trimpath</code> and <code>CGO_ENABLED=0</code> are not decoration: they are what make the hash
+reproducible, and the hash is what an operator checks at 3am against the one
+recorded in the proposal.</p>
+<p>Copy each to its host <strong>before proposing anything</strong>, and record both hashes in
+the proposal&#39;s <code>info</code> field along with the commit they were built from. An
+upgrade whose binary is staged after the vote passes is an upgrade racing a
+deadline it set itself.</p>
+<h2>2. Propose the height</h2>
+<pre><code class="language-bash">blockchaind tx gov submit-proposal upgrade.json \
+  --from &lt;key&gt; --chain-id &lt;chain-id&gt; --node &lt;rpc&gt; --fees 0uyml --gas 400000 -y
+</code></pre>
+<p>Choose the height so that <strong>the voting period ends comfortably before it.</strong> The
+arithmetic is the entire risk in this step:</p>
+<pre><code class="language-bash"># seconds per block, measured rather than assumed
+blockchaind q block --type=height &lt;h1&gt; -o json | jq -r .header.time
+blockchaind q block --type=height &lt;h2&gt; -o json | jq -r .header.time
+</code></pre>
+<p>Block time drifts with the validator set and the network. On this chain it has
+been between 5 and 6 seconds; a 30-minute voting period is therefore about 330
+blocks. Leave several times that. If the chain reaches the height while the
+proposal is still in its voting period, the plan is never scheduled, nothing
+halts, and the proposal expires having achieved nothing.</p>
+<h2>3. Vote — and confirm the tally, not the transaction</h2>
+<p><strong>This is the step that fails.</strong> A proposal sitting at zero votes looks exactly
+like a proposal that is progressing: it is <code>VOTING_PERIOD</code>, it has a deadline,
+nothing is wrong. It simply expires.</p>
+<pre><code class="language-bash">blockchaind tx gov vote &lt;id&gt; yes --from &lt;key&gt; --chain-id &lt;chain-id&gt; --node &lt;rpc&gt; -y
+blockchaind q gov tally &lt;id&gt; --node &lt;rpc&gt;
+</code></pre>
+<p>Read the tally against the bonded total, not against your expectations:</p>
+<pre><code class="language-bash">blockchaind q staking validators -o json | jq -r &#39;.validators[] | &quot;\(.tokens) \(.description.moniker)&quot;&#39;
+blockchaind q gov params --node &lt;rpc&gt; | grep -E &#39;quorum|threshold&#39;
+</code></pre>
+<p>Quorum is a fraction of <strong>all</strong> bonded power, not of the power that voted. On a
+small chain one delegator can carry a proposal alone, and on a small chain one
+delegator can also be the only participant and still fall short of quorum. Work
+it out; do not infer it.</p>
+<p>Two traps in the command itself, both of which return a plausible failure that
+is not the real one:</p>
+<ul>
+<li><code>--chain-id</code> must be the chain&#39;s actual id. A mismatch is reported as
+<code>signature verification failed</code>, which reads as a key problem.</li>
+<li>Through <code>x/group</code>, <code>tx group submit-proposal --exec try</code> returns code 0 on
+broadcast even when the inner message fails. Read
+<code>PROPOSAL_EXECUTOR_RESULT</code> from the events, never the top-level code.</li>
+</ul>
+<p>Then confirm the plan is actually scheduled — this is the only proof the vote
+did what you wanted:</p>
+<pre><code class="language-bash">blockchaind q upgrade plan --node &lt;rpc&gt;
+</code></pre>
+<p>An empty <code>{}</code> after the voting period has closed means it did not pass.</p>
+<h2>4. Wait for the halt</h2>
+<p>At the upgrade height every node logs <code>UPGRADE &quot;&lt;name&gt;&quot; NEEDED at height: N</code>,
+then <code>CONSENSUS FAILURE!!!</code> and stops producing. <strong>This is success.</strong> The panic
+and the stack trace are how <code>x/upgrade</code> refuses to continue on the wrong binary,
+and reading them as a crash is the most likely way to make this worse.</p>
+<pre><code class="language-bash">curl -s localhost:26657/status | jq -r .result.sync_info.latest_block_height
+journalctl -u &lt;unit&gt; --no-pager | grep -E &#39;UPGRADE .* NEEDED&#39;
+</code></pre>
+<h2>5. Swap the binary on every host</h2>
+<pre><code class="language-bash">sudo systemctl stop &lt;unit&gt;
+sudo cp /opt/yamale/bin/blockchaind /opt/yamale/bin/blockchaind.pre-&lt;name&gt;
+sudo install -m755 /tmp/blockchaind-next /opt/yamale/bin/blockchaind
+sha256sum /opt/yamale/bin/blockchaind        # against the proposal, every time
+sudo systemctl start &lt;unit&gt;
+</code></pre>
+<p>Keep the old binary. It is the only way back if the new one panics during the
+migration, and it costs a few hundred megabytes.</p>
+<h2>6. Verify agreement, which is the only thing that counts</h2>
+<pre><code class="language-bash">journalctl -u &lt;unit&gt; --no-pager | grep &#39;applying upgrade&#39;
+journalctl -u &lt;unit&gt; --no-pager | grep &#39;height=&lt;upgrade-height&gt;&#39; | grep -o &#39;app_hash=[A-F0-9]*&#39;
+</code></pre>
+<p><strong>Every host must report the same application hash at the upgrade height.</strong> A
+node that produces a different one has forked: it will be unable to commit and
+will sit there logging vote mismatches. One hash per host, compared by eye, is
+the whole verification.</p>
+<p>Then confirm the upgrade did the thing it was for — a new parameter is
+queryable, a new message appears in <code>tx &lt;module&gt; --help</code>. A migration that runs
+without error and changes nothing is a migration you have not tested.</p>
+<h2>What has actually gone wrong here</h2>
+<ul>
+<li><strong>A halted chain that nobody noticed for nine hours.</strong> The Pi rebooted and the
+node&#39;s unit was never <code>enable</code>d, so it did not come back. Nothing alarmed,
+because a chain that is not producing blocks is not producing errors either.
+<code>systemctl is-enabled</code> on every node is part of this procedure.</li>
+<li><strong>A proposal at zero votes, 25 minutes from expiry.</strong> Caught by reading the
+tally. Nothing else would have caught it.</li>
+<li><strong><code>{}</code> from <code>q upgrade plan</code></strong> while the proposal was still open, mistaken for
+a failed submission. It only populates once the proposal passes.</li>
+</ul>
+<h2>Related</h2>
+<ul>
+<li><a href="local-devnet.html">Run a local chain</a> — rehearse an upgrade here first. The
+migration runs the same way against one node as against three.</li>
+<li><a href="constitution.html">What governance can and cannot change</a> — some parameters an
+upgrade might want to touch cannot be changed by an ordinary proposal.</li>
+</ul>
+
+</main>
+</body>
+</html>

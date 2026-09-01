@@ -14,9 +14,20 @@
 </header>
 <main class="doc">
 <h1>Accounts without a wallet</h1>
-<p><strong>Status: designed, not built.</strong> The goal: a person signs up with a name, an
-email and a password, adds a second factor, and uses the network without ever
-seeing a seed phrase, an address, or the word &quot;wallet&quot;. The chain is plumbing.</p>
+<p><strong>This is the design document. The key it specifies is now built.</strong></p>
+<blockquote>
+<p>The split key of Part 1 exists as <code>mpc</code> — 2-of-3 threshold ECDSA — and has
+signed two payments on the live chain, the second after a password reset that
+did not move the address. See <strong><a href="mpc.html">mpc.md</a></strong> for what was built and
+<strong><a href="custodian.html">custodian.md</a></strong> for the service holding the operator&#39;s share.</p>
+<p><strong>Everything else here is still a specification.</strong> No enrolment, no recovery
+workflow, no second factor, no notification. Part 5 — the part that actually
+gets robbed — is written and unbuilt. This page argues the design; those two
+say what exists.</p>
+</blockquote>
+<p><strong>The goal:</strong> a person signs up with a name, an email and a password, adds a
+second factor, and uses the network without ever seeing a seed phrase, an
+address, or the word &quot;wallet&quot;. The chain is plumbing.</p>
 <p>This is achievable. It is also the single largest decision in the product,
 because of one fact that cannot be designed around:</p>
 <blockquote>
@@ -72,8 +83,21 @@ server&#39;s share can be re-wrapped without any party ever reconstructing a who
 key.</p>
 <p>The cost, stated plainly: this is materially more complex than either
 alternative, and in practice it means a vendor (Turnkey, Privy, Web3Auth) or a
-serious in-house cryptography effort. <strong>That is a build-versus-buy decision, and
-it is the largest open question in the account model.</strong></p>
+serious in-house cryptography effort.</p>
+<p><strong>That build-versus-buy question is answered: built in house.</strong> The result is
+<code>mpc</code>, and it differs from the sketch above in one way worth carrying back here.
+This section says &quot;the server holds one share and the device another&quot; — two
+shares. Two gives the security property and nothing else: if the password is
+gone the device share is gone, and the account is dead with the money in it.
+The reset specified below is impossible with two. So there are <strong>three</strong> —
+device, custodian, and a recovery share held by the foundation&#39;s offline 3-of-5,
+deliberately not by the operator — and any two of them sign.</p>
+<p>Why threshold ECDSA rather than a 2-of-3 <code>x/group</code> account, which would have
+needed no new cryptography: a multisig address derives from its member keys, so
+rotating a share changes the address, and on this chain that retires the
+account&#39;s <code>x/alias</code> identifier and breaks every saved payee. Resharing rotates
+every share under the same public key. <a href="mpc.html">mpc.md</a> has the argument and the
+two transactions that demonstrate it.</p>
 <p>Institutions keep self-custody, and treasuries keep multi-signature through
 <code>x/group</code>. A single credential must never move institutional funds. Custody is a
 property of the account; the interface is identical either way.</p>
@@ -211,10 +235,19 @@ and multi-signature through <code>x/group</code> must never reduce to a single c
 name from your contacts, confirm with a second factor. No phrase, no address, no
 &quot;connect wallet&quot;. The transfer app already resolves user IDs and names, so most
 of that screen exists; what does not exist is the account service behind it.</p>
-<p><strong>Nothing in this document is built.</strong> It needs an auth service, a key-wrapping
-scheme, an encrypted profile store, a 2FA enrolment flow, and a recovery
-process — none of which is on the chain, and all of which is the larger half of
-the product from here.</p>
+<p><strong>The key is built; the service is not.</strong> <code>mpc</code> is the split key and
+<code>tools/custodian</code> is authentication plus the decision to co-sign — see
+<a href="mpc.html">mpc.md</a> and <a href="custodian.html">custodian.md</a>. What is still needed is an
+enrolment path a member of the public can use, an encrypted profile store, a 2FA
+enrolment flow, notification, and the recovery process specified in Part 5 —
+none of which is on the chain, and all of which is the larger half of the product
+from here.</p>
+<p>The blind index of Part 2 is worth a specific note. <code>tools/custodian</code> implements
+it as specified: <code>HMAC(email, pepper)</code> with the pepper held outside the store and
+refused if it is short or if it sits inside the directory it protects.
+<code>clients/app</code> does not — it uses a bare <code>SHA-256</code> and calls the result a blind
+index. That divergence is recorded in
+<a href="../scope/gaps.html#the-account-model---the-key-is-built-the-service-around-it-is-not">gaps.md</a>.</p>
 
 </main>
 </body>

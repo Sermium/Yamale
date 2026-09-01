@@ -202,6 +202,23 @@ VERIFY_GOVERNANCE  voted, with the evidence attached to the proposal
 <p><code>VERIFY_ATTESTORS</code> with <code>m = 1</code> is refused at validation, for the same reason
 <code>x/custody</code> refuses an attestation threshold below two: one attestor is not a
 threshold, it is a single point of unlimited theft.</p>
+<p><strong>And the attestors are appointed by governance, not by the seller.</strong> A
+collection carries a register, replaced by <code>MsgSetCollectionAttestors</code>, which is
+authority-gated alongside <code>CreateCollection</code> and <code>SetCollectionAuthority</code>. If the
+seller could appoint the accounts that check the seller, the register would
+restate the problem rather than fix it.</p>
+<p>Two decisions inside that are worth recording. The register <strong>replaces</strong> rather
+than appends, because one that could only grow would let a single careless
+proposal dilute a careful appointment for good. And attestations already recorded
+against a reported sale are <strong>not revisited</strong> when the register changes: they
+were made by an appointed attestor at the moment they were made, and rewriting
+history to match a later appointment would let an authority manufacture or
+destroy a quorum after the fact — a worse power than the one the message exists
+to constrain.</p>
+<p>This paragraph is newer than the rest of this section, and
+<a href="#five-defects-and-the-upgrade-that-closed-them">the defect it closes</a> is the
+reason: for the module&#39;s whole life until 2026-08-27, <code>AttestSale</code> never checked
+who was attesting, so everything argued above was defended by nothing.</p>
 <h3>A reported price needs a challenge window</h3>
 <p>Verification alone is not enough, because <strong>redemption is irreversible</strong>. Once
 holders start burning tokens against a figure, the money is gone; discovering
@@ -283,6 +300,97 @@ an incentive to be opaque enough to attract them.</p>
 That separation is what keeps a change of sponsor, custodian or operator a
 non-event for shareholders: whoever holds title inherits an obligation to pay
 in, not a balance they could walk away with.</p>
+<h2>Five defects, and the upgrade that closed them</h2>
+<p>Everything above was written, reviewed and merged before any of it had been
+driven end to end. On 2026-08-27 the sale pipeline got its first test and five
+defects fell out of it, four of which lost money silently.</p>
+<p>They are recorded here rather than quietly fixed, because the guide argued a set
+of protections that were, for the module&#39;s entire life until then, not there.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What it was</th>
+<th>Why nobody noticed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>No shareholder could ever be paid</strong></td>
+<td><code>SendRestrictionFn</code> settles both sides of a share transfer, which the income index requires. It was written, commented, and <strong>registered nowhere</strong> — <code>app.go</code> appended only the enforcement restriction. So no transfer settled, no position was created by one, and every entitlement read zero however much the vault held.</td>
+<td>A repository-wide search found the function referenced by nothing at all, not even a test.</td>
+</tr>
+<tr>
+<td><strong>A holder who never transferred was paid nothing</strong></td>
+<td><code>Fractionalise</code> created the vault and no position for the owner, so <code>Settle</code> treated them as a first-time holder on the way out and started them at an index that had already moved.</td>
+<td>Any transfer settles both sides, so the ordinary issue-then-distribute path created the position by accident.</td>
+</tr>
+<tr>
+<td><strong><code>AttestSale</code> never checked who was attesting</strong></td>
+<td><code>ErrNotAttestor</code> was registered as code 17 and returned from nowhere, and <code>Collection</code> carried no register to check against. A sponsor met any threshold with fresh addresses at the cost of the gas.</td>
+<td>The one guard between a shareholder and a falsified sale price was decorative, and this guide&#39;s own <em>&quot;the sale price is the attack&quot;</em> section described it as if it worked.</td>
+</tr>
+<tr>
+<td><strong><code>FinaliseSale</code> had no caller</strong></td>
+<td>A keeper method nothing invoked — no message, no <code>EndBlocker</code>, not one test. No asset could reach <code>REALISED</code>, and <code>Redeem</code> requires it. Every fractionalised vehicle was a one-way door.</td>
+<td>Second dead load-bearing function in this module, and both were found the same way: by driving the thing rather than reading it.</td>
+</tr>
+<tr>
+<td><strong><code>DisputeSale</code> said the window was open when it had closed</strong></td>
+<td>It returned <code>ErrStillInWindow</code> after the window had expired. Cosmetic beside the other four, and the kind of message that sends somebody looking in the wrong place for an hour.</td>
+<td>Nothing exercised the post-window path.</td>
+</tr>
+</tbody></table>
+<p><code>MsgFinaliseSale</code> is the caller <code>FinaliseSale</code> never had, and it is
+<strong>permissionless</strong>: a crank only the sponsor could turn is one the sponsor can
+decline to turn.</p>
+<h3>Verified on the chain</h3>
+<p>All five shipped in the <code>income-that-arrives</code> upgrade, <strong>applied at height
+119,900</strong> on <code>yamale-devnet-2</code> — read back from
+<code>cosmos.upgrade.v1beta1.Query/AppliedPlan</code> rather than from the proposal.</p>
+<p>The fix is visible in the difference between two vehicles in the <code>cd-terres</code>
+collection, read on 2026-08-31:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Asset 2, <code>tok/2/KIN518</code></th>
+<th>Asset 3, <code>tok/3/KIN777</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fractionalised</td>
+<td>before the upgrade</td>
+<td>after it (parcel registered at height 119,926)</td>
+</tr>
+<tr>
+<td>Vault holds</td>
+<td>72,000,000 <code>uyml</code></td>
+<td>40,000,000 <code>uyml</code></td>
+</tr>
+<tr>
+<td>Owed to the 750,000-share holder</td>
+<td><strong>0</strong></td>
+<td><strong>18,000,000 <code>uyml</code></strong></td>
+</tr>
+</tbody></table>
+<p>Both are 1,000,000 shares at <code>holder_share_bps = 6000</code>. On asset 3, 40 YML into
+the vault is 24 YML to holders, of which 75% is 18 YML — which is what
+<code>Query/Entitlement</code> says. On asset 2 the same query says nothing is owed to
+anybody, against a vault holding 72 YML.</p>
+<p><strong>What the upgrade deliberately does not fix</strong>, and it is the reason asset 2 still
+reads zero: a vehicle fractionalised before that height has no seeded positions,
+and income already paid into its vault stays owed to nobody. Reconstructing who
+held what across funding events that were never recorded is not something a
+handler can honestly do, so the pre-existing vehicle keeps its stranded balance
+and the demonstration uses one minted afterwards. There is no store migration.</p>
+<p>One defect from the same investigation is <strong>still open</strong> and is in
+<a href="../scope/gaps.html#known-defects">gaps.md</a>: <code>FinaliseSale</code> puts the whole reported
+price through the income index while moving no coins, and <code>FundVault</code> accrues
+them a second time on the way in. The fix is a decision rather than a mechanism —
+either finalising pulls the price from the reporter, which makes a reported price
+binding, or funding stops accruing once a sale is reported — and
+<code>TestAVehicleCanBeExited</code> asserts the broken behaviour deliberately, so whoever
+decides it will see the test fail and have to look.</p>
 <h2>State</h2>
 <pre><code>Offerings      Map[uint64, Offering]              // id -&gt; record
 Subscriptions  Map[Pair[uint64, string], Coin]    // (offering, subscriber)
@@ -349,6 +457,91 @@ rather than in a second index nobody maintains.</p>
 <p><code>MsgSubscribe</code> carries <code>min_tokens_out</code>. The price is fixed at creation so the
 computation is not state-dependent, but pro-rata allocation under
 keep-what-you-raise is, and a user signs against a state that has moved.</p>
+<p>And the vehicle half, where the signer column is the whole argument:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Signer</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MsgCreateCollection</code></td>
+<td>gov only</td>
+<td>A collection, with its verification mode, threshold and window.</td>
+</tr>
+<tr>
+<td><code>MsgSetCollectionAuthority</code></td>
+<td>gov only</td>
+<td>Who may mint title into it.</td>
+</tr>
+<tr>
+<td><code>MsgSetCollectionAttestors</code></td>
+<td>gov only</td>
+<td>Who may attest a sale. Replaces the register; does not revisit attestations already made.</td>
+</tr>
+<tr>
+<td><code>MsgResolveDispute</code></td>
+<td>gov only</td>
+<td>Back to <code>ACTIVE</code> after a successful challenge, never automatically.</td>
+</tr>
+<tr>
+<td><code>MsgMintAsset</code></td>
+<td>the collection&#39;s authority</td>
+<td>Records title, naming its recipient. There is no self-mint-then-transfer path.</td>
+</tr>
+<tr>
+<td><code>MsgFractionalise</code></td>
+<td>title holder</td>
+<td>Fixes the supply and <code>holder_share_bps</code>, and seeds the first holder&#39;s position.</td>
+</tr>
+<tr>
+<td><code>MsgTransferAsset</code></td>
+<td>title holder</td>
+<td></td>
+</tr>
+<tr>
+<td><code>MsgFundVault</code></td>
+<td>title holder</td>
+<td>Income arrives; <code>cumulative_per_token</code> rises.</td>
+</tr>
+<tr>
+<td><code>MsgReportSale</code></td>
+<td>title holder</td>
+<td>Opens the challenge window. The largest number in the vehicle&#39;s life, and the one it cannot verify.</td>
+</tr>
+<tr>
+<td><code>MsgAttestSale</code></td>
+<td><strong>an appointed attestor</strong></td>
+<td>Not permissionless, which is where it used to sit.</td>
+</tr>
+<tr>
+<td><code>MsgDisputeSale</code></td>
+<td>anyone</td>
+<td>Stakes the collection&#39;s bond in the same block.</td>
+</tr>
+<tr>
+<td><code>MsgFinaliseSale</code></td>
+<td>anyone</td>
+<td><code>REPORTED</code> -&gt; <code>REALISED</code>, opening redemption. Permissionless on purpose.</td>
+</tr>
+<tr>
+<td><code>MsgClaim</code></td>
+<td>holder</td>
+<td>Takes accrued income without giving up the shareholding.</td>
+</tr>
+<tr>
+<td><code>MsgRedeem</code></td>
+<td>holder</td>
+<td>Burns and pays out in one step. The burn <em>is</em> the claim.</td>
+</tr>
+</tbody></table>
+<p>Two are deliberately absent from the CLI. <code>UpdateParams</code> because it is authority
+gated. <code>ResolveDispute</code> because it is the one message that can overwrite a price
+the market has already been told, and it belongs to the collection&#39;s authority
+acting on a finding — not to a flag somebody can reach for while a dispute is
+still an argument.</p>
 <h2>Dependencies</h2>
 <ul>
 <li><strong><code>x/amm</code></strong> — pools for <code>tok/</code> denoms follow automatically from free transfer.
@@ -363,13 +556,49 @@ everywhere a subscriber sees them.</li>
 changes, liquidation is a separate module with its own keeper incentives and
 bad-debt policy, and it should not be smuggled in here.</li>
 </ul>
-<h2>Open before implementation</h2>
+<h2>What the three open questions turned out to be</h2>
+<p>This section used to list three things to decide before building. The module is
+built, so here is what each became — kept rather than deleted, because the one
+that is still open is easier to see beside the two that closed.</p>
+<p><strong>The distribution snapshot mechanism became no snapshot at all.</strong> The worry was
+that paying holders from a snapshot lets somebody buy just before it and sell
+just after, collecting a whole period&#39;s income for a moment&#39;s holding. Rather
+than trying to place the snapshot where that is hardest, the vault carries a
+cumulative-income-per-token index, and each holder carries the index as of the
+last time their balance moved. What accrues to them is the difference multiplied
+by what they held across it, settled on every transfer. Two blocks of holding
+earn two blocks of income. There is no moment to time, so there is nothing to
+snipe, and <code>Query/Entitlement</code> can answer exactly what one account may take right
+now — which a snapshot scheme cannot do between snapshots.</p>
+<p>A holder seen for the first time starts at the <em>current</em> index, not at zero.
+Starting them at zero would credit them the asset&#39;s entire history, paying them
+for a period in which they held nothing.</p>
+<p><strong><code>MaxHolders</code> became nothing.</strong> It is not a chain parameter and not a
+per-offering field, because neither answer was any good: a chain-wide cap is a
+number no country agreed to, and a per-offering cap is one the issuer picks,
+which makes it a cap on nobody. Where a jurisdiction limits how many people may
+hold a private offering, that limit belongs to the registry that admitted the
+vehicle, expressed as a restriction on the parcel, and x/land already carries
+restrictions as data precisely because this kind of rule differs by country.</p>
+<p><strong>The issuer bond is still open, and it is still the gap it always was.</strong> The
+<code>dispute_bond_bps</code> in a collection is staked by a <em>challenger</em>, not by the
+issuer: it makes a frivolous challenge expensive, which is the opposite end of
+the problem. There is nothing an issuer forfeits for taking the money and
+delivering nothing, so the chain&#39;s guarantee still ends at settlement.</p>
+<p>What partly covers it today, and it is worth being precise about how much:
+<code>ReportSale</code> is checked by the collection&#39;s attestation threshold and challenge
+window, so an issuer who <em>reports</em> a false price can be caught and disputed. An
+issuer who reports nothing at all, and simply never realises the vehicle, is
+caught by neither — the holders keep their tokens, the vault keeps whatever was
+paid into it, and no message on this module compels an exit. That is a real
+limitation and it should be read as one, not as an oversight.</p>
+<h2>Open</h2>
 <ol>
-<li>The distribution snapshot mechanism, above. Largest remaining unknown.</li>
-<li>Whether <code>MaxHolders</code> is a chain param or per-offering.</li>
-<li>Whether an issuer must post a bond that is forfeited on non-delivery. It is
-the only on-chain lever against an issuer who takes the money and does
-nothing, and without it the chain&#39;s guarantee ends at settlement.</li>
+<li>The issuer bond above. Unresolved, and the only on-chain lever against an
+issuer who takes the money and does nothing.</li>
+<li>Nothing compels realisation. A closed-end vehicle with no end date is an
+open-ended one with worse liquidity, and the module does not currently carry
+a defined life even though this guide&#39;s own heading promises one.</li>
 </ol>
 
 </main>
