@@ -33,40 +33,126 @@ interface Stored {
   vault: string;
 }
 
-/** A stable, non-secret blind index for the email, so a breach of the local
- *  store does not hand over a list of who uses the system. */
-async function emailKey(email: string): Promise<string> {
+/**
+ * The key an account is stored under, derived from the email AND the password.
+ *
+ * This used to be a bare SHA-256 of the address, described as a blind index. It
+ * was not one, and the difference matters: email addresses are low-entropy and
+ * enumerable, so anybody holding a dump and a word list tests every guess
+ * offline and recovers exactly the membership the hash was supposed to hide. A
+ * blind index needs a key the attacker does not have.
+ *
+ * There is no server here to hold a pepper — this store is the browser's — so
+ * the key is the user's own password, stretched. A dump without it yields
+ * nothing testable, because computing any candidate index requires the one
+ * secret that was never written down.
+ *
+ * The cost is honest and worth stating: an account can no longer be found by
+ * email alone, so a wrong password and an unknown email are now the same
+ * outcome. That is a slightly worse error message and a considerably better
+ * store.
+ *
+ * PBKDF2 rather than Argon2id because it is what WebCrypto offers and pulling a
+ * WASM Argon2 in for this would cost more than it buys. The custodian service,
+ * which holds a verifier that is worth attacking, uses Argon2id.
+ */
+async function accountKey(email: string, password: string): Promise<string> {
+  const normalised = email.trim().toLowerCase();
+  const material = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      // Salted by the email, so two people sharing a password do not share a
+      // key, and one person's two accounts do not collide.
+      salt: new TextEncoder().encode('yamale.account.v2:' + normalised),
+      iterations: 210_000,
+    },
+    material, 256,
+  );
+  return Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * The key this store used before, kept only to migrate an account written under
+ * it. Never written again.
+ */
+async function legacyKey(email: string): Promise<string> {
   const data = new TextEncoder().encode(email.trim().toLowerCase());
   const digest = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Reads an account, moving it to the new key if it was written under the old
+ * one.
+ *
+ * Migrated on sign-in rather than by a sweep, because the new key cannot be
+ * computed without the password and a sweep has none. An account whose owner
+ * never signs in again keeps its old key, which is the same exposure it already
+ * had and not a new one.
+ */
+async function readStored(email: string, password: string): Promise<Stored | null> {
+  const key = await accountKey(email, password);
+  const current = localStorage.getItem(STORE + '.' + key);
+  if (current) return JSON.parse(current) as Stored;
+
+  const legacy = localStorage.getItem(STORE + '.' + (await legacyKey(email)));
+  if (!legacy) return null;
+  const stored = JSON.parse(legacy) as Stored;
+  // Only after the password has proved itself, which the caller does by
+  // deserialising the vault. Moving it first would let anybody holding the dump
+  // rewrite the store by guessing.
+  return stored;
 }
 
 export async function signUp(profile: Profile, password: string): Promise<Signer> {
   const wallet = await DirectSecp256k1HdWallet.generate(24, { prefix: 'yml' });
   const vault = await wallet.serialize(password);
   const stored: Stored = { profile, vault };
-  localStorage.setItem(STORE + '.' + (await emailKey(profile.email)), JSON.stringify(stored));
-  localStorage.setItem(STORE + '.last', profile.email);
+  localStorage.setItem(STORE + '.' + (await accountKey(profile.email, password)), JSON.stringify(stored));
   return new Signer(profile, wallet);
 }
 
 export async function signIn(email: string, password: string): Promise<Signer> {
-  const raw = localStorage.getItem(STORE + '.' + (await emailKey(email)));
-  if (!raw) throw new Error('no-account');
-  const stored: Stored = JSON.parse(raw);
+  const stored = await readStored(email, password);
+  if (!stored) throw new Error('no-account');
   // Deserialisation fails on a wrong password. That failure is the password
   // check — there is no separate hash to compare, and nothing to leak.
   const wallet = await DirectSecp256k1HdWallet.deserialize(stored.vault, password);
-  localStorage.setItem(STORE + '.last', email);
+
+  // Now that the password has proved itself, finish any migration off the old
+  // key. Written before the delete, so a crash between the two leaves two
+  // copies rather than none.
+  const key = await accountKey(email, password);
+  if (!localStorage.getItem(STORE + '.' + key)) {
+    localStorage.setItem(STORE + '.' + key, JSON.stringify(stored));
+    localStorage.removeItem(STORE + '.' + (await legacyKey(email)));
+  }
   return new Signer(stored.profile, wallet);
 }
 
+/**
+ * There is deliberately no record of who signed in last.
+ *
+ * It used to be kept, as the plain email, under a fixed key — beside an index
+ * built specifically so that the email would not be readable. One
+ * localStorage dump answered "who uses this" without touching the index at all,
+ * which made the index decorative regardless of how it was computed.
+ *
+ * A masked hint was considered and rejected: "a•••@example.com" still names the
+ * organisation, and on a national payments system the domain is most of the
+ * answer. The cost is that somebody types their email each time.
+ */
 export function lastEmail(): string | null {
-  return localStorage.getItem(STORE + '.last');
+  return null;
 }
 
 export function signOut(): void {
-  localStorage.removeItem(STORE + '.last');
+  // Nothing to forget: nothing was remembered. Kept as a function because the
+  // interface above it is entitled to say sign out and be believed.
 }
 
 /**
@@ -111,7 +197,8 @@ export class Signer {
  */
 export async function revealPhrase(email: string, password: string): Promise<string | null> {
   try {
-    const raw = localStorage.getItem(STORE + '.' + (await emailKey(email)));
+    const raw = localStorage.getItem(STORE + '.' + (await accountKey(email, password)))
+      ?? localStorage.getItem(STORE + '.' + (await legacyKey(email)));
     if (!raw) return null;
     const stored: Stored = JSON.parse(raw);
     const wallet = await DirectSecp256k1HdWallet.deserialize(stored.vault, password);
