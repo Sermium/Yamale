@@ -76,7 +76,12 @@ func runEnrol(args []string) error {
 		return err
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// Generous, and for the same reason the server's WriteTimeout is: a single
+	// key-generation round is tens of seconds of proof verification on the far
+	// side. Sixty seconds here would reproduce the server-side bug from the
+	// client's end, and it would look identical — a bare timeout with nothing
+	// to say which round failed.
+	client := &http.Client{Timeout: 5 * time.Minute}
 	services := map[string]*enrolClient{
 		mpc.RoleCustodian: {base: strings.TrimRight(*custodian, "/"), role: mpc.RoleCustodian, http: client},
 		mpc.RoleRecovery:  {base: strings.TrimRight(*recovery, "/"), role: mpc.RoleRecovery, http: client},

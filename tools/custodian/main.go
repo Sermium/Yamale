@@ -187,21 +187,6 @@ func main() {
 	s.preParams = NewPreParamPool(*poolSize, nil)
 	defer s.preParams.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/enrol/start", s.handleEnrolStart)
-	mux.HandleFunc("POST /v1/enrol/message", s.handleEnrolMessage)
-	mux.HandleFunc("POST /v1/enrol/finish", s.handleEnrolFinish)
-	mux.HandleFunc("POST /v1/sign/start", s.handleStart)
-	mux.HandleFunc("POST /v1/sign/message", s.handleMessage)
-	mux.HandleFunc("POST /v1/sign/result", s.handleResult)
-	mux.HandleFunc("POST /v1/recovery/initiate", s.handleRecoveryInitiate)
-	mux.HandleFunc("POST /v1/recovery/approve", s.handleRecoveryApprove)
-	mux.HandleFunc("POST /v1/recovery/complete", s.handleRecoveryComplete)
-	mux.HandleFunc("POST /v1/recovery/cancel", s.handleRecoveryCancel)
-	mux.HandleFunc("GET /v1/recovery/statistics", s.handleRecoveryStatistics)
-	mux.HandleFunc("POST /v1/freeze", s.handleFreeze)
-	mux.HandleFunc("GET /v1/health", s.handleHealth)
-
 	n, _ := store.Count()
 	log.Printf("custodian on %s as %s, %d accounts, second factor above %d", *listen, *role, n, *sfAbove)
 	log.Printf("this service holds ONE share per account and cannot sign with it alone")
@@ -211,12 +196,50 @@ func main() {
 			"nobody was told about is worse than none")
 	}
 
+	// Two different kinds of handler live on this mux and they need two
+	// different bounds, which Go's Server does not offer: ReadTimeout and
+	// WriteTimeout are per-connection and global.
+	//
+	// Signing is milliseconds of arithmetic. Key generation is NOT: verifying
+	// one round of another party's Paillier and range proofs takes tens of
+	// seconds, and it takes them inside the handler. With a 30-second
+	// WriteTimeout the server simply closed the connection mid-round, and the
+	// client saw a bare "EOF" from its POST — no status, no message, and
+	// nothing in this service's log, because the handler was still running and
+	// had not failed. That is how the first live enrolment died.
+	//
+	// So the socket-level bound is generous enough for the slowest legitimate
+	// handler, and the fast routes get their tight bound back individually
+	// through TimeoutHandler, which answers 503 rather than dropping the
+	// connection.
+	fast := func(h http.HandlerFunc) http.Handler {
+		return http.TimeoutHandler(h, 30*time.Second, `{"error":"this took too long"}`)
+	}
+	guarded := http.NewServeMux()
+	guarded.Handle("POST /v1/sign/start", fast(s.handleStart))
+	guarded.Handle("POST /v1/sign/message", fast(s.handleMessage))
+	guarded.Handle("POST /v1/sign/result", fast(s.handleResult))
+	guarded.Handle("POST /v1/freeze", fast(s.handleFreeze))
+	guarded.Handle("GET /v1/health", fast(s.handleHealth))
+	guarded.Handle("POST /v1/recovery/initiate", fast(s.handleRecoveryInitiate))
+	guarded.Handle("POST /v1/recovery/approve", fast(s.handleRecoveryApprove))
+	guarded.Handle("POST /v1/recovery/complete", fast(s.handleRecoveryComplete))
+	guarded.Handle("POST /v1/recovery/cancel", fast(s.handleRecoveryCancel))
+	guarded.Handle("GET /v1/recovery/statistics", fast(s.handleRecoveryStatistics))
+	// Enrolment keeps the generous bound: these are the slow ones.
+	guarded.HandleFunc("POST /v1/enrol/start", s.handleEnrolStart)
+	guarded.HandleFunc("POST /v1/enrol/message", s.handleEnrolMessage)
+	guarded.HandleFunc("POST /v1/enrol/finish", s.handleEnrolFinish)
+
 	srv := &http.Server{
 		Addr:              *listen,
-		Handler:           mux,
+		Handler:           guarded,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       20 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		// The slowest legitimate handler is one round of key generation. The
+		// bound that actually limits an abandoned enrolment is EnrolTTL and the
+		// cap on how many may be open at once, not this.
+		WriteTimeout: 5 * time.Minute,
 	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
@@ -446,12 +469,39 @@ func (s *server) handleFreeze(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	n, _ := s.store.Count()
-	respond(w, map[string]any{
+	body := map[string]any{
+		"role":           s.role,
 		"accounts":       n,
 		"open_sessions":  s.sessions.Open(),
 		"uptime_seconds": int(time.Since(s.started).Seconds()),
 		"holds":          "one share per account, which signs nothing alone",
-	})
+	}
+
+	// Enrolment's readiness, reported because nothing else would say so. A pool
+	// that has been empty for an hour means new accounts have been refused for
+	// an hour, and the service is otherwise perfectly healthy while it happens:
+	// existing accounts sign, the store is fine, and the only symptom is people
+	// who cannot sign up.
+	if s.preParams != nil {
+		ready := s.preParams.Ready()
+		body["preparams_ready"] = ready
+		body["enrolment"] = "ready"
+		if ready == 0 {
+			body["enrolment"] = "unavailable: no pre-computed parameters, so new accounts are refused"
+		}
+	}
+	body["open_enrolments"] = s.enrolments.Open()
+
+	// Whether recovery can run at all. A deployment with no notifier refuses to
+	// start one, by design — and an operator should be able to see that here
+	// rather than discover it the first time somebody needs a recovery.
+	if _, ok := s.notifier.(refusingNotifier); ok {
+		body["recovery"] = "disabled: no notify command, and a recovery nobody is told about is worse than none"
+	} else {
+		body["recovery"] = "ready"
+	}
+
+	respond(w, body)
 }
 
 // authenticate resolves and checks an account, or writes the refusal.
