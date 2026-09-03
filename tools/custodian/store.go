@@ -63,13 +63,26 @@ type Account struct {
 // needs a database administrator before it can hold anybody's share is a
 // service that will be run wrong.
 type Store struct {
-	dir  string
+	dir string
+	// role is the ONE share role this store may hold. Checked on every read
+	// rather than trusted from whatever wrote the file, because a store holding
+	// two roles is a service that can sign alone.
+	role string
 	aead cipher.AEAD
 	mu   sync.RWMutex
 }
 
 // NewStore opens the store, sealing with a 32-byte key held outside it.
-func NewStore(dir string, sealingKey []byte) (*Store, error) {
+func NewStore(dir, role string, sealingKey []byte) (*Store, error) {
+	if role != mpc.RoleCustodian && role != mpc.RoleRecovery {
+		// The device's share belongs on the device. A store willing to hold it
+		// would make this service able to sign on its own, which is the single
+		// thing the whole design exists to prevent — so it is refused at
+		// construction rather than at the first read.
+		return nil, fmt.Errorf(
+			"a store may hold the %s or %s share, never %q",
+			mpc.RoleCustodian, mpc.RoleRecovery, role)
+	}
 	if len(sealingKey) != 32 {
 		return nil, fmt.Errorf(
 			"the sealing key is %d bytes; 32 are required, and it must not live in the directory it seals",
@@ -86,7 +99,7 @@ func NewStore(dir string, sealingKey []byte) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	return &Store{dir: dir, aead: aead}, nil
+	return &Store{dir: dir, role: role, aead: aead}, nil
 }
 
 // ErrNoAccount is returned for an index nothing is stored under.
@@ -105,6 +118,16 @@ func (s *Store) path(index string) string {
 
 // Put writes an account, sealing the share.
 func (s *Store) Put(a Account, share mpc.Share) error {
+	// Refused on the way in as well as on the way out. The read-side check is
+	// the one that catches a bad file; this one stops the bad file existing,
+	// which matters because a share written here is a share that survives a
+	// restart.
+	if share.Role != s.role {
+		return fmt.Errorf(
+			"this is a %s store and that is a %s share; holding both would let one service sign alone",
+			s.role, share.Role)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -165,12 +188,14 @@ func (s *Store) Share(a Account) (mpc.Share, error) {
 	if err := json.Unmarshal(plain, &share); err != nil {
 		return mpc.Share{}, fmt.Errorf("the unsealed share does not decode: %w", err)
 	}
-	if share.Role != mpc.RoleCustodian {
-		// A custodian holding a device share would be a custodian able to sign
-		// alone, so this is checked on every read rather than trusted from
-		// whatever wrote the file.
+	if share.Role != s.role {
+		// A service holding a share that is not its own is a service holding
+		// two, and two shares sign. Checked on every read rather than trusted
+		// from whatever wrote the file — including a file written by an earlier
+		// version of this program, or restored from the wrong backup.
 		return mpc.Share{}, fmt.Errorf(
-			"this store holds a %s share, which a custodian must never have", share.Role)
+			"this is a %s store and that is a %s share; holding both would let one service sign alone",
+			s.role, share.Role)
 	}
 	return share, nil
 }

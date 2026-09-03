@@ -68,6 +68,12 @@ type server struct {
 	store    *Store
 	sessions *Sessions
 	index    *BlindIndex
+	// role is which of the three shares this deployment holds. Two deployments
+	// of this binary — custodian and recovery — are what make enrolment
+	// possible without any one process ever holding two shares.
+	role       string
+	enrolments *Enrolments
+	preParams  *PreParamPool
 	// secondFactorAbove is the amount, in the smallest unit, at or above which
 	// a signature needs more than a password. Zero means always.
 	secondFactorAbove uint64
@@ -80,11 +86,24 @@ func main() {
 	pepperFile := flag.String("pepper-file", "", "file holding the blind-index pepper")
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
 	sfAbove := flag.Uint64("second-factor-above", 0, "amount at or above which a second factor is required; 0 means always")
+	role := flag.String("role", mpc.RoleCustodian, "which share this deployment holds: custodian or recovery")
+	poolSize := flag.Int("preparam-pool", 4, "how many pre-computed parameter sets to keep ready for enrolment")
 	importShare := flag.String("import", "", "enrol an account from a share file and exit")
 	importEmail := flag.String("import-email", "", "the email to index the imported account under")
 	importPassword := flag.String("import-password", "", "the password for the imported account")
 	flag.Parse()
 
+	// Refused early and by name. A deployment started with --role device would
+	// be one holding the share that is supposed to exist only on somebody's
+	// phone, and the failure would be silent: enrolment would succeed and the
+	// customer's own share would be sitting on a server.
+	if *role != mpc.RoleCustodian && *role != mpc.RoleRecovery {
+		fmt.Fprintf(os.Stderr,
+			"custodian: --role must be %q or %q, not %q. The device's share belongs on the device "+
+				"and a service holding it defeats the point of splitting the key.\n",
+			mpc.RoleCustodian, mpc.RoleRecovery, *role)
+		os.Exit(2)
+	}
 	if *dir == "" || *keyFile == "" || *pepperFile == "" {
 		fmt.Fprintln(os.Stderr, "custodian: --dir, --sealing-key-file and --pepper-file are all required")
 		os.Exit(2)
@@ -109,7 +128,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	store, err := NewStore(*dir, sealingKey)
+	store, err := NewStore(*dir, *role, sealingKey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "custodian:", err)
 		os.Exit(1)
@@ -122,6 +141,7 @@ func main() {
 
 	s := &server{
 		store: store, sessions: NewSessions(), index: index,
+		role: *role, enrolments: NewEnrolments(),
 		secondFactorAbove: *sfAbove, started: time.Now(),
 	}
 
@@ -133,7 +153,16 @@ func main() {
 		return
 	}
 
+	// Started only for the serving path, not for --import: generating safe
+	// primes in a process that is about to exit wastes minutes of CPU and
+	// produces nothing.
+	s.preParams = NewPreParamPool(*poolSize, nil)
+	defer s.preParams.Close()
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/enrol/start", s.handleEnrolStart)
+	mux.HandleFunc("POST /v1/enrol/message", s.handleEnrolMessage)
+	mux.HandleFunc("POST /v1/enrol/finish", s.handleEnrolFinish)
 	mux.HandleFunc("POST /v1/sign/start", s.handleStart)
 	mux.HandleFunc("POST /v1/sign/message", s.handleMessage)
 	mux.HandleFunc("POST /v1/sign/result", s.handleResult)
@@ -141,8 +170,9 @@ func main() {
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 
 	n, _ := store.Count()
-	log.Printf("custodian on %s, %d accounts, second factor above %d", *listen, n, *sfAbove)
+	log.Printf("custodian on %s as %s, %d accounts, second factor above %d", *listen, *role, n, *sfAbove)
 	log.Printf("this service holds ONE share per account and cannot sign with it alone")
+	log.Printf("enrolment needs a second deployment holding the other role; this one is %s", *role)
 
 	srv := &http.Server{
 		Addr:              *listen,
@@ -208,10 +238,11 @@ func (s *server) importAccount(sharePath, email, password string) error {
 	if err := json.Unmarshal(raw, &share); err != nil {
 		return fmt.Errorf("reading the share: %w", err)
 	}
-	if share.Role != mpc.RoleCustodian {
+	if share.Role != s.role {
 		return fmt.Errorf(
-			"that is a %s share. A custodian must hold exactly the custodian's share: importing any "+
-				"other would give this service two, and two shares sign", share.Role)
+			"that is a %s share and this deployment is the %s. A service must hold exactly its own "+
+				"share: importing any other would give it two, and two shares sign",
+			share.Role, s.role)
 	}
 	pub, err := share.PublicKey()
 	if err != nil {

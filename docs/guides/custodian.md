@@ -53,13 +53,33 @@ boring and the refusals are the product.
 
 ## Running it
 
+**Two deployments, never one.** Enrolment needs three parties and the device is
+only one of them, so this binary runs twice — once as the custodian, once as the
+recovery holder — with separate sealing keys, separate directories and, if the
+deployment is serious, separate operators:
+
 ```bash
-custodian --dir /var/lib/yamale/custodian \
+custodian --role custodian \
+          --dir /var/lib/yamale/custodian \
           --sealing-key-file /etc/yamale/custodian.key \
           --pepper-file /etc/yamale/custodian.pepper \
           --listen 127.0.0.1:8099 \
           --second-factor-above 0
+
+custodian --role recovery \
+          --dir /var/lib/yamale/recovery \
+          --sealing-key-file /etc/yamale/recovery.key \
+          --pepper-file /etc/yamale/recovery.pepper \
+          --listen 127.0.0.1:8100
 ```
+
+One process able to hold both shares would be one process able to sign, and the
+whole design is the claim that no such process exists. So the store enforces it
+rather than trusting the configuration: it is constructed for exactly one role,
+refuses to *write* a share of any other, and refuses to *hand back* one it finds
+on disk — which is what catches a directory shared by mistake or a backup
+restored to the wrong service. `--role device` is refused outright, because the
+device's share belongs on the device.
 
 The sealing key and the pepper **must not live in `--dir`**, and the service
 refuses to start if either does. That is the whole point of both: a stolen
@@ -71,7 +91,7 @@ The reason it is checked rather than documented: *"back up
 follow, and if the sealing key is in there the backup is a plaintext copy of
 every share the service holds.
 
-Enrolment is an operator action, not an endpoint:
+`--import` still exists, for moving an account produced by a ceremony:
 
 ```bash
 custodian --dir ... --sealing-key-file ... --pepper-file ... \
@@ -80,7 +100,80 @@ custodian --dir ... --sealing-key-file ... --pepper-file ... \
           --import-password '...'
 ```
 
-It prints the account's bech32 address and exits.
+It prints the account's bech32 address and exits, and refuses a share that is
+not this deployment's role.
+
+## Enrolment
+
+A member of the public creating an account, without any single service ever
+holding two shares.
+
+**The device coordinates.** It runs its own key-generation party — in the
+browser, via `mpc/wasm` — and speaks to both services. Each service runs its own
+party, computes its own share, and transmits none of it. The device is the only
+participant that talks to both, and the only one that ever holds its own share.
+
+```
+POST /v1/enrol/start     email + password         -> session, first messages
+POST /v1/enrol/message   session + one message    -> replies, and whether done
+POST /v1/enrol/finish    session + the address    -> committed, or refused
+```
+
+`/v1/enrol/message` with no message is a **poll**, and it is not optional: a
+round's messages can become available after the response that triggered them was
+already written, and a client that never asks again stalls one round short with
+nothing logged. Poll until `done` is true **for every party** — the device
+knowing its own share says nothing about whether its peers know theirs, and
+`/finish` refuses a generation that has not completed.
+
+### What this can and cannot verify
+
+It cannot verify that the person enrolling is who they say. Nobody can, over
+HTTP, without a document or an agent, and pretending otherwise would be worse
+than saying so. Identity belongs to enrolment policy — an agent network, a
+document check, an invitation — and is deliberately not decided here.
+
+What it does verify:
+
+- **The email is not already enrolled.** Checked before anything expensive
+  happens *and* again at commit, because two enrolments for one email can begin
+  before either finishes. Without it, anybody could enrol over an existing
+  account and replace the share that moves its money — which steals nothing and
+  destroys the ability to ever move it again. The email is normalised first, so
+  case and stray whitespace cannot open a second account for one person.
+- **That everybody generated the same key.** The device sends the address *it*
+  computed and the service refuses if it differs from its own. This is the only
+  check either side gets that one key was generated rather than two, and it is
+  what a connection rewriting the protocol fails on. Nothing is written when it
+  fails.
+- **That the password is long enough.** Twelve characters, counted in runes so
+  twelve characters of Amharic is twelve characters. Length only — no
+  composition rules, which push people toward `Password1!` and a smaller search
+  space than a phrase they can remember. Twelve rather than eight because a
+  thief holding the phone already has the device share: the password is not one
+  factor among several here, it is the factor.
+
+Nothing is written to disk until all of that holds. A generation that is
+abandoned, fails, or is finished with a mismatched address leaves no account
+behind — the password verifier is computed at `start` and held in memory until
+`finish`.
+
+### The pre-parameter pool
+
+A party's Paillier key needs two safe primes and finding them takes minutes.
+Generating them inside the request would give a person a four-minute spinner and
+give an attacker an unauthenticated endpoint costing minutes of CPU per call —
+a handful of requests pins every core and nobody can enrol or sign.
+
+So they are made in advance, in the background, and enrolment either takes one
+from the shelf immediately or is refused immediately with `503`. Both answers
+are fast, and *"come back in a minute"* is a far better failure than a service
+that becomes slow for everybody.
+
+**Do not make `Take` block when the shelf is empty.** It is the obvious
+improvement and it restores the whole problem behind a nicer error message: an
+unbounded queue whose length is set by whoever is attacking. `--preparam-pool`
+sets how many are kept ready; the default is 4.
 
 ## The endpoints
 
@@ -198,9 +291,10 @@ becomes an account nobody can sign in to.
 
 This list is longer than the feature list, and that is the honest shape of it.
 
-- **No enrolment over HTTP.** An account is enrolled by an operator running
-  `--import` against a share file produced by the ceremony. That is defensible
-  for a service holding nobody's money and would not be acceptable once it does.
+- **No identity check at enrolment.** Anybody who can reach the endpoint can
+  create an account for any email that has none. That is a policy gap rather
+  than a protocol one — see above — but it is the first thing a deployment has
+  to answer.
 - **No recovery workflow.** `mpc.Reshare` is the mechanism and nothing calls it
   here. Part 5 of [accounts.md](accounts.md) — two approvers from different
   teams, a 72-hour delay, notice to the registered email and every enrolled
@@ -220,9 +314,8 @@ This list is longer than the feature list, and that is the honest shape of it.
 - **No transport security of its own.** It listens on loopback by default and
   expects to sit behind something that terminates TLS. It authenticates the
   account, not the network.
-- **No pre-parameter pool.** [mpc.md](mpc.md) explains why one is needed for
-  enrolment and reset to be seconds rather than minutes. It is not built, and it
-  does not bite yet because neither enrolment nor reset runs here.
+- **No notification of an enrolment either.** Somebody enrolling an email that
+  its owner has not yet used will not be noticed by that owner.
 
 ## Where else to read
 

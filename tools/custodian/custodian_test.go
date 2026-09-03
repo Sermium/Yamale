@@ -93,7 +93,7 @@ func testStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
 	key := []byte(strings.Repeat("k", 32))
-	s, err := NewStore(dir, key)
+	s, err := NewStore(dir, mpc.RoleCustodian, key)
 	require.NoError(t, err)
 	return s, dir
 }
@@ -133,11 +133,11 @@ func TestAShareCannotBeMovedBetweenAccounts(t *testing.T) {
 
 func TestTheWrongSealingKeyOpensNothing(t *testing.T) {
 	dir := t.TempDir()
-	right, err := NewStore(dir, []byte(strings.Repeat("k", 32)))
+	right, err := NewStore(dir, mpc.RoleCustodian, []byte(strings.Repeat("k", 32)))
 	require.NoError(t, err)
 	require.NoError(t, right.Put(Account{Index: "idx-1"}, custodianShare(t)))
 
-	wrong, err := NewStore(dir, []byte(strings.Repeat("j", 32)))
+	wrong, err := NewStore(dir, mpc.RoleCustodian, []byte(strings.Repeat("j", 32)))
 	require.NoError(t, err)
 	acct, err := wrong.Get("idx-1")
 	require.NoError(t, err, "reading the record needs no key")
@@ -145,15 +145,35 @@ func TestTheWrongSealingKeyOpensNothing(t *testing.T) {
 	require.Error(t, err)
 }
 
-// The rule that keeps a custodian a custodian.
+// The rule that keeps a custodian a custodian, checked on both sides.
+//
+// Put refuses so the bad file never exists; Share refuses so a bad file that
+// arrived some other way — written by the recovery deployment sharing a
+// directory, or restored from the wrong backup — is caught on read. The
+// read-side check is the one that matters, because a share on disk is a share
+// that survives a restart, so it is exercised against a genuinely written file
+// rather than a hand-forged one.
 func TestAStoreRefusesToHandBackANonCustodianShare(t *testing.T) {
-	store, _ := testStore(t)
-	require.NoError(t, store.Put(Account{Index: "idx-1"}, mpc.Share{Role: mpc.RoleDevice}))
-	acct, err := store.Get("idx-1")
+	store, dir := testStore(t)
+
+	// The device's share must not even be writable here. A service holding it
+	// could sign alone.
+	require.Error(t, store.Put(Account{Index: "idx-1"}, mpc.Share{Role: mpc.RoleDevice}),
+		"a custodian store accepted the device's share")
+
+	// Now a file this store did not write. The recovery deployment is the
+	// realistic source: same directory by misconfiguration, same sealing key by
+	// copy-paste, and its share opens fine — which is exactly why the role has
+	// to be checked rather than inferred from the fact that it decrypted.
+	recovery, err := NewStore(dir, mpc.RoleRecovery, []byte(strings.Repeat("k", 32)))
 	require.NoError(t, err)
+	require.NoError(t, recovery.Put(Account{Index: "idx-2"}, mpc.Share{Role: mpc.RoleRecovery}))
+
+	acct, err := store.Get("idx-2")
+	require.NoError(t, err, "reading the record needs no role")
 	_, err = store.Share(acct)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must never have")
+	require.Error(t, err, "a custodian store handed back a recovery share")
+	require.Contains(t, err.Error(), "let one service sign alone")
 }
 
 func TestAnUnknownAccountIsIndistinguishableFromAWrongPassword(t *testing.T) {

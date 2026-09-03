@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -155,3 +156,42 @@ func SecondFactorRequired(amount, threshold uint64) bool {
 	}
 	return amount >= threshold
 }
+
+// MinPasswordLength is the only password rule this service imposes.
+//
+// Length, and nothing else. Composition rules — an uppercase, a digit, a
+// symbol — are known to push people toward "Password1!" and its neighbours,
+// which is a smaller search space than a long phrase they can actually
+// remember. NIST dropped them in 2017 and the reasoning has not changed.
+//
+// Twelve rather than eight because this password is one of the two things
+// standing between a stolen phone and somebody's money: the thief already holds
+// the device share, so the password is not one factor among several here, it is
+// the factor.
+const MinPasswordLength = 12
+
+// checkPassword refuses what cannot be allowed, and explains why in terms of
+// what to do instead.
+func checkPassword(password string) error {
+	// Counted in runes, not bytes. Twelve characters of Amharic or Arabic is
+	// twelve characters; measuring bytes would quietly demand a third as many
+	// from some alphabets as from others.
+	if n := len([]rune(password)); n < MinPasswordLength {
+		return fmt.Errorf(
+			"a password needs at least %d characters and this has %d — several unrelated words are "+
+				"easier to remember and harder to guess than a short one with symbols in it",
+			MinPasswordLength, n)
+	}
+	// An upper bound only because Argon2id will happily spend the memory on a
+	// megabyte of input, which is a denial of service anybody can send.
+	if len(password) > 1024 {
+		return errors.New("that password is longer than 1024 bytes")
+	}
+	return nil
+}
+
+// nowUTC is the timestamp written into account files.
+//
+// UTC, always. An operator moving a store between hosts in different zones
+// should not find accounts that appear to have been created in the future.
+func nowUTC() time.Time { return time.Now().UTC() }
