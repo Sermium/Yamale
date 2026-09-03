@@ -325,6 +325,55 @@ the device share does not need to log in again — they need to sign.</p>
 session&#39;s age. <code>--second-factor-above 0</code> means every signature needs one, which
 is a legitimate setting for an institution and a miserable one for somebody
 buying bread.</p>
+<h2>Operating it</h2>
+<p><code>GET /v1/health</code> is written for whoever is on call, and answers three questions
+nothing else in this service would:</p>
+<pre><code class="language-json">{
+  &quot;role&quot;: &quot;custodian&quot;,
+  &quot;accounts&quot;: 0,
+  &quot;preparams_ready&quot;: 1,
+  &quot;enrolment&quot;: &quot;ready&quot;,
+  &quot;recovery&quot;: &quot;disabled: no notify command, and a recovery nobody is told about is worse than none&quot;,
+  &quot;open_sessions&quot;: 0,
+  &quot;open_enrolments&quot;: 0
+}
+</code></pre>
+<p><strong><code>enrolment</code></strong> is the one to alert on. An empty pre-parameter pool means new
+accounts have been refused for as long as it has been empty — and everything
+else looks perfectly healthy while it happens. Existing accounts sign, the store
+is fine, and the only symptom is people who cannot sign up, which nobody
+operating the service ever sees.</p>
+<p><strong><code>recovery</code></strong> says whether a recovery could run at all. A deployment without
+<code>--notify-command</code> refuses to start one, by design. Better read on a health
+check than discovered the first time somebody needs one.</p>
+<p><strong><code>role</code></strong> catches the misconfiguration that produces no error: two deployments
+both set to <code>custodian</code> will happily enrol an account, and it will have no
+recovery share, and nothing will say so until the day somebody needs it. The
+enrolment client checks this too.</p>
+<h3>Two things learned deploying it, so they are not learned twice</h3>
+<p><strong><code>ReadWritePaths</code> does not expand <code>EnvironmentFile</code> variables.</strong> systemd
+resolves the sandbox before the environment file is read, so <code>${CUSTODIAN_DIR}</code>
+silently becomes nothing and the service starts with its own store read-only. It
+then fails at the first write with <code>read-only file system</code>, which reads like a
+disk fault rather than a unit fault. The unit uses a literal parent path.</p>
+<p><strong><code>MemoryDenyWriteExecute</code> cannot be used</strong>, and it is exactly the flag you want
+on a process holding key material. <code>github.com/cloudwego/base64x</code>, pulled in
+transitively, writes AVX2 dispatch code at init and executes it, so the process
+panics with <code>permission denied</code> before it opens a socket. The unit says so
+rather than simply omitting it — setting it, seeing the crash, and quietly
+dropping it is how that becomes folklore.</p>
+<h3>Timeouts, which are not one number</h3>
+<p>Signing is milliseconds of arithmetic. One round of key generation is tens of
+seconds of Paillier and range-proof verification, <strong>inside the handler</strong>. Go&#39;s
+<code>Server</code> timeouts are per-connection and global, so a single <code>WriteTimeout</code> that
+suits signing cuts key generation mid-round — and because the handler has not
+failed, nothing is logged and the client sees a bare <code>EOF</code> with no status and no
+message. That is how the first live enrolment died.</p>
+<p>The socket bound therefore fits the slowest legitimate handler, and the fast
+routes get a tight bound back individually through <code>http.TimeoutHandler</code>, which
+answers <code>503</code> rather than dropping the connection. A client driving enrolment
+needs a matching allowance: 60 seconds reproduces the same symptom from the
+other end.</p>
 <h2>What a breach yields</h2>
 <p>Stated first because it is the question an auditor asks first.</p>
 <table>

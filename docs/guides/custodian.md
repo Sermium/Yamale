@@ -315,6 +315,68 @@ session's age. `--second-factor-above 0` means every signature needs one, which
 is a legitimate setting for an institution and a miserable one for somebody
 buying bread.
 
+## Operating it
+
+`GET /v1/health` is written for whoever is on call, and answers three questions
+nothing else in this service would:
+
+```json
+{
+  "role": "custodian",
+  "accounts": 0,
+  "preparams_ready": 1,
+  "enrolment": "ready",
+  "recovery": "disabled: no notify command, and a recovery nobody is told about is worse than none",
+  "open_sessions": 0,
+  "open_enrolments": 0
+}
+```
+
+**`enrolment`** is the one to alert on. An empty pre-parameter pool means new
+accounts have been refused for as long as it has been empty — and everything
+else looks perfectly healthy while it happens. Existing accounts sign, the store
+is fine, and the only symptom is people who cannot sign up, which nobody
+operating the service ever sees.
+
+**`recovery`** says whether a recovery could run at all. A deployment without
+`--notify-command` refuses to start one, by design. Better read on a health
+check than discovered the first time somebody needs one.
+
+**`role`** catches the misconfiguration that produces no error: two deployments
+both set to `custodian` will happily enrol an account, and it will have no
+recovery share, and nothing will say so until the day somebody needs it. The
+enrolment client checks this too.
+
+### Two things learned deploying it, so they are not learned twice
+
+**`ReadWritePaths` does not expand `EnvironmentFile` variables.** systemd
+resolves the sandbox before the environment file is read, so `${CUSTODIAN_DIR}`
+silently becomes nothing and the service starts with its own store read-only. It
+then fails at the first write with `read-only file system`, which reads like a
+disk fault rather than a unit fault. The unit uses a literal parent path.
+
+**`MemoryDenyWriteExecute` cannot be used**, and it is exactly the flag you want
+on a process holding key material. `github.com/cloudwego/base64x`, pulled in
+transitively, writes AVX2 dispatch code at init and executes it, so the process
+panics with `permission denied` before it opens a socket. The unit says so
+rather than simply omitting it — setting it, seeing the crash, and quietly
+dropping it is how that becomes folklore.
+
+### Timeouts, which are not one number
+
+Signing is milliseconds of arithmetic. One round of key generation is tens of
+seconds of Paillier and range-proof verification, **inside the handler**. Go's
+`Server` timeouts are per-connection and global, so a single `WriteTimeout` that
+suits signing cuts key generation mid-round — and because the handler has not
+failed, nothing is logged and the client sees a bare `EOF` with no status and no
+message. That is how the first live enrolment died.
+
+The socket bound therefore fits the slowest legitimate handler, and the fast
+routes get a tight bound back individually through `http.TimeoutHandler`, which
+answers `503` rather than dropping the connection. A client driving enrolment
+needs a matching allowance: 60 seconds reproduces the same symptom from the
+other end.
+
 ## What a breach yields
 
 Stated first because it is the question an auditor asks first.

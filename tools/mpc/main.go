@@ -52,6 +52,8 @@ const usage = `mpc — threshold accounts, from a terminal
   pay      --shares DIR --to ADDR --amount AMT  sign and broadcast a real payment
   enrol    --custodian URL --recovery URL       create an account against two live
            --email E --password P --out DIR     services, holding only this device's share
+  sign-remote --share FILE --custodian URL      sign with this device's share and the
+           --email E --password P --digest B64  custodian's, which never leaves its host
 
 Three shares exist — device, custodian, recovery — and any two of them sign.
 No single one can, which is the whole point: run "sign" with one share and it
@@ -77,6 +79,8 @@ func main() {
 		err = runPay(os.Args[2:])
 	case "enrol":
 		err = runEnrol(os.Args[2:])
+	case "sign-remote":
+		err = runSignRemote(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
