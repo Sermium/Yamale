@@ -235,19 +235,34 @@ and multi-signature through <code>x/group</code> must never reduce to a single c
 name from your contacts, confirm with a second factor. No phrase, no address, no
 &quot;connect wallet&quot;. The transfer app already resolves user IDs and names, so most
 of that screen exists; what does not exist is the account service behind it.</p>
-<p><strong>The key is built; the service is not.</strong> <code>mpc</code> is the split key and
-<code>tools/custodian</code> is authentication plus the decision to co-sign — see
-<a href="mpc.html">mpc.md</a> and <a href="custodian.html">custodian.md</a>. What is still needed is an
-enrolment path a member of the public can use, an encrypted profile store, a 2FA
-enrolment flow, notification, and the recovery process specified in Part 5 —
-none of which is on the chain, and all of which is the larger half of the product
-from here.</p>
+<p><strong>The key is built, and most of the service now is.</strong> <code>mpc</code> is the split key,
+<code>tools/custodian</code> is authentication plus the decision to co-sign, and as of
+2026-09-03 it also carries enrolment over HTTP and the recovery process of
+Part 5 — two approvers from different teams, the 72-hour delay, notice that
+aborts the recovery if it fails, the 24-hour outbound freeze enforced on every
+signature, a recorded standard of proof, and aggregate publication. See
+<a href="custodian.html">custodian.md</a>.</p>
+<p>Enrolment runs <code>mpc.KeygenParty</code> in three places at once: the device in the
+browser, and two independent deployments of the custodian binary as <code>custodian</code>
+and <code>recovery</code>. No process ever holds two shares, so &quot;the operator cannot move
+your money&quot; stays a statement about the arrangement rather than about
+intentions.</p>
+<p>What is still needed: <strong>an identity check at enrolment</strong> — the service can
+refuse a duplicate email and verify that everybody generated the same key, and
+it cannot verify who anybody is, which belongs to enrolment policy; <strong>second-factor
+enrolment</strong>; <strong>notice to every enrolled device</strong> rather than one email; and the
+<strong>reshare after a recovery</strong>, which is deliberately left to the customer&#39;s own
+device.</p>
 <p>The blind index of Part 2 is worth a specific note. <code>tools/custodian</code> implements
 it as specified: <code>HMAC(email, pepper)</code> with the pepper held outside the store and
-refused if it is short or if it sits inside the directory it protects.
-<code>clients/app</code> does not — it uses a bare <code>SHA-256</code> and calls the result a blind
-index. That divergence is recorded in
-<a href="../scope/gaps.html#the-account-model---the-key-is-built-the-service-around-it-is-not">gaps.md</a>.</p>
+refused if it is short or if it sits inside the directory it protects.</p>
+<p><code>clients/app</code> used a bare <code>SHA-256</code> and called the result a blind index, which it
+was not — a hash of a low-entropy, enumerable value can be tested against a word
+list. Fixed 2026-09-01: there is no server there to hold a pepper, so the key is
+the user&#39;s own password through PBKDF2, salted by the email. The larger hole was
+beside it, and is the one worth remembering: the plain email was stored under a
+fixed key to remember who signed in last, so one dump answered &quot;who uses this&quot;
+without touching the index at all.</p>
 
 </main>
 </body>

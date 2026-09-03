@@ -175,6 +175,90 @@ improvement and it restores the whole problem behind a nicer error message: an
 unbounded queue whose length is set by whoever is attacking. `--preparam-pool`
 sets how many are kept ready; the default is 4.
 
+## Recovery
+
+The path these systems are actually robbed through, so this is the most
+conservative thing in the repository. Support-desk social engineering is the
+most reliable attack on consumer finance there is, and it needs no
+cryptographic weakness at all.
+
+```
+POST /v1/recovery/initiate    operator, team, proof  -> the clock starts
+POST /v1/recovery/approve     a second operator, a different team
+POST /v1/recovery/complete    after 72 hours and two approvals
+POST /v1/recovery/cancel      anybody, any time before completion
+GET  /v1/recovery/statistics  counts and durations, never who
+```
+
+These are **operator** endpoints, not customer ones, and that asymmetry is
+deliberate: a customer cannot recover their own account, because an attacker
+holding a customer's email could then do it too. What a customer can do is
+**cancel**, which needs no authority at all — the worst a malicious cancellation
+achieves is that a real recovery has to start again.
+
+### The five rules, and why each one is load-bearing
+
+**Two approvers, from different teams, neither of them the initiator.** One
+approver is one person to deceive. Two from the same team are two people with
+one manager and one set of pressures, so the same team as the *initiator* is
+excluded too.
+
+**A 72-hour delay.** This is the attacker's real cost: they must keep the owner
+unaware for three days. Shorten it and a weekend covers it. It is a constant,
+not a setting.
+
+**Notice at initiation — and if notice fails, nothing starts.** The delay
+protects an account only if its owner is told the clock is running. A recovery
+nobody was notified of is not a slow recovery, it is a silent one. So
+`--notify-command` is required, and a service without one **refuses to start a
+recovery** rather than running the process correctly and quietly, which is the
+single most dangerous configuration this code can be in.
+
+**Outbound payments frozen for 24 hours afterwards.** Recovery restores access,
+not immediate spending. Somebody who did get through the process wrongly still
+cannot convert it to money that afternoon, and the owner gets another window to
+object. This is checked on **every signature**, not at sign-in, so a session
+opened before the freeze cannot outlive it.
+
+**A recorded standard of proof.** The service cannot check "they named their
+last three payments" — no service can. What it can do is refuse to proceed
+without one and make it a thing a named operator put their name to. Not name,
+date of birth and address: that is precisely what social engineering runs on.
+
+### What completing a recovery does not do
+
+**It does not re-key anything.** Completion marks the account recoverable and
+freezes outbound spending; the actual reshare — `mpc.Reshare`, which produces
+new shares under the *same* public key, so the address and the `x/alias`
+identifier survive — is driven by the device once the customer is back. Putting
+the reshare in here would mean this service generating a share on behalf of
+somebody who was not present, which is exactly the property the whole design
+refuses.
+
+### Published in aggregate
+
+`GET /v1/recovery/statistics` returns counts, the median hours from initiation
+to completion, and how many completed in the last 30 days. No email, no blind
+index, no operator name. From the design: an unusual rate should be visible
+without exposing who — and a number nobody looks at protects nobody, so it is an
+endpoint rather than a log line.
+
+### Notice, and one real constraint
+
+`--notify-command` is run as `<command> <event> <address> [detail]`. A command
+rather than built-in SMTP, because every deployment already has a way to send
+mail and none of them agree on it — and because a subprocess is auditable by
+somebody who does not read Go.
+
+**The command is given the account's chain address, not their email.** This
+service stores a blind index and never the address itself, which is what makes a
+stolen store much less useful. So the deployment must resolve address to person
+its own way. That is a genuine constraint rather than an oversight, and it is
+the price of the store not holding a list of everybody's email.
+
+The subprocess does not inherit this process's environment, because this
+process's environment is where the paths to the sealing key and the pepper are.
+
 ## The endpoints
 
 | | |
@@ -295,17 +379,19 @@ This list is longer than the feature list, and that is the honest shape of it.
   create an account for any email that has none. That is a policy gap rather
   than a protocol one — see above — but it is the first thing a deployment has
   to answer.
-- **No recovery workflow.** `mpc.Reshare` is the mechanism and nothing calls it
-  here. Part 5 of [accounts.md](accounts.md) — two approvers from different
-  teams, a 72-hour delay, notice to the registered email and every enrolled
-  device, outbound payments frozen for 24 hours afterwards, and a standard of
-  proof that is not public knowledge — is specified and unbuilt. That is the path
-  these systems are actually robbed through.
+- **Recovery does not reach every enrolled device.** The design says notice goes
+  to the registered email *and* every enrolled device; device enrolment does not
+  exist, so today it reaches one address. Email is also where password resets
+  land, which makes it one factor wearing two hats.
+- **The reshare after a recovery is not automated.** Completion restores
+  eligibility and freezes spending; the customer's device still has to drive
+  `mpc.Reshare` to get working shares back. Deliberate — see above — but it
+  means a recovery is not finished when the endpoint says completed.
 - **No second factor.** The `second_factor` field is a placeholder, there is no
   enrolment, and above the threshold the service refuses rather than proceeds.
-- **No notification.** Nothing tells a person their account signed something,
-  or that somebody tried. It is the cheapest defence against a stolen device
-  there is.
+- **No notification of a SIGNATURE.** Recovery notifies; ordinary signing does
+  not. Nothing tells a person their account signed something, or that somebody
+  tried, and it is the cheapest defence against a stolen device there is.
 - **No rate limit and no lockout.** Argon2id makes each guess cost about 90 ms
   and that is all that stands between an attacker and an online password
   attack.

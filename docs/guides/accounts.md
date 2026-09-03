@@ -254,17 +254,35 @@ name from your contacts, confirm with a second factor. No phrase, no address, no
 "connect wallet". The transfer app already resolves user IDs and names, so most
 of that screen exists; what does not exist is the account service behind it.
 
-**The key is built; the service is not.** `mpc` is the split key and
-`tools/custodian` is authentication plus the decision to co-sign — see
-[mpc.md](mpc.md) and [custodian.md](custodian.md). What is still needed is an
-enrolment path a member of the public can use, an encrypted profile store, a 2FA
-enrolment flow, notification, and the recovery process specified in Part 5 —
-none of which is on the chain, and all of which is the larger half of the product
-from here.
+**The key is built, and most of the service now is.** `mpc` is the split key,
+`tools/custodian` is authentication plus the decision to co-sign, and as of
+2026-09-03 it also carries enrolment over HTTP and the recovery process of
+Part 5 — two approvers from different teams, the 72-hour delay, notice that
+aborts the recovery if it fails, the 24-hour outbound freeze enforced on every
+signature, a recorded standard of proof, and aggregate publication. See
+[custodian.md](custodian.md).
+
+Enrolment runs `mpc.KeygenParty` in three places at once: the device in the
+browser, and two independent deployments of the custodian binary as `custodian`
+and `recovery`. No process ever holds two shares, so "the operator cannot move
+your money" stays a statement about the arrangement rather than about
+intentions.
+
+What is still needed: **an identity check at enrolment** — the service can
+refuse a duplicate email and verify that everybody generated the same key, and
+it cannot verify who anybody is, which belongs to enrolment policy; **second-factor
+enrolment**; **notice to every enrolled device** rather than one email; and the
+**reshare after a recovery**, which is deliberately left to the customer's own
+device.
 
 The blind index of Part 2 is worth a specific note. `tools/custodian` implements
 it as specified: `HMAC(email, pepper)` with the pepper held outside the store and
 refused if it is short or if it sits inside the directory it protects.
-`clients/app` does not — it uses a bare `SHA-256` and calls the result a blind
-index. That divergence is recorded in
-[gaps.md](../scope/gaps.md#the-account-model---the-key-is-built-the-service-around-it-is-not).
+
+`clients/app` used a bare `SHA-256` and called the result a blind index, which it
+was not — a hash of a low-entropy, enumerable value can be tested against a word
+list. Fixed 2026-09-01: there is no server there to hold a pepper, so the key is
+the user's own password through PBKDF2, salted by the email. The larger hole was
+beside it, and is the one worth remembering: the plain email was stored under a
+fixed key to remember who signed in last, so one dump answered "who uses this"
+without touching the index at all.

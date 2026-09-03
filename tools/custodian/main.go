@@ -74,6 +74,8 @@ type server struct {
 	role       string
 	enrolments *Enrolments
 	preParams  *PreParamPool
+	recoveries *Recoveries
+	notifier   Notifier
 	// secondFactorAbove is the amount, in the smallest unit, at or above which
 	// a signature needs more than a password. Zero means always.
 	secondFactorAbove uint64
@@ -88,6 +90,8 @@ func main() {
 	sfAbove := flag.Uint64("second-factor-above", 0, "amount at or above which a second factor is required; 0 means always")
 	role := flag.String("role", mpc.RoleCustodian, "which share this deployment holds: custodian or recovery")
 	poolSize := flag.Int("preparam-pool", 4, "how many pre-computed parameter sets to keep ready for enrolment")
+	recoveryDir := flag.String("recovery-dir", "", "directory holding the recovery log; defaults to <dir>/recoveries")
+	notifyCmd := flag.String("notify-command", "", "program run to notify an account holder; without it recovery refuses to start")
 	importShare := flag.String("import", "", "enrol an account from a share file and exit")
 	importEmail := flag.String("import-email", "", "the email to index the imported account under")
 	importPassword := flag.String("import-password", "", "the password for the imported account")
@@ -139,9 +143,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Beside the store rather than inside it: the recovery log holds no key
+	// material and no email, so it does not want the sealing key — and keeping
+	// it separate means an operator can hand the audit trail to somebody
+	// without handing over the shares.
+	recDir := *recoveryDir
+	if recDir == "" {
+		recDir = filepath.Join(*dir, "recoveries")
+	}
+	recoveries, err := NewRecoveries(recDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "custodian:", err)
+		os.Exit(1)
+	}
+
+	var notifier Notifier = refusingNotifier{}
+	if *notifyCmd != "" {
+		notifier = newCommandNotifier(*notifyCmd)
+	}
+
 	s := &server{
 		store: store, sessions: NewSessions(), index: index,
 		role: *role, enrolments: NewEnrolments(),
+		recoveries: recoveries, notifier: notifier,
 		secondFactorAbove: *sfAbove, started: time.Now(),
 	}
 
@@ -166,6 +190,11 @@ func main() {
 	mux.HandleFunc("POST /v1/sign/start", s.handleStart)
 	mux.HandleFunc("POST /v1/sign/message", s.handleMessage)
 	mux.HandleFunc("POST /v1/sign/result", s.handleResult)
+	mux.HandleFunc("POST /v1/recovery/initiate", s.handleRecoveryInitiate)
+	mux.HandleFunc("POST /v1/recovery/approve", s.handleRecoveryApprove)
+	mux.HandleFunc("POST /v1/recovery/complete", s.handleRecoveryComplete)
+	mux.HandleFunc("POST /v1/recovery/cancel", s.handleRecoveryCancel)
+	mux.HandleFunc("GET /v1/recovery/statistics", s.handleRecoveryStatistics)
 	mux.HandleFunc("POST /v1/freeze", s.handleFreeze)
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 
@@ -173,6 +202,10 @@ func main() {
 	log.Printf("custodian on %s as %s, %d accounts, second factor above %d", *listen, *role, n, *sfAbove)
 	log.Printf("this service holds ONE share per account and cannot sign with it alone")
 	log.Printf("enrolment needs a second deployment holding the other role; this one is %s", *role)
+	if *notifyCmd == "" {
+		log.Printf("NO --notify-command: recovery will refuse to start, because a recovery " +
+			"nobody was told about is worse than none")
+	}
 
 	srv := &http.Server{
 		Addr:              *listen,
@@ -438,6 +471,22 @@ func (s *server) authenticate(w http.ResponseWriter, email, password string) (Ac
 	}
 	if account.Frozen {
 		refuse(w, http.StatusForbidden, "this account is frozen: "+account.FrozenReason)
+		return Account{}, false
+	}
+
+	// The post-recovery freeze, and this is where it becomes real rather than a
+	// field in a JSON file. Recovery restores ACCESS, not immediate spending —
+	// so somebody who did get through the process, wrongly, still cannot
+	// convert it to money that afternoon, and the 24 hours are another window
+	// in which the real owner can notice and object.
+	//
+	// Checked on every signature rather than at sign-in: a session opened
+	// before the freeze started must not outlive it.
+	if until, frozen := s.recoveries.FrozenUntil(idx); frozen {
+		refuse(w, http.StatusForbidden, fmt.Sprintf(
+			"this account was recovered recently, so payments out of it are held until %s. "+
+				"If you did not ask for that recovery, say so now — that is what this delay is for",
+			until.Format(time.RFC3339)))
 		return Account{}, false
 	}
 	return account, true
