@@ -4,9 +4,14 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-Last verified 2026-09-01, against `yamale-devnet-2` at block 141,500 — queried
-over `https://yamale.tail4355e8.ts.net/api/rpc/`, and every figure below that
-reads as chain state was read from that node on that day.
+**Chain state** last verified 2026-09-01, against `yamale-devnet-2` at block
+141,500 — queried over `https://yamale.tail4355e8.ts.net/api/rpc/`, and every
+figure below that reads as chain state was read from that node on that day.
+
+**Repository state** last verified 2026-09-03, which is a weaker claim and is
+labelled separately on purpose: it means the code exists and its tests pass, not
+that anything has run on the network. The account-service rows added that day
+are all of this kind.
 
 **The hostname in that sentence is itself a correction.** Every previous
 verification queried `pay.yamalelegal.com`, which is the VM — and the VM is not
@@ -66,7 +71,9 @@ query against the live chain returns nothing for any of it.
 |---|---|---|
 | Country enrolment | `ceremony country` - offices, grants, jurisdictions, approved by the foundation | tool complete, **never run**: `RoleHolders` is empty for every country asked |
 | Enrolment for a threshold account | `tools/custodian --import` takes a share file an operator produced with `tools/mpc keygen` | there is no path by which a member of the public gets an account |
-| Distributed key generation | `mpc.Keygen` runs all three parties in one process | correct for a ceremony on one machine; in production the device's share must be generated on the device and never leave it |
+| Distributed key generation | `mpc.KeygenParty` — one participant per process, share computed locally and never transmitted | **closed 2026-09-03.** A test captures every byte the three parties exchange and asserts no party's secret scalar appears in it |
+| Enrolment over HTTP | `tools/custodian` `/v1/enrol/*`, driven by the device against two deployments (`--role custodian` and `--role recovery`) | built and tested; never run against a real browser or a deployed pair |
+| The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
 
 **Three rows left this table on 2026-08-31, and one of them had been wrong for
 four days.** `roles-that-do-something` was applied at height **95,400** — all
@@ -138,21 +145,41 @@ not proof of the arrangement. And the shares in that rehearsal were three files
 on one machine driven by `tools/mpc`, which is precisely the arrangement the
 design exists to avoid; the CLI's own header says so.
 
-**The service around it is not built, and that is still the commercial critical
-path.** No enrolment over HTTP, no recovery workflow, no second factor, no
-notification, no distributed key generation, no pre-parameter pool. An account is
-created by an operator running `keygen` and `--import`. Everything in Part 5 of
-[accounts.md](../guides/accounts.md) — two approvers from different teams, the
-72-hour delay, notice to email and every enrolled device, the 24-hour outbound
-freeze, the standard of proof — is specified and none of it exists. `Reshare` is
-the mechanism a reset would use and nothing calls it in anger.
+**Most of the service now exists, built 2026-09-03.** Enrolment over HTTP,
+distributed key generation with no process ever holding two shares, a
+pre-parameter pool, and the whole of Part 5 — two approvers from different teams,
+the 72-hour delay, notice that aborts the recovery if it fails, the 24-hour
+outbound freeze enforced on every signature, a recorded standard of proof, and
+publication in aggregate. Thirty-three tests in `tools/custodian`, five more in
+`mpc`.
+
+Enrolment runs `mpc.KeygenParty` in three places at once: the device in the
+browser, and two independent deployments of the same binary as `custodian` and
+`recovery`, with separate sealing keys and separate directories. The store is
+constructed for exactly one role and refuses to write or hand back any other, so
+"no single service can sign" is enforced rather than configured.
+
+**What is still missing is smaller but not small.** No identity check at
+enrolment — the service can refuse a duplicate email and verify that everybody
+generated the same key, and it cannot verify who anybody is; that belongs to
+enrolment policy and is the first thing a deployment must answer. No second
+factor. No notice to enrolled devices, only to one email, and device enrolment
+does not exist. No rate limit or lockout on the password check. And the reshare
+after a recovery is deliberately left to the customer's device, which means a
+recovery is not finished when the endpoint says completed.
+
+**None of it has run outside a test.** No browser has driven an enrolment, no
+operator has approved a recovery, and the two deployments have never been stood
+up as two deployments. That is the next thing, and it is the same distinction
+this document exists for: built is not running.
 
 **And the consumer app still ships the model the design rejected.** `clients/app`
 holds a CosmJS password-wrapped key in `localStorage`.
 `clients/app/src/account.ts` says so in its own header and calls itself not
 acceptable in production, which is the right way to carry a proof of concept —
 but it means a forgotten password is a lost account today, and the threshold work
-above is not wired into any interface a person could use.
+above is not wired into any interface a person could use. **That wiring is now
+the gap**: the service it would talk to exists, and nothing talks to it.
 
 Two divergences worth recording rather than leaving only in the code:
 
@@ -217,15 +244,15 @@ testing on every value-moving path, written invariant specifications produced
 *before* audit so reviewers have something to check against, a key ceremony with
 HSM custody, a documented upgrade rollback.
 
-**The account service**, which the scope calls the actual commercial critical
-path. Its key custody has its own section above, because it is now built rather
-than merely specified. What remains untouched around it is most of the service:
-enrolment for a member of the public, the recovery workflow, second-factor
-enrolment, notification, and rate limiting or lockout on the custodian's password
-check. `tools/custodian` covers authentication and the decision to co-sign, and
-nothing else on that list. Plus USSD and feature-phone access, without which most
-African transaction volume is unreachable, and agent-network and mobile-money
-integration.
+**The account service** has its own section above and is mostly no longer
+untouched: enrolment, distributed key generation and the recovery workflow were
+built on 2026-09-03. What remains untouched around it is **second-factor
+enrolment**, **rate limiting or lockout on the custodian's password check**, an
+**identity check at enrolment**, and any **client** that speaks to it.
+
+Plus USSD and feature-phone access, without which most African transaction
+volume is unreachable, and agent-network and mobile-money integration. Those are
+still entirely absent and are the larger commercial gap now.
 
 **A legal entity able to sign an indemnity.** A `LICENSE` now exists —
 proprietary, with reading, compiling, running on a test network and publishing

@@ -17,9 +17,13 @@
 <p>Checked against the tree and the running chain rather than against a task list —
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.</p>
-<p>Last verified 2026-09-01, against <code>yamale-devnet-2</code> at block 141,500 — queried
-over <code>https://yamale.tail4355e8.ts.net/api/rpc/</code>, and every figure below that
-reads as chain state was read from that node on that day.</p>
+<p><strong>Chain state</strong> last verified 2026-09-01, against <code>yamale-devnet-2</code> at block
+141,500 — queried over <code>https://yamale.tail4355e8.ts.net/api/rpc/</code>, and every
+figure below that reads as chain state was read from that node on that day.</p>
+<p><strong>Repository state</strong> last verified 2026-09-03, which is a weaker claim and is
+labelled separately on purpose: it means the code exists and its tests pass, not
+that anything has run on the network. The account-service rows added that day
+are all of this kind.</p>
 <p><strong>The hostname in that sentence is itself a correction.</strong> Every previous
 verification queried <code>pay.yamalelegal.com</code>, which is the VM — and the VM is not
 the host the public reaches. The funnel terminates on the Pi. So a document
@@ -171,8 +175,18 @@ query against the live chain returns nothing for any of it.</p>
 </tr>
 <tr>
 <td>Distributed key generation</td>
-<td><code>mpc.Keygen</code> runs all three parties in one process</td>
-<td>correct for a ceremony on one machine; in production the device&#39;s share must be generated on the device and never leave it</td>
+<td><code>mpc.KeygenParty</code> — one participant per process, share computed locally and never transmitted</td>
+<td><strong>closed 2026-09-03.</strong> A test captures every byte the three parties exchange and asserts no party&#39;s secret scalar appears in it</td>
+</tr>
+<tr>
+<td>Enrolment over HTTP</td>
+<td><code>tools/custodian</code> <code>/v1/enrol/*</code>, driven by the device against two deployments (<code>--role custodian</code> and <code>--role recovery</code>)</td>
+<td>built and tested; never run against a real browser or a deployed pair</td>
+</tr>
+<tr>
+<td>The recovery process of Part 5</td>
+<td>two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication</td>
+<td>built and tested; never exercised by a real operator</td>
 </tr>
 </tbody></table>
 <p><strong>Three rows left this table on 2026-08-31, and one of them had been wrong for
@@ -252,20 +266,37 @@ indistinguishability is deliberate, and it is also why the transaction alone is
 not proof of the arrangement. And the shares in that rehearsal were three files
 on one machine driven by <code>tools/mpc</code>, which is precisely the arrangement the
 design exists to avoid; the CLI&#39;s own header says so.</p>
-<p><strong>The service around it is not built, and that is still the commercial critical
-path.</strong> No enrolment over HTTP, no recovery workflow, no second factor, no
-notification, no distributed key generation, no pre-parameter pool. An account is
-created by an operator running <code>keygen</code> and <code>--import</code>. Everything in Part 5 of
-<a href="../guides/accounts.html">accounts.md</a> — two approvers from different teams, the
-72-hour delay, notice to email and every enrolled device, the 24-hour outbound
-freeze, the standard of proof — is specified and none of it exists. <code>Reshare</code> is
-the mechanism a reset would use and nothing calls it in anger.</p>
+<p><strong>Most of the service now exists, built 2026-09-03.</strong> Enrolment over HTTP,
+distributed key generation with no process ever holding two shares, a
+pre-parameter pool, and the whole of Part 5 — two approvers from different teams,
+the 72-hour delay, notice that aborts the recovery if it fails, the 24-hour
+outbound freeze enforced on every signature, a recorded standard of proof, and
+publication in aggregate. Thirty-three tests in <code>tools/custodian</code>, five more in
+<code>mpc</code>.</p>
+<p>Enrolment runs <code>mpc.KeygenParty</code> in three places at once: the device in the
+browser, and two independent deployments of the same binary as <code>custodian</code> and
+<code>recovery</code>, with separate sealing keys and separate directories. The store is
+constructed for exactly one role and refuses to write or hand back any other, so
+&quot;no single service can sign&quot; is enforced rather than configured.</p>
+<p><strong>What is still missing is smaller but not small.</strong> No identity check at
+enrolment — the service can refuse a duplicate email and verify that everybody
+generated the same key, and it cannot verify who anybody is; that belongs to
+enrolment policy and is the first thing a deployment must answer. No second
+factor. No notice to enrolled devices, only to one email, and device enrolment
+does not exist. No rate limit or lockout on the password check. And the reshare
+after a recovery is deliberately left to the customer&#39;s device, which means a
+recovery is not finished when the endpoint says completed.</p>
+<p><strong>None of it has run outside a test.</strong> No browser has driven an enrolment, no
+operator has approved a recovery, and the two deployments have never been stood
+up as two deployments. That is the next thing, and it is the same distinction
+this document exists for: built is not running.</p>
 <p><strong>And the consumer app still ships the model the design rejected.</strong> <code>clients/app</code>
 holds a CosmJS password-wrapped key in <code>localStorage</code>.
 <code>clients/app/src/account.ts</code> says so in its own header and calls itself not
 acceptable in production, which is the right way to carry a proof of concept —
 but it means a forgotten password is a lost account today, and the threshold work
-above is not wired into any interface a person could use.</p>
+above is not wired into any interface a person could use. <strong>That wiring is now
+the gap</strong>: the service it would talk to exists, and nothing talks to it.</p>
 <p>Two divergences worth recording rather than leaving only in the code:</p>
 <ul>
 <li><p><strong>The blind index in <code>clients/app</code> was not one. Fixed 2026-09-01.</strong> It was a
@@ -321,15 +352,14 @@ Two independent audits with non-overlapping scopes, property-based and fuzz
 testing on every value-moving path, written invariant specifications produced
 <em>before</em> audit so reviewers have something to check against, a key ceremony with
 HSM custody, a documented upgrade rollback.</p>
-<p><strong>The account service</strong>, which the scope calls the actual commercial critical
-path. Its key custody has its own section above, because it is now built rather
-than merely specified. What remains untouched around it is most of the service:
-enrolment for a member of the public, the recovery workflow, second-factor
-enrolment, notification, and rate limiting or lockout on the custodian&#39;s password
-check. <code>tools/custodian</code> covers authentication and the decision to co-sign, and
-nothing else on that list. Plus USSD and feature-phone access, without which most
-African transaction volume is unreachable, and agent-network and mobile-money
-integration.</p>
+<p><strong>The account service</strong> has its own section above and is mostly no longer
+untouched: enrolment, distributed key generation and the recovery workflow were
+built on 2026-09-03. What remains untouched around it is <strong>second-factor
+enrolment</strong>, <strong>rate limiting or lockout on the custodian&#39;s password check</strong>, an
+<strong>identity check at enrolment</strong>, and any <strong>client</strong> that speaks to it.</p>
+<p>Plus USSD and feature-phone access, without which most African transaction
+volume is unreachable, and agent-network and mobile-money integration. Those are
+still entirely absent and are the larger commercial gap now.</p>
 <p><strong>A legal entity able to sign an indemnity.</strong> A <code>LICENSE</code> now exists —
 proprietary, with reading, compiling, running on a test network and publishing
 security findings explicitly permitted, and production or distribution requiring
