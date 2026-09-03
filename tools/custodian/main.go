@@ -143,13 +143,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Beside the store rather than inside it: the recovery log holds no key
-	// material and no email, so it does not want the sealing key — and keeping
-	// it separate means an operator can hand the audit trail to somebody
-	// without handing over the shares.
+	// BESIDE the store, not inside it, and the default says so rather than
+	// leaving it to configuration. The recovery log holds no key material and no
+	// email — only blind indexes — so it does not want the sealing key, and
+	// keeping it out of the store directory means an operator can hand the audit
+	// trail to a regulator without handing over every share along with it.
+	//
+	// A sibling rather than somewhere unrelated so that one ReadWritePaths in
+	// the unit still covers both.
 	recDir := *recoveryDir
 	if recDir == "" {
-		recDir = filepath.Join(*dir, "recoveries")
+		recDir = strings.TrimRight(*dir, `/\`) + "-recoveries"
 	}
 	recoveries, err := NewRecoveries(recDir)
 	if err != nil {

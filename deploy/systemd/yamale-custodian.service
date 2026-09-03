@@ -1,0 +1,73 @@
+# One share of every consumer account, and the decision to co-sign with it.
+#
+# Deployed TWICE, and that is the whole design rather than a scaling choice:
+# once as --role custodian, once as --role recovery, on different hosts, with
+# different sealing keys and different peppers. One process able to hold both
+# shares would be one process able to sign, and the claim being made to
+# customers is that no such process exists.
+#
+# Identity comes from /etc/yamale/custodian.env so this file is byte-identical
+# on both hosts; a unit edited per host is how two hosts end up with two subtly
+# different units.
+#
+# Install:
+#   sudo cp deploy/systemd/yamale-custodian.service /etc/systemd/system/
+#   sudo cp deploy/systemd/custodian.env.example /etc/yamale/custodian.env  # edit
+#   sudo systemctl edit yamale-custodian     # [Service] User=<the host's user>
+#   sudo systemctl enable --now yamale-custodian
+
+[Unit]
+Description=Yamale account custodian — holds one share, and can never sign alone
+Documentation=https://github.com/Sermium/Yamale/blob/main/docs/guides/custodian.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/yamale/custodian.env
+ExecStart=/opt/yamale/bin/yamale-custodian \
+  --role ${CUSTODIAN_ROLE} \
+  --dir ${CUSTODIAN_DIR} \
+  --sealing-key-file ${CUSTODIAN_SEALING_KEY} \
+  --pepper-file ${CUSTODIAN_PEPPER} \
+  --listen ${CUSTODIAN_LISTEN} \
+  --preparam-pool ${CUSTODIAN_POOL} \
+  --second-factor-above ${CUSTODIAN_SECOND_FACTOR_ABOVE}
+
+Restart=always
+RestartSec=10s
+
+# It holds key material, so it gets as little else as possible. ReadWritePaths
+# is the store only: the sealing key and the pepper are read once at startup and
+# this process has no business writing to them.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Literal, not ${CUSTODIAN_DIR}: systemd resolves ReadWritePaths before the
+# EnvironmentFile is loaded, so a variable here silently expands to nothing and
+# the service starts with its own store read-only. It fails at first write with
+# "read-only file system", which reads like a disk problem rather than a unit
+# problem. The parent covers both roles' stores and both recovery logs.
+ReadWritePaths=/var/lib/yamale
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# MemoryDenyWriteExecute is deliberately NOT set, and the reason is recorded
+# rather than left as an omission somebody "fixes" later.
+#
+# It is the flag you want on a service holding key material — it stops a process
+# mapping memory writable and then executable, which is how most in-process code
+# injection lands. It cannot be used here: github.com/cloudwego/base64x, pulled
+# in transitively, writes AVX2 dispatch code at init and executes it, so the
+# process panics with "permission denied" before it opens a socket.
+#
+# Setting it, seeing the crash, and quietly dropping it is how this ends up as a
+# mystery. If the dependency is ever removed, put it back.
+
+[Install]
+WantedBy=multi-user.target

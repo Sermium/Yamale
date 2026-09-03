@@ -50,6 +50,8 @@ const usage = `mpc — threshold accounts, from a terminal
   sign     --digest BASE64 --share A --share B  produce a signature from any two shares
   reshare  --share A --share B --out DIR        rotate every share; the address does not move
   pay      --shares DIR --to ADDR --amount AMT  sign and broadcast a real payment
+  enrol    --custodian URL --recovery URL       create an account against two live
+           --email E --password P --out DIR     services, holding only this device's share
 
 Three shares exist — device, custodian, recovery — and any two of them sign.
 No single one can, which is the whole point: run "sign" with one share and it
@@ -73,6 +75,8 @@ func main() {
 		err = runReshare(os.Args[2:])
 	case "pay":
 		err = runPay(os.Args[2:])
+	case "enrol":
+		err = runEnrol(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
