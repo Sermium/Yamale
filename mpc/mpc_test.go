@@ -25,10 +25,12 @@ import (
 // the suite stops being run at all, and a threshold implementation nobody
 // exercises is how the two dead functions in x/tokenisation happened.
 var (
-	once   sync.Once
-	shares map[string]mpc.Share
-	pre    map[string]*keygen.LocalPreParams
-	genErr error
+	once    sync.Once
+	preOnce sync.Once
+	preErr  error
+	shares  map[string]mpc.Share
+	pre     map[string]*keygen.LocalPreParams
+	genErr  error
 )
 
 // preParams returns the material generated once for this suite. Reusing it for
@@ -37,12 +39,18 @@ var (
 // pool is for.
 func preParams() map[string]*keygen.LocalPreParams { return pre }
 
-func accountShares(t *testing.T) map[string]mpc.Share {
+// ensurePreParams generates the safe primes once for the whole suite.
+//
+// Split out of accountShares because KeygenParty's tests need the expensive
+// material without needing the in-process Keygen that used to produce it
+// alongside — running both would double the slowest thing in this package for
+// no benefit.
+func ensurePreParams(t *testing.T) map[string]*keygen.LocalPreParams {
 	t.Helper()
 	if testing.Short() {
-		t.Skip("distributed key generation takes minutes; run without -short")
+		t.Skip("generating safe primes takes minutes; run without -short")
 	}
-	once.Do(func() {
+	preOnce.Do(func() {
 		pre = make(map[string]*keygen.LocalPreParams, len(mpc.Roles))
 		var wg sync.WaitGroup
 		var mu sync.Mutex
@@ -54,16 +62,32 @@ func accountShares(t *testing.T) map[string]mpc.Share {
 				mu.Lock()
 				defer mu.Unlock()
 				if err != nil {
-					genErr = err
+					preErr = err
 					return
 				}
 				pre[role] = p
 			}(role)
 		}
 		wg.Wait()
-		if genErr != nil {
-			return
-		}
+	})
+	require.NoError(t, preErr)
+	require.Len(t, pre, len(mpc.Roles))
+	return pre
+}
+
+// preParamFor is one role's share of that material.
+func preParamFor(t *testing.T, role string) *keygen.LocalPreParams {
+	t.Helper()
+	return ensurePreParams(t)[role]
+}
+
+func accountShares(t *testing.T) map[string]mpc.Share {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("distributed key generation takes minutes; run without -short")
+	}
+	ensurePreParams(t)
+	once.Do(func() {
 		shares, genErr = mpc.Keygen(pre)
 	})
 	require.NoError(t, genErr)
