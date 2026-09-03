@@ -4,9 +4,16 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-Last verified 2026-08-31, against `yamale-devnet-2` at block 124,691 — queried
-over `https://pay.yamalelegal.com/api/rpc/`, and every figure below that reads
-as chain state was read from that node on that day.
+Last verified 2026-09-01, against `yamale-devnet-2` at block 141,500 — queried
+over `https://yamale.tail4355e8.ts.net/api/rpc/`, and every figure below that
+reads as chain state was read from that node on that day.
+
+**The hostname in that sentence is itself a correction.** Every previous
+verification queried `pay.yamalelegal.com`, which is the VM — and the VM is not
+the host the public reaches. The funnel terminates on the Pi. So a document
+written to stop claims being made about the tree instead of the chain was, for
+the client half of its rows, checking the wrong machine. See
+[deploy/README.md](../../deploy/README.md).
 
 **Three states, not one.** This document once headed a single table "built,
 merged, and live on the chain", and that phrasing hid a real gap for two days:
@@ -46,6 +53,8 @@ running chain rather than the tree.
 | The custodian service | `tools/custodian` — holds one share, authenticates, co-signs, refuses. Not deployed against anybody's money |
 | `x/tokenisation` pays its shareholders | `income-that-arrives` applied at **119,900**; a vehicle minted after it owes 18 YML to its majority holder where the one minted before owes nobody anything against a 72 YML vault |
 | Four more client surfaces | `/keys/`, `/markets/`, `/oversight/`, `/demo/` — all answering 200 on 2026-08-31 |
+| The oracle agrees a price | first ever at **141,264** on 2026-09-01: 48 denominations, both validators reporting, `voting_power_bps` 10,000. Two feeders under systemd on two different sources |
+| Structuring and stuck slices | `structuring-and-stuck-slices` applied at **132,700**, identical app hashes on both hosts. Both new parameters default to zero, so nothing changes until governance sets them |
 
 ## Merged, but not yet running
 
@@ -147,17 +156,20 @@ above is not wired into any interface a person could use.
 
 Two divergences worth recording rather than leaving only in the code:
 
-- **The blind index in `clients/app` is not one.** `emailKey()` is a bare
-  `SHA-256` of the address. The design specifies `HMAC(email, pepper)` with the
-  pepper held outside the store, and the difference is the whole property: a bare
-  hash can be tested against any list of email addresses, so a dump yields the
-  membership it was supposed to hide. Local-only storage makes it less severe
-  than the same mistake server-side; it does not make the code's claim true.
-  **`tools/custodian` now does it correctly** — HMAC with a pepper the service
-  refuses to start without, refuses below 32 bytes, and refuses to read from
-  inside the directory it protects. So the divergence is now between two places
-  in this repository rather than between the code and the spec, which makes it
-  cheaper to close and no less wrong until somebody does.
+- **The blind index in `clients/app` was not one. Fixed 2026-09-01.** It was a
+  bare `SHA-256` of the email, which can be tested against any word list, so a
+  dump yielded exactly the membership the hash was meant to hide. There is no
+  server here to hold a pepper, so the key is now the user's own password through
+  PBKDF2, salted by the email: a dump without it yields nothing testable. The
+  cost is stated rather than hidden — an account can no longer be found by email
+  alone, so a wrong password and an unknown email are now the same outcome.
+
+  The larger hole was beside it and is the part worth remembering: the plain
+  email was stored under a fixed key to remember who signed in last, so one dump
+  answered "who uses this" **without touching the index at all**. The index was
+  decorative however it was computed. That record is gone; a masked hint was
+  considered and rejected, because on a national payments system the domain is
+  most of the answer.
 - **`crypto.subtle` is undefined outside a secure context**, so on the plain-HTTP
   tailnet host account creation throws and reaches the user as "That password is
   not right."
@@ -482,22 +494,25 @@ against `AppliedPlan`. A row here now says both dates when they differ.
 
 ## Operational loose ends
 
-- **The oracle has never agreed a price on this chain, and nothing said so.**
-  Found 2026-08-31. `Query/ExchangeRates` returns an empty set, and
-  `Query/ExchangeRate` for every denomination asked answers *"no rate has ever
-  been agreed"* — not a stale rate, never one. `Query/MissCounters` says why:
-  both validators have missed **every** window they have been eligible for,
-  10,188 of 10,188 and 10,394 of 10,394. No feeder is running. The vote period is
-  12 blocks and the threshold 50%, so with two validators a single feeder cannot
-  produce a rate on its own; two feeders are needed and there are none.
+- **The oracle had never agreed a price, and now has.** Found 2026-08-31, closed
+  2026-09-01. Both validators had missed **every** window since genesis — 11,771
+  of 11,771 for `pi`. Nothing was broken: nobody had ever nominated a feeder, and
+  nominating one needs the validator's operator key, which on both hosts lives in
+  a password-protected `keyring-file` that only the operator can open.
 
-  This is worth more than its size. `/markets/` is listed above as live and it
-  is — the console renders, the AMM pools behind it are real, and its oracle
-  panel is correctly showing that there is nothing to show. But "the module
-  works" and "the module has ever produced its output on this network" are
-  different claims, and only the first of them was being made. Anything that
-  consumes a rate — fee conversion, the appointed-valuer path, a stablecoin
-  peg check — has never been exercised end to end here.
+  With one delegation per validator the oracle agreed 48 rates at **141,264**,
+  and both validators now report — `voting_power_bps` 10,000 — from two
+  *different* sources, because the aggregate is a stake-weighted median and two
+  feeders on one endpoint is one source counted twice.
+
+  One number is worth keeping: `pi` alone is 5,717 bps against a 5,000 bps
+  threshold, so a single feeder does produce a price, with no median at all
+  behind it. That is a property of the current split rather than a safeguard.
+
+  What this closes is narrower than it looks, and the distinction is the one this
+  document exists for: a rate now exists, so anything consuming one *can* be
+  exercised. Fee conversion, the appointed-valuer path and a stablecoin peg check
+  still have not been.
 
 - **A validator above two thirds silently excludes every other validator.**
   Found and fixed 2026-08-21. `pi-2` signed 5 of 40 blocks, was jailed for
@@ -513,6 +528,26 @@ against `AppliedPlan`. A row here now says both dates when they differ.
   2026-08-31 — 100,000 and 74,900 of 174,900 bonded. Neither holds two thirds,
   which is the property that matters, and the chain was not catching up when
   read.
+- **The public host is the Pi, and nothing checked that.** Found 2026-09-01.
+  Consoles were deployed to the VM for a day while the funnel served the Pi's
+  month-old copy; every check passed, because every check asked the VM. Worse,
+  the Pi's REST allow-list had drifted a revision behind and was missing
+  `cosmos/auth/.../accounts/`, which every client reads before it can sign — so
+  signing was broken for every public visitor, and it failed as a `401` with a
+  `WWW-Authenticate` challenge, which a browser renders as a login box on an app
+  that has no login. `deploy/deploy.sh` now verifies against the funnel hostname
+  and exits non-zero when the public site is not what the repo builds.
+- **Ten of the fourteen consoles were linked from nowhere.** Found 2026-09-01,
+  when the land register was asked about. It was deployed, working and answering
+  200 — and reachable only by typing the URL, along with the guided tour,
+  markets, vehicles, governance, oversight, foundation, validator and threshold
+  keys. This is the client-side twin of the oracle row above: served is not
+  reachable, the same way merged is not running.
+- **A validator operator passphrase is in `~/.bash_history` on the VM**, in the
+  clear, and appears to be a reused personal password. Mode `0600`, so it is one
+  `sudo`, one backup or one host compromise away. It unlocks the key for the
+  majority validator. Nothing needs it again — both feeder delegations are made —
+  so shredding the history and rotating the value costs nothing.
 - **The ops signing service is still running** with two htpasswd files. It was
   always a devnet crutch; the plan is client-side signing through
   `@yamale/connect`, then delete `/api/ops/`, both credential files and both
