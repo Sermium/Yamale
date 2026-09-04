@@ -705,6 +705,57 @@ const VOTER_ADDR = Object.fromEntries(VALIDATORS.map((v) => [v.moniker, v.voter]
 // operator, so a validator opens its own page and every action on it is
 // unambiguously theirs. Without it the page is read-only.
 const ME = new URLSearchParams(location.search).get('as');
+
+/**
+ * The hostname that serves the signing service.
+ *
+ * Not every origin this console is served from carries one. The payments
+ * hostname deliberately does not — its nginx config says so, and says why: a
+ * signing path has no business on a payments origin. So a console opened there
+ * as ?as=pi looks fully operational and fails only when a button is pressed,
+ * which is the worst moment to discover it.
+ */
+const OPS_HOST = 'yamale.ddns.net';
+
+/**
+ * Whether this origin serves the signing service at all.
+ *
+ * Probed with credentials omitted, deliberately. A plain fetch to a path behind
+ * auth_basic gets a 401 carrying WWW-Authenticate, and the browser answers it
+ * with a credential dialog on a page that has no login — the exact failure this
+ * console has already been reported for once. With credentials mode "omit" the
+ * browser is required not to prompt, so this asks the question without asking
+ * the operator anything.
+ *
+ * 404 means no service here. 401 means it is here and wants credentials, which
+ * is the normal, healthy answer.
+ */
+async function signingAvailable() {
+  try {
+    const r = await fetch('/api/ops/health', { method: 'GET', credentials: 'omit' });
+    return r.status !== 404;
+  } catch {
+    // Unreachable is not the same as absent, and guessing "absent" would send
+    // an operator to another hostname over a dropped connection.
+    return true;
+  }
+}
+
+/** Says it once, at the top, rather than on each button. */
+async function warnIfNoSigner() {
+  if (!ME) return;
+  if (await signingAvailable()) return;
+  const here = location.host;
+  const target = new URL(location.href);
+  target.host = OPS_HOST;
+  document.getElementById('error').innerHTML =
+    `<div class="card card--bad"><strong>No signing service on ${esc(here)}.</strong>
+     <p class="small">This hostname serves the console but not the validator signing
+     path — deliberately, so that a signing endpoint is not exposed on a payments
+     origin. Reading works here; acting does not.</p>
+     <p class="small">Open <a href="${esc(target.href)}">the same page on ${esc(OPS_HOST)}</a>,
+     where the signer runs and will ask for this validator's credentials.</p></div>`;
+}
 const REST = '/api/rest';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
@@ -1440,6 +1491,9 @@ async function readChainRules() {
 async function load() {
   try {
     document.getElementById('error').innerHTML = '';
+    // Before anything else, so an operator on the wrong hostname is told at the
+    // top of the page rather than by a button six scrolls down.
+    await warnIfNoSigner();
     await readChainRules();
     const [gov, params, freezes, cases] = await Promise.all([
       get(`${REST}/cosmos/gov/v1/proposals?pagination.limit=30`),
