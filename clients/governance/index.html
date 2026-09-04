@@ -717,15 +717,60 @@ const shellSafe = (s) => String(s ?? '').replace(/\r/g, '');
 const opsUrl = (v, action) =>
   v === 'pi-2' ? `/api/ops/pi-2/${action}` : `/api/ops/${action}`;
 
+/**
+ * Reads the signer's answer, or explains what answered instead.
+ *
+ * The signing service is not served from every hostname this console can be
+ * opened on — deliberately, because a signing path has no business on a
+ * payments origin. Ask for it there and nginx answers 404 with an HTML page.
+ *
+ * Passing that page to r.json() throws "... is not valid JSON", which is what
+ * this console used to display: a parser's complaint about a document the
+ * operator never asked for, naming neither the host nor the status. It sends
+ * whoever reads it looking for a bug in the payload. So the response is
+ * inspected before it is parsed, and every failure names what actually
+ * answered.
+ */
+async function readOps(r, url) {
+  const type = r.headers.get('content-type') || '';
+  if (r.ok && type.includes('json')) return r.json();
+
+  const body = (await r.text().catch(() => '')).trim();
+  if (r.status === 404) {
+    throw new Error(
+      `this hostname has no signing service (${location.host} answered 404 for ${url}). ` +
+      `Open this console on the operator hostname instead.`);
+  }
+  if (r.status === 401 || r.status === 403) {
+    throw new Error(`the signer refused these credentials (${r.status}) — sign in as ${validatorLabel()} and retry`);
+  }
+  if (r.status === 502 || r.status === 503 || r.status === 504) {
+    throw new Error(`the signer is not answering (${r.status}); it is reached over the tailnet, so check it is up`);
+  }
+  if (!type.includes('json')) {
+    throw new Error(`${url} answered ${r.status} with ${type || 'no content type'}, not JSON`);
+  }
+  // JSON, but a failure status: the service's own wording is the useful part.
+  const parsed = (() => { try { return JSON.parse(body); } catch { return null; } })();
+  throw new Error((parsed && (parsed.error || parsed.log)) || `${url} → ${r.status}`);
+}
+
+/** The validator this console is acting as, for the credentials message. */
+function validatorLabel() {
+  const as = new URLSearchParams(location.search).get('as');
+  return as ? `validator ${as}` : 'the validator';
+}
+
 async function act(validator, action, body, btn) {
   const was = btn.textContent;
   btn.textContent = 'sending…'; btn.disabled = true;
   try {
-    const r = await fetch(opsUrl(validator, action), {
+    const url = opsUrl(validator, action);
+    const r = await fetch(url, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ validator, ...body }),
     });
-    const out = await r.json();
+    const out = await readOps(r, url);
     // The service waits for the block before it answers, so by the time this
     // runs the thing has either happened or failed — there is no third state
     // to report. It used to answer the moment the mempool accepted the
@@ -738,9 +783,13 @@ async function act(validator, action, body, btn) {
          (out.log || out.error || 'refused')).slice(0, 60);
     if (out.ok) load();
   } catch (e) {
-    btn.textContent = 'failed: ' + e.message;
+    // Not truncated to 60 characters like the service's own refusals: these
+    // messages say where to go next, and a message cut before its instruction
+    // is worse than no message.
+    btn.textContent = e.message;
+    btn.title = e.message;
   }
-  setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 6000);
+  setTimeout(() => { btn.textContent = was; btn.title = ''; btn.disabled = false; }, 12000);
 }
 
 /** A failed call, carrying the URL and the status. Both, always. */
