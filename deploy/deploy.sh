@@ -162,6 +162,11 @@ check /safe/proposals      200 "safe deep link"
 check /api/rpc/status                                            200 "node reachable"
 check /api/rest/cosmos/auth/v1beta1/accounts/yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg 200 "signing possible"
 check /api/rest/cosmos/feegrant/v1beta1/allowances/yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg 200 "fee sponsorship visible"
+# The governance console reads this on load. Gated, it answers 401 with a
+# WWW-Authenticate challenge and the browser puts a credential dialog on a page
+# that has no login — which reads as "I need a password", not as "a path is
+# missing from the allowlist".
+check /api/rest/cosmos/auth/v1beta1/module_accounts               200 "governance authority readable"
 check /api/rest/yamale/blockchain/tokenisation/v1/params         200 "offerings readable"
 check /api/rest/yamale/blockchain/oracle/v1/params               200 "rates readable"
 
