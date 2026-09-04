@@ -682,7 +682,7 @@
 </div>
 
 <script type="module">
-import { VALIDATORS, voteCommand } from './validators.js';
+import { VALIDATORS, voteCommand, signingPower } from './validators.js';
 import {
   ALIAS_PARAMS_PATH, DENOMS_METADATA_PATH, GOV_DEPOSIT_PARAMS_PATH,
   GOV_MODULE_ADDRESS_FALLBACK, GOV_TALLY_PARAMS_PATH, MAX_FOUNDATION_ADMINISTRATORS,
@@ -694,11 +694,12 @@ import {
   wholeAmount,
 } from './administrators.js';
 
-// A validator votes with its *account* address, not its valoper address.
-const VOTER_ADDR = {
-  'pi':   'yml1nls726x7n7ucd8a6ku0ykdp20c0dl6de5zd782',
-  'pi-2': 'yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas',
-};
+// The address that actually signs for each validator, from validators.js —
+// which is the signing service's hot key, and not the validator's operator
+// account. This map used to live here with a third address again, belonging to
+// nothing on this chain, so "has voted" was answered against an account that
+// never votes. Kept as a lookup for call sites; the truth is in VALIDATORS.
+const VOTER_ADDR = Object.fromEntries(VALIDATORS.map((v) => [v.moniker, v.voter]));
 
 // Which validator this page is acting as. ?as=pi or ?as=pi-2 — one URL per
 // operator, so a validator opens its own page and every action on it is
@@ -1494,8 +1495,20 @@ async function load() {
     const open = proposals.filter(isOpen);
     const openHtml = await Promise.all(open.map(async (pr) => {
       const votes = await votesFor(pr.id);
+      // What each signing key actually weighs. Asked once per validator, and
+      // the answer is regularly "nothing" — pival holds no delegation at all,
+      // so a vote signed with it is recorded and tallies zero. An operator is
+      // entitled to know that before pressing the button, not after wondering
+      // why the tally did not move.
+      const powers = Object.fromEntries(await Promise.all(VALIDATORS.map(async (v) => {
+        const d = await maybe(
+          get(`${REST}/cosmos/staking/v1beta1/delegations/${v.voter}`), null);
+        return [v.moniker, signingPower(v, d?.delegation_responses || [])];
+      })));
+
       const rows = VALIDATORS.map(v => {
         const cast = votes.find(x => (x.voter || '') === (VOTER_ADDR[v.moniker] || ''));
+        const power = powers[v.moniker] || { canVote: true, note: '', staked: 0n };
         const opt = cast ? (cast.options?.[0]?.option || '').replace('VOTE_OPTION_', '').toLowerCase() : null;
         // The command is composed for every validator, voted or not, because the
         // button only exists for the one this page is open as — and an operator
@@ -1511,10 +1524,13 @@ async function load() {
             <span class="muted small">on ${esc(v.host)}</span>
             ${opt ? `<span class="pill ${opt==='yes'?'p-ok':'p-bad'}">voted ${esc(opt)}</span>`
                   : '<span class="pill p-warn">has not voted</span>'}
+            ${power.canVote ? '' : '<span class="pill p-bad">no voting power</span>'}
             ${opt ? '' : (ME === v.moniker ? `
               <div class="cmds" style="margin-inline-start:auto;display:flex;gap:.4rem;flex-wrap:wrap">
-                <button class="vote ok" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="yes">vote yes</button>
-                <button class="vote bad" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="no">vote no</button>
+                <button class="vote ok" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="yes"
+                  ${power.canVote ? '' : 'disabled'}>vote yes</button>
+                <button class="vote bad" data-v="${esc(v.moniker)}" data-p="${esc(pr.id)}" data-o="no"
+                  ${power.canVote ? '' : 'disabled'}>vote no</button>
               </div>` : `
               <span class="muted small" style="margin-inline-start:auto">open
                 <a href="?as=${encodeURIComponent(v.moniker)}">this page as ${esc(v.moniker)}</a>
@@ -1526,6 +1542,8 @@ async function load() {
                 <code>no_with_veto</code></span>
                 <button class="copy" data-copy-text="${esc(cmd)}">copy</button></div>
               <pre>${esc(cmd)}</pre></details>`}
+            ${power.note ? `<p class="muted small" style="flex-basis:100%;margin:.2rem 0 0">
+              ${esc(power.note)}</p>` : ''}
           </div>`;
       }).join('');
 

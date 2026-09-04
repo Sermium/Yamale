@@ -575,7 +575,11 @@ import {
   timestampSeconds,
   wholeAmount,
 } from './administrators.js';
-import { VALIDATORS, voteCommand } from './validators.js';
+import {
+  VALIDATORS,
+  signingPower,
+  voteCommand,
+} from './validators.js';
 
 test('an amount is divided by moving a decimal point through a string', () => {
   // The float version of this is 12.299999999999999, and this figure is a
@@ -804,4 +808,57 @@ test('a composed vote command carries no carriage return', () => {
     validator: VALIDATORS[1], proposalId: '1', option: 'no_with_veto', chainId: 'x',
   });
   assert.equal(cmd.includes('\r'), false);
+});
+
+// ---------------------------------------------------------------- validators
+
+
+test('a validator row names the address that actually signs', () => {
+  // The console asks "has this validator voted" by looking up an address. It
+  // used to look up yml1nls726x…, which holds no balance and no delegation on
+  // this chain, so pi was reported as never having voted no matter what was
+  // done. The address must be the one the signing service's key resolves to.
+  const pi = VALIDATORS.find((v) => v.moniker === 'pi');
+  const pi2 = VALIDATORS.find((v) => v.moniker === 'pi-2');
+  assert.equal(pi.key, 'alice');
+  assert.equal(pi.voter, 'yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg');
+  assert.equal(pi2.key, 'pival');
+  assert.equal(pi2.voter, 'yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas');
+
+  // And every validator must carry both, or the page cannot tell an operator
+  // that the two differ.
+  for (const v of VALIDATORS) {
+    assert.ok(v.voter && v.voter.startsWith('yml1'), `${v.moniker} has no voter address`);
+    assert.ok(v.operator && v.operator.startsWith('yml1'), `${v.moniker} has no operator address`);
+  }
+});
+
+test('a signing key with no delegation cannot vote, and says why', () => {
+  const pi2 = VALIDATORS.find((v) => v.moniker === 'pi-2');
+  const power = signingPower(pi2, []);
+  assert.equal(power.canVote, false);
+  assert.match(power.note, /counts for nothing/);
+  // The note must name the key, because the operator's next question is which
+  // key it is talking about.
+  assert.match(power.note, /pival/);
+});
+
+test('a signing key that is not the operator says so even when it has stake', () => {
+  const pi = VALIDATORS.find((v) => v.moniker === 'pi');
+  const power = signingPower(pi, [{ balance: { amount: '65000000000' } }]);
+  assert.equal(power.canVote, true);
+  assert.equal(power.staked, 65000000000n);
+  // This is the sentence that stops an operator believing they moved pi's
+  // 100 000 000 000 when they moved alice's 65 000 000 000.
+  assert.match(power.note, /not with pi's operator account/);
+});
+
+test('an operator signing for itself needs no caveat', () => {
+  const self = {
+    moniker: 'pi', key: 'operator',
+    voter: 'yml1same', operator: 'yml1same',
+  };
+  const power = signingPower(self, [{ balance: { amount: '100' } }]);
+  assert.equal(power.canVote, true);
+  assert.equal(power.note, '');
 });
