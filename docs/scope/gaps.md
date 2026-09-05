@@ -381,7 +381,8 @@ commit `dd23f06`. Read-only throughout. Its own summary is the fair one:
 
 3 critical, 6 high, 11 medium, 8 low, 7 functional. The code findings were
 closed on **2026-09-05** and are listed under "Known defects" below. This
-section is what the audit found that **code cannot close** — every row here
+section is what the audit found that **code cannot close** —
+[audit-remediation.md](audit-remediation.md) has the commands for it, in order — — every row here
 needs a transaction, a vote or a key ceremony, and none of it has been done.
 
 **Verified still live on 2026-09-05** against the funnel at block 196,559.
@@ -418,9 +419,29 @@ What has to happen, and in this order:
    validator set, one-seat-one-vote through x/group — or an equal-power
    invariant — is the model the rest of this design already assumes.
 
-Most of the second validator's rewards accrue to the `validatorgov` module
-account, which delegates the seat bonds and has no key to sign a withdrawal.
-Those are permanently unreachable and should be counted as burned.
+**One claim in the audit did not survive being checked.** It reports that most
+of the second validator's rewards accrue to the `validatorgov` module account,
+which has no key to sign a withdrawal, and are therefore permanently
+unreachable. On 2026-09-05 that module account
+(`yml1rrxxm2cz5ch90srswv5el7y95exvmj3lfxc44u`) holds **no delegation and no
+rewards at all**. Nothing is stranded there, which means the figure is worse
+than the audit's, not better: every uyml below is reachable by a key somebody
+holds.
+
+The whole of it, read on 2026-09-05:
+
+| Holder | Delegator rewards | Commission | Total |
+|---|---:|---:|---:|
+| `yml1m9xhc…htmqms` — operator of `pi`, 100,000 YML bonded | 799,146,452.40 | 88,794,050.27 | **887,940,502.67** |
+| `yml1cgguvt0…v5see4` — operator of `pi-2`, 74,900 YML bonded | 79,913,548.25 | 8,879,283.18 | **88,792,831.43** |
+| `yml1rxtapck…wa6szg` — 65,000 YML delegated to `pi-2` | 0.37 | — | **0.37** |
+| | | | **976,733,334.47** |
+
+Against a total supply of 997,766,566.66 YML that is **97.9% of every token on
+the chain, held by two operator keys**, and 89.0% of it by one. The 65,000 YML
+delegation that carried all eight governance votes has earned 0.37 YML, because
+it was made after emission had already truncated to zero — so the votes were
+cast by an account with none of the money.
 
 ### Configuration, measured in minutes
 
