@@ -1,0 +1,971 @@
+<title>Devnet-2 Audit Response</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --paper:        #F5F5F2;
+    --surface:      #FFFFFF;
+    --sunk:         #EDEEEA;
+    --ink:          #191C1B;
+    --ink-soft:     #4A5251;
+    --ink-faint:    #767E7C;
+    --rule:         #DCDDD8;
+    --rule-soft:    #E7E8E3;
+    --accent:       #1D5B55;
+    --accent-soft:  #E2EDEB;
+
+    --sev-c:        #8C2F2F;
+    --sev-h:        #A85A1E;
+    --sev-m:        #7A6A1C;
+    --sev-l:        #4A5B6B;
+    --sev-f:        #5A4A6B;
+
+    --closed:       #23624A;
+    --closed-bg:    #E3EFE8;
+    --partial:      #8A5B12;
+    --partial-bg:   #F5EBDC;
+    --open:         #8C2F2F;
+    --open-bg:      #F5E3E1;
+    --answer:       #2C4C74;
+    --answer-bg:    #E2EAF3;
+
+    --shadow: 0 1px 2px rgba(25, 28, 27, .05), 0 8px 24px -16px rgba(25, 28, 27, .22);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:        #141716;
+      --surface:      #1B1F1E;
+      --sunk:         #101312;
+      --ink:          #E8EAE7;
+      --ink-soft:     #A8B0AD;
+      --ink-faint:    #7B8481;
+      --rule:         #2C3230;
+      --rule-soft:    #232827;
+      --accent:       #6FB3A8;
+      --accent-soft:  #1E2E2C;
+
+      --sev-c:        #D98A8A;
+      --sev-h:        #D9A46E;
+      --sev-m:        #C4B76A;
+      --sev-l:        #93A6B8;
+      --sev-f:        #A995BE;
+
+      --closed:       #7FC0A2;
+      --closed-bg:    #172A22;
+      --partial:      #D5A65E;
+      --partial-bg:   #2A2317;
+      --open:         #E09A9A;
+      --open-bg:      #2C1B1B;
+      --answer:       #8FB3DC;
+      --answer-bg:    #1A222D;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -16px rgba(0, 0, 0, .6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:        #141716;
+    --surface:      #1B1F1E;
+    --sunk:         #101312;
+    --ink:          #E8EAE7;
+    --ink-soft:     #A8B0AD;
+    --ink-faint:    #7B8481;
+    --rule:         #2C3230;
+    --rule-soft:    #232827;
+    --accent:       #6FB3A8;
+    --accent-soft:  #1E2E2C;
+
+    --sev-c:        #D98A8A;
+    --sev-h:        #D9A46E;
+    --sev-m:        #C4B76A;
+    --sev-l:        #93A6B8;
+    --sev-f:        #A995BE;
+
+    --closed:       #7FC0A2;
+    --closed-bg:    #172A22;
+    --partial:      #D5A65E;
+    --partial-bg:   #2A2317;
+    --open:         #E09A9A;
+    --open-bg:      #2C1B1B;
+    --answer:       #8FB3DC;
+    --answer-bg:    #1A222D;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -16px rgba(0, 0, 0, .6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  h1 {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    font-weight: 600;
+    line-height: 1.14;
+    letter-spacing: -.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 1.14rem;
+    line-height: 1.66;
+    color: var(--ink-soft);
+    max-width: 46ch;
+    margin: 0;
+  }
+
+  .colophon {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-top: .5rem;
+  }
+  .colophon div { background: var(--paper); padding: .8rem 1rem; }
+  .colophon dt {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .66rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 .25rem;
+  }
+  .colophon dd {
+    margin: 0;
+    font-size: .9rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .colophon dd.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .84rem; }
+
+  /* ---------- section furniture ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  h2 {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0;
+    padding-bottom: .55rem;
+    border-bottom: 2px solid var(--ink);
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: "IBM Plex Sans", ui-sans-serif, sans-serif;
+    font-size: 1.02rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  p { margin: 0; max-width: 68ch; }
+  .lede { color: var(--ink-soft); }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .875em;
+  }
+  p code, li code, td code {
+    background: var(--sunk);
+    padding: .08em .32em;
+    border-radius: 2px;
+  }
+
+  /* ---------- verdict tally ---------- */
+
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: .9rem;
+  }
+  .tally article {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 1rem 1.1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    border-top: 3px solid var(--tint);
+  }
+  .tally .n {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 2.3rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--tint);
+  }
+  .tally .what { font-weight: 600; font-size: .95rem; }
+  .tally .how { font-size: .84rem; color: var(--ink-faint); line-height: 1.5; }
+
+  /* ---------- the ledger ---------- */
+
+  .ledger-wrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; min-width: 44rem; }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .66rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    padding: .7rem .9rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--sunk);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: .72rem .9rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    font-size: .9rem;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  td.id {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    white-space: nowrap;
+    border-left: 3px solid var(--sev);
+    font-variant-numeric: tabular-nums;
+  }
+  td.title { min-width: 15rem; }
+  td.note { color: var(--ink-soft); line-height: 1.55; }
+
+  .pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: .16rem .5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.closed  { color: var(--closed);  background: var(--closed-bg);  }
+  .pill.partial { color: var(--partial); background: var(--partial-bg); }
+  .pill.open    { color: var(--open);    background: var(--open-bg);    }
+  .pill.answer  { color: var(--answer);  background: var(--answer-bg);  }
+
+  .sev-c { --sev: var(--sev-c); }
+  .sev-h { --sev: var(--sev-h); }
+  .sev-m { --sev: var(--sev-m); }
+  .sev-l { --sev: var(--sev-l); }
+  .sev-f { --sev: var(--sev-f); }
+
+  .band td {
+    background: var(--sunk);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    padding: .5rem .9rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* ---------- dissent blocks ---------- */
+
+  .dissent {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--answer);
+    padding: 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+  }
+  .dissent h3 { font-size: 1.06rem; }
+  .dissent .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--answer);
+    font-weight: 600;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--sunk);
+    border: 1px solid var(--rule-soft);
+    padding: .8rem .95rem;
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .8rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- reward table ---------- */
+
+  .figures { overflow-x: auto; }
+  .figures table { min-width: 34rem; border: 1px solid var(--rule); background: var(--surface); }
+  .figures td, .figures th { font-variant-numeric: tabular-nums; }
+  .figures td.num, .figures th.num { text-align: right; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .figures tr.sum td { font-weight: 600; border-top: 2px solid var(--rule); background: var(--sunk); }
+
+  /* ---------- ordered work ---------- */
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: .95rem; }
+  ol.steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: .85rem;
+    align-items: start;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    width: 2rem; height: 2rem;
+    display: grid; place-items: center;
+    border-radius: 50%;
+  }
+  ol.steps b { display: block; font-weight: 600; }
+  ol.steps span { color: var(--ink-soft); font-size: .93rem; }
+
+  ul.plain { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .55rem; }
+  ul.plain li { color: var(--ink-soft); max-width: 66ch; }
+  ul.plain li b { color: var(--ink); font-weight: 600; }
+
+  .footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.2rem;
+    color: var(--ink-faint);
+    font-size: .86rem;
+  }
+
+
+  /* ---------- print: this goes to the auditor as a PDF ---------- */
+
+  @media print {
+    /* The light palette, whatever the screen was set to. A response printed
+       out of a dark theme is unreadable on paper. */
+    :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+      --paper:       #FFFFFF;
+      --surface:     #FFFFFF;
+      --sunk:        #F2F2EF;
+      --ink:         #16191B;
+      --ink-soft:    #3D4544;
+      --ink-faint:   #5F6866;
+      --rule:        #C9CAC5;
+      --rule-soft:   #DEDFDA;
+      --accent:      #17514C;
+      --accent-soft: #E2EDEB;
+      --sev-c: #8C2F2F; --sev-h: #A85A1E; --sev-m: #7A6A1C;
+      --sev-l: #4A5B6B; --sev-f: #5A4A6B;
+      --closed: #23624A; --closed-bg: #E3EFE8;
+      --partial: #8A5B12; --partial-bg: #F5EBDC;
+      --open: #8C2F2F; --open-bg: #F5E3E1;
+      --answer: #2C4C74; --answer-bg: #E2EAF3;
+      --shadow: none;
+    }
+
+    /* The stripes and pills carry the verdict, so they are content rather than
+       decoration and have to survive the printer's default of dropping them. */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    @page { margin: 16mm 14mm; }
+
+    body { font-size: 10.5pt; line-height: 1.5; }
+    .sheet { max-width: none; padding: 0; gap: 1.8rem; }
+
+    h1 { font-size: 22pt; }
+    h2 { font-size: 13pt; break-after: avoid; }
+    h3 { font-size: 11pt; break-after: avoid; }
+    .standfirst { font-size: 11pt; max-width: none; }
+    p { max-width: none; }
+
+    /* Nothing scrolls on paper. */
+    .ledger-wrap, .figures, pre { overflow: visible; }
+    table { min-width: 0; }
+    thead { display: table-header-group; }
+    tr, li, .dissent, .tally article { break-inside: avoid; }
+    section { break-inside: auto; }
+
+    .tally { grid-template-columns: repeat(4, 1fr); }
+    .tally .n { font-size: 1.7rem; }
+
+    /* A URL nobody can click is a URL nobody can follow. */
+    a[href^="http"]::after {
+      content: " (" attr(href) ")";
+      font-family: "IBM Plex Mono", monospace;
+      font-size: .8em;
+      color: var(--ink-faint);
+      word-break: break-all;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .sheet { padding: 2rem 1rem 4rem; gap: 2.5rem; }
+    ol.steps li { grid-template-columns: 1.6rem 1fr; }
+    ol.steps li::before { width: 1.6rem; height: 1.6rem; font-size: .72rem; }
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="eyebrow">Response to the independent security &amp; functional audit</div>
+    <h1>What we fixed, what we did not, and where we disagree</h1>
+    <p class="standfirst">
+      Thirty-five findings against <span class="mono">yamale-devnet-2</span>. Nineteen are closed
+      in code with regression tests that fail on the version you reviewed. Nine need a key or a
+      vote and have not been touched. Two of your conclusions we think are wrong, and one defect
+      we found that you did not.
+    </p>
+
+    <dl class="colophon">
+      <div><dt>Audit dated</dt><dd>2026-09-03</dd></div>
+      <div><dt>Reviewed at</dt><dd class="mono">dd23f06</dd></div>
+      <div><dt>Blocks</dt><dd>170,022–170,225</dd></div>
+      <div><dt>Response dated</dt><dd>2026-09-05</dd></div>
+      <div><dt>Remediated in</dt><dd class="mono">1cbe554 · c0a1ea7 · b102d77</dd></div>
+      <div><dt>Re-verified at</dt><dd>block 196,559</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>Where the thirty-five stand</h2>
+    <p class="lede">
+      Four verdicts, and the distinction that matters most is the second one: a fix in the tree is
+      not a fix on the chain, and this deployment is still running the code you audited.
+    </p>
+
+    <div class="tally">
+      <article style="--tint: var(--closed)">
+        <span class="n">19</span>
+        <span class="what">Closed in code</span>
+        <span class="how">Fixed, with a regression test that fails on <span class="mono">dd23f06</span> and passes now.</span>
+      </article>
+      <article style="--tint: var(--partial)">
+        <span class="n">3</span>
+        <span class="what">Closed in code, open on the chain</span>
+        <span class="how">The handler or the config file is fixed; the running state or the host is not.</span>
+      </article>
+      <article style="--tint: var(--open)">
+        <span class="n">9</span>
+        <span class="what">Open — needs a key or a vote</span>
+        <span class="how">Nothing has been executed. Prepared and handed to the owner instead.</span>
+      </article>
+      <article style="--tint: var(--answer)">
+        <span class="n">4</span>
+        <span class="what">Answered</span>
+        <span class="how">Disagreement, or a decision taken that differs from the suggested fix.</span>
+      </article>
+    </div>
+
+    <p>
+      The whole suite passes, including <span class="mono">constitution</span>,
+      <span class="mono">paymsg</span>, <span class="mono">validatorgov</span> and
+      <span class="mono">amm</span> — the four packages your harness could not execute. The
+      Windows application-control policy that blocked them is keyed to the path, not the binary:
+      exporting <span class="mono">GOTMPDIR</span> to a directory on the project drive runs the
+      whole tree in one pass. Worth having if you audit on this machine again.
+    </p>
+  </section>
+
+  <section>
+    <h2>Two corrections to the report</h2>
+
+    <div class="dissent">
+      <span class="tag">H-3 · the suggested fix does not close it</span>
+      <h3>Adding <code>abci_query</code> to the RPC deny list closes one of the two forms it arrives in</h3>
+      <p>
+        The finding is right and we reproduced it. The remedy is not. The deny list in
+        <span class="mono">yamale-api.conf</span> is an nginx <b>location regex — it matches on the
+        URL path</b>, and the JSON-RPC form carries the method in the POST body:
+      </p>
+      <pre>POST /api/rpc/  {"method":"abci_query","params":{"path":"/blockchain.paymsg.v1.Query/Params"}}
+  → code 0, value "CgA="        # the path regex never sees the method</pre>
+      <p>
+        So the entry would close <code>GET /api/rpc/abci_query?path=…</code> and leave the form
+        every CosmJS client actually uses wide open. Worse, the clients depend on it:
+        <span class="mono">clients/rwa/src/abci.ts</span> reads <span class="mono">land</span> and
+        <span class="mono">paymsg</span> this way, which are two of the three modules the gate
+        claims to close. A path-parameter allow-list has the same defect.
+      </p>
+      <p>
+        <b>What we did instead.</b> Treated it as the disclosure decision it is.
+        <span class="mono">x/land</span> is now open on REST with the argument written into the
+        config — a title register nobody can inspect is not a title register, and the data was
+        reachable regardless. That also settles <b>F-6</b>. Payment records and
+        <span class="mono">x/netting</span> stay closed, and the config now states plainly that
+        closing them there does not close them. <span class="mono">deploy.sh</span> probes the
+        bypass on every deploy and prints a warning while it stands. Genuinely closing it needs
+        <span class="mono">njs</span> body inspection or moving the client reads to REST; it costs
+        nothing today because no payment has ever been made on this chain, and it must be closed
+        before one is.
+      </p>
+    </div>
+
+    <div class="dissent">
+      <span class="tag">C-3 · one figure did not survive being checked</span>
+      <h3>Nothing is stranded in the <span class="mono">validatorgov</span> module account</h3>
+      <p>
+        The report says most of the second validator's rewards accrue to the
+        <span class="mono">validatorgov</span> module account, which delegates the seat bonds and
+        has no key, and are therefore permanently unreachable. On 2026-09-05 that account
+        (<span class="mono">yml1rrxxm2c…fxc44u</span>) holds <b>no delegation and no rewards at
+        all</b>. The seat reserve has never been used on this chain.
+      </p>
+      <p>
+        That makes the finding worse, not better. Every uyml outstanding is reachable by a key
+        somebody holds:
+      </p>
+
+      <div class="figures">
+        <table>
+          <thead>
+            <tr>
+              <th>Holder</th>
+              <th class="num">Delegator rewards</th>
+              <th class="num">Commission</th>
+              <th class="num">Total YML</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="mono">yml1m9xhc…htmqms</span><br><span style="color:var(--ink-faint);font-size:.86rem">operator of <span class="mono">pi</span> — 100,000 YML bonded</span></td>
+              <td class="num">799,146,452.40</td>
+              <td class="num">88,794,050.27</td>
+              <td class="num">887,940,502.67</td>
+            </tr>
+            <tr>
+              <td><span class="mono">yml1cgguvt0…v5see4</span><br><span style="color:var(--ink-faint);font-size:.86rem">operator of <span class="mono">pi-2</span> — 74,900 YML bonded</span></td>
+              <td class="num">79,913,548.25</td>
+              <td class="num">8,879,283.18</td>
+              <td class="num">88,792,831.43</td>
+            </tr>
+            <tr>
+              <td><span class="mono">yml1rxtapck…wa6szg</span><br><span style="color:var(--ink-faint);font-size:.86rem">65,000 YML delegated to <span class="mono">pi-2</span></span></td>
+              <td class="num">0.37</td>
+              <td class="num">—</td>
+              <td class="num">0.37</td>
+            </tr>
+            <tr class="sum">
+              <td>Against a total supply of 997,766,566.66 YML</td>
+              <td class="num"></td>
+              <td class="num"></td>
+              <td class="num">976,733,334.47</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <b>97.9% of every token on the chain, held by two operator keys</b>, and 89.0% of it by
+        one. Two details your read implies but does not state. First, the 65,000 YML delegation
+        that carried all eight governance votes has earned <b>0.37 YML</b> — it was made after
+        emission had already stopped, so every vote this chain has passed was cast by an account
+        holding none of the money. Second, emission has truncated to zero:
+        <span class="mono">current_provisions_per_block</span> reads <span class="mono">0</span> at
+        <span class="mono">last_reduction_period</span> 1965, so the 3.33 million YML per block
+        minted the entire supply in roughly four thousand blocks and stopped. <b>The exposure is
+        fixed rather than growing</b>, which is the only reason this is not an emergency.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>One defect you did not report</h2>
+    <p class="lede">
+      Found while building the vault ledger for C-2, in the code path immediately beside it.
+    </p>
+    <div class="dissent" style="border-left-color: var(--sev-m)">
+      <span class="tag" style="color: var(--sev-m)">x/tokenisation · <span class="mono">keeper/sale.go</span> · funds stranded</span>
+      <h3>A dispute bond went into the shared module account and no message ever brought it back</h3>
+      <p>
+        <span class="mono">DisputeSale</span> takes <span class="mono">dispute_bond_bps</span> of
+        the reported price from the challenger into the module account.
+        <span class="mono">ResolveDispute</span> does not touch it, and neither does anything
+        else — the bond is not recorded against the challenger, so nothing could return it even if
+        it wanted to. A bond nobody can lose is not a deterrent; a bond nobody can recover is a
+        fee for objecting. Same family as your <b>M-4</b> and <b>L-4</b>.
+      </p>
+      <p>
+        The report now records the challenger and the bond. It returns to the challenger when
+        governance corrects the price, and forfeits to the vehicle's holders when the figure
+        stands — forfeits <em>whole</em>, not through
+        <span class="mono">holder_share_bps</span>, because a penalty for delaying the holders is
+        not income from the asset and the sponsor was not the one kept waiting.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Every finding, and where it stands</h2>
+    <p class="lede">
+      The stripe on the left is your severity; the pill is our verdict. Notes say what we did and
+      why, not what the finding was — your report already states that.
+    </p>
+
+    <div class="ledger-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Finding</th>
+            <th>Verdict</th>
+            <th>What happened</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="band"><td colspan="4">Critical</td></tr>
+
+          <tr class="sev-c">
+            <td class="id">C-1</td>
+            <td class="title">Escrow and lock share an id space</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">The <code>id++</code> is gone. Your reasoning about proto3 zero ids is right and the guard belongs in <code>InitGenesis</code>, which already seeds the sequence at one — the keeper fixture went through <code>Params.Set</code> alone, so it ran against a state no chain is ever in. Fixing the fixture is what exposed where the guard was living.</td>
+          </tr>
+          <tr class="sev-c">
+            <td class="id">C-2</td>
+            <td class="title">Unfunded finalisation drains another vehicle's vault</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">A per-vehicle held ledger: nothing reaches an index the vehicle does not already hold, and no payout exceeds it. Proceeds arrive through a new <code>MsgPaySaleProceeds</code>, permissionless so a sponsor going quiet cannot strand the holders. Your PoC is in the suite verbatim, plus a second test that holds even if a future handler credits an index without going through <code>FinaliseSale</code>.</td>
+          </tr>
+          <tr class="sev-c">
+            <td class="id">C-3</td>
+            <td class="title">976M YML of rewards defeats every threshold</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accepted in full, and the figure corrected upward — see above. Not executed: the three options (burn, bond, or move to the foundation group) differ by the entire premine and that is the owner's call. Prepared with commands in <code>docs/scope/audit-remediation.md</code>.</td>
+          </tr>
+
+          <tr class="band"><td colspan="4">High</td></tr>
+
+          <tr class="sev-h">
+            <td class="id">H-1</td>
+            <td class="title">One key issues 43 currencies, without limit or revocation</td>
+            <td><span class="pill partial">Code closed</span></td>
+            <td class="note">Two of your three remedies are in: a per-denom supply ceiling in params checked in the handler, and <code>MsgRevokeIssuer</code>, which did not exist. An unset ceiling means <b>no</b> minting, not unlimited — so this chain cannot issue until governance states a figure, which is the direction we want and will look like a bug to whoever hits it first. Separating the issuer key per currency is chain state and is not done.</td>
+          </tr>
+          <tr class="sev-h">
+            <td class="id">H-2</td>
+            <td class="title">Redemptions settle, and reserves are stated, on one signature</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Settlement takes the threshold, with the first attestor's <code>settled_ref</code> standing as a proposal a second must confirm rather than contradict. The reserve is derived from per-attestor reports — but <b>not</b> by exact agreement, which would deadlock the module: a reserve moves, so two honest attestors reporting hours apart disagree by construction. Enough fresh reports, and the lowest counts. Your third point — a solvency precondition on <code>credit</code> — is in.</td>
+          </tr>
+          <tr class="sev-h">
+            <td class="id">H-3</td>
+            <td class="title"><code>abci_query</code> bypasses the REST allow-list</td>
+            <td><span class="pill answer">Answered</span></td>
+            <td class="note">Reproduced; the suggested fix does not close it. See the correction above. <code>x/land</code> opened with a written argument, payment records deliberately left closed with the residual stated, deploy check added.</td>
+          </tr>
+          <tr class="sev-h">
+            <td class="id">H-4</td>
+            <td class="title">Disposable feeder key administers a funded treasury</td>
+            <td><span class="pill partial">Code closed</span></td>
+            <td class="note">The shipped example now sets <code>FEEDER_KEYRING=file</code> and spells out the rule your finding implies but the old comment did not: the feeder key holds nothing and administers nothing, with the two queries to check that before nominating one. Rotating treasury 2's admin off <span class="mono">yml1vlukxvm…p0fmas</span> is a transaction and has not been made.</td>
+          </tr>
+          <tr class="sev-h">
+            <td class="id">H-5</td>
+            <td class="title">Concentration ceilings at 100%, covering no validator</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Both halves accepted. Deliberately <b>not</b> shipped: your suggested guard, making <code>Invariants.Validate()</code> refuse exactly <code>BasisPoints</code>. Landing it before the amendment would make this chain's own genesis unloadable, so it belongs in the same change as the figures. Declaring the founding set needs no delay and should go first; the amendment cannot take effect for 9.2 days whenever it starts.</td>
+          </tr>
+          <tr class="sev-h">
+            <td class="id">H-6</td>
+            <td class="title">Permanent-key registration allows denom and msg-type squatting</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Rejection removes the record in both modules rather than marking it <code>Rejected</code> and keeping it. <code>msg_type_url</code> is bounded in shape and length and must resolve against the interface registry — a fee against a message nothing can send is a reservation, not an application.</td>
+          </tr>
+
+          <tr class="band"><td colspan="4">Medium</td></tr>
+
+          <tr class="sev-m">
+            <td class="id">M-1</td>
+            <td class="title">Ombudsman unset, so the seizure veto has no holder</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Governance parameter. Bundled with M-2 into one proposal in the runbook, because <code>MsgUpdateParams</code> replaces the whole set and two proposals means two chances to zero a divisor.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-2</td>
+            <td class="title">Rolling seizure cap covers one denom of forty-eight</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Governance parameter, same proposal as M-1.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-3</td>
+            <td class="title">A participant can claim any address as its customer</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Took the second of your two options and made it the first: a claim is now only a claim. <code>MsgConfirmParticipant</code> is signed by the account, <code>assertInstructedBy</code> requires the confirmation, and refusing removes the record so the account can bank elsewhere.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-4</td>
+            <td class="title">The sponsor's share is taken and never becomes payable</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Closed by not taking it. <code>FundVault</code> collects the holders' share and leaves the remainder with the funder — which is what <code>MsgFundVault</code>'s own comment has always said happens. The response now reports what was actually collected.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-5</td>
+            <td class="title">A stranger's delegation blocks a power reduction</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Measured against the reserve's own delegation, as you suggest. Note the consequence, which is a semantic change: a seat count is now what governance has staked, so a validator's total power is its own bond plus its seats.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-6</td>
+            <td class="title">A freeze does not follow the staking rewards</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Not an ante gate — a state change. The freeze resets the withdraw address to the account itself, so there is no message for authz, an interchain account or a group proposal to route around, and it covers a redirect set long before the case was opened. Not reversed when the freeze lifts: guessing which earlier value to restore would be the module inventing an instruction nobody gave.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-7</td>
+            <td class="title">The netting end blocker walks unbounded collections</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">256 a block, matching <code>pruneSeizureLedger</code> — <b>and</b> a cursor, because a bound on its own would have been the worse bug: the same first slices retried forever and everything behind them never.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-8</td>
+            <td class="title">x/group execution bypasses the validator ante gate</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Moved onto the keeper, as you suggest, via a staking hook — <code>AfterValidatorCreated</code> returns an error from inside <code>CreateValidator</code>. Delivered as a <code>StakingHooksWrapper</code> from depinject rather than by calling <code>SetHooks</code> in <code>app.go</code>, which panics: x/staking sets its hooks from an invoker that runs after every provider.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-9</td>
+            <td class="title">Emission mints against a mutable package global</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Asks the staking keeper for <code>BondDenom</code>, as x/validatorgov and x/enforcement already did.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-10</td>
+            <td class="title">The public consoles are served with no security headers</td>
+            <td><span class="pill partial">Code closed</span></td>
+            <td class="note"><code>deploy/nginx/yamale-headers.conf</code> is in the repo and copied to both hosts. <code>connect-src 'self'</code> is the line doing the work and costs nothing, because every console already talks to the node same-origin. Deliberately <b>not</b> auto-wired: it does nothing until each server block includes it, and a bad header on the only public hostname breaks every console at once. The deploy script names which headers are missing.</td>
+          </tr>
+          <tr class="sev-m">
+            <td class="id">M-11</td>
+            <td class="title">The AMM is permissionless where nothing else is</td>
+            <td><span class="pill answer">Answered</span></td>
+            <td class="note">Left open, and now argued for in <code>CreatePool</code> rather than left as an omission — which is what you asked for. The argument is that a market whose pools are a governance decision is not a market, and every laundering path still ends in a bank transfer where the freeze and the blocked accounts sit. What is <em>not</em> argued is that the perimeter covers it; it does not, and that is stated.</td>
+          </tr>
+
+          <tr class="band"><td colspan="4">Low and informational</td></tr>
+
+          <tr class="sev-l">
+            <td class="id">L-1</td>
+            <td class="title">A full exit bricks an AMM pool</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Refused at the exit rather than repaired at the join: a re-seeding rule inside <code>JoinPool</code> would have to price a pool with no reserves, and there is no honest answer to that.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-2</td>
+            <td class="title">A swap can take payment and return nothing</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">A zero payout is refused. One existing invariant test had to move its trade sizes up — it was passing <code>min_amount_out</code> of zero on a 10:1 pool.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-3</td>
+            <td class="title">Land transfer ids start at zero</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Skipped rather than offset, matching <code>RegisterParcel</code>, so the counter and the id it hands out stay the same number.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-4</td>
+            <td class="title">Custody fee revenue has no withdrawal path</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note"><code>MsgWithdrawFees</code>, governance-gated, paying claim tokens rather than reserve — so the invariant you correctly identify as the reason for the problem stays intact, and the custodian's revenue leaves by the same door as everybody else's money.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-5</td>
+            <td class="title">A store error is treated as not-found</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Distinguishes <code>collections.ErrNotFound</code>, as x/treasury and x/netting already did.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-6</td>
+            <td class="title">Reserves parsed with the error discarded</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">All three handlers, not only the swap. Also refuses a zero reserve on join, which is the same defect one step earlier.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-7</td>
+            <td class="title">An escrow with an unresponsive moderator has no exit</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">A governance fallback, exactly as you suggest — and only on a case somebody opened. Governance is not a moderator on a quiet lock, which would make it the custodian this design exists to remove.</td>
+          </tr>
+          <tr class="sev-l">
+            <td class="id">L-8</td>
+            <td class="title">Three modules compare the authority as a string</td>
+            <td><span class="pill closed">Closed</span></td>
+            <td class="note">Two, not three — x/oracle already used <code>bytes.Equal</code> via <code>assertAuthority</code>. x/alias and x/custody now do too.</td>
+          </tr>
+
+          <tr class="band"><td colspan="4">Functional state of the deployment</td></tr>
+
+          <tr class="sev-f">
+            <td class="id">F-1</td>
+            <td class="title">No payment participant approved, so no payment can be made</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accurate. It is also what makes the payment-records disclosure question in H-3 cost nothing today, and what makes closing it urgent before the first participant is approved.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-2</td>
+            <td class="title">The oracle has no on-chain consumer</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accurate, and your reason for not rating oracle manipulation higher is the right one.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-3</td>
+            <td class="title">A single validator meets the oracle vote threshold alone</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accurate, and not fixable by a parameter: on a two-validator set a threshold above 5,717 bps cannot be met at all. It needs a third validator, which is the same answer as F-7.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-4</td>
+            <td class="title">The oracle missed ~85% of its rounds historically</td>
+            <td><span class="pill answer">Answered</span></td>
+            <td class="note">Confirmed and expected. The feeders were nominated on 2026-09-01; the first agreed price was height 141,264, and both have reported since. Your point that a downstream consumer reading the counter would see the historical figure is the real finding, and it stands — the counter is cumulative and nothing resets it.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-5</td>
+            <td class="title">Only one country has a national authority granted</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accurate. <code>AssertScope</code> failing closed is correct and the consequence is exactly as you describe.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-6</td>
+            <td class="title">Two live modules absent from the visibility allow-list</td>
+            <td><span class="pill answer">Answered</span></td>
+            <td class="note">Decided rather than left implicit. <code>x/land</code> is open — a title register nobody can inspect is not one. <code>x/netting</code> stays closed alongside payment records: a bank statement is not a public register, and the inconsistency is the decision.</td>
+          </tr>
+          <tr class="sev-f">
+            <td class="id">F-7</td>
+            <td class="title">Both validators must be online to produce blocks</td>
+            <td><span class="pill open">Open</span></td>
+            <td class="note">Accurate and already documented internally. The arithmetic — a third validator is what buys fault tolerance — is the same answer as F-3.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What is still open, in the order you gave</h2>
+    <p class="lede">
+      Nothing below has been executed. Each item needs a key we should not use or a vote the owner
+      has to cast, and the full commands sit in
+      <span class="mono">docs/scope/audit-remediation.md</span> alongside the decisions each one
+      forces.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <div>
+          <b>Deal with the outstanding rewards <span class="mono">(C-3)</span></b>
+          <span>Withdraw, then burn, bond, or move to the 3-of-5 foundation group. Nothing else on this list matters while every threshold is purchasable, and the three options differ by the entire premine.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Rotate the treasury admin off the feeder key <span class="mono">(H-4)</span></b>
+          <span>And rotate the feeder key itself, since it has been in an unencrypted keyring on a validator host.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Appoint an ombudsman and extend the seizure cap <span class="mono">(M-1, M-2)</span></b>
+          <span>One governance proposal, built from the current params rather than written fresh — <code>MsgUpdateParams</code> replaces the whole set and several of these zeros are divisors.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Declare the founding validator set <span class="mono">(H-5a)</span></b>
+          <span>No delay, and it is the half that makes the ceilings apply to anybody. Declaring the beneficial owners honestly is the difference between a concentration ceiling and a form.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Start the constitutional amendment <span class="mono">(H-5b)</span></b>
+          <span>9.2 days minimum whenever it starts, so it should start early. What to set the ceilings to depends on the declarations above — a ceiling that bites before the set can absorb it is worse than none.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Include the security headers on both hosts <span class="mono">(M-10)</span></b>
+          <span>One <code>include</code> line per server block. The file and the check are already shipped.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Close the <code>abci_query</code> bypass before the first payment <span class="mono">(H-3, F-1)</span></b>
+          <span>Body inspection or moving client reads to REST. Free today; not free the day a participant is approved.</span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>How to verify this response</h2>
+    <ul class="plain">
+      <li><b>The regression tests fail on your commit.</b> Each closed finding has a test written to fail against <span class="mono">dd23f06</span> and pass now. C-1 and C-2 were checked by reverting the fix and confirming the failure, not by assuming it.</li>
+      <li><b>Your two proof-of-concept tests are in the suite.</b> <span class="mono">TestASaleNobodyPaidForCannotDrainAnotherVehicle</span> and <span class="mono">TestEscrowAndLockDoNotShareAnId</span> carry your scenarios, inverted to assert the refusal.</li>
+      <li><b>The chain is unchanged.</b> No transaction was broadcast in preparing this response. Everything read from the node was a query, and every figure is dated.</li>
+      <li><b>The backlog is the record.</b> <span class="mono">docs/scope/gaps.md</span> now carries a section per finding, with the chain-side items separated from the code so that "closed in the tree" can never be mistaken for "closed on the chain" — which is the distinction your report's own framing turns on.</li>
+    </ul>
+  </section>
+
+  <p class="footer">
+    Three commits, 87 files, 17 test files. Prepared 2026-09-05 against
+    <span class="mono">yamale-devnet-2</span> at block 196,559. Questions on any verdict here are
+    welcome, particularly on H-3 and on the reserve-agreement rule in H-2, where we took a
+    different route from the one suggested.
+  </p>
+
+</div>
