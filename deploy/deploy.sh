@@ -87,7 +87,16 @@ if [ "$verify_only" = 0 ]; then
   # difference nobody wrote down. nginx -t before the reload: a bad snippet that
   # reaches a reload takes the site down, and a bad snippet that fails the test
   # takes nothing down.
-  for conf in yamale-visibility.conf yamale-apps.conf yamale-cache.conf; do
+  # yamale-headers.conf has to be INCLUDED from each server block before it does
+  # anything — copying it here only puts the file in place, and the check at the
+  # end of this script is what tells you whether anybody did the other half:
+  #
+  #   include /etc/nginx/snippets/yamale-headers.conf;
+  #
+  # in every server block on both hosts. Not done for you, because a bad header
+  # on the only public hostname breaks every console at once and this script
+  # should not be the thing that does that unattended.
+  for conf in yamale-visibility.conf yamale-apps.conf yamale-cache.conf yamale-headers.conf; do
     for host in pi vm; do
       $host "sudo cp -n /etc/nginx/snippets/$conf /etc/nginx/snippets/$conf.before-deploy 2>/dev/null || true" </dev/null
       $host "sudo tee /etc/nginx/snippets/$conf >/dev/null" < "$ROOT/deploy/nginx/$conf"
@@ -182,6 +191,21 @@ check /api/rest/yamale/blockchain/paymsg/v1/params               200 "payment po
 check /api/rest/yamale/blockchain/paymsg/v1/payment_record        401 "payment records still supervised"
 check /api/rest/yamale/blockchain/netting/v1/params               401 "netting still supervised"
 check /api/rpc/net_info                                           403 "peer map still refused"
+
+# The security headers, which neither host sent at all until 2026-09-05.
+#
+# Checked by name rather than by counting: a snippet copied into place but never
+# included from the server block leaves every one of these absent, and the copy
+# above succeeds either way.
+echo "==> security headers"
+hdrs=$(curl -sI --max-time 30 "$PUBLIC/keys/" || true)
+for h in Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy Content-Security-Policy; do
+  if printf '%s' "$hdrs" | grep -qi "^$h:"; then
+    printf '    ok   %s\n' "$h"
+  else
+    printf '    !!   %s missing — is yamale-headers.conf included from the server block?\n' "$h"
+  fi
+done
 
 # The gate above is a lock in a wall that stops at /api/rpc/. CometBFT's
 # abci_query reaches every registered query service, so a module closed on REST

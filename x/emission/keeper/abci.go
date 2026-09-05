@@ -76,7 +76,18 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return types.ErrInvalidState
 	}
 	if provisions.IsPositive() {
-		coins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, provisions))
+		// Asked of x/staking, not read from sdk.DefaultBondDenom.
+		//
+		// That global is a package-level variable rewritten by app/config.go's
+		// init(), so minting against it was correct only for as long as the app
+		// package happened to be linked in — and it would go on being minted
+		// after a governance change to bond_denom, quietly filling the fee
+		// collector with a denomination nobody stakes.
+		bondDenom, err := k.stakingKeeper.BondDenom(ctx)
+		if err != nil {
+			return err
+		}
+		coins := sdk.NewCoins(sdk.NewCoin(bondDenom, provisions))
 		if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
 			return err
 		}

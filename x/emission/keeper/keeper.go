@@ -22,7 +22,10 @@ type Keeper struct {
 	Schema collections.Schema
 	Params collections.Item[types.Params]
 
-	bankKeeper    types.BankKeeper
+	bankKeeper types.BankKeeper
+	// stakingKeeper answers what the stake is called. Asked every block rather
+	// than cached, because bond_denom is a governance parameter.
+	stakingKeeper types.StakingKeeper
 	EmissionState collections.Item[types.EmissionState]
 }
 
@@ -33,6 +36,7 @@ func NewKeeper(
 	authority []byte,
 
 	bankKeeper types.BankKeeper,
+	stakingKeeper types.StakingKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -47,6 +51,7 @@ func NewKeeper(
 		authority:    authority,
 
 		bankKeeper:    bankKeeper,
+		stakingKeeper: stakingKeeper,
 		Params:        collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		EmissionState: collections.NewItem(sb, types.EmissionStateKey, "emissionState", codec.CollValue[types.EmissionState](cdc))}
 

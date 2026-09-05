@@ -132,6 +132,28 @@ type StakingKeeper interface {
 // rather than as permit, because the alternative is that forgetting one line in
 // app.go silently restores the window this exists to close, and nothing would
 // fail until somebody read the code.
+// DistributionKeeper is the staking rewards, and the one hole a send
+// restriction cannot see.
+//
+// A send restriction fires on the sender, and a reward withdrawal's sender is
+// the distribution module account -- not the frozen delegator. So a frozen
+// account could point its withdraw address at an unfrozen one and take every
+// reward out, and on a chain where unwithdrawn rewards are the overwhelming
+// majority of what an account controls, that is not a corner case.
+//
+// The freeze therefore resets the withdraw address to the account itself, which
+// is a state change rather than a gate: nothing routes around it, because there
+// is no message to intercept. Rewards then land back in the frozen account,
+// where the restriction holds them, and the trail stays in one place.
+type DistributionKeeper interface {
+	// SetWithdrawAddr points a delegator's rewards at an address. Called with
+	// the delegator's own address to undo a redirect.
+	SetWithdrawAddr(ctx context.Context, delegatorAddr, withdrawAddr sdk.AccAddress) error
+	// GetDelegatorWithdrawAddr is what it currently points at, so a freeze can
+	// tell whether there is anything to undo.
+	GetDelegatorWithdrawAddr(ctx context.Context, delegatorAddr sdk.AccAddress) (sdk.AccAddress, error)
+}
+
 type ConcentrationKeeper interface {
 	// AssertOperatorWithinCaps returns nil when the operator's groups are
 	// inside their ceilings, and an error naming the ceiling when they are not.

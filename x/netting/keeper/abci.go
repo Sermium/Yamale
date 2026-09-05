@@ -171,11 +171,31 @@ func (k Keeper) retryHeldSlices(ctx context.Context) error {
 	// Collected before acting, because settling a slice removes it from the
 	// set being iterated, and mutating a store under its own iterator is how a
 	// module skips half its work without ever failing.
-	pending := make([]slice, 0)
-	if err := k.HeldSlice.Walk(ctx, nil, func(key collections.Pair[uint64, string]) (bool, error) {
-		pending = append(pending, slice{cycleID: key.K1(), denom: key.K2()})
-		return false, nil
-	}); err != nil {
+	//
+	// Bounded, and resumed from a cursor. Each slice costs a walk of every
+	// position in its cycle, held slices accumulate whenever settlement refuses
+	// and clear only by settling, and consensus max_gas here is -1 — so the
+	// work per block grew with the number of things that had gone wrong, and an
+	// error out of an end blocker halts the chain. The cursor is what keeps the
+	// bound from turning into a queue nobody reaches the end of.
+	pending := make([]slice, 0, maxSlicesPerBlock)
+	exhausted := true
+	if err := k.HeldSlice.Walk(ctx, nextSliceRange(k.readCursor(ctx, k.RetryCursor)),
+		func(key collections.Pair[uint64, string]) (bool, error) {
+			pending = append(pending, slice{cycleID: key.K1(), denom: key.K2()})
+			if len(pending) >= maxSlicesPerBlock {
+				exhausted = false
+				return true, nil
+			}
+			return false, nil
+		}); err != nil {
+		return err
+	}
+	last := ""
+	if n := len(pending); n > 0 {
+		last = encodeSliceCursor(pending[n-1].cycleID, pending[n-1].denom)
+	}
+	if err := k.advanceCursor(ctx, k.RetryCursor, last, exhausted); err != nil {
 		return err
 	}
 
@@ -493,14 +513,32 @@ func (k Keeper) escalateOldHolds(ctx context.Context) error {
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	// Bounded and resumed for the same reason retryHeldSlices is: this walks
+	// every hold ever recorded, and holds are cleared only by settling.
 	var stale []collections.Pair[uint64, string]
-	if err := k.HeldSince.Walk(ctx, nil, func(key collections.Pair[uint64, string], since uint64) (bool, error) {
-		if current <= since || current-since < bound {
+	seen := 0
+	exhausted := true
+	var last collections.Pair[uint64, string]
+	if err := k.HeldSince.Walk(ctx, nextSliceRange(k.readCursor(ctx, k.EscalateCursor)),
+		func(key collections.Pair[uint64, string], since uint64) (bool, error) {
+			seen++
+			last = key
+			if current > since && current-since >= bound {
+				stale = append(stale, key)
+			}
+			if seen >= maxSlicesPerBlock {
+				exhausted = false
+				return true, nil
+			}
 			return false, nil
-		}
-		stale = append(stale, key)
-		return false, nil
-	}); err != nil {
+		}); err != nil {
+		return err
+	}
+	cursor := ""
+	if seen > 0 {
+		cursor = encodeSliceCursor(last.K1(), last.K2())
+	}
+	if err := k.advanceCursor(ctx, k.EscalateCursor, cursor, exhausted); err != nil {
 		return err
 	}
 

@@ -15,6 +15,7 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgSetAttestor{},
 		&MsgAttestDeposit{},
 		&MsgReportReserve{},
+		&MsgWithdrawFees{},
 		&MsgRequestRedemption{},
 		&MsgSettleRedemption{},
 		&MsgUpdateParams{},
@@ -29,6 +30,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgSetAttestor{}, "blockchain/x/custody/MsgSetAttestor", nil)
 	cdc.RegisterConcrete(&MsgAttestDeposit{}, "blockchain/x/custody/MsgAttestDeposit", nil)
 	cdc.RegisterConcrete(&MsgReportReserve{}, "blockchain/x/custody/MsgReportReserve", nil)
+	cdc.RegisterConcrete(&MsgWithdrawFees{}, "blockchain/x/custody/MsgWithdrawFees", nil)
 	cdc.RegisterConcrete(&MsgRequestRedemption{}, "blockchain/x/custody/MsgRequestRedemption", nil)
 	cdc.RegisterConcrete(&MsgSettleRedemption{}, "blockchain/x/custody/MsgSettleRedemption", nil)
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "blockchain/x/custody/MsgUpdateParams", nil)

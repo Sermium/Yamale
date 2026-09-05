@@ -51,8 +51,67 @@ func (k msgServer) RegisterCustomer(ctx context.Context, msg *types.MsgRegisterC
 		return &types.MsgRegisterCustomerResponse{}, k.Customer.Remove(ctx, msg.Customer)
 	}
 
+	// A claim, not yet a relationship.
+	//
+	// Only the participant signs this, so on its own it is one institution
+	// asserting something about somebody else's account. Left as the whole of
+	// the record it let an approved institution attach itself to any address on
+	// the chain, be named as the instructing participant on that account's
+	// payments, and — because one participant per customer is enforced above —
+	// lock the account out of banking anywhere else, with only the claimant
+	// able to release it.
+	//
+	// The account's own signature is what makes it a relationship. Re-claiming
+	// does not clear an existing confirmation: a participant should not be able
+	// to un-confirm its way out of a customer's decision.
+	confirmed := false
+	if err == nil {
+		confirmed = existing.Confirmed
+	}
 	return &types.MsgRegisterCustomerResponse{}, k.Customer.Set(ctx, msg.Customer, types.Customer{
 		Customer:    msg.Customer,
 		Participant: msg.Participant,
+		Confirmed:   confirmed,
 	})
+}
+
+// ConfirmParticipant is the account's own word on who banks it.
+//
+// Signed by the customer, and it is the only message in this module that is.
+// Confirming turns a participant's claim into a relationship a payment may rely
+// on; refusing removes the record entirely, which is how an account that was
+// claimed without being asked gets out.
+func (k msgServer) ConfirmParticipant(ctx context.Context, msg *types.MsgConfirmParticipant) (*types.MsgConfirmParticipantResponse, error) {
+	if _, err := k.addressCodec.StringToBytes(msg.Customer); err != nil {
+		return nil, errorsmod.Wrap(err, "invalid customer address")
+	}
+
+	existing, err := k.Customer.Get(ctx, msg.Customer)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			// Leaving a relationship that does not exist is not an error; the
+			// account wanted not to bank there, and it does not.
+			if !msg.Confirm {
+				return &types.MsgConfirmParticipantResponse{}, nil
+			}
+			return nil, errorsmod.Wrapf(types.ErrNotACustomer,
+				"no participant has claimed %s, so there is nothing to confirm", msg.Customer)
+		}
+		return nil, err
+	}
+
+	// The participant is named on the message so that a confirmation cannot be
+	// replayed against a claim the account never read — a claim withdrawn and
+	// replaced by a different institution's must be confirmed again.
+	if existing.Participant != msg.Participant {
+		return nil, errorsmod.Wrapf(types.ErrNotACustomer,
+			"%s is claimed by %s, not by %s", msg.Customer, existing.Participant, msg.Participant)
+	}
+
+	if !msg.Confirm {
+		return &types.MsgConfirmParticipantResponse{}, k.Customer.Remove(ctx, msg.Customer)
+	}
+
+	existing.Confirmed = true
+	return &types.MsgConfirmParticipantResponse{}, k.Customer.Set(ctx, msg.Customer, existing)
 }

@@ -589,7 +589,11 @@ func TestSwapNeverDecreasesInvariant(t *testing.T) {
 
 		_, err = ms.Swap(f.ctx, &types.MsgSwap{
 			Sender: traderStr, PoolId: poolID,
-			TokenInDenom: tokenIn, TokenInAmount: math.NewInt(int64(i * 7)).String(),
+			// Small enough that truncation bites on almost every trade, large
+			// enough to buy at least one unit at a 10:1 ratio — a swap that
+			// truncates to nothing is now refused rather than settled, which is
+			// its own finding and not this one.
+			TokenInDenom: tokenIn, TokenInAmount: math.NewInt(int64(i*7 + 100)).String(),
 			TokenOutDenom: tokenOut, MinAmountOut: "0",
 		})
 		require.NoError(t, err)
@@ -632,4 +636,72 @@ func mustInt(t *testing.T, s string) math.Int {
 	i, ok := math.NewIntFromString(s)
 	require.True(t, ok, "not an integer: %s", s)
 	return i
+}
+
+// L-1: a complete exit left reserves and total shares at zero, and a pool in
+// that state is bricked rather than empty.
+//
+// The next JoinPool evaluated totalShares * amountA / reserveA against a zero
+// reserve, which panics — recovered by baseapp into a failed transaction, so
+// not a halt, but the pool id persisted as a record nothing could ever join and
+// every swap against it returned nothing.
+func TestAPoolCannotBeExitedCompletely(t *testing.T) {
+	f := initFixture(t)
+	ms := keeper.NewMsgServerImpl(f.keeper)
+
+	poolID, _, creatorStr := newPool(t, f, ms, 1_000_000, 1_000_000, 30)
+
+	pool, err := f.keeper.Pool.Get(f.ctx, poolID)
+	require.NoError(t, err)
+
+	_, err = ms.ExitPool(f.ctx, &types.MsgExitPool{
+		Sender: creatorStr, PoolId: poolID, Shares: pool.TotalShares,
+	})
+	require.ErrorIs(t, err, types.ErrWouldEmptyPool)
+
+	// Everything but the last share is fine, and what is left is still a pool
+	// somebody can join.
+	all := mustInt(t, pool.TotalShares)
+	_, err = ms.ExitPool(f.ctx, &types.MsgExitPool{
+		Sender: creatorStr, PoolId: poolID, Shares: all.SubRaw(1).String(),
+	})
+	require.NoError(t, err)
+
+	after, err := f.keeper.Pool.Get(f.ctx, poolID)
+	require.NoError(t, err)
+	require.True(t, mustInt(t, after.ReserveA).IsPositive())
+	require.True(t, mustInt(t, after.ReserveB).IsPositive())
+	require.True(t, mustInt(t, after.TotalShares).IsPositive())
+}
+
+// L-2: a swap whose output truncates to zero took payment and returned nothing.
+//
+// sdk.NewCoins drops a zero coin, so the transfer out was a no-op while the
+// input was still taken and the reserve still updated. Settled, not refused —
+// on any swap where the caller passed a min_amount_out of zero, which every
+// client that does not care about slippage does.
+func TestASwapThatBuysNothingIsRefused(t *testing.T) {
+	f := initFixture(t)
+	ms := keeper.NewMsgServerImpl(f.keeper)
+
+	// Ten units of A to one of B, so a single unit of A buys nothing at all.
+	poolID, _, _ := newPool(t, f, ms, 10_000_000, 1_000_000, 0)
+	traderAddr, traderStr := f.env.NewFundedAddr(t, coins(denomA, 1_000, denomB, 1_000))
+
+	before, err := f.keeper.Pool.Get(f.ctx, poolID)
+	require.NoError(t, err)
+
+	_, err = ms.Swap(f.ctx, &types.MsgSwap{
+		Sender: traderStr, PoolId: poolID,
+		TokenInDenom: denomA, TokenInAmount: "1",
+		TokenOutDenom: denomB, MinAmountOut: "0",
+	})
+	require.ErrorIs(t, err, types.ErrZeroOutput)
+
+	// The trader still has their money and the reserve is untouched.
+	require.Equal(t, math.NewInt(1_000), f.env.Balance(traderAddr, denomA))
+	after, err := f.keeper.Pool.Get(f.ctx, poolID)
+	require.NoError(t, err)
+	require.Equal(t, before.ReserveA, after.ReserveA)
+	require.Equal(t, before.ReserveB, after.ReserveB)
 }

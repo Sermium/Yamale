@@ -38,6 +38,22 @@ ApproveParticipant defines the ApproveParticipant RPC. It is authority-gated (th
 | `participant` | string |  |
 | `approve` | bool |  |
 
+### MsgConfirmParticipant
+
+`/blockchain.paymsg.v1.MsgConfirmParticipant`
+
+Signed by the `customer` field.
+
+MsgConfirmParticipant is the account's own word on who banks it.
+
+Signed by the customer, which is the point: without it a participant's claim was the whole of the record, and the account it named had no say and no way out. Confirming turns a claim into a relationship a payment can rely on; refusing removes it and frees the account to bank elsewhere.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `customer` | string |  |
+| `participant` | string | The participant being confirmed. Named so that a confirmation cannot be replayed against a different claim than the one the account read. |
+| `confirm` | bool | false removes the record, whether it was confirmed or not. An account may always leave. |
+
 ### MsgRegisterCustomer
 
 `/blockchain.paymsg.v1.MsgRegisterCustomer`
@@ -251,6 +267,7 @@ One participant per customer, mirroring the arrangement it describes: an account
 | --- | --- | --- |
 | `customer` | string |  |
 | `participant` | string |  |
+| `confirmed` | bool | confirmed is the account's own signature on the relationship. Registration is signed by the participant alone, and one participant per customer means the first to claim an account owns it: no second institution may claim it, and only the claiming one could release it. The comment defending that said it prevented impersonation, and it does prevent the SECOND participant impersonating — it did nothing about the first. An approved institution could attach itself to any account on the chain, be named as the instructing participant on that account's payments, and lock it out of banking anywhere else. So a claim is now only a claim. The account confirms it with MsgConfirmParticipant, and assertInstructedBy — the check that makes a PaymentRecord mean anything — requires the confirmation, not the claim. |
 
 ### ParticipantApplication
 

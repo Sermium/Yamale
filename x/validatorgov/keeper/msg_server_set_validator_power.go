@@ -73,7 +73,23 @@ func (k msgServer) SetValidatorPower(ctx context.Context, msg *types.MsgSetValid
 	seatBond := params.SeatBond()
 
 	target := seatBond.Mul(math.NewIntFromUint64(msg.Seats))
-	current := validator.Tokens
+
+	// What the RESERVE has staked on this validator, not what the validator
+	// holds. Seats are stake the module put there and can take back; a third
+	// party's delegation is neither.
+	//
+	// Measuring against validator.Tokens had two failures, and the second is
+	// worse than the first. Anyone could delegate any amount and make current
+	// exceed what the reserve holds, at which point releaseSeats failed at
+	// ValidateUnbondAmount and governance could not lower that validator's
+	// power until the stranger chose to unbond — a permanent block on a
+	// governance decision, bought for the price of one delegation. And after
+	// governance raised a validator to N seats against an inflated current, the
+	// stranger undelegating dropped it silently below the power it was granted.
+	current, err := k.reserveStake(ctx, valAddr, validator)
+	if err != nil {
+		return nil, err
+	}
 
 	switch {
 	case target.GT(current):
@@ -87,6 +103,25 @@ func (k msgServer) SetValidatorPower(ctx context.Context, msg *types.MsgSetValid
 	}
 
 	return &types.MsgSetValidatorPowerResponse{Seats: msg.Seats}, nil
+}
+
+// reserveStake is the tokens the module's own reserve has delegated to a
+// validator, which is the only stake a seat decision can move.
+//
+// Tokens rather than shares, because the seat target is denominated in tokens
+// and a validator that has been slashed has fewer tokens per share. No
+// delegation is zero, not an error: a validator this module has never funded is
+// an ordinary starting point.
+func (k Keeper) reserveStake(ctx context.Context, valAddr sdk.ValAddress, validator stakingtypes.Validator) (math.Int, error) {
+	reserve := k.authKeeper.GetModuleAddress(types.ModuleName)
+	if reserve == nil {
+		return math.ZeroInt(), errorsmod.Wrap(types.ErrSeatReserveEmpty, "this chain has no seat reserve account")
+	}
+	del, err := k.stakingKeeper.GetDelegation(ctx, reserve, valAddr)
+	if err != nil {
+		return math.ZeroInt(), nil
+	}
+	return validator.TokensFromShares(del.Shares).TruncateInt(), nil
 }
 
 // fundSeats delegates seats out of the module's reserve.

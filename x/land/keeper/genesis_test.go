@@ -82,7 +82,12 @@ func TestGenesisRoundTrip(t *testing.T) {
 	// Zero is skipped: see RegisterParcel for why a parcel 0 cannot exist.
 	require.Equal(t, uint64(1), exported.Parcels[0].Id)
 	require.Equal(t, uint64(3), exported.NextParcelId)
-	require.Equal(t, uint64(1), exported.NextTransferId)
+	// One transfer proposed, so the next id is 2 — zero is skipped here for the
+	// same reason it is skipped for parcels, and a client that omits
+	// transfer_id from a MsgValidateTransfer must be refused rather than
+	// addressing the first transfer this registry ever recorded.
+	require.Equal(t, uint64(1), exported.Transfers[0].Id)
+	require.Equal(t, uint64(2), exported.NextTransferId)
 
 	// Import into an empty registry and export again: the two must agree, or an
 	// upgrade silently changes the state it claims to be preserving.

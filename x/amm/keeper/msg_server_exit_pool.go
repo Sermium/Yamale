@@ -28,11 +28,30 @@ func (k msgServer) ExitPool(ctx context.Context, msg *types.MsgExitPool) (*types
 		return nil, errorsmod.Wrapf(types.ErrInvalidAmount, "invalid shares %s", msg.Shares)
 	}
 
-	reserveA, _ := math.NewIntFromString(pool.ReserveA)
-	reserveB, _ := math.NewIntFromString(pool.ReserveB)
-	totalShares, _ := math.NewIntFromString(pool.TotalShares)
+	reserveA, okA := math.NewIntFromString(pool.ReserveA)
+	reserveB, okB := math.NewIntFromString(pool.ReserveB)
+	totalShares, okS := math.NewIntFromString(pool.TotalShares)
+	if !okA || !okB || !okS || !totalShares.IsPositive() {
+		return nil, errorsmod.Wrapf(types.ErrCorruptPool,
+			"pool %d holds reserves %q and %q against %q shares",
+			msg.PoolId, pool.ReserveA, pool.ReserveB, pool.TotalShares)
+	}
 	if shares.GT(totalShares) {
 		return nil, errorsmod.Wrapf(types.ErrInsufficientShares, "requested %s exceeds total shares %s", shares, totalShares)
+	}
+	// A complete exit leaves reserves and total shares at zero, and a pool in
+	// that state is bricked rather than empty: the next JoinPool evaluates
+	// totalShares * amountA / reserveA with reserveA zero, which panics.
+	// Baseapp recovers it into a failed transaction, so it is not a halt — but
+	// the pool id persists as a record nothing can ever join, and every swap
+	// against it returns zero.
+	//
+	// Refused here rather than repaired there, because the alternative is a
+	// re-seeding rule inside JoinPool that has to decide the price of a pool
+	// with no reserves, and there is no honest answer to that.
+	if shares.Equal(totalShares) {
+		return nil, errorsmod.Wrapf(types.ErrWouldEmptyPool,
+			"pool %d has %s shares in issue and this would surrender all of them", msg.PoolId, totalShares)
 	}
 
 	amountA := reserveA.Mul(shares).Quo(totalShares)

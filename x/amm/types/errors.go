@@ -18,4 +18,19 @@ var (
 	ErrInsufficientDeposit = errors.Register(ModuleName, 1105, "deposit does not cover the required proportional amount")
 	ErrInsufficientShares  = errors.Register(ModuleName, 1106, "insufficient LP shares")
 	ErrSlippage            = errors.Register(ModuleName, 1107, "swap output is below the minimum requested amount")
+	// A pool with zero reserves and zero shares is not empty, it is broken: the
+	// next JoinPool divides by a zero reserve, and every swap against it
+	// returns nothing. The id persists as a permanently unusable record.
+	ErrWouldEmptyPool = errors.Register(ModuleName, 1111,
+		"a pool cannot be exited completely; leave at least one share behind or nothing can ever join it again")
+	// A swap that takes payment and returns nothing is settled, not refused,
+	// unless somebody says otherwise. min_amount_out of zero used to be the
+	// caller saying they did not mind.
+	ErrZeroOutput = errors.Register(ModuleName, 1112,
+		"that swap would return nothing at all, so it is refused rather than settled")
+	// The module writes these strings itself, so a failure here means state has
+	// been corrupted or a migration is wrong — and math.Int carries a nil inner
+	// value on a failed parse, which panics on first use rather than erroring.
+	ErrCorruptPool = errors.Register(ModuleName, 1113,
+		"this pool's stored reserves cannot be read as numbers")
 )

@@ -35,8 +35,18 @@ func (k msgServer) Swap(ctx context.Context, msg *types.MsgSwap) (*types.MsgSwap
 		return nil, errorsmod.Wrapf(types.ErrInvalidAmount, "invalid minAmountOut %s", msg.MinAmountOut)
 	}
 
-	reserveA, _ := math.NewIntFromString(pool.ReserveA)
-	reserveB, _ := math.NewIntFromString(pool.ReserveB)
+	// Parsed with the error, not past it. math.NewIntFromString yields a
+	// math.Int with a nil inner value on failure, and that panics on first use
+	// rather than erroring. The module writes these strings itself, so this is
+	// unreachable from a message today — which is exactly why it is worth
+	// spending three lines on: it turns any future migration bug from a panic
+	// into a refused transaction naming the pool.
+	reserveA, okA := math.NewIntFromString(pool.ReserveA)
+	reserveB, okB := math.NewIntFromString(pool.ReserveB)
+	if !okA || !okB {
+		return nil, errorsmod.Wrapf(types.ErrCorruptPool,
+			"pool %d holds reserves %q and %q", msg.PoolId, pool.ReserveA, pool.ReserveB)
+	}
 
 	var reserveIn, reserveOut math.Int
 	var inIsA bool
@@ -66,6 +76,16 @@ func (k msgServer) Swap(ctx context.Context, msg *types.MsgSwap) (*types.MsgSwap
 	// allows — enough to push x*y below its previous value and bleed the
 	// pool one unit at a time.
 	amountOut := reserveOut.Mul(amountInAfterFee).Quo(reserveIn.Add(amountInAfterFee))
+	// Truncation is right and it is what protects the pool, but truncating to
+	// zero is a different thing from rounding a payout down. sdk.NewCoins drops
+	// a zero coin, so the transfer out became a no-op while the input was still
+	// taken and the reserve still updated — payment for nothing, and settled
+	// rather than refused, on any swap where the caller passed a
+	// min_amount_out of zero.
+	if !amountOut.IsPositive() {
+		return nil, errorsmod.Wrapf(types.ErrZeroOutput,
+			"%s%s is too small to buy any %s at this pool's price", tokenInAmount, msg.TokenInDenom, msg.TokenOutDenom)
+	}
 	if amountOut.LT(minAmountOut) {
 		return nil, errorsmod.Wrapf(types.ErrSlippage, "swap would return %s%s, less than the minimum %s%s requested", amountOut, msg.TokenOutDenom, minAmountOut, msg.TokenOutDenom)
 	}

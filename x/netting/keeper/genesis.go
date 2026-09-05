@@ -34,6 +34,18 @@ func (k Keeper) InitGenesis(ctx context.Context, genState types.GenesisState) er
 		return fmt.Errorf("netting genesis is invalid, refusing to start: %w", err)
 	}
 
+	// The sweep cursors are scheduling state, not facts about the netting
+	// system, so they are not carried in genesis — but they are written here
+	// rather than left absent, so that two chains importing the same file hold
+	// the same bytes. Starting from the beginning costs at most one extra pass
+	// over the held slices.
+	if err := k.RetryCursor.Set(ctx, ""); err != nil {
+		return err
+	}
+	if err := k.EscalateCursor.Set(ctx, ""); err != nil {
+		return err
+	}
+
 	// Addresses are checked here rather than in Validate() because this is the
 	// only place with an address codec: GenesisState.Validate() would have to
 	// reach for the global bech32 configuration, which is set by the app and is

@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 
 	"cosmossdk.io/math"
@@ -148,7 +149,18 @@ func (m msgServer) ResolveEscrow(ctx context.Context, msg *types.MsgResolveEscro
 	if err != nil {
 		return nil, err
 	}
-	if lock.Moderator != msg.Moderator {
+	// Governance may decide a case the moderator will not, and only a case
+	// somebody actually opened.
+	//
+	// The argument against a deadline is right and stands: an automatic release
+	// rewards the seller who shipped nothing and waited. But it left one state
+	// with no exit at all — a dispute opened against a moderator whose key is
+	// then lost. No message in the module can settle that lock, and the money
+	// stays in the module account permanently. A governance fallback closes
+	// that without reintroducing a timer, because it needs somebody to decide,
+	// which is exactly what the design says a dispute requires.
+	governance := m.isGovernance(msg.Moderator)
+	if lock.Moderator != msg.Moderator && !governance {
 		return nil, types.ErrNotModerator
 	}
 	if lock.Dispute != types.DisputeState_DISPUTE_STATE_OPEN {
@@ -205,4 +217,18 @@ func (m msgServer) conditional(ctx context.Context, id uint64) (types.Lock, erro
 		return types.Lock{}, types.ErrLockClosed
 	}
 	return lock, nil
+}
+
+// isGovernance reports whether a signer is the governance authority.
+//
+// Compared as bytes, because bech32 is case-insensitive and two strings can
+// encode the same account. Used only by ResolveEscrow, and only to decide a
+// case somebody has already opened: it is not a way into a quiet lock, which
+// would make governance the custodian this design exists to remove.
+func (m msgServer) isGovernance(signer string) bool {
+	addr, err := m.addressCodec.StringToBytes(signer)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(m.GetAuthority(), addr)
 }

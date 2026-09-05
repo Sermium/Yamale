@@ -12,4 +12,20 @@ option go_package = "yamale/blockchain/x/paymsg/types";
 message Customer {
   string customer = 1;
   string participant = 2;
+
+  // confirmed is the account's own signature on the relationship.
+  //
+  // Registration is signed by the participant alone, and one participant per
+  // customer means the first to claim an account owns it: no second
+  // institution may claim it, and only the claiming one could release it. The
+  // comment defending that said it prevented impersonation, and it does prevent
+  // the SECOND participant impersonating — it did nothing about the first. An
+  // approved institution could attach itself to any account on the chain, be
+  // named as the instructing participant on that account's payments, and lock
+  // it out of banking anywhere else.
+  //
+  // So a claim is now only a claim. The account confirms it with
+  // MsgConfirmParticipant, and assertInstructedBy — the check that makes a
+  // PaymentRecord mean anything — requires the confirmation, not the claim.
+  bool confirmed = 3;
 }

@@ -78,6 +78,7 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				},
 				// Governance-only, submitted as proposal payloads. A command
 				// that can only ever fail is a support ticket.
+				{RpcMethod: "WithdrawFees", Skip: true}, // governance only
 				{RpcMethod: "RegisterAsset", Skip: true},
 				{RpcMethod: "SetAttestor", Skip: true},
 				{RpcMethod: "UpdateParams", Skip: true},

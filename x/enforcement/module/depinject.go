@@ -37,6 +37,11 @@ type ModuleInputs struct {
 	BankKeeper    types.BankKeeper
 	StakingKeeper types.StakingKeeper
 
+	// DistributionKeeper is how a freeze reaches the staking rewards, which a
+	// send restriction cannot see: the sender on a reward payout is the
+	// distribution module account, not the frozen delegator.
+	DistributionKeeper types.DistributionKeeper
+
 	// ConstitutionKeeper holds the parameters this module may read and may not
 	// change.
 	ConstitutionKeeper types.ConstitutionKeeper
@@ -67,6 +72,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.AuthKeeper,
 		in.BankKeeper,
 		in.StakingKeeper,
+		in.DistributionKeeper,
 		in.ConstitutionKeeper,
 		in.ScopeKeeper,
 	)

@@ -35,6 +35,9 @@ type ModuleInputs struct {
 
 	AuthKeeper types.AuthKeeper
 	BankKeeper types.BankKeeper
+	// StakingKeeper answers what the stake is called, so the block reward is
+	// minted in this chain's bond denomination rather than in a package global.
+	StakingKeeper types.StakingKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,6 +59,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.AddressCodec,
 		authority,
 		in.BankKeeper,
+		in.StakingKeeper,
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 

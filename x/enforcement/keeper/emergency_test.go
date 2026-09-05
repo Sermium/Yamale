@@ -324,3 +324,40 @@ func TestReleasingACaseThatIsAlreadyClosedIsRefused(t *testing.T) {
 	})
 	require.ErrorIs(t, err, types.ErrCaseNotFound)
 }
+
+// M-6: the freeze goes on the bank keeper, and a reward withdrawal never
+// touches it.
+//
+// A send restriction fires on the sender, and the sender on a reward payout is
+// the distribution module account rather than the delegator. So a frozen
+// account could point its withdraw address at an unfrozen one and take out
+// everything accruing during the freeze — and on this chain the unwithdrawn
+// rewards are the overwhelming majority of what an account controls.
+//
+// The freeze therefore reaches into x/distribution once and removes the
+// redirect. A state change rather than a gate: there is no message for authz,
+// an interchain account or a group proposal to route around, and it covers a
+// redirect set long before the case was ever opened.
+func TestAFreezeBringsTheStakingRewardsHome(t *testing.T) {
+	f := initFixture(t)
+	f.addValidator(t, 10)
+	founders := f.withEmergencyAuthority(t)
+	scammer, scammerStr := f.fundedAddr(t, coins(1_000_000))
+	accomplice, _ := f.addr(t)
+
+	// Set well before the case exists, which is what an ante decorator on
+	// MsgSetWithdrawAddress would never have caught.
+	require.NoError(t, f.distr.SetWithdrawAddr(f.ctx, scammer, accomplice))
+
+	_, err := f.ms.EmergencyFreeze(f.ctx, &types.MsgEmergencyFreeze{
+		Authority: founders,
+		Target:    scammerStr,
+		Reason:    "the exchange reported the deposit as stolen minutes ago",
+	})
+	require.NoError(t, err)
+
+	got, err := f.distr.GetDelegatorWithdrawAddr(f.ctx, scammer)
+	require.NoError(t, err)
+	require.True(t, got.Equals(scammer),
+		"rewards still pay out to %s, which is not frozen", got)
+}

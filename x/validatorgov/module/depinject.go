@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	aliaskeeper "yamale/blockchain/x/alias/keeper"
 	aliastypes "yamale/blockchain/x/alias/types"
@@ -75,6 +76,22 @@ type ModuleOutputs struct {
 
 	ValidatorgovKeeper keeper.Keeper
 	Module             appmodule.AppModule
+
+	// StakingHooks puts the validator gate on x/staking's own keeper.
+	//
+	// The ante decorator in this module descends into MsgExec, which closes the
+	// authz route. x/group execution is a different road: a passed proposal
+	// dispatches straight through the message router, after the ante chain has
+	// run — and both chain-wide foundation administrators are x/group accounts,
+	// so either could have created a validator for an unapproved candidate.
+	// Interchain accounts arrive the same way.
+	//
+	// Delivered as a hooks wrapper rather than by calling SetHooks in app.go,
+	// because x/staking sets its hooks from a depinject INVOKER that runs after
+	// every provider — calling SetHooks afterwards panics with "cannot set
+	// validator hooks twice", and this module needs the staking keeper, so an
+	// ordinary provider edge would be a cycle.
+	StakingHooks stakingtypes.StakingHooksWrapper
 }
 
 func ProvideModule(in ModuleInputs) ModuleOutputs {
@@ -97,7 +114,11 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 	)
 	m := NewAppModule(in.Cdc, k, in.AuthKeeper, in.BankKeeper)
 
-	return ModuleOutputs{ValidatorgovKeeper: k, Module: m}
+	return ModuleOutputs{
+		ValidatorgovKeeper: k,
+		Module:             m,
+		StakingHooks:       stakingtypes.StakingHooksWrapper{StakingHooks: k.Hooks()},
+	}
 }
 
 var _ types.AliasKeeper = AliasJurisdictions{}

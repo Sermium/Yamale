@@ -32,6 +32,11 @@ type Keeper struct {
 	bankKeeper    types.BankKeeper
 	stakingKeeper types.StakingKeeper
 
+	// distrKeeper is how a freeze reaches the staking rewards. Nil on a chain
+	// assembled without x/distribution, in which case there are no rewards to
+	// redirect and there is nothing to undo.
+	distrKeeper types.DistributionKeeper
+
 	// constitutionKeeper holds the four parameters governance is not allowed to
 	// move. Read-only, and read on both write paths into Params.
 	constitutionKeeper types.ConstitutionKeeper
@@ -103,6 +108,7 @@ func NewKeeper(
 	authKeeper types.AuthKeeper,
 	bankKeeper types.BankKeeper,
 	stakingKeeper types.StakingKeeper,
+	distrKeeper types.DistributionKeeper,
 	constitutionKeeper types.ConstitutionKeeper,
 	scopeKeeper types.ScopeKeeper,
 ) Keeper {
@@ -127,6 +133,7 @@ func NewKeeper(
 		authKeeper:    authKeeper,
 		bankKeeper:    bankKeeper,
 		stakingKeeper: stakingKeeper,
+		distrKeeper:   distrKeeper,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 
@@ -246,6 +253,22 @@ func (k Keeper) freeze(ctx context.Context, addr string, caseID uint64, expiresA
 		ExpiresAtHeight: expiresAtHeight,
 		FrozenAtHeight:  sdkCtx.BlockHeight(),
 	}); err != nil {
+		return err
+	}
+
+	// The rewards come home before anything else happens.
+	//
+	// Placing the freeze on the bank keeper catches every path into the bank,
+	// which is why it is there — but a reward withdrawal's SENDER is the
+	// distribution module account, not the frozen delegator, so the restriction
+	// waves it through. A frozen account could set its withdraw address to an
+	// unfrozen one and take out everything accruing during the freeze.
+	//
+	// Undoing the redirect is a state change rather than a gate, so there is no
+	// message for authz, an interchain account or a group proposal to route
+	// around. It also covers a redirect set long before the case was opened,
+	// which an ante decorator never could.
+	if err := k.reclaimWithdrawAddress(ctx, addr); err != nil {
 		return err
 	}
 	if expiresAtHeight > 0 {

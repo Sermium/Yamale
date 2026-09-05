@@ -18,4 +18,6 @@ type BankKeeper interface {
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipient sdk.AccAddress, amt sdk.Coins) error
 	SendCoinsFromAccountToModule(ctx context.Context, sender sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	GetSupply(ctx context.Context, denom string) sdk.Coin
+	// GetBalance is how the module reads its own accumulated fee revenue.
+	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }

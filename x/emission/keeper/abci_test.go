@@ -4,17 +4,21 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/x/emission/types"
 )
 
-// emissionDenom is whatever the chain's bond denom is at runtime; app/config.go
-// sets it to uyml before the node starts, and the BeginBlocker mints that same
-// denom so distribution treats emission exactly like x/mint's output.
-var emissionDenom = sdk.DefaultBondDenom
+// emissionDenom is what the chain's STAKING KEEPER says the bond denom is, so
+// distribution treats emission exactly like x/mint's output.
+//
+// It used to be sdk.DefaultBondDenom read directly — a package-level variable
+// that app/config.go's init() rewrites, which made the block reward correct
+// only for as long as the app package happened to be linked in, and would have
+// gone on minting the old denomination after any governance change to
+// bond_denom. The fixture's stub now states it, as a chain does.
+const emissionDenom = "uyml"
 
 // setSchedule replaces the emission params and resets state to the start of
 // the schedule, using round numbers so the decay curve is easy to read.

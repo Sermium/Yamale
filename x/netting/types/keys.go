@@ -103,6 +103,12 @@ var (
 	// retried for a year is indistinguishable from one held this morning.
 	HeldSinceKey = collections.NewPrefix("held/since/")
 
+	// RetryCursorKey and EscalateCursorKey are where the bounded end-blocker
+	// sweeps pick up. Without them a per-block bound would retry the same
+	// first slices forever and never reach the rest.
+	RetryCursorKey    = collections.NewPrefix("held/retry_cursor/")
+	EscalateCursorKey = collections.NewPrefix("held/escalate_cursor/")
+
 	// NettedTotalKey is the cumulative value one participant has put into the
 	// netting window for one currency in one cycle, as the debtor.
 	//

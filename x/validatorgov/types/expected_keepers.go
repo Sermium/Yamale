@@ -100,6 +100,18 @@ type StakingKeeper interface {
 	BondDenom(context.Context) (string, error)
 	Delegate(ctx context.Context, delAddr sdk.AccAddress, bondAmt math.Int, tokenSrc stakingtypes.BondStatus, validator stakingtypes.Validator, subtractAccount bool) (math.LegacyDec, error)
 	ValidateUnbondAmount(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress, amt math.Int) (math.LegacyDec, error)
+
+	// GetDelegation is how the module reads what IT has staked on a validator,
+	// as opposed to what the validator holds in total.
+	//
+	// The distinction is the whole of the seat arithmetic. Delegation is
+	// permissionless — only MsgCreateValidator is gated — so measuring a seat
+	// count against validator.Tokens meant any stranger could inflate the
+	// figure by delegating, and governance would then be unable to lower that
+	// validator's power at all: the reserve does not hold the third party's
+	// stake and cannot unbond it. Absence of a delegation is an ordinary
+	// outcome, not an error, so callers treat it as zero.
+	GetDelegation(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
 	Undelegate(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress, sharesAmount math.LegacyDec) (time.Time, math.Int, error)
 }
 

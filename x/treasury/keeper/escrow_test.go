@@ -282,3 +282,59 @@ func TestNoLockIsIssuedIdZero(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, lockRes.Id)
 }
+
+// L-7: a dispute opened against a moderator whose key is then lost had no exit.
+//
+// The argument against a deadline is right and stands — an automatic release
+// rewards the seller who shipped nothing and waited. But no message in the
+// module could settle that lock, so the money stayed in the module account
+// permanently. Governance can now decide a case somebody opened, which needs a
+// decision rather than a timer.
+func TestGovernanceCanDecideACaseAMissingModeratorCannot(t *testing.T) {
+	f := initFixture(t)
+	env, ms := f.env, f.ms
+	buyer, seller, moderator := escrowParties(t, env)
+
+	res, err := ms.OpenEscrow(env.Ctx, &types.MsgOpenEscrow{
+		Depositor: buyer, Beneficiary: seller, Moderator: moderator,
+		Amount: sdk.NewCoin(escrowDenom, math.NewInt(30_000)),
+	})
+	require.NoError(t, err)
+
+	_, err = ms.DisputeEscrow(env.Ctx, &types.MsgDisputeEscrow{
+		Party: seller, LockId: res.LockId, Reason: "paid for, shipped, and now denied",
+	})
+	require.NoError(t, err)
+
+	// The buyer cannot pull the money back out of a frozen lock, which is the
+	// existing rule and the reason the lock is stuck at all.
+	_, err = ms.ReleaseEscrow(env.Ctx, &types.MsgReleaseEscrow{Depositor: buyer, LockId: res.LockId})
+	require.ErrorIs(t, err, types.ErrEscrowDisputed)
+
+	// Governance is not a moderator on a quiet lock — only on an open case.
+	quiet, err := ms.OpenEscrow(env.Ctx, &types.MsgOpenEscrow{
+		Depositor: buyer, Beneficiary: seller, Moderator: moderator,
+		Amount: sdk.NewCoin(escrowDenom, math.NewInt(1_000)),
+	})
+	require.NoError(t, err)
+	_, err = ms.ResolveEscrow(env.Ctx, &types.MsgResolveEscrow{
+		Moderator: env.AuthorityString(t), LockId: quiet.LockId, PayBeneficiary: true,
+	})
+	require.ErrorIs(t, err, types.ErrNoOpenCase)
+
+	// On the open case it decides, and the money moves.
+	sellerAddr, err := env.AddressCodec.StringToBytes(seller)
+	require.NoError(t, err)
+	_, err = ms.ResolveEscrow(env.Ctx, &types.MsgResolveEscrow{
+		Moderator: env.AuthorityString(t), LockId: res.LockId, PayBeneficiary: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, math.NewInt(30_000), env.Balance(sellerAddr, escrowDenom))
+
+	// And a stranger is still a stranger.
+	_, strangerStr := env.Addr(t)
+	_, err = ms.ResolveEscrow(env.Ctx, &types.MsgResolveEscrow{
+		Moderator: strangerStr, LockId: quiet.LockId, PayBeneficiary: true,
+	})
+	require.ErrorIs(t, err, types.ErrNotModerator)
+}

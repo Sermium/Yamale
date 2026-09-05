@@ -33,6 +33,7 @@ service Msg {
   // participant, which is what entitles a payment from that account to name
   // the participant as its instructing agent.
   rpc RegisterCustomer(MsgRegisterCustomer) returns (MsgRegisterCustomerResponse);
+  rpc ConfirmParticipant(MsgConfirmParticipant) returns (MsgConfirmParticipantResponse);
 
   // SetPayloadStore records where an approved participant serves the encrypted
   // payloads of the payments it instructed.
@@ -204,6 +205,28 @@ message MsgRegisterCustomer {
 
 // MsgRegisterCustomerResponse defines the MsgRegisterCustomer response.
 message MsgRegisterCustomerResponse {}
+
+// MsgConfirmParticipant is the account's own word on who banks it.
+//
+// Signed by the customer, which is the point: without it a participant's claim
+// was the whole of the record, and the account it named had no say and no way
+// out. Confirming turns a claim into a relationship a payment can rely on;
+// refusing removes it and frees the account to bank elsewhere.
+message MsgConfirmParticipant {
+  option (cosmos.msg.v1.signer) = "customer";
+  option (amino.name) = "blockchain/x/paymsg/MsgConfirmParticipant";
+
+  string customer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The participant being confirmed. Named so that a confirmation cannot be
+  // replayed against a different claim than the one the account read.
+  string participant = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // false removes the record, whether it was confirmed or not. An account may
+  // always leave.
+  bool confirm = 3;
+}
+message MsgConfirmParticipantResponse {}
 
 // MsgSetPayloadStore records where a participant serves encrypted payment
 // payloads.

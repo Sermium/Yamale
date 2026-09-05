@@ -265,6 +265,24 @@ func (s *StakingKeeper) Delegate(_ context.Context, delAddr sdk.AccAddress, bond
 	return math.LegacyNewDecFromInt(bondAmt), nil
 }
 
+// GetDelegation reports what one delegator holds of one validator, which is
+// what the seat arithmetic is measured against.
+//
+// The stub already kept this map so that lowering a power could only unbond
+// what the reserve put in — the keeper simply was not asking it, and was using
+// the validator's total tokens instead.
+func (s *StakingKeeper) GetDelegation(_ context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error) {
+	held, ok := s.delegated[delAddr.String()+"/"+valAddr.String()]
+	if !ok {
+		return stakingtypes.Delegation{}, stakingtypes.ErrNoDelegation
+	}
+	return stakingtypes.Delegation{
+		DelegatorAddress: delAddr.String(),
+		ValidatorAddress: valAddr.String(),
+		Shares:           math.LegacyNewDecFromInt(held),
+	}, nil
+}
+
 // ValidateUnbondAmount refuses to unbond more than this delegator put in, which
 // is the check that stops a power reduction from eating a validator own
 // self-delegation.

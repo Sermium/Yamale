@@ -117,7 +117,14 @@ func (k msgServer) SendPayment(ctx context.Context, msg *types.MsgSendPayment) (
 //
 // A participant paying out of its own balance is its own instructing agent and
 // needs no registration; anybody else has to have been registered by that
-// participant as a customer.
+// participant as a customer AND have confirmed it.
+//
+// The confirmation is what makes this check mean anything. Registration is
+// signed by the participant alone, so a claim on its own is one institution
+// asserting something about somebody else's account — and this is the check the
+// PaymentRecord inherits its trustworthiness from, so a claim accepted here
+// would let an approved institution name itself as instructing the payments of
+// any address on the chain.
 func (k Keeper) assertInstructedBy(ctx context.Context, debtor, participant string) error {
 	if debtor == participant {
 		return nil
@@ -128,6 +135,11 @@ func (k Keeper) assertInstructedBy(ctx context.Context, debtor, participant stri
 		return errorsmod.Wrapf(types.ErrNotACustomer,
 			"%s does not bank with %s, so that participant may not be named as instructing this payment",
 			debtor, participant)
+	}
+	if !customer.Confirmed {
+		return errorsmod.Wrapf(types.ErrNotACustomer,
+			"%s has claimed %s as a customer and %s has not confirmed it",
+			participant, debtor, debtor)
 	}
 	return nil
 }

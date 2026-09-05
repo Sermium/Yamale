@@ -1,12 +1,15 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"yamale/blockchain/x/custody/types"
 )
@@ -17,8 +20,8 @@ type msgServer struct{ Keeper }
 func NewMsgServerImpl(k Keeper) types.MsgServer { return msgServer{Keeper: k} }
 
 func (k msgServer) RegisterAsset(ctx context.Context, msg *types.MsgRegisterAsset) (*types.MsgRegisterAssetResponse, error) {
-	if msg.Authority != k.GetAuthority() {
-		return nil, errorsmod.Wrapf(types.ErrInvalidSigner, "expected %s, got %s", k.GetAuthority(), msg.Authority)
+	if err := k.assertAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if exists, err := k.Assets.Has(ctx, msg.Denom); err != nil {
 		return nil, err
@@ -34,8 +37,8 @@ func (k msgServer) RegisterAsset(ctx context.Context, msg *types.MsgRegisterAsse
 }
 
 func (k msgServer) SetAttestor(ctx context.Context, msg *types.MsgSetAttestor) (*types.MsgSetAttestorResponse, error) {
-	if msg.Authority != k.GetAuthority() {
-		return nil, errorsmod.Wrapf(types.ErrInvalidSigner, "expected %s, got %s", k.GetAuthority(), msg.Authority)
+	if err := k.assertAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if _, err := k.addressCodec.StringToBytes(msg.Attestor); err != nil {
 		return nil, errorsmod.Wrap(err, "invalid attestor address")
@@ -90,6 +93,15 @@ func (k msgServer) AttestDeposit(ctx context.Context, msg *types.MsgAttestDeposi
 	id := depositID(msg.Denom, msg.ExternalRef)
 
 	deposit, err := k.Deposits.Get(ctx, id)
+	if err != nil && !errors.Is(err, collections.ErrNotFound) {
+		// Anything other than "no such deposit" is a store failure, and a store
+		// failure is not a first attestation. Branching on err != nil alone
+		// built a fresh PENDING record over whatever was really there, which
+		// would drop the attestations already counted against it. x/treasury's
+		// getBalance and x/netting's GetNettedTotal both make this distinction;
+		// this one did not.
+		return nil, err
+	}
 	if err != nil {
 		deposit = types.Deposit{
 			Id:              id,
@@ -386,8 +398,8 @@ func (k msgServer) SettleRedemption(ctx context.Context, msg *types.MsgSettleRed
 }
 
 func (k msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if msg.Authority != k.GetAuthority() {
-		return nil, errorsmod.Wrapf(types.ErrInvalidSigner, "expected %s, got %s", k.GetAuthority(), msg.Authority)
+	if err := k.assertAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if err := msg.Params.Validate(); err != nil {
 		return nil, errorsmod.Wrap(types.ErrInvalidParams, err.Error())
@@ -398,3 +410,84 @@ func (k msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams)
 // depositID is derived from the asset and the source transaction, so every
 // attestor naming the same external payment lands on the same record.
 func depositID(denom, ref string) string { return denom + ":" + ref }
+
+// assertAuthority compares the signer against the governance address as bytes.
+//
+// Bech32 is case-insensitive and carries a checksum, so two strings can encode
+// the same address and not be equal — the uppercase form of an address is the
+// same account. A string comparison therefore refuses a signer it should
+// accept, which is the safe direction and is why no exploit follows from it,
+// but "the safe direction" is a poor reason to compare the wrong thing. Ten
+// modules on this chain decode and use bytes.Equal; this one now does too.
+func (k Keeper) assertAuthority(signer string) error {
+	addr, err := k.addressCodec.StringToBytes(signer)
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrInvalidSigner, "%s is not an address", signer)
+	}
+	expected, err := k.addressCodec.StringToBytes(k.GetAuthority())
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(expected, addr) {
+		return errorsmod.Wrapf(types.ErrInvalidSigner,
+			"expected %s as the governance authority, got %s", k.GetAuthority(), signer)
+	}
+	return nil
+}
+
+// WithdrawFees pays out the fees this module has earned.
+//
+// credit mints the full deposit and forwards the net, deliberately: the claim
+// outstanding has to equal the reserve held, or the solvency comparison is
+// wrong by the fee on every deposit ever made. The consequence is that the
+// module account accumulates the fee as claim tokens, and it has no key and no
+// message that spent them — so fee revenue was real, growing and
+// unrecoverable. The module was charging for a service and burying the
+// proceeds.
+//
+// Paid in claim tokens rather than in reserve, which keeps the invariant
+// intact: nothing is minted or burned here, a claim simply changes hands.
+// Whoever receives them redeems like anybody else, through the delay and the
+// attestation threshold — the custodian's own revenue leaves by the same door
+// as everybody else's money.
+func (k msgServer) WithdrawFees(ctx context.Context, msg *types.MsgWithdrawFees) (*types.MsgWithdrawFeesResponse, error) {
+	if err := k.assertAuthority(msg.Authority); err != nil {
+		return nil, err
+	}
+	if _, err := k.Assets.Get(ctx, msg.Denom); err != nil {
+		return nil, types.ErrUnknownAsset
+	}
+	recipient, err := k.addressCodec.StringToBytes(msg.Recipient)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "invalid recipient address")
+	}
+
+	// Derived rather than looked up: a module address is a hash of the module
+	// name and is the same on every chain, and this module holds no auth keeper.
+	moduleAddr := authtypes.NewModuleAddress(types.ModuleName)
+	available := k.bank.GetBalance(ctx, moduleAddr, msg.Denom).Amount
+
+	amount := msg.Amount
+	if amount.IsNil() || amount.IsZero() {
+		amount = available
+	}
+	if !amount.IsPositive() {
+		return nil, errorsmod.Wrapf(types.ErrInvalidAmount, "no %s fees have accrued", msg.Denom)
+	}
+	if amount.GT(available) {
+		return nil, errorsmod.Wrapf(types.ErrInvalidAmount,
+			"the module holds %s%s and this would pay out %s", available, msg.Denom, amount)
+	}
+
+	paid := sdk.NewCoin(msg.Denom, amount)
+	if err := k.bank.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, sdk.NewCoins(paid)); err != nil {
+		return nil, err
+	}
+
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent("custody_fees_withdrawn",
+		sdk.NewAttribute("denom", msg.Denom),
+		sdk.NewAttribute("amount", amount.String()),
+		sdk.NewAttribute("recipient", msg.Recipient),
+	))
+	return &types.MsgWithdrawFeesResponse{Paid: paid}, nil
+}

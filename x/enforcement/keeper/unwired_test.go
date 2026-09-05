@@ -45,6 +45,7 @@ func TestWithNoPerimeterRegistryEveryAuthorityPathRefuses(t *testing.T) {
 		f.env.AuthKeeper,
 		f.env.BankKeeper,
 		f.staking,
+		nil, // no x/distribution in this fixture: no rewards to reclaim
 		constitutiontestutil.Init(t, f.env, f.staking,
 			constitutiontestutil.Invariants(f.destinationStr)),
 		nil,
@@ -125,6 +126,7 @@ func TestWithNoConcentrationRegistryEveryEnforcementPowerRefuses(t *testing.T) {
 		f.env.AuthKeeper,
 		f.env.BankKeeper,
 		f.staking,
+		nil, // no x/distribution in this fixture: no rewards to reclaim
 		constitutiontestutil.Init(t, f.env, f.staking,
 			constitutiontestutil.Invariants(f.destinationStr)),
 		f.perimeter.Keeper,
@@ -181,6 +183,7 @@ func TestAValidatorOverACeilingCannotExerciseEnforcementPowers(t *testing.T) {
 		f.env.AuthKeeper,
 		f.env.BankKeeper,
 		f.staking,
+		nil, // no x/distribution in this fixture: no rewards to reclaim
 		constitutiontestutil.Init(t, f.env, f.staking,
 			constitutiontestutil.Invariants(f.destinationStr)),
 		f.perimeter.Keeper,

@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 
 	errorsmod "cosmossdk.io/errors"
@@ -119,9 +120,8 @@ func (k msgServer) RotateAlias(ctx context.Context, msg *types.MsgRotateAlias) (
 
 // UpdateParams sets the module parameters. Governance only.
 func (k msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if msg.Authority != k.GetAuthority() {
-		return nil, errorsmod.Wrapf(types.ErrInvalidSigner,
-			"expected %s, got %s", k.GetAuthority(), msg.Authority)
+	if err := k.assertAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if err := msg.Params.Validate(); err != nil {
 		return nil, errorsmod.Wrap(types.ErrInvalidParams, err.Error())
@@ -130,4 +130,28 @@ func (k msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams)
 		return nil, err
 	}
 	return &types.MsgUpdateParamsResponse{}, nil
+}
+
+// assertAuthority compares the signer against the governance address as bytes.
+//
+// Bech32 is case-insensitive and carries a checksum, so two strings can encode
+// the same address and not be equal — the uppercase form of an address is the
+// same account. A string comparison therefore refuses a signer it should
+// accept, which is the safe direction and is why no exploit follows from it,
+// but "the safe direction" is a poor reason to compare the wrong thing. Ten
+// modules on this chain decode and use bytes.Equal; this one now does too.
+func (k Keeper) assertAuthority(signer string) error {
+	addr, err := k.addressCodec.StringToBytes(signer)
+	if err != nil {
+		return errorsmod.Wrapf(types.ErrInvalidSigner, "%s is not an address", signer)
+	}
+	expected, err := k.addressCodec.StringToBytes(k.GetAuthority())
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(expected, addr) {
+		return errorsmod.Wrapf(types.ErrInvalidSigner,
+			"expected %s as the governance authority, got %s", k.GetAuthority(), signer)
+	}
+	return nil
 }

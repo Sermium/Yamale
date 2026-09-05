@@ -47,7 +47,13 @@ func TestGovernanceSetPowerAboveTheCapIsDemotedAnyway(t *testing.T) {
 	})
 	require.NoError(t, err, "governance sets power freely; the ceiling is enforced at the epoch")
 	require.Equal(t, uint64(3), res.Seats)
-	require.Equal(t, int64(3), f.staking.Seats(favoured))
+
+	// Three seats GRANTED, on top of the one this validator already held. A
+	// seat count is what the module's reserve has staked, not the validator's
+	// total power: the reserve can take back what it put in and nothing else,
+	// and measuring the target against the total meant a stranger's delegation
+	// could make a power reduction impossible.
+	require.Equal(t, int64(4), f.staking.Seats(favoured))
 
 	f.epoch(t, 2)
 
@@ -73,10 +79,11 @@ func TestGovernanceMayRaisePowerBelowTheCap(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Two of seven is 2857 basis points, inside a 4000 ceiling.
+	// Two granted on top of one held is three, of eight in the set: 3750 basis
+	// points, inside a 4000 ceiling.
 	f.epoch(t, 1)
 	require.False(t, f.demoted(t, favouredStr))
-	require.Equal(t, int64(2), f.staking.Seats(favoured))
+	require.Equal(t, int64(3), f.staking.Seats(favoured))
 }
 
 // Lowering a power gives the seats back to the reserve.
@@ -92,13 +99,57 @@ func TestGovernanceMayLowerPower(t *testing.T) {
 		Authority: f.env.AuthorityString(t), Validator: validatorStr, Seats: 4,
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(4), f.staking.Seats(validator))
+	require.Equal(t, int64(5), f.staking.Seats(validator))
 
 	_, err = ms.SetValidatorPower(f.env.Ctx, &types.MsgSetValidatorPower{
 		Authority: f.env.AuthorityString(t), Validator: validatorStr, Seats: 2,
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(2), f.staking.Seats(validator))
+
+	// Back to the one seat this validator held plus the two now granted. The
+	// seat it held was never the module's to take.
+	require.Equal(t, int64(3), f.staking.Seats(validator))
+}
+
+// M-5: delegation is permissionless, and a seat target measured against the
+// validator's total tokens let anybody block a governance decision.
+//
+// One MsgDelegate of any size made current exceed what the reserve held, and
+// releaseSeats then failed at ValidateUnbondAmount — the reserve does not hold
+// a stranger's stake and cannot unbond it. Governance could not lower that
+// validator's power until the stranger chose to unbond. The mirror was worse:
+// after a power was raised against an inflated current, the stranger
+// undelegating dropped the validator silently below what it was granted.
+func TestAStrangersDelegationCannotBlockAPowerReduction(t *testing.T) {
+	f := initFixture(t)
+	f.caps(t, noCeiling, noCeiling, noCeiling, 1)
+	f.env.FundModule(t, types.ModuleName, seatCoins(100))
+
+	validator, validatorStr := f.admit(t, "ENTITY-A", "OWNER-A", "CH", 1)
+
+	ms := keeperMsgServer(f)
+	_, err := ms.SetValidatorPower(f.env.Ctx, &types.MsgSetValidatorPower{
+		Authority: f.env.AuthorityString(t), Validator: validatorStr, Seats: 4,
+	})
+	require.NoError(t, err)
+
+	// A stranger delegates, permissionlessly, more than the reserve has staked.
+	stranger, _ := f.env.Addr(t)
+	stored, err := f.staking.GetValidator(f.env.Ctx, sdk.ValAddress(validator))
+	require.NoError(t, err)
+	_, err = f.staking.Delegate(f.env.Ctx, stranger,
+		sdk.DefaultPowerReduction.MulRaw(50), 0, stored, true)
+	require.NoError(t, err)
+
+	// Governance lowers the power anyway, because it is lowering its own grant.
+	_, err = ms.SetValidatorPower(f.env.Ctx, &types.MsgSetValidatorPower{
+		Authority: f.env.AuthorityString(t), Validator: validatorStr, Seats: 1,
+	})
+	require.NoError(t, err)
+
+	// One seat held, one granted, fifty from the stranger. The module took back
+	// exactly the three it had put in and touched nothing else.
+	require.Equal(t, int64(52), f.staking.Seats(validator))
 }
 
 // The reserve is funded, not minted. A module that could both decide who
@@ -148,4 +199,36 @@ func TestSetValidatorPowerRefusesAnUnapprovedValidator(t *testing.T) {
 		Authority: f.env.AuthorityString(t), Validator: strangerStr, Seats: 2,
 	})
 	require.ErrorIs(t, err, types.ErrNotApprovedValidator)
+}
+
+// M-8: the ante decorator is not the only road into MsgCreateValidator.
+//
+// It descends into MsgExec, which closes the authz route. x/group execution
+// takes a different one: a passed proposal dispatches its messages straight
+// through the message router, after the ante chain has run — and both
+// chain-wide foundation administrators on this chain are x/group accounts, so
+// either could have created a validator for a candidate nobody voted on.
+// Interchain accounts arrive the same way.
+//
+// The gate is therefore also a staking hook, which x/staking calls from inside
+// CreateValidator and whose error fails the message. This exercises the hook
+// directly, because that is the layer the finding is about: a transaction test
+// would go through the decorator and prove nothing.
+func TestTheValidatorGateHoldsWhereTheAnteChainDoesNotRun(t *testing.T) {
+	f := initFixture(t)
+	f.caps(t, noCeiling, noCeiling, noCeiling, 1)
+
+	hooks := f.keeper.Hooks()
+	ctx := f.env.Ctx.WithBlockHeight(1)
+
+	unapproved, _ := f.env.Addr(t)
+	require.Error(t, hooks.AfterValidatorCreated(ctx, sdk.ValAddress(unapproved)),
+		"an unapproved candidate reached the staking keeper and was created")
+
+	approved, _ := f.admit(t, "ENTITY-OK", "OWNER-OK", "CH", 1)
+	require.NoError(t, hooks.AfterValidatorCreated(ctx, sdk.ValAddress(approved)))
+
+	// Height zero is the gentx ceremony, which is how the founding set is
+	// onboarded and is deliberately outside the vote.
+	require.NoError(t, hooks.AfterValidatorCreated(f.env.Ctx.WithBlockHeight(0), sdk.ValAddress(unapproved)))
 }

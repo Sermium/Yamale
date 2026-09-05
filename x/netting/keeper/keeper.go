@@ -67,6 +67,16 @@ type Keeper struct {
 	// somebody's collateral has been locked since April.
 	HeldSince collections.Map[collections.Pair[uint64, string], uint64]
 
+	// RetryCursor and EscalateCursor are where the bounded sweeps below pick
+	// up. Both walks used to run the whole collection every cycle boundary with
+	// nothing capping the work, on a chain whose consensus max_gas is -1 — and
+	// an error returned from an end blocker halts the chain rather than failing
+	// a message. Bounding them without a cursor would have been worse than not
+	// bounding them: the same first slices retried forever, everything behind
+	// them never.
+	RetryCursor    collections.Item[string]
+	EscalateCursor collections.Item[string]
+
 	// NettedTotal is what each participant has put into the window as a debtor,
 	// per (cycle, denom). Read by the aggregate gross threshold and by nothing
 	// else; settlement does not consult it, because the money that settles is
@@ -125,6 +135,11 @@ func NewKeeper(
 		HeldSince: collections.NewMap(sb, types.HeldSinceKey, "heldSince",
 			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
 			collections.Uint64Value),
+
+		RetryCursor: collections.NewItem(sb, types.RetryCursorKey, "retryCursor",
+			collections.StringValue),
+		EscalateCursor: collections.NewItem(sb, types.EscalateCursorKey, "escalateCursor",
+			collections.StringValue),
 
 		NettedTotal: collections.NewMap(sb, types.NettedTotalKey, "nettedTotal",
 			collections.TripleKeyCodec(collections.Uint64Key, collections.StringKey, collections.StringKey),

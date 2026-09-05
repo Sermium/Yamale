@@ -91,10 +91,32 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					},
 				},
 				{
-					RpcMethod:      "RegisterCustomer",
-					Use:            "register-customer [customer] [registered]",
-					Short:          "Record, or remove, an account as banking with you",
+					RpcMethod: "RegisterCustomer",
+					Use:       "register-customer [customer] [registered]",
+					Short:     "Claim, or release, an account as banking with you",
+					Long: "Claim an account as banking with you.\n\n" +
+						"A claim, not a relationship: you are the only signer here, so on its\n" +
+						"own this is your institution asserting something about somebody\n" +
+						"else's account. It does nothing until that account confirms it with" +
+						" confirm-participant, and a payment naming you as instructing agent\n" +
+						"is refused until then.",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "customer"}, {ProtoField: "registered"}},
+				},
+				{
+					RpcMethod: "ConfirmParticipant",
+					Use:       "confirm-participant [participant] [confirm]",
+					Short:     "Confirm, or refuse, an institution's claim to bank you",
+					Long: "Confirm or refuse an institution's claim to bank you.\n\n" +
+						"Signed by you, the account. Until you confirm, the claim carries no\n" +
+						"weight and no payment may name that institution as instructing yours.\n\n" +
+						"Pass false to refuse, or to leave later. That removes the record\n" +
+						"entirely and frees you to bank elsewhere. One participant may hold an\n" +
+						"account at a time, so without this the institution that claimed you\n" +
+						"first could keep you.",
+					Example: "blockchaind tx paymsg confirm-participant yml1bank... true --from me",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "participant"}, {ProtoField: "confirm"},
+					},
 				},
 				{
 					RpcMethod: "SetPayloadStore",

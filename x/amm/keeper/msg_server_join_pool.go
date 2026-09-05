@@ -34,9 +34,20 @@ func (k msgServer) JoinPool(ctx context.Context, msg *types.MsgJoinPool) (*types
 		return nil, errorsmod.Wrapf(types.ErrInvalidAmount, "invalid amountB %s", msg.AmountB)
 	}
 
-	reserveA, _ := math.NewIntFromString(pool.ReserveA)
-	reserveB, _ := math.NewIntFromString(pool.ReserveB)
-	totalShares, _ := math.NewIntFromString(pool.TotalShares)
+	// See the note in Swap: a discarded parse error here is a nil math.Int and
+	// a panic at first use, and a zero reserve is a division by zero.
+	reserveA, okA := math.NewIntFromString(pool.ReserveA)
+	reserveB, okB := math.NewIntFromString(pool.ReserveB)
+	totalShares, okS := math.NewIntFromString(pool.TotalShares)
+	if !okA || !okB || !okS {
+		return nil, errorsmod.Wrapf(types.ErrCorruptPool,
+			"pool %d holds reserves %q and %q against %q shares",
+			msg.PoolId, pool.ReserveA, pool.ReserveB, pool.TotalShares)
+	}
+	if !reserveA.IsPositive() || !reserveB.IsPositive() || !totalShares.IsPositive() {
+		return nil, errorsmod.Wrapf(types.ErrCorruptPool,
+			"pool %d has nothing in it, so there is no price to join at", msg.PoolId)
+	}
 
 	// requiredB = ceil(reserveB * amountA / reserveA), and
 	// sharesMinted = floor(totalShares * amountA / reserveA).

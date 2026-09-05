@@ -110,6 +110,25 @@ UpdateParams sets the module parameters. Governance.
 | `authority` | string |  |
 | `params` | Params |  |
 
+### MsgWithdrawFees
+
+`/blockchain.custody.v1.MsgWithdrawFees`
+
+Signed by the `authority` field.
+
+MsgWithdrawFees pays out the fees this module has earned.
+
+credit mints the full deposit and forwards the net, deliberately: the claim outstanding has to equal the reserve held, or the solvency comparison is wrong by the fee on every deposit ever made. The consequence is that the module account accumulates the fee as claim tokens, and it has no key. Fee revenue was therefore real, growing, and unrecoverable — the module was charging for a service and burying the proceeds.
+
+Governance only, and it pays out claim tokens rather than reserve. Whoever receives them redeems like anybody else, through the delay and the attestation threshold, which is the point: the custodian's own revenue leaves by the same door as everybody else's money.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `denom` | string |  |
+| `recipient` | string |  |
+| `amount` | string | Empty or zero withdraws everything the module holds in that denomination. |
+
 ## Queries
 
 ### Assets

@@ -4,14 +4,17 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-**Chain state** last verified 2026-09-01, against `yamale-devnet-2` at block
-141,500 — queried over `https://yamale.tail4355e8.ts.net/api/rpc/`, and every
-figure below that reads as chain state was read from that node on that day.
+**Chain state** last verified 2026-09-05, against `yamale-devnet-2` at block
+196,559, queried over `https://yamale.tail4355e8.ts.net/api/rpc/`. That sweep
+covered the audit rows below and nothing else, so **a figure here carries the
+date it was read** — most of the rest were read on 2026-09-01 at block 141,500
+and say so. A figure with no date is older than both and should be re-read
+before it is relied on.
 
-**Repository state** last verified 2026-09-03, which is a weaker claim and is
+**Repository state** last verified 2026-09-05, which is a weaker claim and is
 labelled separately on purpose: it means the code exists and its tests pass, not
-that anything has run on the network. The account-service rows added that day
-are all of this kind.
+that anything has run on the network. The audit-remediation rows and the
+account-service rows are both of this kind.
 
 **The hostname in that sentence is itself a correction.** Every previous
 verification queried `pay.yamalelegal.com`, which is the VM — and the VM is not
@@ -367,7 +370,319 @@ could reasonably have gone the other way:
    account, out of reach. A freeze blocks posting and withdrawing, so value
    cannot escape — but a seizure cannot reach it either.
 
+## The devnet-2 audit, and what it left for the chain
+
+An independent security and functional audit was performed against
+`yamale-devnet-2` on **2026-09-03**, at blocks 170,022-170,225 and repository
+commit `dd23f06`. Read-only throughout. Its own summary is the fair one:
+
+> Unusually disciplined module code, running on a network whose configuration
+> undoes most of what that code protects.
+
+3 critical, 6 high, 11 medium, 8 low, 7 functional. The code findings were
+closed on **2026-09-05** and are listed under "Known defects" below. This
+section is what the audit found that **code cannot close** — every row here
+needs a transaction, a vote or a key ceremony, and none of it has been done.
+
+**Verified still live on 2026-09-05** against the funnel at block 196,559.
+
+### The one that makes the rest of the list conditional
+
+**887,940,502.67 YML is claimable by one operator with a single
+`MsgWithdrawDelegatorReward`.** Bonded stake is 174,900 YML, so that is 5,077
+times the entire bonded total, and a `MsgDelegate` of any fraction of it puts
+one account above 99.9% of voting power in one block. That defeats governance
+quorum (33.4%), the enforcement supermajority (66.67%) and the constitutional
+amendment threshold (80%). Every one of the eight proposals this chain has
+passed carried 65,000 YML of yes votes and nothing else.
+
+This is not a code defect. Every module correctly asks whether the signer holds
+two thirds of power; the answer is purchasable because power is measured against
+a bonded total four orders of magnitude smaller than the float.
+
+Where it came from: `genesis_provisions_per_block` is 3,333,333,333,333 uyml —
+3.33 million YML a block — decaying by a third every 100 blocks. The schedule
+minted 997.8 million YML in roughly the first four thousand blocks and then
+truncated to zero. `current_provisions_per_block` reads `0` today, so **the
+exposure is fixed rather than growing**, which is the only good news in this
+row: supply and outstanding rewards have not moved since the audit read them.
+
+What has to happen, and in this order:
+
+1. Withdraw the outstanding rewards and either burn them or bond them, so the
+   bonded total is a meaningful fraction of the float. Nothing else in this
+   list matters while every threshold is purchasable.
+2. Set `min_commission_rate` and revisit the emission schedule before any
+   future chain is launched from this genesis.
+3. Separate the governance franchise from raw bonded stake. On a permissioned
+   validator set, one-seat-one-vote through x/group — or an equal-power
+   invariant — is the model the rest of this design already assumes.
+
+Most of the second validator's rewards accrue to the `validatorgov` module
+account, which delegates the seat bonds and has no key to sign a withdrawal.
+Those are permanently unreachable and should be counted as burned.
+
+### Configuration, measured in minutes
+
+- **The oracle feeder key is the admin of a funded treasury.**
+  `yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas` is both the delegated feeder for
+  `ymlvaloper1cgguvt0hvdg2602flzan9shg0g56ruje62ug5j` and the admin of treasury
+  2, "Lagos Field Operations" — 900 NGN, 650 XOF, 700 YML and a 400 YML vesting
+  lock. The shipped unit file said `FEEDER_KEYRING=test`, an unencrypted keyring
+  on the validator host, and the trust model written beside it says a
+  compromised feeder "cannot touch the stake". It cannot. It can empty a
+  treasury: the 50 YML per-spend cap is not a bound against the admin, because
+  `SetSpendPolicy` is admin-only. **The example file is fixed; the treasury
+  admin is not.** Rotate it to a separate key, ideally an x/group account.
+
+- **The ombudsman is unset**, so `MsgOmbudsmanVeto` — the only message that can
+  stop a seizure that has passed and is waiting out its delay — has no holder.
+  What remains is a 79-minute or 5-hour delay whose only recourse is a
+  governance `MsgReverseCase`, which on this chain is the same voter that could
+  have passed the seizure.
+
+- **The rolling seizure cap covers one denomination out of forty-eight.**
+  `seizure_window_cap` lists only `uyml` at 500 YML. A seizure of any of the 43
+  fiat currencies, or of an `amm/pool/*` or `tok/*` denom, is bounded only by
+  `max_seizures_per_window`: 5 per 31.6 hours, at any size. The code comment
+  anticipated exactly this; the configuration has not followed it.
+
+- **No payment participant is approved**, so `MsgSendPayment` cannot succeed for
+  anybody and `x/netting` is in the same state. The payments product the public
+  hostname is named for has no live rail behind it.
+
+- **Only CD has a national authority granted.** NG, ZA and CI are empty, and
+  because `AssertScope` fails closed, every message that accepts "governance or
+  a scoped authority" is governance-only outside CD — which on this chain means
+  the single voter above.
+
+- **The oracle's vote threshold is met by one validator alone.**
+  `vote_threshold_bps` is 5,000 and the larger validator holds 5,717, so it
+  satisfies the threshold by itself and its own rate is the weighted median. On
+  a two-validator set the threshold has to exceed 5,717 for the median to mean
+  anything.
+
+- **The oracle has no on-chain consumer.** `types.ValueOf` and `types.IsStale`
+  are called nowhere outside `x/oracle`. The rates are published and healthy;
+  nothing on the chain prices anything against them, which is also why oracle
+  manipulation is not rated higher.
+
+- **Both validators must be online for the chain to produce blocks**, and the
+  larger one alone can halt it. The public hostname rests on one consumer
+  tunnel and two hosts that must both stay up. See
+  [three-validator-launch-facts].
+
+### The one that cannot be done quickly
+
+**The concentration ceilings are 100% and cover no validator.** All three
+invariants read 10,000 basis points, and `Invariants.Validate()` permits that
+while refusing zero — so a genesis can declare ceilings that bind nobody and
+still pass validation. Even a real ceiling would apply to nobody:
+`activeSeatHolders` needs an `ApprovedValidator` declaration and the live query
+returns an empty set, because both validators were onboarded through the gentx
+ceremony. The founding set was never declared, which is what the code comment
+says the remedy is. The same emptiness disarms `assertWithinCaps`, the
+precondition x/enforcement runs before every freeze.
+
+Because these are constitutional invariants rather than params, correcting them
+needs a proposed amendment, 80% ratification and a 120,960-block delay: **9.2
+days minimum, whenever it starts**. `Invariants.Validate()` should also refuse a
+ceiling of exactly `BasisPoints` with the same directness it refuses zero — a
+ceiling that binds nobody is as much a contradiction as one that binds
+everybody. That part is a code change and is **not** done, because it belongs in
+the same amendment as the figures.
+
+### The gate that stops at the wall
+
+`abci_query` on `/api/rpc/` reaches every registered query service, so the REST
+allow-list is a lock on a door in a wall that stops there. The decision taken on
+2026-09-05 was to **open `x/land` and `paymsg` params on REST and say so**,
+since the data was already reachable — see `deploy/nginx/yamale-visibility.conf`.
+
+**Payment records and `x/netting` stay closed, and closing them there does not
+close them.** The deny list matches on the URL path while the JSON-RPC form
+carries the method in the POST body, so a path regex cannot fix it: the real
+options are `njs` body inspection with an allow-list of `abci_query` paths, or
+moving the client reads to REST. `deploy.sh` now probes the bypass on every
+deploy and prints a warning while it stands. It costs nothing today because no
+payment has ever been made on this chain. It must be closed before one is.
+
+### Two things the audit did not cover
+
+- `tools/custodian`, `tools/mpc`, the feeder and the payload store were read
+  only where they touch the chain. **The threshold-signature implementation in
+  `mpc/` warrants its own cryptographic review** and was deliberately left
+  alone, being under active modification at the time.
+- The in-browser key-generation page at `/keys/` deserves a dedicated review
+  given what it handles — and it is served with no Content-Security-Policy. See
+  the security-headers row under "Operational loose ends".
+
+---
+
 ## Known defects
+
+### Closed on 2026-09-05, from the devnet-2 audit
+
+All in the tree, none of them yet running on the chain — the same distinction
+the paragraph below draws, and the reason it is drawn. Every one has a
+regression test that fails on the code as it was.
+
+- **`x/treasury`: an escrow and a lock could be issued the same id.**
+  `OpenEscrow` took the next sequence value and then incremented it while
+  `CreateLock` did not, so the next ordinary lock created on the chain took the
+  escrow's id and overwrote the record — leaving the depositor's money in the
+  module account with no owner and no handler that would release it. The
+  increment is gone; `InitGenesis` has always seeded the sequence at one, which
+  is where a guard against id zero belongs. The keeper fixture went through
+  `Params.Set` alone, so it ran against a state no chain is ever in; it now
+  initialises genesis, which is what exposed where the guard was living.
+
+- **`x/tokenisation`: a vehicle that funded nothing could drain another's
+  vault.** `FinaliseSale` credited the whole reported sale price to the index
+  while moving no coins, and one module account serves every vehicle. There is
+  now a per-vehicle ledger of what the module holds on whose behalf: nothing
+  reaches an index the vehicle does not already hold, and no payout exceeds it.
+  Proceeds arrive through `MsgPaySaleProceeds`, permissionless so a sponsor who
+  goes quiet cannot strand the holders. The repository already half-knew — the
+  exit test called it "the proceeds hole" and asserted the broken behaviour so
+  that whoever fixed it would have to look.
+
+- **`x/tokenisation`: the sponsor's share was taken and never paid back.**
+  `FundVault` transferred the whole payment into the module account and credited
+  only `holder_share_bps` to the index. On a vehicle with a 2,500 bps share
+  three quarters of every rent payment was stranded. It now collects the
+  holders' share and leaves the rest where the message always said it stayed.
+
+- **`x/tokenisation`: a dispute bond had no way out.** It went into the shared
+  module account and no message returned it or awarded it. It now goes back to
+  the challenger when the price is corrected and forfeits whole to the holders
+  when it is not — whole, because a penalty for delaying the holders is not
+  income from the asset and the sponsor has no claim on it. Not in the audit;
+  found while building the ledger above.
+
+- **`x/stablecoin` and `x/builderfee`: a rejected application killed its key
+  forever.** Both registrations are permissionless and keyed by a permanent
+  identifier, both refuse a second application for a key that already has one,
+  and neither had a withdrawal, expiry or clearing path — so one transaction fee
+  bought the right to stop anybody ever registering `uusd`, or ever claiming the
+  builder fee on a message type. Rejection now removes the record.
+  `msg_type_url` was additionally unbounded and unvalidated, making it an
+  arbitrary-length attacker-chosen store key; it is now bounded in shape and
+  length and must name a message this chain can route.
+
+- **`x/stablecoin`: mint was unbounded and an issuer could not be removed.**
+  Being the recorded issuer was the whole authorisation — no cap, no period
+  limit, no reserve check — on a chain where one key is the approved issuer for
+  all 43 currencies. Minting is now bounded by a supply ceiling in params, and
+  an unset ceiling means **no minting** rather than unlimited minting, so a
+  chain upgraded past this waits for governance to state a figure. And
+  `MsgRevokeIssuer` did not exist: `ApproveIssuer` refuses an application that
+  is no longer pending, so a compromised issuer key could not be answered
+  without a chain upgrade.
+
+- **`x/custody`: two attestors to credit a deposit, one to settle a redemption
+  or to state the reserve.** Settlement now takes the threshold, with the first
+  attestor's `settled_ref` standing as a proposal a second must confirm rather
+  than contradict. The published reserve is derived from per-attestor reports —
+  enough fresh ones, and the lowest counts, because a reserve moves and a rule
+  demanding exact agreement would deadlock the module rather than secure it. And
+  `credit` now checks issuance against that figure, which nothing did:
+  `solvencyOf` was called only from the query server, so the chain would mint
+  past its reserves and report the shortfall in a number nobody was obliged to
+  read.
+
+- **`x/custody`: fee revenue was unrecoverable.** `credit` mints the full
+  deposit and forwards the net, deliberately — the claim outstanding has to
+  equal the reserve held. The fee therefore accumulated as claim tokens in a
+  module account with no key and no message that spent them.
+  `MsgWithdrawFees` pays them out as claims, so the custodian's own revenue
+  leaves by the same door as everybody else's money.
+
+- **`x/validatorgov`: anyone could block a governance decision by delegating.**
+  `SetValidatorPower` compared the seat target against `validator.Tokens` —
+  every delegation, not just the module reserve's — and delegation is
+  permissionless. One `MsgDelegate` of any size made `releaseSeats` fail, and
+  governance could not lower that validator's power until the stranger chose to
+  unbond. The mirror was worse: after a power was raised against an inflated
+  figure, the stranger undelegating dropped the validator silently below what it
+  was granted. Seats are now measured against the reserve's own delegation. Note
+  the consequence: a seat count is what governance has staked, so a validator's
+  total power is its own bond plus its seats.
+
+- **`x/validatorgov`: x/group execution bypassed the ante gate.** The decorator
+  descends into `MsgExec`, which closes the authz route; a passed group proposal
+  dispatches straight through the message router after the ante chain has run,
+  and both chain-wide foundation administrators are x/group accounts. The gate
+  is now also a staking hook, delivered as a `StakingHooksWrapper` because
+  x/staking sets its hooks from a depinject invoker and calling `SetHooks`
+  afterwards panics.
+
+- **`x/enforcement`: a freeze did not follow the staking rewards.** A send
+  restriction fires on the sender, and the sender on a reward payout is the
+  distribution module account — so a frozen account could point its withdraw
+  address at an unfrozen one and take out everything accruing during the freeze,
+  which on this chain is the overwhelming majority of what an account controls.
+  The freeze now resets the withdraw address, which is a state change rather
+  than a gate: nothing routes around it, and it covers a redirect set long
+  before the case was opened.
+
+- **`x/emission`: the block reward was minted against a package global.**
+  `sdk.DefaultBondDenom` is a variable `app/config.go`'s `init()` rewrites, so
+  it was correct only while the app package happened to be linked in, and a
+  governance change to `bond_denom` would have left emission minting the old
+  denomination into the fee collector indefinitely. It asks the staking keeper
+  now, as x/validatorgov and x/enforcement already did.
+
+- **`x/paymsg`: a participant could claim any account as its customer.**
+  Registration is signed by the participant alone and one participant per
+  customer is enforced, so the first institution to claim an address owned the
+  relationship: it could be named as instructing agent on that account's
+  payments, and only it could let the account go. A claim is now only a claim —
+  `MsgConfirmParticipant` is signed by the account, `assertInstructedBy`
+  requires the confirmation, and refusing frees the account to bank elsewhere.
+
+- **`x/netting`: the end blocker walked unbounded collections.** `retryHeldSlices`
+  walked every held slice and, for each, every position in its cycle;
+  `escalateOldHolds` walked all of `HeldSince`. Neither had a per-block bound,
+  consensus `max_gas` is -1, and an error out of an end blocker halts the chain
+  rather than failing a message. Both are now bounded at 256 a block and resume
+  from a cursor — a bound without one would have retried the same first slices
+  forever.
+
+- **`x/amm`: three ways a pool ended up unusable.** A complete exit left
+  reserves and shares at zero, and the next join divided by a zero reserve; a
+  swap whose output truncated to zero took payment and returned nothing, settled
+  rather than refused, on any call passing `min_amount_out` of zero; and the
+  reserves were parsed with the error discarded, which yields a `math.Int` with
+  a nil inner value that panics on first use. All three refused now.
+
+- **`x/land`: transfer ids started at zero.** `RegisterParcel` carried an
+  explicit guard and `ProposeTransfer` did not, so the first transfer on any
+  chain was transfer 0 — and a client omitting `transfer_id` from a
+  `MsgValidateTransfer` would have addressed it rather than being refused.
+
+- **`x/custody`: a store error was read as not-found.** Branching on `err != nil`
+  alone built a fresh pending deposit over whatever was really there, dropping
+  the attestations already counted against it.
+
+- **`x/treasury`: an escrow with a lost moderator had no exit.** The argument
+  against a deadline stands — an automatic release rewards the seller who
+  shipped nothing and waited — but a dispute opened against a moderator whose
+  key is then lost could not be settled by any message. Governance can now
+  decide a case somebody opened, and only such a case: a quiet lock is still
+  nobody's but the depositor's.
+
+- **`x/alias` and `x/custody` compared the governance authority as a string.**
+  Bech32 is case-insensitive, so this refused a signer it should accept — the
+  safe direction, and no exploit follows, which is a poor reason to keep
+  comparing the wrong thing. Ten other modules decode and use `bytes.Equal`.
+
+- **`x/amm` is permissionless on a chain where nothing else that moves value
+  is.** Left open, and now argued for in the handler rather than left as an
+  omission — see `CreatePool`. A deployment that needs the perimeter to cover
+  pools will have to gate creation the way x/stablecoin gates minting.
+
+---
 
 **Closed in the tree is not closed on the chain.** The five `x/tokenisation`
 defects struck through below were fixed on 2026-08-27 and were still being

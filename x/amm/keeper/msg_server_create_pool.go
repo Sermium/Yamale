@@ -11,10 +11,30 @@ import (
 )
 
 // CreatePool creates a new constant-product (x*y=k) pool for two denoms,
-// funded by the creator's initial deposit. Pool creation is permissionless,
-// mirroring how AMM pools work on other Cosmos chains (Osmosis, Sifchain).
-// Initial LP shares are minted as sqrt(amountA*amountB), the standard
-// Uniswap-v2-style bootstrap.
+// funded by the creator's initial deposit. Initial LP shares are minted as
+// sqrt(amountA*amountB), the standard Uniswap-v2-style bootstrap.
+//
+// # Permissionless, on a chain where nothing else that moves value is
+//
+// This is a deliberate inconsistency and it is worth stating rather than
+// leaving to be discovered. Any signer may open a pool over any two valid
+// denominations, including the 43 licensed fiat currencies and the LP shares of
+// other pools — while x/paymsg, x/netting and x/stablecoin all gate the same
+// currencies on approved participants or issuers and on the x/alias perimeter.
+// Transferable LP shares are also a route for value to move between accounts
+// that the perimeter never sees.
+//
+// The reasoning for leaving it open: this module exists to price the chain's
+// own assets against each other, an AMM whose pools are a governance decision
+// is not a market, and every path that could be used to launder value through a
+// pool still ends in a bank transfer — which is where the freeze, the blocked
+// module accounts and the tokenisation settle restriction all sit. What is NOT
+// argued is that the perimeter covers this: it does not, and a deployment that
+// needs it to will have to gate CreatePool on an approved-issuer check the way
+// x/stablecoin gates minting.
+//
+// Recorded in docs/scope/gaps.md so the decision is reversible by whoever
+// disagrees, rather than being an omission nobody made.
 func (k msgServer) CreatePool(ctx context.Context, msg *types.MsgCreatePool) (*types.MsgCreatePoolResponse, error) {
 	creatorBz, err := k.addressCodec.StringToBytes(msg.Creator)
 	if err != nil {

@@ -19,15 +19,23 @@ func payCoins(amount int64) sdk.Coins {
 	return sdk.NewCoins(sdk.NewCoin(payDenom, math.NewInt(amount)))
 }
 
-// newCustomer funds an account and registers it as banking with the given
-// participant, which is what entitles its payments to name that participant as
-// their instructing agent.
+// newCustomer funds an account, has the participant claim it, and has the
+// account confirm the claim — which together are what entitle its payments to
+// name that participant as their instructing agent.
+//
+// The confirmation is the second half and it is not optional. Registration is
+// signed by the participant alone, so a claim on its own is one institution
+// asserting something about somebody else's account.
 func newCustomer(t *testing.T, f *fixture, ms types.MsgServer, participant string, funding int64) (sdk.AccAddress, string) {
 	t.Helper()
 
 	addr, addrStr := f.env.NewFundedAddr(t, payCoins(funding))
 	_, err := ms.RegisterCustomer(f.ctx, &types.MsgRegisterCustomer{
 		Participant: participant, Customer: addrStr, Registered: true,
+	})
+	require.NoError(t, err)
+	_, err = ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: addrStr, Participant: participant, Confirm: true,
 	})
 	require.NoError(t, err)
 	return addr, addrStr
@@ -354,4 +362,113 @@ func TestSendPaymentMultiplePayments(t *testing.T) {
 
 	require.Equal(t, math.NewInt(700_000), f.env.Balance(debtor, payDenom))
 	require.Equal(t, math.NewInt(300_000), f.env.Balance(creditor, payDenom))
+}
+
+// M-3: RegisterCustomer is signed by the participant alone, and one participant
+// per customer means the first to claim an account owned it.
+//
+// The comment defending that said it prevented impersonation, and it does
+// prevent the SECOND participant impersonating — it did nothing about the
+// first. An approved institution could attach itself to any address on the
+// chain, be named as the instructing participant on that account's payments,
+// and lock it out of banking anywhere else, with only the claimant able to
+// release it.
+func TestAClaimedAccountIsNotYetACustomer(t *testing.T) {
+	f := initFixture(t)
+	ms := keeper.NewMsgServerImpl(f.keeper)
+
+	_, bank := newParticipant(t, f, ms, "AAAA", "First Bank", true)
+	_, other := newParticipant(t, f, ms, "BBBB", "Second Bank", true)
+
+	// An account that never asked for any of this.
+	victim, victimStr := f.env.NewFundedAddr(t, payCoins(1_000_000))
+	_, creditor := f.env.Addr(t)
+
+	_, err := ms.RegisterCustomer(f.ctx, &types.MsgRegisterCustomer{
+		Participant: bank, Customer: victimStr, Registered: true,
+	})
+	require.NoError(t, err, "a claim is allowed; it is what a claim MEANS that changed")
+
+	// The claim buys nothing. The bank cannot name itself on the account's
+	// payments, which is where the PaymentRecord gets its meaning.
+	_, err = ms.SendPayment(f.ctx, &types.MsgSendPayment{
+		InstructingParticipant: bank,
+		InstructedParticipant:  other,
+		Debtor:                 victimStr,
+		Creditor:               creditor,
+		Denom:                  payDenom,
+		Amount:                 "1000",
+		EndToEndId:             "E2E-CLAIMED",
+	})
+	require.ErrorIs(t, err, types.ErrNotACustomer)
+
+	// And the account is not locked in: refusing frees it, so a second
+	// institution can claim it and the account can confirm that one instead.
+	_, err = ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: victimStr, Participant: bank, Confirm: false,
+	})
+	require.NoError(t, err)
+
+	_, err = ms.RegisterCustomer(f.ctx, &types.MsgRegisterCustomer{
+		Participant: other, Customer: victimStr, Registered: true,
+	})
+	require.NoError(t, err, "the account is still held by the institution it refused")
+	_, err = ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: victimStr, Participant: other, Confirm: true,
+	})
+	require.NoError(t, err)
+
+	_, err = ms.SendPayment(f.ctx, &types.MsgSendPayment{
+		InstructingParticipant: other,
+		InstructedParticipant:  bank,
+		Debtor:                 victimStr,
+		Creditor:               creditor,
+		Denom:                  payDenom,
+		Amount:                 "1000",
+		EndToEndId:             "E2E-CONFIRMED",
+	})
+	require.NoError(t, err)
+	require.Equal(t, math.NewInt(1_000), f.env.Balance(mustBytes(t, f, creditor), payDenom))
+	_ = victim
+}
+
+// A confirmation names the participant it confirms, so it cannot be replayed
+// against a claim the account never read.
+func TestAConfirmationNamesWhatItConfirms(t *testing.T) {
+	f := initFixture(t)
+	ms := keeper.NewMsgServerImpl(f.keeper)
+
+	_, bank := newParticipant(t, f, ms, "AAAA", "First Bank", true)
+	_, other := newParticipant(t, f, ms, "BBBB", "Second Bank", true)
+	_, customerStr := f.env.Addr(t)
+
+	_, err := ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: customerStr, Participant: bank, Confirm: true,
+	})
+	require.ErrorIs(t, err, types.ErrNotACustomer, "confirmed a claim nobody made")
+
+	_, err = ms.RegisterCustomer(f.ctx, &types.MsgRegisterCustomer{
+		Participant: bank, Customer: customerStr, Registered: true,
+	})
+	require.NoError(t, err)
+
+	_, err = ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: customerStr, Participant: other, Confirm: true,
+	})
+	require.ErrorIs(t, err, types.ErrNotACustomer, "confirmed the wrong institution")
+
+	// Leaving something that was never there is not an error: the account
+	// wanted not to bank there, and it does not.
+	_, unclaimed := f.env.Addr(t)
+	_, err = ms.ConfirmParticipant(f.ctx, &types.MsgConfirmParticipant{
+		Customer: unclaimed, Participant: bank, Confirm: false,
+	})
+	require.NoError(t, err)
+}
+
+func mustBytes(t *testing.T, f *fixture, addr string) sdk.AccAddress {
+	t.Helper()
+	b, err := f.env.AddressCodec.StringToBytes(addr)
+	require.NoError(t, err)
+	return b
 }

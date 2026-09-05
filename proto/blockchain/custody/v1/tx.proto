@@ -3,6 +3,7 @@ package blockchain.custody.v1;
 
 import "amino/amino.proto";
 import "blockchain/custody/v1/params.proto";
+import "cosmos/base/v1beta1/coin.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
@@ -21,6 +22,7 @@ service Msg {
   rpc AttestDeposit(MsgAttestDeposit) returns (MsgAttestDepositResponse);
   // ReportReserve states what the custodian holds against an asset.
   rpc ReportReserve(MsgReportReserve) returns (MsgReportReserveResponse);
+  rpc WithdrawFees(MsgWithdrawFees) returns (MsgWithdrawFeesResponse);
   // RequestRedemption burns a claim and queues the payout.
   rpc RequestRedemption(MsgRequestRedemption) returns (MsgRequestRedemptionResponse);
   // SettleRedemption records that the payout was made.
@@ -105,6 +107,38 @@ message MsgReportReserve {
 
 // MsgReportReserveResponse is empty.
 message MsgReportReserveResponse {}
+
+// MsgWithdrawFees pays out the fees this module has earned.
+//
+// credit mints the full deposit and forwards the net, deliberately: the claim
+// outstanding has to equal the reserve held, or the solvency comparison is
+// wrong by the fee on every deposit ever made. The consequence is that the
+// module account accumulates the fee as claim tokens, and it has no key. Fee
+// revenue was therefore real, growing, and unrecoverable — the module was
+// charging for a service and burying the proceeds.
+//
+// Governance only, and it pays out claim tokens rather than reserve. Whoever
+// receives them redeems like anybody else, through the delay and the
+// attestation threshold, which is the point: the custodian's own revenue leaves
+// by the same door as everybody else's money.
+message MsgWithdrawFees {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/custody/MsgWithdrawFees";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+  string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Empty or zero withdraws everything the module holds in that denomination.
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+message MsgWithdrawFeesResponse {
+  cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+}
 
 // MsgRequestRedemption burns the claim and queues the payout.
 message MsgRequestRedemption {

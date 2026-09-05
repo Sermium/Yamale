@@ -19,6 +19,14 @@ type fixture struct {
 	env          *integration.Env
 }
 
+// stubStaking names the bond denomination, which is the one thing emission
+// asks x/staking. Named explicitly here rather than left to sdk.DefaultBondDenom
+// — the point of the change this stands in for is that the global is not the
+// chain's answer.
+type stubStaking struct{ denom string }
+
+func (s stubStaking) BondDenom(context.Context) (string, error) { return s.denom, nil }
+
 func initFixture(t *testing.T) *fixture {
 	t.Helper()
 
@@ -30,6 +38,7 @@ func initFixture(t *testing.T) *fixture {
 		env.AddressCodec,
 		env.Authority,
 		env.BankKeeper,
+		stubStaking{denom: "uyml"},
 	)
 
 	// Initialize params

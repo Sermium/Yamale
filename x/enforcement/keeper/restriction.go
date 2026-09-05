@@ -57,3 +57,35 @@ func (k Keeper) SendRestriction(ctx context.Context, from, to sdk.AccAddress, am
 		fromStr, freeze.CaseId, fromStr,
 	)
 }
+
+// reclaimWithdrawAddress points a frozen account's staking rewards back at
+// itself.
+//
+// The send restriction above cannot see a reward withdrawal, because the sender
+// on that transfer is the distribution module account. So the freeze reaches
+// into x/distribution once, at the moment it is applied, and removes the
+// redirect. Rewards then land in the frozen account and stop there.
+//
+// Deliberately not reversed when the freeze lifts. The account can set its
+// withdraw address again itself; guessing which of possibly several earlier
+// values to restore would be the module inventing an instruction nobody gave.
+func (k Keeper) reclaimWithdrawAddress(ctx context.Context, addr string) error {
+	if k.distrKeeper == nil {
+		// A chain with no x/distribution has no rewards to redirect.
+		return nil
+	}
+	account, err := k.addressCodec.StringToBytes(addr)
+	if err != nil {
+		return err
+	}
+	current, err := k.distrKeeper.GetDelegatorWithdrawAddr(ctx, account)
+	if err != nil {
+		// No record means it has never been redirected, which is the state we
+		// would be putting it in anyway.
+		return nil
+	}
+	if current.Equals(sdk.AccAddress(account)) {
+		return nil
+	}
+	return k.distrKeeper.SetWithdrawAddr(ctx, account, account)
+}

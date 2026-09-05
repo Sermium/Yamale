@@ -38,6 +38,22 @@ func (m msgServer) ProposeTransfer(
 	if err != nil {
 		return nil, err
 	}
+	if id == 0 {
+		// Transfer 0 is never issued, for the reason RegisterParcel gives about
+		// parcel 0: in proto3 a zero id is indistinguishable from a field
+		// nobody set, so a client omitting transfer_id from a
+		// MsgValidateTransfer would address this transfer rather than being
+		// refused — and a validation is one of the four signatures that moves
+		// title.
+		//
+		// The guard was on parcels and not on transfers, and next_transfer_id
+		// is zero in genesis, so the first transfer on any chain was transfer
+		// zero. Skipped rather than offset, so the counter and the id it hands
+		// out stay the same number.
+		if id, err = m.NextTransferID.Next(ctx); err != nil {
+			return nil, err
+		}
+	}
 
 	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
 	if err := m.Transfer.Set(ctx, id, types.Transfer{

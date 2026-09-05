@@ -180,6 +180,31 @@ type fixture struct {
 	// destination is the recovery destination — the foundation account.
 	destination    sdk.AccAddress
 	destinationStr string
+
+	// distr stands in for x/distribution, which a send restriction cannot see:
+	// the sender on a reward payout is the distribution module account rather
+	// than the delegator being frozen.
+	distr *stubDistribution
+}
+
+// stubDistribution records where each delegator's rewards are pointed.
+type stubDistribution struct{ withdraw map[string]sdk.AccAddress }
+
+func newStubDistribution() *stubDistribution {
+	return &stubDistribution{withdraw: map[string]sdk.AccAddress{}}
+}
+
+func (s *stubDistribution) SetWithdrawAddr(_ context.Context, delegator, withdraw sdk.AccAddress) error {
+	s.withdraw[delegator.String()] = withdraw
+	return nil
+}
+
+func (s *stubDistribution) GetDelegatorWithdrawAddr(_ context.Context, delegator sdk.AccAddress) (sdk.AccAddress, error) {
+	if a, ok := s.withdraw[delegator.String()]; ok {
+		return a, nil
+	}
+	// x/distribution returns the delegator itself when nothing is recorded.
+	return delegator, nil
 }
 
 func initFixture(t *testing.T) *fixture {
@@ -189,6 +214,7 @@ func initFixture(t *testing.T) *fixture {
 		[]string{types.ModuleName, constitutiontypes.ModuleName, aliastypes.ModuleName},
 		module.AppModule{}, aliasmodule.AppModule{})
 	staking := newStubStaking()
+	distr := newStubDistribution()
 	perimeter := aliastestutil.Init(t, env)
 
 	// Fixed rather than random. The recovery destination is constitutional now,
@@ -212,6 +238,7 @@ func initFixture(t *testing.T) *fixture {
 		env.AuthKeeper,
 		env.BankKeeper,
 		staking,
+		distr,
 		constitution,
 		perimeter.Keeper,
 	)
@@ -268,6 +295,7 @@ func initFixture(t *testing.T) *fixture {
 		perimeter:      perimeter,
 		destination:    destination,
 		destinationStr: destinationStr,
+		distr:          distr,
 	}
 }
 
