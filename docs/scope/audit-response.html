@@ -462,20 +462,21 @@
 <div class="sheet">
 
   <header class="masthead">
-    <div class="eyebrow">Response to the independent security &amp; functional audit</div>
+    <div class="eyebrow">Response to the independent security &amp; functional audit · revision 2</div>
     <h1>What we fixed, what we did not, and where we disagree</h1>
     <p class="standfirst">
-      Thirty-five findings against <span class="mono">yamale-devnet-2</span>. Nineteen are closed
-      in code with regression tests that fail on the version you reviewed. Nine need a key or a
-      vote and have not been touched. Two of your conclusions we think are wrong, and one defect
-      we found that you did not.
+      Thirty-five findings against <span class="mono">yamale-devnet-2</span>, and two more your
+      reply turned up. Nineteen are closed in code with regression tests that fail on the version
+      you reviewed. Nothing at all has been changed on the running chain. Two of your conclusions
+      we think are wrong, one defect we found that you did not — and one sentence in revision 1
+      of this document that you were right to call out.
     </p>
 
     <dl class="colophon">
       <div><dt>Audit dated</dt><dd>2026-09-03</dd></div>
       <div><dt>Reviewed at</dt><dd class="mono">dd23f06</dd></div>
       <div><dt>Blocks</dt><dd>170,022–170,225</dd></div>
-      <div><dt>Response dated</dt><dd>2026-09-05</dd></div>
+      <div><dt>Revised</dt><dd>2026-09-05 · rev 2</dd></div>
       <div><dt>Remediated in</dt><dd class="mono">1cbe554 · c0a1ea7 · b102d77</dd></div>
       <div><dt>Re-verified at</dt><dd>block 196,559</dd></div>
     </dl>
@@ -495,14 +496,14 @@
         <span class="how">Fixed, with a regression test that fails on <span class="mono">dd23f06</span> and passes now.</span>
       </article>
       <article style="--tint: var(--partial)">
-        <span class="n">3</span>
+        <span class="n">4</span>
         <span class="what">Closed in code, open on the chain</span>
-        <span class="how">The handler or the config file is fixed; the running state or the host is not.</span>
+        <span class="how">The handler or the config is fixed; the host is not. The RPC gate joins these.</span>
       </article>
       <article style="--tint: var(--open)">
-        <span class="n">9</span>
+        <span class="n">11</span>
         <span class="what">Open — needs a key or a vote</span>
-        <span class="how">Nothing has been executed. Prepared and handed to the owner instead.</span>
+        <span class="how">Nine of yours, plus the two from your reply. Nothing has been executed.</span>
       </article>
       <article style="--tint: var(--answer)">
         <span class="n">4</span>
@@ -519,6 +520,30 @@
       exporting <span class="mono">GOTMPDIR</span> to a directory on the project drive runs the
       whole tree in one pass. Worth having if you audit on this machine again.
     </p>
+  </section>
+
+  <section>
+    <h2>The sentence you caught</h2>
+    <div class="dissent" style="border-left-color: var(--open)">
+      <span class="tag" style="color: var(--open)">Conceded · revision 1 said this and it was not true</span>
+      <h3>&ldquo;<span class="mono">x/land</span> is now open on REST&rdquo; described the tree, not the host</h3>
+      <p>
+        You are right, and it is the one kind of error this document exists to avoid. The tally
+        counted <span class="mono">x/land</span> and the security headers correctly as
+        <em>closed in code, open on the chain</em>, and the standfirst said so — and then the
+        prose two sections down said &ldquo;is now open&rdquo; as though it were deployed. On the
+        host, today:
+      </p>
+      <pre>/api/rest/yamale/blockchain/land/v1/params   401
+security headers on both hosts               none of the five</pre>
+      <p>
+        Fixed below by saying <em>in the repo</em> wherever a change has not been deployed. The
+        underlying slip is worth naming rather than just correcting: a tally is easy to keep
+        honest because its categories force the question, and prose is not, which is exactly why
+        <span class="mono">gaps.md</span> separates the two and why this document should have
+        followed it.
+      </p>
+    </div>
   </section>
 
   <section>
@@ -542,16 +567,18 @@
         claims to close. A path-parameter allow-list has the same defect.
       </p>
       <p>
-        <b>What we did instead.</b> Treated it as the disclosure decision it is.
-        <span class="mono">x/land</span> is now open on REST with the argument written into the
-        config — a title register nobody can inspect is not a title register, and the data was
+        <b>What we did instead.</b> Treated the disclosure half as the decision it is.
+        <span class="mono">x/land</span> is open <b>in the repo</b> with the argument written into
+        the config — a title register nobody can inspect is not a title register, and the data was
         reachable regardless. That also settles <b>F-6</b>. Payment records and
-        <span class="mono">x/netting</span> stay closed, and the config now states plainly that
-        closing them there does not close them. <span class="mono">deploy.sh</span> probes the
-        bypass on every deploy and prints a warning while it stands. Genuinely closing it needs
-        <span class="mono">njs</span> body inspection or moving the client reads to REST; it costs
-        nothing today because no payment has ever been made on this chain, and it must be closed
-        before one is.
+        <span class="mono">x/netting</span> stay closed, and the config states plainly that
+        closing them there does not close them. Neither is deployed.
+      </p>
+      <p>
+        <b>Your reply then made this worse, and you were right about that too.</b> See the section
+        below: the deny list has never blocked anything either, so this is no longer a disclosure
+        question with a payment-shaped deadline. It is now closed in the tree by a filter that
+        parses the JSON-RPC envelope, and the deadline is &ldquo;now&rdquo;.
       </p>
     </div>
 
@@ -619,6 +646,91 @@
         <span class="mono">last_reduction_period</span> 1965, so the 3.33 million YML per block
         minted the entire supply in roughly four thousand blocks and stopped. <b>The exposure is
         fixed rather than growing</b>, which is the only reason this is not an emergency.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Two findings from your reply</h2>
+    <p class="lede">
+      Both verified here before being accepted. One of them we would rather you had found in the
+      first pass, and it is the more serious of the two.
+    </p>
+
+    <div class="dissent" style="border-left-color: var(--sev-c)">
+      <span class="tag" style="color: var(--sev-c)">Accepted · the RPC deny list has never blocked anything</span>
+      <h3>Not &ldquo;the fix would not have worked&rdquo; — the rule already there does not work either</h3>
+      <p>
+        Confirmed against the funnel, every entry in the existing list:
+      </p>
+      <div class="figures">
+        <table>
+          <thead>
+            <tr><th>Method</th><th><span class="mono">GET /api/rpc/&lt;m&gt;</span></th><th>POST with <span class="mono">{"method":"&lt;m&gt;"}</span></th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">net_info</td><td>403</td><td>peer node id, moniker, listen addr, remote ip</td></tr>
+            <tr><td class="mono">dump_consensus_state</td><td>403</td><td>full round state</td></tr>
+            <tr><td class="mono">unconfirmed_txs</td><td>403</td><td>the mempool</td></tr>
+            <tr><td class="mono">broadcast_tx_commit</td><td>403</td><td>accepted, holds the connection</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        So every argument written into that rule — the mempool being everything needed to
+        front-run a payment, <span class="mono">dump_consensus_state</span> serialising unbounded
+        state per call, <span class="mono">broadcast_tx_commit</span> exhausting the connection
+        pool — has been true and unmitigated for as long as the rule has existed.
+      </p>
+      <p>
+        <b>One correction in your favour's opposite direction</b>, because the severity should be
+        right. The address <span class="mono">net_info</span> discloses is
+        <span class="mono">100.117.244.96</span> — Tailscale CGNAT, not globally routable. Your
+        phrasing, and the comment in our own config, say this is &ldquo;the validator's real
+        network location, which is the one thing the tunnel exists to hide&rdquo;. It is not: what
+        leaks is tailnet topology, node ids and monikers. The serious three are the
+        denial-of-service and mempool methods, not the address.
+      </p>
+      <p>
+        <b>Closed in the tree, not deployed.</b> <span class="mono">tools/rpcgate</span> is an
+        allow-list filter that parses the JSON-RPC envelope and applies one decision whichever way
+        the method arrives, including inside a batch — a batch with an allowed call in front of a
+        denied one is the obvious way past anything that reads only the first element. Eleven
+        tests; 44 assertions fail against a permissive gate, which is the state of the host today.
+        An allow-list rather than a deny list, so a CometBFT upgrade that adds a method cannot
+        quietly widen the surface. The websocket is closed rather than proxied, because frames
+        arrive after the upgrade and the gate cannot see into them — nothing here subscribes.
+      </p>
+    </div>
+
+    <div class="dissent" style="border-left-color: var(--sev-c)">
+      <span class="tag" style="color: var(--sev-c)">Accepted · and it reframes C-3</span>
+      <h3>The governance electorate of this chain is an oracle feeder key</h3>
+      <pre>tx_search message.action='/cosmos.gov.v1.MsgVote'
+  → 11 txs, 20 votes, heights 12,724–181,430, one signer throughout
+
+oracle/v1/feeder/ymlvaloper1m9xhc…  → yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg
+keys show alice --keyring-backend test → yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg</pre>
+      <p>
+        All three confirmed, including the last one on the host. That address holds the only
+        third-party delegation on the chain — 65,000 YML, <b>37.16% of bonded stake</b> — has cast
+        every governance vote ever cast, and is <span class="mono">alice</span> in
+        <span class="mono">/opt/yamale/node/keyring-test/</span> on the VM, signing an oracle
+        price automatically every sixty seconds.
+      </p>
+      <p>
+        Your framing is the right one and we had it backwards. Revision 1 treated the 0.37 YML as
+        an irony about the arithmetic. It is not: it means the franchise and the money are held by
+        <em>different</em> keys, and the franchise is the one in plaintext on a
+        network-connected host. Whoever reads that directory does not need C-3's rewards to
+        control the chain. <b>C-3 makes the thresholds purchasable; this one means they are
+        already bought.</b>
+      </p>
+      <p>
+        Agreed on the sequencing, and it is now step 1 of the runbook ahead of the premine
+        decision — for the reason you give, that a rotation is something that can be done this
+        afternoon and the premine is a judgement nobody else can make for us. Nothing in the tree
+        fixes it and nothing has been executed.
       </p>
     </div>
   </section>
@@ -844,7 +956,7 @@
             <td class="id">L-8</td>
             <td class="title">Three modules compare the authority as a string</td>
             <td><span class="pill closed">Closed</span></td>
-            <td class="note">Two, not three — x/oracle already used <code>bytes.Equal</code> via <code>assertAuthority</code>. x/alias and x/custody now do too.</td>
+            <td class="note">Two, not three — x/oracle already used <code>bytes.Equal</code> via <code>assertAuthority</code>. x/alias and x/custody now do too. You have since conceded this; noted here only so the count in this table adds up against your report's.</td>
           </tr>
 
           <tr class="band"><td colspan="4">Functional state of the deployment</td></tr>
@@ -902,20 +1014,33 @@
       Nothing below has been executed. Each item needs a key we should not use or a vote the owner
       has to cast, and the full commands sit in
       <span class="mono">docs/scope/audit-remediation.md</span> alongside the decisions each one
-      forces.
+      forces. The order changed in this revision: the two items from your reply go first, because
+      both are rotations rather than judgements.
     </p>
 
     <ol class="steps">
       <li>
         <div>
-          <b>Deal with the outstanding rewards <span class="mono">(C-3)</span></b>
-          <span>Withdraw, then burn, bond, or move to the 3-of-5 foundation group. Nothing else on this list matters while every threshold is purchasable, and the three options differ by the entire premine.</span>
+          <b>Rotate the key that holds the franchise <span class="mono">(new)</span></b>
+          <span>New feeder key in a <code>file</code> keyring, then move the 65,000 YML delegation off <span class="mono">alice</span> — redelegating leaves the franchise with the same key. Treat it as compromised: it has been readable by anyone with a shell on that box for the life of the chain.</span>
         </div>
       </li>
       <li>
         <div>
-          <b>Rotate the treasury admin off the feeder key <span class="mono">(H-4)</span></b>
-          <span>And rotate the feeder key itself, since it has been in an unencrypted keyring on a validator host.</span>
+          <b>Deploy the RPC method gate <span class="mono">(new, H-3)</span></b>
+          <span>Built and tested; needs a binary, a unit file and one <code>include</code> replacing the deny-list regex on both hosts. The deploy script probes the POST form afterwards, so a half-finished install reports itself.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Deal with the outstanding rewards <span class="mono">(C-3)</span></b>
+          <span>Withdraw, then burn, bond, or move to the 3-of-5 foundation group. Below the two above only because they are rotations and this is a judgement — the exposure here is larger, the exposure above is already realised.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Rotate the other treasury admin <span class="mono">(H-4)</span></b>
+          <span>Treasury 2, "Lagos Field Operations", administered by the <span class="mono">pi-2</span> feeder key.</span>
         </div>
       </li>
       <li>
@@ -944,8 +1069,8 @@
       </li>
       <li>
         <div>
-          <b>Close the <code>abci_query</code> bypass before the first payment <span class="mono">(H-3, F-1)</span></b>
-          <span>Body inspection or moving client reads to REST. Free today; not free the day a participant is approved.</span>
+          <b>Decide on <code>abci_query</code> reaching closed modules <span class="mono">(H-3, F-1)</span></b>
+          <span>The remaining half, and a disclosure decision rather than a bug: the method gate does not itself stop <code>abci_query</code> reading a module that is 401 on REST. A path allow-list would. Free today; not free the day a participant is approved.</span>
         </div>
       </li>
     </ol>
@@ -962,10 +1087,11 @@
   </section>
 
   <p class="footer">
-    Three commits, 87 files, 17 test files. Prepared 2026-09-05 against
-    <span class="mono">yamale-devnet-2</span> at block 196,559. Questions on any verdict here are
-    welcome, particularly on H-3 and on the reserve-agreement rule in H-2, where we took a
-    different route from the one suggested.
+    Revision 2, 2026-09-05, against <span class="mono">yamale-devnet-2</span> at block 202,443.
+    Revision 1 claimed <span class="mono">x/land</span> was open on the host when it was open only
+    in the repo; that is corrected above rather than quietly edited out. Yes to the dated
+    addendum — both items belong in your report rather than only in our reply to it, and the
+    second is the one a reader of the audit alone would most need.
   </p>
 
 </div>

@@ -387,6 +387,71 @@ needs a transaction, a vote or a key ceremony, and none of it has been done.
 
 **Verified still live on 2026-09-05** against the funnel at block 196,559.
 
+### Two the audit did not find, from its own reply
+
+The auditor checked this response rather than accepting it, and turned up two
+things neither side had. Both verified against the funnel on **2026-09-05**.
+
+**The RPC deny list has never blocked anything.** Not "the proposed fix would
+not have worked" — the rule that was already there does not work either. It is
+an nginx location regex, so it matches the URL path, and CometBFT takes the
+method in the POST body:
+
+| Method | `GET /api/rpc/<m>` | `POST /api/rpc/` with `{"method":"<m>"}` |
+|---|---|---|
+| `net_info` | 403 | peer node id, moniker, listen addr, remote ip |
+| `dump_consensus_state` | 403 | full round state |
+| `unconfirmed_txs` | 403 | the mempool |
+| `broadcast_tx_commit` | 403 | accepted, holds the connection |
+
+So every argument written into that rule — the mempool being everything needed
+to front-run a payment, `dump_consensus_state` serialising unbounded state per
+call, `broadcast_tx_commit` exhausting the connection pool — has been true and
+unmitigated for as long as the rule has existed.
+
+One correction in the other direction, because the severity should be right:
+the remote address `net_info` discloses is `100.117.244.96`, which is Tailscale
+CGNAT and not globally routable. The claim in the old comment that this is "the
+validator's real network location, which is the one thing the tunnel exists to
+hide" does not hold — what leaks is the tailnet topology, node ids and
+monikers. The serious three are the denial-of-service and mempool methods, not
+the address.
+
+Closed in the tree by `tools/rpcgate`, an allow-list filter that parses the
+JSON-RPC envelope and applies the same decision whichever way the method
+arrives, including inside a batch. Eleven tests, of which 44 assertions fail
+against a permissive gate — which is the state of the host today. **Not
+deployed**: it needs a binary, a unit file and an nginx include on both hosts.
+
+**The governance electorate of this chain is an oracle feeder key.**
+
+    tx_search message.action='/cosmos.gov.v1.MsgVote'
+      -> 11 txs, 20 votes, heights 12,724-181,430, every one signed by
+         yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg
+
+    oracle/v1/feeder/ymlvaloper1m9xhc...  -> yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg
+    keys show alice --keyring-backend test -> yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg
+
+That address holds the only third-party delegation on the chain — 65,000 YML,
+**37.16% of bonded stake** — has cast every governance vote ever cast, and is
+`alice` in an **unencrypted keyring** on the VM, signing an oracle price
+automatically every 60 seconds on a network-connected validator host.
+
+This is H-4 with the asset swapped. H-4 flagged the *other* feeder key because
+it administers a treasury holding 700 YML. This one carries the franchise that
+approves issuers, appoints validators, creates collections and resolves
+disputes. Whoever reads `/opt/yamale/node/keyring-test/` on the VM does not
+need C-3's rewards to control the chain; they already have a plurality of the
+vote and the only voter's key.
+
+It also reframes C-3. The rewards make the thresholds *purchasable*; this makes
+them **already bought**, by a key whose entire documented purpose is that it is
+disposable.
+
+Nothing in the tree fixes this. It is a rotation, and it is the one item on
+this page that is neither a decision nor a delay — see step 1 of
+[audit-remediation.md](audit-remediation.md).
+
 ### The one that makes the rest of the list conditional
 
 **887,940,502.67 YML is claimable by one operator with a single

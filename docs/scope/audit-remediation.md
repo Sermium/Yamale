@@ -9,19 +9,81 @@ of anything that happened — every figure was read from
 `https://yamale.tail4355e8.ts.net` on **2026-09-05** at block **196,559**, and
 should be re-read before acting, because some of them move.
 
-The order matters and it is the audit's, not mine. Step 1 is what makes the rest
-worth doing.
+The order was the audit's. It changed on 2026-09-05, when the auditor's reply
+established that the key holding 37.16% of bonded stake — the only account that
+has ever voted on this chain — is an oracle feeder sitting in an unencrypted
+keyring on the VM, signing automatically every 60 seconds. That is now step 1,
+because it is a rotation rather than a decision: it can be done this afternoon
+and it does not wait on anybody's judgement about the premine.
 
 ---
 
-## 1. The 976 million YML that is not bonded
+## 1. Rotate the key that holds the franchise
 
-**Why first.** Governance quorum is 33.4%, the enforcement supermajority is
-66.67%, and a constitutional amendment needs 80% — all measured against 174,900
-YML of bonded stake. The two validator operator keys can withdraw 976,733,334
-YML between them, and a delegation of any fraction of that clears every one of
-those thresholds in a single block. Until this is dealt with, steps 2 to 6 are
-protections that one signature can undo.
+**The finding, verified.** `yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg` is:
+
+- the delegated oracle feeder for `ymlvaloper1m9xhc…p4h3kh`;
+- `alice`, in `/opt/yamale/node/keyring-test/` on the VM — `FEEDER_KEYRING=test`,
+  which is an unencrypted keyring on disk;
+- the holder of the only third-party delegation on the chain, 65,000 YML, or
+  **37.16% of bonded stake**;
+- the signer of **every governance vote ever cast** — 11 transactions, 20 votes,
+  heights 12,724 to 181,430, no other voter.
+
+Check it yourself before acting, because this is the claim everything below
+depends on:
+
+```bash
+blockchaind query oracle feeder ymlvaloper1m9xhc6zy7fxfax9t5fnykh9k2e29faj7p4h3kh --node https://yamale.tail4355e8.ts.net/api/rpc
+blockchaind query staking delegations yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg --node https://yamale.tail4355e8.ts.net/api/rpc
+```
+
+**Why this is not H-4 again.** H-4 flagged the other feeder key because it
+administers a treasury holding 700 YML. This one carries the franchise that
+approves issuers, appoints validators, creates collections and resolves
+disputes. Whoever reads that directory does not need the rewards in step 2 to
+control the chain — they already hold a plurality of the vote.
+
+**The order to do it in.** The delegation and the feeder role have to come
+apart, and the feeder is the disposable half:
+
+1. Generate a new feeder key on the VM, in a `file` keyring, and nominate it:
+
+   ```bash
+   blockchaind keys add feeder --keyring-backend file --home /opt/yamale/node
+   blockchaind tx oracle delegate-feeder <new-feeder-address> --from pi-operator --chain-id yamale-devnet-2
+   ```
+
+2. Point the service at it — `FEEDER_KEY`, `FEEDER_KEYRING=file` — with the
+   passphrase supplied through a systemd credential rather than the env file,
+   and restart. Confirm the oracle is still agreeing a price before going on.
+
+3. **Move the 65,000 YML delegation off `alice`.** Redelegating leaves the
+   franchise with the same key; it has to be unbonded and re-delegated from an
+   account that is not on a validator host — the foundation group is the
+   obvious holder, and it is where step 2 probably sends the rewards anyway.
+
+4. Treat `alice` as compromised from here: it has been readable by anyone with
+   a shell on that box for the life of the chain. Do not reuse it.
+
+While you are there: the operator passphrase for the majority validator is
+still in `~/.bash_history` on the VM. Reported earlier, never used, never
+rotated.
+
+---
+
+## 2. The 976 million YML that is not bonded
+
+**Why this is second and not first.** Governance quorum is 33.4%, the
+enforcement supermajority is 66.67%, and a constitutional amendment needs 80% —
+all measured against 174,900 YML of bonded stake. The two validator operator
+keys can withdraw 976,733,334 YML between them, and a delegation of any fraction
+of that clears every one of those thresholds in a single block. Until this is
+dealt with, steps 3 to 7 are protections that one signature can undo.
+
+It ranks below the rotation above only because step 1 is a decision nobody has
+to make and this one is a decision nobody else can make. The exposure here is
+larger; the exposure above is already realised.
 
 Read it again before acting:
 
@@ -51,7 +113,7 @@ meant to become anything.
 **Bond it.** Withdraw and delegate it back, split across the validator set.
 Thresholds then measure against a float that is almost entirely bonded. It does
 not fix the concentration — two keys would hold 97.9% of the voting power
-outright — so it is only an answer alongside step 5.
+outright — so it is only an answer alongside step 6.
 
 **Move it to the foundation group.** Withdraw into the 3-of-5 x/group account,
 which is the arrangement the rest of this design assumes anyway. One key stops
@@ -86,7 +148,7 @@ on a freeze — so the two are not always the same thing any more.
 
 ---
 
-## 2. Rotate the treasury admin off the oracle feeder key
+## 3. Rotate the treasury admin off the oracle feeder key
 
 `yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas` is the delegated oracle feeder for
 `pi-2` **and** the admin of treasury 2, "Lagos Field Operations". The feeder
@@ -119,7 +181,7 @@ also never been rotated or shredded.
 
 ---
 
-## 3. Appoint an ombudsman
+## 4. Appoint an ombudsman
 
 `MsgOmbudsmanVeto` is the only message that can stop a seizure that has passed
 and is waiting out its execution delay. The parameter is empty, and
@@ -143,7 +205,7 @@ from step 4 in the same change — one proposal, one delay, one vote.
 
 ---
 
-## 4. Extend the seizure cap past `uyml`
+## 5. Extend the seizure cap past `uyml`
 
 `seizure_window_cap` lists one denomination — `uyml` at 500 YML — out of the 48
 on the chain. A seizure of any of the 43 fiat currencies, or of an
@@ -163,7 +225,7 @@ Same proposal as step 3.
 
 ---
 
-## 5. The concentration ceilings — start this early, it takes 9.2 days
+## 6. The concentration ceilings — start this early, it takes 9.2 days
 
 Two independent reasons the concentration system enforces nothing:
 
@@ -179,7 +241,7 @@ A validator with no record "is counted in the total and belongs to no group, so
 it can never be demoted". The same emptiness disarms `assertWithinCaps`, which
 x/enforcement runs before every freeze.
 
-### 5a. Declare the founding set — do this today, it needs no delay
+### 6a. Declare the founding set — do this today, it needs no delay
 
 Each operator applies for itself, then governance approves. `pi` and `pi-2` are
 the two.
@@ -198,7 +260,7 @@ the one failure mode this system has no defence against.
 
 Then approve each through governance (`MsgApproveValidator`, authority-gated).
 
-### 5b. Propose the amendment — start it whenever, it lands 9.2 days later
+### 6b. Propose the amendment — start it whenever, it lands 9.2 days later
 
 ```bash
 blockchaind query constitution invariants --node https://yamale.tail4355e8.ts.net/api/rpc -o json
@@ -208,7 +270,7 @@ blockchaind query constitution invariants --node https://yamale.tail4355e8.ts.ne
 proto says so explicitly, and an omitted field is a zero that becomes a divisor
 somewhere. Copy the current set and change the three ceilings.
 
-What to set them to is a real decision and depends on 5a: with two validators, a
+What to set them to is a real decision and depends on 6a: with two validators, a
 ceiling below 5,000 bps demotes one of them immediately, and
 `min_active_validators` is 1, so the chain would keep producing blocks with a
 single validator and no fault tolerance at all. A ceiling that bites before the
@@ -218,7 +280,7 @@ Ratification needs 80% of voting power, and the delay is 120,960 blocks.
 
 ---
 
-## 6. The rest, in no particular order
+## 7. The rest, in no particular order
 
 - **Raise the oracle vote threshold.** `vote_threshold_bps` is 5,000 and the
   larger validator holds 5,717, so it meets the threshold alone and its own rate
@@ -242,8 +304,22 @@ Ratification needs 80% of voting power, and the delay is 120,960 blocks.
   when unset, so after the next upgrade no currency can be issued until
   governance states a figure. That is the intended direction and it will look
   like a bug to whoever hits it first.
-- **Close the `abci_query` bypass** before any payment is ever made. See
-  `docs/scope/gaps.md`; a path regex cannot do it.
+- **Deploy the RPC method gate.** No longer "before the first payment": the
+  deny list on the hosts has never blocked anything, so `net_info`,
+  `dump_consensus_state`, `unconfirmed_txs` and `broadcast_tx_commit` are all
+  answered over POST today. `tools/rpcgate` closes it and is tested; deploying
+  it needs a binary at `/opt/yamale/bin/rpcgate`, the unit in
+  `deploy/systemd/yamale-rpcgate.service`, and `yamale-rpc.conf` replacing the
+  `location /api/rpc/` block and the deny-list regex inside `yamale-api.conf`
+  on both hosts. `deploy.sh` probes the POST form afterwards, so a
+  half-finished install reports itself.
+
+  ```bash
+  GOOS=linux GOARCH=amd64 go build -o rpcgate ./tools/rpcgate
+  ```
+
+  The remaining half — `abci_query` reaching modules that are closed on REST —
+  is a disclosure decision rather than a bug, and is unchanged.
 
 ---
 

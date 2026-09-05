@@ -96,7 +96,15 @@ if [ "$verify_only" = 0 ]; then
   # in every server block on both hosts. Not done for you, because a bad header
   # on the only public hostname breaks every console at once and this script
   # should not be the thing that does that unattended.
-  for conf in yamale-visibility.conf yamale-apps.conf yamale-cache.conf yamale-headers.conf; do
+  #
+  # yamale-rpc.conf is the same shape and carries the same warning, with more
+  # at stake: it has to REPLACE the `location /api/rpc/` block and the
+  # deny-list regex inside yamale-api.conf, and it points at rpcgate on 26659
+  # rather than straight at the node. Until both halves are done the deny list
+  # is what it has always been — a rule matching a URL path against a method
+  # that arrives in a POST body. The checks at the end probe the POST form, so
+  # a half-finished install reports itself instead of looking like success.
+  for conf in yamale-visibility.conf yamale-apps.conf yamale-cache.conf yamale-headers.conf yamale-rpc.conf; do
     for host in pi vm; do
       $host "sudo cp -n /etc/nginx/snippets/$conf /etc/nginx/snippets/$conf.before-deploy 2>/dev/null || true" </dev/null
       $host "sudo tee /etc/nginx/snippets/$conf >/dev/null" < "$ROOT/deploy/nginx/$conf"
@@ -207,23 +215,50 @@ for h in Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referr
   fi
 done
 
-# The gate above is a lock in a wall that stops at /api/rpc/. CometBFT's
-# abci_query reaches every registered query service, so a module closed on REST
-# is closed only until somebody asks the other way. Checked here so the day it
-# is fixed the check flips and somebody has to look, and so it cannot quietly
-# get worse in the meantime.
+# The RPC method gate, checked in the form the bypass actually takes.
 #
-# Note what does NOT work as a fix: the deny list in yamale-api.conf matches on
-# the URL path, and the JSON-RPC form carries the method in the POST body.
-echo "==> the RPC bypass, as it stands"
-bypass=$(curl -s --max-time 30 -X POST "$PUBLIC/api/rpc/" -H 'content-type: application/json' \
+# Every one of these answered in full on the live funnel on 2026-09-05 while
+# its GET form returned 403, because the nginx deny list matches on the URL
+# PATH and CometBFT takes the method in the POST BODY. A path regex cannot fix
+# that, which is why /api/rpc/ points at tools/rpcgate rather than straight at
+# the node -- and why this checks the POST form and nothing else.
+echo "==> the RPC method gate"
+
+rpc_answers() {
+  curl -s --max-time 30 -X POST "$PUBLIC/api/rpc/" -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":{}}" 2>/dev/null | grep -q '"result"'
+}
+
+for m in net_info dump_consensus_state consensus_state unconfirmed_txs broadcast_tx_commit; do
+  if rpc_answers "$m"; then
+    printf '    !!   %s ANSWERED over POST -- the gate is not in front of the node\n' "$m"
+  else
+    printf '    ok   %s refused over POST\n' "$m"
+  fi
+done
+
+# And the four the consoles actually reach for still work, or this is an outage
+# rather than a gate. abci_query, block, status and tx_search are the paths
+# found in clients/.
+for m in status block; do
+  if rpc_answers "$m"; then
+    printf '    ok   %s still answers\n' "$m"
+  else
+    printf '    !!   %s refused -- the gate is too tight and every console is broken\n' "$m"
+  fi
+done
+
+# abci_query reaching a module that is closed on REST is a separate question
+# from the method gate: a disclosure decision rather than a bug. Checked so the
+# answer changes deliberately instead of drifting.
+echo "==> what abci_query still reaches"
+if curl -s --max-time 30 -X POST "$PUBLIC/api/rpc/" -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/blockchain.paymsg.v1.Query/ListPaymentRecord","data":""}}' \
-  | grep -c '"code":0' || true)
-if [ "$bypass" = "0" ]; then
-  printf '    ok   payment records refused on the RPC too\n'
+  2>/dev/null | grep -q '"code":0'; then
+  printf '    --   payment records readable through abci_query despite the REST gate\n'
+  printf '         a path allow-list on abci_query is the remaining half; see docs/scope/gaps.md\n'
 else
-  printf '    !!   payment records readable through abci_query despite the REST gate\n'
-  printf '         see docs/scope/gaps.md — closing this needs body inspection, not a path regex\n'
+  printf '    ok   payment records refused on the RPC too\n'
 fi
 
 # The bundle the public actually gets is the bundle just built. Everything above

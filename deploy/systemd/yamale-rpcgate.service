@@ -1,0 +1,59 @@
+[Unit]
+# The JSON-RPC method filter that sits between nginx and CometBFT.
+#
+# The nginx deny list it replaces matched on the URL path, and CometBFT takes
+# the method in the POST body as well — so net_info, dump_consensus_state,
+# unconfirmed_txs and broadcast_tx_commit were all answered in full on the
+# public funnel while the GET form of each returned 403. nginx cannot read a
+# request body without njs or Lua, so the filter is a process.
+#
+# If this is down the public RPC is down and every console with it, which is
+# why it is Requires= rather than Wants= on the node: a gate that fails open
+# because the thing behind it went away is not a gate.
+Description=Yamale RPC method gate
+Documentation=file:///opt/yamale/src/tools/rpcgate/gate.go
+After=network-online.target yamale-node.service
+Wants=network-online.target
+PartOf=yamale-node.service
+
+[Service]
+Type=simple
+User=yamale
+Group=yamale
+ExecStart=/opt/yamale/bin/rpcgate --listen 127.0.0.1:26659 --upstream http://127.0.0.1:26657
+
+Restart=always
+RestartSec=2s
+
+# It reads a request body, decides, and forwards. It has no state, no keys and
+# nothing to write.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+RemoveIPC=true
+ReadWritePaths=
+
+# Deliberately NOT MemoryDenyWriteExecute: the Go runtime this is built with
+# writes executable pages at init through cloudflare/base64x, and the resulting
+# panic looks like a crash loop rather than a policy. Same trap as the
+# custodian service.
+
+# The gate buffers one request body at a time per connection, bounded at 1 MiB
+# in the code. This is the second bound, in case that one is ever raised.
+MemoryMax=256M
+TasksMax=512
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yamale-rpcgate
+
+[Install]
+WantedBy=multi-user.target
