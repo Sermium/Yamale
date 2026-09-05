@@ -1692,7 +1692,14 @@ async function load() {
       evidence_hash: document.getElementById('cs-evh').value.trim(),
     }, caseBtn);
 
-    const decided = proposals.filter(pr => !isOpen(pr));
+    // Most recently decided first. The gov query returns proposals in ascending
+    // id order, so the newest decision is last in the raw list and a reader
+    // watching a live vote resolve has to scroll past every historical one to
+    // find it. Sorted by id rather than trusting the API's order to stay
+    // ascending — the id is monotonic and is what "most recent" means here.
+    const decided = proposals
+      .filter(pr => !isOpen(pr))
+      .sort((a, b) => Number(b.id) - Number(a.id));
     document.getElementById('proposals').innerHTML = decided.map(pr => {
       const failed = String(pr.status) === 'PROPOSAL_STATUS_FAILED';
       const closed = timestampSeconds(pr.voting_end_time);
@@ -1715,7 +1722,7 @@ async function load() {
     }).join('') || `<div class="card">
         <p class="lede">No proposal has been decided yet.</p>
         <p class="muted small">The chain answered — its proposal list is empty. Everything this
-          chain's governance has ever done would appear here, oldest last.</p>
+          chain's governance has ever done would appear here, most recent first.</p>
       </div>`;
 
     const fr = freezes.freeze || [];
