@@ -39,7 +39,16 @@ func (k msgServer) ApproveBuilder(ctx context.Context, msg *types.MsgApproveBuil
 			return nil, err
 		}
 	} else {
-		application.Status = types.StatusRejected
+		// Removed rather than kept as Rejected, for the reason set out in
+		// x/stablecoin's ApproveIssuer: RegisterBuilder is permissionless and
+		// keyed by msg_type_url, and it refuses a second application for a key
+		// that already has one. A rejected record left behind therefore made
+		// that message type unclaimable by anybody, permanently, for the price
+		// of one transaction fee — with no withdrawal, expiry or clearing path.
+		if err := k.BuilderApplication.Remove(ctx, msg.MsgTypeUrl); err != nil {
+			return nil, err
+		}
+		return &types.MsgApproveBuilderResponse{}, nil
 	}
 
 	if err := k.BuilderApplication.Set(ctx, msg.MsgTypeUrl, application); err != nil {

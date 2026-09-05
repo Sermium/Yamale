@@ -34,4 +34,15 @@ message Params {
   // operations. A custodian that earns from flow does not need to earn from the
   // float.
   uint32 fee_bps = 3;
+
+  // reserve_report_max_age_blocks is how long an attestor's reserve report
+  // counts for.
+  //
+  // Without it, a threshold made of one live attestor and two who reported a
+  // year ago is a threshold of one. A figure too old to trust is not a figure —
+  // the same rule x/oracle applies to a price.
+  //
+  // Zero means reports never go stale, which is the wrong direction and is
+  // refused by Validate().
+  uint64 reserve_report_max_age_blocks = 4;
 }

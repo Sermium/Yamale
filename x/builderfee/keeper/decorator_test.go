@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"strings"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -179,8 +180,11 @@ func TestFeeShareIgnoresUnregisteredMessageTypes(t *testing.T) {
 	f := initFixture(t)
 	ms := keeper.NewMsgServerImpl(f.keeper)
 
-	// A builder is approved, but for a different message type.
-	payout, _ := approveBuilder(t, f, ms, "/some.other.v1.MsgThing")
+	// A builder is approved, but for a different message type. It has to be a
+	// real one: an application naming a type the chain cannot route is now
+	// refused, because a fee against a message nobody can send is a
+	// reservation rather than an application.
+	payout, _ := approveBuilder(t, f, ms, "/cosmos.bank.v1beta1.MsgMultiSend")
 	f.env.FundModule(t, authtypes.FeeCollectorName, feeCoins(1_000))
 
 	dec := keeper.NewFeeShareDecorator(f.keeper)
@@ -338,13 +342,52 @@ func TestApproveBuilderRejection(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	app, err := f.keeper.BuilderApplication.Get(f.ctx, sendMsgTypeURL)
-	require.NoError(t, err)
-	require.Equal(t, types.StatusRejected, app.Status)
-
 	has, err := f.keeper.ApprovedBuilder.Has(f.ctx, sendMsgTypeURL)
 	require.NoError(t, err)
 	require.False(t, has)
+
+	// And the message type is claimable again.
+	//
+	// A rejected record used to stay behind under the same key RegisterBuilder
+	// refuses a duplicate on, so a rejection permanently barred that message
+	// type to everybody — one transaction fee, no way back.
+	has, err = f.keeper.BuilderApplication.Has(f.ctx, sendMsgTypeURL)
+	require.NoError(t, err)
+	require.False(t, has, "the rejected application still holds the message type")
+
+	_, err = ms.RegisterBuilder(f.ctx, &types.MsgRegisterBuilder{
+		Creator: creatorStr, MsgTypeUrl: sendMsgTypeURL, PayoutAddress: payoutStr,
+	})
+	require.NoError(t, err)
+}
+
+// The store key here is chosen by whoever signs a permissionless message, so
+// it is bounded in shape, in length, and against the interface registry.
+func TestRegisterBuilderRefusesRubbishTypeURLs(t *testing.T) {
+	f := initFixture(t)
+	ms := keeper.NewMsgServerImpl(f.keeper)
+
+	_, payoutStr := f.env.Addr(t)
+	_, creatorStr := f.env.Addr(t)
+
+	for _, url := range []string{
+		"",
+		"cosmos.bank.v1beta1.MsgSend",          // no leading slash
+		"/cosmos/bank/v1beta1/MsgSend",         // a path, not a proto name
+		"/no_dots_here",                        // not a qualified name
+		"/cosmos.bank.v1beta1.MsgSend\x00evil", // outside the character set
+		"/" + strings.Repeat("a.", 200) + "MsgSend", // longer than the bound
+		"/blockchain.nosuch.v1.MsgInvented",         // shaped right, does not exist
+	} {
+		_, err := ms.RegisterBuilder(f.ctx, &types.MsgRegisterBuilder{
+			Creator: creatorStr, MsgTypeUrl: url, PayoutAddress: payoutStr,
+		})
+		require.ErrorIs(t, err, types.ErrInvalidMsgTypeURL, "accepted %q", url)
+
+		has, err := f.keeper.BuilderApplication.Has(f.ctx, url)
+		require.NoError(t, err)
+		require.False(t, has, "wrote a store key for %q", url)
+	}
 }
 
 func TestApproveBuilderUnknownApplication(t *testing.T) {

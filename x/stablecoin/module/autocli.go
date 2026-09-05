@@ -73,6 +73,10 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "ApproveIssuer",
 					Skip:      true, // authority gated; only callable via a governance proposal
 				},
+				{
+					RpcMethod: "RevokeIssuer",
+					Skip:      true, // authority gated, and for the same reason
+				},
 			},
 		},
 	}

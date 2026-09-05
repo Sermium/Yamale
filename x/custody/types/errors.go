@@ -27,6 +27,18 @@ var (
 		"amount must be positive")
 	ErrInvalidParams = sdkerrors.Register(ModuleName, 12,
 		"invalid parameters")
+	// A redemption settled on one signature closes the chain's record of an
+	// obligation whose off-chain payment may never have happened. The claim
+	// tokens were burned at request time, so there is nothing left to re-present.
+	ErrNotEnoughAttestations = sdkerrors.Register(ModuleName, 14,
+		"not enough attestors have confirmed this yet")
+	ErrConflictingSettlement = sdkerrors.Register(ModuleName, 15,
+		"attestors disagree about how this redemption was paid, and disagreement is not agreement")
+	// Nothing compared issued supply against attested reserve, so the chain
+	// would mint claims beyond its reserves without objection.
+	ErrWouldBeUnbacked = sdkerrors.Register(ModuleName, 16,
+		"crediting that deposit would issue more claims than the attested reserve covers")
+
 	ErrInvalidSigner = sdkerrors.Register(ModuleName, 13,
 		"invalid authority for this message")
 )

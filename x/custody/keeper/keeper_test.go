@@ -33,8 +33,22 @@ func setup(t *testing.T) (*integration.Env, keeper.Keeper, types.MsgServer, type
 	return env, k, keeper.NewMsgServerImpl(k), keeper.NewQueryServerImpl(k)
 }
 
-// register an asset and two attestors, which is the minimum working custodian.
+// register an asset, two attestors and a reserve for them to have attested,
+// which is the minimum working custodian.
+//
+// The reserve is part of the minimum now. Crediting a deposit checks issuance
+// against the attested figure, and an asset nobody has reported a reserve for
+// issues nothing — never attested is not solvent, which is the rule the
+// solvency query already applied and the mint path did not.
+const reserve = 100_000_000
+
 func ready(t *testing.T, env *integration.Env, ms types.MsgServer) (string, string) {
+	t.Helper()
+	a1, a2 := readyWithReserve(t, env, ms, reserve)
+	return a1, a2
+}
+
+func readyWithReserve(t *testing.T, env *integration.Env, ms types.MsgServer, held int64) (string, string) {
 	t.Helper()
 	_, err := ms.RegisterAsset(env.Ctx, &types.MsgRegisterAsset{
 		Authority: env.AuthorityString(t), Denom: denom,
@@ -50,7 +64,23 @@ func ready(t *testing.T, env *integration.Env, ms types.MsgServer) (string, stri
 		})
 		require.NoError(t, err)
 	}
+	if held >= 0 {
+		reportReserve(t, env, ms, []string{a1, a2}, held)
+	}
 	return a1, a2
+}
+
+// reportReserve has each attestor state the same figure. They need not agree
+// exactly — the lowest fresh report is what counts — but a test that varies
+// them should say so.
+func reportReserve(t *testing.T, env *integration.Env, ms types.MsgServer, attestors []string, held int64) {
+	t.Helper()
+	for _, a := range attestors {
+		_, err := ms.ReportReserve(env.Ctx, &types.MsgReportReserve{
+			Attestor: a, Denom: denom, Held: math.NewInt(held),
+		})
+		require.NoError(t, err)
+	}
 }
 
 func TestOneAttestorCannotMint(t *testing.T) {
@@ -203,23 +233,41 @@ func TestRedemptionBurnsImmediatelyAndWaitsOutTheDelay(t *testing.T) {
 	})
 	require.ErrorIs(t, err, types.ErrNotPayableYet)
 
-	// Past the delay it settles.
+	// Past the delay, and it still takes the threshold. Settling closes the
+	// chain's record of an obligation whose claim tokens were burned at request
+	// time, so one attestor's word used to end the matter with nothing left to
+	// re-present.
 	ctx := sdk.UnwrapSDKContext(env.Ctx).WithBlockHeight(res.PayableAtHeight)
 	_, err = ms.SettleRedemption(ctx, &types.MsgSettleRedemption{
 		Attestor: a1, RedemptionId: res.RedemptionId, SettledRef: "0xpaid",
+	})
+	require.ErrorIs(t, err, types.ErrNotEnoughAttestations)
+
+	// The first attestor's reference stands as a proposal, and an attestor
+	// naming a different payment is refused rather than counted. Disagreement
+	// is not agreement, as in AttestDeposit.
+	_, err = ms.SettleRedemption(ctx, &types.MsgSettleRedemption{
+		Attestor: a2, RedemptionId: res.RedemptionId, SettledRef: "0xsomethingelse",
+	})
+	require.ErrorIs(t, err, types.ErrConflictingSettlement)
+
+	// Agreeing settles it.
+	_, err = ms.SettleRedemption(ctx, &types.MsgSettleRedemption{
+		Attestor: a2, RedemptionId: res.RedemptionId, SettledRef: "0xpaid",
 	})
 	require.NoError(t, err)
 
 	// And not twice.
 	_, err = ms.SettleRedemption(ctx, &types.MsgSettleRedemption{
-		Attestor: a2, RedemptionId: res.RedemptionId, SettledRef: "0xagain",
+		Attestor: a1, RedemptionId: res.RedemptionId, SettledRef: "0xpaid",
 	})
 	require.ErrorIs(t, err, types.ErrAlreadySettled)
 }
 
 func TestSolvencyIsComputedNotAsserted(t *testing.T) {
 	env, _, ms, qs := setup(t)
-	a1, a2 := ready(t, env, ms)
+	// No reserve reported, so nothing is attested and nothing may be issued.
+	a1, a2 := readyWithReserve(t, env, ms, -1)
 	_, recipient := env.Addr(t)
 
 	// Never attested is not solvent. Reporting a brand-new asset as healthy
@@ -231,6 +279,25 @@ func TestSolvencyIsComputedNotAsserted(t *testing.T) {
 	require.False(t, s.Solvency[0].Solvent)
 
 	amount := math.NewInt(1_000_000)
+
+	// And nothing may be minted against it either, which is the half that was
+	// missing: solvencyOf was called only from the query server, so the chain
+	// would issue claims beyond its reserves and go on reporting the shortfall
+	// in a figure nobody is obliged to read.
+	_, err = ms.AttestDeposit(env.Ctx, &types.MsgAttestDeposit{
+		Attestor: a1, Denom: denom, Recipient: recipient,
+		Amount: amount, ExternalRef: "0xnoreserve",
+	})
+	require.NoError(t, err)
+	_, err = ms.AttestDeposit(env.Ctx, &types.MsgAttestDeposit{
+		Attestor: a2, Denom: denom, Recipient: recipient,
+		Amount: amount, ExternalRef: "0xnoreserve",
+	})
+	require.ErrorIs(t, err, types.ErrWouldBeUnbacked)
+	require.True(t, env.BankKeeper.GetSupply(env.Ctx, denom).Amount.IsZero())
+
+	// With a reserve attested by both, the same deposit credits.
+	reportReserve(t, env, ms, []string{a1, a2}, 1_000_000)
 	for _, a := range []string{a1, a2} {
 		_, err := ms.AttestDeposit(env.Ctx, &types.MsgAttestDeposit{
 			Attestor: a, Denom: denom, Recipient: recipient,
@@ -239,7 +306,15 @@ func TestSolvencyIsComputedNotAsserted(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Under-reported reserve: issued exceeds held, so insolvent.
+	s, err = qs.Solvency(env.Ctx, &types.QuerySolvencyRequest{})
+	require.NoError(t, err)
+	require.True(t, s.Solvency[0].Solvent)
+	require.Equal(t, amount, s.Solvency[0].Issued)
+
+	// One attestor reporting a shortfall is enough to make the figure a
+	// shortfall: the published reserve is the LOWEST of the fresh reports, not
+	// the latest. Erring downward refuses an honest mint; erring upward permits
+	// an unbacked one, and only one of those is recoverable.
 	_, err = ms.ReportReserve(env.Ctx, &types.MsgReportReserve{
 		Attestor: a1, Denom: denom, Held: amount.Sub(math.OneInt()),
 	})
@@ -247,16 +322,19 @@ func TestSolvencyIsComputedNotAsserted(t *testing.T) {
 	s, err = qs.Solvency(env.Ctx, &types.QuerySolvencyRequest{})
 	require.NoError(t, err)
 	require.False(t, s.Solvency[0].Solvent, "issued exceeds held but reported solvent")
+	require.Equal(t, amount.Sub(math.OneInt()), s.Solvency[0].Held)
 
-	// Fully backed.
+	// And one attestor cannot restore it alone, which is the whole finding: the
+	// figure the solvency query publishes unauthenticated used to be one
+	// signature, overwritable by any attestor with any number.
 	_, err = ms.ReportReserve(env.Ctx, &types.MsgReportReserve{
-		Attestor: a1, Denom: denom, Held: amount,
+		Attestor: a1, Denom: denom, Held: amount.MulRaw(1_000),
 	})
 	require.NoError(t, err)
 	s, err = qs.Solvency(env.Ctx, &types.QuerySolvencyRequest{})
 	require.NoError(t, err)
+	require.Equal(t, amount, s.Solvency[0].Held, "one attestor moved the published reserve on its own")
 	require.True(t, s.Solvency[0].Solvent)
-	require.Equal(t, amount, s.Solvency[0].Issued)
 }
 
 func TestThresholdBelowTwoIsRefused(t *testing.T) {

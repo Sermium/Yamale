@@ -257,9 +257,25 @@ Attested rather than derived: the chain cannot see another chain's balances, so 
 | Field | Type | Description |
 | --- | --- | --- |
 | `denom` | string |  |
+| `held` | string | held is the figure the chain will act on: the LOWEST of the fresh reports from at least attestation_threshold attestors. Lowest, not latest and not averaged. This is the number the solvency query publishes unauthenticated and the number the credit path now checks a mint against, so the direction it errs in is the whole design: understating the reserve refuses an honest mint, overstating it permits an unbacked one. It used to be whatever the last single attestor wrote. Any one of them could overwrite it with any figure, and that was the accountability number. |
+| `as_of_height` | int64 | as_of_height is the OLDEST of the reports that produced held, so the figure's age is the age of its weakest input rather than of its freshest. |
+| `attestor` | string | attestor is whichever one reported the figure that was taken. |
+| `attestors` | uint32 | attestors is how many fresh reports stood behind it. |
+
+### ReserveReport
+
+ReserveReport is one attestor's statement of what is held.
+
+Kept per attestor rather than collapsed into a single figure, for the reason Attestation gives: a threshold reached by two attestors is a fact about those two, and a reserve figure that turns out to be wrong should name who said it.
+
+Exact agreement is deliberately NOT required. A reserve moves, so two honest attestors reporting hours apart will disagree by design, and a rule demanding equality would deadlock the module rather than secure it. What is required is enough recent reports, and the lowest of them is what counts.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `denom` | string |  |
+| `attestor` | string |  |
 | `held` | string |  |
 | `as_of_height` | int64 |  |
-| `attestor` | string |  |
 
 ### Solvency
 
@@ -307,6 +323,9 @@ Every way a transaction to this module can be rejected.
 | 11 | `ErrInvalidAmount` | amount must be positive |
 | 12 | `ErrInvalidParams` | invalid parameters |
 | 13 | `ErrInvalidSigner` | invalid authority for this message |
+| 14 | `ErrNotEnoughAttestations` | not enough attestors have confirmed this yet |
+| 15 | `ErrConflictingSettlement` | attestors disagree about how this redemption was paid, and disagreement is not agreement |
+| 16 | `ErrWouldBeUnbacked` | crediting that deposit would issue more claims than the attested reserve covers |
 | 2 | `ErrUnknownAsset` | no such asset is registered for custody |
 | 3 | `ErrAssetExists` | that asset is already registered |
 | 4 | `ErrNotAttestor` | this account is not an appointed attestor |

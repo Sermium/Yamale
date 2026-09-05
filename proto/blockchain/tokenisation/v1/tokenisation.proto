@@ -197,11 +197,22 @@ message Vault {
     (gogoproto.nullable) = false
   ];
 
-  // Total ever paid in, for the solvency view.
+  // Total gross income ever declared against the vehicle, for the solvency
+  // view. Larger than what the module holds for it, because only the holders'
+  // share is ever collected.
   repeated cosmos.base.v1beta1.Coin funded = 3 [(gogoproto.nullable) = false];
 
   // The denomination income arrives in.
   string denom = 4;
+
+  // What the module account actually holds on this vehicle's behalf.
+  //
+  // One module account serves every vehicle, so a balance is not an ownership
+  // record: without this ledger a vehicle that funded nothing pays its holders
+  // out of a different vehicle's vault, and the bank keeper has no way to
+  // object. Every credit is a transfer in, every debit is a payout, and no
+  // payout is made that this does not cover.
+  repeated cosmos.base.v1beta1.Coin held = 5 [(gogoproto.nullable) = false];
 }
 
 // Position is one account's place in the index.
@@ -240,4 +251,18 @@ message SaleReport {
   repeated string attestors = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 
   bool disputed = 7;
+
+  // The holders' share of the price, actually paid into the vault.
+  //
+  // A reported price is a claim about an off-chain sale. Crediting the index
+  // from the claim alone distributes money the vehicle never received, and the
+  // shared module account makes the shortfall somebody else's. Finalisation
+  // waits on this reaching what the holders are owed.
+  cosmos.base.v1beta1.Coin proceeds_paid = 8 [(gogoproto.nullable) = false];
+
+  // Who challenged the figure, and what they posted to do it. Held so the bond
+  // has somewhere to go: returned when the challenge was right, forfeited to
+  // the vault when it was not.
+  string challenger = 9 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  cosmos.base.v1beta1.Coin bond = 10 [(gogoproto.nullable) = false];
 }

@@ -26,5 +26,9 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 	registrar.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgApproveIssuer{},
 	)
+
+	registrar.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgRevokeIssuer{},
+	)
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)
 }

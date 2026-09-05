@@ -231,11 +231,29 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:     "Pay income into an asset's vault, where its holders can claim it",
 					Long: "Pay income into an asset's vault.\n\n" +
 						"Open to anybody — rent, a harvest, a dividend, whoever is actually paying.\n" +
-						"The amount must be in the asset's income denomination, and it becomes\n" +
-						"claimable by holders in proportion to what they hold.\n\n" +
-						"Money paid in here is not the sponsor's any more. It leaves the vault only\n" +
+						"The amount is the gross income for the period, in the asset's income\n" +
+						"denomination. What is taken from you is the holders' share of it, which\n" +
+						"the response reports; the rest is the sponsor's and stays where it is.\n\n" +
+						"What is collected is not the sponsor's any more. It leaves the vault only\n" +
 						"through claim and redeem.",
 					Example: "blockchaind tx tokenisation fund-vault 3 480000uKES --from tenant",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "asset_id"},
+						{ProtoField: "amount"},
+					},
+				},
+				{
+					RpcMethod: "PaySaleProceeds",
+					Use:       "pay-sale-proceeds [asset-id] [amount]",
+					Short:     "Pay the holders' share of a reported sale, which is what finalisation waits on",
+					Long: "Pay the holders' share of a reported sale price into the vault.\n\n" +
+						"A reported sale is a claim about something that happened off the chain.\n" +
+						"Until the money is here, finalising would open redemption against a vault\n" +
+						"holding nothing, and the first holder to redeem would be paid out of a\n" +
+						"different vehicle's money, because one module account serves them all.\n\n" +
+						"Open to anybody, so a sponsor going quiet cannot strand the holders. Pay\n" +
+						"in as many instalments as you like; more than is owed is refused.",
+					Example: "blockchaind tx tokenisation pay-sale-proceeds 3 225000uKES --from sponsor",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
 						{ProtoField: "asset_id"},
 						{ProtoField: "amount"},

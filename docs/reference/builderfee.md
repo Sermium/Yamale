@@ -179,3 +179,4 @@ Every way a transaction to this module can be rejected.
 | 1101 | `ErrBuilderExists` | a builder application already exists for this message type |
 | 1102 | `ErrApplicationNotFound` | builder application not found |
 | 1103 | `ErrApplicationNotPending` | builder application is not pending |
+| 1104 | `ErrInvalidMsgTypeURL` | that is not a message type URL this chain could route |

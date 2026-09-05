@@ -35,6 +35,31 @@ func (k msgServer) MintCoin(ctx context.Context, msg *types.MsgMintCoin) (*types
 	}
 	coins := sdk.NewCoins(sdk.NewCoin(msg.Denom, amount))
 
+	// The ceiling, and the reason it is on total supply rather than on the
+	// mint: a per-transaction cap is a loop, and a per-period cap needs a clock
+	// and a window to be reset against. What matters is how much of a currency
+	// exists, so that is what is bounded.
+	//
+	// Until this check existed, being the recorded issuer was the whole of the
+	// authorisation — no cap, no period limit, no reserve check anywhere in the
+	// path. On a chain where one key was the approved issuer for all 43
+	// currencies, that key could mint unlimited quantities of every national
+	// currency the chain represented.
+	//
+	// A ceiling of zero refuses everything, which is the safe direction and the
+	// one an upgraded chain lands in until governance states a figure.
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ceiling := params.MintCeilingFor(msg.Denom)
+	supply := k.bankKeeper.GetSupply(sdk.UnwrapSDKContext(ctx), msg.Denom).Amount
+	if supply.Add(amount).GT(ceiling) {
+		return nil, errorsmod.Wrapf(types.ErrMintCeiling,
+			"%s has a ceiling of %s, %s already exists, and this would mint %s",
+			msg.Denom, ceiling, supply, amount)
+	}
+
 	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
 		return nil, err
 	}

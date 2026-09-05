@@ -55,11 +55,16 @@ func (m msgServer) OpenEscrow(ctx context.Context, msg *types.MsgOpenEscrow) (*t
 		return nil, err
 	}
 
+	// The bare sequence value, with nothing added to it. An escrow is a lock
+	// and shares the lock id space with CreateLock; incrementing here handed
+	// the next ordinary lock the id this escrow had just taken, and the
+	// overwrite left the deposit in the module account owned by nobody.
+	//
+	// Zero is still never issued: InitGenesis seeds the sequence at one.
 	id, err := m.LockSeq.Next(ctx)
 	if err != nil {
 		return nil, err
 	}
-	id++ // ids start at 1; zero is indistinguishable from an unset proto field
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	lock := types.Lock{

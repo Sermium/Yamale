@@ -75,7 +75,21 @@ func (k msgServer) ApproveIssuer(ctx context.Context, msg *types.MsgApproveIssue
 			},
 		})
 	} else {
-		application.Status = types.StatusRejected
+		// The record goes, rather than staying behind marked Rejected.
+		//
+		// RegisterCurrency is permissionless and keyed by denom, and it refuses
+		// a second application for a denom that already has one. Keeping a
+		// rejected record therefore killed the denomination permanently: one
+		// transaction fee and uusd, ueur, ugbp, uchf or ujpy could never be
+		// registered by anybody, with no withdrawal, expiry or clearing path.
+		// Every currency in the oracle's accepted set was open to it.
+		//
+		// A rejection is a decision about an application. It is not a decision
+		// that the denomination may never exist.
+		if err := k.IssuerApplication.Remove(ctx, msg.Denom); err != nil {
+			return nil, err
+		}
+		return &types.MsgApproveIssuerResponse{}, nil
 	}
 
 	if err := k.IssuerApplication.Set(ctx, msg.Denom, application); err != nil {

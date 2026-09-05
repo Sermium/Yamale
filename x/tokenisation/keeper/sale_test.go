@@ -170,13 +170,10 @@ func TestAVehicleCanBeExited(t *testing.T) {
 	held, err := env.AddressCodec.StringToBytes(minter)
 	require.NoError(t, err)
 
-	// Not yet fundable, and the ordering is the module's rather than mine:
-	// FundVault takes ACTIVE or REALISED and the asset is REPORTED, so the
-	// proceeds arrive after the sale finalises rather than beside the claim
-	// about it. Funding here would credit the index twice — once now and once
-	// when FinaliseSale accrues the price — and leave the vault owing double
-	// what it holds.
-	env.Fund(t, held, sdk.NewCoins(price(1_000)))
+	// FundVault takes ACTIVE or REALISED and the asset is REPORTED, so a coupon
+	// cannot be slipped in beside the claim about the sale. The sale's own money
+	// has its own message.
+	env.Fund(t, held, sdk.NewCoins(price(2_000)))
 	_, err = ms.FundVault(env.Ctx, &types.MsgFundVault{
 		Funder: minter, AssetId: asset, Amount: price(1_000),
 	})
@@ -195,9 +192,42 @@ func TestAVehicleCanBeExited(t *testing.T) {
 
 	env.Ctx = env.Ctx.WithBlockTime(env.Ctx.BlockTime().Add((window + 1) * time.Second))
 
-	// Anybody at all sends it — here a passer-by holding no shares, because a
-	// crank only the sponsor could turn is a crank the sponsor can decline to.
+	// Past the window, verified, undisputed — and still refused, because the
+	// sale is so far only a claim that one happened. Finalising here used to
+	// credit the index with the whole reported price while moving no coins at
+	// all, and the redemption that followed was paid out of the module account,
+	// which holds every other vehicle's money.
 	_, passerby := env.Addr(t)
+	_, err = ms.FinaliseSale(env.Ctx, &types.MsgFinaliseSale{Caller: passerby, AssetId: asset})
+	require.ErrorIs(t, err, types.ErrProceedsUnpaid)
+
+	// More than is owed has no owner, so it is refused rather than stranded.
+	_, err = ms.PaySaleProceeds(env.Ctx, &types.MsgPaySaleProceeds{
+		Payer: minter, AssetId: asset, Amount: price(1_001),
+	})
+	require.ErrorIs(t, err, types.ErrOverpayment)
+
+	// In instalments, because a buyer paying in two goes should not be a reason
+	// the holders never get their exit.
+	res, err := ms.PaySaleProceeds(env.Ctx, &types.MsgPaySaleProceeds{
+		Payer: minter, AssetId: asset, Amount: price(400),
+	})
+	require.NoError(t, err)
+	require.Equal(t, price(600), res.Outstanding)
+
+	// Short is still short.
+	_, err = ms.FinaliseSale(env.Ctx, &types.MsgFinaliseSale{Caller: passerby, AssetId: asset})
+	require.ErrorIs(t, err, types.ErrProceedsUnpaid)
+
+	res, err = ms.PaySaleProceeds(env.Ctx, &types.MsgPaySaleProceeds{
+		Payer: minter, AssetId: asset, Amount: price(600),
+	})
+	require.NoError(t, err)
+	require.True(t, res.Outstanding.IsZero())
+
+	// Anybody at all turns the crank — here a passer-by holding no shares,
+	// because a crank only the sponsor could turn is a crank the sponsor can
+	// decline to turn.
 	_, err = ms.FinaliseSale(env.Ctx, &types.MsgFinaliseSale{Caller: passerby, AssetId: asset})
 	require.NoError(t, err)
 
@@ -205,30 +235,19 @@ func TestAVehicleCanBeExited(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, types.STATUS_REALISED, a.Status)
 
-	// The door opens, which is the fix this test exists for: before
-	// MsgFinaliseSale existed nothing could reach this status and Redeem, which
-	// requires it, could never succeed for anybody.
-	//
-	// Redemption itself then fails, and NOT because of anything above. The vault
-	// owes what it cannot pay: FinaliseSale credits the index with the whole
-	// reported price while moving no coins, and the only message that does move
-	// coins - FundVault - accrues them a second time on the way in. So the
-	// proceeds of a sale have no funding path that does not double-count, and a
-	// holder is credited money that never arrived.
-	//
-	// That is a separate defect from the two this file was written for, it is a
-	// design decision rather than a mechanical fix - whether finalising should
-	// pull the price from the reporter, or whether funding should stop accruing
-	// once a sale is reported - and it is recorded in docs/scope/gaps.md rather
-	// than guessed at here. Asserted as it actually behaves, so that whoever
-	// decides it will see this test fail and have to look.
+	// And redemption pays, out of money that actually arrived. The vault's
+	// ledger empties exactly as the holder is paid: what a vehicle holds is what
+	// came in for it and has not yet left.
 	before := env.Balance(held, income)
 	_, err = ms.Redeem(env.Ctx, &types.MsgRedeem{
 		Holder: minter, AssetId: asset, Amount: math.NewInt(1_000),
 	})
-	require.Error(t, err, "redemption now pays - the proceeds hole has been closed, update this test")
-	require.Contains(t, err.Error(), "insufficient funds")
-	require.Equal(t, before, env.Balance(held, income))
+	require.NoError(t, err)
+	require.Equal(t, before.AddRaw(1_000), env.Balance(held, income))
+
+	v, err := k.Vaults.Get(env.Ctx, asset)
+	require.NoError(t, err)
+	require.True(t, sdk.Coins(v.Held).IsZero(), "the vault still holds %s", sdk.Coins(v.Held))
 }
 
 // A disputed sale does not finalise, which is what the window is for.

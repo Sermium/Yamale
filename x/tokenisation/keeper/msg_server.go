@@ -273,13 +273,26 @@ func (m msgServer) FundVault(ctx context.Context, msg *types.MsgFundVault) (*typ
 	if err != nil {
 		return nil, err
 	}
-	if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, funder, types.ModuleName, sdk.NewCoins(msg.Amount)); err != nil {
+
+	// Only the holders' share is collected. The rest is the sponsor's share of
+	// their own asset, and the module used to take it into an account with no
+	// message that pays it back — on a vehicle with holder_share_bps of 2,500,
+	// three quarters of every rent payment was stranded. Leaving it with the
+	// funder is what the message has always said happens.
+	collected := sdk.NewCoin(msg.Amount.Denom, holderCut(asset, msg.Amount.Amount))
+	if !collected.Amount.IsPositive() {
+		return nil, types.ErrAmountTooSmall
+	}
+	if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, funder, types.ModuleName, sdk.NewCoins(collected)); err != nil {
+		return nil, err
+	}
+	if err := m.hold(ctx, msg.AssetId, collected); err != nil {
 		return nil, err
 	}
 	if err := m.AccrueIncome(ctx, msg.AssetId, msg.Amount.Amount); err != nil {
 		return nil, err
 	}
-	return &types.MsgFundVaultResponse{}, nil
+	return &types.MsgFundVaultResponse{Collected: collected}, nil
 }
 
 // Claim withdraws accrued income without giving up the shareholding — a coupon
@@ -309,11 +322,18 @@ func (m msgServer) Claim(ctx context.Context, msg *types.MsgClaim) (*types.MsgCl
 		return nil, types.ErrNothingOwed
 	}
 
-	payout := sdk.NewCoins(sdk.NewCoin(vault.Denom, pos.Accrued))
+	paid := sdk.NewCoin(vault.Denom, pos.Accrued)
 	pos.Accrued = math.ZeroInt()
 	if err := m.Positions.Set(ctx, key, pos); err != nil {
 		return nil, err
 	}
+	// Off this vehicle's ledger before the bank keeper is asked, so a payout
+	// this vehicle cannot cover fails here rather than succeeding out of a
+	// different vehicle's rent.
+	if err := m.release(ctx, msg.AssetId, paid); err != nil {
+		return nil, err
+	}
+	payout := sdk.NewCoins(paid)
 	if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, holder, payout); err != nil {
 		return nil, err
 	}
@@ -393,6 +413,9 @@ func (m msgServer) Redeem(ctx context.Context, msg *types.MsgRedeem) (*types.Msg
 
 	payout := sdk.NewCoins(sdk.NewCoin(vault.Denom, share))
 	if share.IsPositive() {
+		if err := m.release(ctx, msg.AssetId, sdk.NewCoin(vault.Denom, share)); err != nil {
+			return nil, err
+		}
 		if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, holder, payout); err != nil {
 			return nil, err
 		}

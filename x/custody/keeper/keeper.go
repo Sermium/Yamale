@@ -45,9 +45,13 @@ type Keeper struct {
 	Attestations collections.KeySet[collections.Pair[string, string]]
 	ExternalRefs collections.KeySet[collections.Pair[string, string]]
 	Redemptions  collections.Map[string, types.Redemption]
-	Reserves     collections.Map[string, types.Reserve]
-	DepositSeq   collections.Sequence
-	RedeemSeq    collections.Sequence
+	// One attestor's statement of what is held, keyed (denom, attestor).
+	// Reserves below is derived from these: writing the published figure
+	// directly meant any single attestor could set it to anything.
+	ReserveReports collections.Map[collections.Pair[string, string], types.ReserveReport]
+	Reserves       collections.Map[string, types.Reserve]
+	DepositSeq     collections.Sequence
+	RedeemSeq      collections.Sequence
 }
 
 func NewKeeper(
@@ -84,6 +88,8 @@ func NewKeeper(
 		ExternalRefs: collections.NewKeySet(sb, types.ExternalRefsKey, "external_refs", pair),
 		Redemptions: collections.NewMap(sb, types.RedemptionsKey, "redemptions",
 			collections.StringKey, codec.CollValue[types.Redemption](cdc)),
+		ReserveReports: collections.NewMap(sb, types.ReserveReportsKey, "reserve_reports",
+			pair, codec.CollValue[types.ReserveReport](cdc)),
 		Reserves: collections.NewMap(sb, types.ReservesKey, "reserves",
 			collections.StringKey, codec.CollValue[types.Reserve](cdc)),
 		DepositSeq: collections.NewSequence(sb, types.DepositSeqKey, "deposit_seq"),

@@ -2,6 +2,7 @@ syntax = "proto3";
 package blockchain.stablecoin.v1;
 
 import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/stablecoin/types";
@@ -10,4 +11,43 @@ option go_package = "yamale/blockchain/x/stablecoin/types";
 message Params {
   option (amino.name) = "blockchain/x/stablecoin/Params";
   option (gogoproto.equal) = true;
+
+  // The largest total supply an approved issuer may bring into existence for a
+  // currency that has no ceiling of its own.
+  //
+  // MintCoin checked that the signer was the recorded issuer and then minted
+  // whatever it was asked for. On a chain where one key was the approved issuer
+  // for all 43 currencies, that key could mint unlimited quantities of every
+  // national currency the chain represented, and there was no cap, no period
+  // limit and no reserve check anywhere in the path.
+  //
+  // Empty or zero means NO MINTING, not unlimited. That is the safe direction
+  // and it is the direction the rest of this chain already fails in: a chain
+  // upgraded past this point cannot issue until governance states a figure,
+  // which is the decision being forced rather than a side effect.
+  string default_mint_ceiling = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Per-currency ceilings, for the ones the default does not suit. A currency
+  // listed here uses its own figure; everything else uses the default.
+  repeated MintCeiling mint_ceilings = 2 [(gogoproto.nullable) = false];
+}
+
+// MintCeiling is one currency's supply cap.
+message MintCeiling {
+  option (gogoproto.equal) = true;
+
+  string denom = 1;
+
+  // The largest total supply of this denomination that may exist. Zero means
+  // this currency may not be minted at all, which is a usable state: it is how
+  // a currency is suspended without revoking its issuer.
+  string ceiling = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
 }

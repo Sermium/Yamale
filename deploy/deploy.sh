@@ -170,10 +170,37 @@ check /api/rest/cosmos/auth/v1beta1/module_accounts               200 "governanc
 check /api/rest/yamale/blockchain/tokenisation/v1/params         200 "offerings readable"
 check /api/rest/yamale/blockchain/oracle/v1/params               200 "rates readable"
 
+check /api/rest/yamale/blockchain/land/v1/params                 200 "title register readable"
+check /api/rest/yamale/blockchain/paymsg/v1/params               200 "payment policy readable"
+
 # And the gate still closed where it is meant to be. A deploy that quietly
 # opens everything passes every check above.
-check /api/rest/yamale/blockchain/land/v1/params  401 "land still supervised"
-check /api/rpc/net_info                           403 "peer map still refused"
+#
+# payment_record is the one line here that is a policy statement rather than an
+# oversight: land title is public everywhere and a register of licensed
+# institutions is a list regulators publish, but a bank statement is neither.
+check /api/rest/yamale/blockchain/paymsg/v1/payment_record        401 "payment records still supervised"
+check /api/rest/yamale/blockchain/netting/v1/params               401 "netting still supervised"
+check /api/rpc/net_info                                           403 "peer map still refused"
+
+# The gate above is a lock in a wall that stops at /api/rpc/. CometBFT's
+# abci_query reaches every registered query service, so a module closed on REST
+# is closed only until somebody asks the other way. Checked here so the day it
+# is fixed the check flips and somebody has to look, and so it cannot quietly
+# get worse in the meantime.
+#
+# Note what does NOT work as a fix: the deny list in yamale-api.conf matches on
+# the URL path, and the JSON-RPC form carries the method in the POST body.
+echo "==> the RPC bypass, as it stands"
+bypass=$(curl -s --max-time 30 -X POST "$PUBLIC/api/rpc/" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/blockchain.paymsg.v1.Query/ListPaymentRecord","data":""}}' \
+  | grep -c '"code":0' || true)
+if [ "$bypass" = "0" ]; then
+  printf '    ok   payment records refused on the RPC too\n'
+else
+  printf '    !!   payment records readable through abci_query despite the REST gate\n'
+  printf '         see docs/scope/gaps.md — closing this needs body inspection, not a path regex\n'
+fi
 
 # The bundle the public actually gets is the bundle just built. Everything above
 # can pass against a month-old copy of the site.

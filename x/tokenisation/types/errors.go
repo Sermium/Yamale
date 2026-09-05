@@ -97,4 +97,14 @@ var (
 	// closed. Two conditions, two errors.
 	ErrWindowClosed = sdkerrors.Register(ModuleName, 34,
 		"the challenge window on that sale has closed, so it can no longer be disputed")
+
+	// One module account holds every vehicle's money, so a payout the bank
+	// keeper can settle is not necessarily a payout this vehicle can afford.
+	// These three are what stands between a vehicle and its neighbour's vault.
+	ErrVaultUnfunded = sdkerrors.Register(ModuleName, 35,
+		"this vehicle does not hold enough to pay that, and the money of another vehicle is not available to it")
+	ErrProceedsUnpaid = sdkerrors.Register(ModuleName, 36,
+		"the holders' share of the reported price has not been paid into the vault, so redemption cannot open")
+	ErrOverpayment = sdkerrors.Register(ModuleName, 37,
+		"that is more than the sale still owes, and the surplus would have no owner")
 )

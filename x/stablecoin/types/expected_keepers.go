@@ -25,6 +25,10 @@ type BankKeeper interface {
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	SendCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
+	// GetSupply is what the mint ceiling is measured against. The bound is on
+	// how much of a currency exists, not on the size of any one mint, because a
+	// per-transaction cap is a loop.
+	GetSupply(ctx context.Context, denom string) sdk.Coin
 }
 
 // ScopeKeeper is the jurisdictional perimeter, and one method of it.

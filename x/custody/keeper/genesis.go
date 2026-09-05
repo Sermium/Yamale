@@ -42,8 +42,18 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 			return err
 		}
 	}
-	for _, r := range gs.Reserves {
-		if err := k.Reserves.Set(ctx, r.Denom, r); err != nil {
+	// The reports go in, and the published reserve is computed from them --
+	// derived state, rebuilt rather than read, so an exported genesis can never
+	// disagree with itself. Same reasoning as the external-reference set above.
+	denoms := make([]string, 0, len(gs.ReserveReports))
+	for _, r := range gs.ReserveReports {
+		if err := k.ReserveReports.Set(ctx, collections.Join(r.Denom, r.Attestor), r); err != nil {
+			return err
+		}
+		denoms = append(denoms, r.Denom)
+	}
+	for _, denom := range denoms {
+		if err := k.recomputeReserve(ctx, denom); err != nil {
 			return err
 		}
 	}
@@ -55,9 +65,9 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 
 // ExportGenesis reads the genesis state back out.
 //
-// Emits neither the attestation records nor the external-reference set: the
-// first is per-deposit detail that a settled chain no longer needs, and the
-// second is derived above. Export and import must round-trip byte-for-byte, and
+// Emits neither the attestation records, nor the external-reference set, nor
+// the published reserve: the first is per-attestation detail that a settled
+// chain no longer needs, and the other two are derived above. Export and import must round-trip byte-for-byte, and
 // the way to guarantee that is to emit each fact exactly once.
 func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
 	params, err := k.Params.Get(ctx)
@@ -65,12 +75,12 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		return nil, err
 	}
 	gs := types.GenesisState{
-		Params:      params,
-		Assets:      []types.Asset{},
-		Attestors:   []string{},
-		Deposits:    []types.Deposit{},
-		Redemptions: []types.Redemption{},
-		Reserves:    []types.Reserve{},
+		Params:         params,
+		Assets:         []types.Asset{},
+		Attestors:      []string{},
+		Deposits:       []types.Deposit{},
+		Redemptions:    []types.Redemption{},
+		ReserveReports: []types.ReserveReport{},
 	}
 
 	if err := k.Assets.Walk(ctx, nil, func(_ string, a types.Asset) (bool, error) {
@@ -97,8 +107,8 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}); err != nil {
 		return nil, err
 	}
-	if err := k.Reserves.Walk(ctx, nil, func(_ string, r types.Reserve) (bool, error) {
-		gs.Reserves = append(gs.Reserves, r)
+	if err := k.ReserveReports.Walk(ctx, nil, func(_ collections.Pair[string, string], r types.ReserveReport) (bool, error) {
+		gs.ReserveReports = append(gs.ReserveReports, r)
 		return false, nil
 	}); err != nil {
 		return nil, err

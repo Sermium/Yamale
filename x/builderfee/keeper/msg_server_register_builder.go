@@ -20,6 +20,20 @@ func (k msgServer) RegisterBuilder(ctx context.Context, msg *types.MsgRegisterBu
 		return nil, errorsmod.Wrap(err, "invalid payout address")
 	}
 
+	// Checked before anything is read or written. This field is the store key
+	// for two collections and the message is permissionless, so without a bound
+	// it is an arbitrary-length attacker-chosen key.
+	if err := types.ValidateMsgTypeURL(msg.MsgTypeUrl); err != nil {
+		return nil, err
+	}
+	// And it must name a message this chain actually has. A builder fee against
+	// a type nothing can send is a reservation, not an application — and
+	// reservations are exactly what the squat below was built out of.
+	if _, err := k.cdc.InterfaceRegistry().Resolve(msg.MsgTypeUrl); err != nil {
+		return nil, errorsmod.Wrapf(types.ErrInvalidMsgTypeURL,
+			"%s is not a message type registered on this chain", msg.MsgTypeUrl)
+	}
+
 	if has, err := k.BuilderApplication.Has(ctx, msg.MsgTypeUrl); err != nil {
 		return nil, err
 	} else if has {

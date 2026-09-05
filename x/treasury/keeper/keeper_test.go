@@ -39,8 +39,12 @@ func initFixture(t *testing.T) *fixture {
 		env.BankKeeper,
 	)
 
-	if err := k.Params.Set(env.Ctx, types.DefaultParams()); err != nil {
-		t.Fatalf("failed to set params: %v", err)
+	// Through InitGenesis rather than Params.Set alone: the id sequences are
+	// seeded here and nowhere else, so a fixture that skips it hands out lock
+	// and treasury id zero — a state no running chain is ever in, and one that
+	// hides an off-by-one in the handlers under it.
+	if err := k.InitGenesis(env.Ctx, *types.DefaultGenesis()); err != nil {
+		t.Fatalf("failed to initialise genesis: %v", err)
 	}
 
 	// A definite block time, since every lock decision is a function of it.

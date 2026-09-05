@@ -31,6 +31,7 @@ service Msg {
   rpc TransferAsset(MsgTransferAsset) returns (MsgTransferAssetResponse);
   rpc FundVault(MsgFundVault) returns (MsgFundVaultResponse);
   rpc ReportSale(MsgReportSale) returns (MsgReportSaleResponse);
+  rpc PaySaleProceeds(MsgPaySaleProceeds) returns (MsgPaySaleProceedsResponse);
 
   // An attestor appointed by the collection. This used to sit under
   // "permissionless", which made the attestation threshold meetable by anybody
@@ -190,9 +191,16 @@ message MsgFundVault {
 
   string funder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   uint64 asset_id = 2;
+
+  // The gross income for the period. The chain collects holder_share_bps of
+  // it and leaves the rest where it is, which is what the sentence above has
+  // always said and what the response reports.
   cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
 }
-message MsgFundVaultResponse {}
+message MsgFundVaultResponse {
+  // What was actually taken from the funder.
+  cosmos.base.v1beta1.Coin collected = 1 [(gogoproto.nullable) = false];
+}
 
 // MsgReportSale states what the asset sold for. It does not open redemption.
 //
@@ -209,6 +217,26 @@ message MsgReportSale {
   string evidence_uri = 4;
 }
 message MsgReportSaleResponse {}
+
+// MsgPaySaleProceeds pays the holders' share of a reported price into the
+// vault, which is what finalisation waits on.
+//
+// Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone
+// quiet should not be able to strand every holder, and money arriving is never
+// the problem. Overpayment is refused rather than accepted and stranded.
+message MsgPaySaleProceeds {
+  option (cosmos.msg.v1.signer) = "payer";
+  option (amino.name) = "blockchain/x/tokenisation/MsgPaySaleProceeds";
+
+  string payer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+}
+message MsgPaySaleProceedsResponse {
+  // Paid so far against this sale, and what finalisation still waits on.
+  cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin outstanding = 2 [(gogoproto.nullable) = false];
+}
 
 // MsgAttestSale signs a reported figure when the collection requires attestors.
 message MsgAttestSale {

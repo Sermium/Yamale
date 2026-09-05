@@ -106,11 +106,30 @@ func NewKeeper(
 
 func (k Keeper) GetAuthority() []byte { return k.authority }
 
-// AccrueIncome raises an asset's index by an amount paid into its vault.
+// AccrueIncome raises an asset's index by a gross income figure.
 //
-// Only holder_share_bps of the payment reaches the index. The remainder is the
-// sponsor's share of their own asset and is never taken from them.
-func (k Keeper) AccrueIncome(ctx context.Context, assetID uint64, amount math.Int) error {
+// Only holder_share_bps of it reaches the index. The remainder is the
+// sponsor's share of their own asset and is never taken from them — which is
+// now true of the money as well as of the arithmetic: the collecting handler
+// takes the cut and leaves the rest where it is.
+func (k Keeper) AccrueIncome(ctx context.Context, assetID uint64, gross math.Int) error {
+	asset, err := k.Assets.Get(ctx, assetID)
+	if err != nil {
+		return err
+	}
+	return k.creditHolders(ctx, assetID, holderCut(asset, gross), gross)
+}
+
+// creditHolders is the only path to the index, and it will not take a step the
+// vault cannot pay for.
+//
+// FinaliseSale used to credit a whole sale price here with no coins having
+// moved at all. The index rose, redemption opened, and the first holder to
+// call Redeem was paid out of the module account — which holds every other
+// vehicle's rent. The vehicle that reported the sale had funded nothing; the
+// vehicle that lost the money had done nothing. The check below is what makes
+// that a refused transaction rather than a theft.
+func (k Keeper) creditHolders(ctx context.Context, assetID uint64, credited, gross math.Int) error {
 	asset, err := k.Assets.Get(ctx, assetID)
 	if err != nil {
 		return err
@@ -127,19 +146,22 @@ func (k Keeper) AccrueIncome(ctx context.Context, assetID uint64, amount math.In
 		// vault holding funds no index can ever pay out.
 		return types.ErrNoShareholders
 	}
-
-	holderCut := amount.MulRaw(int64(asset.HolderShareBps)).QuoRaw(10_000)
-	if !holderCut.IsPositive() {
+	if !credited.IsPositive() {
 		return types.ErrAmountTooSmall
+	}
+	if sdk.Coins(vault.Held).AmountOf(vault.Denom).LT(credited) {
+		return types.ErrVaultUnfunded.Wrapf(
+			"vehicle %d holds %s%s and is being credited %s", assetID,
+			sdk.Coins(vault.Held).AmountOf(vault.Denom), vault.Denom, credited)
 	}
 
 	// Truncation here favours the vault, never the holders: a fraction of a
 	// unit that cannot be divided stays behind rather than being conjured. The
 	// same rule governs redemption and x/amm.
-	perToken := math.LegacyNewDecFromInt(holderCut).QuoTruncate(math.LegacyNewDecFromInt(supply))
+	perToken := math.LegacyNewDecFromInt(credited).QuoTruncate(math.LegacyNewDecFromInt(supply))
 
 	vault.CumulativePerToken = vault.CumulativePerToken.Add(perToken)
-	vault.Funded = sdk.Coins(vault.Funded).Add(sdk.NewCoin(vault.Denom, amount))
+	vault.Funded = sdk.Coins(vault.Funded).Add(sdk.NewCoin(vault.Denom, gross))
 	return k.Vaults.Set(ctx, assetID, vault)
 }
 

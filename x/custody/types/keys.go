@@ -24,4 +24,8 @@ var (
 	DepositSeqKey    = collections.NewPrefix(7)
 	RedemptionSeqKey = collections.NewPrefix(8)
 	ExternalRefsKey  = collections.NewPrefix(9)
+	// One attestor's reserve report, keyed (denom, attestor). The published
+	// Reserve is derived from these rather than written directly, because
+	// written directly meant any single attestor could set it to anything.
+	ReserveReportsKey = collections.NewPrefix(10)
 )

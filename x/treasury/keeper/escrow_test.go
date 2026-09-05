@@ -213,3 +213,72 @@ func TestEscrowRefusesNonsenseArrangements(t *testing.T) {
 	_, err = ms.DisputeEscrow(env.Ctx, &types.MsgDisputeEscrow{Party: buyer, LockId: res.LockId, Reason: ""})
 	require.ErrorIs(t, err, types.ErrNoReason)
 }
+
+// An escrow and an ordinary lock share one id space, and until this test
+// existed each handler was only ever exercised alone — which is exactly how
+// OpenEscrow came to consume a sequence value and then use the one after it.
+// The second lock created on the chain took the escrow's id, overwrote the
+// record, and left the buyer's deposit in the module account with no owner and
+// no handler that would release it.
+func TestEscrowAndLockDoNotShareAnId(t *testing.T) {
+	f := initFixture(t)
+	env, ms := f.env, f.ms
+	buyer, seller, moderator := escrowParties(t, env)
+
+	escrowRes, err := ms.OpenEscrow(env.Ctx, &types.MsgOpenEscrow{
+		Depositor: buyer, Beneficiary: seller, Moderator: moderator,
+		Amount: sdk.NewCoin(escrowDenom, math.NewInt(50_000)),
+	})
+	require.NoError(t, err)
+
+	// Anyone at all now creates an ordinary treasury lock.
+	treasuryID, _, admin := f.newTreasury(t, 100_000)
+	_, benefStr := env.Addr(t)
+	lockRes, err := ms.CreateLock(f.ctx, &types.MsgCreateLock{
+		Admin: admin, TreasuryId: treasuryID, Beneficiary: benefStr,
+		Denom: denom, Amount: "10000",
+		LockType:  types.LockType_LOCK_TYPE_TIME,
+		StartTime: 1000, CliffTime: 1000, EndTime: 100000,
+	})
+	require.NoError(t, err)
+
+	require.NotEqual(t, escrowRes.LockId, lockRes.Id,
+		"an escrow and a lock were issued the same id")
+
+	// The escrow record still describes the escrow, so the buyer can still end
+	// it and the money still has an owner.
+	_, err = ms.ReleaseEscrow(f.ctx, &types.MsgReleaseEscrow{
+		Depositor: buyer, LockId: escrowRes.LockId})
+	require.NoError(t, err)
+
+	sellerAddr, err := env.AddressCodec.StringToBytes(seller)
+	require.NoError(t, err)
+	require.Equal(t, math.NewInt(50_000), env.Balance(sellerAddr, escrowDenom))
+}
+
+// Neither id space starts at zero, because in proto3 a zero id is
+// indistinguishable from an unset field: a client that omits lock_id would
+// address lock zero rather than being refused.
+func TestNoLockIsIssuedIdZero(t *testing.T) {
+	f := initFixture(t)
+	env, ms := f.env, f.ms
+	buyer, seller, moderator := escrowParties(t, env)
+
+	escrowRes, err := ms.OpenEscrow(env.Ctx, &types.MsgOpenEscrow{
+		Depositor: buyer, Beneficiary: seller, Moderator: moderator,
+		Amount: sdk.NewCoin(escrowDenom, math.NewInt(1_000)),
+	})
+	require.NoError(t, err)
+	require.NotZero(t, escrowRes.LockId)
+
+	treasuryID, _, admin := f.newTreasury(t, 100_000)
+	_, benefStr := env.Addr(t)
+	lockRes, err := ms.CreateLock(f.ctx, &types.MsgCreateLock{
+		Admin: admin, TreasuryId: treasuryID, Beneficiary: benefStr,
+		Denom: denom, Amount: "10000",
+		LockType:  types.LockType_LOCK_TYPE_TIME,
+		StartTime: 1000, CliffTime: 1000, EndTime: 100000,
+	})
+	require.NoError(t, err)
+	require.NotZero(t, lockRes.Id)
+}

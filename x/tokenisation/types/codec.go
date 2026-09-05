@@ -15,6 +15,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgFractionalise{}, "blockchain/x/tokenisation/MsgFractionalise", nil)
 	cdc.RegisterConcrete(&MsgTransferAsset{}, "blockchain/x/tokenisation/MsgTransferAsset", nil)
 	cdc.RegisterConcrete(&MsgFundVault{}, "blockchain/x/tokenisation/MsgFundVault", nil)
+	cdc.RegisterConcrete(&MsgPaySaleProceeds{}, "blockchain/x/tokenisation/MsgPaySaleProceeds", nil)
 	cdc.RegisterConcrete(&MsgReportSale{}, "blockchain/x/tokenisation/MsgReportSale", nil)
 	cdc.RegisterConcrete(&MsgAttestSale{}, "blockchain/x/tokenisation/MsgAttestSale", nil)
 	cdc.RegisterConcrete(&MsgDisputeSale{}, "blockchain/x/tokenisation/MsgDisputeSale", nil)
@@ -32,6 +33,7 @@ func RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 		&MsgFractionalise{},
 		&MsgTransferAsset{},
 		&MsgFundVault{},
+		&MsgPaySaleProceeds{},
 		&MsgReportSale{},
 		&MsgAttestSale{},
 		&MsgDisputeSale{},

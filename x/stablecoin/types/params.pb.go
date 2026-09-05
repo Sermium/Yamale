@@ -4,7 +4,9 @@
 package types
 
 import (
+	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
+	_ "github.com/cosmos/cosmos-proto"
 	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
@@ -26,6 +28,23 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Params defines the parameters for the module.
 type Params struct {
+	// The largest total supply an approved issuer may bring into existence for a
+	// currency that has no ceiling of its own.
+	//
+	// MintCoin checked that the signer was the recorded issuer and then minted
+	// whatever it was asked for. On a chain where one key was the approved issuer
+	// for all 43 currencies, that key could mint unlimited quantities of every
+	// national currency the chain represented, and there was no cap, no period
+	// limit and no reserve check anywhere in the path.
+	//
+	// Empty or zero means NO MINTING, not unlimited. That is the safe direction
+	// and it is the direction the rest of this chain already fails in: a chain
+	// upgraded past this point cannot issue until governance states a figure,
+	// which is the decision being forced rather than a side effect.
+	DefaultMintCeiling cosmossdk_io_math.Int `protobuf:"bytes,1,opt,name=default_mint_ceiling,json=defaultMintCeiling,proto3,customtype=cosmossdk.io/math.Int" json:"default_mint_ceiling"`
+	// Per-currency ceilings, for the ones the default does not suit. A currency
+	// listed here uses its own figure; everything else uses the default.
+	MintCeilings []MintCeiling `protobuf:"bytes,2,rep,name=mint_ceilings,json=mintCeilings,proto3" json:"mint_ceilings"`
 }
 
 func (m *Params) Reset()         { *m = Params{} }
@@ -61,8 +80,65 @@ func (m *Params) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Params proto.InternalMessageInfo
 
+func (m *Params) GetMintCeilings() []MintCeiling {
+	if m != nil {
+		return m.MintCeilings
+	}
+	return nil
+}
+
+// MintCeiling is one currency's supply cap.
+type MintCeiling struct {
+	Denom string `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
+	// The largest total supply of this denomination that may exist. Zero means
+	// this currency may not be minted at all, which is a usable state: it is how
+	// a currency is suspended without revoking its issuer.
+	Ceiling cosmossdk_io_math.Int `protobuf:"bytes,2,opt,name=ceiling,proto3,customtype=cosmossdk.io/math.Int" json:"ceiling"`
+}
+
+func (m *MintCeiling) Reset()         { *m = MintCeiling{} }
+func (m *MintCeiling) String() string { return proto.CompactTextString(m) }
+func (*MintCeiling) ProtoMessage()    {}
+func (*MintCeiling) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0b17cff330723151, []int{1}
+}
+func (m *MintCeiling) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MintCeiling) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MintCeiling.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MintCeiling) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MintCeiling.Merge(m, src)
+}
+func (m *MintCeiling) XXX_Size() int {
+	return m.Size()
+}
+func (m *MintCeiling) XXX_DiscardUnknown() {
+	xxx_messageInfo_MintCeiling.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MintCeiling proto.InternalMessageInfo
+
+func (m *MintCeiling) GetDenom() string {
+	if m != nil {
+		return m.Denom
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*Params)(nil), "blockchain.stablecoin.v1.Params")
+	proto.RegisterType((*MintCeiling)(nil), "blockchain.stablecoin.v1.MintCeiling")
 }
 
 func init() {
@@ -70,18 +146,28 @@ func init() {
 }
 
 var fileDescriptor_0b17cff330723151 = []byte{
-	// 172 bytes of a gzipped FileDescriptorProto
+	// 334 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4d, 0xca, 0xc9, 0x4f,
 	0xce, 0x4e, 0xce, 0x48, 0xcc, 0xcc, 0xd3, 0x2f, 0x2e, 0x49, 0x4c, 0xca, 0x49, 0x4d, 0xce, 0xcf,
 	0xcc, 0xd3, 0x2f, 0x33, 0xd4, 0x2f, 0x48, 0x2c, 0x4a, 0xcc, 0x2d, 0xd6, 0x2b, 0x28, 0xca, 0x2f,
 	0xc9, 0x17, 0x92, 0x40, 0x28, 0xd3, 0x43, 0x28, 0xd3, 0x2b, 0x33, 0x94, 0x12, 0x4c, 0xcc, 0xcd,
-	0xcc, 0xcb, 0xd7, 0x07, 0x93, 0x10, 0xc5, 0x52, 0x22, 0xe9, 0xf9, 0xe9, 0xf9, 0x60, 0xa6, 0x3e,
-	0x88, 0x05, 0x11, 0x55, 0x32, 0xe4, 0x62, 0x0b, 0x00, 0x1b, 0x69, 0xa5, 0xfe, 0x62, 0x81, 0x3c,
-	0x63, 0xd7, 0xf3, 0x0d, 0x5a, 0x72, 0x48, 0x96, 0x57, 0x20, 0x5b, 0x0f, 0x51, 0xe8, 0x64, 0x77,
-	0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0x4e, 0x78, 0x2c, 0xc7,
-	0x70, 0xe1, 0xb1, 0x1c, 0xc3, 0x8d, 0xc7, 0x72, 0x0c, 0x51, 0x2a, 0x95, 0x89, 0xb9, 0x89, 0x39,
-	0xa9, 0xfa, 0xb8, 0x0c, 0x28, 0xa9, 0x2c, 0x48, 0x2d, 0x4e, 0x62, 0x03, 0xdb, 0x6c, 0x0c, 0x08,
-	0x00, 0x00, 0xff, 0xff, 0xc5, 0x0e, 0x69, 0xcd, 0xe5, 0x00, 0x00, 0x00,
+	0xcc, 0xcb, 0xd7, 0x07, 0x93, 0x10, 0xc5, 0x52, 0x92, 0xc9, 0xf9, 0xc5, 0xb9, 0xf9, 0xc5, 0xf1,
+	0x60, 0x9e, 0x3e, 0x84, 0x03, 0x95, 0x12, 0x49, 0xcf, 0x4f, 0xcf, 0x87, 0x88, 0x83, 0x58, 0x10,
+	0x51, 0xa5, 0x47, 0x8c, 0x5c, 0x6c, 0x01, 0x60, 0xeb, 0x84, 0x62, 0xb9, 0x44, 0x52, 0x52, 0xd3,
+	0x12, 0x4b, 0x73, 0x4a, 0xe2, 0x73, 0x33, 0xf3, 0x4a, 0xe2, 0x93, 0x53, 0x33, 0x73, 0x32, 0xf3,
+	0xd2, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x9d, 0xb4, 0x4f, 0xdc, 0x93, 0x67, 0xb8, 0x75, 0x4f,
+	0x5e, 0x14, 0x62, 0x68, 0x71, 0x4a, 0xb6, 0x5e, 0x66, 0xbe, 0x7e, 0x6e, 0x62, 0x49, 0x86, 0x9e,
+	0x67, 0x5e, 0xc9, 0xa5, 0x2d, 0xba, 0x5c, 0x50, 0xdb, 0x3c, 0xf3, 0x4a, 0x82, 0x84, 0xa0, 0x06,
+	0xf9, 0x66, 0xe6, 0x95, 0x38, 0x43, 0x8c, 0x11, 0x0a, 0xe0, 0xe2, 0x45, 0x36, 0xb6, 0x58, 0x82,
+	0x49, 0x81, 0x59, 0x83, 0xdb, 0x48, 0x55, 0x0f, 0x97, 0xff, 0xf4, 0x90, 0x74, 0x3b, 0xb1, 0x80,
+	0xac, 0x0f, 0xe2, 0xc9, 0x45, 0x08, 0x15, 0x5b, 0xa9, 0xbf, 0x58, 0x20, 0xcf, 0xd8, 0xf5, 0x7c,
+	0x83, 0x96, 0x1c, 0x52, 0x48, 0x56, 0x20, 0x87, 0x25, 0xc4, 0x67, 0x4a, 0x05, 0x5c, 0xdc, 0xc8,
+	0x2e, 0x11, 0xe1, 0x62, 0x4d, 0x49, 0xcd, 0xcb, 0xcf, 0x85, 0xf8, 0x2c, 0x08, 0xc2, 0x11, 0x72,
+	0xe5, 0x62, 0x87, 0xf9, 0x98, 0x89, 0x74, 0x1f, 0xc3, 0xf4, 0x5a, 0xb1, 0x80, 0x1c, 0xe5, 0x64,
+	0x77, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0x4e, 0x78, 0x2c,
+	0xc7, 0x70, 0xe1, 0xb1, 0x1c, 0xc3, 0x8d, 0xc7, 0x72, 0x0c, 0x51, 0x2a, 0x95, 0x89, 0xb9, 0x89,
+	0x39, 0xa9, 0xfa, 0xb8, 0x9c, 0x5c, 0x52, 0x59, 0x90, 0x5a, 0x9c, 0xc4, 0x06, 0x8e, 0x1d, 0x63,
+	0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0xf0, 0x30, 0xf2, 0x31, 0x24, 0x02, 0x00, 0x00,
 }
 
 func (this *Params) Equal(that interface{}) bool {
@@ -101,6 +187,44 @@ func (this *Params) Equal(that interface{}) bool {
 	if that1 == nil {
 		return this == nil
 	} else if this == nil {
+		return false
+	}
+	if !this.DefaultMintCeiling.Equal(that1.DefaultMintCeiling) {
+		return false
+	}
+	if len(this.MintCeilings) != len(that1.MintCeilings) {
+		return false
+	}
+	for i := range this.MintCeilings {
+		if !this.MintCeilings[i].Equal(&that1.MintCeilings[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *MintCeiling) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*MintCeiling)
+	if !ok {
+		that2, ok := that.(MintCeiling)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Denom != that1.Denom {
+		return false
+	}
+	if !this.Ceiling.Equal(that1.Ceiling) {
 		return false
 	}
 	return true
@@ -125,6 +249,70 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.MintCeilings) > 0 {
+		for iNdEx := len(m.MintCeilings) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.MintCeilings[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintParams(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	{
+		size := m.DefaultMintCeiling.Size()
+		i -= size
+		if _, err := m.DefaultMintCeiling.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintParams(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
+func (m *MintCeiling) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MintCeiling) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MintCeiling) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size := m.Ceiling.Size()
+		i -= size
+		if _, err := m.Ceiling.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintParams(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if len(m.Denom) > 0 {
+		i -= len(m.Denom)
+		copy(dAtA[i:], m.Denom)
+		i = encodeVarintParams(dAtA, i, uint64(len(m.Denom)))
+		i--
+		dAtA[i] = 0xa
+	}
 	return len(dAtA) - i, nil
 }
 
@@ -145,6 +333,29 @@ func (m *Params) Size() (n int) {
 	}
 	var l int
 	_ = l
+	l = m.DefaultMintCeiling.Size()
+	n += 1 + l + sovParams(uint64(l))
+	if len(m.MintCeilings) > 0 {
+		for _, e := range m.MintCeilings {
+			l = e.Size()
+			n += 1 + l + sovParams(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *MintCeiling) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Denom)
+	if l > 0 {
+		n += 1 + l + sovParams(uint64(l))
+	}
+	l = m.Ceiling.Size()
+	n += 1 + l + sovParams(uint64(l))
 	return n
 }
 
@@ -183,6 +394,190 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: Params: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DefaultMintCeiling", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.DefaultMintCeiling.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MintCeilings", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MintCeilings = append(m.MintCeilings, MintCeiling{})
+			if err := m.MintCeilings[len(m.MintCeilings)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipParams(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthParams
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MintCeiling) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowParams
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MintCeiling: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MintCeiling: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Denom", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Denom = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ceiling", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Ceiling.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipParams(dAtA[iNdEx:])

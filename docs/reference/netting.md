@@ -10,6 +10,21 @@ The tiered settlement layer: participants settle retail activity on their own bo
 
 ## Transactions
 
+### MsgAbandonHeldSlice
+
+`/blockchain.netting.v1.MsgAbandonHeldSlice`
+
+Signed by the `authority` field.
+
+Governance only, and the last resort for a slice that will never settle.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `cycle_id` | uint64 |  |
+| `denom` | string |  |
+| `reason` | string | reason is recorded on the event and is required. A release of somebody else's collateral with no stated grounds is not one anybody can argue with afterwards. |
+
 ### MsgPostReserve
 
 `/blockchain.netting.v1.MsgPostReserve`
@@ -206,6 +221,7 @@ DenomPolicy is the netting rule for one currency.
 | --- | --- | --- |
 | `denom` | string | denom is the currency this policy governs. |
 | `gross_threshold` | string | gross_threshold is the amount at or above which a single obligation bypasses netting and settles gross in the block it was submitted in. High-value items settling individually is the point rather than a concession. It is how every RTGS system in the world is built, it is what a supervisor expects to be able to see item by item, and it keeps the largest exposures out of the deferred window entirely — the netting cycle then carries only amounts whose failure nobody would call systemic. Zero means every amount is at or above it, so the currency settles entirely gross. Same reasoning as an absent policy, and the same safe direction. |
+| `aggregate_gross_threshold` | string | aggregate_gross_threshold is the total value one participant may put into the netting window for this currency in a single cycle before further obligations settle gross regardless of their individual size. # Why a per-obligation threshold is not enough gross_threshold above looks at one obligation at a time, so a participant with a large payment to make submits a series of obligations each one unit below it and converts an immediate, fully funded transfer into deferred exposure inside the window. This is transaction structuring, it is the first thing a supervisor will test for, and it defeats the entire purpose of the per-obligation threshold: high-value flows are put outside the deferred window precisely so that a settlement disruption cannot reach them. It was never a solvency hole. The net debit cap still binds, so the sender must hold reserve covering its aggregate position either way. What structuring defeats is systemic-risk containment, which is a different and less visible property than solvency. Zero or unset disables the aggregate check, which is the behaviour every chain configured before this field existed already had. |
 
 ### EventCycleHeld
 
@@ -230,6 +246,36 @@ EventCycleSettled is emitted once per currency slice that cleared.
 | `obligation_count` | uint64 | obligation_count is how many items made up the gross figure, and participant_count how many institutions held a position in the slice. |
 | `participant_count` | uint64 |  |
 | `retried` | bool | retried is set when this slice had been held and cleared on a later attempt, so a watcher can tell a normal close from a recovery. |
+
+### EventHeldSliceAbandoned
+
+EventHeldSliceAbandoned records governance giving up on settling a slice and releasing the collateral behind it.
+
+Worth reading carefully if you find one of these in a log: it means debtors got their collateral back while creditors in the same slice were never paid. The obligations are untouched and still record who owed what — the debt did not disappear, it left this ledger.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cycle_id` | uint64 |  |
+| `denom` | string |  |
+| `cycles_held` | uint64 |  |
+| `reason` | string |  |
+| `released` | repeated string | released names each debtor and what returned to them, so the effect is in the log rather than only in the state it changed. |
+
+### EventHoldOverdue
+
+EventHoldOverdue is emitted at every cycle boundary for a slice that has been held longer than max_hold_cycles.
+
+It is a repeated alarm and not a one-off, because an event emitted once at the moment a bound is crossed is one an operator can be on leave for, and the state it describes — somebody's collateral locked with no settlement in sight — does not go away while nobody is looking.
+
+The chain does nothing else about it. Releasing collateral automatically once a timer expired would be a settlement system quietly giving up on paying people, and the reason held slices are retried unchanged is that nobody wanted obligations resolved by anything but a decision. So this event exists to make sure somebody knows, and MsgAbandonHeldSlice is where the decision is taken.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cycle_id` | uint64 |  |
+| `denom` | string |  |
+| `held_since` | uint64 | held_since is the cycle at which this slice was FIRST held. It does not move when a retry fails, so the age below is real. |
+| `cycles_held` | uint64 |  |
+| `bound` | uint64 |  |
 
 ### EventObligationSubmitted
 
@@ -360,6 +406,7 @@ Changed by governance through `MsgUpdateParams`. Defaults are the values a chain
 | --- | --- | --- |
 | `cycle_blocks` | `0` | cycle_blocks is how many blocks a netting window stays open before the end blocker closes it and settles the positions in it. Zero means netting is switched off, and it means that everywhere: no obligation is ever admitted to a window, every submission settles gross, and the end blocker returns before it computes anything. That reading is chosen rather than treating zero as "every block", because this value is a divisor — the cycle boundary is `height % cycle_blocks` — and a divisor that arrives as zero from a hand-written genesis panics inside an end blocker, which is not a failed transaction but a chain that will not produce another block. Params.Validate() is not the guard that matters here: it is one gate an operator can skip, and it has been skipped on this chain before. The end blocker checks the value at the point it would divide by it. One consequence of that reading is not obvious and is the reason it is written down. Setting this to zero stops the end blocker before it closes anything, so a window that is already open with positions in it never settles: the obligations stay owed, the collateral behind them stays committed, and the participants holding it cannot withdraw. Held slices stop being retried for the same reason. Nothing is lost — setting a positive value again closes the window at the next boundary — but between the two proposals every participant in that window is carrying an exposure with no settlement date, which is the state deferred net settlement exists to avoid. Switch netting off between windows, not during one, and check the current cycle's positions are empty before proposing it. |
 | `denom_policies` | `[]` | denom_policies decides, per currency, what nets and what settles gross. A currency with no policy nets nothing: every obligation in it settles gross, immediately. That is the safe direction to fail in — gross settlement is what the chain does today, moves the money in the block it was instructed in, and creates no interbank exposure for anyone to be left holding. Netting is a deliberate governance act, taken currency by currency, never a default that arrives with a new denom. |
+| `max_hold_cycles` | `0` | max_hold_cycles bounds how long a slice that will not settle may sit held with its participants' collateral locked. A slice that fails settlement is written to HeldSlice and retried unchanged at every subsequent cycle boundary. Refusing to recompute, reassign or cancel obligations institutions were already told they owed is correct, and it is what prevents unwinding risk. What was missing is a bound: with no timeout and no escalation, a state exists in which participant funds are locked in a module account indefinitely and no message can release them. Reaching this bound is not expected. Settlement moves no coins, and every debit is covered by reserve checked when the obligation was submitted, so a hold means state this module did not build itself — an imported genesis, a migration, a bug in the cap. This field exists so that if that ever happens somebody is told, rather than left to discover it from a support call about locked collateral. Zero disables the bound and restores the previous behaviour of retrying forever in silence. |
 
 ## Errors
 

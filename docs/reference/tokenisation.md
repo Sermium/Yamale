@@ -14,7 +14,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `attestor` field.
 
-Permissionless.
+An attestor appointed by the collection. This used to sit under "permissionless", which made the attestation threshold meetable by anybody and therefore no threshold at all.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -56,15 +56,30 @@ There is deliberately no permissionless counterpart. Every other creation path o
 
 Signed by the `challenger` field.
 
-MsgDisputeSale suspends redemption and refers the figure to governance.
-
-The bond is a basis-point fraction of the reported price -- scaled to the vehicle rather than flat, since a flat bond is trivial for a large fraud to post and prohibitive for a small holder to raise. Refunded if the dispute succeeds; otherwise forfeited to the vault, never to the issuer. Paying the issuer would reward provoking weak challenges.
+Permissionless.
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `challenger` | string |  |
 | `asset_id` | uint64 |  |
 | `reason` | string |  |
+
+### MsgFinaliseSale
+
+`/blockchain.tokenisation.v1.MsgFinaliseSale`
+
+Signed by the `caller` field.
+
+MsgFinaliseSale opens redemption on an asset whose reported price has cleared verification and its challenge window.
+
+Anybody may send it, and that is deliberate rather than lax. Every condition it checks is already fixed by the report and the clock, so the sender decides nothing; what they contribute is the gas. If only the sponsor could finalise, a sponsor could decline to — and shareholders unable to exit until the party holding their money chooses to let them is the position this whole instrument exists to avoid.
+
+A crank rather than an EndBlocker sweep, because iterating every reported sale on every block is a denial-of-service surface that grows with usage.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `caller` | string |  |
+| `asset_id` | uint64 |  |
 
 ### MsgFractionalise
 
@@ -95,7 +110,7 @@ MsgFundVault pays income in. holder_share_bps of it reaches the index; the remai
 | --- | --- | --- |
 | `funder` | string |  |
 | `asset_id` | uint64 |  |
-| `amount` | Coin |  |
+| `amount` | Coin | The gross income for the period. The chain collects holder_share_bps of it and leaves the rest where it is, which is what the sentence above has always said and what the response reports. |
 
 ### MsgMintAsset
 
@@ -112,6 +127,22 @@ The collection's appointed authority only.
 | `owner` | string |  |
 | `uri` | string |  |
 | `parcel_id` | uint64 | The x/land parcel this asset is title over, or 0 when it is not land. Checked here as well as at fractionalisation, because it is cheap: a mint naming a parcel that does not exist, or one held by somebody other than the named owner, is refused outright rather than left to fail later when shares are being sold and there is money on the other side of it. |
+
+### MsgPaySaleProceeds
+
+`/blockchain.tokenisation.v1.MsgPaySaleProceeds`
+
+Signed by the `payer` field.
+
+MsgPaySaleProceeds pays the holders' share of a reported price into the vault, which is what finalisation waits on.
+
+Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone quiet should not be able to strand every holder, and money arriving is never the problem. Overpayment is refused rather than accepted and stranded.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `payer` | string |  |
+| `asset_id` | uint64 |  |
+| `amount` | Coin |  |
 
 ### MsgRedeem
 
@@ -159,6 +190,20 @@ MsgResolveDispute is governance deciding the contested figure.
 | `authority` | string |  |
 | `asset_id` | uint64 |  |
 | `corrected_price` | Coin | Empty upholds the reported figure and forfeits the bond. |
+
+### MsgSetCollectionAttestors
+
+`/blockchain.tokenisation.v1.MsgSetCollectionAttestors`
+
+Signed by the `authority` field.
+
+Governance appoints who may attest a sale, so that a seller cannot appoint the accounts that check the seller.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `collection_id` | string |  |
+| `attestors` | repeated string |  |
 
 ### MsgSetCollectionAuthority
 
@@ -322,6 +367,7 @@ Collections are chain-level constructs. There is no permissionless message that 
 | `attestation_threshold` | uint32 | Attestor threshold when verification is VERIFY_ATTESTORS. Refused below 2: one attestor is not a threshold, it is a single point of unlimited theft. |
 | `challenge_window_seconds` | int64 | How long a reported sale price sits before redemption opens. Calibrated to the asset class rather than a chain-wide constant -- a bond's redemption was fixed at issuance and needs days, a unique building needs a month. See docs/guides/tokenisation.md. |
 | `dispute_bond_bps` | uint32 | Fraction of the reported sale price a challenger must bond, in basis points. Scales with the vehicle rather than being flat: a flat bond is trivial for a large fraud to post and prohibitive for a small holder. |
+| `attestors` | repeated string | attestors is the register of accounts that may attest a sale reported under this collection. Required when verification is VERIFY_ATTESTORS, and it must hold at least attestation_threshold entries: a threshold higher than the register is one no honest sale can ever meet, which turns every vehicle in the collection into a one-way door. # Why a register rather than nothing Without one, AttestSale accepts a signature from any address at all, and a sponsor meets any threshold with N fresh keys for the cost of the gas. The threshold is the whole of what stands between a shareholder and a sale reported below what was received, so a threshold anybody can meet is not a protection, it is the appearance of one. # Who sets it, which is the whole of why it works Governance, and only governance — the same signer that creates the collection in the first place. A sponsor cannot appoint their own attestors, so they cannot manufacture a quorum, and that is the difference between this register and a decorative one. What the chain still cannot decide is whether an account governance appointed is genuinely independent of the seller. That is not a fact the chain holds. What it can do is make the appointment a visible, deliberate act by a signer the seller does not control, which is the same arrangement x/land uses for the offices that attest a transfer. |
 
 ### Position
 
@@ -349,6 +395,9 @@ SaleReport is a reported price inside or past its challenge window.
 | `claimable_at` | Timestamp | Opens redemption once passed, absent a dispute. |
 | `attestors` | repeated string | Attestors who have signed this figure, when the mode requires them. |
 | `disputed` | bool |  |
+| `proceeds_paid` | Coin | The holders' share of the price, actually paid into the vault. A reported price is a claim about an off-chain sale. Crediting the index from the claim alone distributes money the vehicle never received, and the shared module account makes the shortfall somebody else's. Finalisation waits on this reaching what the holders are owed. |
+| `challenger` | string | Who challenged the figure, and what they posted to do it. Held so the bond has somewhere to go: returned when the challenge was right, forfeited to the vault when it was not. |
+| `bond` | Coin |  |
 
 ### Vault
 
@@ -358,8 +407,9 @@ Vault holds what is owed to shareholders and the running index that says how muc
 | --- | --- | --- |
 | `asset_id` | uint64 |  |
 | `cumulative_per_token` | string | Income per token, accumulated over the vehicle's life, scaled by 1e18. An index rather than a snapshot because a snapshot is snipeable: buy from the pool at H-1, be holder of record at H, sell at H+1, and collect a quarter's rent for two blocks of exposure with no capital at risk. An index is time-weighted, so two blocks earn two blocks. It also removes a halt: there is no holder set to iterate. |
-| `funded` | repeated Coin | Total ever paid in, for the solvency view. |
+| `funded` | repeated Coin | Total gross income ever declared against the vehicle, for the solvency view. Larger than what the module holds for it, because only the holders' share is ever collected. |
 | `denom` | string | The denomination income arrives in. |
+| `held` | repeated Coin | What the module account actually holds on this vehicle's behalf. One module account serves every vehicle, so a balance is not an ownership record: without this ledger a vehicle that funded nothing pays its holders out of a different vehicle's vault, and the bank keeper has no way to object. Every credit is a transfer in, every debit is a payout, and no payout is made that this does not cover. |
 
 ## Value types
 
@@ -423,6 +473,10 @@ Every way a transaction to this module can be rejected.
 | 31 | `ErrShareCeilingExceeded` | the shares issued over that parcel would exceed the ceiling the land registry set |
 | 32 | `ErrLandFractionalisationForbidden` | a restriction on that parcel forbids fractionalisation |
 | 33 | `ErrNoLandRegistry` | this chain has no land registry, so an asset cannot name a parcel |
+| 34 | `ErrWindowClosed` | the challenge window on that sale has closed, so it can no longer be disputed |
+| 35 | `ErrVaultUnfunded` | this vehicle does not hold enough to pay that, and the money of another vehicle is not available to it |
+| 36 | `ErrProceedsUnpaid` | the holders' share of the reported price has not been paid into the vault, so redemption cannot open |
+| 37 | `ErrOverpayment` | that is more than the sale still owes, and the surplus would have no owner |
 | 4 | `ErrNoAuthority` | this collection has no minting authority |
 | 5 | `ErrNotAuthority` | this account is not the collection's minting authority |
 | 6 | `ErrAssetNotFound` | no such asset |

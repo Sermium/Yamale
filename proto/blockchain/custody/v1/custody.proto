@@ -120,13 +120,49 @@ enum RedemptionStatus {
 // "are we solvent" answerable by anyone rather than by the operator.
 message Reserve {
   string denom = 1;
+  // held is the figure the chain will act on: the LOWEST of the fresh reports
+  // from at least attestation_threshold attestors.
+  //
+  // Lowest, not latest and not averaged. This is the number the solvency query
+  // publishes unauthenticated and the number the credit path now checks a mint
+  // against, so the direction it errs in is the whole design: understating the
+  // reserve refuses an honest mint, overstating it permits an unbacked one.
+  //
+  // It used to be whatever the last single attestor wrote. Any one of them
+  // could overwrite it with any figure, and that was the accountability number.
   string held = 2 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
+  // as_of_height is the OLDEST of the reports that produced held, so the
+  // figure's age is the age of its weakest input rather than of its freshest.
   int64 as_of_height = 3;
+  // attestor is whichever one reported the figure that was taken.
   string attestor = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // attestors is how many fresh reports stood behind it.
+  uint32 attestors = 5;
+}
+
+// ReserveReport is one attestor's statement of what is held.
+//
+// Kept per attestor rather than collapsed into a single figure, for the reason
+// Attestation gives: a threshold reached by two attestors is a fact about those
+// two, and a reserve figure that turns out to be wrong should name who said it.
+//
+// Exact agreement is deliberately NOT required. A reserve moves, so two honest
+// attestors reporting hours apart will disagree by design, and a rule demanding
+// equality would deadlock the module rather than secure it. What is required is
+// enough recent reports, and the lowest of them is what counts.
+message ReserveReport {
+  string denom = 1;
+  string attestor = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string held = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  int64 as_of_height = 4;
 }
 
 // Solvency is the answer to the only question that matters, computed rather

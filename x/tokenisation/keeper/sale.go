@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"yamale/blockchain/x/tokenisation/types"
@@ -141,6 +142,13 @@ func (m msgServer) DisputeSale(ctx context.Context, msg *types.MsgDisputeSale) (
 		}
 	}
 
+	// Recorded, because until it was the bond went into the shared module
+	// account and no message anywhere gave it back or gave it to anyone. A
+	// bond nobody can lose is not a deterrent and a bond nobody can recover is
+	// a fee for objecting; ResolveDispute now decides which it was.
+	report.Challenger = msg.Challenger
+	report.Bond = sdk.NewCoin(report.Price.Denom, bond)
+
 	report.Disputed = true
 	if err := m.Sales.Set(ctx, msg.AssetId, report); err != nil {
 		return nil, err
@@ -167,9 +175,22 @@ func (m msgServer) ResolveDispute(ctx context.Context, msg *types.MsgResolveDisp
 		return nil, types.ErrNoSaleReported
 	}
 
-	if msg.CorrectedPrice != nil && msg.CorrectedPrice.Amount.IsPositive() {
+	upheld := msg.CorrectedPrice != nil && msg.CorrectedPrice.Amount.IsPositive()
+	if upheld {
 		report.Price = *msg.CorrectedPrice
+		// The figure moved, so the challenge was right and the bond goes home.
+		if err := m.refundBond(ctx, report); err != nil {
+			return nil, err
+		}
+	} else if err := m.forfeitBond(ctx, msg.AssetId, report); err != nil {
+		// The figure stood, so the challenge cost the holders a window. The
+		// bond is theirs in full: the sponsor did nothing to earn a share of a
+		// penalty paid for delaying their own holders.
+		return nil, err
 	}
+	report.Challenger = ""
+	report.Bond = sdk.NewCoin(report.Price.Denom, math.ZeroInt())
+
 	report.Disputed = false
 	if err := m.Sales.Set(ctx, msg.AssetId, report); err != nil {
 		return nil, err
@@ -219,6 +240,21 @@ func (k Keeper) FinaliseSale(ctx context.Context, assetID uint64) error {
 	// The proceeds are the last distribution, and the largest. They run through
 	// exactly the same index as every coupon before them — the sale is not a
 	// special case in the accounting.
+	//
+	// But a reported price is a claim about a sale that happened elsewhere, and
+	// this used to credit the index from the claim alone. No coins moved; the
+	// index rose anyway; the first holder to redeem was paid out of the module
+	// account, which holds every other vehicle's money. Finalisation now waits
+	// on the holders' share having actually arrived.
+	vault, err := k.Vaults.Get(ctx, assetID)
+	if err != nil {
+		return err
+	}
+	owed := holderCut(asset, report.Price.Amount)
+	if report.ProceedsPaid.Denom != vault.Denom || report.ProceedsPaid.Amount.LT(owed) {
+		return types.ErrProceedsUnpaid.Wrapf(
+			"vehicle %d owes its holders %s%s and has been paid %s", assetID, owed, vault.Denom, report.ProceedsPaid)
+	}
 	if err := k.AccrueIncome(ctx, assetID, report.Price.Amount); err != nil {
 		return err
 	}
@@ -240,4 +276,108 @@ func appointedAttestor(register []string, who string) bool {
 		}
 	}
 	return false
+}
+
+// refundBond returns a challenge bond to whoever posted it.
+//
+// The bond never entered the vault's ledger, so it is paid straight back out
+// of the module account it was sent to. Nothing else has a claim on it.
+func (m msgServer) refundBond(ctx context.Context, report types.SaleReport) error {
+	if report.Challenger == "" || !report.Bond.Amount.IsPositive() {
+		return nil
+	}
+	challenger, err := m.addressCodec.StringToBytes(report.Challenger)
+	if err != nil {
+		return err
+	}
+	return m.bankKeeper.SendCoinsFromModuleToAccount(
+		ctx, types.ModuleName, challenger, sdk.NewCoins(report.Bond))
+}
+
+// forfeitBond hands a lost bond to the vehicle's holders.
+//
+// It goes to them whole rather than through holder_share_bps: this is not
+// income from the asset, it is a penalty paid for delaying the people who were
+// waiting on it, and the sponsor was not the one kept waiting.
+func (m msgServer) forfeitBond(ctx context.Context, assetID uint64, report types.SaleReport) error {
+	if !report.Bond.Amount.IsPositive() {
+		return nil
+	}
+	vault, err := m.Vaults.Get(ctx, assetID)
+	if err != nil {
+		return err
+	}
+	if report.Bond.Denom != vault.Denom {
+		return types.ErrWrongDenom
+	}
+	if err := m.hold(ctx, assetID, report.Bond); err != nil {
+		return err
+	}
+	return m.creditHolders(ctx, assetID, report.Bond.Amount, report.Bond.Amount)
+}
+
+// PaySaleProceeds pays the holders' share of a reported price into the vault.
+//
+// Permissionless on purpose. The obligation is the sponsor's, but a sponsor
+// who has gone quiet after reporting a sale would otherwise strand every
+// holder behind a finalisation that can never happen, and money arriving is
+// never the problem. What is refused is money arriving that nobody is owed:
+// an overpayment would sit in the ledger with no claim against it.
+func (m msgServer) PaySaleProceeds(ctx context.Context, msg *types.MsgPaySaleProceeds) (*types.MsgPaySaleProceedsResponse, error) {
+	if !msg.Amount.Amount.IsPositive() {
+		return nil, types.ErrInvalidAmount
+	}
+	asset, err := m.Assets.Get(ctx, msg.AssetId)
+	if err != nil {
+		return nil, types.ErrAssetNotFound
+	}
+	if asset.Status != types.STATUS_REPORTED && asset.Status != types.STATUS_DISPUTED {
+		return nil, types.ErrWrongStatus
+	}
+	report, err := m.Sales.Get(ctx, msg.AssetId)
+	if err != nil {
+		return nil, types.ErrNoSaleReported
+	}
+	vault, err := m.Vaults.Get(ctx, msg.AssetId)
+	if err != nil {
+		return nil, err
+	}
+	if msg.Amount.Denom != vault.Denom {
+		return nil, types.ErrWrongDenom
+	}
+
+	owed := holderCut(asset, report.Price.Amount)
+	paid := report.ProceedsPaid.Amount
+	if report.ProceedsPaid.Denom != vault.Denom {
+		// Nothing has been paid yet, and the zero value carries no denom.
+		paid = math.ZeroInt()
+	}
+	outstanding := owed.Sub(paid)
+	if !outstanding.IsPositive() {
+		return nil, types.ErrOverpayment.Wrapf("vehicle %d has already been paid %s%s", msg.AssetId, paid, vault.Denom)
+	}
+	if msg.Amount.Amount.GT(outstanding) {
+		return nil, types.ErrOverpayment.Wrapf(
+			"vehicle %d still owes %s%s and was offered %s", msg.AssetId, outstanding, vault.Denom, msg.Amount)
+	}
+
+	payer, err := m.addressCodec.StringToBytes(msg.Payer)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, payer, types.ModuleName, sdk.NewCoins(msg.Amount)); err != nil {
+		return nil, err
+	}
+	if err := m.hold(ctx, msg.AssetId, msg.Amount); err != nil {
+		return nil, err
+	}
+
+	report.ProceedsPaid = sdk.NewCoin(vault.Denom, paid.Add(msg.Amount.Amount))
+	if err := m.Sales.Set(ctx, msg.AssetId, report); err != nil {
+		return nil, err
+	}
+	return &types.MsgPaySaleProceedsResponse{
+		Paid:        report.ProceedsPaid,
+		Outstanding: sdk.NewCoin(vault.Denom, outstanding.Sub(msg.Amount.Amount)),
+	}, nil
 }

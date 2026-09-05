@@ -10,7 +10,8 @@ func DefaultGenesis() *GenesisState {
 		Attestors:   []string{},
 		Deposits:    []Deposit{},
 		Redemptions: []Redemption{},
-		Reserves:    []Reserve{},
+		// The published reserve is derived from these, not carried beside them.
+		ReserveReports: []ReserveReport{},
 	}
 }
 
@@ -66,12 +67,28 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 
-	for _, r := range gs.Reserves {
+	attestors := make(map[string]struct{}, len(gs.Attestors))
+	for _, a := range gs.Attestors {
+		attestors[a] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(gs.ReserveReports))
+	for _, r := range gs.ReserveReports {
 		if _, ok := assets[r.Denom]; !ok {
 			return fmt.Errorf("reserve reported for unregistered asset %q", r.Denom)
 		}
+		if _, ok := attestors[r.Attestor]; !ok {
+			return fmt.Errorf("reserve for %q reported by %q, who is not an attestor", r.Denom, r.Attestor)
+		}
+		// The store is keyed (denom, attestor), so a duplicate here would be
+		// one report silently overwriting another and a genesis that does not
+		// round-trip.
+		key := r.Denom + "|" + r.Attestor
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("two reserve reports for %q by %q", r.Denom, r.Attestor)
+		}
+		seen[key] = struct{}{}
 		if r.Held.IsNil() || r.Held.IsNegative() {
-			return fmt.Errorf("reserve for %q is negative", r.Denom)
+			return fmt.Errorf("reserve for %q reported by %q is negative", r.Denom, r.Attestor)
 		}
 	}
 	return nil

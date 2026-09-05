@@ -148,10 +148,6 @@ func TestApproveIssuerRejection(t *testing.T) {
 	registerCurrency(t, f, ms)
 	approveIssuer(t, f, ms, false)
 
-	app, err := f.keeper.IssuerApplication.Get(f.ctx, testDenom)
-	require.NoError(t, err)
-	require.Equal(t, types.StatusRejected, app.Status)
-
 	has, err := f.keeper.ApprovedIssuer.Has(f.ctx, testDenom)
 	require.NoError(t, err)
 	require.False(t, has)
@@ -159,6 +155,22 @@ func TestApproveIssuerRejection(t *testing.T) {
 	// No metadata is published for a rejected currency.
 	_, found := f.env.BankKeeper.GetDenomMetaData(f.env.Ctx, testDenom)
 	require.False(t, found)
+
+	// And the denomination is free again.
+	//
+	// A rejected record used to stay behind, and RegisterCurrency refuses a
+	// second application for a denom that already has one. So a rejection was
+	// permanent and universal: one transaction fee bought the right to stop
+	// anybody, ever, from registering that currency. There is no withdrawal,
+	// expiry or clearing message, so nothing could undo it.
+	has, err = f.keeper.IssuerApplication.Has(f.ctx, testDenom)
+	require.NoError(t, err)
+	require.False(t, has, "the rejected application still holds the denom")
+
+	registerCurrency(t, f, ms)
+	app, err := f.keeper.IssuerApplication.Get(f.ctx, testDenom)
+	require.NoError(t, err)
+	require.Equal(t, types.StatusPending, app.Status)
 }
 
 func TestApproveIssuerRejectsNonPendingApplication(t *testing.T) {

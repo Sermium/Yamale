@@ -165,6 +165,28 @@ func (k Keeper) credit(ctx context.Context, d *types.Deposit) error {
 	// would make the reserve exceed the supply by the fee and quietly break the
 	// solvency comparison.
 	full := sdk.NewCoins(sdk.NewCoin(d.Denom, d.Amount))
+
+	// Nothing anywhere compared issued supply against attested reserve, so the
+	// chain would mint claims beyond its reserves and go on reporting the
+	// shortfall in a query nobody is obliged to read. solvencyOf existed and
+	// was called only from the query server.
+	//
+	// An asset with no attested reserve mints nothing. That is the same rule
+	// solvencyOf already applies -- never attested is not solvent -- and it is
+	// the safe direction: a new asset waits for its attestors rather than
+	// issuing against a figure nobody has stated.
+	held, attested := k.attestedReserve(ctx, d.Denom)
+	issued := k.bank.GetSupply(ctx, d.Denom).Amount
+	if !attested {
+		return errorsmod.Wrapf(types.ErrWouldBeUnbacked,
+			"%s has no attested reserve, so no claim against it may be issued", d.Denom)
+	}
+	if issued.Add(d.Amount).GT(held) {
+		return errorsmod.Wrapf(types.ErrWouldBeUnbacked,
+			"%s has %s attested and %s issued, and this deposit would issue %s more",
+			d.Denom, held, issued, d.Amount)
+	}
+
 	if err := k.bank.MintCoins(ctx, types.ModuleName, full); err != nil {
 		return err
 	}
@@ -204,12 +226,24 @@ func (k msgServer) ReportReserve(ctx context.Context, msg *types.MsgReportReserv
 	if msg.Held.IsNil() || msg.Held.IsNegative() {
 		return nil, types.ErrInvalidAmount
 	}
-	return &types.MsgReportReserveResponse{}, k.Reserves.Set(ctx, msg.Denom, types.Reserve{
+
+	// An attestor writes their own report and nothing else. Until this
+	// changed, any single attestor overwrote the published figure with any
+	// number they liked — and that figure is what the Solvency query serves
+	// unauthenticated as the module's accountability record.
+	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	if err := k.ReserveReports.Set(ctx, collections.Join(msg.Denom, msg.Attestor), types.ReserveReport{
 		Denom:      msg.Denom,
-		Held:       msg.Held,
-		AsOfHeight: sdk.UnwrapSDKContext(ctx).BlockHeight(),
 		Attestor:   msg.Attestor,
-	})
+		Held:       msg.Held,
+		AsOfHeight: height,
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.recomputeReserve(ctx, msg.Denom); err != nil {
+		return nil, err
+	}
+	return &types.MsgReportReserveResponse{}, nil
 }
 
 // RequestRedemption burns the claim now and queues the payout.
@@ -300,9 +334,54 @@ func (k msgServer) SettleRedemption(ctx context.Context, msg *types.MsgSettleRed
 	if sdk.UnwrapSDKContext(ctx).BlockHeight() < r.PayableAtHeight {
 		return nil, errorsmod.Wrapf(types.ErrNotPayableYet, "payable at height %d", r.PayableAtHeight)
 	}
+	if msg.SettledRef == "" {
+		return nil, errorsmod.Wrap(types.ErrInvalidAmount, "a settled redemption must name the payment that settled it")
+	}
+
+	// The same threshold AttestDeposit applies, on the same collection, for a
+	// stronger reason. A deposit attested wrongly mints a claim that can be
+	// seen and argued about; a redemption settled wrongly closes the chain's
+	// record of an obligation whose claim tokens were burned at request time,
+	// so there is nothing left to re-present. One signature used to be enough.
+	//
+	// Disagreement is not agreement, as in AttestDeposit: the first attestor's
+	// settled_ref is recorded on the pending redemption, and an attestor naming
+	// a different payment is refused rather than counted.
+	if r.SettledRef == "" {
+		r.SettledRef = msg.SettledRef
+	} else if r.SettledRef != msg.SettledRef {
+		return nil, errorsmod.Wrapf(types.ErrConflictingSettlement,
+			"redemption %s is recorded as paid by %s, not %s", r.Id, r.SettledRef, msg.SettledRef)
+	}
+
+	attKey := collections.Join(r.Id, msg.Attestor)
+	if done, err := k.Attestations.Has(ctx, attKey); err != nil {
+		return nil, err
+	} else if done {
+		return nil, types.ErrAlreadyAttested
+	}
+	if err := k.Attestations.Set(ctx, attKey); err != nil {
+		return nil, err
+	}
+	count, err := k.countAttestations(ctx, r.Id)
+	if err != nil {
+		return nil, err
+	}
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if count < params.AttestationThreshold {
+		// Recorded, not settled. The redemption stays pending and the reference
+		// stands as a proposal for the next attestor to confirm or contradict.
+		if err := k.Redemptions.Set(ctx, msg.RedemptionId, r); err != nil {
+			return nil, err
+		}
+		return nil, errorsmod.Wrapf(types.ErrNotEnoughAttestations,
+			"redemption %s has %d of %d confirmations", r.Id, count, params.AttestationThreshold)
+	}
 
 	r.Status = types.RedemptionStatus_REDEMPTION_STATUS_SETTLED
-	r.SettledRef = msg.SettledRef
 	return &types.MsgSettleRedemptionResponse{}, k.Redemptions.Set(ctx, msg.RedemptionId, r)
 }
 
