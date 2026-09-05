@@ -1,0 +1,404 @@
+<!--
+  Le registre du Ladoum — démonstrateur.
+
+  Ce que la page montre, elle le lit sur la chaîne. Rien n'est simulé côté
+  client : si le registre est vide, la page le dit et n'invente pas un animal
+  pour se remplir.
+
+  La mise en page du certificat reproduit celle que la filière délivre déjà —
+  mêmes rubriques, même ordre, même IDN. C'est délibéré : l'offre n'est pas de
+  remplacer ce document mais de lui donner une valeur de preuve, et un
+  démonstrateur qui redessinerait tout laisserait croire le contraire.
+
+  Le style est autonome plutôt qu'importé de clients/shared/yamale.css. Ce
+  document a une identité propre — celle du certificat papier, parchemin et
+  rubriques en terre de Sienne — et l'aligner sur la charte des consoles
+  institutionnelles ferait perdre précisément ce qui le rend reconnaissable
+  pour un éleveur.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Registre du Ladoum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600&family=Karla:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F3F0E7; --panel:#FBF9F3; --cert:#FAF6EC;
+  --ink:#201A13; --ink-soft:#4E463A; --ink-faint:#7A7060;
+  --rule:#D8D1BF; --rule-soft:#E7E1D1;
+  --rust:#A0512B; --seal:#8A7A5C; --acacia:#2C5A44; --gold:#8A6A1E; --alarm:#8E3320;
+  --shadow:0 1px 3px rgba(32,26,19,.08);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15120E; --panel:#1E1A13; --cert:#221D15;
+    --ink:#EFE9DC; --ink-soft:#C2B8A5; --ink-faint:#8E8574;
+    --rule:#332C22; --rule-soft:#2A241B;
+    --rust:#D98A5C; --seal:#A29170; --acacia:#7FBF9F; --gold:#D6AC52; --alarm:#E08268;
+    --shadow:0 1px 3px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15120E; --panel:#1E1A13; --cert:#221D15;
+  --ink:#EFE9DC; --ink-soft:#C2B8A5; --ink-faint:#8E8574;
+  --rule:#332C22; --rule-soft:#2A241B;
+  --rust:#D98A5C; --seal:#A29170; --acacia:#7FBF9F; --gold:#D6AC52; --alarm:#E08268;
+  --shadow:0 1px 3px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:Karla,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 80px}
+
+header.top{padding:clamp(22px,4vw,42px) 0 20px;border-bottom:2px solid var(--ink);
+  display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}
+h1{font-family:Newsreader,Georgia,serif;font-weight:500;font-size:clamp(26px,4.4vw,40px);
+  line-height:1.08;margin:0;letter-spacing:-.012em}
+h1 span{color:var(--rust)}
+.sub{font-size:14px;color:var(--ink-soft);margin:5px 0 0;max-width:52ch}
+.chainstate{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-faint);
+  text-align:right;line-height:1.7;letter-spacing:.03em}
+.chainstate b{color:var(--acacia);font-weight:500}
+
+.searchbar{display:flex;gap:8px;margin:26px 0 6px;flex-wrap:wrap}
+input[type=search]{flex:1 1 260px;min-width:0;padding:11px 13px;font:inherit;
+  font-family:"IBM Plex Mono",monospace;font-size:14px;
+  background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:0}
+input[type=search]::placeholder{color:var(--ink-faint)}
+button{font:inherit;font-weight:600;font-size:14px;padding:11px 18px;cursor:pointer;
+  background:var(--acacia);color:var(--panel);border:1px solid var(--acacia);border-radius:0}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.5;cursor:default}
+.hint{font-size:13px;color:var(--ink-faint);margin:0 0 22px}
+
+.note{border-left:3px solid var(--rust);background:var(--panel);padding:14px 16px;
+  margin:18px 0;box-shadow:var(--shadow)}
+.note .h{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--rust);margin-bottom:6px}
+.note p{margin:0 0 8px;font-size:14px;line-height:1.55}
+.note p:last-child{margin:0}
+.note.calm{border-left-color:var(--acacia)}
+.note.calm .h{color:var(--acacia)}
+.note.bad{border-left-color:var(--alarm)}
+.note.bad .h{color:var(--alarm)}
+
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:clamp(16px,3vw,30px);align-items:start;margin-top:22px}
+@media(max-width:820px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* ---- le certificat, tel que la filière l'imprime ---- */
+.cert{background:var(--cert);border:1px solid var(--seal);padding:20px 22px 22px;
+  position:relative;box-shadow:var(--shadow)}
+.cert::after{content:"";position:absolute;inset:6px;border:1px solid var(--rule);pointer-events:none}
+.cert h2{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:15px;
+  letter-spacing:.06em;text-transform:uppercase;text-align:center;margin:0 0 4px}
+.cert .wave{height:9px;margin:0 0 14px;opacity:.5;
+  background:repeating-linear-gradient(90deg,transparent 0 4px,var(--seal) 4px 5px)}
+.f{display:flex;gap:8px;font-size:13px;line-height:1.5;padding:2px 0}
+.f .k{color:var(--rust);flex:none;min-width:9.4em}
+.f .v{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);
+  word-break:break-word;min-width:0}
+.f.hi .v{background:color-mix(in srgb,var(--acacia) 16%,transparent);color:var(--ink);padding:0 4px}
+.grp{margin-top:13px;padding-top:9px;border-top:1px solid var(--rule-soft)}
+.grp .gn{color:var(--rust);font-size:12px;font-weight:600;margin-bottom:4px}
+
+/* ---- niveau de preuve ---- */
+.evid{border:1px solid var(--rule);background:var(--panel);padding:15px 16px;box-shadow:var(--shadow)}
+.evid .lab{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.badge{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border:1.5px solid currentColor;
+  font-weight:600;margin-bottom:9px}
+.badge.verifiee{color:var(--acacia)}
+.badge.adn,.badge.pucee{color:var(--gold)}
+.badge.declaree{color:var(--alarm)}
+.evid p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink-soft)}
+
+/* ---- généalogie ---- */
+.ped{margin-top:16px;border:1px solid var(--rule);background:var(--panel);padding:15px 16px;
+  box-shadow:var(--shadow);overflow-x:auto}
+.ped .lab{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+.tree{list-style:none;margin:0;padding:0;font-size:13.5px}
+.tree ul{list-style:none;margin:0;padding-left:18px;border-left:1px solid var(--rule-soft)}
+.tree li{padding:3px 0}
+.tree .rel{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--rust);margin-right:7px}
+.tree .idn{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft)}
+.tree .nom{font-weight:600}
+.tree .absent{color:var(--ink-faint);font-style:italic}
+.cover{margin-top:10px;font-size:13px;color:var(--ink-faint)}
+
+/* ---- preuve on-chain ---- */
+.proof{margin-top:16px;border:1px solid var(--rule);background:var(--panel);padding:15px 16px;
+  box-shadow:var(--shadow)}
+.proof .lab{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.proof dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0;font-size:13px}
+.proof dt{color:var(--ink-faint)}
+.proof dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12px;word-break:break-all}
+
+/* ---- liste ---- */
+.roll{margin-top:34px}
+.roll h3{font-family:Newsreader,Georgia,serif;font-weight:500;font-size:22px;margin:0 0 10px}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--panel)}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--rule-soft);font-size:13.5px}
+thead th{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:500;background:var(--paper)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--paper)}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
+  font-size:13px;color:var(--ink-faint);max-width:70ch}
+footer a{color:var(--acacia)}
+:focus-visible{outline:2px solid var(--acacia);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Registre du <span>Ladoum</span></h1>
+      <p class="sub">Chaque inscription est lue sur la chaîne. Le certificat garde la forme
+        que la filière lui donne déjà ; ce qui change, c'est que personne ne peut le réécrire.</p>
+    </div>
+    <div class="chainstate" id="chainstate">lecture de la chaîne…</div>
+  </header>
+
+  <div class="searchbar">
+    <input type="search" id="q" placeholder="IDN — par exemple 221/682/021029/L"
+           aria-label="Rechercher un animal par son IDN" autocomplete="off">
+    <button id="go">Vérifier</button>
+    <button class="ghost" id="clear">Effacer</button>
+  </div>
+  <p class="hint">Aucun compte n'est nécessaire et personne n'est informé de votre consultation.
+    Un acheteur vérifie ici sans avoir à faire confiance à l'émetteur du certificat.</p>
+
+  <div id="out"></div>
+
+  <section class="roll" id="roll"></section>
+
+  <footer>
+    <p><strong>Démonstrateur.</strong> Les animaux inscrits ici le sont sur un réseau de
+      démonstration. Le registre s'appuie aujourd'hui sur le module de registre foncier de la
+      chaîne — un bien identifié de façon unique, inscrit par une autorité habilitée, portant des
+      actes et cédé sous supervision, ce qui est exactement la forme d'un animal de race. En
+      production, un module dédié porterait la filiation comme relation de premier ordre, ce qui
+      permettrait à la chaîne elle-même de refuser une généalogie incohérente.</p>
+  </footer>
+</div>
+
+<script type="module">
+import {
+  animalByIdn, animalById, certificate, evidenceLevel, pedigree, pedigreeCoverage,
+  offices, roll, chainHead, DEED, deedOf, parseFields,
+} from './ladoum.js';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const out = document.getElementById('out');
+const rollEl = document.getElementById('roll');
+
+/** L'en-tête d'état : ce que la page a lu, et à quel bloc. */
+async function showHead() {
+  const el = document.getElementById('chainstate');
+  try {
+    const h = await chainHead();
+    const os = await offices('SN');
+    el.innerHTML = os.length
+      ? `registre lu au bloc <b>${esc(h.height)}</b><br>${esc(os[0].name)}`
+      : `chaîne lue au bloc <b>${esc(h.height)}</b><br>aucun office sénégalais admis`;
+  } catch (e) {
+    el.textContent = 'chaîne injoignable';
+  }
+}
+
+/** Le certificat, la preuve et la généalogie d'un animal. */
+async function render(animal) {
+  const c = certificate(animal);
+  const ev = evidenceLevel(animal);
+  const sire = deedOf(animal, DEED.SIRE);
+  const dam = deedOf(animal, DEED.DAM);
+  const sireF = parseFields(sire?.reference || '');
+  const damF = parseFields(dam?.reference || '');
+
+  out.innerHTML = `
+    <div class="split">
+      <figure class="cert" style="margin:0">
+        <h2>Certificat de naissance Ladoum</h2>
+        <div class="wave" aria-hidden="true"></div>
+        <div class="f hi"><span class="k">IDN</span><span class="v">${esc(c.idn)}</span></div>
+        <div class="f"><span class="k">Empreinte</span><span class="v">${esc(c.empreinte)}</span></div>
+        <div class="grp">
+          <div class="gn">Bergerie</div>
+          <div class="f"><span class="k">Nom</span><span class="v">${esc(c.bergerie)}</span></div>
+          <div class="f"><span class="k">Propriétaire</span><span class="v">${esc(c.proprietaire)}</span></div>
+        </div>
+        <div class="grp">
+          <div class="gn">Mouton</div>
+          <div class="f"><span class="k">Nom</span><span class="v">${esc(c.nom)}</span></div>
+          <div class="f"><span class="k">Sexe</span><span class="v">${esc(c.sexe)}</span></div>
+          <div class="f"><span class="k">Couleur robe</span><span class="v">${esc(c.robe)}</span></div>
+          <div class="f"><span class="k">Type de portée</span><span class="v">${esc(c.portee)}</span></div>
+          <div class="f"><span class="k">Naissance</span><span class="v">${esc(c.naissance)}</span></div>
+        </div>
+        <div class="grp">
+          <div class="gn">Ascendants directs</div>
+          <div class="f"><span class="k">Géniteur</span><span class="v">${esc(sireF.nom || '—')}</span></div>
+          <div class="f"><span class="k">IDN père</span><span class="v">${esc(sireF.idn || 'non référencé')}</span></div>
+          <div class="f"><span class="k">Génitrice</span><span class="v">${esc(damF.nom || '—')}</span></div>
+          <div class="f"><span class="k">IDN mère</span><span class="v">${esc(damF.idn || 'non référencé')}</span></div>
+        </div>
+      </figure>
+
+      <div>
+        <div class="evid">
+          <div class="lab">Niveau de preuve</div>
+          <span class="badge ${esc(ev.level)}">${esc(ev.label)}</span>
+          <p>${esc(ev.why)}</p>
+        </div>
+
+        <div class="ped" id="ped">
+          <div class="lab">Généalogie</div>
+          <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">remontée en cours…</p>
+        </div>
+
+        <div class="proof">
+          <div class="lab">Ce que la chaîne en dit</div>
+          <dl>
+            <dt>Inscription</dt><dd>n° ${esc(animal.id)}</dd>
+            <dt>Office</dt><dd>${esc(animal.authority)}</dd>
+            <dt>Statut</dt><dd>${esc(animal.status.replace('STATUS_', '').toLowerCase())}</dd>
+            <dt>Bloc</dt><dd>${esc(animal.registered_at)}</dd>
+            <dt>Actes</dt><dd>${esc((animal.deeds || []).map((d) => d.kind).join(', ') || 'aucun')}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>`;
+
+  // La généalogie est remontée après le premier rendu : elle demande une
+  // requête par ascendant, et faire attendre le certificat pour elle donnerait
+  // une page blanche là où l'essentiel est déjà connu.
+  try {
+    const tree = await pedigree(animal, 3);
+    const cov = pedigreeCoverage(tree);
+    document.getElementById('ped').innerHTML = `
+      <div class="lab">Généalogie</div>
+      <ul class="tree">${branch(tree, null)}</ul>
+      <p class="cover">${cov.cited === 0
+        ? 'Aucun ascendant déclaré au registre.'
+        : `${cov.held} ascendant${cov.held > 1 ? 's' : ''} inscrit${cov.held > 1 ? 's' : ''}
+           sur ${cov.cited} cité${cov.cited > 1 ? 's' : ''}. Un ascendant cité mais absent est
+           normal pour les lignées antérieures au dispositif : il est affiché comme tel plutôt
+           que masqué.`}</p>`;
+  } catch (e) {
+    document.getElementById('ped').innerHTML =
+      `<div class="lab">Généalogie</div><p style="margin:0;font-size:13.5px">
+       remontée impossible : ${esc(e.message)}</p>`;
+  }
+}
+
+/** Une branche de l'arbre. `rel` est le lien vers le parent. */
+function branch(node, rel) {
+  if (!node) return '';
+  const label = rel ? `<span class="rel">${esc(rel)}</span>` : '';
+  if (!node.animal) {
+    return `<li>${label}<span class="absent">cité comme ${esc(node.missing)},
+      non inscrit au registre</span></li>`;
+  }
+  const c = certificate(node.animal);
+  const kids = ['sire', 'dam']
+    .map((k) => branch(node[k], k === 'sire' ? 'père' : 'mère'))
+    .filter(Boolean).join('');
+  return `<li>${label}<span class="nom">${esc(c.nom)}</span>
+    <span class="idn">${esc(c.idn)}</span>
+    ${node.cycle ? '<span class="absent"> — boucle détectée, remontée arrêtée</span>' : ''}
+    ${kids ? `<ul>${kids}</ul>` : ''}</li>`;
+}
+
+/** La liste des inscriptions, qui sert aussi de démonstration quand elle est vide. */
+async function showRoll() {
+  rollEl.innerHTML = '<h3>Inscriptions</h3><p class="hint">lecture…</p>';
+  try {
+    const os = await offices('SN');
+    if (!os.length) {
+      rollEl.innerHTML = `<h3>Inscriptions</h3>
+        <div class="note bad"><div class="h">Aucun office admis</div>
+        <p>La chaîne ne connaît aucun office d'enregistrement pour la juridiction sénégalaise.
+        Les offices sont admis par la gouvernance de la chaîne, jamais entre eux — c'est ce qui
+        empêche une bergerie de se déclarer registre.</p>
+        <p>Tant qu'aucun office n'est admis, aucune inscription n'est possible, et la page le dit
+        plutôt que d'afficher une liste vide qui ressemblerait à un registre sans animaux.</p></div>`;
+      return;
+    }
+    const animals = await roll({ from: 1, limit: 40 });
+    if (!animals.length) {
+      rollEl.innerHTML = `<h3>Inscriptions</h3>
+        <div class="note"><div class="h">Registre vide</div>
+        <p>L'office <strong>${esc(os[0].name)}</strong> est admis et n'a encore inscrit aucun
+        animal. La chaîne a répondu : le registre est vide, il n'est pas injoignable.</p></div>`;
+      return;
+    }
+    rollEl.innerHTML = `<h3>Inscriptions</h3><div class="tablewrap"><table>
+      <thead><tr><th>IDN</th><th>Nom</th><th>Preuve</th><th>Propriétaire</th><th>Bloc</th></tr></thead>
+      <tbody>${animals.map((a) => {
+        const c = certificate(a); const ev = evidenceLevel(a);
+        return `<tr data-idn="${esc(c.idn)}">
+          <td class="mono">${esc(c.idn)}</td>
+          <td>${esc(c.nom)}</td>
+          <td><span class="badge ${esc(ev.level)}" style="margin:0;font-size:10px;padding:2px 6px">${esc(ev.label)}</span></td>
+          <td class="mono">${esc(a.holder.slice(0, 12))}…</td>
+          <td class="mono">${esc(a.registered_at)}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+    rollEl.querySelectorAll('tbody tr').forEach((tr) => {
+      tr.addEventListener('click', () => {
+        document.getElementById('q').value = tr.dataset.idn;
+        search();
+      });
+    });
+  } catch (e) {
+    rollEl.innerHTML = `<h3>Inscriptions</h3>
+      <div class="note bad"><div class="h">Lecture impossible</div>
+      <p>${esc(e.message)}</p></div>`;
+  }
+}
+
+async function search() {
+  const idn = document.getElementById('q').value.trim();
+  if (!idn) { out.innerHTML = ''; return; }
+  out.innerHTML = '<p class="hint">recherche…</p>';
+  try {
+    const animal = await animalByIdn(idn);
+    if (!animal) {
+      // Distinction utile pour un acheteur : « pas au registre » n'est pas
+      // « registre injoignable ». La chaîne a répondu.
+      out.innerHTML = `<div class="note bad"><div class="h">Aucun animal sous cet IDN</div>
+        <p>Le registre a répondu et ne connaît pas <code>${esc(idn)}</code>. Ce n'est pas une
+        panne : c'est une absence. Un certificat présentant cet IDN ne correspond à aucune
+        inscription.</p></div>`;
+      return;
+    }
+    await render(animal);
+  } catch (e) {
+    out.innerHTML = `<div class="note bad"><div class="h">Lecture impossible</div>
+      <p>${esc(e.message)}</p></div>`;
+  }
+}
+
+document.getElementById('go').addEventListener('click', search);
+document.getElementById('q').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') search();
+});
+document.getElementById('clear').addEventListener('click', () => {
+  document.getElementById('q').value = ''; out.innerHTML = '';
+});
+
+showHead();
+showRoll();
+</script>
