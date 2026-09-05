@@ -61,3 +61,26 @@ func TestValueGuardsAreSendRestrictionsAndNotAnteDecorators(t *testing.T) {
 		"a freeze is being decided in the ante chain, which authz, interchain accounts, "+
 			"treasury spends and swaps all reach the bank without traversing")
 }
+
+//go:embed profile_tokenisation_on.go
+var tokenisationProfileSource string
+
+// The AMM must be told which denoms are fraction denoms, or K-1 comes back.
+//
+// A pool pays both reserve legs in one send, and a realised vehicle's fraction
+// token cannot be sent to anyone but the tokenisation module account — so a
+// pooled fraction denom locks every LP's counter-asset the moment the vehicle
+// is sold. CreatePool refuses a fraction denom, but only once it has been told
+// what one is, and that telling is a single line wired after the graph is built.
+//
+// Asserted against the source for the same reason the send restriction above is:
+// the danger is not that the guard is wrong but that it is absent. The send
+// restriction it sits beside was written, committed, and registered nowhere for
+// weeks, and every entitlement read zero the whole time. This is the line that
+// stops the same shape happening to the pool guard.
+func TestTheAmmIsToldWhichDenomsAreFractionDenoms(t *testing.T) {
+	require.Contains(t, tokenisationProfileSource,
+		"app.AmmKeeper.SetRestrictedDenomKeeper(app.TokenisationKeeper)",
+		"the AMM has not been given the fraction-denom classifier; CreatePool will pool a "+
+			"fraction denom and K-1 (a realised vehicle locking an LP's counter-asset) is back")
+}

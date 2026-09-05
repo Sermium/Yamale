@@ -54,6 +54,38 @@ func (k msgServer) CreatePool(ctx context.Context, msg *types.MsgCreatePool) (*t
 		}
 	}
 
+	// A fraction denom cannot go in a pool, and this is the one exception to the
+	// AMM being permissionless.
+	//
+	// The reason is a composition the module-by-module reasoning missed, and the
+	// comment on this handler stated it exactly backwards: it read the
+	// tokenisation send restriction as something that "sits there" stopping
+	// laundering on the way in. On the way OUT it is the trap. Once a vehicle is
+	// realised the restriction halts every transfer of its fraction token that
+	// does not touch the tokenisation module account — and a pool is a different
+	// module account, and ExitPool pays both reserve legs in one SendCoins. So
+	// the fraction leg refuses the payout and takes the counter-asset with it,
+	// and every LP's money is locked in the pool permanently. A malicious
+	// sponsor uses it as a rug; even an honest one arms it the first time a
+	// pooled vehicle is sold.
+	//
+	// Refused at creation because that is the only point where the pool does not
+	// yet exist. Exempting the AMM account from the halt instead would let a
+	// realised token trade at the pool's stale price, which is the free lunch
+	// the restriction exists to prevent — so the trap and the thing the
+	// restriction guards are two ends of the same rope, and the only cut that
+	// frees neither is to keep the denom out of the pool.
+	for _, denom := range []string{msg.DenomA, msg.DenomB} {
+		restricted, err := k.denomIsRestricted(ctx, denom)
+		if err != nil {
+			return nil, err
+		}
+		if restricted {
+			return nil, errorsmod.Wrapf(types.ErrRestrictedDenom,
+				"%s carries a transfer restriction that a pool cannot survive; it may not be pooled", denom)
+		}
+	}
+
 	// The fee is chosen by whoever opens the pool and is never revisited, so it
 	// is bounded here or nowhere. Above 10,000 basis points the fee arithmetic
 	// in a swap goes negative, and the only thing that stopped the result being

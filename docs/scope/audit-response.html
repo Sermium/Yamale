@@ -462,21 +462,21 @@
 <div class="sheet">
 
   <header class="masthead">
-    <div class="eyebrow">Response to the independent security &amp; functional audit · revision 2</div>
+    <div class="eyebrow">Response to the independent security &amp; functional audit · revision 3</div>
     <h1>What we fixed, what we did not, and where we disagree</h1>
     <p class="standfirst">
-      Thirty-five findings against <span class="mono">yamale-devnet-2</span>, and two more your
-      reply turned up. Nineteen are closed in code with regression tests that fail on the version
-      you reviewed. Nothing at all has been changed on the running chain. Two of your conclusions
-      we think are wrong, one defect we found that you did not — and one sentence in revision 1
-      of this document that you were right to call out.
+      Thirty-five audit findings, two more from your reply, and three kill chains from the
+      offensive assessment. Twenty are now closed in code with regression tests that fail on the
+      version you reviewed. Nothing has been changed on the running chain. K-1 was ours to own —
+      a comment we wrote defending the AMM is quoted in your assessment as the exact blind spot,
+      and it was.
     </p>
 
     <dl class="colophon">
       <div><dt>Audit dated</dt><dd>2026-09-03</dd></div>
       <div><dt>Reviewed at</dt><dd class="mono">dd23f06</dd></div>
       <div><dt>Blocks</dt><dd>170,022–170,225</dd></div>
-      <div><dt>Revised</dt><dd>2026-09-05 · rev 2</dd></div>
+      <div><dt>Revised</dt><dd>2026-09-05 · rev 3</dd></div>
       <div><dt>Remediated in</dt><dd class="mono">1cbe554 · c0a1ea7 · b102d77</dd></div>
       <div><dt>Re-verified at</dt><dd>block 196,559</dd></div>
     </dl>
@@ -491,9 +491,9 @@
 
     <div class="tally">
       <article style="--tint: var(--closed)">
-        <span class="n">19</span>
+        <span class="n">20</span>
         <span class="what">Closed in code</span>
-        <span class="how">Fixed, with a regression test that fails on <span class="mono">dd23f06</span> and passes now.</span>
+        <span class="how">Fixed, with a regression test that fails on the reviewed version. K-1 joins these.</span>
       </article>
       <article style="--tint: var(--partial)">
         <span class="n">4</span>
@@ -501,9 +501,9 @@
         <span class="how">The handler or the config is fixed; the host is not. The RPC gate joins these.</span>
       </article>
       <article style="--tint: var(--open)">
-        <span class="n">11</span>
+        <span class="n">12</span>
         <span class="what">Open — needs a key or a vote</span>
-        <span class="how">Nine of yours, plus the two from your reply. Nothing has been executed.</span>
+        <span class="how">Yours, your reply's two, and <span class="mono">max_gas</span> on the live chain. Nothing executed.</span>
       </article>
       <article style="--tint: var(--answer)">
         <span class="n">4</span>
@@ -759,6 +759,97 @@ keys show alice --keyring-backend test → yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuw
         not income from the asset and the sponsor was not the one kept waiting.
       </p>
     </div>
+  </section>
+
+  <section>
+    <h2>The offensive assessment</h2>
+    <p class="lede">
+      Approaching the same target as an adversary found what the module-by-module read could not:
+      a defect in the seam between two modules that are each correct alone. All three verified here
+      before being accepted.
+    </p>
+
+    <div class="dissent" style="border-left-color: var(--sev-c)">
+      <span class="tag" style="color: var(--sev-c)">K-1 · accepted · new, CRITICAL, and ours to own · closed in the tree</span>
+      <h3>A realised vehicle locks every LP's counter-asset — and our own comment was the blind spot</h3>
+      <p>
+        An AMM pool pays both reserve legs in one <span class="mono">SendCoins</span>. The
+        tokenisation restriction halts every transfer of a realised vehicle's fraction token that
+        does not touch the tokenisation module account. A pool is a different module account. So a
+        pooled fraction denom, once its vehicle is realised, refuses the fraction leg on exit and
+        takes the counter-asset down with it: every LP's YML locked in the pool, permanently. Not
+        stolen — destroyed.
+      </p>
+      <p>
+        You quoted the comment we wrote yesterday under M-11, defending the AMM's
+        permissionlessness — that the restriction &ldquo;sits there&rdquo; stopping laundering on
+        the way in. On the way out it is the trap. That is exactly the misread, and a
+        module-by-module audit could not catch it because each module is correct alone.
+      </p>
+      <p>
+        <b>Closed in the tree.</b> <span class="mono">CreatePool</span> refuses a fraction denom —
+        the one point the pool does not yet exist. Exempting the AMM account from the halt instead
+        would let a realised token trade at the pool's stale price, which is the free lunch the
+        restriction exists to prevent, so the trap and the guard are two ends of one rope. The AMM
+        learns which denoms are fraction denoms through a read-only classifier the tokenisation
+        module implements, wired after the graph is built. Proven both ways against the real bank
+        and the real restriction: the trap on the unwired AMM (your
+        <span class="mono">TestAuditRealisedFractionLocksThePoolsCounterAsset</span>, reproduced
+        from your description), and the refusal on the fixed one. A source-level test pins the
+        wiring, because the restriction it sits beside was itself dead and unregistered for weeks.
+      </p>
+      <p>
+        <b>No trap is armed on the live chain.</b> The two live pools are
+        <span class="mono">uyml/ungn</span> and <span class="mono">uyml/uzar</span> — fiat pairs,
+        not fraction denoms — and both fractionalised vehicles are still
+        <span class="mono">STATUS_ACTIVE</span>. K-1 is a latent capability the shipped binary
+        permits, not a current loss. It becomes one the first time anyone pools a fraction denom,
+        which needs no privilege.
+      </p>
+    </div>
+
+    <div class="dissent" style="border-left-color: var(--sev-h)">
+      <span class="tag" style="color: var(--sev-h)">K-2 · accepted · the RPC finding, read as a data source</span>
+      <h3>The mempool is a deanonymisation oracle on a confidential-payments chain</h3>
+      <p>
+        <span class="mono">unconfirmed_txs</span> answering over POST is not only a hardening gap,
+        it is a live feed. <span class="mono">MsgSendPayment</span> carries debtor, creditor and
+        participants in cleartext in the envelope, so the mempool discloses exactly what the
+        on-chain salted hashes were built to protect. Add the no-op mempool's first-come ordering
+        and it is a live MEV feed against the two pools and a liveness beacon on the franchise key,
+        which broadcasts every sixty seconds — you pulled a live
+        <span class="mono">MsgSubmitExchangeRates</span> from it, read-only, one request.
+      </p>
+      <p>
+        <span class="mono">tools/rpcgate</span> closes the disclosure. It does <b>not</b> close the
+        MEV, and your framing is the honest one: on a two-validator FIFO chain, ordering is not
+        adversary-resistant regardless of who can read the pool. If value ever routes through the
+        AMM that is a design question, not a config one. Recorded as such rather than papered over.
+      </p>
+    </div>
+
+    <div class="dissent" style="border-left-color: var(--sev-m)">
+      <span class="tag" style="color: var(--sev-m)">K-3 · accepted · <span class="mono">max_gas = -1</span> · tooling fixed, live chain pending</span>
+      <h3>No ceiling on work is the backstop missing behind every slow-path finding</h3>
+      <p>
+        Per-transaction gas still charges the attacker, so it is an amplifier rather than a free
+        halt — but it is what lets a slow permissionless loop cross from &ldquo;late block&rdquo;
+        into &ldquo;halted chain&rdquo; on a two-node set that must both stay up, and it is the
+        single cheapest defense in either report. Set to a finite
+        <span class="mono">100000000</span> in the canonical genesis and
+        <span class="mono">init-devnet.sh</span>, so no chain built from the tooling launches
+        uncapped. The <b>live chain is still <span class="mono">-1</span></b> and needs a consensus
+        parameter change — in the runbook.
+      </p>
+    </div>
+
+    <p>
+      Recorded too, because a report that only lists wins is marketing: the five attacks the
+      assessment set up and the chain refused — first-depositor inflation, the per-swap rounding
+      leak, arithmetic chain-halt, send-restriction re-entrancy, self-service role escalation — are
+      the controls the audit credited under &ldquo;what is right&rdquo;, now confirmed from the
+      other side of the glass.
+    </p>
   </section>
 
   <section>
@@ -1087,11 +1178,12 @@ keys show alice --keyring-backend test → yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuw
   </section>
 
   <p class="footer">
-    Revision 2, 2026-09-05, against <span class="mono">yamale-devnet-2</span> at block 202,443.
-    Revision 1 claimed <span class="mono">x/land</span> was open on the host when it was open only
-    in the repo; that is corrected above rather than quietly edited out. Yes to the dated
-    addendum — both items belong in your report rather than only in our reply to it, and the
-    second is the one a reader of the audit alone would most need.
+    Revision 3, 2026-09-05, against <span class="mono">yamale-devnet-2</span> at block 202,443.
+    Twenty findings closed in code across three commits since the audit; the chain untouched. K-1
+    was the assessment's, and finding it is the argument for the exercise — a comment we wrote
+    defending a module was the precise place the reasoning failed, and only an adversary reading
+    for the seam rather than the handler would have caught it. The dated addendum you offered is
+    the right home for K-1 and the franchise-key finding both.
   </p>
 
 </div>

@@ -62,3 +62,22 @@ func (k Keeper) SendRestrictionFn(ctx context.Context, from, to sdk.AccAddress, 
 
 	return to, nil
 }
+
+// IsRestrictedDenom reports whether a denom is one this module can halt.
+//
+// Every fraction denom qualifies, whatever its vehicle's current status. The
+// question x/amm asks is not "is this halted now" but "could this ever be
+// halted" — a pool created over an ACTIVE vehicle is exactly the trap, because
+// the vehicle is realised later and the halt arrives after the LPs' money is
+// in. So the answer is about the denom being a fraction denom at all, not about
+// today's status.
+//
+// A store error is surfaced, not swallowed: x/amm treats it as a refusal, and a
+// pool the chain could not vet is one it should not create.
+func (k Keeper) IsRestrictedDenom(ctx context.Context, denom string) (bool, error) {
+	has, err := k.ByDenom.Has(ctx, denom)
+	if err != nil {
+		return false, err
+	}
+	return has, nil
+}

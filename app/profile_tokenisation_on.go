@@ -64,4 +64,13 @@ func (app *App) tokenisationDepinjectOutputs() []any {
 // shares, which the chain's own query said was owed to nobody.
 func (app *App) registerTokenisationSendRestriction() {
 	app.BankKeeper.AppendSendRestriction(app.TokenisationKeeper.SendRestrictionFn)
+
+	// The same restriction that settles a share transfer here halts every
+	// transfer of a realised vehicle's fraction token — and an AMM pool pays
+	// both its reserve legs in one send, so a pooled fraction denom becomes a
+	// trap that locks every LP's counter-asset the moment the vehicle is sold.
+	// The AMM refuses to pool a fraction denom, and this is the line that tells
+	// it which denoms those are. Both modules are compiled under the same
+	// profile, so the tokenisation keeper is present wherever the AMM keeper is.
+	app.AmmKeeper.SetRestrictedDenomKeeper(app.TokenisationKeeper)
 }

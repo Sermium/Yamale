@@ -368,6 +368,17 @@ params["expedited_voting_period"] = "900s"
 params["max_deposit_period"] = "600s"
 params["min_deposit"] = [{"denom": "uyml", "amount": "1000000"}]
 params["expedited_min_deposit"] = [{"denom": "uyml", "amount": "2000000"}]
+
+# A finite block gas ceiling. Left at -1, there is no limit on the work a
+# single block may do, and every "unbounded loop" finding — the netting end
+# blocker, a spray of 1-unit fraction transfers each writing a position row —
+# has nothing standing behind it but wall-clock on a two-node set that must
+# both stay up. Per-transaction gas still charges the attacker, so this is an
+# amplifier rather than a free halt, which is exactly why removing the ceiling
+# is the cheapest thing that turns a slow block into a halted chain.
+consensus = g.setdefault("consensus", {}).setdefault("params", {})
+consensus.setdefault("block", {})["max_gas"] = "100000000"
+
 json.dump(g, open(p, "w"), indent=2)
 PY
 echo "  voting period: $(grep -o '"voting_period": *"[^"]*"' "$G" | head -1)"

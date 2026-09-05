@@ -280,7 +280,30 @@ Ratification needs 80% of voting power, and the delay is 120,960 blocks.
 
 ---
 
-## 7. The rest, in no particular order
+## 7. Set a finite `max_gas` on the live chain (K-3)
+
+`max_gas` is `-1` on the running chain: no ceiling on the work a single block
+may do. It is the backstop missing behind every unbounded-loop finding, and the
+reviewer's cheapest single defense — per-transaction gas still charges the
+attacker, so it is an amplifier rather than a free halt, but it is what turns a
+slow permissionless loop into a halted chain on a two-node set that must both
+stay up.
+
+The tooling is fixed: `scripts/testnet/canonical-genesis.json` and
+`init-devnet.sh` now set `100000000`, so no future chain launches uncapped. The
+live chain needs a consensus-parameter change — `MsgUpdateParams` on
+`x/consensus`, which is a governance proposal. Read the current block params
+first and change only `max_gas`:
+
+```bash
+blockchaind query consensus params --node https://yamale.tail4355e8.ts.net/api/rpc
+```
+
+`100000000` is a starting figure, not a derived one: it is generous against the
+transactions this chain actually runs and finite, which is the whole point. If
+a legitimate block ever needs more, it is a parameter and it moves.
+
+## 8. The rest, in no particular order
 
 - **Raise the oracle vote threshold.** `vote_threshold_bps` is 5,000 and the
   larger validator holds 5,717, so it meets the threshold alone and its own rate

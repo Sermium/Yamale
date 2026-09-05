@@ -387,6 +387,92 @@ needs a transaction, a vote or a key ceremony, and none of it has been done.
 
 **Verified still live on 2026-09-05** against the funnel at block 196,559.
 
+### The offensive assessment, 2026-09-05
+
+A red-team follow-on to the audit approached the same target as an adversary —
+not "is each handler correct" but "what do I walk away with" — and found one
+thing the module-by-module reads could not: a defect that lives in the seam
+between two modules that are each correct alone. Three kill chains.
+
+**K-1 — pool poisoning by realisation (CRITICAL, was new, now closed in the
+tree).** This one was ours to own. An AMM pool pays both reserve legs in a
+single `SendCoins`; the tokenisation send restriction halts every transfer of a
+realised vehicle's fraction token that does not touch the tokenisation module
+account; a pool is a different module account. So: pool a fraction denom against
+YML, let honest LPs add liquidity, then realise the vehicle — and the exit
+refuses the fraction leg, takes the YML leg down with it, and every LP's
+counter-asset is locked in the pool forever. Not stolen, destroyed. A malicious
+sponsor uses it as a rug; an honest one arms it the first time a pooled vehicle
+is sold.
+
+The blind spot was a comment this repository wrote on 2026-09-05, defending the
+AMM's permissionlessness under M-11: it read the tokenisation restriction as
+something that "sits there" stopping laundering on the way in. On the way out it
+is the trap. The reviewer quoted the comment back as the exact place the
+reasoning went wrong, and they were right.
+
+Closed by refusing a fraction denom at `CreatePool` — the one point the pool
+does not yet exist. Exempting the AMM account from the halt instead would let a
+realised token trade at the pool's stale price, which is the free lunch the
+restriction exists to prevent, so the trap and the thing the restriction guards
+are two ends of one rope. The AMM learns which denoms are fraction denoms
+through a read-only classifier the tokenisation module implements, wired after
+the graph is built the way x/enforcement receives its concentration check.
+Proven both ways: `TestAuditRealisedFractionLocksThePoolsCounterAsset` drives
+the full trap on the unwired AMM with the real bank and the real restriction and
+shows the LP's YML trapped; `TestTheFixRefusesToPoolAFractionDenom` shows the
+same setup refused at creation. A source-level test pins the wiring line, because
+the send restriction it sits beside was itself dead and unregistered for weeks.
+
+**No trap is armed on the live chain today.** The two live pools are
+`uyml/ungn` and `uyml/uzar` — fiat pairs, not fraction denoms — and both
+fractionalised vehicles (`tok/2/KIN518`, `tok/3/KIN777`) are still
+`STATUS_ACTIVE`. K-1 is a latent capability that the shipped binary permits, not
+a current loss. It becomes a live loss the first time anyone pools a fraction
+denom, which is a permissionless action requiring no privilege.
+
+**K-2 — the mempool is a public feed (HIGH, live-verified).** This is the RPC
+gate finding [[see above]] read from the attacker's chair: `unconfirmed_txs`
+answering over POST is not a hardening gap, it is a data source. On a chain
+whose pitch is confidential payments, the mempool is the deanonymisation oracle
+the on-chain salted hashes were meant to prevent — `MsgSendPayment` carries
+debtor, creditor and participants in cleartext in the envelope. Add the no-op
+mempool's first-come ordering and it is also a live MEV feed against the two
+pools, and a liveness beacon on the franchise key, which broadcasts on a
+sixty-second timer. The reviewer pulled a live `MsgSubmitExchangeRates` from the
+feeder key this way, read-only, one request.
+
+`tools/rpcgate` closes the disclosure. It does **not** close the MEV: on a
+two-validator FIFO chain, ordering is not adversary-resistant regardless of who
+can read the pool, and if value ever routes through the AMM that is a design
+question rather than a config one. Chained with the `abci_query` raw-store reads
+still open, the disclosure goes further than the mempool: `/store/alias/...`
+exposes the jurisdiction-to-address map directly — who-banks-where plus the
+payment graph, from two unauthenticated endpoints.
+
+**K-3 — no ceiling on work (MEDIUM, live-verified).** `max_gas = -1` is the
+backstop missing behind every unbounded-work finding. Per-transaction gas still
+charges the attacker, so it is an amplifier rather than a free halt — but it is
+what lets a slow permissionless loop (the netting end blocker before M-7, a
+spray of 1-unit fraction transfers each writing a permanent position row) cross
+from "late block" into "halted chain" on a two-node set that must both stay up.
+
+Set to a finite `100000000` in `scripts/testnet/canonical-genesis.json` and in
+`init-devnet.sh`, so no chain built from the tooling launches uncapped. The
+**live chain is still `-1`** and needs a consensus-parameter change — the single
+cheapest defense in either report, and it backstops M-7 and the state-growth
+vectors at once. See [audit-remediation.md](audit-remediation.md).
+
+**What the assessment attacked and could not break**, worth recording because a
+report that only lists wins is marketing: the first-depositor/donation inflation
+attack (the pool module is a blocked account and `JoinPool` reads reserves from
+state, not bank balance); the per-swap rounding leak (every division truncates
+toward the pool); permissionless chain-halt via arithmetic (every divisor
+guarded at the point of use); send-restriction re-entrancy (`Settle` makes no
+bank call); and self-service alias/role escalation (`AssertScope` fails closed
+on a missing registry). These are the controls the first audit credited under
+"what is right", confirmed from the other side of the glass.
+
 ### Two the audit did not find, from its own reply
 
 The auditor checked this response rather than accepting it, and turned up two

@@ -33,4 +33,9 @@ var (
 	// value on a failed parse, which panics on first use rather than erroring.
 	ErrCorruptPool = errors.Register(ModuleName, 1113,
 		"this pool's stored reserves cannot be read as numbers")
+	// A fraction denom whose transfers can be halted cannot be pooled: a pool
+	// pays both legs in one send, so a halt on one leg locks the other. This is
+	// the one exception to the AMM being permissionless.
+	ErrRestrictedDenom = errors.Register(ModuleName, 1114,
+		"that denomination carries a transfer restriction a pool cannot survive")
 )
