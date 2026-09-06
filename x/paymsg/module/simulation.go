@@ -99,6 +99,25 @@ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtyp
 		paymsgsimulation.SimulateMsgRegisterCustomer(am.authKeeper, am.bankKeeper, am.keeper, simState.TxConfig),
 	))
 
+	// Weighted above registration, because a claim does nothing until the
+	// account answers it and a chain of unanswered claims has no debtor any
+	// payment can name. Registration produces the work; this consumes it.
+	const (
+		opWeightMsgConfirmParticipant          = "op_weight_msg_confirm_participant"
+		defaultWeightMsgConfirmParticipant int = 80
+	)
+
+	var weightMsgConfirmParticipant int
+	simState.AppParams.GetOrGenerate(opWeightMsgConfirmParticipant, &weightMsgConfirmParticipant, nil,
+		func(_ *rand.Rand) {
+			weightMsgConfirmParticipant = defaultWeightMsgConfirmParticipant
+		},
+	)
+	operations = append(operations, simulation.NewWeightedOperation(
+		weightMsgConfirmParticipant,
+		paymsgsimulation.SimulateMsgConfirmParticipant(am.authKeeper, am.bankKeeper, am.keeper, simState.TxConfig),
+	))
+
 	return operations
 }
 

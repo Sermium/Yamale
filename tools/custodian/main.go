@@ -80,6 +80,27 @@ type server struct {
 	// a signature needs more than a password. Zero means always.
 	secondFactorAbove uint64
 	started           time.Time
+	// now is the server's clock, and it must be the SAME clock the recoveries
+	// store stamps EligibleAt with.
+	//
+	// It was not. The store's clock is injectable and the handlers called
+	// nowUTC() directly, so a test that moved the store's clock left the HTTP
+	// layer reading wall time — and the recovery wiring test consequently
+	// asserted the 72-hour notice period only while real time happened to be
+	// behind the fixture's fixed date. It passed until 2026-09-04 and then
+	// began reporting the approvals rule instead, silently, without anybody
+	// changing the recovery code. A test that expires is not a test.
+	//
+	// Nil means wall clock, so production behaviour is unchanged.
+	now func() time.Time
+}
+
+// clock is the server's time, defaulting to the wall clock.
+func (s *server) clock() time.Time {
+	if s.now == nil {
+		return nowUTC()
+	}
+	return s.now()
 }
 
 func main() {

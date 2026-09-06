@@ -66,9 +66,27 @@ test-sim-determinism:
 
 test-sim-all: test-sim test-sim-import-export test-sim-determinism
 
+# Fuzzing, over the inputs an attacker chooses.
+#
+# Go runs one fuzz target per invocation, so these are listed rather than
+# globbed. Each is a pure function over bytes that arrive from outside: the
+# public RPC gate's method filter, its JSON-RPC parser, and the permissionless
+# store key in x/builderfee that the audit found unbounded.
+#
+# FUZZTIME is short by default so this is runnable in CI. Turn it up when
+# hunting: `make test-fuzz FUZZTIME=10m` is a different exercise from the
+# thirty-second smoke test.
+FUZZTIME ?= 30s
+
+test-fuzz:
+	@echo Fuzzing the public RPC gate and the permissionless store keys...
+	@go test ./tools/rpcgate -run FuzzPermit -fuzz FuzzPermit -fuzztime $(FUZZTIME)
+	@go test ./tools/rpcgate -run FuzzMethodsOf -fuzz FuzzMethodsOf -fuzztime $(FUZZTIME)
+	@go test ./x/builderfee/types -run FuzzValidateMsgTypeURL -fuzz FuzzValidateMsgTypeURL -fuzztime $(FUZZTIME)
+
 test: govet govulncheck test-unit
 
-.PHONY: test test-unit test-race test-cover bench test-sim test-sim-import-export test-sim-determinism test-sim-all
+.PHONY: test test-unit test-race test-cover bench test-sim test-sim-import-export test-sim-determinism test-sim-all test-fuzz
 
 #################
 ###  Install  ###

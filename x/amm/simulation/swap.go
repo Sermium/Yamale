@@ -60,6 +60,34 @@ func SimulateMsgSwap(
 			return simtypes.NoOpMsg(types.ModuleName, sdk.MsgTypeURL(msg), "unable to generate a swap amount"), nil, nil
 		}
 
+		// A trade too small to buy a single unit of the output is refused by the
+		// handler rather than settled — taking payment and returning nothing was
+		// a real defect, and refusing it is the fix. The simulator treats a
+		// refused delivery as fatal, so the operation has to decline here rather
+		// than submit a transaction that is correctly rejected.
+		//
+		// The arithmetic mirrors the handler's exactly, including the fee and
+		// the truncation direction. Recomputing it approximately would either
+		// let a doomed swap through or skip a valid one, and both are ways for
+		// this operation to stop covering the path it exists to cover.
+		reserveInStr := pool.ReserveA
+		if tokenInDenom == pool.DenomB {
+			reserveInStr = pool.ReserveB
+		}
+		reserveIn, ok := math.NewIntFromString(reserveInStr)
+		if !ok || !reserveIn.IsPositive() {
+			return simtypes.NoOpMsg(types.ModuleName, sdk.MsgTypeURL(msg), "pool has no input reserve"), nil, nil
+		}
+		feeBps := math.NewInt(10_000 - int64(pool.SwapFeeBps))
+		amountInAfterFee := amountIn.Mul(feeBps).Quo(math.NewInt(10_000))
+		if !amountInAfterFee.IsPositive() {
+			return simtypes.NoOpMsg(types.ModuleName, sdk.MsgTypeURL(msg), "swap amount is consumed entirely by the fee"), nil, nil
+		}
+		amountOut := reserveOut.Mul(amountInAfterFee).Quo(reserveIn.Add(amountInAfterFee))
+		if !amountOut.IsPositive() {
+			return simtypes.NoOpMsg(types.ModuleName, sdk.MsgTypeURL(msg), "swap is too small to buy a whole unit at this price"), nil, nil
+		}
+
 		msg.PoolId = pool.Id
 		msg.TokenInDenom = tokenInDenom
 		msg.TokenInAmount = amountIn.String()

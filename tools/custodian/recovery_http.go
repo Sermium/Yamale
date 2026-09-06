@@ -103,7 +103,7 @@ func (s *server) handleRecoveryInitiate(w http.ResponseWriter, r *http.Request) 
 		refuse(w, recoveryStatus(err), err.Error())
 		return
 	}
-	respond(w, viewOf(rec, nowUTC()))
+	respond(w, viewOf(rec, s.clock()))
 }
 
 func (s *server) handleRecoveryApprove(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +116,7 @@ func (s *server) handleRecoveryApprove(w http.ResponseWriter, r *http.Request) {
 		refuse(w, recoveryStatus(err), err.Error())
 		return
 	}
-	respond(w, viewOf(rec, nowUTC()))
+	respond(w, viewOf(rec, s.clock()))
 }
 
 func (s *server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func (s *server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) 
 			s.notifier.Problem("notice of a completed recovery could not be sent", err)
 		}
 	}
-	respond(w, viewOf(rec, nowUTC()))
+	respond(w, viewOf(rec, s.clock()))
 }
 
 func (s *server) handleRecoveryCancel(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +154,7 @@ func (s *server) handleRecoveryCancel(w http.ResponseWriter, r *http.Request) {
 		refuse(w, recoveryStatus(err), err.Error())
 		return
 	}
-	respond(w, viewOf(rec, nowUTC()))
+	respond(w, viewOf(rec, s.clock()))
 }
 
 func (s *server) handleRecoveryStatistics(w http.ResponseWriter, _ *http.Request) {

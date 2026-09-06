@@ -1,6 +1,7 @@
 package validatorgov
 
 import (
+	"fmt"
 	"math/rand"
 
 	"cosmossdk.io/collections"
@@ -24,11 +25,30 @@ import (
 // through the genesis ceremony, so staking behaves normally under simulation.
 // The gate itself is covered directly by x/validatorgov/ante's unit tests.
 func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
+	// Every approved validator carries a declaration, because genesis validation
+	// refuses one without: "a validator with none belongs to no group and would
+	// sit outside every concentration ceiling". This generator predated the
+	// declaration and set only the candidate, which meant InitChain panicked
+	// before block one and the whole simulation suite could not run at all.
+	//
+	// Distinct entity and owner per account, deliberately. Giving them all one
+	// owner would be less code and would collapse the entire validator set into
+	// a single group, so the first concentration sweep would demote everybody
+	// and the simulation would be exercising a chain with no validators rather
+	// than the ceilings. Jurisdictions are spread across assigned country codes
+	// for the same reason — a set that is one country is a jurisdiction ceiling
+	// that never binds or always does.
+	countries := []string{"CH", "NG", "ZA", "CI", "CD", "KE", "SN", "GH"}
 	approved := make([]types.ApprovedValidator, len(simState.Accounts))
 	for i, acc := range simState.Accounts {
 		approved[i] = types.ApprovedValidator{
 			Candidate: acc.Address.String(),
 			Approved:  "true",
+			Declaration: types.NormaliseDeclaration(
+				fmt.Sprintf("SIM-ENTITY-%d", i),
+				fmt.Sprintf("SIM-OWNER-%d", i),
+				countries[i%len(countries)],
+			),
 		}
 	}
 

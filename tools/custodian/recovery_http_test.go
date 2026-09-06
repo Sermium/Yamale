@@ -50,6 +50,11 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 		// proving nothing about the freeze.
 		secondFactorAbove: 1_000_000,
 		started:           time.Now(),
+		// The SAME clock the recoveries store stamps EligibleAt with. Without
+		// this the handlers read wall time, and every assertion about the
+		// 72-hour notice period silently stopped holding once real time passed
+		// the fixture's fixed date plus 72 hours.
+		now: func() time.Time { return *clock },
 	}
 
 	mux := http.NewServeMux()

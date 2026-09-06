@@ -113,8 +113,14 @@ func randomCustomerOf(
 	candidates := make([]string, 0, 4)
 	candidates = append(candidates, participant)
 
+	// Confirmed only. A registration is the participant's claim and nothing
+	// more until the account signs for it, and assertInstructedBy refuses a
+	// payment naming an unconfirmed one — which the simulator reports as an
+	// undeliverable transaction and treats as fatal. Picking an unconfirmed
+	// customer here would stop the whole run on a refusal that is the module
+	// working correctly.
 	if err := k.Customer.Walk(ctx, nil, func(_ string, customer types.Customer) (bool, error) {
-		if customer.Participant == participant {
+		if customer.Participant == participant && customer.Confirmed {
 			candidates = append(candidates, customer.Customer)
 		}
 		return false, nil

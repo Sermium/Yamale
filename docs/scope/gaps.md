@@ -387,6 +387,91 @@ needs a transaction, a vote or a key ceremony, and none of it has been done.
 
 **Verified still live on 2026-09-05** against the funnel at block 196,559.
 
+### Running the tests the audits could not, 2026-09-06
+
+The audit's "not covered" list named fuzzing, simulation and differential
+testing, and said plainly that *"running them at length would likely surface
+invariant violations this review could not reach by reading."* It was right, and
+the first thing it surfaced was why nobody had run them.
+
+**The simulation suite had never been able to start.** Not skipped — impossible.
+It died in `InitChain`, before block one:
+
+    panic: failed to initialize constitution genesis state: constitution genesis
+    is invalid, refusing to start: enforcement_recovery_destination must name the
+    foundation account
+
+`x/constitution` has no simulation package, so the simulator built its genesis
+from `DefaultGenesis()`, and `DefaultInvariants()` leaves the recovery
+destination empty on purpose — no address compiled into a binary is anybody's
+foundation. Correct for a real launch, fatal for the simulator. `x/enforcement`
+had already hit exactly this and seeded its own destination, with a comment
+saying why; the constitutional copy of the same field was missed. Behind it,
+`x/validatorgov`'s generator predated the `Declaration` field and produced
+approved validators with no `legal_entity_id`, which its own genesis validation
+refuses.
+
+Both fixed. All four simulation tests now pass, including at the Makefile's own
+settings — 100 blocks × 200 operations, 20,000 operations in a run — across five
+seeds, plus import/export, simulation-after-import and state determinism.
+
+**And then the simulation immediately earned its keep, twice, on this month's
+own fixes.** Both were operations that had not been updated to match a handler
+that had:
+
+- `x/paymsg` sent a payment from a customer the participant had only *claimed*,
+  which M-3 now refuses until the account confirms. Fixed by filtering the
+  debtor pool to confirmed customers and adding a `MsgConfirmParticipant`
+  operation — without one the simulated chain accumulates claims no payment can
+  ever use, and the payment path stops being exercised at all.
+- `x/amm` submitted a swap too small to buy a single unit, which L-2 now refuses
+  rather than settling for nothing. The operation now runs the handler's own
+  arithmetic, fee and truncation included, and declines instead.
+
+Neither was a defect in the fix. Both were the simulation doing the job the
+audit said it would.
+
+**A test that expired.** `TestRecoveryOverHTTPHoldsPaymentsAfterwards` in
+`tools/custodian` had been failing since **2026-09-04** with nobody noticing.
+The fixture injects a fixed clock into the recoveries store, so `EligibleAt` was
+stamped 2026-09-04; the HTTP handlers called `nowUTC()` and read wall time. The
+assertion about the 72-hour notice period therefore held only while real time
+was behind the fixture's date plus 72 hours, and then quietly began asserting
+the approvals rule instead. Two clocks where there should be one. The server now
+carries the clock and the fixture shares it — production behaviour unchanged,
+since nil still means wall time.
+
+**Dependencies: ten reachable vulnerabilities, seven now closed.** `govulncheck`
+is already wired into `make test`, which is how ten went unnoticed — there is no
+`make` on the development machine. Fixed by upgrading `google.golang.org/grpc`
+(xDS RBAC and HTTP/2), `github.com/hashicorp/go-getter` (arbitrary file reads),
+`github.com/ulikunitz/xz` (memory leak on corrupted archives) and the
+`aws-sdk-go-v2` modules the grpc bump pulled forward.
+
+What remains, and neither is fixable in this repository:
+
+- **Six are the Go standard library**, all fixed in **Go 1.26.6**; the toolchain
+  here is 1.26.5. `net/url`, `html/template`, `crypto/tls`, `net/http` (×2) and
+  `encoding/asn1`. A toolchain upgrade, not a code change.
+- **One has no fix at all**: `golang.org/x/crypto`'s `openpgp` package is
+  unmaintained and reachable through the Cosmos SDK's own keyring armour
+  (`crypto.EncryptArmorPrivKey`). Upstream, and an accepted risk until the SDK
+  moves off it.
+
+**Fuzzing: the repository had no targets.** Three now, over the inputs an
+attacker actually chooses, run by `make test-fuzz`:
+
+| Target | Surface | Result |
+|---|---|---|
+| `FuzzPermit` | the public RPC gate's method filter | 2.2M execs, no crash, no bypass |
+| `FuzzMethodsOf` | its JSON-RPC parser, raw network bytes | 1.4M execs, clean |
+| `FuzzValidateMsgTypeURL` | the permissionless store key from H-6 | 0.5M execs, clean |
+
+They assert the boundary, not just the absence of a crash: nothing outside the
+allow-list may be permitted, and nothing that survives validation may be a store
+key the module cannot live with. A fuzzer that only looked for panics would be
+satisfied by a gate that returned true for everything.
+
 ### The offensive assessment, 2026-09-05
 
 A red-team follow-on to the audit approached the same target as an adversary —
