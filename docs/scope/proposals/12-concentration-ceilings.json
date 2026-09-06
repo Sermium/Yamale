@@ -1,0 +1,28 @@
+{
+  "messages": [
+    {
+      "@type": "/blockchain.constitution.v1.MsgProposeAmendment",
+      "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jz5s386",
+      "invariants": {
+        "max_entity_power_bps": "3300",
+        "max_beneficial_owner_power_bps": "3300",
+        "max_jurisdiction_power_bps": "5000",
+        "concentration_epoch_blocks": "120",
+        "min_active_validators": 2,
+        "enforcement_threshold_bps": "6667",
+        "enforcement_recovery_destination": "yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj",
+        "enforcement_voting_period_blocks": "360",
+        "enforcement_provisional_freeze_blocks": "720",
+        "amendment_delay_blocks": "120960",
+        "amendment_threshold_bps": "8000",
+        "foundation_custodian_count": 5,
+        "foundation_signature_threshold": 3
+      },
+      "reason": "The three concentration ceilings have read 10000 bps since genesis, which is 100% and binds nobody. Invariants.Validate() refuses a ceiling of zero and permits one of 10000, so a settlement that enforces nothing passes validation and looks configured. This sets them to figures that mean something, and raises min_active_validators from 1 to 2 so that enforcing them cannot leave this chain on a single validator."
+    }
+  ],
+  "metadata": "",
+  "deposit": "1000000uyml",
+  "title": "Constitution: concentration ceilings that bind, and a floor of two active validators",
+  "summary": "Every field of the current settlement is carried across unchanged except four. MsgProposeAmendment takes the complete replacement set rather than a delta, so the twelve values that are not changing are restated here deliberately; an omitted field would be a zero, and several of these are divisors.\n\nWHAT CHANGES\n\n  max_entity_power_bps            10000 -> 3300\n  max_beneficial_owner_power_bps  10000 -> 3300\n  max_jurisdiction_power_bps      10000 -> 5000\n  min_active_validators               1 -> 2\n\n33% for an entity and for a beneficial owner is the Byzantine liveness fraction: a holder above it can stop the chain by stopping. Jurisdiction is coarser and a single country holding half of a chain this size is not yet the same kind of problem, so it sits at 50%.\n\nWHY min_active_validators MOVES IN THE SAME AMENDMENT\n\nThis chain has two validators, pi at 57.18% and pi-2 at 42.82% of 174,900 YML bonded, and both are operated by the same party. Declared honestly they are one beneficial-owner group holding 100%, so any ceiling below 10000 is breached the moment it exists.\n\nThe end blocker corrects a breach by demoting members until the group is inside its ceiling, and stops when the active set would fall to min_active_validators, recording an EventConcentrationUncorrected instead. At the current floor of 1 it would therefore jail one of the two and leave this chain running on a single validator with no fault tolerance -- a ceiling that damages the chain more than the concentration it was written to limit.\n\nAt a floor of 2 it demotes nobody and records the breach every epoch, in public, which is the honest outcome: the concentration is real, it is now visible, and it is fixed by adding validators under different ownership rather than by removing the ones there are.\n\nWHAT THIS DOES NOT DO\n\nIt does not make the ceilings apply to anybody yet. activeSeatHolders needs an ApprovedValidator declaration and the live query returns an empty set -- both validators were onboarded through the gentx ceremony and the founding set was never declared. Until pi and pi-2 apply and are approved, they are counted in the total and belong to no group, so they cannot be demoted and no breach is reported. This amendment and that declaration are both required, and this one is proposed first only because it is the one that takes 120,960 blocks."
+}
