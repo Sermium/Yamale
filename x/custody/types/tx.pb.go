@@ -551,6 +551,8 @@ func (m *MsgWithdrawFees) GetRecipient() string {
 	return ""
 }
 
+// MsgWithdrawFeesResponse reports what was actually paid, which is what the
+// module held rather than what was asked for when the request said "all".
 type MsgWithdrawFeesResponse struct {
 	Paid types.Coin `protobuf:"bytes,1,opt,name=paid,proto3" json:"paid"`
 }
@@ -1011,6 +1013,8 @@ type MsgClient interface {
 	AttestDeposit(ctx context.Context, in *MsgAttestDeposit, opts ...grpc.CallOption) (*MsgAttestDepositResponse, error)
 	// ReportReserve states what the custodian holds against an asset.
 	ReportReserve(ctx context.Context, in *MsgReportReserve, opts ...grpc.CallOption) (*MsgReportReserveResponse, error)
+	// WithdrawFees pays out the fees this module has earned, which otherwise
+	// accumulate as claim tokens in an account with no key.
 	WithdrawFees(ctx context.Context, in *MsgWithdrawFees, opts ...grpc.CallOption) (*MsgWithdrawFeesResponse, error)
 	// RequestRedemption burns a claim and queues the payout.
 	RequestRedemption(ctx context.Context, in *MsgRequestRedemption, opts ...grpc.CallOption) (*MsgRequestRedemptionResponse, error)
@@ -1110,6 +1114,8 @@ type MsgServer interface {
 	AttestDeposit(context.Context, *MsgAttestDeposit) (*MsgAttestDepositResponse, error)
 	// ReportReserve states what the custodian holds against an asset.
 	ReportReserve(context.Context, *MsgReportReserve) (*MsgReportReserveResponse, error)
+	// WithdrawFees pays out the fees this module has earned, which otherwise
+	// accumulate as claim tokens in an account with no key.
 	WithdrawFees(context.Context, *MsgWithdrawFees) (*MsgWithdrawFeesResponse, error)
 	// RequestRedemption burns a claim and queues the payout.
 	RequestRedemption(context.Context, *MsgRequestRedemption) (*MsgRequestRedemptionResponse, error)

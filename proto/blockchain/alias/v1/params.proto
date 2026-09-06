@@ -2,7 +2,6 @@ syntax = "proto3";
 package blockchain.alias.v1;
 
 import "amino/amino.proto";
-import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/alias/types";

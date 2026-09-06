@@ -2,6 +2,14 @@ module yamale/blockchain
 
 go 1.25.10
 
+// Pinned because six advisories govulncheck reports against this tree are
+// standard-library ones fixed in 1.26.6: net/url, html/template, crypto/tls,
+// net/http (twice) and encoding/asn1. The `go` directive above is the
+// language version and does not select a toolchain, so without this line a
+// machine holding an older Go builds a binary carrying all six. CI asks for
+// "stable" and would have been fine; the development machine was on 1.26.5.
+toolchain go1.26.6
+
 replace (
 	// tss-lib depends on github.com/agl/ed25519, which was withdrawn and whose
 	// module no longer contains the packages it imports, so the graph cannot be

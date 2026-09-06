@@ -1078,6 +1078,9 @@ func (m *MsgPaySaleProceeds) GetAmount() types.Coin {
 	return types.Coin{}
 }
 
+// MsgPaySaleProceedsResponse reports what has been paid and what is still
+// outstanding, so a payer settling in instalments knows when finalisation
+// becomes possible without querying for it.
 type MsgPaySaleProceedsResponse struct {
 	// Paid so far against this sale, and what finalisation still waits on.
 	Paid        types.Coin `protobuf:"bytes,1,opt,name=paid,proto3" json:"paid"`
@@ -1900,6 +1903,8 @@ type MsgClient interface {
 	TransferAsset(ctx context.Context, in *MsgTransferAsset, opts ...grpc.CallOption) (*MsgTransferAssetResponse, error)
 	FundVault(ctx context.Context, in *MsgFundVault, opts ...grpc.CallOption) (*MsgFundVaultResponse, error)
 	ReportSale(ctx context.Context, in *MsgReportSale, opts ...grpc.CallOption) (*MsgReportSaleResponse, error)
+	// PaySaleProceeds pays the holders' share of a reported sale into the
+	// vault, which is what finalisation waits on.
 	PaySaleProceeds(ctx context.Context, in *MsgPaySaleProceeds, opts ...grpc.CallOption) (*MsgPaySaleProceedsResponse, error)
 	// An attestor appointed by the collection. This used to sit under
 	// "permissionless", which made the attestation threshold meetable by anybody
@@ -2081,6 +2086,8 @@ type MsgServer interface {
 	TransferAsset(context.Context, *MsgTransferAsset) (*MsgTransferAssetResponse, error)
 	FundVault(context.Context, *MsgFundVault) (*MsgFundVaultResponse, error)
 	ReportSale(context.Context, *MsgReportSale) (*MsgReportSaleResponse, error)
+	// PaySaleProceeds pays the holders' share of a reported sale into the
+	// vault, which is what finalisation waits on.
 	PaySaleProceeds(context.Context, *MsgPaySaleProceeds) (*MsgPaySaleProceedsResponse, error)
 	// An attestor appointed by the collection. This used to sit under
 	// "permissionless", which made the attestation threshold meetable by anybody

@@ -633,6 +633,9 @@ func (m *MsgRevokeIssuer) GetReason() string {
 	return ""
 }
 
+// MsgRevokeIssuerResponse is empty. Revocation stops new issuance and
+// changes nothing about the supply already outstanding, so there is no
+// figure to report.
 type MsgRevokeIssuerResponse struct {
 }
 
@@ -762,6 +765,8 @@ type MsgClient interface {
 	// x/gov module account) and approves or rejects a pending currency
 	// registration submitted via MsgRegisterCurrency.
 	ApproveIssuer(ctx context.Context, in *MsgApproveIssuer, opts ...grpc.CallOption) (*MsgApproveIssuerResponse, error)
+	// RevokeIssuer withdraws a currency's issuing licence. Until this existed a
+	// compromised issuer key could not be answered without a chain upgrade.
 	RevokeIssuer(ctx context.Context, in *MsgRevokeIssuer, opts ...grpc.CallOption) (*MsgRevokeIssuerResponse, error)
 }
 
@@ -842,6 +847,8 @@ type MsgServer interface {
 	// x/gov module account) and approves or rejects a pending currency
 	// registration submitted via MsgRegisterCurrency.
 	ApproveIssuer(context.Context, *MsgApproveIssuer) (*MsgApproveIssuerResponse, error)
+	// RevokeIssuer withdraws a currency's issuing licence. Until this existed a
+	// compromised issuer key could not be answered without a chain upgrade.
 	RevokeIssuer(context.Context, *MsgRevokeIssuer) (*MsgRevokeIssuerResponse, error)
 }
 

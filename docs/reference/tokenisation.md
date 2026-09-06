@@ -134,9 +134,7 @@ The collection's appointed authority only.
 
 Signed by the `payer` field.
 
-MsgPaySaleProceeds pays the holders' share of a reported price into the vault, which is what finalisation waits on.
-
-Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone quiet should not be able to strand every holder, and money arriving is never the problem. Overpayment is refused rather than accepted and stranded.
+PaySaleProceeds pays the holders' share of a reported sale into the vault, which is what finalisation waits on.
 
 | Field | Type | Description |
 | --- | --- | --- |

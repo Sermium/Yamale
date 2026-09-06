@@ -31,6 +31,8 @@ service Msg {
   // x/gov module account) and approves or rejects a pending currency
   // registration submitted via MsgRegisterCurrency.
   rpc ApproveIssuer(MsgApproveIssuer) returns (MsgApproveIssuerResponse);
+  // RevokeIssuer withdraws a currency's issuing licence. Until this existed a
+  // compromised issuer key could not be answered without a chain upgrade.
   rpc RevokeIssuer(MsgRevokeIssuer) returns (MsgRevokeIssuerResponse);
 }
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -131,4 +133,7 @@ message MsgRevokeIssuer {
   // one anybody can argue with afterwards.
   string reason = 3;
 }
+// MsgRevokeIssuerResponse is empty. Revocation stops new issuance and
+// changes nothing about the supply already outstanding, so there is no
+// figure to report.
 message MsgRevokeIssuerResponse {}

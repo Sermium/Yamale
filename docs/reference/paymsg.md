@@ -44,9 +44,7 @@ ApproveParticipant defines the ApproveParticipant RPC. It is authority-gated (th
 
 Signed by the `customer` field.
 
-MsgConfirmParticipant is the account's own word on who banks it.
-
-Signed by the customer, which is the point: without it a participant's claim was the whole of the record, and the account it named had no say and no way out. Confirming turns a claim into a relationship a payment can rely on; refusing removes it and frees the account to bank elsewhere.
+ConfirmParticipant is the account answering a claim made about it. The only message in this module signed by somebody other than a participant.
 
 | Field | Type | Description |
 | --- | --- | --- |

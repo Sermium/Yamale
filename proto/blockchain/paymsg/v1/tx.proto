@@ -33,6 +33,8 @@ service Msg {
   // participant, which is what entitles a payment from that account to name
   // the participant as its instructing agent.
   rpc RegisterCustomer(MsgRegisterCustomer) returns (MsgRegisterCustomerResponse);
+  // ConfirmParticipant is the account answering a claim made about it. The
+  // only message in this module signed by somebody other than a participant.
   rpc ConfirmParticipant(MsgConfirmParticipant) returns (MsgConfirmParticipantResponse);
 
   // SetPayloadStore records where an approved participant serves the encrypted
@@ -226,6 +228,8 @@ message MsgConfirmParticipant {
   // always leave.
   bool confirm = 3;
 }
+// MsgConfirmParticipantResponse is empty: the outcome is the relationship
+// itself, which the customer query reports.
 message MsgConfirmParticipantResponse {}
 
 // MsgSetPayloadStore records where a participant serves encrypted payment

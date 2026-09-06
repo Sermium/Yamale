@@ -751,6 +751,8 @@ func (m *MsgConfirmParticipant) GetConfirm() bool {
 	return false
 }
 
+// MsgConfirmParticipantResponse is empty: the outcome is the relationship
+// itself, which the customer query reports.
 type MsgConfirmParticipantResponse struct {
 }
 
@@ -1011,6 +1013,8 @@ type MsgClient interface {
 	// participant, which is what entitles a payment from that account to name
 	// the participant as its instructing agent.
 	RegisterCustomer(ctx context.Context, in *MsgRegisterCustomer, opts ...grpc.CallOption) (*MsgRegisterCustomerResponse, error)
+	// ConfirmParticipant is the account answering a claim made about it. The
+	// only message in this module signed by somebody other than a participant.
 	ConfirmParticipant(ctx context.Context, in *MsgConfirmParticipant, opts ...grpc.CallOption) (*MsgConfirmParticipantResponse, error)
 	// SetPayloadStore records where an approved participant serves the encrypted
 	// payloads of the payments it instructed.
@@ -1105,6 +1109,8 @@ type MsgServer interface {
 	// participant, which is what entitles a payment from that account to name
 	// the participant as its instructing agent.
 	RegisterCustomer(context.Context, *MsgRegisterCustomer) (*MsgRegisterCustomerResponse, error)
+	// ConfirmParticipant is the account answering a claim made about it. The
+	// only message in this module signed by somebody other than a participant.
 	ConfirmParticipant(context.Context, *MsgConfirmParticipant) (*MsgConfirmParticipantResponse, error)
 	// SetPayloadStore records where an approved participant serves the encrypted
 	// payloads of the payments it instructed.

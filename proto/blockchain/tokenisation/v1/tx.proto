@@ -31,6 +31,8 @@ service Msg {
   rpc TransferAsset(MsgTransferAsset) returns (MsgTransferAssetResponse);
   rpc FundVault(MsgFundVault) returns (MsgFundVaultResponse);
   rpc ReportSale(MsgReportSale) returns (MsgReportSaleResponse);
+  // PaySaleProceeds pays the holders' share of a reported sale into the
+  // vault, which is what finalisation waits on.
   rpc PaySaleProceeds(MsgPaySaleProceeds) returns (MsgPaySaleProceedsResponse);
 
   // An attestor appointed by the collection. This used to sit under
@@ -232,6 +234,9 @@ message MsgPaySaleProceeds {
   uint64 asset_id = 2;
   cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
 }
+// MsgPaySaleProceedsResponse reports what has been paid and what is still
+// outstanding, so a payer settling in instalments knows when finalisation
+// becomes possible without querying for it.
 message MsgPaySaleProceedsResponse {
   // Paid so far against this sale, and what finalisation still waits on.
   cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];

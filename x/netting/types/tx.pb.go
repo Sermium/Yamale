@@ -571,6 +571,7 @@ func (m *MsgAbandonHeldSlice) GetReason() string {
 	return ""
 }
 
+// MsgAbandonHeldSliceResponse names what the release returned and to whom.
 type MsgAbandonHeldSliceResponse struct {
 	// released is what went back to each debtor, so the proposal's effect is
 	// legible in the response rather than only in the state it changed.

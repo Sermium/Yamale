@@ -22,6 +22,8 @@ service Msg {
   rpc AttestDeposit(MsgAttestDeposit) returns (MsgAttestDepositResponse);
   // ReportReserve states what the custodian holds against an asset.
   rpc ReportReserve(MsgReportReserve) returns (MsgReportReserveResponse);
+  // WithdrawFees pays out the fees this module has earned, which otherwise
+  // accumulate as claim tokens in an account with no key.
   rpc WithdrawFees(MsgWithdrawFees) returns (MsgWithdrawFeesResponse);
   // RequestRedemption burns a claim and queues the payout.
   rpc RequestRedemption(MsgRequestRedemption) returns (MsgRequestRedemptionResponse);
@@ -136,6 +138,8 @@ message MsgWithdrawFees {
     (gogoproto.nullable) = false
   ];
 }
+// MsgWithdrawFeesResponse reports what was actually paid, which is what the
+// module held rather than what was asked for when the request said "all".
 message MsgWithdrawFeesResponse {
   cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
 }

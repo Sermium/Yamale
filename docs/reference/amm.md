@@ -172,3 +172,4 @@ Every way a transaction to this module can be rejected.
 | 1111 | `ErrWouldEmptyPool` | a pool cannot be exited completely; leave at least one share behind or nothing can ever join it again |
 | 1112 | `ErrZeroOutput` | that swap would return nothing at all, so it is refused rather than settled |
 | 1113 | `ErrCorruptPool` | this pool's stored reserves cannot be read as numbers |
+| 1114 | `ErrRestrictedDenom` | that denomination carries a transfer restriction a pool cannot survive |

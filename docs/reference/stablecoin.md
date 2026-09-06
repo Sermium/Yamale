@@ -77,11 +77,7 @@ RegisterCurrency defines the RegisterCurrency RPC.
 
 Signed by the `authority` field.
 
-MsgRevokeIssuer takes a currency's issuing licence away.
-
-Until this existed there was no way to remove an approved issuer at all. The message set had ApproveIssuer and nothing else, and ApproveIssuer refuses an application that is no longer Pending — so a compromised issuer key could not be replaced by governance without a chain upgrade, on a chain where one key was the issuer for every currency.
-
-Revoking leaves the currency registered and its supply outstanding. It stops new issuance and nothing else: burning what is already held is a separate decision belonging to whoever holds it.
+RevokeIssuer withdraws a currency's issuing licence. Until this existed a compromised issuer key could not be answered without a chain upgrade.
 
 | Field | Type | Description |
 | --- | --- | --- |
