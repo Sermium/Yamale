@@ -25,12 +25,13 @@ set -euo pipefail
 f=/etc/nginx/sites-enabled/$1
 inc='    include /etc/nginx/snippets/yamale-headers.conf;'
 
-# The backup goes OUTSIDE sites-enabled. nginx includes sites-enabled/*, with no
-# extension filter, so a copy left beside the original is a second live config —
-# which is exactly what happened: "a duplicate default server for 0.0.0.0:80"
-# from a file whose whole purpose was to not be used.
-sudo mkdir -p /etc/nginx/yamale-backups
-sudo cp -n "$f" "/etc/nginx/yamale-backups/$1.before-headers" 2>/dev/null || true
+# The backup goes to sites-retired, where this host already keeps them. nginx
+# includes sites-enabled/* with no extension filter, so a copy left beside the
+# original is a second live config — exactly what happened here: "a duplicate
+# default server for 0.0.0.0:80", from a file whose whole purpose was to not be
+# used. The same trap had already been hit with .bak files.
+sudo mkdir -p /etc/nginx/sites-retired
+sudo cp -n "$f" "/etc/nginx/sites-retired/$1.before-headers" 2>/dev/null || true
 
 sudo python3 - "$f" "$inc" <<'PY'
 import re, sys

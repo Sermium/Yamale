@@ -80,11 +80,13 @@ host 'sudo tee /etc/nginx/snippets/yamale-rpc.conf >/dev/null' < "$ROOT/deploy/n
 host 'bash -s' <<'REMOTE'
 set -euo pipefail
 f=/etc/nginx/snippets/yamale-api.conf
-# Backups go OUTSIDE sites-enabled and snippets. nginx includes sites-enabled/*
-# with no extension filter, so a copy left beside a site file is a second live
-# config — "duplicate default server", from a file whose purpose was to be unused.
-sudo mkdir -p /etc/nginx/yamale-backups
-sudo cp -n "$f" /etc/nginx/yamale-backups/yamale-api.conf.before-rpcgate 2>/dev/null || true
+# Backups go to sites-retired, which is where this host already keeps them.
+# nginx includes sites-enabled/* with no extension filter, so a copy left beside
+# a site file is a second live config — "duplicate default server", from a file
+# whose whole purpose was to be unused. That had already happened once here with
+# .bak files; .before-headers repeated it.
+sudo mkdir -p /etc/nginx/sites-retired
+sudo cp -n "$f" /etc/nginx/sites-retired/yamale-api.conf.before-rpcgate 2>/dev/null || true
 
 sudo python3 - "$f" <<'PY'
 import re, sys

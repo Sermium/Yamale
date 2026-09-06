@@ -588,7 +588,8 @@ host being checked was not the host the public reaches.
 file up as `<file>.before-headers` *inside* `sites-enabled/`. nginx includes
 `sites-enabled/*` with no extension filter, so the backup became a second live
 config and `nginx -t` failed on a duplicate default server — from a file whose
-entire purpose was to not be used. Backups now go to `/etc/nginx/yamale-backups/`.
+entire purpose was to not be used. Backups now go to `sites-retired/`, which is where this host already kept the
+`.bak` files that caused the same failure the first time.
 `nginx -t` caught it before any reload, which is the only reason this is an
 anecdote rather than an outage.
 
