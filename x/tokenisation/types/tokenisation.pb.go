@@ -38,6 +38,8 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type VerificationMode int32
 
 const (
+	// Unset. A collection must choose how its sales are verified, so this is
+	// never a working configuration — it is what an incomplete genesis reads as.
 	VERIFICATION_UNSPECIFIED VerificationMode = 0
 	// The appointed independent valuer signs the figure. x/oracle already holds
 	// this machinery for appraisals.
@@ -83,6 +85,8 @@ func (VerificationMode) EnumDescriptor() ([]byte, []int) {
 type Status int32
 
 const (
+	// Unset. No asset is ever written in this state; it is what a zero value
+	// in a hand-edited genesis looks like.
 	STATUS_UNSPECIFIED Status = 0
 	// Title exists, no shareholders yet.
 	STATUS_HELD Status = 1

@@ -30,7 +30,7 @@ ApproveBuilder defines the ApproveBuilder RPC. It is authority-gated (the x/gov 
 
 Signed by the `creator` field.
 
-RegisterBuilder defines the RegisterBuilder RPC.
+MsgRegisterBuilder defines the MsgRegisterBuilder message.
 
 | Field | Type | Description |
 | --- | --- | --- |

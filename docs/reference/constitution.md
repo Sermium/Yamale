@@ -14,7 +14,13 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `authority` field.
 
-ProposeAmendment opens a change to the invariants and starts its public delay. It is authority-gated, so a proposal is the only way in.
+MsgProposeAmendment opens an amendment to the invariants.
+
+Amendment is possible at all, rather than forbidden outright, because "forbidden" would be a lie. A chain can be hard-forked and an upgrade handler can rewrite any store, so a constitution with no amendment path does not become unamendable — it relocates its amendments into a binary release, which is a change with less public notice and fewer signatures than a proposal. The path exists so that it is the cheapest one, and it is made slow and loud so that taking it is a thing people find out about.
+
+Two independent conditions, both required: a governance proposal to open it, and a supermajority of the voting power recorded at that moment to ratify it, with weeks between the two. Neither alone is enough.
+
+It is authority-gated, so a proposal is the only way in.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -28,7 +34,9 @@ ProposeAmendment opens a change to the invariants and starts its public delay. I
 
 Signed by the `validator` field.
 
-RatifyAmendment records one validator agreeing to a pending amendment.
+MsgRatifyAmendment is one validator agreeing to a pending amendment.
+
+Signed by the operator account, at the weight that operator carries when it signs, and countable only once. A validator that changes its mind cannot un-ratify: the amendment's protection is the delay and the threshold, not the ability to run the vote backwards, and a withdrawable ratification would let a set hold an amendment at one vote short indefinitely.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -41,7 +49,9 @@ RatifyAmendment records one validator agreeing to a pending amendment.
 
 Signed by the `authority` field.
 
-WithdrawAmendment takes a pending amendment back before it takes effect.
+MsgWithdrawAmendment takes a pending amendment back before it takes effect.
+
+Authority-gated like the proposal, because withdrawing one is a decision of the same kind. It exists so that an amendment found to be wrong during its own delay can be stopped by the body that opened it, rather than left to run its weeks out while everybody waits to see whether it fails to ratify.
 
 | Field | Type | Description |
 | --- | --- | --- |

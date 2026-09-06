@@ -16,7 +16,17 @@ The tiered settlement layer: participants settle retail activity on their own bo
 
 Signed by the `authority` field.
 
-Governance only, and the last resort for a slice that will never settle.
+MsgAbandonHeldSlice releases the collateral locked behind a slice that cannot settle, and gives up on settling it.
+
+#### Why this exists and why it is deliberately ugly
+
+A held slice locks its participants' reserve indefinitely. That is the right behaviour for a slice that might yet settle and an unacceptable one for a slice that never will, and nothing else in this module can tell the difference — which is why this is governance's decision and not a keeper's.
+
+#### What it does NOT do
+
+It does not touch the obligations. Not one is edited, cancelled, reassigned or recomputed, and that restraint is the whole reason this message is safe to have. The institutions in the slice were told what they owed each other; that record stands, and abandoning the on-chain settlement of it does not make the debt go away. It moves the debt off this ledger and into whatever agreement the participants have between them, which is exactly what a central bank does when a settlement system cannot complete a cycle.
+
+Stated plainly for whoever proposes one: this releases collateral from debtors who still owe money to creditors who have not been paid. It should be the end of a documented failure investigation, not a way to clear a stuck screen.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -31,7 +41,9 @@ Governance only, and the last resort for a slice that will never settle.
 
 Signed by the `participant` field.
 
-PostReserve prefunds a participant's settlement reserve.
+MsgPostReserve moves coins from a participant's own balance into the module account, where they become that participant's settlement reserve.
+
+The reserve is what makes deferred settlement safe here. A participant may only run a net debit up to what it has already prefunded, so by the time a cycle closes every debit in it is covered by money the chain is already holding. Settlement is then a rearrangement of balances the module already custodies rather than a request to institutions to pay — and a request is the thing that can be refused.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -44,7 +56,9 @@ PostReserve prefunds a participant's settlement reserve.
 
 Signed by the `from_participant` field.
 
-SubmitObligation records what one participant owes another.
+MsgSubmitObligation records what one participant owes another, as the net result of the retail activity it settled on its own books.
+
+Whether it nets or settles gross is decided by the chain from the amount and the currency's policy, never by the sender. A participant that could choose would put its largest items into the deferred window, which is precisely backwards: the threshold exists so that the exposures nobody would want deferred are the ones that cannot be.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -72,6 +86,10 @@ UpdateParams defines a (governance) operation for updating the module parameters
 `/blockchain.netting.v1.MsgWithdrawReserve`
 
 Signed by the `participant` field.
+
+MsgWithdrawReserve returns reserve to the participant's own balance.
+
+Only the uncommitted part can leave. Anything backing a position in a cycle that has not settled stays where it is — otherwise a participant could submit its obligations, withdraw the collateral behind them, and leave its counterparties holding a claim on an empty account, which is the exact failure the reserve exists to make impossible.
 
 WithdrawReserve takes back the part of a reserve that is not committed.
 
@@ -221,7 +239,7 @@ DenomPolicy is the netting rule for one currency.
 | --- | --- | --- |
 | `denom` | string | denom is the currency this policy governs. |
 | `gross_threshold` | string | gross_threshold is the amount at or above which a single obligation bypasses netting and settles gross in the block it was submitted in. High-value items settling individually is the point rather than a concession. It is how every RTGS system in the world is built, it is what a supervisor expects to be able to see item by item, and it keeps the largest exposures out of the deferred window entirely — the netting cycle then carries only amounts whose failure nobody would call systemic. Zero means every amount is at or above it, so the currency settles entirely gross. Same reasoning as an absent policy, and the same safe direction. |
-| `aggregate_gross_threshold` | string | aggregate_gross_threshold is the total value one participant may put into the netting window for this currency in a single cycle before further obligations settle gross regardless of their individual size. # Why a per-obligation threshold is not enough gross_threshold above looks at one obligation at a time, so a participant with a large payment to make submits a series of obligations each one unit below it and converts an immediate, fully funded transfer into deferred exposure inside the window. This is transaction structuring, it is the first thing a supervisor will test for, and it defeats the entire purpose of the per-obligation threshold: high-value flows are put outside the deferred window precisely so that a settlement disruption cannot reach them. It was never a solvency hole. The net debit cap still binds, so the sender must hold reserve covering its aggregate position either way. What structuring defeats is systemic-risk containment, which is a different and less visible property than solvency. Zero or unset disables the aggregate check, which is the behaviour every chain configured before this field existed already had. |
+| `aggregate_gross_threshold` | string | aggregate_gross_threshold is the total value one participant may put into the netting window for this currency in a single cycle before further obligations settle gross regardless of their individual size. #### Why a per-obligation threshold is not enough gross_threshold above looks at one obligation at a time, so a participant with a large payment to make submits a series of obligations each one unit below it and converts an immediate, fully funded transfer into deferred exposure inside the window. This is transaction structuring, it is the first thing a supervisor will test for, and it defeats the entire purpose of the per-obligation threshold: high-value flows are put outside the deferred window precisely so that a settlement disruption cannot reach them. It was never a solvency hole. The net debit cap still binds, so the sender must hold reserve covering its aggregate position either way. What structuring defeats is systemic-risk containment, which is a different and less visible property than solvency. Zero or unset disables the aggregate check, which is the behaviour every chain configured before this field existed already had. |
 
 ### EventCycleHeld
 

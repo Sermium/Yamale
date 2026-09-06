@@ -14,7 +14,9 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `attestor` field.
 
-An attestor appointed by the collection. This used to sit under "permissionless", which made the attestation threshold meetable by anybody and therefore no threshold at all.
+MsgAttestSale signs a reported figure when the collection requires attestors.
+
+This used to sit under "permissionless", which made the attestation threshold meetable by anybody and therefore no threshold at all.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -45,6 +47,8 @@ MsgCreateCollection brings a registry into existence. Governance only.
 
 There is deliberately no permissionless counterpart. Every other creation path on this chain is apply-then-approve, but here there is no application to approve: a registry of deeds is not something a chain grants on request.
 
+Governance only, because a collection decides how a sale is verified and who may mint into it.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `authority` | string |  |
@@ -55,6 +59,10 @@ There is deliberately no permissionless counterpart. Every other creation path o
 `/blockchain.tokenisation.v1.MsgDisputeSale`
 
 Signed by the `challenger` field.
+
+MsgDisputeSale suspends redemption and refers the figure to governance.
+
+The bond is a basis-point fraction of the reported price -- scaled to the vehicle rather than flat, since a flat bond is trivial for a large fraud to post and prohibitive for a small holder to raise. Refunded if the dispute succeeds; otherwise forfeited to the vault, never to the issuer. Paying the issuer would reward provoking weak challenges.
 
 Permissionless.
 
@@ -76,6 +84,8 @@ Anybody may send it, and that is deliberate rather than lax. Every condition it 
 
 A crank rather than an EndBlocker sweep, because iterating every reported sale on every block is a denial-of-service surface that grows with usage.
 
+FinaliseSale is the permissionless crank that opens redemption, once the window has passed and the holders' share has actually been paid in.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `caller` | string |  |
@@ -86,6 +96,10 @@ A crank rather than an EndBlocker sweep, because iterating every reported sale o
 `/blockchain.tokenisation.v1.MsgFractionalise`
 
 Signed by the `owner` field.
+
+MsgFractionalise mints the shareholding against title.
+
+Supply is fixed here and can never grow. Holding title confers no right to mint more: an owner who could dilute shareholders by issuing fractions against an asset they had already sold interests in is the whole fraud in one message handler.
 
 Title holder.
 
@@ -106,6 +120,8 @@ Signed by the `funder` field.
 
 MsgFundVault pays income in. holder_share_bps of it reaches the index; the remainder is the sponsor's and is never taken from them.
 
+The holders' share is collected and the rest stays with the funder.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `funder` | string |  |
@@ -118,7 +134,9 @@ MsgFundVault pays income in. holder_share_bps of it reaches the index; the remai
 
 Signed by the `minter` field.
 
-The collection's appointed authority only.
+MsgMintAsset records title. Only the collection's appointed authority.
+
+A mint names its recipient, so title is attributed at creation and never exists unattributed. There is no self-mint-then-transfer path, because that path is where an authority laundering assets to itself stops being distinguishable from an authority doing its job.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -134,7 +152,9 @@ The collection's appointed authority only.
 
 Signed by the `payer` field.
 
-PaySaleProceeds pays the holders' share of a reported sale into the vault, which is what finalisation waits on.
+MsgPaySaleProceeds pays the holders' share of a reported price into the vault, which is what finalisation waits on.
+
+Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone quiet should not be able to strand every holder, and money arriving is never the problem. Overpayment is refused rather than accepted and stranded.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -183,6 +203,8 @@ Signed by the `authority` field.
 
 MsgResolveDispute is governance deciding the contested figure.
 
+An empty corrected price upholds what was reported.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `authority` | string |  |
@@ -195,7 +217,13 @@ MsgResolveDispute is governance deciding the contested figure.
 
 Signed by the `authority` field.
 
-Governance appoints who may attest a sale, so that a seller cannot appoint the accounts that check the seller.
+MsgSetCollectionAttestors replaces the register of accounts that may attest a sale reported under this collection.
+
+Governance only, like CreateCollection and SetCollectionAuthority beside it. If the seller could appoint the accounts that check the seller, the register would restate the problem rather than fix it.
+
+It replaces rather than appends, because a register that could only grow would let one careless proposal dilute a careful appointment for good.
+
+Attestations already recorded against a reported sale are not revisited. They were made by an appointed attestor at the moment they were made, and rewriting history to match a later appointment would let an authority manufacture or destroy a quorum after the fact — which is a worse power than the one this message exists to constrain.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -229,6 +257,8 @@ MsgTransferAsset moves title. The shareholding is untouched.
 
 A buyer takes an encumbered asset subject to its shareholders, and the obligation to fund the vault moves with title.
 
+The fraction tokens are ordinary balances and stay where they are — selling the vehicle does not sell its shareholders out from under them.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `owner` | string |  |
@@ -241,7 +271,7 @@ A buyer takes an encumbered asset subject to its shareholders, and the obligatio
 
 Signed by the `authority` field.
 
-Governance only.
+MsgUpdateParams sets the module parameters. Governance only.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -253,6 +283,8 @@ Governance only.
 ### Asset
 
 `GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}`
+
+Asset returns one vehicle with its vault and any reported sale, which is everything a holder needs to decide whether to redeem.
 
 Request:
 
@@ -272,6 +304,8 @@ Response:
 
 `GET /yamale/blockchain/tokenisation/v1/assets`
 
+Assets lists the vehicles in a collection, or across all of them.
+
 Request:
 
 | Field | Type | Description |
@@ -289,6 +323,8 @@ Response:
 ### Collections
 
 `GET /yamale/blockchain/tokenisation/v1/collections`
+
+Collections lists the registries vehicles are minted into. A collection is who may mint, how a sale is verified, and how long a reported price sits before it can be acted on.
 
 Request:
 
@@ -325,6 +361,8 @@ Response:
 ### Params
 
 `GET /yamale/blockchain/tokenisation/v1/params`
+
+Params returns the module parameters.
 
 Response:
 
@@ -365,7 +403,7 @@ Collections are chain-level constructs. There is no permissionless message that 
 | `attestation_threshold` | uint32 | Attestor threshold when verification is VERIFY_ATTESTORS. Refused below 2: one attestor is not a threshold, it is a single point of unlimited theft. |
 | `challenge_window_seconds` | int64 | How long a reported sale price sits before redemption opens. Calibrated to the asset class rather than a chain-wide constant -- a bond's redemption was fixed at issuance and needs days, a unique building needs a month. See docs/guides/tokenisation.md. |
 | `dispute_bond_bps` | uint32 | Fraction of the reported sale price a challenger must bond, in basis points. Scales with the vehicle rather than being flat: a flat bond is trivial for a large fraud to post and prohibitive for a small holder. |
-| `attestors` | repeated string | attestors is the register of accounts that may attest a sale reported under this collection. Required when verification is VERIFY_ATTESTORS, and it must hold at least attestation_threshold entries: a threshold higher than the register is one no honest sale can ever meet, which turns every vehicle in the collection into a one-way door. # Why a register rather than nothing Without one, AttestSale accepts a signature from any address at all, and a sponsor meets any threshold with N fresh keys for the cost of the gas. The threshold is the whole of what stands between a shareholder and a sale reported below what was received, so a threshold anybody can meet is not a protection, it is the appearance of one. # Who sets it, which is the whole of why it works Governance, and only governance — the same signer that creates the collection in the first place. A sponsor cannot appoint their own attestors, so they cannot manufacture a quorum, and that is the difference between this register and a decorative one. What the chain still cannot decide is whether an account governance appointed is genuinely independent of the seller. That is not a fact the chain holds. What it can do is make the appointment a visible, deliberate act by a signer the seller does not control, which is the same arrangement x/land uses for the offices that attest a transfer. |
+| `attestors` | repeated string | attestors is the register of accounts that may attest a sale reported under this collection. Required when verification is VERIFY_ATTESTORS, and it must hold at least attestation_threshold entries: a threshold higher than the register is one no honest sale can ever meet, which turns every vehicle in the collection into a one-way door. #### Why a register rather than nothing Without one, AttestSale accepts a signature from any address at all, and a sponsor meets any threshold with N fresh keys for the cost of the gas. The threshold is the whole of what stands between a shareholder and a sale reported below what was received, so a threshold anybody can meet is not a protection, it is the appearance of one. #### Who sets it, which is the whole of why it works Governance, and only governance — the same signer that creates the collection in the first place. A sponsor cannot appoint their own attestors, so they cannot manufacture a quorum, and that is the difference between this register and a decorative one. What the chain still cannot decide is whether an account governance appointed is genuinely independent of the seller. That is not a fact the chain holds. What it can do is make the appointment a visible, deliberate act by a signer the seller does not control, which is the same arrangement x/land uses for the offices that attest a transfer. |
 
 ### Position
 
@@ -417,7 +455,7 @@ Status is the vehicle's life. It ends; this is a closed-end instrument, not a pe
 
 | Value | Meaning |
 | --- | --- |
-| `STATUS_UNSPECIFIED` |  |
+| `STATUS_UNSPECIFIED` | Unset. No asset is ever written in this state; it is what a zero value in a hand-edited genesis looks like. |
 | `STATUS_HELD` | Title exists, no shareholders yet. |
 | `STATUS_ACTIVE` | Shareholders exist. Income distributes as it arrives. |
 | `STATUS_REPORTED` | A sale price has been reported and is inside its challenge window. Redemption is not open yet. |
@@ -433,7 +471,7 @@ The issuer alone can never set it. An issuer who under-reports steals from every
 
 | Value | Meaning |
 | --- | --- |
-| `VERIFICATION_UNSPECIFIED` |  |
+| `VERIFICATION_UNSPECIFIED` | Unset. A collection must choose how its sales are verified, so this is never a working configuration — it is what an incomplete genesis reads as. |
 | `VERIFY_VALUER` | The appointed independent valuer signs the figure. x/oracle already holds this machinery for appraisals. |
 | `VERIFY_ATTESTORS` | m-of-n attestors agree, m >= 2. Same shape as x/custody's deposits. |
 | `VERIFY_GOVERNANCE` | Voted, with the evidence attached to the proposal. |

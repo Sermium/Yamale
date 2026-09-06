@@ -24,6 +24,9 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// Params are the module-wide settings. The rules that differ per offering —
+// how a sale is verified, how long its challenge window runs — live on the
+// collection instead, so that two offerings need not share them.
 type Params struct {
 	// Floor and ceiling on what a collection may set as its challenge window.
 	// A window of zero would make verification decorative: redemption is

@@ -72,9 +72,13 @@ func (LockType) EnumDescriptor() ([]byte, []int) {
 type DisputeState int32
 
 const (
+	// Quiet. Nobody has escalated, and the lock behaves as an ordinary
+	// conditional one: the depositor may release it and nobody else may touch it.
 	DisputeState_DISPUTE_STATE_NONE DisputeState = 0
 	// Frozen. Neither release nor refund happens until the moderator decides.
-	DisputeState_DISPUTE_STATE_OPEN     DisputeState = 1
+	DisputeState_DISPUTE_STATE_OPEN DisputeState = 1
+	// Decided. The moderator has settled it and the funds have moved; the state
+	// is kept rather than cleared so that a settled case stays on the record.
 	DisputeState_DISPUTE_STATE_RESOLVED DisputeState = 2
 )
 

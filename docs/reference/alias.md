@@ -14,7 +14,15 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `authority` field.
 
-AppointRegulator names the authority holding the viewing key for a country.
+MsgAppointRegulator names the authority that holds the third viewing key over payments settling in one country.
+
+Authority-gated, because this is the single most powerful grant the confidentiality design makes: the appointee can read the ISO 20022 detail of every payment that names their country from the moment they are appointed. An account that could appoint itself regulator of Ghana would have granted itself that by sending one message.
+
+The appointee must additionally hold ROLE_SUPERVISOR covering that country — granted in it, or chain-wide. That is the one place where this module's two answers to "who is watching this country" were reconciled rather than left to agree by convention: an appointment is an entry in one map and a role is an entry in a registry, and before this check they could name different accounts with nothing objecting. Requiring the grant makes the registry the source and the appointment the choice of which of its holders also has standing to act.
+
+It also puts the appointment behind the office rules the registry enforces: a role holder must be an x/group account, so a regulator is now M-of-N rather than possibly one key, and an office that has fallen below the shape its grant records cannot be newly appointed.
+
+An appointment already recorded is not revisited. This is a check on the write, not a condition re-read on every payment — a country whose regulator was appointed before the rule existed keeps it, and revoking the supervisor grant of a sitting regulator does not silently unappoint them. Removing a regulator is appointing a different one, visibly, which is what the record should show.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -28,7 +36,9 @@ AppointRegulator names the authority holding the viewing key for a country.
 
 Signed by the `authority` field.
 
-GrantAuditor grants the time-boxed cross-account reading role.
+MsgGrantAuditor grants the time-boxed cross-account reading role.
+
+Authority-gated and bounded in three ways at once — it expires by height, the number of live grants is capped, and every grant is recorded with who made it. All three exist because this role is the one that reads payment detail belonging to people who have no relationship with the holder.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -42,7 +52,30 @@ GrantAuditor grants the time-boxed cross-account reading role.
 
 Signed by the `authority` field.
 
-GrantRole grants a role inside one jurisdiction. Governance, or the foundation for a country; governance alone for the chain-wide scope.
+MsgGrantRole grants a role inside one jurisdiction.
+
+Two signers, and which one is allowed depends on the scope being granted:
+
+- a **country** scope may be granted by governance or by the foundation;
+- the **chain-wide** scope may be granted by governance and nobody else.
+
+"The foundation" here means one specific account: the address x/constitution pins as enforcement_recovery_destination, which is the 3-of-5 group produced by the key ceremony and the account every seized asset on the chain is sent to. It is deliberately NOT a holder of ROLE_FOUNDATION_ADMINISTRATOR, and the difference matters. That role is granted by this very message, so reading the foundation out of it would make "who may appoint a country's authorities" a set that this message could append to — the same circularity a parameter list had, wearing a grant's clothes. An invariant cannot be changed without a constitutional amendment.
+
+#### Why the foundation, when this used to be governance alone
+
+It was governance-only, and the argument was that there is a difference between using a power and deciding who holds one: an administrator naming a country's regulator is operating the rail governance already put them on, whereas an administrator able to grant roles could grant themselves the chain-wide scope and then grant it to anyone. Every widening of who may act went through a vote, in public, one grant at a time.
+
+What that did not survive was enrolling a country. Bringing one country onto the rail is not one grant: it is an M-of-N group per office, two to five role grants across those offices, and the jurisdiction records for the offices' own accounts — a sequence that has to land in a particular order. Under governance-only, each part was a separate proposal that could pass, fail or time out on its own, so the friction was not being paid once per widening of authority but several times over for one decision. The outcome of that is a bundle proposal nobody reads, or a deployment that seeds its grants in genesis and never revisits them.
+
+So admitting a country is the foundation's act: three of five custodians from five organisations, attributable on chain in granted_by. What was given up is publicity and delay — the validator set no longer has a veto over who administers a perimeter, and the appointment no longer sits in public for a voting period first.
+
+Three residual consequences, stated rather than discovered. None of them lets the foundation reach a state governance could not, and all three are bounded by the chain-wide scope staying closed:
+
+1. The foundation can grant one office the same role in every country, one grant at a time, arriving where a chain-wide grant would by a longer road. Bounded by the assigned country list rather than prevented, and enumerable: every grant is listed by RoleGrants and RoleHolders, and the chain-wide ones have an endpoint of their own.
+2. It can revoke a country grant GOVERNANCE made — a reduction of the validator set's power, kept because the alternative makes an emergency the expensive case. See MsgRevokeRole.
+3. It can grant itself a country role. That is permitted on purpose: a country admitted before its offices exist needs an interim authority, and refusing holder == authority would block that while preventing nothing, since the foundation can appoint any group it controls. Re-granting an existing triple also rewrites granted_by, so that field names the last authority to write the grant rather than the first; the events carry the history.
+
+The holder must be an x/group account. A role is only worth the office that holds it, and an office that is one key is one bribe — which is the same reasoning that makes x/land refuse a registry office that is not a group. That applies to the foundation's grants exactly as it applies to governance's: the widening is about who may sign and about nothing else.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -58,7 +91,9 @@ GrantRole grants a role inside one jurisdiction. Governance, or the foundation f
 
 Signed by the `account` field.
 
-RegisterAlias issues an identifier to the sending account.
+MsgRegisterAlias claims an identifier for the sending account.
+
+It carries no identifier field on purpose, and no country field either. The chain derives the identifier from the address and takes the country prefix from the jurisdiction already recorded against the account, so there is nothing for the sender to choose, nothing for anyone else to squat, and no way to be issued a prefix that says somewhere you are not. An account with no recorded jurisdiction is refused rather than given a default.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -70,7 +105,11 @@ RegisterAlias issues an identifier to the sending account.
 
 Signed by the `account` field.
 
-RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
+MsgRegisterViewingKey publishes the sending account's X25519 public key.
+
+Self-signed, unlike the jurisdiction beside it, and the difference is not an oversight. A jurisdiction is a claim about somebody that they must not be able to make for themselves; a viewing key is a claim only about which key can decrypt payloads addressed to the sender, and an account that publishes a key it does not hold has locked itself out of its own payment detail and nobody else out of anything.
+
+Sending it again rotates: the previous version stays queryable so historical envelopes remain openable, and new envelopes wrap to the new version. See ViewingKey.version.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -83,7 +122,13 @@ RegisterViewingKey publishes the sender's X25519 public key, or rotates it.
 
 Signed by the `authority` field.
 
-RevokeRole removes one such grant. The same signers as GrantRole.
+MsgRevokeRole removes one grant, named exactly.
+
+The same signers as MsgGrantRole, and deliberately not a narrower set: whoever may appoint a country's authority may also remove it, and only governance may touch a chain-wide grant in either direction.
+
+Keeping revocation governance-only while granting was widened was considered and rejected, because it puts the slow path on the wrong action. The reason to revoke in a hurry is that an office's keys are compromised or its authority is being abused, and a rule under which the foundation can appoint a national enforcement authority with one 3-of-5 vote but needs a full governance cycle to remove one makes the emergency the expensive case. Granting authority is the act that wants friction; taking it away is the act that has to be possible on a Sunday.
+
+The jurisdiction is part of what is revoked rather than implied, because a holder may hold the same role in several countries and revoking "their enforcement role" would be ambiguous between removing one perimeter and removing all of them. The signer says which.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -98,7 +143,9 @@ RevokeRole removes one such grant. The same signers as GrantRole.
 
 Signed by the `account` field.
 
-RevokeViewingKey marks one of the sender's key versions compromised.
+MsgRevokeViewingKey marks one of the sender's key versions compromised.
+
+It does not delete the key and does not pretend the payloads wrapped to it became unreadable — ciphertext that has been distributed cannot be recalled, and a message that implied otherwise would be worse than none. What it does is stop senders wrapping to it and let a reader see that a payload they are holding was addressed to a key somebody else may also hold. Erasing the payload itself is the store's job, not the chain's.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -111,7 +158,9 @@ RevokeViewingKey marks one of the sender's key versions compromised.
 
 Signed by the `account` field.
 
-RotateAlias retires the sender's identifier and issues a new one.
+MsgRotateAlias retires the sender's current identifier and issues a new one.
+
+For an account whose key was compromised: the old identifier is tombstoned and never issued again, so a payment sent to the handle somebody memorised arrives nowhere rather than in a stranger's account. That is the whole reason retiring is allowed and repointing is not.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -123,7 +172,11 @@ RotateAlias retires the sender's identifier and issues a new one.
 
 Signed by the `recorder` field.
 
-SetJurisdiction records or corrects the country an account belongs to.
+MsgSetJurisdiction records or corrects the country an account belongs to.
+
+The first recording is made by the approved participant that onboarded the account, because that is the party that performed the KYC and therefore the only one that knows the answer. It is never self-declared: an account that could name its own perimeter could name the one with no authority watching it.
+
+A correction — somebody moves, a firm redomiciles — is a foundation administrator's act, not the participant's. A participant that could rewrite a country it had already recorded could move a customer out from under an authority mid-investigation.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -137,13 +190,24 @@ SetJurisdiction records or corrects the country an account belongs to.
 
 Signed by the `authority` field.
 
-UpdateParams sets the module parameters. Governance only.
+MsgUpdateParams sets the module parameters. Governance only.
 
-It no longer appoints anybody. Appointing a foundation administrator is now MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope — which is still governance and nobody else, because a chain-wide grant is governance's alone, so the authority behind the act did not move. What moved is where it is recorded, and that is the point: the appointment and the role registry are one mechanism rather than two lists that happened to share a name.
+It used to be the only way a foundation administrator was appointed or removed, which made it the most consequential message in this module. That appointment is now MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope — still governance and nobody else, because a chain-wide grant is governance's alone. What is left here is one parameter.
 
-Three failure modes went with the parameter, and they are worth recording because they are what the move was for. This message REPLACES THE WHOLE Params OBJECT — it is a message, not a field mask — so a proposal composed without reading the current parameters first silently dropped every administrator already appointed, and nothing caught it, because a list shorter than the one before it is a valid list; a grant cannot be dropped by a message about something else. Validate() never checked that an entry was an address, so a mistyped one passed a vote, occupied one of the eight places and granted the exemption to nobody, where MsgGrantRole decodes the holder. And an administrator was a bare address, where a role holder must be an x/group account, so the exemption is now held M-of-N like every other authority.
+#### It replaces the whole Params object
 
-What remains here is payload_length. A value that reads back as 0 means the value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody filled in, and Validate() refuses a zero, so no chain holds one. Resubmitting a guess would re-parameterise the chain.
+`params` is a message, not a field mask, and there is no partial update. So "appoint one administrator" is really "read the current parameters, add one address, and resubmit every parameter" — and the failure mode is not an error. A proposal composed without reading the current values passes, and silently drops the administrators already appointed or resets payload_length to its default. Nothing here catches that: Params.Validate() bounds the list and refuses duplicates, and a shorter list than before is a perfectly valid list.
+
+Two consequences worth knowing before composing one by hand:
+
+- Read `Query/Params` first and carry every field across. A field left out of the message is a field set to its protobuf default, not a field left alone.
+- A `payload_length` that reads back as 0 means the value is UNKNOWN, not zero: proto3 cannot tell a zero from a field nobody filled in. Resubmitting a guess would re-parameterise the chain. Validate() refuses a zero, so a chain never actually holds one.
+
+clients/governance composes this message with the whole object shown before and after, and refuses rather than defaulting when the current parameters cannot be read.
+
+Note that this message no longer appoints anybody. Field 2 held foundation_administrators and is reserved; the appointment is MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope, which is governance-only for the same reason every chain-wide grant is. The authority behind the act did not move — a chain-wide grant is governance's alone. What moved is where it is recorded, and that is the point: the appointment and the role registry are one mechanism now rather than two lists that happened to share a name.
+
+Two things were wrong with the list beyond the whole-object hazard above, and they are what the move was for. Validate() never checked that an entry was an address, so a mistyped one passed a vote, occupied one of the eight places and granted the exemption to nobody; MsgGrantRole decodes the holder. And an administrator was a bare address, where a role holder must be an x/group account — so the exemption is now held M-of-N like every other authority on this chain.
 
 | Field | Type | Description |
 | --- | --- | --- |

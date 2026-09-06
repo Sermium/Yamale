@@ -30,7 +30,7 @@ ApproveIssuer defines the ApproveIssuer RPC. It is authority-gated (the x/gov mo
 
 Signed by the `issuer` field.
 
-BurnCoin defines the BurnCoin RPC.
+MsgBurnCoin defines the MsgBurnCoin message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ BurnCoin defines the BurnCoin RPC.
 
 Signed by the `issuer` field.
 
-MintCoin defines the MintCoin RPC.
+MsgMintCoin defines the MsgMintCoin message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ MintCoin defines the MintCoin RPC.
 
 Signed by the `creator` field.
 
-RegisterCurrency defines the RegisterCurrency RPC.
+MsgRegisterCurrency defines the MsgRegisterCurrency message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -77,7 +77,11 @@ RegisterCurrency defines the RegisterCurrency RPC.
 
 Signed by the `authority` field.
 
-RevokeIssuer withdraws a currency's issuing licence. Until this existed a compromised issuer key could not be answered without a chain upgrade.
+MsgRevokeIssuer takes a currency's issuing licence away.
+
+Until this existed there was no way to remove an approved issuer at all. The message set had ApproveIssuer and nothing else, and ApproveIssuer refuses an application that is no longer Pending — so a compromised issuer key could not be replaced by governance without a chain upgrade, on a chain where one key was the issuer for every currency.
+
+Revoking leaves the currency registered and its supply outstanding. It stops new issuance and nothing else: burning what is already held is a separate decision belonging to whoever holds it.
 
 | Field | Type | Description |
 | --- | --- | --- |

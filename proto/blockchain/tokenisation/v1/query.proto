@@ -10,16 +10,28 @@ import "blockchain/tokenisation/v1/tokenisation.proto";
 
 option go_package = "yamale/blockchain/x/tokenisation/types";
 
+// Query is the read side of the closed-end vehicle registry.
+//
+// Open to the public on this chain, deliberately: an offering nobody can
+// inspect is an offering nobody should subscribe to, and these records disclose
+// only what a prospectus would.
 service Query {
+  // Params returns the module parameters.
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/params";
   }
+  // Collections lists the registries vehicles are minted into. A collection is
+  // who may mint, how a sale is verified, and how long a reported price sits
+  // before it can be acted on.
   rpc Collections(QueryCollectionsRequest) returns (QueryCollectionsResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/collections";
   }
+  // Assets lists the vehicles in a collection, or across all of them.
   rpc Assets(QueryAssetsRequest) returns (QueryAssetsResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets";
   }
+  // Asset returns one vehicle with its vault and any reported sale, which is
+  // everything a holder needs to decide whether to redeem.
   rpc Asset(QueryAssetRequest) returns (QueryAssetResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}";
   }
@@ -30,41 +42,55 @@ service Query {
   }
 }
 
+// QueryParamsRequest is the request type for the Params RPC.
 message QueryParamsRequest {}
+// QueryParamsResponse carries the module parameters.
 message QueryParamsResponse {
   Params params = 1 [(gogoproto.nullable) = false];
 }
 
+// QueryCollectionsRequest pages through the collections.
 message QueryCollectionsRequest {
   cosmos.base.query.v1beta1.PageRequest pagination = 1;
 }
+// QueryCollectionsResponse carries a page of collections.
 message QueryCollectionsResponse {
   repeated Collection collections = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
+// QueryAssetsRequest pages through vehicles, narrowed to one collection
+// when collection_id is set and across all of them when it is not.
 message QueryAssetsRequest {
   string collection_id = 1;
   cosmos.base.query.v1beta1.PageRequest pagination = 2;
 }
+// QueryAssetsResponse carries a page of vehicles.
 message QueryAssetsResponse {
   repeated Asset assets = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
+// QueryAssetRequest names one vehicle by its chain id.
 message QueryAssetRequest {
   uint64 asset_id = 1;
 }
+// QueryAssetResponse carries the vehicle, its vault and its sale report if
+// one has been made. The sale is absent rather than empty when none has,
+// so "not sold" and "sold for nothing" cannot be confused.
 message QueryAssetResponse {
   Asset asset = 1 [(gogoproto.nullable) = false];
   Vault vault = 2 [(gogoproto.nullable) = false];
   SaleReport sale = 3;
 }
 
+// QueryEntitlementRequest names a holder and the vehicle they hold.
 message QueryEntitlementRequest {
   uint64 asset_id = 1;
   string holder = 2;
 }
+// QueryEntitlementResponse is what the holder could withdraw right now,
+// settled income included — not the balance of their last settlement.
 message QueryEntitlementResponse {
   cosmos.base.v1beta1.Coin owed = 1 [(gogoproto.nullable) = false];
 }

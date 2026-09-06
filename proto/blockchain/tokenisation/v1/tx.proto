@@ -11,16 +11,23 @@ import "blockchain/tokenisation/v1/params.proto";
 
 option go_package = "yamale/blockchain/x/tokenisation/types";
 
+// Msg is the write side of the closed-end vehicle registry: mint a title,
+// fractionalise it, pay income in, report the sale that ends it, and redeem.
 service Msg {
   option (cosmos.msg.v1.service) = true;
 
   // Governance only.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  // CreateCollection opens a registry. Governance only, because a collection
+  // decides how a sale is verified and who may mint into it.
   rpc CreateCollection(MsgCreateCollection) returns (MsgCreateCollectionResponse);
+  // SetCollectionAuthority moves who may mint into a collection.
   rpc SetCollectionAuthority(MsgSetCollectionAuthority) returns (MsgSetCollectionAuthorityResponse);
   // Governance appoints who may attest a sale, so that a seller cannot appoint
   // the accounts that check the seller.
   rpc SetCollectionAttestors(MsgSetCollectionAttestors) returns (MsgSetCollectionAttestorsResponse);
+  // ResolveDispute is governance deciding a contested figure. An empty
+  // corrected price upholds what was reported.
   rpc ResolveDispute(MsgResolveDispute) returns (MsgResolveDisputeResponse);
 
   // The collection's appointed authority only.
@@ -28,8 +35,15 @@ service Msg {
 
   // Title holder.
   rpc Fractionalise(MsgFractionalise) returns (MsgFractionaliseResponse);
+  // TransferAsset moves the title only. The fraction tokens are ordinary
+  // balances and stay where they are — selling the vehicle does not sell its
+  // shareholders out from under them.
   rpc TransferAsset(MsgTransferAsset) returns (MsgTransferAssetResponse);
+  // FundVault pays income in. The holders' share is collected and the rest
+  // stays with the funder.
   rpc FundVault(MsgFundVault) returns (MsgFundVaultResponse);
+  // ReportSale states what the underlying sold for. It does not open
+  // redemption: the figure sits for the collection's challenge window first.
   rpc ReportSale(MsgReportSale) returns (MsgReportSaleResponse);
   // PaySaleProceeds pays the holders' share of a reported sale into the
   // vault, which is what finalisation waits on.
@@ -42,11 +56,19 @@ service Msg {
 
   // Permissionless.
   rpc DisputeSale(MsgDisputeSale) returns (MsgDisputeSaleResponse);
+  // FinaliseSale is the permissionless crank that opens redemption, once the
+  // window has passed and the holders' share has actually been paid in.
   rpc FinaliseSale(MsgFinaliseSale) returns (MsgFinaliseSaleResponse);
+  // Claim withdraws accrued income without giving up the shareholding — a
+  // coupon should not force an exit.
   rpc Claim(MsgClaim) returns (MsgClaimResponse);
+  // Redeem burns tokens and pays their share in one step. The burn is the
+  // claim: burning first and expecting a later claim would strand whoever is
+  // slow, asleep or dead.
   rpc Redeem(MsgRedeem) returns (MsgRedeemResponse);
 }
 
+// MsgUpdateParams sets the module parameters. Governance only.
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "blockchain/x/tokenisation/MsgUpdateParams";
@@ -54,6 +76,7 @@ message MsgUpdateParams {
   string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   Params params = 2 [(gogoproto.nullable) = false];
 }
+// MsgUpdateParamsResponse is empty.
 message MsgUpdateParamsResponse {}
 
 // MsgCreateCollection brings a registry into existence. Governance only.
@@ -68,6 +91,7 @@ message MsgCreateCollection {
   string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   Collection collection = 2 [(gogoproto.nullable) = false];
 }
+// MsgCreateCollectionResponse is empty; the collection is addressed by the id it was given.
 message MsgCreateCollectionResponse {}
 
 // MsgSetCollectionAuthority appoints or revokes who may mint into a collection.
@@ -85,6 +109,7 @@ message MsgSetCollectionAuthority {
   // fall back to governance.
   string new_authority = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
+// MsgSetCollectionAuthorityResponse is empty.
 message MsgSetCollectionAuthorityResponse {}
 
 // MsgSetCollectionAttestors replaces the register of accounts that may attest a
@@ -111,6 +136,7 @@ message MsgSetCollectionAttestors {
   repeated string attestors = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
 
+// MsgSetCollectionAttestorsResponse is empty.
 message MsgSetCollectionAttestorsResponse {}
 
 // MsgMintAsset records title. Only the collection's appointed authority.
@@ -136,6 +162,7 @@ message MsgMintAsset {
   // shares are being sold and there is money on the other side of it.
   uint64 parcel_id = 5;
 }
+// MsgMintAssetResponse carries the id of the title just created.
 message MsgMintAssetResponse {
   uint64 asset_id = 1;
 }
@@ -167,6 +194,7 @@ message MsgFractionalise {
   // Denomination income and proceeds will be paid in.
   string income_denom = 6;
 }
+// MsgFractionaliseResponse carries the denomination the shares were issued in.
 message MsgFractionaliseResponse {
   string fraction_denom = 1;
 }
@@ -183,6 +211,7 @@ message MsgTransferAsset {
   uint64 asset_id = 2;
   string recipient = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
+// MsgTransferAssetResponse is empty; the new holder is on the asset record.
 message MsgTransferAssetResponse {}
 
 // MsgFundVault pays income in. holder_share_bps of it reaches the index; the
@@ -199,6 +228,8 @@ message MsgFundVault {
   // always said and what the response reports.
   cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
 }
+// MsgFundVaultResponse reports what was actually taken, which is the holders'
+// share of the gross figure the message named rather than the whole of it.
 message MsgFundVaultResponse {
   // What was actually taken from the funder.
   cosmos.base.v1beta1.Coin collected = 1 [(gogoproto.nullable) = false];
@@ -218,6 +249,8 @@ message MsgReportSale {
   cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
   string evidence_uri = 4;
 }
+// MsgReportSaleResponse is empty. The reported figure and the window it must
+// sit out are both on the sale record.
 message MsgReportSaleResponse {}
 
 // MsgPaySaleProceeds pays the holders' share of a reported price into the
@@ -252,6 +285,7 @@ message MsgAttestSale {
   uint64 asset_id = 2;
   cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
 }
+// MsgAttestSaleResponse is empty; the count of attestors stands on the sale.
 message MsgAttestSaleResponse {}
 
 // MsgDisputeSale suspends redemption and refers the figure to governance.
@@ -269,6 +303,8 @@ message MsgDisputeSale {
   uint64 asset_id = 2;
   string reason = 3;
 }
+// MsgDisputeSaleResponse is empty. The bond posted is recorded on the sale so
+// that it can be returned or forfeited when the dispute is decided.
 message MsgDisputeSaleResponse {}
 
 // MsgFinaliseSale opens redemption on an asset whose reported price has cleared
@@ -291,6 +327,8 @@ message MsgFinaliseSale {
   uint64 asset_id = 2;
 }
 
+// MsgFinaliseSaleResponse is empty; the vehicle reaching REALISED is the
+// outcome, and it is what opens redemption.
 message MsgFinaliseSaleResponse {}
 
 // MsgResolveDispute is governance deciding the contested figure.
@@ -303,6 +341,7 @@ message MsgResolveDispute {
   // Empty upholds the reported figure and forfeits the bond.
   cosmos.base.v1beta1.Coin corrected_price = 3;
 }
+// MsgResolveDisputeResponse is empty.
 message MsgResolveDisputeResponse {}
 
 // MsgClaim withdraws accrued income without giving up the shareholding.
@@ -313,6 +352,8 @@ message MsgClaim {
   string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   uint64 asset_id = 2;
 }
+// MsgClaimResponse reports what was paid, which is the income accrued since
+// the holder last settled rather than a figure they asked for.
 message MsgClaimResponse {
   repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
 }
@@ -335,6 +376,7 @@ message MsgRedeem {
     (gogoproto.nullable) = false
   ];
 }
+// MsgRedeemResponse reports what the surrendered tokens were worth.
 message MsgRedeemResponse {
   repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
 }

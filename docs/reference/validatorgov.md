@@ -16,7 +16,9 @@ Restricts the validator set to candidates that governance has admitted, enforced
 
 Signed by the `creator` field.
 
-ApplyValidator defines the ApplyValidator RPC.
+MsgApplyValidator defines the MsgApplyValidator message.
+
+The three declaration fields are required, and requiring them here rather than collecting them later is the point: an admission vote that cannot see the owner and the jurisdiction behind a candidate is a vote on a moniker, and a set admitted without them can never have a concentration ceiling computed over it at all.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -33,7 +35,9 @@ ApplyValidator defines the ApplyValidator RPC.
 
 Signed by the `authority` field.
 
-ApproveOperatorRecovery defines the ApproveOperatorRecovery RPC. It is authority-gated by the same account that admits validators, because recovering one should be exactly as hard as admitting one.
+MsgApproveOperatorRecovery is the admission quorum's decision on a recovery. Approving it pauses the validator and starts the challenge window; refusing it closes the rotation.
+
+It is authority-gated by the same account that admits validators, because recovering one should be exactly as hard as admitting one.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -61,7 +65,9 @@ ApproveValidator defines the ApproveValidator RPC. It is authority-gated (the x/
 
 Signed by the `creator` field.
 
-AttestOwnership defines the AttestOwnership RPC: the operator re-signing for who is behind it, which is what keeps a declaration from going stale.
+MsgAttestOwnership is the operator re-signing for its own declaration.
+
+It carries the whole declaration rather than only a timestamp, because the event it exists to catch is an ownership change: an operator whose owner changed and who re-attested the old values has made a false statement on the record with its own key, which is a fact a supervisor can act on. A bare heartbeat would have let the same operator keep a stale declaration fresh without ever restating it.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -76,7 +82,9 @@ AttestOwnership defines the AttestOwnership RPC: the operator re-signing for who
 
 Signed by the `creator` field.
 
-CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets the current operator withdraw a rotation before it takes effect.
+MsgCancelOperatorRotation withdraws a rotation before it takes effect, signed by the operator being replaced.
+
+On a recovery this is redundant with the veto — signing anything at all ends it — and it is offered anyway so that an operator who wants to object explicitly has something to sign that says so, rather than having to discover that any transaction would have done.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -88,6 +96,10 @@ CancelOperatorRotation defines the CancelOperatorRotation RPC, which lets the cu
 `/blockchain.validatorgov.v1.MsgProposeOperatorRecovery`
 
 Signed by the `creator` field.
+
+MsgProposeOperatorRecovery opens a claim that an operator's key is gone.
+
+Anybody may submit it, because the person best placed to notice is rarely the person who lost the key. It does nothing on its own: the validator is not paused and no clock starts until the admission quorum approves it, or a single transaction from anybody would be enough to pause any validator on the chain.
 
 ProposeOperatorRecovery defines the ProposeOperatorRecovery RPC: the recovery path, openable by anybody and inert until approved.
 
@@ -104,7 +116,9 @@ ProposeOperatorRecovery defines the ProposeOperatorRecovery RPC: the recovery pa
 
 Signed by the `creator` field.
 
-RotateOperator defines the RotateOperator RPC: the planned path, signed by the operator being replaced.
+MsgRotateOperator moves a validator's operator key, signed by the operator being replaced.
+
+There is nothing to prove here beyond the signature. Anyone who can submit this already controls everything the operator address protects, so demanding a vote for it would only push operators towards waiting for a loss — and the path for a loss is the slow one.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -117,7 +131,13 @@ RotateOperator defines the RotateOperator RPC: the planned path, signed by the o
 
 Signed by the `authority` field.
 
-SetValidatorPower defines the SetValidatorPower RPC. It is authority-gated and moves how many seats one admitted validator holds.
+MsgSetValidatorPower sets how many seats an admitted validator holds.
+
+Equal seats is the default a genesis is built with, not a constant the chain enforces: admission is already a governance decision, so governance decides weight directly rather than leaving it to whoever bonded the most. This message is how it does that.
+
+It deliberately does not check the concentration ceilings. A power set above a cap is accepted here and trimmed by the epoch check like any other breach, for the same reason the caps are enforced at every epoch rather than at admission: a ceiling that is only tested when power is granted is not a ceiling, and a proposal is one of the ways power arrives. Refusing here as well would have made the ceiling look enforced while leaving the path that matters — growth, merger, nationalisation — unguarded.
+
+Seats are moved by delegating from the module's own seat reserve and undelegating back into it, which is the only path that changes consensus power without minting anything and without writing to x/staking behind its back. A reserve with too few seats fails the message rather than the block.
 
 | Field | Type | Description |
 | --- | --- | --- |

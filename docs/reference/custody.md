@@ -14,7 +14,9 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `attestor` field.
 
-AttestDeposit records that a deposit was seen on the source chain.
+MsgAttestDeposit says "this deposit happened on the source chain".
+
+The threshold is reached by distinct attestors agreeing on the *same* denom, recipient, amount and external reference. Disagreement on any field is a different deposit, not a vote against — which is what stops a single attestor nudging an amount upward and calling it consensus.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -29,6 +31,8 @@ AttestDeposit records that a deposit was seen on the source chain.
 `/blockchain.custody.v1.MsgRegisterAsset`
 
 Signed by the `authority` field.
+
+MsgRegisterAsset lists an asset. Governance only: an asset registered by anyone is an asset anyone can print a claim on.
 
 RegisterAsset lists an asset this chain will issue claims on. Governance.
 
@@ -46,7 +50,7 @@ RegisterAsset lists an asset this chain will issue claims on. Governance.
 
 Signed by the `attestor` field.
 
-ReportReserve states what the custodian holds against an asset.
+MsgReportReserve states what is held off-chain against an asset.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -60,7 +64,7 @@ ReportReserve states what the custodian holds against an asset.
 
 Signed by the `redeemer` field.
 
-RequestRedemption burns a claim and queues the payout.
+MsgRequestRedemption burns the claim and queues the payout.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -75,7 +79,9 @@ RequestRedemption burns a claim and queues the payout.
 
 Signed by the `authority` field.
 
-SetAttestor appoints or removes an attestor. Governance.
+MsgSetAttestor appoints or removes an attestor.
+
+Governance only, and it is the most consequential permission in the module: enough attestors can credit a deposit that never happened.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -88,6 +94,8 @@ SetAttestor appoints or removes an attestor. Governance.
 `/blockchain.custody.v1.MsgSettleRedemption`
 
 Signed by the `attestor` field.
+
+MsgSettleRedemption records that the asset was sent on the source chain.
 
 SettleRedemption records that the payout was made.
 
@@ -103,7 +111,7 @@ SettleRedemption records that the payout was made.
 
 Signed by the `authority` field.
 
-UpdateParams sets the module parameters. Governance.
+MsgUpdateParams sets the module parameters. Governance only.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -116,7 +124,11 @@ UpdateParams sets the module parameters. Governance.
 
 Signed by the `authority` field.
 
-WithdrawFees pays out the fees this module has earned, which otherwise accumulate as claim tokens in an account with no key.
+MsgWithdrawFees pays out the fees this module has earned.
+
+credit mints the full deposit and forwards the net, deliberately: the claim outstanding has to equal the reserve held, or the solvency comparison is wrong by the fee on every deposit ever made. The consequence is that the module account accumulates the fee as claim tokens, and it has no key. Fee revenue was therefore real, growing, and unrecoverable — the module was charging for a service and burying the proceeds.
+
+Governance only, and it pays out claim tokens rather than reserve. Whoever receives them redeems like anybody else, through the delay and the attestation threshold, which is the point: the custodian's own revenue leaves by the same door as everybody else's money.
 
 | Field | Type | Description |
 | --- | --- | --- |

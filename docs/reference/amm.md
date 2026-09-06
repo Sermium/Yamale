@@ -16,7 +16,7 @@ A constant-product automated market maker: permissionless liquidity pools, and s
 
 Signed by the `creator` field.
 
-CreatePool defines the CreatePool RPC.
+MsgCreatePool defines the MsgCreatePool message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ CreatePool defines the CreatePool RPC.
 
 Signed by the `sender` field.
 
-ExitPool defines the ExitPool RPC.
+MsgExitPool defines the MsgExitPool message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -47,7 +47,7 @@ ExitPool defines the ExitPool RPC.
 
 Signed by the `sender` field.
 
-JoinPool defines the JoinPool RPC.
+MsgJoinPool defines the MsgJoinPool message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ JoinPool defines the JoinPool RPC.
 
 Signed by the `sender` field.
 
-Swap defines the Swap RPC.
+MsgSwap defines the MsgSwap message.
 
 | Field | Type | Description |
 | --- | --- | --- |

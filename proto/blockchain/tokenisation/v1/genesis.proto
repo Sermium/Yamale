@@ -7,6 +7,8 @@ import "blockchain/tokenisation/v1/tokenisation.proto";
 
 option go_package = "yamale/blockchain/x/tokenisation/types";
 
+// GenesisState is the module's state at a chain's first block: its
+// parameters, its collections, and every vehicle with its vault and holders.
 message GenesisState {
   Params params = 1 [(gogoproto.nullable) = false];
   repeated Collection collections = 2 [(gogoproto.nullable) = false];

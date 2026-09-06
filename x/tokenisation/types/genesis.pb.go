@@ -23,6 +23,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// GenesisState is the module's state at a chain's first block: its
+// parameters, its collections, and every vehicle with its vault and holders.
 type GenesisState struct {
 	Params      Params       `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
 	Collections []Collection `protobuf:"bytes,2,rep,name=collections,proto3" json:"collections"`

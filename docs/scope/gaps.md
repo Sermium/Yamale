@@ -472,6 +472,64 @@ allow-list may be permitted, and nothing that survives validation may be a store
 key the module cannot live with. A fuzzer that only looked for panics would be
 satisfied by a gate that returned true for everything.
 
+### The reference had been publishing summaries instead of reasoning, 2026-09-06
+
+`buf lint` wants a comment on every rpc. Writing them was meant to be
+housekeeping. Regenerating `docs/reference` afterwards deleted documentation
+across fourteen modules.
+
+A message is documented twice — once on the rpc that carries it and once on the
+message itself — and `docgen` published `firstNonEmpty(rpcDoc, msgDoc)`. The
+rpc comment won. That had been invisible for as long as the tool has existed,
+because most rpcs had no comment and the message comment came through by
+default. Giving every rpc the one-liner the linter asks for turned that default
+off, and each new one-line service-index entry replaced the paragraphs written
+on the message it names. `x/treasury`'s escrow lost *"The buyer confirming is
+the whole condition. Nobody else can confirm on their behalf — not the seller,
+not the moderator, not the treasury admin."* and got *"ReleaseEscrow pays the
+beneficiary"* in its place.
+
+**Reversing the preference is not the fix, and trying it is how the size of the
+problem became clear.** Preferring the message comment deleted **138 sentences**
+of rpc comment instead — `x/enforcement`'s sweep being permissionless and
+repeatable, `x/validatorgov`'s recovery being gated by the same account that
+admits validators, `x/land`'s authorisation being what `x/tokenisation` refuses
+without. Both comments are written by hand and both say things the other does
+not. Choosing between them is the bug.
+
+`mergeDocs` now publishes both: the message comment leads, and what the rpc line
+adds follows it. What the rpc line restates is dropped, matched on the words
+carrying the meaning rather than on the wording, because one fact written twice
+by one hand is written two ways. An rpc comment that is a second telling of the
+whole message comment is dropped entire rather than trimmed to the sentences
+that happen not to match — that produces prose beginning mid-argument.
+Scaffolding on either side ("CreatePool defines the CreatePool RPC.",
+"MsgApproveBuilder is the Msg/ApproveBuilder request type.") is not
+documentation and no longer displaces the side that is. A message left with
+nothing now prints nothing, which at least makes an undocumented message look
+undocumented.
+
+**A second defect surfaced underneath it.** Once the message comments were
+reaching the page, `cleanComment` was seen rejoining every wrapped line with a
+space — right for prose, wrong for the bullets, numbered items and headings
+inside it. Three numbered consequences in `x/alias`'s MsgGrantRole arrived as
+one run-on paragraph, and a `#` section marker inside a comment rendered as an
+h1 outranking the page it sat on. Block-level Markdown now keeps the line it was
+written on, and headings are demoted below the `###` a message is printed under.
+
+Verified by regenerating and diffing every `###` section against its committed
+version, sentence by sentence: **no sentence the reference used to publish has
+stopped being published**, excepting one piece of framing ("Three failure modes
+went with the parameter") whose three facts are all still there. `x/alias`'s
+UpdateParams was the one message documented twice at essay length; the two facts
+that existed only in the rpc telling were moved onto the message, which is where
+this repository's reasoning is supposed to live. `tools/docgen/merge_test.go`
+pins the six cases the merge has to get right.
+
+The reference is now **276 lines longer** than before the lint cleanup
+began — not because anything was written for it, but because it had never been
+printing what was already there.
+
 ### The offensive assessment, 2026-09-05
 
 A red-team follow-on to the audit approached the same target as an adversary —

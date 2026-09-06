@@ -1468,6 +1468,8 @@ func (m *MsgOpenEscrow) GetMetadataHash() []byte {
 	return nil
 }
 
+// MsgOpenEscrowResponse carries the lock id, which every later message about
+// this escrow addresses it by.
 type MsgOpenEscrowResponse struct {
 	LockId uint64 `protobuf:"varint,1,opt,name=lock_id,json=lockId,proto3" json:"lock_id,omitempty"`
 }
@@ -1568,6 +1570,8 @@ func (m *MsgReleaseEscrow) GetLockId() uint64 {
 	return 0
 }
 
+// MsgReleaseEscrowResponse is empty: the outcome is the payment, and the
+// amount was fixed when the escrow was opened.
 type MsgReleaseEscrowResponse struct {
 }
 
@@ -1669,6 +1673,8 @@ func (m *MsgDisputeEscrow) GetReason() string {
 	return ""
 }
 
+// MsgDisputeEscrowResponse is empty. The effect is the freeze, which the
+// lock query reports.
 type MsgDisputeEscrowResponse struct {
 }
 
@@ -1772,6 +1778,8 @@ func (m *MsgResolveEscrow) GetPayBeneficiary() bool {
 	return false
 }
 
+// MsgResolveEscrowResponse is empty: which way it went is in the message
+// that decided it, and the balances say the rest.
 type MsgResolveEscrowResponse struct {
 }
 
@@ -1981,8 +1989,16 @@ type MsgClient interface {
 	RevokeLock(ctx context.Context, in *MsgRevokeLock, opts ...grpc.CallOption) (*MsgRevokeLockResponse, error)
 	// --- conditional locks (escrow) ----------------------------------------
 	OpenEscrow(ctx context.Context, in *MsgOpenEscrow, opts ...grpc.CallOption) (*MsgOpenEscrowResponse, error)
+	// ReleaseEscrow pays the beneficiary. Only the depositor may, and only while
+	// no dispute is open — a buyer must not be able to defuse a seller's
+	// complaint by paying.
 	ReleaseEscrow(ctx context.Context, in *MsgReleaseEscrow, opts ...grpc.CallOption) (*MsgReleaseEscrowResponse, error)
+	// DisputeEscrow freezes the lock and refers it to its named moderator. Either
+	// party may, which is what removes the need for a deadline.
 	DisputeEscrow(ctx context.Context, in *MsgDisputeEscrow, opts ...grpc.CallOption) (*MsgDisputeEscrowResponse, error)
+	// ResolveEscrow is the moderator deciding an open case, and governance
+	// deciding one whose moderator has gone. Their only power, and only on a case
+	// somebody opened.
 	ResolveEscrow(ctx context.Context, in *MsgResolveEscrow, opts ...grpc.CallOption) (*MsgResolveEscrowResponse, error)
 	// AssignRole grants an address a role over a treasury.
 	AssignRole(ctx context.Context, in *MsgAssignRole, opts ...grpc.CallOption) (*MsgAssignRoleResponse, error)
@@ -2167,8 +2183,16 @@ type MsgServer interface {
 	RevokeLock(context.Context, *MsgRevokeLock) (*MsgRevokeLockResponse, error)
 	// --- conditional locks (escrow) ----------------------------------------
 	OpenEscrow(context.Context, *MsgOpenEscrow) (*MsgOpenEscrowResponse, error)
+	// ReleaseEscrow pays the beneficiary. Only the depositor may, and only while
+	// no dispute is open — a buyer must not be able to defuse a seller's
+	// complaint by paying.
 	ReleaseEscrow(context.Context, *MsgReleaseEscrow) (*MsgReleaseEscrowResponse, error)
+	// DisputeEscrow freezes the lock and refers it to its named moderator. Either
+	// party may, which is what removes the need for a deadline.
 	DisputeEscrow(context.Context, *MsgDisputeEscrow) (*MsgDisputeEscrowResponse, error)
+	// ResolveEscrow is the moderator deciding an open case, and governance
+	// deciding one whose moderator has gone. Their only power, and only on a case
+	// somebody opened.
 	ResolveEscrow(context.Context, *MsgResolveEscrow) (*MsgResolveEscrowResponse, error)
 	// AssignRole grants an address a role over a treasury.
 	AssignRole(context.Context, *MsgAssignRole) (*MsgAssignRoleResponse, error)

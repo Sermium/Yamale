@@ -14,7 +14,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `creator` field.
 
-AttachDeed adds a document to the chain of title.
+MsgAttachDeed adds a document to a parcel's chain of title.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -32,6 +32,8 @@ AttachDeed adds a document to the chain of title.
 
 Signed by the `creator` field.
 
+One attestation toward quorum, from an office that is not the proposing one.
+
 AttestTransfer adds one independent attestation toward quorum.
 
 | Field | Type | Description |
@@ -45,7 +47,11 @@ AttestTransfer adds one independent attestation toward quorum.
 
 Signed by the `creator` field.
 
-AuthoriseFractionalisation is the registry's permission for a tokenisation vehicle to be opened over a parcel. Without it, x/tokenisation refuses.
+MsgAuthoriseFractionalisation lets a vehicle be opened over a parcel.
+
+This is the supervised bridge to x/tokenisation. The owner may want to sell an exploitation right in shares and collect rent from it — a legitimate and useful thing. What must not happen is that fractionalising becomes a way to sell around the restrictions on the land, or to move ownership without the registry ever seeing it.
+
+So the shape is: the registry authorises, naming the maximum share that may be sold and the purpose; x/tokenisation refuses to create a vehicle over a parcel without a live authorisation; and the parcel itself never leaves this module. The title stays here, held by the same account, and the vehicle sells rights that reference it. A land service can therefore always answer "who owns this, and is what is being sold over it lawful" — which is the whole reason the registry exists.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -62,6 +68,8 @@ AuthoriseFractionalisation is the registry's permission for a tokenisation vehic
 
 Signed by the `creator` field.
 
+Mechanical. Checks every condition and applies the result, so no official holds a discretionary final step they can be paid to withhold — refusal is leverage, and this removes it.
+
 CompleteTransfer applies a transfer that has met every condition.
 
 | Field | Type | Description |
@@ -74,6 +82,8 @@ CompleteTransfer applies a transfer that has met every condition.
 `/blockchain.land.v1.MsgFreezeParcel`
 
 Signed by the `creator` field.
+
+A freeze needs the authority and a quorum, for the same reason a transfer does: a single official who can freeze land can extort its owner.
 
 FreezeParcel stops all movement, or lifts a freeze.
 
@@ -90,6 +100,8 @@ FreezeParcel stops all movement, or lifts a freeze.
 
 Signed by the `creator` field.
 
+Open to anyone, on purpose. The person being robbed is often the person with no official relationships, and requiring standing to object would exclude exactly the people the mechanism exists to protect.
+
 Object halts a transfer and marks the parcel disputed.
 
 | Field | Type | Description |
@@ -103,6 +115,8 @@ Object halts a transfer and marks the parcel disputed.
 `/blockchain.land.v1.MsgProposeTransfer`
 
 Signed by the `creator` field.
+
+Signed by the holder. An authority cannot start a transfer of somebody's land.
 
 ProposeTransfer opens a transfer. Signed by the holder.
 
@@ -118,6 +132,8 @@ ProposeTransfer opens a transfer. Signed by the holder.
 `/blockchain.land.v1.MsgRecordEncumbrance`
 
 Signed by the `creator` field.
+
+MsgRecordEncumbrance adds or releases a claim against a parcel.
 
 RecordEncumbrance adds or releases a lien or right of way.
 
@@ -137,6 +153,8 @@ RecordEncumbrance adds or releases a lien or right of way.
 
 Signed by the `authority` field.
 
+MsgRegisterAuthority admits a registry office.
+
 Admitting a registry office is a governance act. If an authority could admit another authority, buying one office would buy the power to manufacture the independent attestors the quorum depends on.
 
 | Field | Type | Description |
@@ -153,6 +171,8 @@ Admitting a registry office is a governance act. If an authority could admit ano
 
 Signed by the `creator` field.
 
+First registration. Fails if geometry_hash already exists — the refusal that makes double-selling impossible on this chain.
+
 RegisterParcel records a parcel for the first time.
 
 | Field | Type | Description |
@@ -168,7 +188,9 @@ RegisterParcel records a parcel for the first time.
 
 Signed by the `creator` field.
 
-SetRestriction imposes or lifts a limit on what may be done with a parcel.
+MsgSetRestriction imposes or lifts a limit on a parcel.
+
+Signed by the authority in charge. Restrictions are how a state keeps land law meaningful once a title can be traded quickly: agricultural land that may not be built on, a heritage site, a cap on foreign holding. They are the standing instruction that tokenisation has to obey.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -186,6 +208,8 @@ SetRestriction imposes or lifts a limit on what may be done with a parcel.
 
 Signed by the `authority` field.
 
+MsgUpdateParams changes the module parameters.
+
 UpdateParams sets the quorum and challenge window. Governance only.
 
 | Field | Type | Description |
@@ -198,6 +222,8 @@ UpdateParams sets the quorum and challenge window. Governance only.
 `/blockchain.land.v1.MsgValidateTransfer`
 
 Signed by the `creator` field.
+
+The jurisdiction's own office, which holds the paper file and can check the seller is who they say.
 
 ValidateTransfer records the jurisdiction's own validation.
 

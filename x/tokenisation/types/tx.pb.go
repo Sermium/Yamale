@@ -33,6 +33,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// MsgUpdateParams sets the module parameters. Governance only.
 type MsgUpdateParams struct {
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	Params    Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
@@ -85,6 +86,7 @@ func (m *MsgUpdateParams) GetParams() Params {
 	return Params{}
 }
 
+// MsgUpdateParamsResponse is empty.
 type MsgUpdateParamsResponse struct {
 }
 
@@ -178,6 +180,7 @@ func (m *MsgCreateCollection) GetCollection() Collection {
 	return Collection{}
 }
 
+// MsgCreateCollectionResponse is empty; the collection is addressed by the id it was given.
 type MsgCreateCollectionResponse struct {
 }
 
@@ -281,6 +284,7 @@ func (m *MsgSetCollectionAuthority) GetNewAuthority() string {
 	return ""
 }
 
+// MsgSetCollectionAuthorityResponse is empty.
 type MsgSetCollectionAuthorityResponse struct {
 }
 
@@ -392,6 +396,7 @@ func (m *MsgSetCollectionAttestors) GetAttestors() []string {
 	return nil
 }
 
+// MsgSetCollectionAttestorsResponse is empty.
 type MsgSetCollectionAttestorsResponse struct {
 }
 
@@ -516,6 +521,7 @@ func (m *MsgMintAsset) GetParcelId() uint64 {
 	return 0
 }
 
+// MsgMintAssetResponse carries the id of the title just created.
 type MsgMintAssetResponse struct {
 	AssetId uint64 `protobuf:"varint,1,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 }
@@ -649,6 +655,7 @@ func (m *MsgFractionalise) GetIncomeDenom() string {
 	return ""
 }
 
+// MsgFractionaliseResponse carries the denomination the shares were issued in.
 type MsgFractionaliseResponse struct {
 	FractionDenom string `protobuf:"bytes,1,opt,name=fraction_denom,json=fractionDenom,proto3" json:"fraction_denom,omitempty"`
 }
@@ -757,6 +764,7 @@ func (m *MsgTransferAsset) GetRecipient() string {
 	return ""
 }
 
+// MsgTransferAssetResponse is empty; the new holder is on the asset record.
 type MsgTransferAssetResponse struct {
 }
 
@@ -858,6 +866,8 @@ func (m *MsgFundVault) GetAmount() types.Coin {
 	return types.Coin{}
 }
 
+// MsgFundVaultResponse reports what was actually taken, which is the holders'
+// share of the gross figure the message named rather than the whole of it.
 type MsgFundVaultResponse struct {
 	// What was actually taken from the funder.
 	Collected types.Coin `protobuf:"bytes,1,opt,name=collected,proto3" json:"collected"`
@@ -976,6 +986,8 @@ func (m *MsgReportSale) GetEvidenceUri() string {
 	return ""
 }
 
+// MsgReportSaleResponse is empty. The reported figure and the window it must
+// sit out are both on the sale record.
 type MsgReportSaleResponse struct {
 }
 
@@ -1195,6 +1207,7 @@ func (m *MsgAttestSale) GetPrice() types.Coin {
 	return types.Coin{}
 }
 
+// MsgAttestSaleResponse is empty; the count of attestors stands on the sale.
 type MsgAttestSaleResponse struct {
 }
 
@@ -1298,6 +1311,8 @@ func (m *MsgDisputeSale) GetReason() string {
 	return ""
 }
 
+// MsgDisputeSaleResponse is empty. The bond posted is recorded on the sale so
+// that it can be returned or forfeited when the dispute is decided.
 type MsgDisputeSaleResponse struct {
 }
 
@@ -1398,6 +1413,8 @@ func (m *MsgFinaliseSale) GetAssetId() uint64 {
 	return 0
 }
 
+// MsgFinaliseSaleResponse is empty; the vehicle reaching REALISED is the
+// outcome, and it is what opens redemption.
 type MsgFinaliseSaleResponse struct {
 }
 
@@ -1496,6 +1513,7 @@ func (m *MsgResolveDispute) GetCorrectedPrice() *types.Coin {
 	return nil
 }
 
+// MsgResolveDisputeResponse is empty.
 type MsgResolveDisputeResponse struct {
 }
 
@@ -1585,6 +1603,8 @@ func (m *MsgClaim) GetAssetId() uint64 {
 	return 0
 }
 
+// MsgClaimResponse reports what was paid, which is the income accrued since
+// the holder last settled rather than a figure they asked for.
 type MsgClaimResponse struct {
 	Paid []types.Coin `protobuf:"bytes,1,rep,name=paid,proto3" json:"paid"`
 }
@@ -1688,6 +1708,7 @@ func (m *MsgRedeem) GetAssetId() uint64 {
 	return 0
 }
 
+// MsgRedeemResponse reports what the surrendered tokens were worth.
 type MsgRedeemResponse struct {
 	Paid []types.Coin `protobuf:"bytes,1,rep,name=paid,proto3" json:"paid"`
 }
@@ -1890,18 +1911,30 @@ const _ = grpc.SupportPackageIsVersion4
 type MsgClient interface {
 	// Governance only.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
+	// CreateCollection opens a registry. Governance only, because a collection
+	// decides how a sale is verified and who may mint into it.
 	CreateCollection(ctx context.Context, in *MsgCreateCollection, opts ...grpc.CallOption) (*MsgCreateCollectionResponse, error)
+	// SetCollectionAuthority moves who may mint into a collection.
 	SetCollectionAuthority(ctx context.Context, in *MsgSetCollectionAuthority, opts ...grpc.CallOption) (*MsgSetCollectionAuthorityResponse, error)
 	// Governance appoints who may attest a sale, so that a seller cannot appoint
 	// the accounts that check the seller.
 	SetCollectionAttestors(ctx context.Context, in *MsgSetCollectionAttestors, opts ...grpc.CallOption) (*MsgSetCollectionAttestorsResponse, error)
+	// ResolveDispute is governance deciding a contested figure. An empty
+	// corrected price upholds what was reported.
 	ResolveDispute(ctx context.Context, in *MsgResolveDispute, opts ...grpc.CallOption) (*MsgResolveDisputeResponse, error)
 	// The collection's appointed authority only.
 	MintAsset(ctx context.Context, in *MsgMintAsset, opts ...grpc.CallOption) (*MsgMintAssetResponse, error)
 	// Title holder.
 	Fractionalise(ctx context.Context, in *MsgFractionalise, opts ...grpc.CallOption) (*MsgFractionaliseResponse, error)
+	// TransferAsset moves the title only. The fraction tokens are ordinary
+	// balances and stay where they are — selling the vehicle does not sell its
+	// shareholders out from under them.
 	TransferAsset(ctx context.Context, in *MsgTransferAsset, opts ...grpc.CallOption) (*MsgTransferAssetResponse, error)
+	// FundVault pays income in. The holders' share is collected and the rest
+	// stays with the funder.
 	FundVault(ctx context.Context, in *MsgFundVault, opts ...grpc.CallOption) (*MsgFundVaultResponse, error)
+	// ReportSale states what the underlying sold for. It does not open
+	// redemption: the figure sits for the collection's challenge window first.
 	ReportSale(ctx context.Context, in *MsgReportSale, opts ...grpc.CallOption) (*MsgReportSaleResponse, error)
 	// PaySaleProceeds pays the holders' share of a reported sale into the
 	// vault, which is what finalisation waits on.
@@ -1912,8 +1945,15 @@ type MsgClient interface {
 	AttestSale(ctx context.Context, in *MsgAttestSale, opts ...grpc.CallOption) (*MsgAttestSaleResponse, error)
 	// Permissionless.
 	DisputeSale(ctx context.Context, in *MsgDisputeSale, opts ...grpc.CallOption) (*MsgDisputeSaleResponse, error)
+	// FinaliseSale is the permissionless crank that opens redemption, once the
+	// window has passed and the holders' share has actually been paid in.
 	FinaliseSale(ctx context.Context, in *MsgFinaliseSale, opts ...grpc.CallOption) (*MsgFinaliseSaleResponse, error)
+	// Claim withdraws accrued income without giving up the shareholding — a
+	// coupon should not force an exit.
 	Claim(ctx context.Context, in *MsgClaim, opts ...grpc.CallOption) (*MsgClaimResponse, error)
+	// Redeem burns tokens and pays their share in one step. The burn is the
+	// claim: burning first and expecting a later claim would strand whoever is
+	// slow, asleep or dead.
 	Redeem(ctx context.Context, in *MsgRedeem, opts ...grpc.CallOption) (*MsgRedeemResponse, error)
 }
 
@@ -2073,18 +2113,30 @@ func (c *msgClient) Redeem(ctx context.Context, in *MsgRedeem, opts ...grpc.Call
 type MsgServer interface {
 	// Governance only.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
+	// CreateCollection opens a registry. Governance only, because a collection
+	// decides how a sale is verified and who may mint into it.
 	CreateCollection(context.Context, *MsgCreateCollection) (*MsgCreateCollectionResponse, error)
+	// SetCollectionAuthority moves who may mint into a collection.
 	SetCollectionAuthority(context.Context, *MsgSetCollectionAuthority) (*MsgSetCollectionAuthorityResponse, error)
 	// Governance appoints who may attest a sale, so that a seller cannot appoint
 	// the accounts that check the seller.
 	SetCollectionAttestors(context.Context, *MsgSetCollectionAttestors) (*MsgSetCollectionAttestorsResponse, error)
+	// ResolveDispute is governance deciding a contested figure. An empty
+	// corrected price upholds what was reported.
 	ResolveDispute(context.Context, *MsgResolveDispute) (*MsgResolveDisputeResponse, error)
 	// The collection's appointed authority only.
 	MintAsset(context.Context, *MsgMintAsset) (*MsgMintAssetResponse, error)
 	// Title holder.
 	Fractionalise(context.Context, *MsgFractionalise) (*MsgFractionaliseResponse, error)
+	// TransferAsset moves the title only. The fraction tokens are ordinary
+	// balances and stay where they are — selling the vehicle does not sell its
+	// shareholders out from under them.
 	TransferAsset(context.Context, *MsgTransferAsset) (*MsgTransferAssetResponse, error)
+	// FundVault pays income in. The holders' share is collected and the rest
+	// stays with the funder.
 	FundVault(context.Context, *MsgFundVault) (*MsgFundVaultResponse, error)
+	// ReportSale states what the underlying sold for. It does not open
+	// redemption: the figure sits for the collection's challenge window first.
 	ReportSale(context.Context, *MsgReportSale) (*MsgReportSaleResponse, error)
 	// PaySaleProceeds pays the holders' share of a reported sale into the
 	// vault, which is what finalisation waits on.
@@ -2095,8 +2147,15 @@ type MsgServer interface {
 	AttestSale(context.Context, *MsgAttestSale) (*MsgAttestSaleResponse, error)
 	// Permissionless.
 	DisputeSale(context.Context, *MsgDisputeSale) (*MsgDisputeSaleResponse, error)
+	// FinaliseSale is the permissionless crank that opens redemption, once the
+	// window has passed and the holders' share has actually been paid in.
 	FinaliseSale(context.Context, *MsgFinaliseSale) (*MsgFinaliseSaleResponse, error)
+	// Claim withdraws accrued income without giving up the shareholding — a
+	// coupon should not force an exit.
 	Claim(context.Context, *MsgClaim) (*MsgClaimResponse, error)
+	// Redeem burns tokens and pays their share in one step. The burn is the
+	// claim: burning first and expecting a later claim would strand whoever is
+	// slow, asleep or dead.
 	Redeem(context.Context, *MsgRedeem) (*MsgRedeemResponse, error)
 }
 

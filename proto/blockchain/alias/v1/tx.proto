@@ -56,33 +56,8 @@ service Msg {
   // RevokeRole removes one such grant. The same signers as GrantRole.
   rpc RevokeRole(MsgRevokeRole) returns (MsgRevokeRoleResponse);
 
-  // UpdateParams sets the module parameters. Governance only.
-  //
-  // It no longer appoints anybody. Appointing a foundation administrator is now
-  // MsgGrantRole with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope —
-  // which is still governance and nobody else, because a chain-wide grant is
-  // governance's alone, so the authority behind the act did not move. What moved
-  // is where it is recorded, and that is the point: the appointment and the role
-  // registry are one mechanism rather than two lists that happened to share a
-  // name.
-  //
-  // Three failure modes went with the parameter, and they are worth recording
-  // because they are what the move was for. This message REPLACES THE WHOLE
-  // Params OBJECT — it is a message, not a field mask — so a proposal composed
-  // without reading the current parameters first silently dropped every
-  // administrator already appointed, and nothing caught it, because a list
-  // shorter than the one before it is a valid list; a grant cannot be dropped by
-  // a message about something else. Validate() never checked that an entry was an
-  // address, so a mistyped one passed a vote, occupied one of the eight places
-  // and granted the exemption to nobody, where MsgGrantRole decodes the holder.
-  // And an administrator was a bare address, where a role holder must be an
-  // x/group account, so the exemption is now held M-of-N like every other
-  // authority.
-  //
-  // What remains here is payload_length. A value that reads back as 0 means the
-  // value is UNKNOWN, not zero — proto3 cannot tell a zero from a field nobody
-  // filled in, and Validate() refuses a zero, so no chain holds one.
-  // Resubmitting a guess would re-parameterise the chain.
+  // UpdateParams sets the module parameters. Governance only, and since the
+  // administrator list moved to the role registry it sets exactly one.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
@@ -514,7 +489,19 @@ message MsgRevokeRoleResponse {}
 // Note that this message no longer appoints anybody. Field 2 held
 // foundation_administrators and is reserved; the appointment is MsgGrantRole
 // with ROLE_FOUNDATION_ADMINISTRATOR and the chain-wide scope, which is
-// governance-only for the same reason every chain-wide grant is.
+// governance-only for the same reason every chain-wide grant is. The authority
+// behind the act did not move — a chain-wide grant is governance's alone. What
+// moved is where it is recorded, and that is the point: the appointment and the
+// role registry are one mechanism now rather than two lists that happened to
+// share a name.
+//
+// Two things were wrong with the list beyond the whole-object hazard above, and
+// they are what the move was for. Validate() never checked that an entry was an
+// address, so a mistyped one passed a vote, occupied one of the eight places and
+// granted the exemption to nobody; MsgGrantRole decodes the holder. And an
+// administrator was a bare address, where a role holder must be an x/group
+// account — so the exemption is now held M-of-N like every other authority on
+// this chain.
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "blockchain/x/alias/MsgUpdateParams";

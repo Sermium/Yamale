@@ -14,6 +14,14 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `authority` field.
 
+MsgEmergencyFreeze freezes an account on an enforcement authority's signature alone.
+
+There is no matching emergency seizure, and that is the whole shape of this power. Stopping money is recoverable — the account is released and nothing was lost but time. Taking it is not, so it stays with the validator supermajority no matter who is asking.
+
+The freeze this creates is provisional exactly like a validator's: it opens a case, it lapses if nobody confirms it, and the validators can refuse it. The authority is faster than the set; it is not above it.
+
+What separates it from MsgOpenCase, now that both accept the same role, is what it does NOT require: no bonded validator anywhere in the picture, and no legal instrument, because it can only freeze. It is the same act with the validator step removed from the front, which is what an emergency is.
+
 EmergencyFreeze lets a country's enforcement authority stop an account in one block, without waiting for a validator to open a case.
 
 | Field | Type | Description |
@@ -30,6 +38,12 @@ EmergencyFreeze lets a country's enforcement authority stop an account in one bl
 
 Signed by the `authority` field.
 
+MsgEmergencyRelease lifts a freeze immediately, whoever imposed it.
+
+This is the half that makes the emergency authority worth having. A freeze opened on a misread transaction otherwise sits on somebody's account for the whole voting period, and "wait a day, it expires by itself" is not an answer anyone can give a customer whose payroll is stuck.
+
+Scoped like the freeze, against the country of the case's TARGET rather than of anything named in this message. Releasing is a smaller act than freezing and it would have been defensible to leave it chain-wide, but an office able to release anywhere could lift the freeze another country's authority had just imposed — which is interference in that perimeter, not mercy in its own.
+
 EmergencyRelease lets it let the account go again, just as fast.
 
 | Field | Type | Description |
@@ -44,7 +58,13 @@ EmergencyRelease lets it let the account go again, just as fast.
 
 Signed by the `ombudsman` field.
 
-OmbudsmanVeto stops a case that has not taken anything yet. The only message the ombudsman may sign, and the only thing it can do.
+MsgOmbudsmanVeto stops a case before it takes anything.
+
+This is the only message whose signer is the ombudsman, and stopping a case is the only thing it does. There is no companion message that opens one, votes on one, or advances one, and there deliberately never will be: an office that could do both would be a second way into this module rather than a check on the first.
+
+It works on a case still being voted on and on a seizure waiting out its delay — both states in which nothing has been taken. It does not work on a seizure that has already executed, because a veto cannot un-take money and a message that pretended to would be telling the record a lie. Reversing an executed case is governance's job, through MsgReverseCase, and even that only gives the account back rather than the funds.
+
+A veto is not permanent protection and is not meant to be. Any validator may open a fresh case against the same target in the next block; what the veto buys is that doing so is a new, public accusation, and stopping it again costs the ombudsman another signature on the record.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -58,7 +78,16 @@ OmbudsmanVeto stops a case that has not taken anything yet. The only message the
 
 Signed by the `opener` field.
 
-OpenCase accuses an address, and freezes it while the validators decide.
+MsgOpenCase opens a case against an address and freezes it immediately.
+
+One signature is enough to open one, which is the point: a scam is drained in minutes and a vote takes hours, so the freeze cannot wait for the vote. What stops that being an arbitrary power is that the freeze expires by itself, the case is public from the first block, and taking anything needs the supermajority.
+
+Accusation and decision are separate offices, and this message is only the first of them. Two kinds of account may accuse:
+
+- a bonded validator, exactly as before. This message has never narrowed what a validator may do and does not now.
+- a holder of ROLE_ENFORCEMENT_AUTHORITY covering the target's country — a national enforcement office, which is an x/group account of two or more people. Before this existed the role could be granted and no message let it be used, so a country's enforcement authority held a grant that did nothing.
+
+Either way the perimeter check runs against the target's recorded country, so widening who may accuse does not widen where anybody may accuse. And either way the DECISION is unchanged: two thirds of bonded voting power, cast by validators, on MsgVoteCase. The opener's own vote is not assumed from opening — an office that is not a validator has no vote at all, so a national authority can stop money for a day and cannot decide anything.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -76,7 +105,9 @@ OpenCase accuses an address, and freezes it while the validators decide.
 
 Signed by the `authority` field.
 
-ReverseCase is governance overturning a passed case: the appeal. It lifts the freeze and records the reversal, and it is deliberately a slower instrument than the one that imposed the freeze, because it is the one used when the chain got it wrong.
+MsgReverseCase overturns a passed case. Governance only.
+
+It lifts the freeze and records the reversal, and it is deliberately a slower instrument than the one that imposed the freeze, because it is the one used when the chain got it wrong.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -90,7 +121,9 @@ ReverseCase is governance overturning a passed case: the appeal. It lifts the fr
 
 Signed by the `sender` field.
 
-Sweep collects whatever a passed seizure can now reach. Permissionless and repeatable: funds that were staked arrive later, when unbonding matures, and somebody has to be able to collect them without another vote.
+MsgSweep collects what a passed seizure can reach right now.
+
+Permissionless and repeatable: funds that were staked arrive later, when unbonding matures, and somebody has to be able to collect them without another vote.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -116,7 +149,7 @@ UpdateParams defines a (governance) operation for updating the module parameters
 
 Signed by the `voter` field.
 
-VoteCase records one validator's judgement.
+MsgVoteCase records a validator's judgement on an open case.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -129,6 +162,10 @@ VoteCase records one validator's judgement.
 `/blockchain.enforcement.v1.MsgWithdrawCase`
 
 Signed by the `opener` field.
+
+MsgWithdrawCase withdraws an open case. Only whoever opened it may.
+
+It deliberately asks for nothing but identity. Whoever opened the case may take it back even if the grant that let them open it has since been revoked, or the validator has since unbonded: withdrawing lifts a freeze, and a rule that made de-escalation conditional on still holding a power would leave somebody's account frozen because the office that was wrong about them lost its authority afterwards.
 
 WithdrawCase takes back a case before the vote ends, lifting its freeze.
 

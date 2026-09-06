@@ -16,7 +16,7 @@ ISO 20022-shaped credit transfers between institutions that governance has appro
 
 Signed by the `creator` field.
 
-ApplyParticipant defines the ApplyParticipant RPC.
+MsgApplyParticipant defines the MsgApplyParticipant message.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -44,6 +44,10 @@ ApproveParticipant defines the ApproveParticipant RPC. It is authority-gated (th
 
 Signed by the `customer` field.
 
+MsgConfirmParticipant is the account's own word on who banks it.
+
+Signed by the customer, which is the point: without it a participant's claim was the whole of the record, and the account it named had no say and no way out. Confirming turns a claim into a relationship a payment can rely on; refusing removes it and frees the account to bank elsewhere.
+
 ConfirmParticipant is the account answering a claim made about it. The only message in this module signed by somebody other than a participant.
 
 | Field | Type | Description |
@@ -58,7 +62,9 @@ ConfirmParticipant is the account answering a claim made about it. The only mess
 
 Signed by the `participant` field.
 
-RegisterCustomer records that an account banks with the signing participant, which is what entitles a payment from that account to name the participant as its instructing agent.
+MsgRegisterCustomer records or removes the relationship between an approved participant and an account it acts for.
+
+Without it, naming a participant on a payment was an unverified claim: any account could file an instruction attributing it to two institutions that had never seen it, and those institutions would find payments they never processed recorded against their name in the ledger their customers reconcile against. Nothing was stealable — the transfer always came from the signer's own balance — but the statement record, which is what this module exists to produce, could not be trusted to say who handled a payment.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -72,7 +78,11 @@ RegisterCustomer records that an account banks with the signing participant, whi
 
 Signed by the `debtor` field.
 
-SendPayment defines the SendPayment RPC.
+MsgSendPayment defines the MsgSendPayment message.
+
+Fields 10 through 13 carry the confidentiality design. They are added now, while the chain holds no real balances, because a field number is the one thing in a protobuf schema that can never be taken back: once a deployment has encoded payments with a given numbering, changing it makes every historical message decode as something it is not, and there is no migration that repairs a record whose bytes have been reinterpreted. Reserving costs a few unset fields today and is unbuyable later.
+
+10-13 specifically because protobuf encodes the tag for field numbers 1-15 in a single byte and needs two from 16 up. This is the highest-volume message on the chain, so the four fields that will be present on every payment take the last of the cheap slots; 14 and 15 are what remain.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -96,7 +106,11 @@ SendPayment defines the SendPayment RPC.
 
 Signed by the `participant` field.
 
-SetPayloadStore records where an approved participant serves the encrypted payloads of the payments it instructed.
+MsgSetPayloadStore records where a participant serves encrypted payment payloads.
+
+Signed by the participant itself, and by nobody else. Whoever can rewrite this field decides which host the payee's client asks for the detail of a payment — so a third party able to set it could point every retrieval at a server it controls and collect the requests, learning which payments are being read and by whom even though it can decrypt none of them. Governance approves participants; participants operate their own infrastructure.
+
+Setting it to the empty string withdraws the store. That is a supported act rather than an error: a participant winding down its service should be able to say so, and a client that then reports the detail as unavailable is telling the truth, where one that kept calling a dead host would report a network fault.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -286,7 +300,8 @@ It is never sent to the chain and never stored by it — the chain holds only th
 
 The construction is the standard multi-recipient KEM/DEM composition — the one age uses, and the one RFC 9180 formalises as DHKEM(X25519, HKDF-SHA256) with ChaCha20-Poly1305:
 
-1. a fresh 32-byte content key encrypts the padded payload once, under ChaCha20-Poly1305; 2. for each recipient, a fresh ephemeral X25519 key agrees a shared secret with that recipient's registered viewing key, HKDF-SHA256 turns it into a wrapping key, and the content key is sealed under it.
+1. a fresh 32-byte content key encrypts the padded payload once, under ChaCha20-Poly1305;
+2. for each recipient, a fresh ephemeral X25519 key agrees a shared secret with that recipient's registered viewing key, HKDF-SHA256 turns it into a wrapping key, and the content key is sealed under it.
 
 Nothing here is novel, and that is the point. The payload is the ISO 20022 detail of somebody's payment; it is not the place to find out whether a new scheme holds.
 

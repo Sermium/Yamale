@@ -14,6 +14,8 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 Signed by the `creator` field.
 
+MsgApplyAppraiser records a pending application to become a valuer. Anyone may apply; only governance can approve.
+
 ApplyAppraiser asks to be admitted as an independent valuer.
 
 | Field | Type | Description |
@@ -28,6 +30,8 @@ ApplyAppraiser asks to be admitted as an independent valuer.
 `/blockchain.oracle.v1.MsgApproveAppraiser`
 
 Signed by the `authority` field.
+
+MsgApproveAppraiser is executed by the governance module account once a proposal to admit or refuse a valuer has passed.
 
 ApproveAppraiser records governance's decision on an application.
 
@@ -44,6 +48,8 @@ ApproveAppraiser records governance's decision on an application.
 
 Signed by the `operator` field.
 
+MsgDelegateFeeder nominates the account allowed to vote for a validator.
+
 DelegateFeeder nominates a hot key to submit a validator's votes.
 
 | Field | Type | Description |
@@ -58,7 +64,9 @@ DelegateFeeder nominates a hot key to submit a validator's votes.
 
 Signed by the `authority` field.
 
-RevokeAppraiser withdraws an approved valuer's authority.
+MsgRevokeAppraiser withdraws a valuer's authority.
+
+Existing appraisals are left in place: they were validly signed at the time, and deleting them would rewrite the record rather than correct it. What revocation stops is new ones.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -72,7 +80,7 @@ RevokeAppraiser withdraws an approved valuer's authority.
 
 Signed by the `appraiser` field.
 
-SubmitAppraisal records a signed valuation of a tokenised asset.
+MsgSubmitAppraisal records a signed valuation of one tokenised asset.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -92,7 +100,9 @@ SubmitAppraisal records a signed valuation of a tokenised asset.
 
 Signed by the `feeder` field.
 
-SubmitExchangeRates reports one validator's observed prices for the current voting round.
+MsgSubmitExchangeRates reports prices for the current voting round.
+
+Signed by the feeder, which is either the validator's own account or the hot key it delegated to. Submitting twice in one round replaces the earlier report rather than counting twice.
 
 | Field | Type | Description |
 | --- | --- | --- |

@@ -42,8 +42,16 @@ service Msg {
 
   // --- conditional locks (escrow) ----------------------------------------
   rpc OpenEscrow(MsgOpenEscrow) returns (MsgOpenEscrowResponse);
+  // ReleaseEscrow pays the beneficiary. Only the depositor may, and only while
+  // no dispute is open — a buyer must not be able to defuse a seller's
+  // complaint by paying.
   rpc ReleaseEscrow(MsgReleaseEscrow) returns (MsgReleaseEscrowResponse);
+  // DisputeEscrow freezes the lock and refers it to its named moderator. Either
+  // party may, which is what removes the need for a deadline.
   rpc DisputeEscrow(MsgDisputeEscrow) returns (MsgDisputeEscrowResponse);
+  // ResolveEscrow is the moderator deciding an open case, and governance
+  // deciding one whose moderator has gone. Their only power, and only on a case
+  // somebody opened.
   rpc ResolveEscrow(MsgResolveEscrow) returns (MsgResolveEscrowResponse);
 
   // AssignRole grants an address a role over a treasury.
@@ -284,6 +292,8 @@ message MsgOpenEscrow {
   bytes amount_range_proof = 7;
   bytes metadata_hash = 8;
 }
+// MsgOpenEscrowResponse carries the lock id, which every later message about
+// this escrow addresses it by.
 message MsgOpenEscrowResponse {
   uint64 lock_id = 1;
 }
@@ -299,6 +309,8 @@ message MsgReleaseEscrow {
   string depositor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   uint64 lock_id = 2;
 }
+// MsgReleaseEscrowResponse is empty: the outcome is the payment, and the
+// amount was fixed when the escrow was opened.
 message MsgReleaseEscrowResponse {}
 
 // MsgDisputeEscrow freezes a lock and refers it to the named moderator.
@@ -314,6 +326,8 @@ message MsgDisputeEscrow {
   uint64 lock_id = 2;
   string reason = 3;
 }
+// MsgDisputeEscrowResponse is empty. The effect is the freeze, which the
+// lock query reports.
 message MsgDisputeEscrowResponse {}
 
 // MsgResolveEscrow is the moderator deciding an open case.
@@ -331,4 +345,6 @@ message MsgResolveEscrow {
   // whole mechanism exists to prevent.
   bool pay_beneficiary = 3;
 }
+// MsgResolveEscrowResponse is empty: which way it went is in the message
+// that decided it, and the balances say the rest.
 message MsgResolveEscrowResponse {}

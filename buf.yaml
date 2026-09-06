@@ -19,6 +19,22 @@ lint:
         - RPC_REQUEST_STANDARD_NAME
         - RPC_RESPONSE_STANDARD_NAME
         - SERVICE_SUFFIX
+        # The two enum-naming rules are excepted because satisfying them is a
+        # breaking change, not a tidy-up. ENUM_VALUE_PREFIX wants VERIFY_VALUER
+        # renamed to VERIFICATION_MODE_VERIFY_VALUER and the PAYLOAD_READER
+        # values re-prefixed; ENUM_ZERO_VALUE_SUFFIX wants DISPUTE_STATE_NONE
+        # renamed to DISPUTE_STATE_UNSPECIFIED. Enum value names are the JSON
+        # representation and appear in stored genesis, in every client that
+        # reads a status, and in the reference documentation this chain
+        # publishes — so a rename is an API break against a running network to
+        # satisfy a naming convention, which is the wrong trade.
+        #
+        # Excepted rather than ignored per-file so that a NEW enum added later
+        # is not silently held to a lower standard: the convention still applies
+        # to anything written from here, it is simply not worth breaking the
+        # live API to backfill.
+        - ENUM_VALUE_PREFIX
+        - ENUM_ZERO_VALUE_SUFFIX
     ignore:
         - proto/tendermint
     use:

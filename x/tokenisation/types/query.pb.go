@@ -31,6 +31,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// QueryParamsRequest is the request type for the Params RPC.
 type QueryParamsRequest struct {
 }
 
@@ -67,6 +68,7 @@ func (m *QueryParamsRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_QueryParamsRequest proto.InternalMessageInfo
 
+// QueryParamsResponse carries the module parameters.
 type QueryParamsResponse struct {
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
 }
@@ -111,6 +113,7 @@ func (m *QueryParamsResponse) GetParams() Params {
 	return Params{}
 }
 
+// QueryCollectionsRequest pages through the collections.
 type QueryCollectionsRequest struct {
 	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
@@ -155,6 +158,7 @@ func (m *QueryCollectionsRequest) GetPagination() *query.PageRequest {
 	return nil
 }
 
+// QueryCollectionsResponse carries a page of collections.
 type QueryCollectionsResponse struct {
 	Collections []Collection        `protobuf:"bytes,1,rep,name=collections,proto3" json:"collections"`
 	Pagination  *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -207,6 +211,8 @@ func (m *QueryCollectionsResponse) GetPagination() *query.PageResponse {
 	return nil
 }
 
+// QueryAssetsRequest pages through vehicles, narrowed to one collection
+// when collection_id is set and across all of them when it is not.
 type QueryAssetsRequest struct {
 	CollectionId string             `protobuf:"bytes,1,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
 	Pagination   *query.PageRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -259,6 +265,7 @@ func (m *QueryAssetsRequest) GetPagination() *query.PageRequest {
 	return nil
 }
 
+// QueryAssetsResponse carries a page of vehicles.
 type QueryAssetsResponse struct {
 	Assets     []Asset             `protobuf:"bytes,1,rep,name=assets,proto3" json:"assets"`
 	Pagination *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -311,6 +318,7 @@ func (m *QueryAssetsResponse) GetPagination() *query.PageResponse {
 	return nil
 }
 
+// QueryAssetRequest names one vehicle by its chain id.
 type QueryAssetRequest struct {
 	AssetId uint64 `protobuf:"varint,1,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 }
@@ -355,6 +363,9 @@ func (m *QueryAssetRequest) GetAssetId() uint64 {
 	return 0
 }
 
+// QueryAssetResponse carries the vehicle, its vault and its sale report if
+// one has been made. The sale is absent rather than empty when none has,
+// so "not sold" and "sold for nothing" cannot be confused.
 type QueryAssetResponse struct {
 	Asset Asset       `protobuf:"bytes,1,opt,name=asset,proto3" json:"asset"`
 	Vault Vault       `protobuf:"bytes,2,opt,name=vault,proto3" json:"vault"`
@@ -415,6 +426,7 @@ func (m *QueryAssetResponse) GetSale() *SaleReport {
 	return nil
 }
 
+// QueryEntitlementRequest names a holder and the vehicle they hold.
 type QueryEntitlementRequest struct {
 	AssetId uint64 `protobuf:"varint,1,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 	Holder  string `protobuf:"bytes,2,opt,name=holder,proto3" json:"holder,omitempty"`
@@ -467,6 +479,8 @@ func (m *QueryEntitlementRequest) GetHolder() string {
 	return ""
 }
 
+// QueryEntitlementResponse is what the holder could withdraw right now,
+// settled income included — not the balance of their last settlement.
 type QueryEntitlementResponse struct {
 	Owed types.Coin `protobuf:"bytes,1,opt,name=owed,proto3" json:"owed"`
 }
@@ -590,9 +604,16 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type QueryClient interface {
+	// Params returns the module parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// Collections lists the registries vehicles are minted into. A collection is
+	// who may mint, how a sale is verified, and how long a reported price sits
+	// before it can be acted on.
 	Collections(ctx context.Context, in *QueryCollectionsRequest, opts ...grpc.CallOption) (*QueryCollectionsResponse, error)
+	// Assets lists the vehicles in a collection, or across all of them.
 	Assets(ctx context.Context, in *QueryAssetsRequest, opts ...grpc.CallOption) (*QueryAssetsResponse, error)
+	// Asset returns one vehicle with its vault and any reported sale, which is
+	// everything a holder needs to decide whether to redeem.
 	Asset(ctx context.Context, in *QueryAssetRequest, opts ...grpc.CallOption) (*QueryAssetResponse, error)
 	// What an account is owed right now, including income that has accrued since
 	// its balance last moved.
@@ -654,9 +675,16 @@ func (c *queryClient) Entitlement(ctx context.Context, in *QueryEntitlementReque
 
 // QueryServer is the server API for Query service.
 type QueryServer interface {
+	// Params returns the module parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// Collections lists the registries vehicles are minted into. A collection is
+	// who may mint, how a sale is verified, and how long a reported price sits
+	// before it can be acted on.
 	Collections(context.Context, *QueryCollectionsRequest) (*QueryCollectionsResponse, error)
+	// Assets lists the vehicles in a collection, or across all of them.
 	Assets(context.Context, *QueryAssetsRequest) (*QueryAssetsResponse, error)
+	// Asset returns one vehicle with its vault and any reported sale, which is
+	// everything a holder needs to decide whether to redeem.
 	Asset(context.Context, *QueryAssetRequest) (*QueryAssetResponse, error)
 	// What an account is owed right now, including income that has accrued since
 	// its balance last moved.

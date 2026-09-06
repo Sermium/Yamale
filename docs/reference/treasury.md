@@ -16,6 +16,8 @@ Programmable custody: shared funds with roles, spending policies, time locks and
 
 Signed by the `admin` field.
 
+MsgAssignRole defines the MsgAssignRole message.
+
 AssignRole grants an address a role over a treasury.
 
 | Field | Type | Description |
@@ -31,7 +33,7 @@ AssignRole grants an address a role over a treasury.
 
 Signed by the `beneficiary` field.
 
-ClaimLock releases whatever has vested to the beneficiary.
+MsgClaimLock defines the MsgClaimLock message. Only the beneficiary may claim, and only what has actually vested.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -43,6 +45,8 @@ ClaimLock releases whatever has vested to the beneficiary.
 `/blockchain.treasury.v1.MsgCreateLock`
 
 Signed by the `admin` field.
+
+MsgCreateLock defines the MsgCreateLock message.
 
 CreateLock commits treasury funds to a beneficiary on a schedule.
 
@@ -66,6 +70,8 @@ CreateLock commits treasury funds to a beneficiary on a schedule.
 
 Signed by the `creator` field.
 
+MsgCreateTreasury defines the MsgCreateTreasury message.
+
 CreateTreasury opens a new treasury.
 
 | Field | Type | Description |
@@ -80,7 +86,7 @@ CreateTreasury opens a new treasury.
 
 Signed by the `depositor` field.
 
-Deposit moves funds from an account into a treasury.
+MsgDeposit defines the MsgDeposit message. Depositing is permissionless: anyone may fund a treasury, the same way anyone may pay an invoice.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -110,7 +116,9 @@ Either party may send it. That symmetry is what removes the need for a deadline:
 
 Signed by the `depositor` field.
 
---- conditional locks (escrow) ----------------------------------------
+MsgOpenEscrow funds a conditional lock from the depositor's own account.
+
+Unlike every other lock, this does not come out of a treasury's balance — the money is the buyer's and moves straight into the module account, where neither party nor the platform can reach it. That is the point: the chain is the custodian, and no interface can make that untrue in either direction.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -132,6 +140,8 @@ Signed by the `depositor` field.
 MsgReleaseEscrow pays the beneficiary. Only the depositor may send it.
 
 The buyer confirming is the whole condition. Nobody else can confirm on their behalf — not the seller, not the moderator, not the treasury admin.
+
+Only the depositor may, and only while no dispute is open — a buyer must not be able to defuse a seller's complaint by paying.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -160,6 +170,8 @@ Their only power, and only on a lock somebody actually disputed. A moderator who
 
 Signed by the `admin` field.
 
+MsgRevokeLock defines the MsgRevokeLock message.
+
 RevokeLock cancels a revocable lock, returning the unreleased portion.
 
 | Field | Type | Description |
@@ -172,6 +184,8 @@ RevokeLock cancels a revocable lock, returning the unreleased portion.
 `/blockchain.treasury.v1.MsgRevokeRole`
 
 Signed by the `admin` field.
+
+MsgRevokeRole defines the MsgRevokeRole message.
 
 RevokeRole removes an address's role.
 
@@ -187,6 +201,8 @@ RevokeRole removes an address's role.
 
 Signed by the `admin` field.
 
+MsgSetAdmin defines the MsgSetAdmin message.
+
 SetAdmin transfers administrative control of a treasury.
 
 | Field | Type | Description |
@@ -200,6 +216,8 @@ SetAdmin transfers administrative control of a treasury.
 `/blockchain.treasury.v1.MsgSetPaused`
 
 Signed by the `sender` field.
+
+MsgSetPaused defines the MsgSetPaused message. The signer must be the admin or hold ROLE_PAUSER.
 
 SetPaused freezes or unfreezes a treasury.
 
@@ -215,6 +233,8 @@ SetPaused freezes or unfreezes a treasury.
 
 Signed by the `admin` field.
 
+MsgSetSpendPolicy defines the MsgSetSpendPolicy message.
+
 SetSpendPolicy sets the spending constraints for one denom.
 
 | Field | Type | Description |
@@ -227,6 +247,8 @@ SetSpendPolicy sets the spending constraints for one denom.
 `/blockchain.treasury.v1.MsgSpend`
 
 Signed by the `spender` field.
+
+MsgSpend defines the MsgSpend message. The signer must be the treasury admin or hold ROLE_SPENDER, and the spend must fit within the denom's SpendPolicy and the treasury's available balance.
 
 Spend moves funds out of a treasury to a recipient.
 
@@ -594,9 +616,9 @@ DisputeState tracks a conditional lock that somebody has escalated.
 
 | Value | Meaning |
 | --- | --- |
-| `DISPUTE_STATE_NONE` |  |
+| `DISPUTE_STATE_NONE` | Quiet. Nobody has escalated, and the lock behaves as an ordinary conditional one: the depositor may release it and nobody else may touch it. |
 | `DISPUTE_STATE_OPEN` | Frozen. Neither release nor refund happens until the moderator decides. |
-| `DISPUTE_STATE_RESOLVED` |  |
+| `DISPUTE_STATE_RESOLVED` | Decided. The moderator has settled it and the funds have moved; the state is kept rather than cleared so that a settled case stays on the record. |
 
 ### LockType
 

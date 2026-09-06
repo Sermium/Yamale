@@ -25,6 +25,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"regexp"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -288,7 +289,19 @@ func collectModules(set *descriptorpb.FileDescriptorSet) map[string]*Module {
 						Name:    method.GetInputType()[strings.LastIndex(method.GetInputType(), ".")+1:],
 						TypeURL: "/" + in,
 						Signer:  signerOf(byFullName[in]),
-						Doc:     firstNonEmpty(doc, docsByFullName[in]),
+						// BOTH comments, not whichever one wins.
+						//
+						// A message is documented twice — once on the rpc that
+						// carries it and once on the message itself — and the
+						// two say different things: the rpc line is the
+						// summary somebody scanning the service wants, the
+						// message comment is the reasoning. This took the rpc
+						// line and dropped the message, which is how the
+						// reference came to publish one-line summaries in
+						// place of the paragraphs behind them; reversing it
+						// merely moved the loss, deleting a hundred and
+						// thirty-eight sentences of rpc comment instead.
+						Doc:     mergeDocs(doc, docsByFullName[in]),
 						Fields:  fieldsByFullName[in],
 					})
 				case "Query":
@@ -430,8 +443,16 @@ func pathKey(parts ...any) string {
 	return strings.Join(segments, ".")
 }
 
-// cleanComment turns a proto comment block into a paragraph, preserving blank
+// cleanComment turns a proto comment block into Markdown, preserving blank
 // lines so multi-paragraph explanations survive.
+//
+// Prose wrapped at eighty columns is rejoined, because a line break an author
+// put there to fit the file is not a line break they meant. Markdown's
+// line-structured constructs are not rejoined: a bullet, a numbered item, a
+// heading, a table row and a quote each keep the line they were written on.
+// Joining those onto the sentence above them is what turned three numbered
+// consequences into one run-on paragraph in the published reference, where it
+// read as though whoever wrote it could not punctuate.
 func cleanComment(text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
@@ -439,21 +460,54 @@ func cleanComment(text string) string {
 	}
 
 	var paragraphs []string
-	var current []string
+	var runs []string
+	flush := func() {
+		if len(runs) > 0 {
+			paragraphs = append(paragraphs, strings.Join(runs, "\n"))
+			runs = nil
+		}
+	}
 	for _, line := range lines {
 		if line == "" {
-			if len(current) > 0 {
-				paragraphs = append(paragraphs, strings.Join(current, " "))
-				current = nil
-			}
+			flush()
 			continue
 		}
-		current = append(current, line)
+		if len(runs) == 0 || startsBlock(line) {
+			runs = append(runs, demoteHeading(line))
+			continue
+		}
+		runs[len(runs)-1] += " " + line
 	}
-	if len(current) > 0 {
-		paragraphs = append(paragraphs, strings.Join(current, " "))
-	}
+	flush()
 	return strings.Join(paragraphs, "\n\n")
+}
+
+// startsBlock reports whether a line opens a Markdown construct that owns the
+// line it was written on rather than continuing the sentence above it.
+func startsBlock(line string) bool {
+	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "#") ||
+		strings.HasPrefix(line, "|") || strings.HasPrefix(line, "> ") {
+		return true
+	}
+	digits := 0
+	for digits < len(line) && line[digits] >= '0' && line[digits] <= '9' {
+		digits++
+	}
+	return digits > 0 && strings.HasPrefix(line[digits:], ". ")
+}
+
+// demoteHeading pushes a heading written inside a comment below the "###" that
+// the message, query or type carrying it is printed under, so a section marker
+// in a .proto file cannot outrank the page it is printed on.
+func demoteHeading(line string) string {
+	level := 0
+	for level < len(line) && line[level] == '#' {
+		level++
+	}
+	if level == 0 || level >= 4 || level >= len(line) || line[level] != ' ' {
+		return line
+	}
+	return "####" + line[level:]
 }
 
 func moduleName(pkg string) string {
@@ -574,6 +628,181 @@ func protoNameOf(field reflect.StructField) string {
 		}
 	}
 	return strings.ToLower(field.Name)
+}
+
+// mergeDocs publishes what is written on an rpc together with what is written
+// on the message it carries. Both are written by hand, and a generator that
+// silently discards one of them is a generator that loses documentation
+// somebody took the trouble to write — which is what this did, in both
+// directions, before it was written this way.
+//
+// The message comment leads, because it is what the heading names and it opens
+// by naming itself. What the rpc line adds follows it as a closing note. What
+// the rpc line merely restates is dropped, and an rpc comment that is a second
+// telling of the whole message comment is dropped entirely rather than trimmed
+// down to the sentences that happen not to match, which reads as prose that
+// begins in the middle of an argument.
+func mergeDocs(rpcDoc, msgDoc string) string {
+	rpc, msg := strings.TrimSpace(rpcDoc), strings.TrimSpace(msgDoc)
+	if allScaffolding(rpc) {
+		rpc = ""
+	}
+	if allScaffolding(msg) {
+		msg = ""
+	}
+	if rpc == "" || msg == "" {
+		return firstNonEmpty(msg, rpc)
+	}
+	adds, restated, total := whatItAdds(rpc, msg)
+	if adds == "" {
+		return msg
+	}
+	// A second telling of the whole message comment is dropped rather than
+	// trimmed to the sentences that happen not to match. Only a comment long
+	// enough to be a second telling qualifies: at two sentences, one of them
+	// restating the message is an opening summary followed by the one fact the
+	// rpc line was written to add, and dropping both loses that fact.
+	if total >= 4 && restated*2 > total {
+		return msg
+	}
+	return msg + "\n\n" + adds
+}
+
+// allScaffolding reports whether a comment says nothing beyond what the
+// generator that created the module wrote for it.
+//
+// Only a comment that is entirely scaffolding is disqualified. Cutting the
+// scaffolding sentence out of one that also says something real would mean
+// rebuilding the comment from its sentences, which flattens the paragraphs
+// somebody wrote, and where that sentence came first it leaves the remainder
+// opening on an "It" with nothing to refer to.
+func allScaffolding(doc string) bool {
+	sentences := splitSentences(doc)
+	if len(sentences) == 0 {
+		return doc == ""
+	}
+	for _, sentence := range sentences {
+		if !scaffolding.MatchString(sentence) {
+			return false
+		}
+	}
+	return true
+}
+
+// whatItAdds returns the run of the rpc comment from its first sentence the
+// message comment does not already make, together with how much of it was
+// restatement. Sentences are dropped off the front and never out of the middle,
+// so that what survives still reads as something somebody wrote.
+//
+// A sentence counts as already made when most of the words carrying its meaning
+// appear in the message comment; the wording is rarely identical, since one
+// fact written twice by one hand is written two ways.
+func whatItAdds(rpc, msg string) (adds string, restated, total int) {
+	have := map[string]bool{}
+	for _, w := range contentWords(msg) {
+		have[w] = true
+	}
+	sentences := splitSentences(rpc)
+	first := -1
+	for i, sentence := range sentences {
+		words := contentWords(sentence)
+		if len(words) == 0 || scaffolding.MatchString(sentence) {
+			restated++
+			total++
+			continue
+		}
+		total++
+		known := 0
+		for _, w := range words {
+			if have[w] {
+				known++
+			}
+		}
+		if known*10 >= len(words)*6 {
+			restated++
+			continue
+		}
+		if first < 0 {
+			first = i
+		}
+	}
+	if first < 0 {
+		return "", restated, total
+	}
+	var b strings.Builder
+	for _, sentence := range sentences[first:] {
+		if b.Len() > 0 {
+			if startsBlock(sentence) {
+				b.WriteString("\n")
+			} else {
+				b.WriteString(" ")
+			}
+		}
+		b.WriteString(sentence)
+	}
+	return b.String(), restated, total
+}
+
+// scaffolding matches a sentence written by the generator that created a
+// module rather than by anybody explaining it — "CreatePool defines the
+// CreatePool RPC.", "MsgApproveBuilder is the Msg/ApproveBuilder request
+// type." — which states nothing the heading above it does not. It appears
+// on messages as readily as on rpcs, and a scaffolded message comment that
+// displaces a written rpc comment is a straight loss.
+var scaffolding = regexp.MustCompile(
+	`^\w+ (defines the \w+ (RPC|rpc)|is the (Msg|Query)/\w+ (request|response) type)\.?$`)
+
+// splitSentences breaks a comment on sentence ends, leaving anything Markdown
+// structures a line around — a bullet, a heading, a table row — whole.
+func splitSentences(s string) []string {
+	var out []string
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if startsBlock(line) {
+			out = append(out, line)
+			continue
+		}
+		start := 0
+		for i := 0; i < len(line)-1; i++ {
+			if (line[i] == '.' || line[i] == '?' || line[i] == '!') && line[i+1] == ' ' {
+				out = append(out, strings.TrimSpace(line[start:i+1]))
+				start = i + 1
+			}
+		}
+		if rest := strings.TrimSpace(line[start:]); rest != "" {
+			out = append(out, rest)
+		}
+	}
+	return out
+}
+
+// contentWords reduces a sentence to the lowercase words that carry its
+// meaning, so that two phrasings of one fact compare as the same fact.
+func contentWords(s string) []string {
+	var out []string
+	for _, field := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+	}) {
+		field = strings.TrimPrefix(field, "msg")
+		if len(field) < 3 || stopWords[field] {
+			continue
+		}
+		out = append(out, strings.TrimSuffix(strings.TrimSuffix(field, "es"), "s"))
+	}
+	return out
+}
+
+var stopWords = map[string]bool{
+	"the": true, "and": true, "that": true, "for": true, "with": true,
+	"this": true, "which": true, "not": true, "but": true, "its": true,
+	"has": true, "are": true, "was": true, "one": true, "any": true,
+	"can": true, "may": true, "who": true, "what": true, "when": true,
+	"they": true, "them": true, "their": true, "than": true, "then": true,
+	"from": true, "into": true, "only": true, "have": true, "been": true,
+	"does": true, "defines": true, "define": true, "operation": true,
 }
 
 func firstNonEmpty(values ...string) string {
