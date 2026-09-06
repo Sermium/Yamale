@@ -530,6 +530,74 @@ The reference is now **276 lines longer** than before the lint cleanup
 began — not because anything was written for it, but because it had never been
 printing what was already there.
 
+### The gate and the headers are actually on the hosts now, 2026-09-06
+
+Both had been written, committed and copied to both hosts for a day, and
+neither was doing anything. A snippet nobody includes is a file on a disk, and
+a binary nobody installed is a directory in the repository. Three things had to
+be wrong at once for that to be invisible, and all three were.
+
+**The RPC method gate is live on both hosts.** `tools/rpcgate` is built for
+each architecture, installed at `/opt/yamale/bin/rpcgate`, running under
+systemd on `127.0.0.1:26659`, and `/api/rpc/` on both hosts now points at it
+instead of at the node. The path deny-list it replaces has been removed rather
+than left beside it: a rule that never blocked anything is worse than no rule,
+because it reads as the protection.
+
+Measured on the public funnel, before and after:
+
+| POST method | before | after |
+|---|---|---|
+| `net_info` | full peer map | refused |
+| `dump_consensus_state` | answered | refused |
+| `consensus_state` | answered | refused |
+| `unconfirmed_txs` | answered | refused |
+| `broadcast_tx_commit` | answered | refused |
+
+All twelve methods the consoles actually call — `abci_info`, `abci_query`,
+`block`, `blockchain`, `broadcast_tx_async`, `broadcast_tx_sync`, `commit`,
+`health`, `status`, `tx`, `tx_search`, `validators` — still reach the node.
+Checked by distinguishing the gate's `-32601` from the node's own errors, since
+a method that fails for its own reasons looks identical to a blocked one if you
+only test for the absence of a result.
+
+**The committed systemd unit could not have started on either host.** It named
+`User=yamale`, and there is no `yamale` user on either machine; it depended on
+`yamale-node.service`, and the node here is `yamale-devnet.service`. The service
+account now comes from a per-host drop-in, which is what the faucet, feeder and
+custodian units already do — the two hosts run these under different logins and
+there is no shared account to name.
+
+**The security headers are live, and the obvious install would have been
+half-wrong.** `add_header` REPLACES rather than merges: a location that sets one
+header drops every header the server block set. The Pi includes
+`yamale-cache.conf`, which sets `Cache-Control` in an exact `location = /` and
+in two regexes covering every bundle and every `.html`. Including the headers at
+server level would therefore have covered `/keys/` and `/explorer/` and covered
+neither the home page nor a single script on the site — and `deploy.sh` probed
+`/keys/`, so it would have reported the install as done. The cache snippet now
+carries the headers into each of its three locations, and the check probes three
+URL shapes: a path with no location of its own, the exact-match location, and a
+hashed bundle.
+
+The VM had been serving these headers since 2026-09-05 and the Pi had not, from
+any block at all — which is the same trap as every other entry here, in that the
+host being checked was not the host the public reaches.
+
+**One aside, from getting it wrong once.** The first attempt backed each site
+file up as `<file>.before-headers` *inside* `sites-enabled/`. nginx includes
+`sites-enabled/*` with no extension filter, so the backup became a second live
+config and `nginx -t` failed on a duplicate default server — from a file whose
+entire purpose was to not be used. Backups now go to `/etc/nginx/yamale-backups/`.
+`nginx -t` caught it before any reload, which is the only reason this is an
+anecdote rather than an outage.
+
+**Still open, and unchanged by this:** `abci_query` reaches modules that are
+closed on REST, because the gate filters the method and not the query path
+inside it. That is a disclosure decision rather than a bug in the gate, and
+`deploy.sh` reports it on every run so that it changes deliberately instead of
+drifting.
+
 ### The offensive assessment, 2026-09-05
 
 A red-team follow-on to the audit approached the same target as an adversary —

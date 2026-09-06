@@ -12,14 +12,21 @@
 # because the thing behind it went away is not a gate.
 Description=Yamale RPC method gate
 Documentation=file:///opt/yamale/src/tools/rpcgate/gate.go
-After=network-online.target yamale-node.service
+After=network-online.target yamale-devnet.service
 Wants=network-online.target
-PartOf=yamale-node.service
+PartOf=yamale-devnet.service
 
 [Service]
 Type=simple
-User=yamale
-Group=yamale
+# The service account comes from a per-host drop-in, as the faucet, feeder and
+# custodian ones do: the two hosts run these under different logins (the Pi
+# under its own, the VM under ubuntu) and there is no shared yamale user on
+# either. A User= hard-coded here names an account that exists nowhere and the
+# unit fails to start on both hosts, which is what this line used to do.
+#
+#   /etc/systemd/system/yamale-rpcgate.service.d/user.conf
+#   [Service]
+#   User=<the account the node runs as on this host>
 ExecStart=/opt/yamale/bin/rpcgate --listen 127.0.0.1:26659 --upstream http://127.0.0.1:26657
 
 Restart=always

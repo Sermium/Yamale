@@ -206,12 +206,31 @@ check /api/rpc/net_info                                           403 "peer map 
 # included from the server block leaves every one of these absent, and the copy
 # above succeeds either way.
 echo "==> security headers"
-hdrs=$(curl -sI --max-time 30 "$PUBLIC/keys/" || true)
-for h in Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy Content-Security-Policy; do
-  if printf '%s' "$hdrs" | grep -qi "^$h:"; then
-    printf '    ok   %s\n' "$h"
+# Probed on three URL shapes, not one, because add_header REPLACES rather than
+# merges: any location that sets a header of its own drops everything the server
+# block set. yamale-cache.conf sets Cache-Control in an exact "/" location and in
+# two regexes covering every bundle and every .html, so those responses lose the
+# security headers unless that snippet carries them too. /keys/ matches none of
+# those locations — probing only /keys/, as this did, reports a site whose home
+# page and every script go out with no CSP as fully deployed.
+# The href carries the app prefix — /explorer/assets/..., not /assets/... — and
+# the bare form 404s, which reports as "no headers" and looks like the include
+# is missing rather than like the probe is wrong.
+hashed=$(curl -s --max-time 30 "$PUBLIC/explorer/" | grep -oE '"/[a-z]+/assets/index-[A-Za-z0-9_-]+\.js"' | tr -d '"' | head -1)
+for probe in "/keys/:a path with no location of its own" \
+             "/:the exact-match location" \
+             "${hashed:-/explorer/index.html}:a hashed bundle"; do
+  url=${probe%%:*}; what=${probe#*:}
+  hdrs=$(curl -sI --max-time 30 "$PUBLIC$url" || true)
+  missing=""
+  for h in Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy Content-Security-Policy; do
+    printf '%s' "$hdrs" | grep -qi "^$h:" || missing="$missing $h"
+  done
+  if [ -z "$missing" ]; then
+    printf '    ok   %-34s %s\n' "$url" "$what"
   else
-    printf '    !!   %s missing — is yamale-headers.conf included from the server block?\n' "$h"
+    printf '    !!   %-34s missing:%s\n' "$url" "$missing"
+    printf '         %s — is yamale-headers.conf included from the block serving it?\n' "$what"
   fi
 done
 
