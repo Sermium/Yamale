@@ -48,9 +48,24 @@ The proposal is written and checked in:
 [`proposals/12-concentration-ceilings.json`](proposals/12-concentration-ceilings.json).
 It carries all thirteen invariant fields and changes four.
 
+Run it on the VM. The repository is not checked out on that host, so the
+proposal has to be copied across first; the path below is where it now sits.
+
 ```bash
-blockchaind tx gov submit-proposal docs/scope/proposals/12-concentration-ceilings.json --from <your-key> --chain-id yamale-devnet-2 --node https://yamale.tail4355e8.ts.net/api/rpc --gas auto --gas-adjustment 1.4
+blockchaind tx gov submit-proposal /home/ubuntu/proposal-12.json --from foundation --keyring-backend test --home /opt/yamale/node --chain-id yamale-devnet-2 --node https://yamale.tail4355e8.ts.net/api/rpc --gas auto --gas-adjustment 1.4
 ```
+
+**The two keyring flags are not optional.** `--keyring-backend` defaults to `os`
+and `--home` to `~/.blockchain`, which on the VM is empty. Every key on that
+host is in `/opt/yamale/node`: the `test` backend holds most of them and `file`
+holds only `pi-operator`. Omitting the flags fails with `key with address ... not
+found`, which reads as "you do not have this key" when it means "I looked
+somewhere else".
+
+Any funded account may submit, and `foundation` holds 498,012 YML. The proposer
+is **not** a privileged role: it posts a 1 YML deposit that is returned, and
+confers no authority. The power is in the vote, which is weighted by staked
+tokens.
 
 Then, once it has an id (it will be 12), the vote is yours to cast:
 
@@ -152,9 +167,12 @@ blockchaind query bank balances yml1m9xhc... --node https://yamale.tail4355e8.ts
 blockchaind tx bank send yml1m9xhc... yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj <amount>uyml --from <pi-operator> --chain-id yamale-devnet-2 --node https://yamale.tail4355e8.ts.net/api/rpc --gas auto --gas-adjustment 1.4
 ```
 
-**Leave a working balance behind.** The operator account still has to sign — the
-declaration in §1, future rotations, its own commission withdrawals. An operator
-key with no funds is a validator that cannot be administered.
+**Leave a working balance behind** — though not for the reason it first appears.
+`minimum-gas-prices` is `"0uyml"` on this chain, so transactions cost nothing and
+an account with a zero balance can still sign: `pi-operator` holds nothing today
+and can still withdraw its own rewards. The reason to keep some anyway is that a
+zero gas price is a per-node setting rather than a chain rule, and any validator
+may raise its own tomorrow.
 
 **Check the destination accepts a send before you send 887 million to it.** A
 group *policy* account is an ordinary account and will; a module account would
