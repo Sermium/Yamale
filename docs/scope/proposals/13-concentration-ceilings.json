@@ -1,0 +1,28 @@
+{
+  "messages": [
+    {
+      "@type": "/blockchain.constitution.v1.MsgProposeAmendment",
+      "authority": "yml10d07y265gmmuvt4z0w9aw880jnsr700jz5s386",
+      "invariants": {
+        "max_entity_power_bps": "5000",
+        "max_beneficial_owner_power_bps": "5000",
+        "max_jurisdiction_power_bps": "5000",
+        "concentration_epoch_blocks": "120",
+        "min_active_validators": 2,
+        "enforcement_threshold_bps": "6667",
+        "enforcement_recovery_destination": "yml1afk9zr2hn2jsac63h4hm60vl9z3e5u69gndzf7c99cqge3vzwjzs3xm8uj",
+        "enforcement_voting_period_blocks": "360",
+        "enforcement_provisional_freeze_blocks": "720",
+        "amendment_delay_blocks": "120960",
+        "amendment_threshold_bps": "8000",
+        "foundation_custodian_count": 5,
+        "foundation_signature_threshold": 3
+      },
+      "reason": "Proposal 12 asked for 3300 bps alongside a floor of two active validators, and the chain refused it at execution: one validator out of two holds 5000 bps by arithmetic, so no set that small could ever satisfy a ceiling of 3300. This asks for 5000, which is the tightest ceiling a floor of two can hold, and raises min_active_validators from 1 to 2 so that enforcing it cannot leave this chain on a single validator."
+    }
+  ],
+  "metadata": "",
+  "deposit": "1000000uyml",
+  "title": "Constitution: concentration ceilings at half the chain, and a floor of two active validators",
+  "summary": "Replaces proposal 12, which passed its vote on 2026-09-07 and then failed at execution. Every field of the current settlement is carried across unchanged except four; MsgProposeAmendment takes the complete replacement set rather than a delta, so the nine values that are not changing are restated deliberately, an omitted field being a zero and several of these being divisors.\n\nWHAT CHANGES\n\n  max_entity_power_bps            10000 -> 5000\n  max_beneficial_owner_power_bps  10000 -> 5000\n  max_jurisdiction_power_bps      10000 -> 5000\n  min_active_validators               1 -> 2\n\nWHY 5000 AND NOT THE 3300 PROPOSAL 12 ASKED FOR\n\nInvariants.Validate() refuses a ceiling below one seat's worth of power, because at the validator floor every admitted validator is over it by arithmetic and a check that enforced it would try to demote the entire set. The floor is ceil(10000 / min_active_validators), so a floor of two admits no ceiling below 5000. Proposal 12 asked for 3300 and was rejected with exactly that reasoning.\n\nThe rule also explains why this chain launched with ceilings of 10000. At min_active_validators of 1 the floor is 10000, so no ceiling below 100% was expressible at all. Raising the floor is what makes any real ceiling possible, which is why these two changes have to travel together.\n\n33% remains the figure worth reaching, being the fraction above which a holder can stop the chain by stopping. It needs min_active_validators of at least 3, and a floor of three validators on a chain that runs two would be a floor this chain does not meet. So 5000 now, and 3334 when there are three validators to hold it.\n\nWHAT IT ACHIEVES TODAY, WHICH IS NOT ENFORCEMENT\n\nThis chain has two validators, pi at 57.18% and pi-2 at 42.82% of 174,900 YML bonded, and both are operated by the same party. Declared honestly they are one beneficial-owner group holding 100%, which is over a ceiling of 5000.\n\nThe end blocker corrects a breach by demoting members until the group is inside its ceiling, and stops when the active set would fall to min_active_validators, recording an EventConcentrationUncorrected instead. At the current floor of 1 it would jail one of the two and leave this chain running on a single validator with no fault tolerance. At a floor of 2 it demotes nobody and records the breach every epoch, in public.\n\nThat is the honest outcome for a two-validator chain under one owner: the concentration is real, it becomes visible and permanently recorded, and it is fixed by adding validators under different ownership rather than by removing the ones there are.\n\nWHAT THIS DOES NOT DO\n\nIt does not make the ceilings apply to anybody yet. activeSeatHolders needs an ApprovedValidator declaration and the live query returns an empty set, both validators having been onboarded through the gentx ceremony with the founding set never declared. Until pi and pi-2 apply and are approved they are counted in the total, belong to no group, and cannot be demoted, so no breach is reported. This amendment and that declaration are both required.\n\nAnd passing this vote only opens the amendment. It is enacted at EffectiveAtHeight, 120,960 blocks later, only if enough validator power has ratified it by then; otherwise it lapses. 80% is required and no single validator here reaches it, so both must ratify."
+}

@@ -104,10 +104,44 @@ after that, which at the ~6.6s this chain is producing is **about 9.2 days**.
 
 ### Then ratify it, or the nine days are wasted
 
-**Submitted and passed 2026-09-07.** Proposal 12 was submitted from `foundation`
-at height 228,440 and voted through by `alice` — 65,000 YML, 37.16%, against a
-33.4% quorum. A second vote from `yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas`
-carried no power, that key having no stake.
+**Proposal 12 passed its vote and then failed at execution.** Submitted from
+`foundation` at height 228,440 and carried by `alice` — 65,000 YML, 37.16%,
+against a 33.4% quorum, with a second vote from
+`yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas` that carried no power for want of
+stake. Then:
+
+    proposed invariants are not a settlement this chain can enforce:
+    max_entity_power_bps is 3300, but one validator out of
+    min_active_validators (2) already holds 5000 basis points, so no set this
+    small could ever satisfy it
+
+The ceilings I chose were arithmetically impossible and the chain was right to
+refuse them. `Invariants.Validate()` rejects any ceiling below one seat's worth
+of power — `ceil(10000 / min_active_validators)` — because at the floor every
+validator is over it by construction and enforcing it would try to demote the
+whole set:
+
+| `min_active_validators` | lowest ceiling expressible |
+|---:|---:|
+| 1 | 10000 — which is why the chain launched with no ceiling at all |
+| 2 | 5000 |
+| 3 | 3334 |
+| 4 | 2500 |
+
+Raising the floor is what makes any real ceiling possible. That is not a detail
+of the two changes travelling together — it is the reason they must.
+
+**Proposal 13 replaces it**, at 5000 bps with the same floor of two:
+[`proposals/13-concentration-ceilings.json`](proposals/13-concentration-ceilings.json).
+33% is still the figure worth reaching, being the fraction above which a holder
+can halt the chain by stopping, but it needs a floor of three — and a floor of
+three on a chain running two validators is a floor this chain does not meet. So
+5000 now and 3334 when there is a third validator to hold it.
+
+The arithmetic is pinned in `x/constitution/types/proposed_settlement_test.go`
+rather than discovered on the chain again: a governance vote runs for thirty
+minutes and an execution failure is only visible afterwards, so this is an
+expensive place to find out.
 
 Passing the vote only *opens* the amendment. `EffectiveAtHeight` is stamped when
 it opens — `height + AmendmentDelayBlocks` — and at that height the end blocker
