@@ -102,6 +102,85 @@ blockchaind tx gov vote 12 yes --from <your-key> --chain-id yamale-devnet-2 --no
 The voting period is 1,800s — 30 minutes. The amendment delay is 120,960 blocks
 after that, which at the ~6.6s this chain is producing is **about 9.2 days**.
 
+### Then ratify it, or the nine days are wasted
+
+**Submitted and passed 2026-09-07.** Proposal 12 was submitted from `foundation`
+at height 228,440 and voted through by `alice` — 65,000 YML, 37.16%, against a
+33.4% quorum. A second vote from `yml1vlukxvmeg6kjtu658sc7lvlu6uj7c4n4p0fmas`
+carried no power, that key having no stake.
+
+Passing the vote only *opens* the amendment. `EffectiveAtHeight` is stamped when
+it opens — `height + AmendmentDelayBlocks` — and at that height the end blocker
+does one of two things:
+
+```go
+if amendment.RatifiedPower < current.RequiredPower(amendment.SnapshotPower) {
+```
+
+Enough ratified power and it is enacted. Not enough and it **lapses**. It does
+not wait, and there is no extension. So the nine days are a window to ratify in,
+not a delay to sit out.
+
+**80% cannot be reached from one validator on this chain.** `pi` is 57.18% and
+`pi-2` is 42.82%, so both must ratify. The signer has to be the validator's own
+operator account — `bondedValidatorOf` reinterprets the signer's address bytes
+as the operator address — and both of those keys are in passphrase-protected
+`file` keyrings, on different hosts:
+
+| Key | Host | Home | Power |
+|---|---|---|---|
+| `pi-operator` | VM | `/opt/yamale/node` | 57.18% |
+| `pi2-operator` | Pi | `/opt/yamale/join-node` | 42.82% |
+
+The command takes **two** positional arguments — `[validator] [amendment-id]` —
+where `validator` is the operator's own account address, the same key that
+signs. It is not inferred from `--from`.
+
+```bash
+# on the VM, once the amendment id is known
+blockchaind tx constitution ratify-amendment yml1m9xhc6zy7fxfax9t5fnykh9k2e29faj7p4h3kh <id> --from pi-operator --keyring-backend file --home /opt/yamale/node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
+
+# on the Pi — note the different home; the second validator is join-node
+blockchaind tx constitution ratify-amendment <pi2-operator-account> <id> --from pi2-operator --keyring-backend file --home /opt/yamale/join-node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
+```
+
+Read each account address off its own keyring rather than copying it, since
+`pi2-operator`'s has not been printed anywhere here:
+
+```bash
+blockchaind keys show pi2-operator -a --keyring-backend file --home /opt/yamale/join-node
+```
+
+**There is no way to take a ratification back.** The command's own help says so:
+the protection an amendment carries is the delay and the threshold, not the
+ability to run the vote backwards. Read the amendment before signing it.
+
+Watch it approach the threshold rather than assuming:
+
+```bash
+blockchaind query constitution amendments --node http://127.0.0.1:26657 -o json
+```
+
+`EventAmendmentRatified` carries the running total and the required figure on
+each ratification, precisely so this can be watched instead of guessed.
+
+### One thing retiring `alice` will break, unless it is done in the right order
+
+`alice` is the only key on either host that holds **staked** tokens and sits in
+a keyring with no passphrase. That combination is exactly what the audit
+objected to, and it is also what made proposal 12 votable in a thirty-minute
+window. `foundation` holds 498,012 YML and none of it bonded, so its vote counts
+for nothing; `bob` likewise.
+
+So retiring `alice` by itself does not reduce the risk, it removes the ability to
+govern: quorum is 33.4% of bonded stake, and after `alice` the only remaining
+voting power is the two operator keys, both behind passphrases, one of which is
+the passphrase in §3.
+
+The order that works is: give the intended successor real stake **first**,
+confirm it can meet quorum on its own, and only then retire `alice`. Delegating
+to a validator is enough — voting power is bonded stake, not balance.
+
 ### What it sets, and the one thing that is not obvious
 
     max_entity_power_bps            10000 -> 3300
