@@ -138,18 +138,24 @@ signs. It is not inferred from `--from`.
 
 ```bash
 # on the VM, once the amendment id is known
-blockchaind tx constitution ratify-amendment yml1m9xhc6zy7fxfax9t5fnykh9k2e29faj7p4h3kh <id> --from pi-operator --keyring-backend file --home /opt/yamale/node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
+blockchaind tx constitution ratify-amendment yml1m9xhc6zy7fxfax9t5fnykh9k2e29faj7htmqms <id> --from pi-operator --keyring-backend file --home /opt/yamale/node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
 
 # on the Pi — note the different home; the second validator is join-node
 blockchaind tx constitution ratify-amendment <pi2-operator-account> <id> --from pi2-operator --keyring-backend file --home /opt/yamale/join-node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
 ```
 
-Read each account address off its own keyring rather than copying it, since
-`pi2-operator`'s has not been printed anywhere here:
+Both account addresses, converted from the operator addresses the staking module
+holds:
 
-```bash
-blockchaind keys show pi2-operator -a --keyring-backend file --home /opt/yamale/join-node
-```
+    pi    yml1m9xhc6zy7fxfax9t5fnykh9k2e29faj7htmqms
+    pi-2  yml1cgguvt0hvdg2602flzan9shg0g56rujev5see4
+
+**Do not derive one of these by swapping the prefix on a `ymlvaloper` address.**
+Bech32 checksums are computed over the prefix, so the account form of
+`ymlvaloper1m9xhc…p4h3kh` is `yml1m9xhc…htmqms` — the data part is identical and
+the last six characters are not. An earlier draft of this file did exactly that
+and produced an address that would have been rejected as malformed. `blockchaind
+keys parse <address>` prints every form.
 
 **There is no way to take a ratification back.** The command's own help says so:
 the protection an amendment carries is the delay and the threshold, not the
