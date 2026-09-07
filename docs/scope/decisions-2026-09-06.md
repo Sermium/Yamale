@@ -35,14 +35,18 @@ visitor can reach, because the demonstrator is reachable by the public.
 
 ## 1. Start the concentration clock
 
-**Why you run this and not me.** The only account that has ever submitted a
-governance proposal on this chain is
-`yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg` — `alice`, in an unencrypted
-keyring on the VM, and the key you have just decided to rotate. It has signed
-all 20 votes ever cast and holds 37.16% of bonded stake. Submitting proposal 12
-from it would deepen the exact pattern the audit flagged, one week before
-retiring it. Submit from whatever key you intend to keep, or rotate first
-(§3) and submit from the new one.
+**Why you run this and not me.** Because you asked to drive governance
+yourself, which is the whole of the reason. An earlier draft of this section
+argued it was a security matter — that submitting from
+`yml1rxtapcknmh58vngn5xmkm4rd7zf4knpuwa6szg`, the `alice` key in an unencrypted
+keyring that has signed all 20 votes ever cast, would deepen what the audit
+flagged. That was overstated, and it is worth correcting rather than deleting:
+**the proposer of a governance proposal holds no power.** It posts a deposit
+that comes back and grants nothing.
+
+Where `alice` does matter is the **vote**, which is weighted by staked tokens,
+and where it holds 37.16% against a 33.4% quorum. So use whichever funded key is
+convenient to submit, and read §3 for the key that actually needs attention.
 
 The proposal is written and checked in:
 [`proposals/12-concentration-ceilings.json`](proposals/12-concentration-ceilings.json).
@@ -52,8 +56,30 @@ Run it on the VM. The repository is not checked out on that host, so the
 proposal has to be copied across first; the path below is where it now sits.
 
 ```bash
-blockchaind tx gov submit-proposal /home/ubuntu/proposal-12.json --from foundation --keyring-backend test --home /opt/yamale/node --chain-id yamale-devnet-2 --node https://yamale.tail4355e8.ts.net/api/rpc --gas auto --gas-adjustment 1.4
+blockchaind tx gov submit-proposal /home/ubuntu/proposal-12.json --from foundation --keyring-backend test --home /opt/yamale/node --chain-id yamale-devnet-2 --node http://127.0.0.1:26657 --gas auto --gas-adjustment 1.4
 ```
+
+**`--node` is the local node, not the public URL, and that is not a shortcut.**
+The funnel hostname is unreachable from either host. MagicDNS resolves
+`yamale.tail4355e8.ts.net` to Tailscale's IPv6 ingress addresses
+(`2a00:dd80:3e::…`) for anything on the tailnet, and neither the Pi nor the VM
+can route to them — so a command copied from a document and run on the server
+fails with `post failed: EOF`, which reads as the chain being down. It is not:
+the same URL answers from any machine off the tailnet.
+
+Three endpoints, and which one to use depends on where you are standing:
+
+| From | Use | Goes through the RPC gate |
+|---|---|---|
+| either host | `http://127.0.0.1:26657` | no — it *is* the node |
+| either host | `http://100.68.207.17:8093/api/rpc` | yes |
+| anywhere else | `https://yamale.tail4355e8.ts.net/api/rpc` | yes |
+
+The trailing slash no longer matters on any of them. It used to: the no-slash
+form answered `301` pointing at `http://…:8093/api/rpc/`, and the Cosmos RPC
+client does not follow a redirect on POST, so every command written the way this
+document writes them failed with `EOF`. `yamale-rpc.conf` now rewrites it
+internally.
 
 **The two keyring flags are not optional.** `--keyring-backend` defaults to `os`
 and `--home` to `~/.blockchain`, which on the VM is empty. Every key on that
