@@ -187,14 +187,36 @@ jobs:
         # the versions the library pins — one k256 in the graph, not two — and
         # so it can use examples/common.rs, which already compiles against this
         # revision.
+        #
+        # Copying the file is NOT enough, which is what broke run 34361199650.
+        # Cargo.toml declares its examples explicitly:
+        #
+        #   [[example]]
+        #   name = "keygen"
+        #
+        # and that turns autodiscovery off — which it has to, because
+        # examples/common.rs has no main() and would fail to build as an example
+        # of its own. Proof it is off: job `evaluate` runs `cargo build
+        # --examples` and passes, which it could not do otherwise. So an
+        # unregistered file is simply not a target, and `--example cosmos_spike`
+        # fails with "no example target named cosmos_spike".
         run: |
           cp yamale/spike/dkls23/cosmos_spike.rs dkls23/examples/cosmos_spike.rs
+          printf '\n[[example]]\nname = "cosmos_spike"\n' >> dkls23/Cargo.toml
+          echo "--------------- registered targets"
+          grep -A1 '^\[\[example\]\]' dkls23/Cargo.toml
           ls -l dkls23/examples/
+
+      - name: Compile the spike
+        # Split from running it so the failing phase is visible from the job
+        # metadata alone. Logs need authentication to read; step names and
+        # conclusions do not, and that is the only channel available here.
+        working-directory: dkls23
+        run: cargo build --release --example cosmos_spike --message-format=short
 
       - name: Sign, and print the three values that decide it
         working-directory: dkls23
         run: |
-          cargo build --release --example cosmos_spike
           cargo run --quiet --release --example cosmos_spike | tee "$RUNNER_TEMP/spike.json"
           echo
           echo "--------------- what Go will read"
