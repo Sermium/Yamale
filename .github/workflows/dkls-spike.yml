@@ -207,26 +207,82 @@ jobs:
           grep -A1 '^\[\[example\]\]' dkls23/Cargo.toml
           ls -l dkls23/examples/
 
+      - name: Register the API probes
+        # Actions logs need authentication to read — /logs answers 403 and the
+        # job page asks for sign-in — but step names and conclusions are public.
+        # So the diagnosis is encoded in the STEP RESULTS instead of the log:
+        # each probe compiles one assumption, they all run with
+        # continue-on-error, and the pattern of pass and fail names the mistake
+        # without anybody reading a compiler message.
+        #
+        # B and C test the same call two ways on purpose. Whichever compiles
+        # says what public_key().to_bytes() returns, and if both fail the answer
+        # is neither and the type wants as_bytes().
+        run: |
+          for p in yamale/spike/dkls23/probes/*.rs; do
+            n=$(basename "$p" .rs)
+            cp "$p" "dkls23/examples/$n.rs"
+            printf '\n[[example]]\nname = "%s"\n' "$n" >> dkls23/Cargo.toml
+            echo "registered $n"
+          done
+
+      - name: 'Probe A — the example helpers resolve'
+        continue-on-error: true
+        working-directory: dkls23
+        run: cargo build --release --example probe_a_helpers --message-format=short
+
+      - name: 'Probe B — public_key().to_bytes().as_slice()'
+        continue-on-error: true
+        working-directory: dkls23
+        run: cargo build --release --example probe_b_pubkey_as_slice --message-format=short
+
+      - name: 'Probe C — public_key().to_bytes().as_ref()'
+        continue-on-error: true
+        working-directory: dkls23
+        run: cargo build --release --example probe_c_pubkey_as_ref --message-format=short
+
+      - name: 'Probe D — sign::run returns Result<(Signature, RecoveryId)>'
+        continue-on-error: true
+        working-directory: dkls23
+        run: cargo build --release --example probe_d_sign_tuple --message-format=short
+
+      - name: 'Probe E — signature.to_bytes().as_slice() and recid.to_byte()'
+        continue-on-error: true
+        working-directory: dkls23
+        run: cargo build --release --example probe_e_sig_bytes --message-format=short
+
       - name: Compile the spike
-        # Split from running it so the failing phase is visible from the job
-        # metadata alone. Logs need authentication to read; step names and
-        # conclusions do not, and that is the only channel available here.
+        # Allowed to fail so the probes above are always reported. The spike is
+        # what we want; the probes are what explain it when it does not compile.
+        continue-on-error: true
         working-directory: dkls23
         run: cargo build --release --example cosmos_spike --message-format=short
 
       - name: Sign, and print the three values that decide it
         working-directory: dkls23
         run: |
+          if [ ! -x target/release/examples/cosmos_spike ]; then
+            echo "the spike did not compile — read the probe results above, they name why"
+            exit 0
+          fi
           cargo run --quiet --release --example cosmos_spike | tee "$RUNNER_TEMP/spike.json"
           echo
           echo "--------------- what Go will read"
           cat "$RUNNER_TEMP/spike.json"
 
       - name: Verify it against the chain's own derivation
+        # Left unset when there is no output, which makes the Go test skip
+        # rather than fail on a missing file. A skipped verification and a
+        # failed one mean different things and should not look the same.
         working-directory: yamale
-        env:
-          DKLS_SPIKE_JSON: ${{ runner.temp }}/spike.json
-        run: go test ./spike/... -run TestDklsSignatureIsUsableOnThisChain -v
+        run: |
+          if [ -s "$RUNNER_TEMP/spike.json" ]; then
+            DKLS_SPIKE_JSON="$RUNNER_TEMP/spike.json" \
+              go test ./spike/... -run TestDklsSignatureIsUsableOnThisChain -v
+          else
+            echo "no signature to verify: the spike did not produce one"
+            exit 1
+          fi
 
       - name: Keep the result
         if: always()
