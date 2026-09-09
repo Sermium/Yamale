@@ -1,10 +1,12 @@
 //! B: is the joint public key reachable as a byte slice via as_slice()?
 //!
-//! keygen.rs prints `keyshare.public_key().to_bytes()`, so to_bytes() exists.
+//! to_bytes() is a GroupEncoding method and the trait must be in scope,
+//! which is why B and C failed identically the first time. keygen.rs prints `keyshare.public_key().to_bytes()`, so to_bytes() exists.
 //! What it RETURNS is the open question, and it decides how the sidecar hands
 //! a key to Go. as_slice() works for [u8; N], Vec<u8> and GenericArray.
 mod common;
 
+use k256::elliptic_curve::group::GroupEncoding;
 use common::shared::gen_keyshares;
 
 #[tokio::main]

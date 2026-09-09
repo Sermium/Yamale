@@ -5,6 +5,7 @@
 //! as_bytes(). Two probes answer in one run what one probe answers in two.
 mod common;
 
+use k256::elliptic_curve::group::GroupEncoding;
 use common::shared::gen_keyshares;
 
 #[tokio::main]

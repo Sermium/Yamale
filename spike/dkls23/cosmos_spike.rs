@@ -22,10 +22,15 @@
 //! The digest is therefore `[1u8; 32]` — `setup_dsg` hardcodes
 //! `.with_hash([1; 32])`, and reaching past that to sign a real Cosmos SignDoc
 //! means building the sign setup by hand. That is worth doing, and it is step
-//! two: it needs the sidecar's own setup construction, which this run exists to
-//! make writable.
+//! two: it needs the sidecar's own setup construction.
 
 mod common;
+
+// GroupEncoding is what `to_bytes()` on the public key comes from, and it has
+// to be in scope or the method does not resolve at all. Its absence is what
+// failed the first two probes — identically, which is what said the problem was
+// the method rather than the accessor after it.
+use k256::elliptic_curve::group::GroupEncoding;
 
 use common::shared::{gen_keyshares, setup_dsg};
 use rand::Rng;
@@ -35,14 +40,10 @@ use sl_dkls23::sign;
 use sl_mpc_mate::coord::SimpleMessageRelay;
 use tokio::task::JoinSet;
 
-/// The digest `setup_dsg` signs. Kept as a named constant because the Go side
-/// has to assert against the same bytes, and a mismatch here would look like a
-/// bad signature rather than like two different messages.
+/// The digest `setup_dsg` signs. Named because the Go side has to assert
+/// against the same bytes, and a mismatch would look like a bad signature
+/// rather than like two different messages.
 const DIGEST: [u8; 32] = [1u8; 32];
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
-}
 
 #[tokio::main]
 async fn main() {
@@ -56,8 +57,8 @@ async fn main() {
 
     // Two parties sign. Three would not be safer, it would just be three shares
     // in one process — which is what the whole arrangement exists to avoid, and
-    // is why this spike runs them as separate tasks over a relay even though
-    // one process holds all of them here.
+    // is why this runs them as separate tasks over a relay even though one
+    // process holds all of them here.
     let coord = SimpleMessageRelay::new();
     let mut rnd = ChaCha20Rng::from_entropy();
     let mut parties = JoinSet::new();
@@ -74,15 +75,15 @@ async fn main() {
     }
     let (signature, recid) = result.expect("no party produced a signature");
 
-    // Printed as JSON on stdout so the workflow can hand it straight to Go.
+    // JSON on stdout so the workflow can hand it straight to Go.
     println!("{{");
     println!("  \"protocol\": \"dkls23\",");
     println!("  \"library\": \"sl-dkls23\",");
     println!("  \"threshold\": \"2-of-3\",");
     println!("  \"chain_path\": \"m\",");
-    println!("  \"pubkey_sec1\": \"{}\",", hex(pubkey.as_slice()));
-    println!("  \"digest\": \"{}\",", hex(&DIGEST));
-    println!("  \"signature_rs\": \"{}\",", hex(signature.to_bytes().as_slice()));
+    println!("  \"pubkey_sec1\": \"{}\",", hex::encode(pubkey));
+    println!("  \"digest\": \"{}\",", hex::encode(DIGEST));
+    println!("  \"signature_rs\": \"{}\",", hex::encode(signature.to_bytes()));
     println!("  \"recovery_id\": {}", recid.to_byte());
     println!("}}");
 }
