@@ -13,20 +13,22 @@
 #
 # Amendment 1 also needs both validators alive to ratify before 2026-09-14.
 #
-# # Why this job builds somebody else's examples first
+# # Why the probes are JOBS and not steps
 #
-# The library's setup API could not be read from outside — raw.githubusercontent
-# answers 503 and the examples' shared helper is not at the path the README
-# implies. Writing a spike against an API guessed from prose would fail to
-# compile, and with no local Rust the only feedback loop is a push.
+# Actions logs need authentication to read: /logs answers 403 and the job page
+# asks for sign-in. Step names and conclusions are public, so the first attempt
+# put one assumption in each step and read the pattern of pass and fail.
 #
-# So the first run does no work of ours at all: it builds and runs the library's
-# OWN keygen, sign and refresh examples, and prints their source plus the setup
-# module. That proves the toolchain, proves the library builds, proves the
-# protocol runs, records the licence, and produces the exact signatures needed
-# to write anything further — in one run, with nothing of ours able to be wrong.
+# That does not work, and the way it fails is worth writing down. A step marked
+# `continue-on-error: true` reports its CONCLUSION as success even when it
+# failed — the real result is in `outcome`, which the jobs API does not expose
+# per step. So five probes all reported success while the spike they were
+# diagnosing had not compiled at all. A check that passes regardless of what it
+# is checking is worse than no check, and that is what those steps were.
 #
-# Manually triggered. This is an evaluation, not part of the build.
+# Job conclusions are truthful. So each probe is a matrix leg with
+# fail-fast disabled: they run in parallel, each fails honestly, and the
+# resulting matrix is readable from the public API.
 name: DKLs23 spike
 
 on:
@@ -55,10 +57,10 @@ jobs:
           path: dkls23
 
       - name: The licence, in full
-        # The reason this is step one: the audited implementation is under
-        # Silence Laboratories' non-commercial licence, which permits
-        # government bodies and excludes internal business use. Whether Yamale
-        # qualifies is a question for counsel, and counsel needs the text.
+        # Step one because the audited implementation is under Silence
+        # Laboratories' non-commercial licence, which permits government bodies
+        # and excludes internal business use. Whether Yamale qualifies is a
+        # question for counsel, and counsel needs the text without a toolchain.
         run: cat dkls23/LICENSE || cat dkls23/LICENSE.md || ls dkls23
 
       - name: What the crate declares
@@ -67,8 +69,6 @@ jobs:
           cat dkls23/Cargo.toml
           echo "=============== rust-toolchain, if pinned"
           cat dkls23/rust-toolchain.toml 2>/dev/null || cat dkls23/rust-toolchain 2>/dev/null || echo "(not pinned)"
-          echo "=============== version"
-          grep -m1 '^version' dkls23/Cargo.toml
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -82,12 +82,9 @@ jobs:
             dkls23/target
           key: dkls-${{ runner.os }}-${{ hashFiles('dkls23/Cargo.toml') }}
 
-      - name: The setup API, which is the part that could not be read remotely
+      - name: The setup API, which could not be read remotely
         working-directory: dkls23
         run: |
-          echo "=============== src/setup layout"
-          find src/setup -type f -name '*.rs' | sort
-          echo "=============== the setup module"
           for f in $(find src/setup -type f -name '*.rs' | sort); do
             echo "--------------- $f"
             cat "$f"
@@ -96,8 +93,6 @@ jobs:
       - name: The examples, and the helper the README does not place
         working-directory: dkls23
         run: |
-          echo "=============== examples layout"
-          find examples tests -type f -name '*.rs' 2>/dev/null | sort
           for f in $(find examples -type f -name '*.rs' 2>/dev/null | sort); do
             echo "--------------- $f"
             cat "$f"
@@ -112,8 +107,7 @@ jobs:
         run: |
           start=$(date +%s%3N)
           cargo run --release --example keygen
-          end=$(date +%s%3N)
-          echo "keygen wall time: $((end-start)) ms"
+          echo "keygen wall time: $(( $(date +%s%3N) - start )) ms"
           echo "tss-lib GG18 on the same shape, measured 2026-08-31: 65,000 ms"
 
       - name: Signing — the number that decides the product question
@@ -121,31 +115,73 @@ jobs:
         run: |
           start=$(date +%s%3N)
           cargo run --release --example sign
-          end=$(date +%s%3N)
-          echo "sign wall time: $((end-start)) ms"
+          echo "sign wall time: $(( $(date +%s%3N) - start )) ms"
 
       - name: Key refresh — this is the password-reset path
         working-directory: dkls23
         run: |
           start=$(date +%s%3N)
-          cargo run --release --example refresh || echo "no refresh example at this ref"
-          end=$(date +%s%3N)
-          echo "refresh wall time: $((end-start)) ms"
+          cargo run --release --example refresh
+          echo "refresh wall time: $(( $(date +%s%3N) - start )) ms"
           echo "tss-lib GG18 reshare, measured 2026-08-31: 81,000 ms"
 
-      - name: What this run established
-        if: always()
+  probe:
+    # One assumption per job, so the conclusion is the answer.
+    #
+    # B and C test the same call two ways deliberately: whichever compiles says
+    # what public_key().to_bytes() returns, and if both fail the answer is
+    # neither and the type wants as_bytes(). Two legs in one run rather than one
+    # leg in two.
+    name: "probe: ${{ matrix.probe }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        probe:
+          - probe_a_helpers
+          - probe_b_pubkey_as_slice
+          - probe_c_pubkey_as_ref
+          - probe_d_sign_tuple
+          - probe_e_sig_bytes
+
+    steps:
+      - name: Check out Yamale
+        uses: actions/checkout@v4
+        with:
+          path: yamale
+
+      - name: Check out the library
+        uses: actions/checkout@v4
+        with:
+          repository: silence-laboratories/dkls23
+          ref: ${{ inputs.ref }}
+          path: dkls23
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            dkls23/target
+          key: dkls-${{ runner.os }}-${{ hashFiles('dkls23/Cargo.toml') }}
+
+      - name: Register just this probe
+        # Cargo.toml declares its examples explicitly, which turns autodiscovery
+        # off — it has to, because examples/common.rs has no main() and would
+        # fail to build as an example of its own. So a copied file is not a
+        # target until it is named here.
         run: |
-          echo "Read the logs above for:"
-          echo "  1. the licence text, for counsel"
-          echo "  2. the exact setup API, to write the sidecar against"
-          echo "  3. keygen and refresh timings, against 65 s and 81 s on GG18"
-          echo "  4. whether secp256k1 is the curve the examples actually use"
-          echo
-          echo "Nothing of Yamale's was compiled here on purpose. The next run"
-          echo "adds a spike that signs a Cosmos digest and a Go test that"
-          echo "verifies it against a yml1 address — which is the only check"
-          echo "that proves a threshold signature is usable on this chain."
+          cp "yamale/spike/dkls23/probes/${{ matrix.probe }}.rs" "dkls23/examples/${{ matrix.probe }}.rs"
+          printf '\n[[example]]\nname = "%s"\n' "${{ matrix.probe }}" >> dkls23/Cargo.toml
+
+      - name: Compile it
+        working-directory: dkls23
+        run: cargo build --release --example ${{ matrix.probe }} --message-format=short
 
   cosmos:
     name: Is a DKLs23 signature usable on this chain?
@@ -185,104 +221,28 @@ jobs:
       - name: Graft our example into the library's own examples
         # Built inside their tree rather than as a crate of ours so it resolves
         # the versions the library pins — one k256 in the graph, not two — and
-        # so it can use examples/common.rs, which already compiles against this
-        # revision.
-        #
-        # Copying the file is NOT enough, which is what broke run 34361199650.
-        # Cargo.toml declares its examples explicitly:
-        #
-        #   [[example]]
-        #   name = "keygen"
-        #
-        # and that turns autodiscovery off — which it has to, because
-        # examples/common.rs has no main() and would fail to build as an example
-        # of its own. Proof it is off: job `evaluate` runs `cargo build
-        # --examples` and passes, which it could not do otherwise. So an
-        # unregistered file is simply not a target, and `--example cosmos_spike`
-        # fails with "no example target named cosmos_spike".
+        # so it can use examples/common.rs, which already compiles here.
         run: |
           cp yamale/spike/dkls23/cosmos_spike.rs dkls23/examples/cosmos_spike.rs
           printf '\n[[example]]\nname = "cosmos_spike"\n' >> dkls23/Cargo.toml
-          echo "--------------- registered targets"
-          grep -A1 '^\[\[example\]\]' dkls23/Cargo.toml
-          ls -l dkls23/examples/
-
-      - name: Register the API probes
-        # Actions logs need authentication to read — /logs answers 403 and the
-        # job page asks for sign-in — but step names and conclusions are public.
-        # So the diagnosis is encoded in the STEP RESULTS instead of the log:
-        # each probe compiles one assumption, they all run with
-        # continue-on-error, and the pattern of pass and fail names the mistake
-        # without anybody reading a compiler message.
-        #
-        # B and C test the same call two ways on purpose. Whichever compiles
-        # says what public_key().to_bytes() returns, and if both fail the answer
-        # is neither and the type wants as_bytes().
-        run: |
-          for p in yamale/spike/dkls23/probes/*.rs; do
-            n=$(basename "$p" .rs)
-            cp "$p" "dkls23/examples/$n.rs"
-            printf '\n[[example]]\nname = "%s"\n' "$n" >> dkls23/Cargo.toml
-            echo "registered $n"
-          done
-
-      - name: 'Probe A — the example helpers resolve'
-        continue-on-error: true
-        working-directory: dkls23
-        run: cargo build --release --example probe_a_helpers --message-format=short
-
-      - name: 'Probe B — public_key().to_bytes().as_slice()'
-        continue-on-error: true
-        working-directory: dkls23
-        run: cargo build --release --example probe_b_pubkey_as_slice --message-format=short
-
-      - name: 'Probe C — public_key().to_bytes().as_ref()'
-        continue-on-error: true
-        working-directory: dkls23
-        run: cargo build --release --example probe_c_pubkey_as_ref --message-format=short
-
-      - name: 'Probe D — sign::run returns Result<(Signature, RecoveryId)>'
-        continue-on-error: true
-        working-directory: dkls23
-        run: cargo build --release --example probe_d_sign_tuple --message-format=short
-
-      - name: 'Probe E — signature.to_bytes().as_slice() and recid.to_byte()'
-        continue-on-error: true
-        working-directory: dkls23
-        run: cargo build --release --example probe_e_sig_bytes --message-format=short
 
       - name: Compile the spike
-        # Allowed to fail so the probes above are always reported. The spike is
-        # what we want; the probes are what explain it when it does not compile.
-        continue-on-error: true
+        # No continue-on-error anywhere in this job. A failure here should stop
+        # the job and say so, and the probe matrix is what explains it.
         working-directory: dkls23
         run: cargo build --release --example cosmos_spike --message-format=short
 
       - name: Sign, and print the three values that decide it
         working-directory: dkls23
         run: |
-          if [ ! -x target/release/examples/cosmos_spike ]; then
-            echo "the spike did not compile — read the probe results above, they name why"
-            exit 0
-          fi
           cargo run --quiet --release --example cosmos_spike | tee "$RUNNER_TEMP/spike.json"
-          echo
-          echo "--------------- what Go will read"
-          cat "$RUNNER_TEMP/spike.json"
+          test -s "$RUNNER_TEMP/spike.json"
 
       - name: Verify it against the chain's own derivation
-        # Left unset when there is no output, which makes the Go test skip
-        # rather than fail on a missing file. A skipped verification and a
-        # failed one mean different things and should not look the same.
         working-directory: yamale
-        run: |
-          if [ -s "$RUNNER_TEMP/spike.json" ]; then
-            DKLS_SPIKE_JSON="$RUNNER_TEMP/spike.json" \
-              go test ./spike/... -run TestDklsSignatureIsUsableOnThisChain -v
-          else
-            echo "no signature to verify: the spike did not produce one"
-            exit 1
-          fi
+        env:
+          DKLS_SPIKE_JSON: ${{ runner.temp }}/spike.json
+        run: go test ./spike/... -run TestDklsSignatureIsUsableOnThisChain -v
 
       - name: Keep the result
         if: always()
