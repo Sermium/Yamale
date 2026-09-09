@@ -1,0 +1,148 @@
+# Evaluating DKLs23 as a replacement for tss-lib's GG18.
+#
+# # Why this runs in CI and not on a host
+#
+# Neither machine can build Rust. Measured 2026-09-09: the VM has 954 MB of RAM
+# with 258 MB available and the Pi has 1837 MB with 261 MB available, and each
+# one runs a validator. Both validators hold more than a third of the voting
+# power, so losing EITHER drops the chain below the two-thirds it needs and
+# block production stops — and a Rust crypto build saturating two cores for
+# several minutes can make a node miss consensus timeouts without any process
+# being killed. There is 4 GB of NVMe swap on the VM, which makes an actual OOM
+# kill unlikely; it does not make a stalled validator unlikely.
+#
+# Amendment 1 also needs both validators alive to ratify before 2026-09-14.
+#
+# # Why this job builds somebody else's examples first
+#
+# The library's setup API could not be read from outside — raw.githubusercontent
+# answers 503 and the examples' shared helper is not at the path the README
+# implies. Writing a spike against an API guessed from prose would fail to
+# compile, and with no local Rust the only feedback loop is a push.
+#
+# So the first run does no work of ours at all: it builds and runs the library's
+# OWN keygen, sign and refresh examples, and prints their source plus the setup
+# module. That proves the toolchain, proves the library builds, proves the
+# protocol runs, records the licence, and produces the exact signatures needed
+# to write anything further — in one run, with nothing of ours able to be wrong.
+#
+# Manually triggered. This is an evaluation, not part of the build.
+name: DKLs23 spike
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "silence-laboratories/dkls23 ref to evaluate"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Build and run the library's own examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the library
+        uses: actions/checkout@v4
+        with:
+          repository: silence-laboratories/dkls23
+          ref: ${{ inputs.ref }}
+          path: dkls23
+
+      - name: The licence, in full
+        # The reason this is step one: the audited implementation is under
+        # Silence Laboratories' non-commercial licence, which permits
+        # government bodies and excludes internal business use. Whether Yamale
+        # qualifies is a question for counsel, and counsel needs the text.
+        run: cat dkls23/LICENSE || cat dkls23/LICENSE.md || ls dkls23
+
+      - name: What the crate declares
+        run: |
+          echo "=============== Cargo.toml"
+          cat dkls23/Cargo.toml
+          echo "=============== rust-toolchain, if pinned"
+          cat dkls23/rust-toolchain.toml 2>/dev/null || cat dkls23/rust-toolchain 2>/dev/null || echo "(not pinned)"
+          echo "=============== version"
+          grep -m1 '^version' dkls23/Cargo.toml
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            dkls23/target
+          key: dkls-${{ runner.os }}-${{ hashFiles('dkls23/Cargo.toml') }}
+
+      - name: The setup API, which is the part that could not be read remotely
+        working-directory: dkls23
+        run: |
+          echo "=============== src/setup layout"
+          find src/setup -type f -name '*.rs' | sort
+          echo "=============== the setup module"
+          for f in $(find src/setup -type f -name '*.rs' | sort); do
+            echo "--------------- $f"
+            cat "$f"
+          done
+
+      - name: The examples, and the helper the README does not place
+        working-directory: dkls23
+        run: |
+          echo "=============== examples layout"
+          find examples tests -type f -name '*.rs' 2>/dev/null | sort
+          for f in $(find examples -type f -name '*.rs' 2>/dev/null | sort); do
+            echo "--------------- $f"
+            cat "$f"
+          done
+
+      - name: Build
+        working-directory: dkls23
+        run: cargo build --release --examples
+
+      - name: Key generation — 2 of 3, and how long it takes
+        working-directory: dkls23
+        run: |
+          start=$(date +%s%3N)
+          cargo run --release --example keygen
+          end=$(date +%s%3N)
+          echo "keygen wall time: $((end-start)) ms"
+          echo "tss-lib GG18 on the same shape, measured 2026-08-31: 65,000 ms"
+
+      - name: Signing — the number that decides the product question
+        working-directory: dkls23
+        run: |
+          start=$(date +%s%3N)
+          cargo run --release --example sign
+          end=$(date +%s%3N)
+          echo "sign wall time: $((end-start)) ms"
+
+      - name: Key refresh — this is the password-reset path
+        working-directory: dkls23
+        run: |
+          start=$(date +%s%3N)
+          cargo run --release --example refresh || echo "no refresh example at this ref"
+          end=$(date +%s%3N)
+          echo "refresh wall time: $((end-start)) ms"
+          echo "tss-lib GG18 reshare, measured 2026-08-31: 81,000 ms"
+
+      - name: What this run established
+        if: always()
+        run: |
+          echo "Read the logs above for:"
+          echo "  1. the licence text, for counsel"
+          echo "  2. the exact setup API, to write the sidecar against"
+          echo "  3. keygen and refresh timings, against 65 s and 81 s on GG18"
+          echo "  4. whether secp256k1 is the curve the examples actually use"
+          echo
+          echo "Nothing of Yamale's was compiled here on purpose. The next run"
+          echo "adds a spike that signs a Cosmos digest and a Go test that"
+          echo "verifies it against a yml1 address — which is the only check"
+          echo "that proves a threshold signature is usable on this chain."
