@@ -146,3 +146,70 @@ jobs:
           echo "adds a spike that signs a Cosmos digest and a Go test that"
           echo "verifies it against a yml1 address — which is the only check"
           echo "that proves a threshold signature is usable on this chain."
+
+  cosmos:
+    name: Is a DKLs23 signature usable on this chain?
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Yamale
+        uses: actions/checkout@v4
+        with:
+          path: yamale
+
+      - name: Check out the library
+        uses: actions/checkout@v4
+        with:
+          repository: silence-laboratories/dkls23
+          ref: ${{ inputs.ref }}
+          path: dkls23
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: yamale/go.mod
+          cache-dependency-path: yamale/go.sum
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            dkls23/target
+          key: dkls-${{ runner.os }}-${{ hashFiles('dkls23/Cargo.toml') }}
+
+      - name: Graft our example into the library's own examples
+        # Built inside their tree rather than as a crate of ours so it resolves
+        # the versions the library pins — one k256 in the graph, not two — and
+        # so it can use examples/common.rs, which already compiles against this
+        # revision.
+        run: |
+          cp yamale/spike/dkls23/cosmos_spike.rs dkls23/examples/cosmos_spike.rs
+          ls -l dkls23/examples/
+
+      - name: Sign, and print the three values that decide it
+        working-directory: dkls23
+        run: |
+          cargo build --release --example cosmos_spike
+          cargo run --quiet --release --example cosmos_spike | tee "$RUNNER_TEMP/spike.json"
+          echo
+          echo "--------------- what Go will read"
+          cat "$RUNNER_TEMP/spike.json"
+
+      - name: Verify it against the chain's own derivation
+        working-directory: yamale
+        env:
+          DKLS_SPIKE_JSON: ${{ runner.temp }}/spike.json
+        run: go test ./spike/... -run TestDklsSignatureIsUsableOnThisChain -v
+
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dkls23-cosmos-spike
+          path: ${{ runner.temp }}/spike.json
+          if-no-files-found: warn
