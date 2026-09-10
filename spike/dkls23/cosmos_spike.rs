@@ -45,6 +45,18 @@ use tokio::task::JoinSet;
 /// rather than like two different messages.
 const DIGEST: [u8; 32] = [1u8; 32];
 
+/// How many signatures to take over the same digest and key.
+///
+/// One signature cannot answer the question that matters. Both (r, s) and
+/// (r, n-s) verify, Cosmos rejects the high form, and whether sl-dkls23
+/// normalises is undocumented — so a single low S is a coin landing heads, not
+/// a property. If it does not normalise, half of all real payments would be
+/// refused by the chain and every test here would still pass.
+///
+/// Thirty-two samples settle it: all low by chance is 2^-32, about one in four
+/// billion.
+const SAMPLES: usize = 32;
+
 #[tokio::main]
 async fn main() {
     // 2 of 3, which is this chain's arrangement: device, custodian, recovery.
@@ -59,21 +71,31 @@ async fn main() {
     // in one process — which is what the whole arrangement exists to avoid, and
     // is why this runs them as separate tasks over a relay even though one
     // process holds all of them here.
-    let coord = SimpleMessageRelay::new();
     let mut rnd = ChaCha20Rng::from_entropy();
-    let mut parties = JoinSet::new();
-    for setup in setup_dsg(&shares[0..2], "m") {
-        let relay = coord.connect();
-        let seed = rnd.gen();
-        parties.spawn(async move { sign::run(setup, seed, relay).await });
-    }
+    let mut signatures = Vec::with_capacity(SAMPLES);
+    let mut last_recid = 0u8;
 
-    let mut result = None;
-    while let Some(joined) = parties.join_next().await {
-        let signed = joined.expect("signing task panicked").expect("signing failed");
-        result = Some(signed);
+    for _ in 0..SAMPLES {
+        // A fresh relay and a fresh setup each round: setup_dsg mints a new
+        // instance id per call, and reusing one would be replaying a session
+        // rather than taking a second sample.
+        let coord = SimpleMessageRelay::new();
+        let mut parties = JoinSet::new();
+        for setup in setup_dsg(&shares[0..2], "m") {
+            let relay = coord.connect();
+            let seed = rnd.gen();
+            parties.spawn(async move { sign::run(setup, seed, relay).await });
+        }
+
+        let mut result = None;
+        while let Some(joined) = parties.join_next().await {
+            let signed = joined.expect("signing task panicked").expect("signing failed");
+            result = Some(signed);
+        }
+        let (signature, recid) = result.expect("no party produced a signature");
+        last_recid = recid.to_byte();
+        signatures.push(hex::encode(signature.to_bytes()));
     }
-    let (signature, recid) = result.expect("no party produced a signature");
 
     // JSON on stdout so the workflow can hand it straight to Go.
     println!("{{");
@@ -83,7 +105,13 @@ async fn main() {
     println!("  \"chain_path\": \"m\",");
     println!("  \"pubkey_sec1\": \"{}\",", hex::encode(pubkey));
     println!("  \"digest\": \"{}\",", hex::encode(DIGEST));
-    println!("  \"signature_rs\": \"{}\",", hex::encode(signature.to_bytes()));
-    println!("  \"recovery_id\": {}", recid.to_byte());
+    println!("  \"signature_rs\": \"{}\",", signatures[0]);
+    println!("  \"recovery_id\": {},", last_recid);
+    println!("  \"signatures\": [");
+    for (i, sig) in signatures.iter().enumerate() {
+        let comma = if i + 1 == signatures.len() { "" } else { "," };
+        println!("    \"{}\"{}", sig, comma);
+    }
+    println!("  ]");
     println!("}}");
 }

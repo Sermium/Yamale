@@ -25,8 +25,10 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -38,14 +40,15 @@ import (
 )
 
 type spikeResult struct {
-	Protocol    string `json:"protocol"`
-	Library     string `json:"library"`
-	Threshold   string `json:"threshold"`
-	ChainPath   string `json:"chain_path"`
-	PubKeySEC1  string `json:"pubkey_sec1"`
-	Digest      string `json:"digest"`
-	SignatureRS string `json:"signature_rs"`
-	RecoveryID  int    `json:"recovery_id"`
+	Protocol    string   `json:"protocol"`
+	Library     string   `json:"library"`
+	Threshold   string   `json:"threshold"`
+	ChainPath   string   `json:"chain_path"`
+	PubKeySEC1  string   `json:"pubkey_sec1"`
+	Digest      string   `json:"digest"`
+	SignatureRS string   `json:"signature_rs"`
+	RecoveryID  int      `json:"recovery_id"`
+	Signatures  []string `json:"signatures"`
 }
 
 func load(t *testing.T) spikeResult {
@@ -137,22 +140,54 @@ func TestDklsSignatureIsUsableOnThisChain(t *testing.T) {
 	}
 	t.Log("signature verifies against the joint key")
 
-	// --- 4. S is in the lower half, which Cosmos requires
+	// --- 4. does the library normalise S, or did one signature get lucky?
+	//
+	// This is the check a single passing signature cannot make. Both (r, s) and
+	// (r, n-s) verify; Cosmos rejects the high form; whether sl-dkls23
+	// normalises is undocumented. If it does not, it is a coin flip per
+	// signature — half of all real payments refused by the chain, with every
+	// test here still green.
 	order := secp256k1.S256().N
 	half := new(big.Int).Rsh(order, 1)
-	if s.Cmp(half) > 0 {
-		t.Errorf("S is in the UPPER half of the curve order, and Cosmos rejects that.\n"+
-			"The signature is cryptographically valid and the chain will refuse it, so the\n"+
-			"sidecar has to normalise the way mpc.normalise() already does for tss-lib:\n"+
-			"  s = n - s when s > n/2\n"+
-			"  S    %s\n  n/2  %s", s, half)
-	} else {
-		t.Log("S is in the lower half: no normalisation needed at this signature")
+
+	if len(got.Signatures) == 0 {
+		t.Fatal("the spike printed no signature samples: this is the check that matters, " +
+			"so a spike without them is not finished")
 	}
 
-	// One passing signature does not establish that S is always low — it is
-	// roughly even odds per signature if the library does not normalise. Said
-	// out loud so a single green run is not mistaken for the guarantee.
-	t.Log("note: low S here is one sample, not proof the library normalises; " +
-		"the sidecar should normalise unconditionally")
+	high := 0
+	for i, encoded := range got.Signatures {
+		raw := decode(t, "signatures["+strconv.Itoa(i)+"]", encoded)
+		if len(raw) != 64 {
+			t.Fatalf("sample %d is %d bytes, want 64 for R||S", i, len(raw))
+		}
+		sampleR := new(big.Int).SetBytes(raw[:32])
+		sampleS := new(big.Int).SetBytes(raw[32:])
+
+		if !ecdsa.Verify(ecdsaPub, digest, sampleR, sampleS) {
+			t.Fatalf("sample %d does not verify against the joint key", i)
+		}
+		if sampleS.Cmp(half) > 0 {
+			high++
+		}
+	}
+
+	t.Logf("%d signatures over one key and one digest: %d with S in the upper half",
+		len(got.Signatures), high)
+
+	if high > 0 {
+		t.Errorf("sl-dkls23 does NOT normalise S: %d of %d samples sit in the upper half "+
+			"of the curve order.\n"+
+			"Every one of them is cryptographically valid and every one would be refused by\n"+
+			"this chain. The sidecar must normalise unconditionally, the way mpc.normalise()\n"+
+			"already does for tss-lib:\n"+
+			"    s = n - s   when   s > n/2\n"+
+			"This is a finding about Cosmos being stricter than ECDSA, not a defect in the\n"+
+			"library.", high, len(got.Signatures))
+		return
+	}
+
+	t.Logf("sl-dkls23 normalises S: all %d samples were low. By chance that would be "+
+		"1 in %.0f, so this is the library's behaviour rather than luck.",
+		len(got.Signatures), math.Pow(2, float64(len(got.Signatures))))
 }
