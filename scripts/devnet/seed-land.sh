@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
 #
-# Puts parcels in the land register, because there are none.
+# Adds Senegalese parcels to the land register.
 #
-# # Why this exists
+# # A correction, because the first version of this header was wrong
 #
-# Checked 2026-09-10: the land module is deployed and completely empty. No
-# genesis state, no seeding anywhere under scripts/. Every parcel query answers
-# nothing, and the console renders that correctly — which is the trap, because
-# an empty page looks identical to a working one. Nobody could tell, and nobody
-# did.
+# It said the register was empty. It is not: it holds four parcels and four
+# registry offices, all in jurisdiction CD — Kinshasa, Lubumbashi, Goma and
+# Mbuji-Mayi. What was empty was the answer, because the queries went through
+# https://yamale.tail4355e8.ts.net, the funnel terminates on the Raspberry Pi,
+# and the Pi had already been offline for eighteen hours. A dead gateway
+# answers exactly like an empty module.
 #
-# So there was nothing to demonstrate and no search term to hand anybody. This
-# produces both.
+# The existing parcels, worth knowing because they are a better demonstration
+# than anything seeded:
 #
-# # Why Senegalese parcels and not lorem
+#   CD-KIN-2026-00412   registered, carries an encumbrance
+#   CD-KIN-2026-00413   DISPUTED — somebody objected, which is the mechanism
+#   CD-KIN-2026-00518   registered, fractionalisation authorised to 60%
+#   CD-KIN-2026-00777   registered, fractionalisation authorised to 60%
 #
-# The PNDIES expression of interest goes to a Senegalese ministry, and the
-# argument it makes about land — a registry that refuses a second title over
-# ground somebody already holds — is the same argument it makes about livestock.
-# A demonstrator showing Congolese test names while the letter talks about
-# Senegal invites the obvious question. These are real places, in real
-# jurisdictions, with references in a plausible cadastral form.
+# # So why seed anything
+#
+# Because they are all Congolese, and the PNDIES expression of interest goes to
+# a Senegalese ministry. A demonstrator showing Kinshasa while the letter talks
+# about Dakar invites the obvious question. These ten are real places in
+# jurisdiction SN, alongside what is already there rather than instead of it.
 #
 # Niacoulrab is deliberate: it is the address on the Ladoum birth certificate
-# reproduced in the technical note. The two demonstrations meet there.
+# reproduced in the technical note, so the land demonstration and the livestock
+# pitch meet at one parcel.
 #
 # # The three things this has to satisfy, none of them optional
 #

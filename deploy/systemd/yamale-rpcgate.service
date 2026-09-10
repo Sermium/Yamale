@@ -14,7 +14,19 @@ Description=Yamale RPC method gate
 Documentation=file:///opt/yamale/src/tools/rpcgate/gate.go
 After=network-online.target yamale-devnet.service
 Wants=network-online.target
-PartOf=yamale-devnet.service
+
+# NOT PartOf=yamale-devnet.service, which it used to be.
+#
+# PartOf propagates stop and restart but never start, so restarting the node
+# stopped the gate and left it stopped — and the public /api/rpc/ answered 502
+# until somebody noticed. That happened on 2026-09-10, during the recovery from
+# the Raspberry Pi going offline, and the RPC stayed down after the chain came
+# back.
+#
+# There is no fail-open risk in letting it outlive the node: with nothing behind
+# it the gate refuses, which is the safe direction. A gate that disappears when
+# the node restarts is the unsafe one, because what replaces it is nginx
+# answering 502 on a path everything depends on.
 
 [Service]
 Type=simple

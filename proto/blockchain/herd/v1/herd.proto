@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package blockchain.herd.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/herd/types";
+
+// Level is how strongly a record is tied to a living animal, and it is the
+// whole design.
+//
+// Senegal has 21,185,146 head excluding poultry. At 1,000 FCFA per electronic
+// tag fitted — counting neither the reader, nor the agent's journey, nor the
+// data entry — identifying every animal individually costs 21.2 billion FCFA,
+// which is 96.6% of the entire PNDIES programme in tags alone. So a national
+// scheme cannot mean "identify every animal", and any registry that only knows
+// how to hold individuals is a registry that can only ever cover a rounding
+// error of the herd.
+//
+// Three levels instead, each costing what it makes possible, and the level is
+// stated on the record so that a buyer, a veterinarian or a banker knows
+// exactly what they are looking at.
+enum Level {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored. The zero value is what a message that forgot to set a level
+  // looks like, and the keeper refuses it rather than defaulting — defaulting
+  // here would silently record a herd as a certified animal.
+  LEVEL_UNSPECIFIED = 0;
+
+  // The herd, its keeper, its declared size, where it is, and the health
+  // campaigns it received. Nothing individual, and nothing verified beyond the
+  // agent's attestation that they stood in front of it.
+  //
+  // Costed per herd rather than per head, which is the only reason it can
+  // apply to the whole national herd. It is not a cut-price level: verifiable
+  // vaccination coverage, transhumance and index insurance all need this and
+  // nothing more.
+  LEVEL_HERD = 1;
+
+  // One animal, one record, bound by an ISO 11784/11785 transponder fitted by
+  // an accredited agent. For animals that move commercially, are exported, or
+  // are pledged as security.
+  LEVEL_INDIVIDUAL = 2;
+
+  // The tag, plus a DNA profile with parentage actually tested, plus
+  // standardised photographic biometrics. For élite breeding stock, where the
+  // value of one animal justifies a laboratory.
+  LEVEL_CERTIFIED = 3;
+}
+
+// Species, because the arithmetic differs by an order of magnitude between
+// them and so does the reason for identifying them. Small ruminants are the
+// PPR target population — 15,153,137 of them — and cattle are where the
+// collateral argument lives.
+enum Species {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  SPECIES_UNSPECIFIED = 0;
+  SPECIES_CATTLE = 1;
+  SPECIES_SHEEP = 2;
+  SPECIES_GOAT = 3;
+  SPECIES_HORSE = 4;
+  SPECIES_CAMEL = 5;
+}
+
+enum Sex {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  SEX_UNSPECIFIED = 0;
+  SEX_MALE = 1;
+  SEX_FEMALE = 2;
+}
+
+// Status is where a record is in its life. A record that is not ACTIVE cannot
+// begin a transfer, which is what makes the other states effective: they are
+// stops rather than warnings.
+enum Status {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  STATUS_UNSPECIFIED = 0;
+  // Live, held by exactly one keeper, and movable.
+  STATUS_ACTIVE = 1;
+  // A transfer is under way. No second transfer may start against it.
+  STATUS_TRANSFER_PENDING = 2;
+  // Somebody objected. Terminal for the transfer and an entry point for a
+  // court; the chain preserves the evidence and does not adjudicate.
+  STATUS_DISPUTED = 3;
+  // Stopped by an office. A fraud inquiry, a court order, a sanitary hold.
+  STATUS_FROZEN = 4;
+  // Dead, slaughtered or otherwise gone. Kept rather than deleted: a pedigree
+  // refers to its ancestors, and deleting an ancestor would silently break
+  // every descendant's line.
+  STATUS_RETIRED = 5;
+}
+
+// Herd is what level 1 records, and it is costed per herd rather than per head.
+message Herd {
+  // Assigned by the chain. Never reused, never reassigned.
+  uint64 id = 1;
+
+  // The registry's own human reference, so this record can be reconciled with
+  // the paper world it will coexist with for a very long time. Unique, and
+  // indexed: two records claiming to be the same file makes reconciliation
+  // guesswork.
+  string reference = 2;
+
+  // The person or group answering for these animals. Exactly one account —
+  // co-ownership is a legal arrangement between people, expressed by this
+  // being a group account rather than by the chain holding several keepers and
+  // having to rank them.
+  string keeper = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The office whose jurisdiction this herd falls in.
+  string authority = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  Species species = 5;
+
+  // What the keeper says the herd contains, per species. DECLARED, not
+  // counted, and the field name says so on purpose: level 1 buys a registry of
+  // who keeps roughly how many animals where, which is what a vaccination
+  // campaign and an index insurer need. Anything that requires a verified
+  // count is level 2, and costs accordingly.
+  uint32 declared_size = 6;
+
+  // Where the herd is, in words a person uses. Free text because a pastoral
+  // herd moves and a point would be a lie with more decimal places.
+  string locality = 7;
+
+  // Hash of a surveyed location or a GeoJSON extent, when one exists — a
+  // fixed holding, a designated grazing area. Optional, because for a
+  // transhumant herd there is nothing honest to put here.
+  string location_hash = 8;
+
+  string jurisdiction = 9;
+
+  Status status = 10;
+
+  int64 registered_at = 11;
+}
+
+// Animal is what levels 2 and 3 record. One animal, one record.
+message Animal {
+  uint64 id = 1;
+
+  // The herd this animal belongs to. Every animal has one: an animal with no
+  // herd has no keeper to answer for it, and the transfer rules would have
+  // nobody to ask.
+  uint64 herd_id = 2;
+
+  // The national identifier, human-readable, in the form the Ladoum sector
+  // already issues: 221/682/021029/L — country dialling code, flock, serial,
+  // breed letter. It is a good format and it generalises, so all three levels
+  // use it.
+  //
+  // Unique and indexed. This is the key a certificate is looked up by.
+  string national_id = 3;
+
+  // The ISO 11784/11785 transponder code, when one is fitted. Unique when
+  // present and empty at level 1.
+  //
+  // A tag is cheap, quick and REMOVABLE, which is why it is not the only
+  // marker at level 3. A registry that treated a tag as proof of identity
+  // would be a registry that can be defeated with a pair of pliers.
+  string tag = 4;
+
+  Level level = 5;
+
+  string name = 6;
+  Sex sex = 7;
+  string coat = 8;
+
+  // Birth date as a day, not a timestamp. A pastoral birth is known to the day
+  // at best, and a second-precision field would invite a precision nobody has.
+  string born_on = 9;
+
+  // Single, twin, triplet. Recorded because it bears on the coherence checks:
+  // two animals declared to the same dam days apart are either twins or a
+  // false declaration, and the registry cannot tell which unless this says.
+  string birth_type = 10;
+
+  // The pedigree, as references rather than names.
+  //
+  // This is the difference between the certificate the sector issues today and
+  // one that can be checked. Today a line reads "Classico / Atomique /
+  // Palmarin" — names, in free text, which nobody can walk and nobody can
+  // contradict. Here an ancestor is a record, so a line can be walked in one
+  // query, an inbreeding coefficient computed, and an impossible declaration
+  // refused.
+  //
+  // Zero means unknown, which is honest and common: a founder animal has no
+  // recorded parents. It does NOT mean animal zero, which is never issued.
+  uint64 sire_id = 11;
+  uint64 dam_id = 12;
+
+  // Hash of the DNA profile — a panel of microsatellite markers. Level 3 only,
+  // and the only real proof that a declared sire is the sire. The profile
+  // itself stays with the laboratory; the hash proves which profile this
+  // record refers to.
+  string dna_hash = 13;
+
+  // Hash of the standardised photographic biometrics, captured with timestamp
+  // and position. Level 3 only.
+  string photo_hash = 14;
+
+  // The current keeper. Moves only through a four-party transfer, which is
+  // what makes the resale of a stolen animal impossible rather than merely
+  // traceable.
+  string holder = 15 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string authority = 16 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  Status status = 17;
+
+  int64 registered_at = 18;
+}
+
+// HealthEvent is what turns a vaccination campaign into verifiable coverage.
+//
+// A campaign without a registry produces a number of doses administered. That
+// is not coverage, and coverage is the only figure eradication needs. This
+// records which herd was treated, when, by whom, and with which batch — at
+// level 1, therefore at the lowest cost, therefore across the whole herd.
+message HealthEvent {
+  uint64 id = 1;
+
+  uint64 herd_id = 2;
+
+  // The disease treated against. PPR, CBPP, and so on.
+  string disease = 3;
+
+  // The vaccine batch. Recorded because a batch that fails has to be traceable
+  // to every herd that received it, and that is a recall rather than a rumour.
+  string batch = 4;
+
+  // How many animals were treated. May differ from the herd's declared size —
+  // that difference is itself information, and hiding it by forcing them equal
+  // would destroy the only signal that a declaration is drifting.
+  uint32 treated = 5;
+
+  // The accredited agent or veterinarian who administered it and signed for it.
+  string agent = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  int64 recorded_at = 7;
+}
+
+// Authority is a registry office.
+//
+// It must be an x/group account, for the same reason x/land requires it: an
+// office that is one key is one bribe, and enrolling a herd, certifying
+// parentage and validating a transfer are each a single signature otherwise.
+message Authority {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+  string jurisdiction = 3;
+  bool active = 4;
+}
