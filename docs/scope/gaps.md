@@ -77,6 +77,16 @@ query against the live chain returns nothing for any of it.
 | Distributed key generation | `mpc.KeygenParty` — one participant per process, share computed locally and never transmitted | **closed 2026-09-03.** A test captures every byte the three parties exchange and asserts no party's secret scalar appears in it |
 | Enrolment over HTTP | `tools/custodian` `/v1/enrol/*`, driven by the device against two deployments (`--role custodian` and `--role recovery`) | built and tested; never run against a real browser or a deployed pair |
 | The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
+| `x/herd` — the livestock registry | three levels of record, pedigree refused at consensus, four-party supervised transfer with an answerable objection, accredited agents | 44 tests; **exercised end to end on a local devnet 2026-09-10** — two offices admitted by a real governance vote, ten animals, seven certified lines four generations deep, a sale carried to ATTESTED with two independent attestations, four impossible pedigrees refused. Never run on devnet-2: the deployed binary predates the module |
+| The Ladoum console, on `x/herd` | certificate, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. Not deployed |
+| `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Not run on any chain**: Windows app-control refused to execute the freshly built binary by hash on 2026-09-10, so no node could be started to try. `scripts/devnet/seed-syndicate.sh` is written and unexercised |
+
+**A note on the three rows added on 2026-09-10.** Two of them say "exercised on
+a LOCAL devnet", and that is a weaker claim than the section heading implies —
+deliberately so. A local chain proves the state machine; it does not prove the
+deployment, the proxy, the funnel, or that anybody but the author has run it.
+The third says plainly that it has run nowhere at all, which is the honest state
+of `x/syndicate` and is worth more than a row that reads the same as the others.
 
 **Three rows left this table on 2026-08-31, and one of them had been wrong for
 four days.** `roles-that-do-something` was applied at height **95,400** — all
