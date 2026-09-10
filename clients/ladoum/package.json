@@ -1,0 +1,11 @@
+{
+  "name": "@yamale/ladoum",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The Ladoum register console: verify a certificate, walk a pedigree the chain itself refuses to make incoherent, and read an animal's supervised provenance.",
+  "scripts": {
+    "test": "node --test proto.test.js ladoum.test.js",
+    "serve": "node serve.mjs"
+  }
+}

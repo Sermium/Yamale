@@ -4,17 +4,20 @@
 // WHY THE READS MOVED, MEASURED RATHER THAN ASSUMED
 // ===========================================================================
 //
-// Every read on this page used to go to `/api/rest/yamale/blockchain/land/v1/…`.
-// On the live deployment, on 2026-08-27:
+// Every read on this page used to go to a REST path under
+// `/api/rest/yamale/blockchain/…`. On the live deployment, on 2026-08-27:
 //
 //   $ curl -si https://pay.yamalelegal.com/api/rest/yamale/blockchain/land/v1/params
 //     HTTP/1.1 401 Unauthorized
 //     WWW-Authenticate: Basic realm="Yamale — supervisor access"
 //
 // Not one query answered. The proxy in front of the node allowlists REST paths
-// per module and denies by default, and x/land's prefix is not on that list —
-// so the register whose entire premise is that reading it is public presented a
-// browser login box with no credentials to type into it, on every screen.
+// per module and denies by default, and the register's prefix is not on that
+// list — so the register whose entire premise is that reading it is public
+// presented a browser login box with no credentials to type into it, on every
+// screen. The console has since moved from x/land to x/herd and the finding
+// moved with it: a new module's prefix is not on that allowlist either, and
+// being new is precisely why.
 //
 // The same queries answer unauthenticated over the node's ABCI interface,
 // which the proxy does publish:
@@ -119,25 +122,27 @@ export async function abci(path, requestBytes = new Uint8Array()) {
 export let lastHeight = 0;
 
 /**
- * One of x/land's queries, decoded.
+ * One of x/herd's queries, decoded.
  *
  * The keeper's "not found" comes back as a non-zero ABCI code, so the two
- * shapes are separated here once: `landQuery` throws for a call that did not
- * complete, and `landOrNull` turns a genuine "no such thing" into null. Every
- * screen depends on telling those apart.
+ * shapes are separated here once: `herdQuery` throws for a call that did not
+ * complete, and `herdOrNull` turns a genuine "no such thing" into null. Every
+ * screen depends on telling those apart — "this identifier is on no record"
+ * and "the register did not answer" are opposite facts about whether it is
+ * safe to pay for the animal in front of you.
  */
-export async function landQuery(name, arg) {
+export async function herdQuery(name, arg) {
   const q = QUERY[name];
-  if (!q) throw new Error(`no such land query: ${name}`);
+  if (!q) throw new Error(`no such herd query: ${name}`);
   const { bytes, height } = await abci(q.path, q.request(arg));
   if (height > lastHeight) lastHeight = height;
   return { ...q.response(read(bytes)), height };
 }
 
 /** Returns null when the register answered "there is no such thing". */
-export async function landOrNull(name, arg) {
+export async function herdOrNull(name, arg) {
   try {
-    return await landQuery(name, arg);
+    return await herdQuery(name, arg);
   } catch (e) {
     // The keeper returns collections.ErrNotFound, which the gRPC layer maps to
     // a NotFound status and ABCI reports as a non-zero code with the reason in
@@ -175,7 +180,7 @@ export async function head() {
 /**
  * The time a block was written, from the RPC rather than from an average.
  *
- * An estimated date on a land record is a date somebody will one day cite in
+ * An estimated date on a register record is a date somebody will one day cite in
  * court. Where the node no longer serves a block this returns null and the
  * caller shows the height instead of a guess.
  *
@@ -257,13 +262,13 @@ function aliasField(bytes, num) {
 /**
  * The role grants an account actually holds, from x/alias.
  *
- * This is the half of admitting a registry office that is not in x/land at all,
+ * This is the half of admitting a registry office that is not in x/herd at all,
  * and it is the half that makes the difference between an office and a name.
- * `MsgRegisterAuthority` writes the record that `query land authorities` reads;
+ * `MsgRegisterAuthority` writes the record that `query herd authorities` reads;
  * every message the office then sends goes through `activeAuthority`, which
  * calls `AssertScopeIn(ctx, actor, ROLE_REGISTRY_AUTHORITY, jurisdiction)` —
- * x/land/keeper/msg_server_parcel.go — and that is x/alias's registry, not
- * x/land's.
+ * x/herd/keeper/msg_server_registry.go — and that is x/alias's registry, not
+ * x/herd's.
  *
  * So an office can be admitted, listed, and marked active while holding no
  * grant, and every message it sends is refused with "holds no grant of
@@ -418,7 +423,26 @@ export async function txsOf(msgType, limit = 30) {
  * dialog for a document it also composed — the person must see the wallet's own
  * window with the wallet's own address bar, or "approve" means nothing.
  */
-export const WALLET_URL = `${window.location.origin}/wallet`;
+/**
+ * Where the wallet lives, resolved when it is needed rather than at import.
+ *
+ * It was a top-level constant reading `window.location.origin`, which made the
+ * whole module — and everything importing it — unloadable outside a browser.
+ * That is not a portability nicety: it meant the register's read logic could
+ * not be unit-tested at all, because the only way to reach a function in
+ * ladoum.js was to load a page. So the one line that touched `window` at
+ * import time decided that none of the code behind it was testable, and the
+ * bugs that shipped were the ones a test would have caught.
+ *
+ * Signing still requires a browser, and this throws plainly if called without
+ * one rather than resolving to something that would fail later and stranger.
+ */
+export function walletUrl() {
+  if (typeof window === 'undefined') {
+    throw new Error('signing needs a browser: there is no window to open the wallet in');
+  }
+  return `${window.location.origin}/wallet`;
+}
 
 export class WalletRefused extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -428,8 +452,9 @@ export class WalletRefused extends Error {
 function walletRequest(payload, { timeoutMs = 180000 } = {}) {
   return new Promise((resolve, reject) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const origin = new URL(WALLET_URL).origin;
-    const popup = window.open(`${WALLET_URL}/connect`, 'yamale-wallet',
+    const base = walletUrl();
+    const origin = new URL(base).origin;
+    const popup = window.open(`${base}/connect`, 'yamale-wallet',
       'width=420,height=680,resizable=yes,scrollbars=yes');
     if (!popup) {
       reject(new WalletRefused('internal',
@@ -506,7 +531,7 @@ function walletRequest(payload, { timeoutMs = 180000 } = {}) {
 /** Ask the wallet who is signing. Opens the wallet's own window. */
 export async function connectWallet() {
   const result = await walletRequest({
-    kind: 'connect', chainId: CHAIN.id, appName: 'Land title register',
+    kind: 'connect', chainId: CHAIN.id, appName: 'Registre national du bétail',
   });
   if (result.kind !== 'connect') throw new WalletRefused('internal', 'Unexpected reply.');
   const account = result.accounts?.[0];
@@ -646,7 +671,7 @@ export async function awaitDelivery(hash, { attempts = 20, everyMs = 1500 } = {}
 }
 
 /**
- * The id x/land assigned, read out of the transaction's response bytes.
+ * The id x/herd assigned, read out of the transaction's response bytes.
  *
  * TxMsgData { repeated MsgResponse responses = 2 }, MsgResponse { type_url = 1,
  * value = 2 }, and the value is the message's own response — MsgObjectResponse

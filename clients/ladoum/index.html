@@ -156,6 +156,7 @@ td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
 footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
   font-size:13px;color:var(--ink-faint);max-width:70ch}
 footer a{color:var(--acacia)}
+.warn{color:#a8322b}
 :focus-visible{outline:2px solid var(--acacia);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -171,8 +172,8 @@ footer a{color:var(--acacia)}
   </header>
 
   <div class="searchbar">
-    <input type="search" id="q" placeholder="IDN — par exemple 221/682/021029/L"
-           aria-label="Rechercher un animal par son IDN" autocomplete="off">
+    <input type="search" id="q" placeholder="IDN, puce ou n° d'inscription — 221/682/021029/L"
+           aria-label="Rechercher un animal par son IDN, sa puce ou son numéro" autocomplete="off">
     <button id="go">Vérifier</button>
     <button class="ghost" id="clear">Effacer</button>
   </div>
@@ -185,19 +186,29 @@ footer a{color:var(--acacia)}
 
   <footer>
     <p><strong>Démonstrateur.</strong> Les animaux inscrits ici le sont sur un réseau de
-      démonstration. Le registre s'appuie aujourd'hui sur le module de registre foncier de la
-      chaîne — un bien identifié de façon unique, inscrit par une autorité habilitée, portant des
-      actes et cédé sous supervision, ce qui est exactement la forme d'un animal de race. En
-      production, un module dédié porterait la filiation comme relation de premier ordre, ce qui
-      permettrait à la chaîne elle-même de refuser une généalogie incohérente.</p>
+      démonstration. Le registre s'appuie sur <code>x/herd</code>, module dédié : la filiation y
+      est une relation de premier ordre, et c'est la chaîne elle-même — et non cette page — qui
+      refuse un père qui n'est pas mâle, une mère ayant mis bas quinze jours plus tôt, ou un
+      animal déclaré son propre ancêtre.</p>
+    <p>Ce démonstrateur lisait auparavant le module de registre foncier, dont la forme convenait à
+      tout sauf à l'ascendance : celle-ci vivait dans du texte libre et le graphe était reconstruit
+      dans le navigateur. Une vérification qui vit dans une page ne refuse rien — quiconque envoie
+      une transaction directement à la chaîne ne la rencontre jamais. C'est la seule raison pour
+      laquelle un module dédié valait d'être écrit.</p>
+    <p><strong>Ce que le registre ne fait pas.</strong> Il ne dit pas qui possède un animal : il
+      dit ce que le registre enregistre, et qui l'a enregistré. Aucune de ces vérifications ne
+      prouve une filiation — seul un laboratoire le fait — mais chacune refuse une filiation qui
+      ne peut pas être vraie, et un registre qui refuse l'impossible vaut mieux qu'un registre qui
+      enregistre tout.</p>
   </footer>
 </div>
 
 <script type="module">
 import {
-  animalByIdn, animalById, certificate, evidenceLevel, pedigree, pedigreeCoverage,
-  offices, roll, chainHead, DEED, deedOf, parseFields,
+  lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage,
+  offices, params, roll, chainHead, provenance, hasParent, sexLabel,
 } from './ladoum.js';
+import { PEDIGREE_DEPTH } from './registrar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -205,28 +216,37 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
 const out = document.getElementById('out');
 const rollEl = document.getElementById('roll');
 
-/** L'en-tête d'état : ce que la page a lu, et à quel bloc. */
+/** Une adresse, abrégée mais copiable en entier. */
+const addr = (a) => `<span class="mono" title="${esc(a)}">${esc(String(a).slice(0, 14))}…</span>`;
+
+/**
+ * L'en-tête d'état : ce que la page a lu, et à quel bloc.
+ *
+ * La hauteur est là pour une raison précise. Ce fichier importait autrefois un
+ * module qui n'existait pas, ce qui fait échouer tout le graphe ES et laisse
+ * la page afficher son balisage statique et rien d'autre — indiscernable d'un
+ * registre vide. Une hauteur de bloc ne peut apparaître que si le code a
+ * tourné : si elle manque, rien de ce qui est en dessous n'est vrai non plus.
+ */
 async function showHead() {
   const el = document.getElementById('chainstate');
   try {
     const h = await chainHead();
-    const os = await offices('SN');
+    const os = await offices();
+    const late = h.catchingUp
+      ? '<br><b class="warn">nœud en rattrapage — lecture possiblement ancienne</b>' : '';
     el.innerHTML = os.length
-      ? `registre lu au bloc <b>${esc(h.height)}</b><br>${esc(os[0].name)}`
-      : `chaîne lue au bloc <b>${esc(h.height)}</b><br>aucun office sénégalais admis`;
+      ? `registre lu au bloc <b>${esc(h.height)}</b><br>${esc(os[0].name)}${late}`
+      : `chaîne lue au bloc <b>${esc(h.height)}</b><br>aucun office sénégalais admis${late}`;
   } catch (e) {
-    el.textContent = 'chaîne injoignable';
+    el.innerHTML = `<b class="warn">chaîne injoignable</b><br>${esc(e.message)}`;
   }
 }
 
-/** Le certificat, la preuve et la généalogie d'un animal. */
+/** Le certificat, la preuve, la généalogie et la provenance d'un animal. */
 async function render(animal) {
   const c = certificate(animal);
   const ev = evidenceLevel(animal);
-  const sire = deedOf(animal, DEED.SIRE);
-  const dam = deedOf(animal, DEED.DAM);
-  const sireF = parseFields(sire?.reference || '');
-  const damF = parseFields(dam?.reference || '');
 
   out.innerHTML = `
     <div class="split">
@@ -234,11 +254,11 @@ async function render(animal) {
         <h2>Certificat de naissance Ladoum</h2>
         <div class="wave" aria-hidden="true"></div>
         <div class="f hi"><span class="k">IDN</span><span class="v">${esc(c.idn)}</span></div>
-        <div class="f"><span class="k">Empreinte</span><span class="v">${esc(c.empreinte)}</span></div>
+        <div class="f"><span class="k">Puce</span><span class="v">${esc(c.puce)}</span></div>
         <div class="grp">
-          <div class="gn">Bergerie</div>
-          <div class="f"><span class="k">Nom</span><span class="v">${esc(c.bergerie)}</span></div>
+          <div class="gn">Détenteur</div>
           <div class="f"><span class="k">Propriétaire</span><span class="v">${esc(c.proprietaire)}</span></div>
+          <div class="f"><span class="k">Office</span><span class="v">${esc(c.office)}</span></div>
         </div>
         <div class="grp">
           <div class="gn">Mouton</div>
@@ -250,10 +270,10 @@ async function render(animal) {
         </div>
         <div class="grp">
           <div class="gn">Ascendants directs</div>
-          <div class="f"><span class="k">Géniteur</span><span class="v">${esc(sireF.nom || '—')}</span></div>
-          <div class="f"><span class="k">IDN père</span><span class="v">${esc(sireF.idn || 'non référencé')}</span></div>
-          <div class="f"><span class="k">Génitrice</span><span class="v">${esc(damF.nom || '—')}</span></div>
-          <div class="f"><span class="k">IDN mère</span><span class="v">${esc(damF.idn || 'non référencé')}</span></div>
+          <div class="f"><span class="k">Père</span><span class="v">${
+            hasParent(animal.sire_id) ? `n° ${esc(animal.sire_id)}` : 'inconnu'}</span></div>
+          <div class="f"><span class="k">Mère</span><span class="v">${
+            hasParent(animal.dam_id) ? `n° ${esc(animal.dam_id)}` : 'inconnue'}</span></div>
         </div>
       </figure>
 
@@ -273,33 +293,51 @@ async function render(animal) {
           <div class="lab">Ce que la chaîne en dit</div>
           <dl>
             <dt>Inscription</dt><dd>n° ${esc(animal.id)}</dd>
-            <dt>Office</dt><dd>${esc(animal.authority)}</dd>
+            <dt>Troupeau</dt><dd>n° ${esc(animal.herd_id)}</dd>
+            <dt>Office</dt><dd>${addr(animal.authority)}</dd>
+            <dt>Niveau</dt><dd>${esc(animal.level.replace('LEVEL_', '').toLowerCase())}</dd>
             <dt>Statut</dt><dd>${esc(animal.status.replace('STATUS_', '').toLowerCase())}</dd>
+            <dt>ADN</dt><dd>${c.adn ? esc(c.adn.slice(0, 18)) + '…' : 'aucun profil'}</dd>
             <dt>Bloc</dt><dd>${esc(animal.registered_at)}</dd>
-            <dt>Actes</dt><dd>${esc((animal.deeds || []).map((d) => d.kind).join(', ') || 'aucun')}</dd>
           </dl>
+        </div>
+
+        <div class="proof" id="prov" style="margin-top:14px">
+          <div class="lab">Provenance</div>
+          <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">lecture…</p>
         </div>
       </div>
     </div>`;
 
-  // La généalogie est remontée après le premier rendu : elle demande une
-  // requête par ascendant, et faire attendre le certificat pour elle donnerait
-  // une page blanche là où l'essentiel est déjà connu.
+  // La généalogie et la provenance sont chargées après le premier rendu : le
+  // certificat est déjà connu, et le faire attendre donnerait une page blanche
+  // là où l'essentiel est disponible.
+  showPedigree(animal);
+  showProvenance(animal);
+}
+
+/** La lignée, remontée par la chaîne et mise en forme ici. */
+async function showPedigree(animal) {
+  const el = document.getElementById('ped');
   try {
-    const tree = await pedigree(animal, 3);
-    const cov = pedigreeCoverage(tree);
-    document.getElementById('ped').innerHTML = `
+    const ped = await pedigree(animal, PEDIGREE_DEPTH);
+    const cov = pedigreeCoverage(ped.tree);
+    el.innerHTML = `
       <div class="lab">Généalogie</div>
-      <ul class="tree">${branch(tree, null)}</ul>
+      <ul class="tree">${branch(ped.tree, null)}</ul>
       <p class="cover">${cov.cited === 0
-        ? 'Aucun ascendant déclaré au registre.'
+        ? 'Aucun ascendant déclaré au registre. C’est le cas normal d’un animal fondateur, '
+          + 'et la chaîne l’accepte comme tel plutôt que de le confondre avec une omission.'
         : `${cov.held} ascendant${cov.held > 1 ? 's' : ''} inscrit${cov.held > 1 ? 's' : ''}
-           sur ${cov.cited} cité${cov.cited > 1 ? 's' : ''}. Un ascendant cité mais absent est
-           normal pour les lignées antérieures au dispositif : il est affiché comme tel plutôt
-           que masqué.`}</p>`;
+           sur ${cov.cited} cité${cov.cited > 1 ? 's' : ''}.`}
+        ${ped.truncated
+          ? `<br><b class="warn">Remontée interrompue à ${PEDIGREE_DEPTH} générations.</b>
+             La lignée continue au-delà : ce n’est pas « plus d’ascendants », c’est
+             « nous avons cessé de chercher », et les deux ne se valent pas.`
+          : ''}
+      </p>`;
   } catch (e) {
-    document.getElementById('ped').innerHTML =
-      `<div class="lab">Généalogie</div><p style="margin:0;font-size:13.5px">
+    el.innerHTML = `<div class="lab">Généalogie</div><p style="margin:0;font-size:13.5px">
        remontée impossible : ${esc(e.message)}</p>`;
   }
 }
@@ -308,35 +346,88 @@ async function render(animal) {
 function branch(node, rel) {
   if (!node) return '';
   const label = rel ? `<span class="rel">${esc(rel)}</span>` : '';
-  if (!node.animal) {
-    return `<li>${label}<span class="absent">cité comme ${esc(node.missing)},
-      non inscrit au registre</span></li>`;
-  }
+  if (!node.animal) return '';
   const c = certificate(node.animal);
-  const kids = ['sire', 'dam']
-    .map((k) => branch(node[k], k === 'sire' ? 'père' : 'mère'))
-    .filter(Boolean).join('');
+
+  const kids = [];
+  for (const [side, mot] of [['sire', 'père'], ['dam', 'mère']]) {
+    const declared = side === 'sire' ? node.animal.sire_id : node.animal.dam_id;
+    if (!hasParent(declared)) continue;
+    kids.push(node[side]
+      ? branch(node[side], mot)
+      // Un ascendant cité mais absent du registre est une information, pas une
+      // erreur : c'est le cas normal des lignées antérieures au dispositif.
+      : `<li><span class="rel">${mot}</span><span class="absent">cité comme n° ${
+          esc(declared)}, non inscrit au registre</span></li>`);
+  }
+
   return `<li>${label}<span class="nom">${esc(c.nom)}</span>
     <span class="idn">${esc(c.idn)}</span>
-    ${node.cycle ? '<span class="absent"> — boucle détectée, remontée arrêtée</span>' : ''}
-    ${kids ? `<ul>${kids}</ul>` : ''}</li>`;
+    <span class="rel">${esc(sexLabel(node.animal.sex).toLowerCase())}</span>
+    ${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</li>`;
+}
+
+/**
+ * Les cessions supervisées, refus compris.
+ *
+ * Une vente à laquelle quelqu'un s'est opposé fait partie de ce qu'un acheteur
+ * doit voir, même écartée ensuite : le registre conserve l'opposition ET la
+ * décision qui l'a tranchée, avec le nom de l'office qui l'a prise.
+ */
+async function showProvenance(animal) {
+  const el = document.getElementById('prov');
+  try {
+    const ts = await provenance(animal.id);
+    if (!ts.length) {
+      el.innerHTML = `<div class="lab">Provenance</div>
+        <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">
+        Aucune cession supervisée. L’animal est chez son premier détenteur inscrit.</p>`;
+      return;
+    }
+    el.innerHTML = `<div class="lab">Provenance</div><dl>${ts.map((t) => {
+      const etat = {
+        TRANSFER_STATE_PROPOSED: 'proposée',
+        TRANSFER_STATE_ACCEPTED: 'acceptée par l’acheteur',
+        TRANSFER_STATE_ATTESTED: 'attestée, délai de contestation en cours',
+        TRANSFER_STATE_OBJECTED: 'contestée',
+        TRANSFER_STATE_COMPLETED: 'réalisée',
+        TRANSFER_STATE_CANCELLED: 'annulée',
+      }[t.state] || t.state;
+      const objection = t.objected_by
+        ? `<br><span class="absent">opposition de ${esc(t.objected_by.slice(0, 12))}…${
+            t.objection_reason ? ` : « ${esc(t.objection_reason)} »` : ''}${
+            t.resolved_by
+              ? ` — ${t.objection_upheld ? 'retenue' : 'écartée'} par l’office${
+                  t.resolution_reason ? ` : « ${esc(t.resolution_reason)} »` : ''}`
+              : ' — non encore tranchée'}</span>`
+        : '';
+      return `<dt>n° ${esc(t.id)}</dt><dd>${esc(etat)}, ${
+        esc(t.attestations.length)} attestation${t.attestations.length > 1 ? 's' : ''}${objection}</dd>`;
+    }).join('')}</dl>`;
+  } catch (e) {
+    el.innerHTML = `<div class="lab">Provenance</div>
+      <p style="margin:0;font-size:13.5px">lecture impossible : ${esc(e.message)}</p>`;
+  }
 }
 
 /** La liste des inscriptions, qui sert aussi de démonstration quand elle est vide. */
 async function showRoll() {
   rollEl.innerHTML = '<h3>Inscriptions</h3><p class="hint">lecture…</p>';
   try {
-    const os = await offices('SN');
+    const os = await offices();
     if (!os.length) {
       rollEl.innerHTML = `<h3>Inscriptions</h3>
         <div class="note bad"><div class="h">Aucun office admis</div>
         <p>La chaîne ne connaît aucun office d'enregistrement pour la juridiction sénégalaise.
         Les offices sont admis par la gouvernance de la chaîne, jamais entre eux — c'est ce qui
-        empêche une bergerie de se déclarer registre.</p>
+        empêche une bergerie de se déclarer registre. x/herd exige en outre qu'un office soit un
+        compte de groupe, de sorte que chacune de ses décisions requiert déjà plusieurs
+        signatures à l'intérieur de l'office.</p>
         <p>Tant qu'aucun office n'est admis, aucune inscription n'est possible, et la page le dit
         plutôt que d'afficher une liste vide qui ressemblerait à un registre sans animaux.</p></div>`;
       return;
     }
+    const p = await params().catch(() => null);
     const animals = await roll({ from: 1, limit: 40 });
     if (!animals.length) {
       rollEl.innerHTML = `<h3>Inscriptions</h3>
@@ -345,20 +436,26 @@ async function showRoll() {
         animal. La chaîne a répondu : le registre est vide, il n'est pas injoignable.</p></div>`;
       return;
     }
-    rollEl.innerHTML = `<h3>Inscriptions</h3><div class="tablewrap"><table>
-      <thead><tr><th>IDN</th><th>Nom</th><th>Preuve</th><th>Propriétaire</th><th>Bloc</th></tr></thead>
+    rollEl.innerHTML = `<h3>Inscriptions</h3>
+      ${p ? `<p class="hint">Règles en vigueur : ${esc(p.attestation_quorum)} attestations
+        indépendantes par cession, ${esc(Math.round(Number(p.challenge_window) / 86400))} jours
+        de contestation, ${esc(p.min_birth_interval_days)} jours minimum entre deux mises bas
+        d’une même mère.</p>` : ''}
+      <div class="tablewrap"><table>
+      <thead><tr><th>IDN</th><th>Nom</th><th>Sexe</th><th>Preuve</th><th>Propriétaire</th><th>Bloc</th></tr></thead>
       <tbody>${animals.map((a) => {
         const c = certificate(a); const ev = evidenceLevel(a);
-        return `<tr data-idn="${esc(c.idn)}">
+        return `<tr data-q="${esc(c.idn)}">
           <td class="mono">${esc(c.idn)}</td>
           <td>${esc(c.nom)}</td>
+          <td>${esc(c.sexe)}</td>
           <td><span class="badge ${esc(ev.level)}" style="margin:0;font-size:10px;padding:2px 6px">${esc(ev.label)}</span></td>
           <td class="mono">${esc(a.holder.slice(0, 12))}…</td>
           <td class="mono">${esc(a.registered_at)}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     rollEl.querySelectorAll('tbody tr').forEach((tr) => {
       tr.addEventListener('click', () => {
-        document.getElementById('q').value = tr.dataset.idn;
+        document.getElementById('q').value = tr.dataset.q;
         search();
       });
     });
@@ -370,18 +467,18 @@ async function showRoll() {
 }
 
 async function search() {
-  const idn = document.getElementById('q').value.trim();
-  if (!idn) { out.innerHTML = ''; return; }
+  const q = document.getElementById('q').value.trim();
+  if (!q) { out.innerHTML = ''; return; }
   out.innerHTML = '<p class="hint">recherche…</p>';
   try {
-    const animal = await animalByIdn(idn);
+    const animal = await lookup(q);
     if (!animal) {
       // Distinction utile pour un acheteur : « pas au registre » n'est pas
       // « registre injoignable ». La chaîne a répondu.
-      out.innerHTML = `<div class="note bad"><div class="h">Aucun animal sous cet IDN</div>
-        <p>Le registre a répondu et ne connaît pas <code>${esc(idn)}</code>. Ce n'est pas une
-        panne : c'est une absence. Un certificat présentant cet IDN ne correspond à aucune
-        inscription.</p></div>`;
+      out.innerHTML = `<div class="note bad"><div class="h">Aucun animal sous cette référence</div>
+        <p>Le registre a répondu et ne connaît pas <code>${esc(q)}</code>, ni comme IDN, ni comme
+        code de puce, ni comme numéro d'inscription. Ce n'est pas une panne : c'est une absence.
+        Un certificat présentant cette référence ne correspond à aucune inscription.</p></div>`;
       return;
     }
     await render(animal);

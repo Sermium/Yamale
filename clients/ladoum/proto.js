@@ -9,20 +9,25 @@
 //   $ curl -s 'https://pay.yamalelegal.com/api/rpc/abci_query?path="/blockchain.land.v1.Query/Params"&data=0x'
 //     {"result":{"response":{"code":0,"value":"CgYIAxCA6kk=","height":"94464"}}}
 //
-// The whole of x/land's REST prefix sits behind the deployment's supervisor
-// credential, so every read this console made returned a browser login box.
-// The identical queries answer unauthenticated over the node's ABCI interface,
-// which the proxy does publish — the same discovery clients/app/src/standing.ts
-// records for x/paymsg. ABCI speaks protobuf and nothing else, so a register
-// whose entire premise is that reading it is public could only be read by
-// writing this.
+// That was measured against x/land, which this console read at the time. The
+// deployment's proxy allowlists REST paths per module and denies by default,
+// so every read returned a browser login box with no credentials to type into
+// it — on a register whose entire premise is that reading it is public. The
+// identical queries answer unauthenticated over the node's ABCI interface,
+// which the proxy does publish; it is the same discovery
+// clients/app/src/standing.ts records for x/paymsg.
+//
+// The console has since moved to x/herd, and the finding moved with it rather
+// than expiring: a new module's REST prefix is not on that allowlist either,
+// and being new is exactly why. ABCI speaks protobuf and nothing else, so this
+// file is what makes the register readable.
 //
 // It is small on purpose. Nothing here is a general protobuf implementation:
-// there are no groups, no packed repeated scalars (x/land has none), no maps,
-// no float or fixed64 fields (x/land has none of those either). Every codec
+// there are no groups, no packed repeated scalars (x/herd has none), no maps,
+// no float or fixed64 fields (x/herd has none of those either). Every codec
 // below names the .proto file and field numbers it was written from, and
 // proto.test.js round-trips each one, so drift shows up as a failing test
-// rather than as a title that renders with the holder in the wrong field.
+// rather than as a certificate that renders with the sire in the dam's field.
 
 /* ------------------------------------------------------------------ writing */
 
@@ -130,7 +135,7 @@ export function read(bytes) {
         i += len;
         break;
       }
-      case 5: i += 4; break;   // fixed32 — none in x/land, skipped rather than refused
+      case 5: i += 4; break;   // fixed32 — none in x/herd, skipped rather than refused
       case 1: i += 8; break;   // fixed64 — likewise
       default: throw new Error(`unsupported wire type ${key & 7}`);
     }
@@ -154,11 +159,13 @@ export const str = (f, num) => {
  *
  * A string and not a Number, deliberately. Heights and ids fit in a double
  * today; account numbers and Unix seconds are the same shape and will not
- * always. More immediately: the REST surface this console used to read renders
- * uint64 as a JSON string, so every comparison already written against these
- * values — `completed_at !== '0'` decides whether land has changed hands — is a
- * string comparison. Returning a Number here would make each of those silently
- * false.
+ * always. More immediately, and this is the one that bites: an id of zero is
+ * meaningful in x/herd. `sire_id` and `dam_id` are 0 when the parentage is
+ * unknown, which is the ordinary state of a founder, and the keeper never
+ * issues animal 0 so that the two can be told apart. As a string, `'0'` is
+ * truthy and forces the comparison to be written out; as a Number it is falsy,
+ * and every `if (animal.sire_id)` on the page would quietly agree that no
+ * founder has ever been recorded.
  */
 export const u64 = (f, num) => String(first(f, num) ?? 0n);
 
@@ -202,102 +209,151 @@ export const toHex = (bytes) =>
   [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /* ============================================================================
-   x/land — proto/blockchain/land/v1/parcel.proto and params.proto.
+   x/herd — proto/blockchain/herd/v1/herd.proto, params.proto, query.proto.
+
+   This console used to read x/land, and why it no longer does is worth
+   recording rather than quietly dropping. A parcel and an animal do have the
+   same shape — a uniquely identified high-value thing, registered by an
+   admitted office, carrying documents, transferred under supervision — and
+   that correspondence carried the demonstrator a long way. What x/land could
+   not hold was PARENTAGE AS A RELATION. Ancestry lived in deed text, the
+   pedigree graph was reassembled in this browser, and so the one claim a
+   Ladoum certificate actually makes was checked by the page rendering it. A
+   check that lives in a page is a display convention: it refuses nothing, and
+   anybody sending a transaction straight to the chain never meets it.
+
+   x/herd holds that line in consensus. A sire that is not male, a dam that
+   gave birth a fortnight earlier, an animal declared its own ancestor — the
+   chain refuses those now, so this file no longer has to pretend to.
 
    Field numbers are transcribed from the .proto rather than from the generated
    Go, because the .proto is the source both of them come from. Each decoder
-   below lists them so a reviewer can check this file against that one without
+   lists them so a reviewer can check this file against that one without
    holding a schema in their head.
    ============================================================================ */
 
-/** Status enum — parcel.proto. 0 never appears on a stored parcel. */
-export const STATUS = ['STATUS_UNSPECIFIED', 'STATUS_REGISTERED',
-  'STATUS_TRANSFER_PENDING', 'STATUS_DISPUTED', 'STATUS_FROZEN'];
+/** Level — herd.proto. The whole design: a record costs what it proves. */
+export const LEVEL = ['LEVEL_UNSPECIFIED', 'LEVEL_HERD', 'LEVEL_INDIVIDUAL',
+  'LEVEL_CERTIFIED'];
 
-/** Params: attestation_quorum=1, challenge_window=2, same_authority_attestation=3. */
-export const decodeParams = (f) => ({
-  attestation_quorum: String(u32(f, 1)),
-  challenge_window: u64(f, 2),
-  same_authority_attestation: bool(f, 3),
-});
+/** Species — herd.proto. */
+export const SPECIES = ['SPECIES_UNSPECIFIED', 'SPECIES_CATTLE', 'SPECIES_SHEEP',
+  'SPECIES_GOAT', 'SPECIES_HORSE', 'SPECIES_CAMEL'];
 
-/** Encumbrance: kind=1, holder=2, detail=3, recorded_at=4, released=5. */
-const decodeEncumbrance = (f) => ({
-  kind: str(f, 1), holder: str(f, 2), detail: str(f, 3),
-  recorded_at: u64(f, 4), released: bool(f, 5),
-});
+/** Sex — herd.proto. The pedigree refusals turn on this. */
+export const SEX = ['SEX_UNSPECIFIED', 'SEX_MALE', 'SEX_FEMALE'];
 
-/** Deed: kind=1, document_hash=2, uri=3, reference=4, issued_on=5, recorded_at=6. */
-const decodeDeed = (f) => ({
-  kind: str(f, 1), document_hash: str(f, 2), uri: str(f, 3),
-  reference: str(f, 4), issued_on: str(f, 5), recorded_at: u64(f, 6),
-});
+/** Status — herd.proto. A record that is not ACTIVE cannot begin a transfer. */
+export const STATUS = ['STATUS_UNSPECIFIED', 'STATUS_ACTIVE',
+  'STATUS_TRANSFER_PENDING', 'STATUS_DISPUTED', 'STATUS_FROZEN', 'STATUS_RETIRED'];
 
-/** Restriction: kind=1, value=2, detail=3, imposed_by=4, imposed_at=5, lifted=6. */
-const decodeRestriction = (f) => ({
-  kind: str(f, 1), value: str(f, 2), detail: str(f, 3),
-  imposed_by: str(f, 4), imposed_at: u64(f, 5), lifted: bool(f, 6),
-});
-
-/** Freeze: reason=1, imposed_by=2, imposed_at=3, lifted=4, lifted_by=5,
- *  lift_reason=6, lifted_at=7. */
-const decodeFreeze = (f) => ({
-  reason: str(f, 1), imposed_by: str(f, 2), imposed_at: u64(f, 3),
-  lifted: bool(f, 4), lifted_by: str(f, 5), lift_reason: str(f, 6),
-  lifted_at: u64(f, 7),
-});
+/** TransferState — herd.proto. */
+export const TRANSFER_STATE = ['TRANSFER_STATE_UNSPECIFIED',
+  'TRANSFER_STATE_PROPOSED', 'TRANSFER_STATE_ACCEPTED', 'TRANSFER_STATE_ATTESTED',
+  'TRANSFER_STATE_OBJECTED', 'TRANSFER_STATE_COMPLETED', 'TRANSFER_STATE_CANCELLED'];
 
 /**
- * Parcel: id=1, geometry_hash=2, cadastral_ref=3, holder=4, authority=5,
- * status=6, encumbrances=7, registered_at=8, deeds=9, restrictions=10,
- * vehicle_id=11, freezes=12.
+ * Params: challenge_window=1, attestation_quorum=2,
+ * same_authority_attestation=3, min_birth_interval_days=4,
+ * require_dna_for_certified=5.
  *
- * `status` is turned back into its name because every existing comparison on
- * this page is against `'STATUS_FROZEN'` and the like — the strings the REST
- * gateway used to emit. Keeping the enum as a number here would mean rewriting
- * the verdict, and the verdict is the part of this console that must not move.
+ * Note the field order against x/land's, which put the quorum first. Carrying
+ * the old decoder across unchanged would have read the challenge window as the
+ * quorum: both are numbers, neither is absent, nothing would have thrown, and
+ * the page would have rendered "604800 attestations required".
  */
-export const decodeParcel = (f) => ({
-  id: u64(f, 1),
-  geometry_hash: str(f, 2),
-  cadastral_ref: str(f, 3),
-  holder: str(f, 4),
-  authority: str(f, 5),
-  status: STATUS[u32(f, 6)] ?? 'STATUS_UNSPECIFIED',
-  encumbrances: subs(f, 7, decodeEncumbrance),
-  registered_at: u64(f, 8),
-  deeds: subs(f, 9, decodeDeed),
-  restrictions: subs(f, 10, decodeRestriction),
-  vehicle_id: u64(f, 11),
-  freezes: subs(f, 12, decodeFreeze),
+export const decodeParams = (f) => ({
+  challenge_window: u64(f, 1),
+  attestation_quorum: String(u32(f, 2)),
+  same_authority_attestation: bool(f, 3),
+  min_birth_interval_days: String(u32(f, 4)),
+  require_dna_for_certified: bool(f, 5),
 });
 
 /**
- * Transfer: id=1, parcel_id=2, from=3, to=4, price=5, validated=6,
- * validated_by=7, attestors=8, quorum_at=9, objected_by=10,
- * objection_reason=11, proposed_at=12, completed_at=13.
+ * Herd: id=1, reference=2, keeper=3, authority=4, species=5, declared_size=6,
+ * locality=7, location_hash=8, jurisdiction=9, status=10, registered_at=11.
+ */
+export const decodeHerd = (f) => ({
+  id: u64(f, 1),
+  reference: str(f, 2),
+  keeper: str(f, 3),
+  authority: str(f, 4),
+  species: SPECIES[u32(f, 5)] ?? 'SPECIES_UNSPECIFIED',
+  declared_size: String(u32(f, 6)),
+  locality: str(f, 7),
+  location_hash: str(f, 8),
+  jurisdiction: str(f, 9),
+  status: STATUS[u32(f, 10)] ?? 'STATUS_UNSPECIFIED',
+  registered_at: u64(f, 11),
+});
+
+/**
+ * Animal: id=1, herd_id=2, national_id=3, tag=4, level=5, name=6, sex=7,
+ * coat=8, born_on=9, birth_type=10, sire_id=11, dam_id=12, dna_hash=13,
+ * photo_hash=14, holder=15, authority=16, status=17, registered_at=18.
  *
- * Note what `id` being a string buys here. Transfer ids come off
- * `collections.Sequence.Next()` with no zero skipped — unlike parcel ids, which
- * the keeper explicitly steps past — so **transfer 0 is a real transfer**, and
- * `u64` returns `'0'` for it, which is truthy. A Number would be falsy, and
- * every `if (transfer.id)` on the page would quietly decide the first transfer
- * this registry ever recorded does not exist.
+ * `sire_id` and `dam_id` come back as strings, and `'0'` means unknown
+ * parentage — the honest and common case for a founder. The keeper never
+ * issues animal 0 precisely so zero can carry that meaning, so any test for
+ * "has a recorded sire" must compare against `'0'`: the string is truthy.
+ */
+export const decodeAnimal = (f) => ({
+  id: u64(f, 1),
+  herd_id: u64(f, 2),
+  national_id: str(f, 3),
+  tag: str(f, 4),
+  level: LEVEL[u32(f, 5)] ?? 'LEVEL_UNSPECIFIED',
+  name: str(f, 6),
+  sex: SEX[u32(f, 7)] ?? 'SEX_UNSPECIFIED',
+  coat: str(f, 8),
+  born_on: str(f, 9),
+  birth_type: str(f, 10),
+  sire_id: u64(f, 11),
+  dam_id: u64(f, 12),
+  dna_hash: str(f, 13),
+  photo_hash: str(f, 14),
+  holder: str(f, 15),
+  authority: str(f, 16),
+  status: STATUS[u32(f, 17)] ?? 'STATUS_UNSPECIFIED',
+  registered_at: u64(f, 18),
+});
+
+/** HealthEvent: id=1, herd_id=2, disease=3, batch=4, treated=5, agent=6,
+ *  recorded_at=7. */
+export const decodeHealthEvent = (f) => ({
+  id: u64(f, 1), herd_id: u64(f, 2), disease: str(f, 3), batch: str(f, 4),
+  treated: String(u32(f, 5)), agent: str(f, 6), recorded_at: u64(f, 7),
+});
+
+/** Attestation: attestor=1, authority=2, evidence_hash=3, attested_at=4. */
+const decodeAttestation = (f) => ({
+  attestor: str(f, 1), authority: str(f, 2),
+  evidence_hash: str(f, 3), attested_at: u64(f, 4),
+});
+
+/**
+ * Transfer: id=1, animal_id=2, from=3, to=4, price=5, state=6,
+ * attestations=7, attested_at=8, objected_by=9, objection_reason=10,
+ * proposed_at=11, resolved_by=12, resolution_reason=13, objection_upheld=14,
+ * accepted_at=15.
  */
 export const decodeTransfer = (f) => ({
   id: u64(f, 1),
-  parcel_id: u64(f, 2),
+  animal_id: u64(f, 2),
   from: str(f, 3),
   to: str(f, 4),
   price: str(f, 5),
-  validated: bool(f, 6),
-  validated_by: str(f, 7),
-  attestors: strs(f, 8),
-  quorum_at: u64(f, 9),
-  objected_by: str(f, 10),
-  objection_reason: str(f, 11),
-  proposed_at: u64(f, 12),
-  completed_at: u64(f, 13),
+  state: TRANSFER_STATE[u32(f, 6)] ?? 'TRANSFER_STATE_UNSPECIFIED',
+  attestations: subs(f, 7, decodeAttestation),
+  attested_at: u64(f, 8),
+  objected_by: str(f, 9),
+  objection_reason: str(f, 10),
+  proposed_at: u64(f, 11),
+  resolved_by: str(f, 12),
+  resolution_reason: str(f, 13),
+  objection_upheld: bool(f, 14),
+  accepted_at: u64(f, 15),
 });
 
 /** Authority: address=1, name=2, jurisdiction=3, active=4. */
@@ -305,14 +361,11 @@ export const decodeAuthority = (f) => ({
   address: str(f, 1), name: str(f, 2), jurisdiction: str(f, 3), active: bool(f, 4),
 });
 
-/**
- * FractionalisationAuthority: parcel_id=1, right=2, max_share_bps=3,
- * expires_at=4, granted_by=5, granted_at=6, withdrawn=7, withdrawn_at=8.
- */
-export const decodeFractionalisation = (f) => ({
-  parcel_id: u64(f, 1), right: str(f, 2), max_share_bps: String(u32(f, 3)),
-  expires_at: u64(f, 4), granted_by: str(f, 5), granted_at: u64(f, 6),
-  withdrawn: bool(f, 7), withdrawn_at: u64(f, 8),
+/** PedigreeNode — query.proto: animal=1, generation=2, path=3. */
+const decodePedigreeNode = (f) => ({
+  animal: sub(f, 1, decodeAnimal),
+  generation: u32(f, 2),
+  path: str(f, 3),
 });
 
 /* --------------------------------------------------------- query envelopes */
@@ -321,160 +374,182 @@ export const decodeFractionalisation = (f) => ({
 
 export const QUERY = {
   Params: {
-    path: '/blockchain.land.v1.Query/Params',
+    path: '/blockchain.herd.v1.Query/Params',
     request: () => new Uint8Array(),
     response: (f) => ({ params: sub(f, 1, decodeParams) }),
   },
-  Parcel: {
-    path: '/blockchain.land.v1.Query/Parcel',
-    request: (id) => write((w) => w.num(1, id)),
-    response: (f) => ({ parcel: sub(f, 1, decodeParcel) }),
-  },
-  ParcelByRef: {
-    path: '/blockchain.land.v1.Query/ParcelByRef',
-    request: (ref) => write((w) => w.string(1, ref)),
-    response: (f) => ({ parcel: sub(f, 1, decodeParcel) }),
-  },
-  ParcelByGeometry: {
-    path: '/blockchain.land.v1.Query/ParcelByGeometry',
-    request: (hash) => write((w) => w.string(1, hash)),
-    response: (f) => ({ parcel: sub(f, 1, decodeParcel) }),
-  },
-  ParcelsByHolder: {
-    path: '/blockchain.land.v1.Query/ParcelsByHolder',
-    request: (holder) => write((w) => w.string(1, holder)),
-    response: (f) => ({ parcels: subs(f, 1, decodeParcel) }),
-  },
-  Transfer: {
-    path: '/blockchain.land.v1.Query/Transfer',
-    // `num` omits a zero, which is exactly right: transfer 0 is real, and its
-    // request is the empty message, because that is what a proto3 zero looks
-    // like on the wire. The keeper reads an unset id as 0 and answers for it.
-    request: (id) => write((w) => w.num(1, id)),
-    response: (f) => ({ transfer: sub(f, 1, decodeTransfer) }),
-  },
-  TransfersByParcel: {
-    path: '/blockchain.land.v1.Query/TransfersByParcel',
-    request: (parcelId) => write((w) => w.num(1, parcelId)),
-    response: (f) => ({ transfers: subs(f, 1, decodeTransfer) }),
-  },
-  PendingTransfers: {
-    path: '/blockchain.land.v1.Query/PendingTransfers',
-    request: () => new Uint8Array(),
-    response: (f) => ({ transfers: subs(f, 1, decodeTransfer) }),
-  },
   Authorities: {
-    path: '/blockchain.land.v1.Query/Authorities',
+    path: '/blockchain.herd.v1.Query/Authorities',
     request: () => new Uint8Array(),
     response: (f) => ({ authorities: subs(f, 1, decodeAuthority) }),
   },
-  FractionalisationAuthority: {
-    path: '/blockchain.land.v1.Query/FractionalisationAuthority',
-    request: (parcelId) => write((w) => w.num(1, parcelId)),
+  Herd: {
+    path: '/blockchain.herd.v1.Query/Herd',
+    request: (id) => write((w) => w.num(1, id)),
+    response: (f) => ({ herd: sub(f, 1, decodeHerd) }),
+  },
+  HerdByRef: {
+    path: '/blockchain.herd.v1.Query/HerdByRef',
+    request: (ref) => write((w) => w.string(1, ref)),
+    response: (f) => ({ herd: sub(f, 1, decodeHerd) }),
+  },
+  Animal: {
+    path: '/blockchain.herd.v1.Query/Animal',
+    request: (id) => write((w) => w.num(1, id)),
+    response: (f) => ({ animal: sub(f, 1, decodeAnimal) }),
+  },
+  AnimalByNationalID: {
+    path: '/blockchain.herd.v1.Query/AnimalByNationalID',
+    request: (nid) => write((w) => w.string(1, nid)),
+    response: (f) => ({ animal: sub(f, 1, decodeAnimal) }),
+  },
+  AnimalByTag: {
+    path: '/blockchain.herd.v1.Query/AnimalByTag',
+    request: (tag) => write((w) => w.string(1, tag)),
+    response: (f) => ({ animal: sub(f, 1, decodeAnimal) }),
+  },
+  /**
+   * The endpoint the paper certificate cannot have.
+   *
+   * `truncated` is carried through rather than dropped. When the depth bound is
+   * what stopped the walk, a page that showed only the nodes would render "no
+   * further ancestors" where the truth is "we stopped looking" — and those are
+   * opposite facts about a line.
+   */
+  Pedigree: {
+    path: '/blockchain.herd.v1.Query/Pedigree',
+    request: ({ animalId, depth = 0 }) =>
+      write((w) => w.num(1, animalId).num(2, depth)),
     response: (f) => ({
-      authorisation: sub(f, 1, decodeFractionalisation),
-      live: bool(f, 2),
+      nodes: subs(f, 1, decodePedigreeNode),
+      truncated: bool(f, 2),
     }),
+  },
+  Animals: {
+    path: '/blockchain.herd.v1.Query/Animals',
+    request: (herdId) => write((w) => w.num(1, herdId)),
+    response: (f) => ({ animals: subs(f, 1, decodeAnimal) }),
+  },
+  HealthEvents: {
+    path: '/blockchain.herd.v1.Query/HealthEvents',
+    request: (herdId) => write((w) => w.num(1, herdId)),
+    response: (f) => ({ health_events: subs(f, 1, decodeHealthEvent) }),
+  },
+  Transfer: {
+    path: '/blockchain.herd.v1.Query/Transfer',
+    request: (id) => write((w) => w.num(1, id)),
+    response: (f) => ({ transfer: sub(f, 1, decodeTransfer) }),
+  },
+  TransfersByAnimal: {
+    path: '/blockchain.herd.v1.Query/TransfersByAnimal',
+    request: (animalId) => write((w) => w.num(1, animalId)),
+    response: (f) => ({ transfers: subs(f, 1, decodeTransfer) }),
   },
 };
 
 /* ============================================================================
-   The messages this console can compose — proto/blockchain/land/v1/tx.proto.
+   The messages this console can compose — proto/blockchain/herd/v1/tx.proto.
 
    The type URL prefix is `blockchain.`, NOT `yamale.blockchain.`. The Go
-   package path is `yamale/blockchain/x/land/types` and the proto package is
-   `blockchain.land.v1`; only the second one appears on the wire. Getting this
+   package path is `yamale/blockchain/x/herd/types` and the proto package is
+   `blockchain.herd.v1`; only the second appears on the wire. Getting this
    wrong produces `unable to resolve type URL`, which reads like a chain fault
-   and is a typo. Verified against x/land/types/tx.pb.go.
+   and is a typo. Verified against x/herd/types/tx.pb.go.
    ============================================================================ */
 
-export const TYPE = (name) => `/blockchain.land.v1.${name}`;
+export const TYPE = (name) => `/blockchain.herd.v1.${name}`;
 
 /**
- * Every land message, by the name autocli gives its subcommand.
+ * Every herd message this console can compose, by the name autocli gives its
+ * subcommand.
  *
  * `encode` writes the protobuf; `signer` names the field the chain checks the
- * signature against (`cosmos.msg.v1.signer`), which is what decides who can
- * possibly send it and therefore which of the three shapes in registrar.js
- * this message takes.
+ * signature against (`cosmos.msg.v1.signer`), which decides who can possibly
+ * send it — and therefore whether a browser can send it at all, or must put it
+ * to an office's group policy instead.
  */
 export const MSG = {
-  MsgRegisterAuthority: {
-    // authority=1, office=2, name=3, jurisdiction=4, active=5
-    signer: 'authority',
-    encode: (m) => write((w) => w
-      .string(1, m.authority).string(2, m.office).string(3, m.name)
-      .string(4, m.jurisdiction).bool(5, m.active)),
-  },
-  MsgRegisterParcel: {
-    // creator=1, geometry_hash=2, cadastral_ref=3, holder=4
+  MsgEnrolHerd: {
+    // creator=1, reference=2, keeper=3, species=4, declared_size=5,
+    // locality=6, location_hash=7
     signer: 'creator',
     encode: (m) => write((w) => w
-      .string(1, m.creator).string(2, m.geometry_hash)
-      .string(3, m.cadastral_ref).string(4, m.holder)),
+      .string(1, m.creator).string(2, m.reference).string(3, m.keeper)
+      .num(4, m.species).num(5, m.declared_size)
+      .string(6, m.locality).string(7, m.location_hash)),
+  },
+  MsgIdentifyAnimal: {
+    // creator=1, herd_id=2, national_id=3, tag=4, name=5, sex=6, coat=7,
+    // born_on=8, birth_type=9
+    signer: 'creator',
+    encode: (m) => write((w) => w
+      .string(1, m.creator).num(2, m.herd_id).string(3, m.national_id)
+      .string(4, m.tag).string(5, m.name).num(6, m.sex).string(7, m.coat)
+      .string(8, m.born_on).string(9, m.birth_type)),
+  },
+  MsgCertifyAnimal: {
+    // creator=1, animal_id=2, sire_id=3, dam_id=4, dna_hash=5, photo_hash=6
+    signer: 'creator',
+    encode: (m) => write((w) => w
+      .string(1, m.creator).num(2, m.animal_id).num(3, m.sire_id)
+      .num(4, m.dam_id).string(5, m.dna_hash).string(6, m.photo_hash)),
+  },
+  MsgRecordHealthEvent: {
+    // agent=1, herd_id=2, disease=3, batch=4, treated=5
+    signer: 'agent',
+    encode: (m) => write((w) => w
+      .string(1, m.agent).num(2, m.herd_id).string(3, m.disease)
+      .string(4, m.batch).num(5, m.treated)),
   },
   MsgProposeTransfer: {
-    // creator=1, parcel_id=2, to=3, price=4
+    // creator=1, animal_id=2, to=3, price=4
     signer: 'creator',
     encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.to).string(4, m.price)),
+      .string(1, m.creator).num(2, m.animal_id).string(3, m.to).string(4, m.price)),
   },
-  MsgValidateTransfer: {
-    // creator=1, transfer_id=2
-    signer: 'creator',
-    encode: (m) => write((w) => w.string(1, m.creator).num(2, m.transfer_id)),
+  MsgAcceptTransfer: {
+    // buyer=1, transfer_id=2
+    signer: 'buyer',
+    encode: (m) => write((w) => w.string(1, m.buyer).num(2, m.transfer_id)),
   },
   MsgAttestTransfer: {
-    // creator=1, transfer_id=2
-    signer: 'creator',
-    encode: (m) => write((w) => w.string(1, m.creator).num(2, m.transfer_id)),
-  },
-  MsgObject: {
-    // creator=1, transfer_id=2, reason=3
-    signer: 'creator',
+    // attestor=1, transfer_id=2, evidence_hash=3
+    signer: 'attestor',
     encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.transfer_id).string(3, m.reason)),
+      .string(1, m.attestor).num(2, m.transfer_id).string(3, m.evidence_hash)),
+  },
+  MsgObjectTransfer: {
+    // objector=1, transfer_id=2, reason=3
+    //
+    // The one message here any visitor can send, deliberately: the person best
+    // placed to recognise a stolen animal is rarely a party to the sale.
+    signer: 'objector',
+    encode: (m) => write((w) => w
+      .string(1, m.objector).num(2, m.transfer_id).string(3, m.reason)),
   },
   MsgCompleteTransfer: {
     // creator=1, transfer_id=2
     signer: 'creator',
     encode: (m) => write((w) => w.string(1, m.creator).num(2, m.transfer_id)),
   },
-  MsgRecordEncumbrance: {
-    // creator=1, parcel_id=2, kind=3, holder=4, detail=5, release=6, index=7
-    signer: 'creator',
+  MsgCancelTransfer: {
+    // seller=1, transfer_id=2, reason=3
+    signer: 'seller',
     encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.kind)
-      .string(4, m.holder).string(5, m.detail).bool(6, m.release).num(7, m.index)),
+      .string(1, m.seller).num(2, m.transfer_id).string(3, m.reason)),
   },
-  MsgFreezeParcel: {
-    // creator=1, parcel_id=2, reason=3, unfreeze=4
-    signer: 'creator',
+  MsgResolveObjection: {
+    // authority=1, transfer_id=2, uphold=3, reason=4
+    signer: 'authority',
     encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.reason).bool(4, m.unfreeze)),
+      .string(1, m.authority).num(2, m.transfer_id).bool(3, m.uphold)
+      .string(4, m.reason)),
   },
-  MsgAttachDeed: {
-    // creator=1, parcel_id=2, kind=3, document_hash=4, uri=5, reference=6,
-    // issued_on=7
+  MsgRetireAnimal: {
+    // creator=1, animal_id=2, reason=3
     signer: 'creator',
     encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.kind)
-      .string(4, m.document_hash).string(5, m.uri).string(6, m.reference)
-      .string(7, m.issued_on)),
-  },
-  MsgSetRestriction: {
-    // creator=1, parcel_id=2, kind=3, value=4, detail=5, lift=6, index=7
-    signer: 'creator',
-    encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.kind)
-      .string(4, m.value).string(5, m.detail).bool(6, m.lift).num(7, m.index)),
-  },
-  MsgAuthoriseFractionalisation: {
-    // creator=1, parcel_id=2, right=3, max_share_bps=4, expires_at=5, withdraw=6
-    signer: 'creator',
-    encode: (m) => write((w) => w
-      .string(1, m.creator).num(2, m.parcel_id).string(3, m.right)
-      .num(4, m.max_share_bps).num(5, m.expires_at).bool(6, m.withdraw)),
+      .string(1, m.creator).num(2, m.animal_id).string(3, m.reason)),
   },
 };
 
@@ -482,10 +557,10 @@ export const MSG = {
 export const any = (typeUrl, value) =>
   write((w) => w.string(1, typeUrl).bytesField(2, value));
 
-/** A land message packed into an Any, ready for a Tx or a group proposal. */
-export function landAny(name, fields) {
+/** A herd message packed into an Any, ready for a Tx or a group proposal. */
+export function herdAny(name, fields) {
   const spec = MSG[name];
-  if (!spec) throw new Error(`no such land message: ${name}`);
+  if (!spec) throw new Error(`no such herd message: ${name}`);
   return any(TYPE(name), spec.encode(fields));
 }
 
