@@ -113,8 +113,17 @@ security and also new state nobody has designed:
 - an enrolment step that establishes them before key generation can start;
 - a decision about whether identities are per-account or long-lived per-party.
 
-None of that exists. It is not hard, but it is not nothing, and discovering it
-mid-build would have been expensive.
+**Corrected 2026-09-10, and this is the good kind of correction.** The above was
+written from the setup module's description and treated as a prerequisite. The
+spike showed it is not one: the library's own examples construct their setups
+with `NoSigningKey` and `NoVerifyingKey`, so party authentication is generic and
+**opting out is supported**.
+
+That means the migration can start under exactly the trust model already in
+place — transport-authenticated, with `auth.go` doing the deciding — which is
+the same model tss-lib runs under today. Real per-party signing keys become a
+later hardening step rather than a blocking design question, and a whole phase
+of work moves off the critical path.
 
 ### What the migration does not have to do
 
@@ -130,7 +139,7 @@ fresh accounts. **That decision paid for itself here.**
 
 ---
 
-## The API, as far as it could be read
+## The API, as first read (superseded below by what the spike confirmed)
 
 `sl-dkls23` 1.0.0-beta, published 2025-10-13. Async on **tokio**, curve
 arithmetic from **`k256`** — which is RustCrypto's secp256k1, so the same curve
@@ -159,11 +168,11 @@ Signing also takes a `chain_path` (`"m"` at the root), so one keyshare can
 derive child keys. Useful, and a footgun: signing under the wrong path yields a
 valid signature for the wrong address.
 
-**The exact `setup` constructors could not be read from outside.**
-`raw.githubusercontent.com` answers 503, and the examples' shared helper is not
-at the path the README implies. Guessing them would produce Rust that does not
-compile, and with no local toolchain the only feedback loop is a push — so the
-first CI run compiles nothing of ours.
+**The exact `setup` constructors could not be read from outside** —
+`raw.githubusercontent.com` answers 503 and the examples' helper is not at the
+path the README implies — which is why the first CI run compiled nothing of
+ours and printed the library's own source instead. They are recorded, confirmed,
+in the section below.
 
 ---
 
@@ -189,29 +198,106 @@ So the build runs in **GitHub Actions**, which also gives reproducible artefacts
 for two architectures rather than whatever was on somebody's laptop.
 
 ---
+## What the spike established, 2026-09-09 to 2026-09-10
 
-## The order of work
+Run through `.github/workflows/dkls-spike.yml`. Every figure below was measured
+or asserted in CI, not read from documentation.
 
-1. **Establish the API and the licence** — `.github/workflows/dkls-spike.yml`,
-   manually triggered. Builds and runs the library's *own* keygen, sign and
-   refresh examples, prints the licence and the setup module, and times keygen
-   and refresh against the GG18 figures of 65 s and 81 s. Nothing of ours is
-   compiled, so nothing of ours can be the reason it fails.
-2. **Prove a Cosmos signature** — a small Rust spike that signs a 32-byte digest
-   with two of three shares, plus a Go test that derives the `yml1` address
-   through `mpc/cosmos` and verifies the signature against it. This is the
-   `tools/mpc pay` principle applied early: everything above it can be satisfied
-   by a library that is subtly wrong, and a chain either accepts a transaction
-   or it does not.
-3. **Design the party identity layer** — the gap named above. Needs a decision
-   before the sidecar protocol is fixed.
-4. **The sidecar** — Rust, holds the share, implements a relay that is a local
-   pipe to Go.
-5. **The Go client** — on the existing `SigningParty` / `KeygenParty` /
-   `Reshare` seam, so `tools/custodian` changes as little as possible.
-6. **The device half** — Rust to WebAssembly, replacing `mpc/wasm`. Likely an
+### It is faster by two orders of magnitude on the thing that hurts
+
+| | GG18, measured 2026-08-31 | DKLs23 |
+|---|---:|---:|
+| Key generation, 2 of 3 | 65,000 ms | **~1 s** |
+| Reshare / key refresh | 81,000 ms | **~1 s** |
+| Signing | — | **< 1 s** |
+| Cold build of the library | — | 39 s |
+
+`tools/custodian/preparams.go` exists solely to hide GG18's safe-prime search.
+On these numbers **it stops needing to exist**, and with it the background
+worker and the denial-of-service argument that justified an unauthenticated
+endpoint costing minutes of CPU per call.
+
+### A signature from it is usable on this chain
+
+Asserted by `spike/dkls23/verify_test.go` against the chain's own code:
+
+- the joint key parses as a secp256k1 point;
+- it derives a `yml1` address through `mpc/cosmos` — the same path the device
+  and the custodian use;
+- the signature verifies over the digest;
+- **S is normalised.** 32 signatures over one key and one digest, every one in
+  the lower half of the curve order. By chance that is one in four billion, so
+  it is the library's behaviour and not luck.
+
+That last one was the point of the exercise. Both `(r, s)` and `(r, n-s)`
+verify, Cosmos rejects the high form, and one low sample would have proved
+nothing while looking exactly like proof. **The sidecar should still normalise
+unconditionally** — what the count buys is knowing that line is belt and braces
+rather than the only thing standing between this design and a chain refusing
+half its transactions.
+
+### The API, confirmed rather than inferred
+
+```rust
+use k256::elliptic_curve::group::GroupEncoding;   // to_bytes() comes from here
+
+gen_keyshares(t: u8, n: u8) -> Vec<Arc<Keyshare>>
+setup_dsg(shares: &[Arc<Keyshare>], chain_path: &str) -> Vec<sign::SetupMessage>
+sign::run(setup, seed, relay).await -> Result<(k256::ecdsa::Signature, RecoveryId)>
+keyshare.public_key().to_bytes()  // SEC1, AsRef<[u8]>
+```
+
+The digest is **pre-hashed, 32 bytes** — which is what a Cosmos `SignDoc` hash
+is — and the signature is **r‖s**, which is what the ante handler expects.
+
+### Three things learned the hard way, recorded so they are not relearned
+
+- **`to_bytes()` is a `GroupEncoding` method** and the trait must be in scope or
+  it does not resolve. Two probes testing `as_slice()` and `as_ref()` failed
+  *identically*, and that is what said the problem was the method rather than
+  the accessor: both cannot be wrong on a type that has either.
+- **Cargo.toml declares its examples explicitly**, which turns autodiscovery
+  off — it must, because `examples/common.rs` has no `main()`. A copied file is
+  not a target until the manifest names it.
+- **`continue-on-error` rewrites a step's conclusion to success.** Five probes
+  built to diagnose a compile failure all reported success while the thing they
+  were diagnosing had never compiled. Job conclusions are truthful where step
+  conclusions are not, so each probe is now a matrix leg. A check that passes
+  regardless of what it is checking is worse than no check.
+
+---
+
+## The plan
+
+Steps 1 and 2 are done, and they answered the question: this is worth doing.
+
+3. **The sidecar** — `tools/dklsd`, Rust. Holds one share, seals it at rest the
+   way `tools/custodian/store.go` already does, and implements a relay that is
+   a local pipe to Go. **Normalises S unconditionally** on the way out.
+   Deliberately a process and not a library linked into Go: no CGO keeps the
+   arm64 and amd64 cross-builds as simple as they are today, it matches the
+   pattern `tools/rpcgate` established, and the split is right on the merits —
+   policy in Go, cryptography in audited Rust.
+4. **Its own setup construction.** `setup_dsg` hardcodes `.with_hash([1; 32])`,
+   so the sidecar has to build `sign::SetupMessage` itself before it can sign a
+   real digest. This is the first genuinely new Rust and the first thing to test
+   against an actual `SignDoc` hash.
+5. **The Go client** — `mpc/dkls`, on the existing `SigningParty` /
+   `KeygenParty` / `Reshare` seam, so `tools/custodian` changes as little as
+   possible and `mpc/cosmos` does not change at all.
+6. **Rewire the custodian** — enrol, sign, recovery. Sessions, freeze, the
+   second-factor rule and the password rules are policy and do not move.
+   `preparams.go` is deleted rather than ported.
+7. **The device half** — Rust to WebAssembly, replacing `mpc/wasm`. Likely an
    improvement in its own right: Go's WebAssembly output is heavy for a page a
-   consumer loads.
-7. **Re-prove on chain**, and only then retire the GG18 path.
+   consumer loads on a phone.
+8. **Re-prove on chain** — the `tools/mpc pay` equivalent, a real payment from a
+   threshold account on a running chain, before the GG18 path is retired.
 
-Steps 1 and 2 are cheap and answer whether the rest is worth doing.
+Party identity is **not** a prerequisite. `NoSigningKey` and `NoVerifyingKey`
+are supported, so the migration can start under the trust model already in
+place — transport-authenticated, with `tools/custodian/auth.go` doing the
+deciding — and real per-party signing keys become a later hardening step rather
+than a blocking design question.
+
+The licence question runs in parallel. It gates deployment, not engineering.
