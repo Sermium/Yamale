@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package blockchain.herd.v1;
+
+import "blockchain/herd/v1/herd.proto";
+import "blockchain/herd/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/herd/types";
+
+// GenesisState carries the whole registry across an export and back.
+//
+// The counters are exported explicitly rather than derived from the highest id
+// present. A derived counter changes behaviour after an export whenever the
+// highest-numbered record has been retired, and on this chain the exported
+// state must match byte for byte or the import is not the same registry.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  repeated Authority authorities = 2 [(gogoproto.nullable) = false];
+  repeated Herd herds = 3 [(gogoproto.nullable) = false];
+  repeated Animal animals = 4 [(gogoproto.nullable) = false];
+  repeated HealthEvent health_events = 5 [(gogoproto.nullable) = false];
+  repeated Transfer transfers = 6 [(gogoproto.nullable) = false];
+
+  uint64 next_herd_id = 7;
+  uint64 next_animal_id = 8;
+  uint64 next_health_event_id = 9;
+  uint64 next_transfer_id = 10;
+}

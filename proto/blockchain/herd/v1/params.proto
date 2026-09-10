@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package blockchain.herd.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/herd/types";
+
+// Params are the dials that decide how hard it is to launder a stolen animal
+// or invent a pedigree. They belong to governance: a chain where a registrar
+// can lower the attestation quorum is a chain with no quorum.
+message Params {
+  option (amino.name) = "blockchain/x/herd/Params";
+  option (gogoproto.equal) = true;
+
+  // Seconds between a transfer reaching quorum and being allowed to complete.
+  //
+  // The window is the whole defence against a quiet sale: long enough for word
+  // to reach the real keeper, short enough that a legitimate market sale is
+  // not strangled. Seven days by default — shorter than land's fourteen,
+  // because livestock actually changes hands at a market and a fortnight would
+  // simply be ignored.
+  int64 challenge_window = 1;
+
+  // Independent attestations required before a transfer completes. The
+  // attestor is the party who says "the animal in front of me is the animal on
+  // this record", which is the only claim in the whole system a registry
+  // cannot check for itself.
+  uint32 attestation_quorum = 2;
+
+  // Whether an attestor from the office proposing the transfer may count.
+  // False, and it should stay false: an attestor from the same office is not
+  // independent, and allowing it collapses the mechanism back to one bribe.
+  bool same_authority_attestation = 3;
+
+  // The shortest interval, in days, between two live births recorded against
+  // one dam before the registry refuses the second as impossible.
+  //
+  // Not a biological constant and deliberately a parameter: a ewe's gestation
+  // is about 147 days and a cow's about 283, and a single figure that suited
+  // both would suit neither. The default is 140, which refuses the declaration
+  // that says one female produced two unrelated lambs a fortnight apart and
+  // permits every real interval.
+  //
+  // Twins are the exception the check has to allow, which is why the animal
+  // record carries birth_type: two animals with the same dam, the same birth
+  // date and birth_type "twin" are one birth, not two.
+  uint32 min_birth_interval_days = 4;
+
+  // Whether a level-3 certification requires the DNA hash to be present.
+  //
+  // True by default, and this is the field that separates a certificate from a
+  // claim. A pedigree without a laboratory is the declaring breeder's word for
+  // who the sire was — which is exactly what the existing paper certificates
+  // are, and exactly what this is meant to improve on.
+  bool require_dna_for_certified = 5;
+}

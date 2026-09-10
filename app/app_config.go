@@ -281,6 +281,7 @@ var (
 			custodyInitGenesis,
 			tokenisationInitGenesis,
 			landInitGenesis,
+			herdInitGenesis,
 		),
 	}
 
@@ -385,7 +386,7 @@ var (
 				Name:   epochstypes.ModuleName,
 				Config: appconfig.WrapAny(&epochsmodulev1.Module{}),
 			},
-		}, landModuleConfigs, []*appv1alpha1.ModuleConfig{
+		}, landModuleConfigs, herdModuleConfigs, []*appv1alpha1.ModuleConfig{
 			{
 				Name:   constitutionmoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&constitutionmoduletypes.Module{}),

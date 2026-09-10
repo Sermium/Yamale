@@ -57,19 +57,37 @@ enum Level {
 enum Species {
   option (gogoproto.goproto_enum_prefix) = false;
 
+  // Unset. Refused on a message; it is what a caller who did not choose looks
+  // like, and a herd of unspecified animals cannot be vaccinated against
+  // anything in particular.
   SPECIES_UNSPECIFIED = 0;
+  // Cattle. Where the collateral argument lives: a pastoral household's herd
+  // is its entire wealth and worth nothing to a bank.
   SPECIES_CATTLE = 1;
+  // Sheep. With goats, the 15,153,137 small ruminants that are the PPR
+  // target population.
   SPECIES_SHEEP = 2;
+  // Goats.
   SPECIES_GOAT = 3;
+  // Horses. Senegal microchipped equines in Thies from 2016 against theft, so
+  // this is the one species with an identification precedent here.
   SPECIES_HORSE = 4;
+  // Camels.
   SPECIES_CAMEL = 5;
 }
 
+// Sex, which the pedigree checks turn on: a sire must be male and a dam
+// female, and a registry that did not hold this could not refuse the one
+// declaration that is impossible on its face.
 enum Sex {
   option (gogoproto.goproto_enum_prefix) = false;
 
+  // Unset. Permitted at level 1, where nothing individual is recorded, and
+  // refused on any animal offered as a parent.
   SEX_UNSPECIFIED = 0;
+  // Male.
   SEX_MALE = 1;
+  // Female.
   SEX_FEMALE = 2;
 }
 
@@ -79,6 +97,8 @@ enum Sex {
 enum Status {
   option (gogoproto.goproto_enum_prefix) = false;
 
+  // Never stored. The zero value only appears on a message that forgot to set
+  // one, and the keeper refuses it rather than defaulting to ACTIVE.
   STATUS_UNSPECIFIED = 0;
   // Live, held by exactly one keeper, and movable.
   STATUS_ACTIVE = 1;
@@ -255,4 +275,79 @@ message Authority {
   string name = 2;
   string jurisdiction = 3;
   bool active = 4;
+}
+
+// TransferState is where a supervised handover has got to.
+enum TransferState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored on a transfer that exists. A transfer is created PROPOSED.
+  TRANSFER_STATE_UNSPECIFIED = 0;
+  // Opened by the keeper, waiting for the buyer to agree.
+  TRANSFER_STATE_PROPOSED = 1;
+  // The buyer has agreed; waiting for attestations.
+  TRANSFER_STATE_ACCEPTED = 2;
+  // Enough accredited agents have sworn the animal is the animal. The
+  // challenge window runs from here.
+  TRANSFER_STATE_ATTESTED = 3;
+  // Somebody objected. Terminal, and an entry point for a court: the chain
+  // preserves the evidence and does not adjudicate.
+  TRANSFER_STATE_OBJECTED = 4;
+  // The animal has moved.
+  TRANSFER_STATE_COMPLETED = 5;
+}
+
+// Attestation is one accredited agent swearing that the animal presented is
+// the animal on the record.
+//
+// This is the only claim in the whole system that the chain cannot check for
+// itself, and the reason the four-party shape exists: seller, buyer, registry
+// and somebody who physically looked at the animal.
+message Attestation {
+  string attestor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The office the attestor answers to, captured at attestation time. Recorded
+  // rather than looked up later because an attestor can be struck off, and the
+  // question "was this independent when it was made" has to stay answerable.
+  string authority = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Hash of what they actually checked — the tag read back, a photograph taken
+  // at the time. A false attestation should be a specific claim by a named
+  // person, not a shrug.
+  string evidence_hash = 3;
+
+  int64 attested_at = 4;
+}
+
+// Transfer is a supervised handover of one animal.
+//
+// The mechanism is the same one x/land uses for a parcel, and for the same
+// reason: it is not there to trace a theft afterwards, it is there to make the
+// lawful resale of a stolen animal impossible, which is what destroys its
+// value. A thief can still take the beast. He cannot sell it with a title.
+message Transfer {
+  uint64 id = 1;
+  uint64 animal_id = 2;
+
+  string from = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Free text, and not enforced by the chain. The registry records what the
+  // parties say they agreed; it does not hold the money and does not pretend
+  // to have witnessed the payment.
+  string price = 5;
+
+  TransferState state = 6;
+
+  repeated Attestation attestations = 7 [(gogoproto.nullable) = false];
+
+  // When the attestation quorum was reached. The challenge window runs from
+  // this, not from the proposal — otherwise a transfer could be proposed
+  // quietly, left to age, and completed the moment it was attested.
+  int64 attested_at = 8;
+
+  string objected_by = 9 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string objection_reason = 10;
+
+  int64 proposed_at = 11;
 }

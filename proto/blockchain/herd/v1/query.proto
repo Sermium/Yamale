@@ -1,0 +1,216 @@
+syntax = "proto3";
+
+package blockchain.herd.v1;
+
+import "blockchain/herd/v1/herd.proto";
+import "blockchain/herd/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/herd/types";
+
+// Query is the read side of the livestock registry.
+//
+// Open to the public on this chain, deliberately. A certificate a buyer cannot
+// check without trusting the issuer is a certificate that moves the trust
+// rather than establishing it, and the whole point of the exercise is that a
+// stranger with a phone can verify what they are being sold.
+//
+// What is NOT here is as deliberate: no endpoint lists a keeper's holdings by
+// name, and none returns a herd's location together with its keeper's
+// identity. A registry of who owns livestock and exactly where it grazes is a
+// shopping list for cattle raiders, and publishing it would defeat the theft
+// argument the registry is built on.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/params";
+  }
+
+  // Authorities lists the registry offices.
+  rpc Authorities(QueryAuthoritiesRequest) returns (QueryAuthoritiesResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/authorities";
+  }
+
+  // Herd returns one herd by its chain id.
+  rpc Herd(QueryHerdRequest) returns (QueryHerdResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/herd/{id}";
+  }
+
+  // HerdByRef returns one herd by the registry's own reference, which is what
+  // an officer holding a paper file actually has in front of them.
+  rpc HerdByRef(QueryHerdByRefRequest) returns (QueryHerdResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/herd_by_ref";
+  }
+
+  // Animal returns one animal by its chain id.
+  rpc Animal(QueryAnimalRequest) returns (QueryAnimalResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/animal/{id}";
+  }
+
+  // AnimalByNationalID is the certificate lookup: the identifier printed on
+  // the document, resolved to the record it refers to.
+  rpc AnimalByNationalID(QueryAnimalByNationalIDRequest) returns (QueryAnimalResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/animal_by_national_id";
+  }
+
+  // AnimalByTag resolves a transponder code read in the field. This is the
+  // query an agent with a reader makes, and the one that answers "whose animal
+  // is this".
+  rpc AnimalByTag(QueryAnimalByTagRequest) returns (QueryAnimalResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/animal_by_tag";
+  }
+
+  // Pedigree walks the line upward from one animal.
+  //
+  // The endpoint that the free-text certificate cannot have. Depth is bounded
+  // by the caller and by the module, because an unbounded walk over a graph
+  // somebody else populated is a denial of service with a polite name.
+  rpc Pedigree(QueryPedigreeRequest) returns (QueryPedigreeResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/pedigree/{animal_id}";
+  }
+
+  // Animals lists the animals in one herd.
+  rpc Animals(QueryAnimalsRequest) returns (QueryAnimalsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/animals";
+  }
+
+  // HealthEvents lists what a herd has been treated for, which is the
+  // difference between coverage and a count of doses.
+  rpc HealthEvents(QueryHealthEventsRequest) returns (QueryHealthEventsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/health_events";
+  }
+
+  // Transfer returns one transfer.
+  rpc Transfer(QueryTransferRequest) returns (QueryTransferResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/transfer/{id}";
+  }
+
+  // TransfersByAnimal is the provenance of one animal: every supervised
+  // handover it has been through, including the ones that were objected to.
+  rpc TransfersByAnimal(QueryTransfersByAnimalRequest) returns (QueryTransfersResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/transfers_by_animal/{animal_id}";
+  }
+}
+
+// QueryParamsRequest is the request type for the Params RPC.
+message QueryParamsRequest {}
+// QueryParamsResponse carries the module parameters.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAuthoritiesRequest pages through the registry offices.
+message QueryAuthoritiesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+// QueryAuthoritiesResponse carries a page of offices.
+message QueryAuthoritiesResponse {
+  repeated Authority authorities = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryHerdRequest names one herd by its chain id.
+message QueryHerdRequest {
+  uint64 id = 1;
+}
+// QueryHerdByRefRequest names one herd by the registry's own reference.
+message QueryHerdByRefRequest {
+  string reference = 1;
+}
+// QueryHerdResponse carries the herd.
+message QueryHerdResponse {
+  Herd herd = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAnimalRequest names one animal by its chain id.
+message QueryAnimalRequest {
+  uint64 id = 1;
+}
+// QueryAnimalByNationalIDRequest names one animal by the identifier printed on
+// its certificate.
+message QueryAnimalByNationalIDRequest {
+  string national_id = 1;
+}
+// QueryAnimalByTagRequest names one animal by its transponder code.
+message QueryAnimalByTagRequest {
+  string tag = 1;
+}
+// QueryAnimalResponse carries the animal.
+message QueryAnimalResponse {
+  Animal animal = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryPedigreeRequest asks for a line, upward, bounded.
+message QueryPedigreeRequest {
+  uint64 animal_id = 1;
+
+  // How many generations to walk. Bounded by the module regardless of what is
+  // asked for: a pedigree is a graph a stranger populated, and an unbounded
+  // walk over one is a denial of service.
+  uint32 depth = 2;
+}
+// PedigreeNode is one ancestor and where it sits in the line.
+message PedigreeNode {
+  Animal animal = 1 [(gogoproto.nullable) = false];
+
+  // 0 for the animal asked about, 1 for its parents, and so on.
+  uint32 generation = 2;
+
+  // The path taken to reach it — "sire", "dam", "sire.dam" — so a caller can
+  // render the tree without re-deriving which side each ancestor came from.
+  string path = 3;
+}
+// QueryPedigreeResponse carries the line.
+message QueryPedigreeResponse {
+  repeated PedigreeNode nodes = 1 [(gogoproto.nullable) = false];
+
+  // True when the walk stopped because it hit the depth bound rather than
+  // because it ran out of recorded ancestors. Without this a truncated line is
+  // indistinguishable from a founder, and a buyer would read "no further
+  // ancestors" where the truth is "we stopped looking".
+  bool truncated = 2;
+}
+
+// QueryAnimalsRequest pages through the animals of one herd.
+message QueryAnimalsRequest {
+  uint64 herd_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+// QueryAnimalsResponse carries a page of animals.
+message QueryAnimalsResponse {
+  repeated Animal animals = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryHealthEventsRequest pages through what a herd has been treated for.
+message QueryHealthEventsRequest {
+  uint64 herd_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+// QueryHealthEventsResponse carries a page of health events.
+message QueryHealthEventsResponse {
+  repeated HealthEvent health_events = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryTransferRequest names one transfer.
+message QueryTransferRequest {
+  uint64 id = 1;
+}
+// QueryTransferResponse carries the transfer.
+message QueryTransferResponse {
+  Transfer transfer = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryTransfersByAnimalRequest asks for one animal's provenance.
+message QueryTransfersByAnimalRequest {
+  uint64 animal_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+// QueryTransfersResponse carries a page of transfers.
+message QueryTransfersResponse {
+  repeated Transfer transfers = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

@@ -18,6 +18,17 @@ lint:
         - COMMENT_FIELD
         - RPC_REQUEST_STANDARD_NAME
         - RPC_RESPONSE_STANDARD_NAME
+        # RPC_REQUEST_RESPONSE_UNIQUE wants a distinct response message per rpc.
+        # x/herd finds the same record three ways — by chain id, by the national
+        # identifier printed on a certificate, and by a transponder code read in
+        # the field — and all three return an Animal. Obeying the rule would mean
+        # QueryAnimalByTagResponse and QueryAnimalByNationalIDResponse as exact
+        # clones of QueryAnimalResponse: three messages to keep in step forever,
+        # and a reference page printing one shape three times.
+        #
+        # The rule is right where two responses differ. It is wrong where the
+        # whole point is that they do not.
+        - RPC_REQUEST_RESPONSE_UNIQUE
         - SERVICE_SUFFIX
         # The two enum-naming rules are excepted because satisfying them is a
         # breaking change, not a tidy-up. ENUM_VALUE_PREFIX wants VERIFY_VALUER

@@ -1,0 +1,19 @@
+syntax = "proto3";
+package blockchain.herd.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "yamale/blockchain/x/herd/types";
+
+// Module is the config object for the livestock registry.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {go_import: "yamale/blockchain/x/herd"};
+
+  // authority defines the custom module authority.
+  //
+  // If not set, defaults to the governance module, which is the intended
+  // setting: an office that could admit offices could manufacture the
+  // independent attestors a transfer quorum depends on, and certify any
+  // parentage it liked.
+  string authority = 1;
+}
