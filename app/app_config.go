@@ -120,7 +120,7 @@ var (
 		// its account holds — an invariant a supervisor can check from outside
 		// without trusting the module's own books at all.
 		{Account: nettingmoduletypes.ModuleName},
-	}, custodyModuleAccPerms, tokenisationModuleAccPerms)
+	}, custodyModuleAccPerms, tokenisationModuleAccPerms, syndicateModuleAccPerms)
 
 	// blocked account addresses
 	// blockAccAddrs are the module accounts that must never be the recipient of
@@ -147,10 +147,11 @@ var (
 		// Chain modules that hold custody against their own accounting.
 		treasurymoduletypes.ModuleName,
 		nettingmoduletypes.ModuleName,
-	}, custodyBlockedAccounts, tokenisationBlockedAccounts, ammBlockedAccounts, []string{
-		stablecoinmoduletypes.ModuleName,
-		paymsgmoduletypes.ModuleName,
-	}, emissionBlockedAccounts, builderfeeBlockedAccounts)
+	}, custodyBlockedAccounts, tokenisationBlockedAccounts, syndicateBlockedAccounts,
+		ammBlockedAccounts, []string{
+			stablecoinmoduletypes.ModuleName,
+			paymsgmoduletypes.ModuleName,
+		}, emissionBlockedAccounts, builderfeeBlockedAccounts)
 	// We allow the following module accounts to receive funds:
 	// govtypes.ModuleName
 
@@ -280,6 +281,7 @@ var (
 			[]string{treasurymoduletypes.ModuleName, oraclemoduletypes.ModuleName, enforcementmoduletypes.ModuleName, aliasmoduletypes.ModuleName, nettingmoduletypes.ModuleName},
 			custodyInitGenesis,
 			tokenisationInitGenesis,
+			syndicateInitGenesis,
 			landInitGenesis,
 			herdInitGenesis,
 		),
@@ -415,6 +417,6 @@ var (
 		}, {
 			Name:   nettingmoduletypes.ModuleName,
 			Config: appconfig.WrapAny(&nettingmoduletypes.Module{}),
-		}}, custodyModuleConfigs, tokenisationModuleConfigs),
+		}}, custodyModuleConfigs, tokenisationModuleConfigs, syndicateModuleConfigs),
 	})
 )

@@ -1,0 +1,324 @@
+syntax = "proto3";
+
+package blockchain.syndicate.v1;
+
+import "amino/amino.proto";
+import "blockchain/syndicate/v1/params.proto";
+import "blockchain/syndicate/v1/syndicate.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// Msg is the write side of the syndication layer: onboard an investor, open a
+// deal, commit to it, close or abort it, distribute what comes back, and sell a
+// position on.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams sets the platform-wide ceilings. Governance only.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // RegisterOperator admits a platform operator. Governance only.
+  rpc RegisterOperator(MsgRegisterOperator) returns (MsgRegisterOperatorResponse);
+
+  // OnboardInvestor records that an operator has completed KYC/AML on somebody.
+  rpc OnboardInvestor(MsgOnboardInvestor) returns (MsgOnboardInvestorResponse);
+
+  // OpenDeal puts an allocation in front of the investor base.
+  rpc OpenDeal(MsgOpenDeal) returns (MsgOpenDealResponse);
+
+  // Commit escrows an investor's cheque against a deal.
+  rpc Commit(MsgCommit) returns (MsgCommitResponse);
+
+  // WithdrawCommitment takes it back, which is only possible while the deal is
+  // open.
+  rpc WithdrawCommitment(MsgWithdrawCommitment) returns (MsgWithdrawCommitmentResponse);
+
+  // CloseDeal funds the company and issues the tokens.
+  rpc CloseDeal(MsgCloseDeal) returns (MsgCloseDealResponse);
+
+  // AbortDeal refunds everybody in full.
+  rpc AbortDeal(MsgAbortDeal) returns (MsgAbortDealResponse);
+
+  // Distribute pays a dividend or exit proceeds into the deal, pro-rata.
+  rpc Distribute(MsgDistribute) returns (MsgDistributeResponse);
+
+  // Claim withdraws what a holder has accrued.
+  rpc Claim(MsgClaim) returns (MsgClaimResponse);
+
+  // List offers part of a position for sale, openly or to a named buyer.
+  rpc List(MsgList) returns (MsgListResponse);
+
+  // CancelListing withdraws an offer.
+  rpc CancelListing(MsgCancelListing) returns (MsgCancelListingResponse);
+
+  // Buy fills a listing: settlement one way, tokens the other, in one block.
+  rpc Buy(MsgBuy) returns (MsgBuyResponse);
+}
+
+// MsgUpdateParams sets the platform-wide ceilings.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/syndicate/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+// MsgUpdateParamsResponse is empty.
+message MsgUpdateParamsResponse {}
+
+// MsgRegisterOperator admits a platform operator, or strikes one off.
+//
+// Governance, and an x/group account, for the same reason every other registry
+// on this chain demands both: an operator opens deals, decides they have closed
+// and moves the money to a drawdown account. Each of those on one key is one
+// key away from a platform that takes money and does not invest it.
+message MsgRegisterOperator {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/syndicate/MsgRegisterOperator";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string operator = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 3;
+  // ISO 3166-1 alpha-2 of the jurisdiction the platform entity operates from —
+  // which the proposal itself says is likely to be distinct from where the
+  // investee companies are.
+  string jurisdiction = 4;
+  bool active = 5;
+}
+// MsgRegisterOperatorResponse is empty.
+message MsgRegisterOperatorResponse {}
+
+// MsgOnboardInvestor records completed KYC/AML, or withdraws it.
+//
+// The chain does not perform the checks and this message does not claim it did.
+// It records that a named, accountable operator says they were performed,
+// against a file reference somebody can later be asked to produce. That is the
+// only honest thing a chain can offer here, and it is worth more than nothing:
+// the assertion is dated, attributable and cannot be backdated.
+message MsgOnboardInvestor {
+  option (cosmos.msg.v1.signer) = "operator";
+  option (amino.name) = "blockchain/x/syndicate/MsgOnboardInvestor";
+
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string investor = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The operator's own file reference. NEVER the documents, and never an
+  // identity number: a national identifier written to a public chain is a
+  // permanent disclosure that no later correction can withdraw.
+  string reference = 3;
+  string jurisdiction = 4;
+  bool active = 5;
+}
+// MsgOnboardInvestorResponse is empty.
+message MsgOnboardInvestorResponse {}
+
+// MsgOpenDeal puts an allocation in front of the investor base.
+message MsgOpenDeal {
+  option (cosmos.msg.v1.signer) = "operator";
+  option (amino.name) = "blockchain/x/syndicate/MsgOpenDeal";
+
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string reference = 2;
+  string company = 3;
+  string partner = 4;
+  string drawdown_account = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string settlement_denom = 6;
+
+  string target = 7 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string minimum = 8 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string minimum_ticket = 9 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  FeeSchedule fees = 10 [(gogoproto.nullable) = false];
+
+  // When commitments stop. Bounded at both ends by the module parameters.
+  int64 closes_at = 11;
+}
+// MsgOpenDealResponse carries the deal's identifier.
+message MsgOpenDealResponse {
+  uint64 id = 1;
+}
+
+// MsgCommit escrows an investor's cheque.
+//
+// The money moves now, not at close. A commitment that is only a promise lets a
+// deal close on paper and fail to fund, which is the failure that ends the
+// platform's relationship with the partner firm — and that relationship is the
+// only asset the platform actually has.
+message MsgCommit {
+  option (cosmos.msg.v1.signer) = "investor";
+  option (amino.name) = "blockchain/x/syndicate/MsgCommit";
+
+  string investor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+}
+// MsgCommitResponse is empty; the commitment query reports the position.
+message MsgCommitResponse {}
+
+// MsgWithdrawCommitment takes an escrowed cheque back.
+//
+// Unconditional while the deal is OPEN, and that is not generosity. Money
+// committed is out of the investor's hands and earning nothing, against a deal
+// that may never happen; the right to withdraw is what makes committing early
+// rational, and a syndicate whose early commitments are hostages does not fill.
+message MsgWithdrawCommitment {
+  option (cosmos.msg.v1.signer) = "investor";
+  option (amino.name) = "blockchain/x/syndicate/MsgWithdrawCommitment";
+
+  string investor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+}
+// MsgWithdrawCommitmentResponse is empty.
+message MsgWithdrawCommitmentResponse {}
+
+// MsgCloseDeal funds the company and issues the tokens.
+message MsgCloseDeal {
+  option (cosmos.msg.v1.signer) = "operator";
+  option (amino.name) = "blockchain/x/syndicate/MsgCloseDeal";
+
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+}
+// MsgCloseDealResponse reports what was raised, what the fees took, and what
+// reached the company — the three numbers an investor is entitled to see
+// together rather than reconciled from a statement.
+message MsgCloseDealResponse {
+  string raised = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string fees = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string invested = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string denom = 4;
+}
+
+// MsgAbortDeal refunds everybody in full.
+//
+// In full including the fees, because no service was delivered. A platform that
+// keeps a sourcing fee on a deal that never happened is charging for the
+// attempt, and an investor who discovers that once does not commit again.
+message MsgAbortDeal {
+  option (cosmos.msg.v1.signer) = "operator";
+  option (amino.name) = "blockchain/x/syndicate/MsgAbortDeal";
+
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+  string reason = 3;
+}
+// MsgAbortDealResponse is empty.
+message MsgAbortDealResponse {}
+
+// MsgDistribute pays a dividend or exit proceeds into a deal.
+//
+// Permissionless as to WHO pays: the money arrives from wherever it arrives,
+// and refusing a payment because the sender was not on a list would strand it.
+// What it does control is where the money goes, which is pro-rata to whoever
+// holds the token at this moment — no chain of historical owners, no
+// reconciliation of private secondary sales.
+message MsgDistribute {
+  option (cosmos.msg.v1.signer) = "payer";
+  option (amino.name) = "blockchain/x/syndicate/MsgDistribute";
+
+  string payer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+
+  // True when this is the exit. The deal becomes REALISED, trading stops, and
+  // every token is a claim on a known fixed sum — which is what it actually is
+  // at that point, and pretending otherwise leaves a market quoting a price
+  // for a position that no longer changes.
+  bool final = 4;
+}
+// MsgDistributeResponse is empty.
+message MsgDistributeResponse {}
+
+// MsgClaim withdraws what a holder has accrued, without giving up the position.
+message MsgClaim {
+  option (cosmos.msg.v1.signer) = "holder";
+  option (amino.name) = "blockchain/x/syndicate/MsgClaim";
+
+  string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+}
+// MsgClaimResponse reports what was paid.
+message MsgClaimResponse {
+  cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+}
+
+// MsgList offers part of a position for sale.
+message MsgList {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/syndicate/MsgList";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+
+  // Empty for an open listing, which the first eligible buyer takes. Set for a
+  // private sale to a named counterparty — the shape that actually happens,
+  // and whose administrative cost is what a paper syndicate cannot absorb.
+  string buyer = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string quantity = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  cosmos.base.v1beta1.Coin price = 5 [(gogoproto.nullable) = false];
+}
+// MsgListResponse carries the listing's identifier.
+message MsgListResponse {
+  uint64 id = 1;
+}
+
+// MsgCancelListing withdraws an offer and returns the escrowed tokens.
+message MsgCancelListing {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/syndicate/MsgCancelListing";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 listing_id = 2;
+}
+// MsgCancelListingResponse is empty.
+message MsgCancelListingResponse {}
+
+// MsgBuy fills a listing.
+//
+// Both legs in one message, which is the whole point: ownership transfers
+// automatically on completion of sale, so nobody holds the other party's asset
+// while waiting for their own. A two-message version — pay, then ask the seller
+// to deliver — reintroduces exactly the counterparty risk a secondary market
+// for an illiquid private position cannot absorb.
+message MsgBuy {
+  option (cosmos.msg.v1.signer) = "buyer";
+  option (amino.name) = "blockchain/x/syndicate/MsgBuy";
+
+  string buyer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 listing_id = 2;
+}
+// MsgBuyResponse is empty.
+message MsgBuyResponse {}

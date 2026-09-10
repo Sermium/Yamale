@@ -48,6 +48,13 @@ func TestValueGuardsAreSendRestrictionsAndNotAnteDecorators(t *testing.T) {
 			what: "the x/tokenisation shareholding settlement",
 			call: "app.registerTokenisationSendRestriction()",
 		},
+		{
+			// Same mechanism, and additionally the KYC gate: a deal token is an
+			// ordinary bank denomination, so a gate anywhere else binds on none
+			// of MsgSend, authz, a swap or a treasury spend.
+			what: "the x/syndicate settlement and onboarding gate",
+			call: "app.registerSyndicateSendRestriction()",
+		},
 	} {
 		require.Contains(t, text, guard.call,
 			"%s is not registered as a bank send restriction; if it moved to the ante chain, "+
@@ -65,6 +72,12 @@ func TestValueGuardsAreSendRestrictionsAndNotAnteDecorators(t *testing.T) {
 //go:embed profile_tokenisation_on.go
 var tokenisationProfileSource string
 
+//go:embed profile_syndicate_on.go
+var syndicateProfileSource string
+
+//go:embed restricted_denoms.go
+var restrictedDenomsSource string
+
 // The AMM must be told which denoms are fraction denoms, or K-1 comes back.
 //
 // A pool pays both reserve legs in one send, and a realised vehicle's fraction
@@ -79,8 +92,53 @@ var tokenisationProfileSource string
 // weeks, and every entitlement read zero the whole time. This is the line that
 // stops the same shape happening to the pool guard.
 func TestTheAmmIsToldWhichDenomsAreFractionDenoms(t *testing.T) {
+	// This used to pin the literal call
+	// `app.AmmKeeper.SetRestrictedDenomKeeper(app.TokenisationKeeper)` in the
+	// tokenisation profile, and it caught the change that made this test
+	// necessary in its present form.
+	//
+	// SetRestrictedDenomKeeper ASSIGNS through a pointer. With one module
+	// producing restricted denoms that is invisible. When x/syndicate arrived
+	// with deal tokens carrying the same halt, a second direct call would have
+	// silently replaced the tokenisation classifier — and K-1 would have been
+	// back for fraction denoms with nothing failing anywhere, which is the
+	// precise failure this test was written to prevent.
+	//
+	// So the classifiers are now composed, and what is pinned is the whole
+	// chain: each profile contributes, the app composes, and the composite is
+	// what reaches the AMM. Any of those three going missing puts a restricted
+	// denom back in a pool.
 	require.Contains(t, tokenisationProfileSource,
-		"app.AmmKeeper.SetRestrictedDenomKeeper(app.TokenisationKeeper)",
-		"the AMM has not been given the fraction-denom classifier; CreatePool will pool a "+
-			"fraction denom and K-1 (a realised vehicle locking an LP's counter-asset) is back")
+		"func (app *App) tokenisationRestrictedDenoms() []ammtypes.RestrictedDenomKeeper",
+		"the tokenisation profile no longer contributes a fraction-denom classifier; "+
+			"CreatePool will pool a fraction denom and K-1 (a realised vehicle locking an "+
+			"LP's counter-asset) is back")
+	require.Contains(t, syndicateProfileSource,
+		"func (app *App) syndicateRestrictedDenoms() []ammtypes.RestrictedDenomKeeper",
+		"the syndicate profile no longer contributes a deal-token classifier; a pool over "+
+			"a deal token fails on its first payout, with the liquidity already inside")
+
+	require.Contains(t, restrictedDenomsSource,
+		"out = append(out, app.tokenisationRestrictedDenoms()...)",
+		"the composite classifier has dropped x/tokenisation")
+	require.Contains(t, restrictedDenomsSource,
+		"out = append(out, app.syndicateRestrictedDenoms()...)",
+		"the composite classifier has dropped x/syndicate")
+	require.Contains(t, restrictedDenomsSource,
+		"app.AmmKeeper.SetRestrictedDenomKeeper(restrictedDenoms(app.restrictedDenomKeepers()))",
+		"the composite is built but never handed to the AMM, which is the same as having none")
+	require.Contains(t, appSource, "app.registerRestrictedDenomClassifiers()",
+		"nothing calls the classifier wiring; a guard that is written and not registered "+
+			"is the exact shape that left every entitlement reading zero for weeks")
+
+	// And nobody may go back to assigning directly, in any profile: the second
+	// such call silently wins and the first module's denoms become poolable.
+	for what, source := range map[string]string{
+		"the tokenisation profile": tokenisationProfileSource,
+		"the syndicate profile":    syndicateProfileSource,
+	} {
+		require.NotContains(t, source, "app.AmmKeeper.SetRestrictedDenomKeeper(",
+			"%s assigns the AMM classifier directly; the setter REPLACES, so whichever "+
+				"module is wired last would be the only one classified", what)
+	}
 }

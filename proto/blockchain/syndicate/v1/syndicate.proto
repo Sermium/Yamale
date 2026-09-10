@@ -1,0 +1,357 @@
+syntax = "proto3";
+
+package blockchain.syndicate.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// The syndication layer: one investor's ticket, turned into a share of a round
+// they could not have written alone.
+//
+// # What this module is for, and what it deliberately is not
+//
+// The best African private rounds are allocated by insiders before anybody
+// else hears of them, minimum cheques are larger than an angel can write, and
+// proper diligence needs local networks nobody has part-time. A syndicate
+// answers all three by riding alongside a professional firm that has already
+// done the work — the platform is the syndication and investor-management
+// layer, not a fund manager and not a VC.
+//
+// So this module does NOT source deals, does NOT perform diligence, and does
+// NOT express an opinion on whether an investment is any good. It handles the
+// part a chain is actually better at than a spreadsheet: taking money from many
+// people under a promise, holding it until the promise is kept or broken,
+// issuing a proportional claim, and paying that claim to whoever holds it when
+// money comes back.
+//
+// # Why the raise had to be a module rather than a token
+//
+// x/tokenisation already issues a fractional, transferable claim over a
+// vehicle, already indexes income so a distribution is pro-rata to whoever
+// holds the token at the time, and already handles a realisation. Everything
+// AFTER a deal closes is largely solved there.
+//
+// What it has no notion of is the raise itself: money committed against a
+// target that might not be met, escrowed rather than paid, and returned in full
+// if the deal does not close. That is the whole of the risk an investor takes
+// before a deal exists, and it is exactly where a syndicate goes wrong — a
+// platform that can take money and cannot give it back is not a syndication
+// layer, it is a hazard.
+
+// DealState is where a syndication has got to.
+enum DealState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored on a deal that exists. A deal is created OPEN.
+  DEAL_STATE_UNSPECIFIED = 0;
+
+  // Accepting commitments. Money is escrowed in the module account, not paid
+  // to anybody, and an investor may still withdraw in full.
+  DEAL_STATE_OPEN = 1;
+
+  // Closed and funded. Tokens are issued, the net capital has gone to the
+  // partner's drawdown account, and commitments are no longer refundable —
+  // the money is in a company now.
+  DEAL_STATE_CLOSED = 2;
+
+  // The target was not met, or the platform pulled the deal. Every commitment
+  // is refunded in full, including the fees, because no service was delivered.
+  DEAL_STATE_ABORTED = 3;
+
+  // Realised: the investment has been exited and the proceeds are in the
+  // distribution pot. Tokens stop trading and become a claim on a known fixed
+  // sum, which is the only honest thing they can be at that point.
+  DEAL_STATE_REALISED = 4;
+}
+
+// Fees, in basis points, at the three points the platform earns.
+//
+// Declared on the deal at creation and fixed there. A fee schedule an operator
+// can change after the money is committed is not a schedule, it is a
+// discretion — and the investor committed against the first number.
+message FeeSchedule {
+  // Charged at close, for securing and structuring access to the allocation.
+  // Taken from the raise, so an investor's cheque buys slightly less than its
+  // face value in ownership, which is what the reporting has to show.
+  uint32 sourcing_bps = 1;
+
+  // Charged at close, for structuring and closing the syndicate itself.
+  uint32 syndication_bps = 2;
+
+  // Charged on the way OUT, per distribution, for the ongoing administration
+  // of the syndicate.
+  //
+  // Not accrued per year against committed capital, and the difference
+  // matters. An annual management fee on an illiquid position has to be
+  // collected from somebody — either by calling more capital, which a
+  // syndicate cannot do, or by selling down the position, which it cannot
+  // either. Charging it against distributions means the platform is paid when
+  // and only when the investors are, which is both collectable and the right
+  // incentive.
+  uint32 management_bps = 3;
+}
+
+// Deal is one syndicated allocation into one company.
+message Deal {
+  // Assigned by the chain. Never reused.
+  uint64 id = 1;
+
+  // The platform's own reference, so this can be reconciled with the paper and
+  // the partner's own records. Unique and indexed.
+  string reference = 2;
+
+  // The company the money ends up in, in words. The chain holds no opinion
+  // about it and cannot verify it; it is here so a holder can see what they
+  // own without leaving the record.
+  string company = 3;
+
+  // The partner VC or growth-equity firm whose allocation this is. Recorded
+  // because the entire premise of the syndicate is riding alongside somebody
+  // who did the diligence, and an investor is entitled to know who that was.
+  string partner = 4;
+
+  // Where the net capital goes at close. The partner's own drawdown account,
+  // or an escrow agent's — the platform never holds it after close.
+  string drawdown_account = 5 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The platform operator: a group account, so opening a deal, closing it and
+  // aborting it each need several signatures inside the operator. A platform
+  // that can take money on one key is one key away from taking it.
+  string operator = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The settlement currency. One denomination for the whole deal, because
+  // accounting, reporting and investor administration across several African
+  // currencies is the administrative burden the platform exists to remove.
+  // USD or a USD-pegged stablecoin in practice.
+  string settlement_denom = 7;
+
+  // What the allocation is. A deal that does not reach its minimum is aborted
+  // and everybody is refunded; a deal cannot take more than its target.
+  string target = 8 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string minimum = 9 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The smallest cheque. The whole point is that it is a fraction of what the
+  // partner firm would require, but it is not zero: a syndicate of ten
+  // thousand dust positions costs more to administer than it raises.
+  string minimum_ticket = 10 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  FeeSchedule fees = 11 [(gogoproto.nullable) = false];
+
+  // When commitments stop being accepted. After this the deal can be closed if
+  // it met its minimum, and must be aborted if it did not.
+  int64 closes_at = 12;
+
+  DealState state = 13;
+
+  // Committed so far, while OPEN. After close this is the amount actually
+  // raised, and it is what the token supply was computed from.
+  string raised = 14 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The deal token: a bank denomination, one per deal, whose holder is the
+  // owner of that proportion of the syndicate's position.
+  //
+  // Empty until close. A denomination that exists before the deal is funded is
+  // a claim on nothing, and somebody would trade it.
+  string denom = 15;
+
+  // Issued at close: one unit per smallest unit of settlement raised, so a
+  // holder's proportion is their balance over the supply and no rounding
+  // decision is hidden anywhere.
+  string supply = 16 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Cumulative distributions per token, scaled — the index a holder's
+  // entitlement is computed against. See the keeper's Settle for why an index
+  // rather than a snapshot: it is what lets a distribution be pro-rata to
+  // whoever holds the token at that moment without anybody tracking a chain of
+  // historical owners through private secondary sales.
+  string distribution_index = 17 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Paid in and paid out over the life of the deal, for reporting.
+  string distributed = 18 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  int64 opened_at = 19;
+  int64 closed_at = 20;
+}
+
+// Commitment is one investor's promise, and their money, while a deal is open.
+//
+// The money is real and escrowed from the moment of commitment. A promise that
+// is only a promise means a deal can close on paper and fail to fund, which is
+// the failure mode that destroys a syndication platform's relationship with the
+// partner firm — the one asset it actually has.
+message Commitment {
+  uint64 deal_id = 1;
+  string investor = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  int64 committed_at = 4;
+}
+
+// Position is one holder's place in one deal's distribution index.
+//
+// `index` is the value of the deal's cumulative index the last time this
+// holder's entitlement was settled. Entitlement is
+// balance * (deal.index - position.index), which is only correct if the
+// position is settled against the balance actually held at the time — which is
+// why transfers settle both sides BEFORE the balances move.
+message Position {
+  uint64 deal_id = 1;
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string index = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // Settled and not yet withdrawn.
+  string accrued = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// Investor is somebody the platform has onboarded.
+//
+// Every investor completes KYC/AML before joining the platform or taking part
+// in any syndicate, and this is that record. The chain does not perform the
+// checks and must not pretend to: it records that a named, accountable operator
+// says they were performed, with a date and a reference somebody can be asked
+// to produce.
+//
+// The record is what the deal token's transfer rule consults. That is the part
+// worth being precise about: a token whose transfer is gated is not a bearer
+// instrument, and an investor who buys one on a secondary market is buying into
+// the same onboarding requirement as everyone else. If the gate lived only in
+// the platform's user interface it would bind exactly nobody, because the token
+// is a bank denomination and a bank send does not go through a user interface.
+message Investor {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Who onboarded them. An operator group account, so the attestation is a
+  // decision of an institution rather than of one employee.
+  string onboarded_by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The operator's own file reference for the KYC pack. Free text, and never
+  // the documents themselves: a national identity number on a public chain is
+  // a permanent disclosure that no later correction can withdraw.
+  string reference = 3;
+
+  // ISO 3166-1 alpha-2. The jurisdiction question is the one this platform
+  // says out loud is unsettled, and holding the answer per investor is what
+  // lets a later rule be applied without re-onboarding anybody.
+  string jurisdiction = 4;
+
+  // Struck off investors keep their record — they may still hold and still be
+  // paid, because their money is already in a company and the chain has no
+  // right to strand it — but they may not acquire more.
+  bool active = 5;
+
+  int64 onboarded_at = 6;
+}
+
+// ListingState is where a secondary sale has got to.
+enum ListingState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored on a listing that exists. A listing is created LIVE.
+  LISTING_STATE_UNSPECIFIED = 0;
+  // Open, and fillable by whoever it is addressed to.
+  LISTING_STATE_LIVE = 1;
+  // Bought.
+  LISTING_STATE_FILLED = 2;
+  // Withdrawn by the seller.
+  LISTING_STATE_CANCELLED = 3;
+}
+
+// Listing is a holder selling part of their position.
+//
+// The liquidity the whole model rests on: an investor is not locked in for the
+// life of the investment. Two shapes, and both are here because the private one
+// is what actually happens — an angel sells to somebody they know, and the
+// administrative cost of that sale is what a paper syndicate cannot absorb.
+//
+// An OPEN listing names nobody and the first eligible buyer takes it. A PRIVATE
+// listing names its buyer, and nobody else can fill it.
+message Listing {
+  uint64 id = 1;
+  uint64 deal_id = 2;
+  string seller = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Empty for an open listing; the named counterparty for a private one.
+  string buyer = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // How many deal tokens, and the total asked for them in the settlement
+  // denomination. A total rather than a unit price, because a unit price plus
+  // a quantity is two numbers that can disagree after rounding, and the
+  // disagreement lands on whoever is paying.
+  string quantity = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  cosmos.base.v1beta1.Coin price = 6 [(gogoproto.nullable) = false];
+
+  ListingState state = 7;
+  string filled_by = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 listed_at = 9;
+  int64 filled_at = 10;
+}
+
+// Operator is the platform entity: the syndication and investor-management
+// layer, admitted by governance.
+//
+// An x/group account, and the requirement is not ceremony. An operator opens
+// deals, decides they have closed, moves escrowed money to a drawdown account
+// and attests that investors passed KYC. Each of those on a single key is one
+// key away from a platform that takes money and does not invest it — and the
+// investors here are precisely the people with no practical recourse, spread
+// across jurisdictions, holding a position they cannot value.
+message Operator {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+
+  // Where the platform entity itself operates from, which the proposal notes
+  // is likely to be distinct from where the investee companies are based.
+  string jurisdiction = 3;
+
+  // Struck off operators keep their record. Every deal names the operator that
+  // opened it, and "was this platform admitted at the time" has to stay
+  // answerable long after somebody has stopped being admitted.
+  bool active = 4;
+
+  int64 admitted_at = 5;
+}

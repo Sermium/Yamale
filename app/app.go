@@ -113,6 +113,7 @@ type App struct {
 	builderfeeKeepers
 	custodyKeepers
 	tokenisationKeepers
+	syndicateKeepers
 
 	// simulation manager
 	sm                 *module.SimulationManager
@@ -228,6 +229,7 @@ func New(
 		app.builderfeeDepinjectOutputs(),
 		app.custodyDepinjectOutputs(),
 		app.tokenisationDepinjectOutputs(),
+		app.syndicateDepinjectOutputs(),
 	)...)
 
 	if err := depinject.Inject(appConfig, outputs...); err != nil {
@@ -247,6 +249,22 @@ func New(
 	// into the settlement build; see profile_tokenisation_on.go for why it
 	// has to be a send restriction and not a handler.
 	app.registerTokenisationSendRestriction()
+
+	// The syndicate's deal tokens settle the same way, AND their KYC gate is
+	// enforced in the same place. That second point is the one that would be
+	// easy to put somewhere weaker: a deal token is an ordinary bank
+	// denomination, so a gate anywhere but here — in the module's handlers, in
+	// the platform's web application — binds on none of MsgSend, authz, a swap
+	// or a treasury spend, and the platform would be asserting to a regulator
+	// something the chain does not enforce.
+	app.registerSyndicateSendRestriction()
+
+	// And the AMM is told which denoms it must not pool, by every module that
+	// has any. Composed rather than assigned: the setter replaces, so two
+	// modules calling it directly would leave only the second one's denoms
+	// classified — silently, and with K-1 (a realised vehicle locking an LP's
+	// counter-asset) back for the first. See app/restricted_denoms.go.
+	app.registerRestrictedDenomClassifiers()
 
 	// The jurisdictional perimeter, handed to x/paymsg after the graph is built.
 	//

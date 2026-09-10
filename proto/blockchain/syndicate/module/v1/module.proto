@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package blockchain.syndicate.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// Module is the app config object of the syndication module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {go_import: "yamale/blockchain/x/syndicate"};
+
+  // authority defines the custom module authority. If not set, defaults to the
+  // governance module account.
+  string authority = 1;
+}

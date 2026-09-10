@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package blockchain.syndicate.v1;
+
+import "blockchain/syndicate/v1/params.proto";
+import "blockchain/syndicate/v1/syndicate.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// Query is the read side of the syndication layer.
+//
+// Everything here is public and unauthenticated, which is a decision rather
+// than a default. An investor's whole complaint about a paper syndicate is that
+// the cap table is a spreadsheet somebody else holds: they cannot see what they
+// own, what the fees took, or who else is in.
+//
+// What is deliberately NOT here is a "every position this address holds"
+// query. A public index of private wealth keyed by person is a targeting list,
+// and the platform's own investors — diaspora, HNWIs, family offices — are
+// exactly the people it would target.
+service Query {
+  // Params returns the platform-wide ceilings.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/params";
+  }
+
+  // Operators lists the admitted platform operators.
+  rpc Operators(QueryOperatorsRequest) returns (QueryOperatorsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/operators";
+  }
+
+  // Investor reports whether an address has been onboarded, which is the
+  // question a secondary buyer needs answered before they bid.
+  rpc Investor(QueryInvestorRequest) returns (QueryInvestorResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/investor/{address}";
+  }
+
+  // Deal returns one syndication.
+  rpc Deal(QueryDealRequest) returns (QueryDealResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/deal/{id}";
+  }
+
+  // DealByRef finds one by the platform's own reference.
+  rpc DealByRef(QueryDealByRefRequest) returns (QueryDealResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/deal_by_ref";
+  }
+
+  // Deals lists them.
+  rpc Deals(QueryDealsRequest) returns (QueryDealsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/deals";
+  }
+
+  // Commitments lists what has been committed to one deal.
+  rpc Commitments(QueryCommitmentsRequest) returns (QueryCommitmentsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/commitments/{deal_id}";
+  }
+
+  // Entitlement is what one holder could claim right now, settled and
+  // unsettled together — the number a statement would show, computed rather
+  // than reported.
+  rpc Entitlement(QueryEntitlementRequest) returns (QueryEntitlementResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/entitlement/{deal_id}/{holder}";
+  }
+
+  // Listings are the secondary market for one deal.
+  rpc Listings(QueryListingsRequest) returns (QueryListingsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/listings/{deal_id}";
+  }
+}
+
+// QueryParamsRequest is empty.
+message QueryParamsRequest {}
+// QueryParamsResponse carries the platform-wide ceilings.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryOperatorsRequest asks for the admitted operators.
+message QueryOperatorsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+// QueryOperatorsResponse carries them, struck-off ones included: whether an
+// operator was admitted when it opened a deal is a question about the past.
+message QueryOperatorsResponse {
+  repeated Operator operators = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryInvestorRequest names an address.
+message QueryInvestorRequest {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// QueryInvestorResponse carries the onboarding record, and says plainly whether
+// there is one — "not onboarded" and "the query failed" are different answers,
+// and a secondary buyer decides differently on each.
+message QueryInvestorResponse {
+  bool onboarded = 1;
+  Investor investor = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryDealRequest names one deal by its chain id.
+message QueryDealRequest {
+  uint64 id = 1;
+}
+// QueryDealByRefRequest names one by the platform's own reference.
+message QueryDealByRefRequest {
+  string reference = 1;
+}
+// QueryDealResponse carries one deal.
+message QueryDealResponse {
+  Deal deal = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDealsRequest asks for the list.
+message QueryDealsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+// QueryDealsResponse carries a page of deals.
+message QueryDealsResponse {
+  repeated Deal deals = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryCommitmentsRequest names one deal.
+message QueryCommitmentsRequest {
+  uint64 deal_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+// QueryCommitmentsResponse carries what has been committed to it.
+message QueryCommitmentsResponse {
+  repeated Commitment commitments = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryEntitlementRequest names a holder in a deal.
+message QueryEntitlementRequest {
+  uint64 deal_id = 1;
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// QueryEntitlementResponse is what the holder could claim now.
+message QueryEntitlementResponse {
+  // The token balance the entitlement is computed over.
+  string balance = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // Settled and unsettled together, which is what a statement would show. A
+  // response that reported only the settled part would show zero for a holder
+  // who has never transferred, which is most of them.
+  cosmos.base.v1beta1.Coin claimable = 2 [(gogoproto.nullable) = false];
+  // The holder's share of the deal in basis points, so a person can read it
+  // without dividing two eighteen-digit numbers.
+  uint32 share_bps = 3;
+}
+
+// QueryListingsRequest names one deal.
+message QueryListingsRequest {
+  uint64 deal_id = 1;
+  // When true, only listings that can still be filled.
+  bool live_only = 2;
+  cosmos.base.query.v1beta1.PageRequest pagination = 3;
+}
+// QueryListingsResponse carries the secondary market for one deal.
+message QueryListingsResponse {
+  repeated Listing listings = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

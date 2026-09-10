@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package blockchain.syndicate.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// Params are the platform-wide limits, as opposed to the per-deal terms.
+//
+// Everything a deal decides for itself — target, minimum, ticket size, fees —
+// lives on the Deal and is fixed when it opens. What lives here is the ceiling
+// the platform's own governance puts on all of them, so that an operator who
+// wanted to open a deal charging forty percent could not.
+message Params {
+  option (amino.name) = "blockchain/x/syndicate/Params";
+  option (gogoproto.equal) = true;
+
+  // The most any single deal may charge at close, sourcing and syndication
+  // together, and the most it may take from any distribution.
+  //
+  // Bounded because the fee schedule is otherwise unbounded and the investor
+  // agreeing to it is agreeing under an information asymmetry the platform
+  // itself created. A ceiling in the module is a promise the operator cannot
+  // quietly withdraw.
+  uint32 max_entry_fee_bps = 1;
+  uint32 max_management_fee_bps = 2;
+
+  // The longest a deal may hold committed money before it must close or
+  // abort, in seconds.
+  //
+  // This is the protection that matters most to an investor, and it is the one
+  // a paper syndicate never gives. Money committed is money escrowed: it is
+  // out of the investor's hands and earning nothing. Without a deadline the
+  // platform could hold a raise open indefinitely while it looked for the last
+  // cheque, and the investors would be financing that search.
+  int64 max_open_period = 3;
+
+  // The shortest, so that a deal cannot be opened and closed inside a block
+  // with one favoured investor in it.
+  int64 min_open_period = 4;
+}

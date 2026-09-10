@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package blockchain.syndicate.v1;
+
+import "blockchain/syndicate/v1/params.proto";
+import "blockchain/syndicate/v1/syndicate.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/syndicate/types";
+
+// GenesisState is the whole syndication layer at a height.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  repeated Operator operators = 2 [(gogoproto.nullable) = false];
+  repeated Investor investors = 3 [(gogoproto.nullable) = false];
+  repeated Deal deals = 4 [(gogoproto.nullable) = false];
+
+  // Commitments exist only while a deal is open, and they are real escrowed
+  // money. An import that lost them would leave the module account holding
+  // funds no record claims — which is indistinguishable from a surplus, and
+  // would eventually be spent as one.
+  repeated Commitment commitments = 5 [(gogoproto.nullable) = false];
+
+  // Positions carry each holder's place in the distribution index.
+  //
+  // Exported rather than derived, and this is the one that would be tempting
+  // to leave out. The index is a running total; it cannot be recomputed from
+  // balances, because the balance says what somebody holds and the index says
+  // what they have already been paid for holding it. A position reset to zero
+  // on import pays that holder every distribution the deal has ever made, out
+  // of a pot sized for one.
+  repeated Position positions = 6 [(gogoproto.nullable) = false];
+
+  repeated Listing listings = 7 [(gogoproto.nullable) = false];
+
+  // The counters, exported explicitly rather than derived from the highest id
+  // present. A counter derived that way moves backwards the moment the
+  // highest-numbered deal is one that was aborted, and a platform that reissues
+  // an identifier somebody already holds tokens against has produced two deals
+  // with one name.
+  uint64 next_deal_id = 8;
+  uint64 next_listing_id = 9;
+}

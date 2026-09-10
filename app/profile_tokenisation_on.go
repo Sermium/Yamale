@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/depinject/appconfig"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	ammtypes "yamale/blockchain/x/amm/types"
 	tokenisationmodulekeeper "yamale/blockchain/x/tokenisation/keeper"
 	_ "yamale/blockchain/x/tokenisation/module" // registers the module with appconfig
 	tokenisationmoduletypes "yamale/blockchain/x/tokenisation/types"
@@ -64,13 +65,22 @@ func (app *App) tokenisationDepinjectOutputs() []any {
 // shares, which the chain's own query said was owed to nobody.
 func (app *App) registerTokenisationSendRestriction() {
 	app.BankKeeper.AppendSendRestriction(app.TokenisationKeeper.SendRestrictionFn)
+}
 
-	// The same restriction that settles a share transfer here halts every
-	// transfer of a realised vehicle's fraction token — and an AMM pool pays
-	// both its reserve legs in one send, so a pooled fraction denom becomes a
-	// trap that locks every LP's counter-asset the moment the vehicle is sold.
-	// The AMM refuses to pool a fraction denom, and this is the line that tells
-	// it which denoms those are. Both modules are compiled under the same
-	// profile, so the tokenisation keeper is present wherever the AMM keeper is.
-	app.AmmKeeper.SetRestrictedDenomKeeper(app.TokenisationKeeper)
+// tokenisationRestrictedDenoms is this profile's contribution to the AMM's
+// denom classifier.
+//
+// The same restriction that settles a share transfer halts every transfer of a
+// realised vehicle's fraction token — and an AMM pool pays both its reserve
+// legs in one send, so a pooled fraction denom becomes a trap that locks every
+// LP's counter-asset the moment the vehicle is sold. The AMM refuses to pool a
+// fraction denom, and this is what tells it which denoms those are.
+//
+// It used to call SetRestrictedDenomKeeper directly. That was correct while
+// exactly one module produced restricted denoms and became wrong the instant a
+// second did: the setter ASSIGNS, so the later caller silently discarded this
+// classifier and the AMM went back to pooling fraction denoms with nothing
+// failing anywhere. See app/restricted_denoms.go.
+func (app *App) tokenisationRestrictedDenoms() []ammtypes.RestrictedDenomKeeper {
+	return []ammtypes.RestrictedDenomKeeper{app.TokenisationKeeper}
 }

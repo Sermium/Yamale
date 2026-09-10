@@ -5,6 +5,8 @@ package app
 import (
 	appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	authmodulev1 "cosmossdk.io/api/cosmos/auth/module/v1"
+
+	ammtypes "yamale/blockchain/x/amm/types"
 )
 
 // x/tokenisation is not linked into the settlement profile.
@@ -28,3 +30,6 @@ func (app *App) tokenisationDepinjectOutputs() []any { return nil }
 
 // No module, no shareholding, nothing to settle.
 func (app *App) registerTokenisationSendRestriction() {}
+
+// And no fraction denoms for the AMM to refuse.
+func (app *App) tokenisationRestrictedDenoms() []ammtypes.RestrictedDenomKeeper { return nil }
