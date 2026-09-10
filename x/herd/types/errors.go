@@ -62,4 +62,17 @@ var (
 	ErrTransferObjected = errors.Register(ModuleName, 37, "somebody objected to this transfer")
 
 	ErrInvalidLevel = errors.Register(ModuleName, 38, "a level is required")
+
+	// The way out of every stop. An objection is open to anybody and costs
+	// nothing, so each of these exists to make sure the stop it lifts is one a
+	// named office answered for rather than one that simply expired.
+	ErrNotSeller        = errors.Register(ModuleName, 39, "only the seller may withdraw a proposal")
+	ErrNotObjected      = errors.Register(ModuleName, 40, "there is no objection on this transfer to resolve")
+	ErrTransferAttested = errors.Register(ModuleName, 41,
+		"an attested transfer can no longer be withdrawn; the buyer and an agent have acted on it")
+	ErrNotHeld  = errors.Register(ModuleName, 42, "this animal is not under a hold")
+	ErrNoReason = errors.Register(ModuleName, 43,
+		"a reason is required; a stop or a release with no reason recorded is unreviewable")
+	ErrWrongJurisdiction = errors.Register(ModuleName, 44,
+		"this animal is not in your office's jurisdiction")
 )

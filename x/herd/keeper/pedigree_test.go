@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +36,10 @@ type fixture struct {
 func setup(t *testing.T) *fixture {
 	t.Helper()
 	env := integration.NewWith(t, []string{types.ModuleName})
+	// A real clock. The challenge window is measured against block time, and a
+	// zero time.Time is 1754 — arithmetic on it works, but every duration in a
+	// failure message reads as nonsense to whoever is debugging it.
+	env.Ctx = env.Ctx.WithBlockTime(time.Unix(1_788_000_000, 0)).WithBlockHeight(1)
 
 	// nil group keeper: these tests exercise the pedigree rules, not admission.
 	// The office is written straight into state, which is what admission would

@@ -290,11 +290,17 @@ enum TransferState {
   // Enough accredited agents have sworn the animal is the animal. The
   // challenge window runs from here.
   TRANSFER_STATE_ATTESTED = 3;
-  // Somebody objected. Terminal, and an entry point for a court: the chain
-  // preserves the evidence and does not adjudicate.
+  // Somebody objected. The transfer is stopped and an office must now decide
+  // whether the objection has substance. Not terminal, and it must not be: an
+  // objection is open to anybody, so a state nobody could ever leave would let
+  // one adversary with a script freeze the national herd for the price of gas.
   TRANSFER_STATE_OBJECTED = 4;
   // The animal has moved.
   TRANSFER_STATE_COMPLETED = 5;
+  // Withdrawn by the seller before anybody attested, or ended by an office
+  // upholding an objection. Terminal, and the record stays: a sale somebody
+  // opened and abandoned is part of an animal's provenance.
+  TRANSFER_STATE_CANCELLED = 6;
 }
 
 // Attestation is one accredited agent swearing that the animal presented is
@@ -350,4 +356,23 @@ message Transfer {
   string objection_reason = 10;
 
   int64 proposed_at = 11;
+
+  // Who resolved the objection, and what they decided. An objection can be
+  // raised by anybody, so it has to be answerable by somebody — and the answer
+  // is recorded rather than merely applied, because the interesting pattern is
+  // not one dismissal, it is an office that dismisses every objection raised
+  // against one seller.
+  string resolved_by = 12 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string resolution_reason = 13;
+  // True where the office found the objection had substance. Kept as a field
+  // rather than inferred from the state, because a dismissed objection returns
+  // the transfer to the state it was in and would otherwise leave no trace
+  // that it had ever been raised.
+  bool objection_upheld = 14;
+
+  // When the buyer agreed. Needed to put a transfer back where it was after an
+  // objection is dismissed: the state alone was overwritten by OBJECTED, and
+  // guessing from the attestation count cannot tell a proposal nobody accepted
+  // from one that was accepted and not yet attested.
+  int64 accepted_at = 15;
 }

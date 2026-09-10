@@ -193,6 +193,43 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					},
 				},
 				{
+					RpcMethod: "CancelTransfer",
+					Use:       "cancel-transfer [transfer-id] [reason]",
+					Short:     "Withdraws a proposal the buyer never took up. Seller only, and only before an agent has attested",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "transfer_id"},
+						{ProtoField: "reason"},
+					},
+				},
+				{
+					RpcMethod: "ResolveObjection",
+					Use:       "resolve-objection [transfer-id] [uphold] [reason]",
+					Short:     "An office deciding whether an objection had substance. Uphold stops the sale; dismiss restarts the challenge window",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "transfer_id"},
+						{ProtoField: "uphold"},
+						{ProtoField: "reason"},
+					},
+				},
+				{
+					RpcMethod: "FreezeAnimal",
+					Use:       "freeze [animal-id] [reason]",
+					Short:     "Stops an animal moving: a fraud inquiry, a court order, a sanitary hold",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "animal_id"},
+						{ProtoField: "reason"},
+					},
+				},
+				{
+					RpcMethod: "ReleaseAnimal",
+					Use:       "release [animal-id] [reason]",
+					Short:     "Ends a hold and puts the animal back into circulation",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "animal_id"},
+						{ProtoField: "reason"},
+					},
+				},
+				{
 					RpcMethod: "RegisterAuthority",
 					Skip:      true, // governance only
 				},

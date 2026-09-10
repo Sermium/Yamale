@@ -70,6 +70,20 @@ service Msg {
   // The record stays: a pedigree refers to its ancestors, and deleting one
   // would silently break every descendant's line.
   rpc RetireAnimal(MsgRetireAnimal) returns (MsgRetireAnimalResponse);
+
+  // CancelTransfer withdraws a proposal the buyer never took up. Without it an
+  // animal whose buyer simply never answers is frozen against any further sale
+  // for good, and the seller has done nothing wrong.
+  rpc CancelTransfer(MsgCancelTransfer) returns (MsgCancelTransferResponse);
+
+  // ResolveObjection is an office deciding whether an objection had substance.
+  rpc ResolveObjection(MsgResolveObjection) returns (MsgResolveObjectionResponse);
+
+  // FreezeAnimal stops an animal moving while an inquiry runs.
+  rpc FreezeAnimal(MsgFreezeAnimal) returns (MsgFreezeAnimalResponse);
+
+  // ReleaseAnimal ends a hold and returns the animal to circulation.
+  rpc ReleaseAnimal(MsgReleaseAnimal) returns (MsgReleaseAnimalResponse);
 }
 
 // MsgUpdateParams sets the module parameters. Governance only.
@@ -274,3 +288,80 @@ message MsgRetireAnimal {
 }
 // MsgRetireAnimalResponse is empty.
 message MsgRetireAnimalResponse {}
+
+// MsgCancelTransfer withdraws a proposal.
+//
+// The seller only, and only before anybody has attested. After an attestation
+// the buyer has relied on the sale and an accredited agent has spent a journey
+// on it, so a seller who could still walk away would hold a veto over a
+// completed bargain — which is exactly what CompleteTransfer being
+// permissionless exists to deny.
+message MsgCancelTransfer {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/herd/MsgCancelTransfer";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+  string reason = 3;
+}
+// MsgCancelTransferResponse is empty; the animal is movable again.
+message MsgCancelTransferResponse {}
+
+// MsgResolveObjection is an office answering an objection.
+//
+// This message exists because the objection is open to anybody. That openness
+// is right — the person who recognises a stolen animal is rarely a party to
+// the sale — but it means an objection costs nothing and can be made by
+// anyone, so a stop that nothing could lift would be a denial-of-service on
+// the national herd rather than a protection for it.
+//
+// The office does not adjudicate ownership; a chain cannot. It decides whether
+// this sale proceeds, and that decision is recorded against its name.
+message MsgResolveObjection {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/herd/MsgResolveObjection";
+
+  // A registry office, which is a group account — so this is already an M-of-N
+  // decision inside the office rather than one official's signature.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 transfer_id = 2;
+
+  // True to uphold: the sale is cancelled and the animal is held pending
+  // whatever inquiry or court follows. False to dismiss: the transfer returns
+  // to where it was, and its challenge window starts again from the decision,
+  // so that dismissing an objection cannot be used to complete a sale the same
+  // minute nobody is left able to stop.
+  bool uphold = 3;
+  string reason = 4;
+}
+// MsgResolveObjectionResponse is empty.
+message MsgResolveObjectionResponse {}
+
+// MsgFreezeAnimal stops an animal moving: a fraud inquiry, a court order, a
+// sanitary hold.
+message MsgFreezeAnimal {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/herd/MsgFreezeAnimal";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 animal_id = 2;
+  string reason = 3;
+}
+// MsgFreezeAnimalResponse is empty.
+message MsgFreezeAnimalResponse {}
+
+// MsgReleaseAnimal ends a hold.
+//
+// The counterpart to every stop in this module, and the reason the stops are
+// safe to make quickly. A hold an office can impose but nothing can lift is a
+// confiscation, and it would eventually be used as one.
+message MsgReleaseAnimal {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/herd/MsgReleaseAnimal";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 animal_id = 2;
+  string reason = 3;
+}
+// MsgReleaseAnimalResponse is empty; the animal is ACTIVE again.
+message MsgReleaseAnimalResponse {}

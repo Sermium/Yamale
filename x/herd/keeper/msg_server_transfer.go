@@ -99,6 +99,7 @@ func (m msgServer) AcceptTransfer(
 	}
 
 	transfer.State = types.TRANSFER_STATE_ACCEPTED
+	transfer.AcceptedAt = blockTime(ctx)
 	if err := m.Transfer.Set(ctx, transfer.Id, transfer); err != nil {
 		return nil, err
 	}
@@ -195,6 +196,20 @@ func (m msgServer) ObjectTransfer(
 	transfer, err := m.openTransfer(ctx, msg.TransferId)
 	if err != nil {
 		return nil, err
+	}
+
+	// Only a live transfer can be objected to. Without this, objecting again to
+	// something already stopped would overwrite the first objector's name with
+	// the second's — so the cheapest way to erase an inconvenient objection
+	// from the record would be to object to the same transfer yourself.
+	switch transfer.State {
+	case types.TRANSFER_STATE_PROPOSED,
+		types.TRANSFER_STATE_ACCEPTED,
+		types.TRANSFER_STATE_ATTESTED:
+		// Objectable.
+	default:
+		return nil, types.ErrTransferClosed.Wrapf(
+			"transfer %d is %s", transfer.Id, transfer.State)
 	}
 
 	transfer.State = types.TRANSFER_STATE_OBJECTED
