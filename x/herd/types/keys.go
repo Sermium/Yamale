@@ -24,6 +24,10 @@ var (
 	TransferKey    = collections.NewPrefix("transfer")
 	// AuthorityKey stores registry offices by address.
 	AuthorityKey = collections.NewPrefix("authority")
+	// AgentKey holds the accredited people. Separate from AuthorityKey because
+	// an agent is a person with a plain key and an office is an x/group
+	// account: same registry, different kind of thing entirely.
+	AgentKey = collections.NewPrefix("agent")
 
 	// The indexes. Every one exists because the alternative is a scan, and a
 	// check whose cost grows with the registry is a check somebody eventually

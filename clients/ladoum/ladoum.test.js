@@ -19,6 +19,7 @@ import {
   certificate,
   evidenceLevel,
   hasParent,
+  missingParent,
   pedigreeCoverage,
   sexLabel,
   speciesLabel,
@@ -221,4 +222,49 @@ test('coverage on a null tree is zero rather than an exception', () => {
   const cov = pedigreeCoverage(null);
   assert.equal(cov.cited, 0);
   assert.equal(cov.held, 0);
+});
+
+/* --------------------------------------------------- the lattice, not a tree */
+
+test('a repeated ancestor is "already shown", not "not registered"', () => {
+  // A closed stud is a LATTICE: the same ram appears on several branches. The
+  // chain returns each ancestor once, so the second occurrence is a node
+  // missing from the array — not an animal missing from the register.
+  //
+  // Without this, the page rendered "cité comme n° 1, non inscrit au registre"
+  // for a founder shown in full two lines above. On the page whose entire job
+  // is to be believed, that is the worst error available.
+  const known = new Set(['1', '2', '3']);
+  assert.equal(missingParent('1', known, false), 'ailleurs');
+});
+
+test('an ancestor nobody registered is reported as exactly that', () => {
+  assert.equal(missingParent('9', new Set(['1']), false), 'absent');
+});
+
+test('an ancestor beyond the bound is neither of those', () => {
+  // "We stopped looking" and "there is nothing there" are opposite facts about
+  // a line, and a buyer decides differently on each.
+  assert.equal(missingParent('9', new Set(['1']), true), 'coupe');
+});
+
+test('coverage counts a deduplicated ancestor as held', () => {
+  const root = animal({ id: '3', sire_id: '1', dam_id: '2' });
+  const sire = animal({ id: '1', sire_id: '5', dam_id: '0' });
+  const dam = animal({ id: '2', sex: 'SEX_FEMALE', sire_id: '5', dam_id: '0' });
+  const shared = animal({ id: '5', sire_id: '0', dam_id: '0' });
+
+  // Ancestor 5 is the sire of BOTH parents, and the chain returns it once —
+  // under 'sire.sire'. The 'dam.sire' node is simply absent.
+  const tree = asTree([
+    node(root, 0, ''), node(sire, 1, 'sire'), node(dam, 1, 'dam'),
+    node(shared, 2, 'sire.sire'),
+  ]);
+  const known = new Set(['3', '1', '2', '5']);
+
+  assert.deepEqual(pedigreeCoverage(tree, known), { cited: 4, held: 4 });
+
+  // And without the set, the same lattice under-reports — which is the bug
+  // this test exists to keep fixed.
+  assert.deepEqual(pedigreeCoverage(tree), { cited: 4, held: 3 });
 });

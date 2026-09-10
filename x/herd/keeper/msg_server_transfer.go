@@ -115,7 +115,17 @@ func (m msgServer) AcceptTransfer(
 func (m msgServer) AttestTransfer(
 	ctx context.Context, msg *types.MsgAttestTransfer,
 ) (*types.MsgAttestTransferResponse, error) {
-	office, err := m.activeAuthority(ctx, msg.Attestor)
+	// An accredited PERSON, not an office.
+	//
+	// This required an office until running a sale showed why it could not: an
+	// office must be an x/group account admitted by chain governance, so every
+	// field veterinarian would have been a multi-signature institution with a
+	// governance proposal behind them, and the quorum of two meant a single
+	// lawful sale needed two of those to exist first. In a pastoral zone that
+	// is not a high bar, it is an impossible one — and a lawful route nobody
+	// can take pushes the trade off the register entirely, which is the one
+	// outcome this module cannot afford.
+	agent, err := m.activeAgent(ctx, msg.Attestor)
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +152,9 @@ func (m msgServer) AttestTransfer(
 	// An attestor from the office that holds the animal's record is not
 	// independent. Allowing it collapses the whole mechanism back to a single
 	// office deciding, which is the arrangement the quorum exists to replace.
-	if !params.SameAuthorityAttestation && office.Address == animal.Authority {
+	if !params.SameAuthorityAttestation && agent.Authority == animal.Authority {
 		return nil, types.ErrNotIndependent.Wrapf(
-			"attestor %s answers to the same office as the record, %s",
+			"attestor %s was accredited by the same office that holds the record, %s",
 			msg.Attestor, animal.Authority)
 	}
 
@@ -156,10 +166,10 @@ func (m msgServer) AttestTransfer(
 
 	transfer.Attestations = append(transfer.Attestations, types.Attestation{
 		Attestor: msg.Attestor,
-		// Captured now rather than looked up later: an attestor can be struck
-		// off, and "was this independent when it was made" has to stay
-		// answerable afterwards.
-		Authority:    office.Address,
+		// Captured now rather than looked up later: an agent can be struck off
+		// or re-accredited elsewhere, and "was this independent when it was
+		// made" has to stay answerable afterwards.
+		Authority:    agent.Authority,
 		EvidenceHash: strings.TrimSpace(msg.EvidenceHash),
 		AttestedAt:   blockTime(ctx),
 	})

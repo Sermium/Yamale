@@ -5,6 +5,7 @@ package blockchain.herd.v1;
 import "blockchain/herd/v1/herd.proto";
 import "blockchain/herd/v1/params.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
+import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 
@@ -31,6 +32,13 @@ service Query {
   // Authorities lists the registry offices.
   rpc Authorities(QueryAuthoritiesRequest) returns (QueryAuthoritiesResponse) {
     option (google.api.http).get = "/yamale/blockchain/herd/v1/authorities";
+  }
+
+  // Agents lists the accredited people an office answers for, struck-off ones
+  // included: "was this person accredited when they signed" is a question
+  // about the past.
+  rpc Agents(QueryAgentsRequest) returns (QueryAgentsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/herd/v1/agents";
   }
 
   // Herd returns one herd by its chain id.
@@ -108,6 +116,23 @@ message QueryAuthoritiesRequest {
 // QueryAuthoritiesResponse carries a page of offices.
 message QueryAuthoritiesResponse {
   repeated Authority authorities = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryAgentsRequest asks for the accredited attestors.
+message QueryAgentsRequest {
+  // Optional. When set, only the agents this office accredited; when empty,
+  // every accredited agent on the register.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+// QueryAgentsResponse carries the accredited attestors, struck-off ones
+// included — because "was this person accredited when they signed" is a
+// question about the past, and a list that quietly omitted them could not
+// answer it.
+message QueryAgentsResponse {
+  repeated Agent agents = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 

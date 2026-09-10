@@ -25,6 +25,7 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgResolveObjection{},
 		&MsgFreezeAnimal{},
 		&MsgReleaseAnimal{},
+		&MsgAccreditAgent{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)

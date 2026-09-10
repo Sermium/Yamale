@@ -75,4 +75,10 @@ var (
 		"a reason is required; a stop or a release with no reason recorded is unreviewable")
 	ErrWrongJurisdiction = errors.Register(ModuleName, 44,
 		"this animal is not in your office's jurisdiction")
+
+	ErrNotAgent = errors.Register(ModuleName, 45,
+		"you are not an accredited agent; an attestation is a named person's statement")
+	ErrAgentInactive = errors.Register(ModuleName, 46,
+		"this agent has been struck off and can no longer attest")
+	ErrInvalidAgent = errors.Register(ModuleName, 47, "the agent is not a valid account")
 )

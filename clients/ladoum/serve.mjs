@@ -20,6 +20,16 @@ import path from 'node:path';
 
 const PORT = Number(process.argv[2] ?? 8140);
 const UPSTREAM = process.argv[3] ?? 'https://pay.yamalelegal.com';
+
+// A bare CometBFT node serves /abci_query and /status at its root; the
+// deployment publishes the same endpoints under /api/rpc. Pointing this at a
+// local devnet therefore needs the prefix stripped, or every read 404s with a
+// CometBFT usage page — which the console reports as "chain unreachable", and
+// which is indistinguishable from the node being down.
+//
+//   node serve.mjs 8140 http://127.0.0.1:26957 --node
+const BARE_NODE = process.argv.includes('--node');
+const upstreamPath = (p) => (BARE_NODE ? p.replace(/^\/api\/rpc/, '') || '/' : p);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), '..');
 
 const TYPES = {
@@ -36,7 +46,7 @@ http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/api/')) {
     try {
-      const upstream = await fetch(`${UPSTREAM}${req.url}`, { redirect: 'manual' });
+      const upstream = await fetch(`${UPSTREAM}${upstreamPath(req.url)}`, { redirect: 'manual' });
       const body = Buffer.from(await upstream.arrayBuffer());
       res.writeHead(upstream.status, {
         'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',

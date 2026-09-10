@@ -20,7 +20,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/custody](custody.md) |  | 8 | 5 |
 | [x/emission](emission.md) | Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply. | 1 | 2 |
 | [x/enforcement](enforcement.md) |  | 9 | 10 |
-| [x/herd](herd.md) |  | 16 | 12 |
+| [x/herd](herd.md) |  | 17 | 13 |
 | [x/land](land.md) |  | 13 | 10 |
 | [x/netting](netting.md) | The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross. | 5 | 6 |
 | [x/oracle](oracle.md) |  | 7 | 9 |

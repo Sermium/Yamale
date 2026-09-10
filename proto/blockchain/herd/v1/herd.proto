@@ -265,6 +265,45 @@ message HealthEvent {
   int64 recorded_at = 7;
 }
 
+// Agent is one accredited person: a veterinarian, a livestock officer, the
+// individual who physically stood in front of the animal.
+//
+// Separate from Authority, and the separation was forced by trying to run a
+// sale. Attestation used to require the attestor to be an Authority — but an
+// Authority must be an x/group account admitted by chain governance, so every
+// field veterinarian would have to be an M-of-N group with a governance
+// proposal behind them. In a pastoral zone that is not a high bar, it is an
+// impossible one, and the transfer quorum of two would have needed two such
+// groups before a single animal could lawfully change hands.
+//
+// So an agent is a PERSON with a plain key, accredited by an office rather
+// than by governance — which is how accreditation actually works: a national
+// veterinary order strikes off its own members, and it does not need a
+// parliament to do it.
+//
+// The office that accredited an agent is recorded, because that is what the
+// independence check turns on. An attestor accredited by the same office that
+// holds the animal's record is not independent, and the four-party shape
+// collapses back to one office deciding.
+message Agent {
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+
+  // The office that accredited this agent and can strike them off.
+  string authority = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Copied from the accrediting office. An agent cannot be accredited into a
+  // jurisdiction their office does not hold.
+  string jurisdiction = 4;
+
+  // Struck off agents keep their record — every attestation they ever made
+  // names them, and deleting the agent would leave those attestations pointing
+  // at nothing — but they stop being able to act.
+  bool active = 5;
+
+  int64 accredited_at = 6;
+}
+
 // Authority is a registry office.
 //
 // It must be an x/group account, for the same reason x/land requires it: an

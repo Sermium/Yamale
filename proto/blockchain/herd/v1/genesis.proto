@@ -18,6 +18,13 @@ message GenesisState {
   Params params = 1 [(gogoproto.nullable) = false];
 
   repeated Authority authorities = 2 [(gogoproto.nullable) = false];
+
+  // agents are the accredited attestors, struck-off ones included. Exported
+  // rather than derived: an accreditation is a fact an office granted, not a
+  // consequence of anything else in this file, and an import that lost them
+  // would leave every historic attestation naming a person the register has
+  // never heard of.
+  repeated Agent agents = 11 [(gogoproto.nullable) = false];
   repeated Herd herds = 3 [(gogoproto.nullable) = false];
   repeated Animal animals = 4 [(gogoproto.nullable) = false];
   repeated HealthEvent health_events = 5 [(gogoproto.nullable) = false];

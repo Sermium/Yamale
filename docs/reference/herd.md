@@ -23,6 +23,25 @@ A transfer nobody accepted is a transfer that never happened, and requiring it i
 | `buyer` | string |  |
 | `transfer_id` | uint64 |  |
 
+### MsgAccreditAgent
+
+`/blockchain.herd.v1.MsgAccreditAgent`
+
+Signed by the `authority` field.
+
+MsgAccreditAgent admits one person as an attestor, or strikes them off.
+
+Signed by an OFFICE, not by governance, and that is the point. Attestation used to require the attestor to be an Authority — an x/group account admitted by a governance proposal — which would have made every field veterinarian a multi-signature institution with a parliamentary vote behind them. The transfer quorum is two, so a single lawful sale would have needed two of those to exist first.
+
+Accreditation is the office's own act. A national veterinary order admits and strikes off its own members; it does not ask a legislature. What governance still controls is which offices exist at all, which is the level where the question actually belongs.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string | The accrediting office. Its jurisdiction becomes the agent's. |
+| `agent` | string | The person. A plain key, deliberately: an agent signs alone in a field with no signal, and an attestation is one person's statement that they looked at the animal. Making it M-of-N would not make it more true. |
+| `name` | string |  |
+| `active` | bool | False strikes the agent off. The record stays — every attestation they made names them, and the question "was this person accredited when they signed" has to stay answerable. |
+
 ### MsgAttestTransfer
 
 `/blockchain.herd.v1.MsgAttestTransfer`
@@ -288,6 +307,26 @@ MsgUpdateParams sets the module parameters. Governance only.
 
 ## Queries
 
+### Agents
+
+`GET /yamale/blockchain/herd/v1/agents`
+
+Agents lists the accredited people an office answers for, struck-off ones included: "was this person accredited when they signed" is a question about the past.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string | Optional. When set, only the agents this office accredited; when empty, every accredited agent on the register. |
+| `pagination` | PageRequest |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `agents` | repeated Agent |  |
+| `pagination` | PageResponse |  |
+
 ### Animal
 
 `GET /yamale/blockchain/herd/v1/animal/{id}`
@@ -510,6 +549,25 @@ Response:
 | `pagination` | PageResponse |  |
 
 ## State
+
+### Agent
+
+Agent is one accredited person: a veterinarian, a livestock officer, the individual who physically stood in front of the animal.
+
+Separate from Authority, and the separation was forced by trying to run a sale. Attestation used to require the attestor to be an Authority — but an Authority must be an x/group account admitted by chain governance, so every field veterinarian would have to be an M-of-N group with a governance proposal behind them. In a pastoral zone that is not a high bar, it is an impossible one, and the transfer quorum of two would have needed two such groups before a single animal could lawfully change hands.
+
+So an agent is a PERSON with a plain key, accredited by an office rather than by governance — which is how accreditation actually works: a national veterinary order strikes off its own members, and it does not need a parliament to do it.
+
+The office that accredited an agent is recorded, because that is what the independence check turns on. An attestor accredited by the same office that holds the animal's record is not independent, and the four-party shape collapses back to one office deciding.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | string |  |
+| `name` | string |  |
+| `authority` | string | The office that accredited this agent and can strike them off. |
+| `jurisdiction` | string | Copied from the accrediting office. An agent cannot be accredited into a jurisdiction their office does not hold. |
+| `active` | bool | Struck off agents keep their record — every attestation they ever made names them, and deleting the agent would leave those attestations pointing at nothing — but they stop being able to act. |
+| `accredited_at` | int64 |  |
 
 ### Animal
 
@@ -742,6 +800,9 @@ Every way a transaction to this module can be rejected.
 | 42 | `ErrNotHeld` | this animal is not under a hold |
 | 43 | `ErrNoReason` | a reason is required; a stop or a release with no reason recorded is unreviewable |
 | 44 | `ErrWrongJurisdiction` | this animal is not in your office's jurisdiction |
+| 45 | `ErrNotAgent` | you are not an accredited agent; an attestation is a named person's statement |
+| 46 | `ErrAgentInactive` | this agent has been struck off and can no longer attest |
+| 47 | `ErrInvalidAgent` | the agent is not a valid account |
 | 5 | `ErrNoReference` | a herd reference is required |
 | 6 | `ErrRefTaken` | this herd reference is already used |
 | 7 | `ErrInvalidKeeper` | the keeper is not a valid account |

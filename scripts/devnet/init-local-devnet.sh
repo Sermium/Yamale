@@ -19,8 +19,9 @@
 #     three of the five rather than mocking them
 #   * a complete app_state.constitution.invariants, and enforcement params that
 #     agree with it
-#   * the foundation named in alias.params.foundation_administrators, so it can
-#     place its own offices in a country that has no participant yet
+#   * the foundation holding a chain-wide ROLE_FOUNDATION_ADMINISTRATOR grant in
+#     x/alias, so it can place its own offices in a country that has no
+#     participant yet
 #   * gov voting periods short enough to exercise a proposal inside a test
 #
 # Usage:
@@ -389,9 +390,26 @@ p.max_seizures_per_window = "5";
 // could have onboarded them. Their aliases carry ZZ, which ISO 3166-1 reserves
 // permanently, so the marker cannot be mistaken for a country.
 //
-// Params.Validate() caps the list at MaxFoundationAdministrators (8) and
-// refuses duplicates and empties. One address, non-empty, well under the cap.
-g.app_state.alias.params.foundation_administrators = [policy];
+// This used to be `alias.params.foundation_administrators`, and the script had
+// gone stale: x/alias v3 reserved that field and moved the capability into the
+// role registry, so genesis validation refused the file outright —
+//   unknown field "foundation_administrators" in types.Params
+// The chain would not start, and had not for however long the rename has been
+// in. Worth noting how it surfaced: not from anybody running this script, but
+// from wanting a local chain to check a browser page against. A devnet script
+// nobody runs rots exactly like documentation nobody reads.
+//
+// Chain-wide ("*") because that is what the parameter was: an exemption from
+// belonging to any national perimeter, not authority within one. A country
+// scope here would be refused by RoleGrant.Validate, and it would also be a
+// narrowing nothing in this script has standing to decide.
+g.app_state.alias.role_grants = [{
+  holder: policy,
+  role: "ROLE_FOUNDATION_ADMINISTRATOR",
+  jurisdiction: "*",
+  granted_by: "yml10d07y265gmmuvt4z0w9aw880jnsr700jrghjur",   // the gov module account
+  granted_at_height: "0",
+}];
 
 // -- gov ----------------------------------------------------------------
 //
@@ -411,7 +429,7 @@ gov.expedited_min_deposit = [{ denom: "uyml", amount: "2000" }];
 writeFileSync(genesisPath, JSON.stringify(g, null, 2) + "\n");
 console.log(`  recovery destination: ${p.recovery_destination}`);
 console.log(`  group 1: 3-of-5 at ${pol.address}, ${g.app_state.group.group_members.length} members`);
-console.log(`  alias foundation administrators: ${g.app_state.alias.params.foundation_administrators.join(", ")}`);
+console.log(`  alias foundation administrator: ${g.app_state.alias.role_grants.map((r) => r.holder).join(", ")} (chain-wide)`);
 console.log(`  gov: voting ${gov.voting_period}, expedited ${gov.expedited_voting_period}, deposit ${gov.min_deposit[0].amount}${gov.min_deposit[0].denom}`);
 JS
 node "$EDIT" "$G" "$CEREMONY_DIR" "$POLICY"
@@ -423,6 +441,53 @@ say "=== validator ==="
 $BIN genesis gentx validator 100000000000$DENOM \
   --chain-id "$CHAIN_ID" --moniker "$MONIKER" $KR 2>&1 | tail -1
 $BIN genesis collect-gentxs --home "$HOME_DIR" 2>&1 | tail -1
+
+# ---------------------------------------------------------------------------
+# The founding validator's declaration.
+#
+# `genesis validate` refuses a genesis whose validators have none, and it is
+# right to. A concentration ceiling is computed over DECLARED attributes — a
+# beneficial owner, a legal entity, a jurisdiction — because addresses tell you
+# nothing about whether two operator keys answer to one bank, and the events
+# that concentrate a validator set are acquisitions and mergers that change no
+# address at all. An undeclared validator is therefore counted in the power the
+# ceilings are measured AGAINST while being incapable of ever exceeding one,
+# which exempts precisely the founding set the ceilings exist to bound.
+#
+# This script had no such entry, so it could not produce a startable chain. The
+# declaration below is a real one for a devnet operator and says so: SN because
+# that is the jurisdiction this deployment demonstrates, and an owner id that
+# names what it is rather than borrowing a plausible-looking LEI, because a
+# fabricated identifier in a field whose whole purpose is attribution is worse
+# than an obviously local one.
+# ---------------------------------------------------------------------------
+VALOPER=$($BIN keys show validator --bech val -a $KR)
+say "  declaring $VALOPER"
+
+DECLARE=$LOCAL/genesis-declare.mjs
+cat > "$DECLARE" <<'JS'
+import { readFileSync, writeFileSync } from "node:fs";
+const [genesisPath, valoper, height] = process.argv.slice(2);
+const g = JSON.parse(readFileSync(genesisPath, "utf8"));
+
+const vg = g.app_state.validatorgov;
+vg.approved_validator_map = vg.approved_validator_map ?? [];
+vg.approved_validator_map.push({
+  candidate: valoper,
+  approved: "true",
+  declaration: {
+    legal_entity_id: "YAMALE-DEVNET-LOCAL",
+    beneficial_owner_id: "YAMALE-DEVNET-LOCAL",
+    jurisdiction: "SN",
+    attested_at_height: height,
+  },
+});
+writeFileSync(genesisPath, JSON.stringify(g, null, 2) + "\n");
+console.log(`  declared ${valoper}: YAMALE-DEVNET-LOCAL, SN`);
+JS
+node "$DECLARE" "$G" "$VALOPER" "0"
+# kept alongside genesis-edit.mjs: both are the record of what was written
+
 $BIN genesis validate-genesis --home "$HOME_DIR"
 
 # ---------------------------------------------------------------------------
@@ -551,7 +616,7 @@ check "group policy threshold" "3" \
 check "group members" "5" \
   "$($BIN query group group-members 1 $Q | jq_ '.members.length')"
 check "alias foundation administrator" "$POLICY" \
-  "$($BIN query alias params $Q | jq_ '.params.foundation_administrators[0]')"
+  "$($BIN query alias chain-wide-grants $Q | jq_ '.grants[0].holder')"
 check "policy account balance" "100000000000" \
   "$($BIN query bank balances "$POLICY" $Q | jq_ '.balances[0].amount')"
 [ "$fail" -eq 0 ] || die "the chain started but does not match what this script asked for"

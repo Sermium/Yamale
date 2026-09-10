@@ -45,6 +45,28 @@ func (q queryServer) Authorities(
 	return out, nil
 }
 
+// Agents lists the accredited people, struck-off ones included.
+//
+// Included deliberately. Every attestation on the register names its attestor,
+// and "was this person accredited when they signed" is a question about the
+// past — a list that quietly dropped the struck-off could not answer it, and
+// an old attestation would appear to have been made by nobody.
+func (q queryServer) Agents(
+	ctx context.Context, req *types.QueryAgentsRequest,
+) (*types.QueryAgentsResponse, error) {
+	out := &types.QueryAgentsResponse{}
+	err := q.Keeper.Agent.Walk(ctx, nil, func(_ string, a types.Agent) (bool, error) {
+		if req.Authority == "" || a.Authority == req.Authority {
+			out.Agents = append(out.Agents, a)
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (q queryServer) Herd(
 	ctx context.Context, req *types.QueryHerdRequest,
 ) (*types.QueryHerdResponse, error) {

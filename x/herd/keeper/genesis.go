@@ -28,6 +28,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 			return err
 		}
 	}
+	for _, a := range gs.Agents {
+		if err := k.Agent.Set(ctx, a.Address, a); err != nil {
+			return err
+		}
+	}
 	for _, h := range gs.Herds {
 		if err := k.Herd.Set(ctx, h.Id, h); err != nil {
 			return err
@@ -103,6 +108,12 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 
 	if err := k.Authority.Walk(ctx, nil, func(_ string, a types.Authority) (bool, error) {
 		gs.Authorities = append(gs.Authorities, a)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Agent.Walk(ctx, nil, func(_ string, a types.Agent) (bool, error) {
+		gs.Agents = append(gs.Agents, a)
 		return false, nil
 	}); err != nil {
 		return nil, err

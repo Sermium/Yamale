@@ -226,11 +226,16 @@ export async function lookup(text) {
 export async function pedigree(animal, depth = PEDIGREE_DEPTH) {
   if (!animal) return null;
   const res = await herdQuery('Pedigree', { animalId: animal.id, depth });
+  const nodes = res.nodes || [];
   return {
-    nodes: res.nodes || [],
+    nodes,
     truncated: Boolean(res.truncated),
     height: res.height,
-    tree: asTree(res.nodes || []),
+    tree: asTree(nodes),
+    // Tous les animaux renvoyés, par numéro. Voir `known` ci-dessous : une
+    // vraie lignée close est un treillis, pas un arbre, et la chaîne ne renvoie
+    // chaque ascendant qu'une fois.
+    known: new Set(nodes.map((n) => n.animal?.id).filter(Boolean)),
   };
 }
 
@@ -267,8 +272,16 @@ export function asTree(nodes) {
  * Un ascendant cité mais absent du registre est une information et non une
  * erreur : c'est le cas normal des lignées antérieures au dispositif. Ce qui
  * serait malhonnête serait de ne pas le compter.
+ *
+ * `known` est indispensable, et son absence produisait un mensonge. Une lignée
+ * de stud fermé est un TREILLIS et non un arbre : le même bélier apparaît sur
+ * plusieurs branches. La chaîne ne renvoie chaque ascendant qu'une fois — la
+ * deuxième occurrence est un nœud absent du tableau, pas un animal absent du
+ * registre. Sans `known`, la page affichait « cité comme n° 1, non inscrit au
+ * registre » pour un fondateur parfaitement inscrit, deux lignes plus haut. Sur
+ * la page dont tout le métier est d'être crue, c'est la pire erreur possible.
  */
-export function pedigreeCoverage(root) {
+export function pedigreeCoverage(root, known = null) {
   let cited = 0;
   let held = 0;
   const walk = (n) => {
@@ -277,12 +290,26 @@ export function pedigreeCoverage(root) {
       const declared = side === 'sire' ? n.animal.sire_id : n.animal.dam_id;
       if (!hasParent(declared)) continue;
       cited += 1;
-      if (n[side]?.animal) held += 1;
+      if (n[side]?.animal || known?.has(declared)) held += 1;
       walk(n[side]);
     }
   };
   walk(root);
   return { cited, held };
+}
+
+/**
+ * Ce qu'il faut afficher pour un ascendant cité mais sans nœud propre.
+ *
+ * Trois cas, et les confondre trompe l'acheteur :
+ *
+ *   'ailleurs'  déjà présenté sur une autre branche — le treillis ;
+ *   'absent'    cité au registre, mais l'animal n'y est pas inscrit ;
+ *   'coupe'     la remontée s'est arrêtée à la borne, on a cessé de chercher.
+ */
+export function missingParent(id, known, truncated) {
+  if (known?.has(id)) return 'ailleurs';
+  return truncated ? 'coupe' : 'absent';
 }
 
 /* ========================================================================= */

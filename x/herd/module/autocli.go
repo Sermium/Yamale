@@ -29,6 +29,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:     "Lists the registry offices and the jurisdictions they administer",
 				},
 				{
+					RpcMethod: "Agents",
+					Use:       "agents",
+					Short:     "The accredited attestors, struck-off ones included",
+				},
+				{
 					RpcMethod:      "Herd",
 					Use:            "herd [id]",
 					Short:          "Shows one herd: its keeper, species, declared size and where it is",
@@ -190,6 +195,16 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
 						{ProtoField: "animal_id"},
 						{ProtoField: "reason"},
+					},
+				},
+				{
+					RpcMethod: "AccreditAgent",
+					Use:       "accredit-agent [agent] [name] [active]",
+					Short:     "An office admitting one person as an attestor, or striking them off",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "agent"},
+						{ProtoField: "name"},
+						{ProtoField: "active"},
 					},
 				},
 				{

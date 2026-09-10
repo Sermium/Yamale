@@ -71,6 +71,9 @@ service Msg {
   // would silently break every descendant's line.
   rpc RetireAnimal(MsgRetireAnimal) returns (MsgRetireAnimalResponse);
 
+  // AccreditAgent admits one person as an attestor, or strikes them off.
+  rpc AccreditAgent(MsgAccreditAgent) returns (MsgAccreditAgentResponse);
+
   // CancelTransfer withdraws a proposal the buyer never took up. Without it an
   // animal whose buyer simply never answers is frozen against any further sale
   // for good, and the seller has done nothing wrong.
@@ -365,3 +368,38 @@ message MsgReleaseAnimal {
 }
 // MsgReleaseAnimalResponse is empty; the animal is ACTIVE again.
 message MsgReleaseAnimalResponse {}
+
+// MsgAccreditAgent admits one person as an attestor, or strikes them off.
+//
+// Signed by an OFFICE, not by governance, and that is the point. Attestation
+// used to require the attestor to be an Authority — an x/group account admitted
+// by a governance proposal — which would have made every field veterinarian a
+// multi-signature institution with a parliamentary vote behind them. The
+// transfer quorum is two, so a single lawful sale would have needed two of
+// those to exist first.
+//
+// Accreditation is the office's own act. A national veterinary order admits and
+// strikes off its own members; it does not ask a legislature. What governance
+// still controls is which offices exist at all, which is the level where the
+// question actually belongs.
+message MsgAccreditAgent {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/herd/MsgAccreditAgent";
+
+  // The accrediting office. Its jurisdiction becomes the agent's.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The person. A plain key, deliberately: an agent signs alone in a field
+  // with no signal, and an attestation is one person's statement that they
+  // looked at the animal. Making it M-of-N would not make it more true.
+  string agent = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string name = 3;
+
+  // False strikes the agent off. The record stays — every attestation they
+  // made names them, and the question "was this person accredited when they
+  // signed" has to stay answerable.
+  bool active = 4;
+}
+// MsgAccreditAgentResponse is empty.
+message MsgAccreditAgentResponse {}

@@ -205,10 +205,10 @@ footer a{color:var(--acacia)}
 
 <script type="module">
 import {
-  lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage,
+  lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage, missingParent,
   offices, params, roll, chainHead, provenance, hasParent, sexLabel,
 } from './ladoum.js';
-import { PEDIGREE_DEPTH } from './registrar.js';
+import { PEDIGREE_DEPTH, JURISDICTION } from './registrar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -235,9 +235,17 @@ async function showHead() {
     const os = await offices();
     const late = h.catchingUp
       ? '<br><b class="warn">nœud en rattrapage — lecture possiblement ancienne</b>' : '';
+    // Le nombre d'offices, pas le premier venu. Cet en-tête affichait
+    // `os[0].name` et annonçait donc « Ordre National des Docteurs
+    // Vétérinaires » comme étant le registre — alors que c'est l'ordre qui
+    // accrédite les attestateurs, précisément l'office qui n'inscrit rien.
+    // Deux offices distincts est le fait qui compte ici, et c'est celui qui
+    // était masqué.
     el.innerHTML = os.length
-      ? `registre lu au bloc <b>${esc(h.height)}</b><br>${esc(os[0].name)}${late}`
+      ? `registre lu au bloc <b>${esc(h.height)}</b><br>${esc(os.length)} office${
+          os.length > 1 ? 's' : ''} admis en ${esc(JURISDICTION)}${late}`
       : `chaîne lue au bloc <b>${esc(h.height)}</b><br>aucun office sénégalais admis${late}`;
+    el.title = os.map((o) => o.name).join('\n');
   } catch (e) {
     el.innerHTML = `<b class="warn">chaîne injoignable</b><br>${esc(e.message)}`;
   }
@@ -270,9 +278,9 @@ async function render(animal) {
         </div>
         <div class="grp">
           <div class="gn">Ascendants directs</div>
-          <div class="f"><span class="k">Père</span><span class="v">${
+          <div class="f"><span class="k">Père</span><span class="v" id="sire">${
             hasParent(animal.sire_id) ? `n° ${esc(animal.sire_id)}` : 'inconnu'}</span></div>
-          <div class="f"><span class="k">Mère</span><span class="v">${
+          <div class="f"><span class="k">Mère</span><span class="v" id="dam">${
             hasParent(animal.dam_id) ? `n° ${esc(animal.dam_id)}` : 'inconnue'}</span></div>
         </div>
       </figure>
@@ -321,10 +329,22 @@ async function showPedigree(animal) {
   const el = document.getElementById('ped');
   try {
     const ped = await pedigree(animal, PEDIGREE_DEPTH);
-    const cov = pedigreeCoverage(ped.tree);
+    const cov = pedigreeCoverage(ped.tree, ped.known);
+
+    // Le certificat papier imprime des NOMS. Afficher « Père n° 8 » là où il
+    // écrit « Atomique » rend la fiche moins lisible que celle qu'elle
+    // remplace, ce qui est le plus court chemin pour qu'un éleveur reste au
+    // papier. Les noms viennent de la remontée, une fois qu'elle a répondu.
+    for (const [side, id] of [['sire', animal.sire_id], ['dam', animal.dam_id]]) {
+      const el2 = document.getElementById(side);
+      const found = ped.nodes.find((n) => n.animal?.id === id)?.animal;
+      if (el2 && found) {
+        el2.textContent = `${found.name || '—'} · ${found.national_id}`;
+      }
+    }
     el.innerHTML = `
       <div class="lab">Généalogie</div>
-      <ul class="tree">${branch(ped.tree, null)}</ul>
+      <ul class="tree">${branch(ped.tree, null, ped)}</ul>
       <p class="cover">${cov.cited === 0
         ? 'Aucun ascendant déclaré au registre. C’est le cas normal d’un animal fondateur, '
           + 'et la chaîne l’accepte comme tel plutôt que de le confondre avec une omission.'
@@ -342,8 +362,17 @@ async function showPedigree(animal) {
   }
 }
 
-/** Une branche de l'arbre. `rel` est le lien vers le parent. */
-function branch(node, rel) {
+/**
+ * Une branche de l'arbre. `rel` est le lien vers le parent.
+ *
+ * Un ascendant cité sans nœud propre a trois causes différentes et les
+ * confondre trompe l'acheteur — voir missingParent(). La plus subtile est le
+ * treillis : une lignée de stud fermé fait réapparaître le même bélier sur
+ * plusieurs branches, la chaîne ne le renvoie qu'une fois, et une page naïve
+ * annonce « non inscrit au registre » pour un animal présenté deux lignes plus
+ * haut.
+ */
+function branch(node, rel, ped) {
   if (!node) return '';
   const label = rel ? `<span class="rel">${esc(rel)}</span>` : '';
   if (!node.animal) return '';
@@ -353,12 +382,15 @@ function branch(node, rel) {
   for (const [side, mot] of [['sire', 'père'], ['dam', 'mère']]) {
     const declared = side === 'sire' ? node.animal.sire_id : node.animal.dam_id;
     if (!hasParent(declared)) continue;
-    kids.push(node[side]
-      ? branch(node[side], mot)
-      // Un ascendant cité mais absent du registre est une information, pas une
-      // erreur : c'est le cas normal des lignées antérieures au dispositif.
-      : `<li><span class="rel">${mot}</span><span class="absent">cité comme n° ${
-          esc(declared)}, non inscrit au registre</span></li>`);
+    if (node[side]) { kids.push(branch(node[side], mot, ped)); continue; }
+
+    const why = {
+      ailleurs: 'déjà présenté plus haut dans cette lignée',
+      coupe: 'au-delà de la profondeur demandée',
+      absent: 'cité au registre, non inscrit — normal pour une lignée antérieure au dispositif',
+    }[missingParent(declared, ped.known, ped.truncated)];
+    kids.push(`<li><span class="rel">${mot}</span><span class="absent">n° ${
+      esc(declared)} — ${esc(why)}</span></li>`);
   }
 
   return `<li>${label}<span class="nom">${esc(c.nom)}</span>

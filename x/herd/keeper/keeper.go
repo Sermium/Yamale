@@ -46,6 +46,11 @@ type Keeper struct {
 	HealthEvent collections.Map[uint64, types.HealthEvent]
 	Transfer    collections.Map[uint64, types.Transfer]
 	Authority   collections.Map[string, types.Authority]
+	// The accredited people. An office is an x/group account admitted by
+	// governance; an agent is a person with a plain key accredited by an
+	// office. Conflating the two made every field veterinarian a
+	// multi-signature institution with a parliamentary vote behind them.
+	Agent collections.Map[string, types.Agent]
 
 	// herd reference -> herd id. How an officer with a paper file searches.
 	ByHerdRef collections.Map[string, uint64]
@@ -103,6 +108,8 @@ func NewKeeper(
 			collections.Uint64Key, codec.CollValue[types.Transfer](cdc)),
 		Authority: collections.NewMap(sb, types.AuthorityKey, "authority",
 			collections.StringKey, codec.CollValue[types.Authority](cdc)),
+		Agent: collections.NewMap(sb, types.AgentKey, "agent",
+			collections.StringKey, codec.CollValue[types.Agent](cdc)),
 
 		ByHerdRef: collections.NewMap(sb, types.ByHerdRefKey, "by_herd_ref",
 			collections.StringKey, collections.Uint64Value),
@@ -180,6 +187,27 @@ func (k Keeper) activeAuthority(ctx context.Context, signer string) (types.Autho
 		return types.Authority{}, types.ErrAuthorityInactive.Wrapf("%s", signer)
 	}
 	return office, nil
+}
+
+// activeAgent resolves a signer to the accredited person they are, and refuses
+// anything else.
+//
+// An agent struck off keeps their record — every attestation they ever made
+// names them, and "was this person accredited when they signed" has to stay
+// answerable — so the check is on `active` rather than on existence, exactly as
+// it is for an office.
+func (k Keeper) activeAgent(ctx context.Context, signer string) (types.Agent, error) {
+	agent, err := k.Agent.Get(ctx, signer)
+	if err != nil {
+		if isNotFound(err) {
+			return types.Agent{}, types.ErrNotAgent.Wrapf("%s", signer)
+		}
+		return types.Agent{}, err
+	}
+	if !agent.Active {
+		return types.Agent{}, types.ErrAgentInactive.Wrapf("%s", signer)
+	}
+	return agent, nil
 }
 
 func isNotFound(err error) bool {

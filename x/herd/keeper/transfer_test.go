@@ -20,9 +20,17 @@ import (
 // Four parties, and each of these tests removes one to show what reopens.
 
 // transferFixture is the pedigree fixture plus what a sale needs: an animal
-// held by somebody, a buyer, and two attestors from an office other than the
-// one holding the record — because an attestor from the recording office is not
-// independent, and the module refuses it.
+// held by somebody, a buyer, and two attestors accredited by an office other
+// than the one holding the record — because an attestor from the recording
+// office is not independent, and the module refuses it.
+//
+// The attestors are AGENTS, not offices, and that distinction was bought the
+// hard way. Attestation required the attestor to be an Authority until a sale
+// was run end to end against a real chain — and an Authority must be an x/group
+// account admitted by a governance proposal, so every field veterinarian would
+// have been a multi-signature institution with a parliamentary vote behind
+// them. The quorum is two, so one lawful sale needed two of those to exist
+// first. In a pastoral zone that is not a high bar; it is an impossible one.
 type transferFixture struct {
 	*fixture
 	animalID  uint64
@@ -30,7 +38,7 @@ type transferFixture struct {
 	buyer     string
 	attestorA string
 	attestorB string
-	other     string // a second registry office
+	other     string // a second registry office, which accredits the attestors
 }
 
 func setupTransfer(t *testing.T) *transferFixture {
@@ -39,15 +47,16 @@ func setupTransfer(t *testing.T) *transferFixture {
 
 	_, other := f.env.Addr(t)
 	require.NoError(t, f.k.Authority.Set(f.env.Ctx, other, types.Authority{
-		Address: other, Name: "Service Départemental", Jurisdiction: jurisdiction, Active: true,
+		Address: other, Name: "Ordre des Vétérinaires", Jurisdiction: jurisdiction, Active: true,
 	}))
 
 	_, buyer := f.env.Addr(t)
 	_, attestorA := f.env.Addr(t)
 	_, attestorB := f.env.Addr(t)
 	for _, a := range []string{attestorA, attestorB} {
-		require.NoError(t, f.k.Authority.Set(f.env.Ctx, a, types.Authority{
-			Address: a, Name: "Vétérinaire accrédité", Jurisdiction: jurisdiction, Active: true,
+		require.NoError(t, f.k.Agent.Set(f.env.Ctx, a, types.Agent{
+			Address: a, Name: "Vétérinaire accrédité", Authority: other,
+			Jurisdiction: jurisdiction, Active: true,
 		}))
 	}
 
@@ -172,15 +181,117 @@ func TestOnlyTheNamedBuyerMayAccept(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrNotBuyer)
 }
 
-// An attestor from the office that holds the animal's record is not
+// An attestor accredited by the office that holds the animal's record is not
 // independent. Allowing it collapses the four-party shape back to one office
 // deciding, which is the arrangement the quorum exists to replace.
-func TestTheRecordingOfficeCannotAttestItsOwnRecord(t *testing.T) {
+func TestAnAgentOfTheRecordingOfficeCannotAttestItsOwnRecord(t *testing.T) {
+	tf := setupTransfer(t)
+	_, insider := tf.env.Addr(t)
+	require.NoError(t, tf.k.Agent.Set(tf.env.Ctx, insider, types.Agent{
+		Address: insider, Name: "Vétérinaire de l'office", Authority: tf.office,
+		Jurisdiction: jurisdiction, Active: true,
+	}))
+
+	id := tf.propose(t)
+	tf.accept(t, id)
+
+	require.ErrorIs(t, tf.attest(t, id, insider), types.ErrNotIndependent)
+}
+
+// An office is not a person, and cannot attest by being one.
+//
+// The office is a group account: its members already decide together, so an
+// attestation in its name is not one person saying they stood in front of the
+// animal — which is the only thing an attestation is for. The chain cannot
+// check that somebody looked at a beast; what it can do is require that a named
+// individual answers for the claim.
+func TestAnOfficeCannotAttest(t *testing.T) {
 	tf := setupTransfer(t)
 	id := tf.propose(t)
 	tf.accept(t, id)
 
-	require.ErrorIs(t, tf.attest(t, id, tf.office), types.ErrNotIndependent)
+	require.ErrorIs(t, tf.attest(t, id, tf.other), types.ErrNotAgent)
+}
+
+// A struck-off agent stops being able to act, but keeps their record — every
+// attestation they ever made names them, and "was this person accredited when
+// they signed" has to stay answerable.
+func TestAStruckOffAgentCannotAttest(t *testing.T) {
+	tf := setupTransfer(t)
+	id := tf.propose(t)
+	tf.accept(t, id)
+	require.NoError(t, tf.attest(t, id, tf.attestorA))
+
+	agent, err := tf.k.Agent.Get(tf.env.Ctx, tf.attestorB)
+	require.NoError(t, err)
+	agent.Active = false
+	require.NoError(t, tf.k.Agent.Set(tf.env.Ctx, tf.attestorB, agent))
+
+	require.ErrorIs(t, tf.attest(t, id, tf.attestorB), types.ErrAgentInactive)
+
+	// And the record survives the striking off.
+	still, err := tf.k.Agent.Get(tf.env.Ctx, tf.attestorB)
+	require.NoError(t, err)
+	require.Equal(t, tf.other, still.Authority)
+}
+
+// Accreditation is the office's own act, not governance's. This is the message
+// that made a lawful sale reachable at all.
+func TestAnOfficeAccreditsItsOwnAgents(t *testing.T) {
+	tf := setupTransfer(t)
+	_, vet := tf.env.Addr(t)
+
+	_, err := tf.srv.AccreditAgent(tf.env.Ctx, &types.MsgAccreditAgent{
+		Authority: tf.other, Agent: vet, Name: "Dr Sow", Active: true,
+	})
+	require.NoError(t, err)
+
+	got, err := tf.k.Agent.Get(tf.env.Ctx, vet)
+	require.NoError(t, err)
+	require.Equal(t, tf.other, got.Authority)
+	// The perimeter is copied from the office rather than accepted from the
+	// message: an agent cannot be accredited into a jurisdiction their office
+	// does not hold.
+	require.Equal(t, jurisdiction, got.Jurisdiction)
+	require.True(t, got.Active)
+}
+
+func TestOnlyAnAdmittedOfficeMayAccredit(t *testing.T) {
+	tf := setupTransfer(t)
+	_, stranger := tf.env.Addr(t)
+	_, vet := tf.env.Addr(t)
+
+	_, err := tf.srv.AccreditAgent(tf.env.Ctx, &types.MsgAccreditAgent{
+		Authority: stranger, Agent: vet, Name: "Dr Personne", Active: true,
+	})
+	require.ErrorIs(t, err, types.ErrNotAuthority)
+}
+
+// An office holding a plain-key agent record would have a second identity that
+// attests alone — the independence rule defeated from inside.
+func TestAnOfficeCannotBeAccreditedAsAnAgent(t *testing.T) {
+	tf := setupTransfer(t)
+
+	_, err := tf.srv.AccreditAgent(tf.env.Ctx, &types.MsgAccreditAgent{
+		Authority: tf.other, Agent: tf.office, Name: "not a person", Active: true,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidAgent)
+}
+
+// Moving an agent between offices silently would rewrite what "independent"
+// meant for every attestation they have already made.
+func TestAnotherOfficeCannotPoachAnAccreditedAgent(t *testing.T) {
+	tf := setupTransfer(t)
+
+	_, err := tf.srv.AccreditAgent(tf.env.Ctx, &types.MsgAccreditAgent{
+		Authority: tf.office, Agent: tf.attestorA, Name: "Dr Sow", Active: true,
+	})
+	require.ErrorIs(t, err, types.ErrInvalidAgent)
+
+	// Unchanged, which is the point: the other office must strike them off.
+	got, err := tf.k.Agent.Get(tf.env.Ctx, tf.attestorA)
+	require.NoError(t, err)
+	require.Equal(t, tf.other, got.Authority)
 }
 
 // One accredited agent signing twice is one agent, not a quorum.

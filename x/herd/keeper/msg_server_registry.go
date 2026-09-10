@@ -304,3 +304,71 @@ func (m msgServer) RetireAnimal(
 	}
 	return &types.MsgRetireAnimalResponse{}, nil
 }
+
+// AccreditAgent admits one person as an attestor, or strikes them off.
+//
+// Signed by an OFFICE, not by governance, and the difference is the whole
+// reason this message exists. Attestation required the attestor to be an
+// Authority until a sale was actually run end to end — and an Authority must be
+// an x/group account admitted by a governance proposal, so every field
+// veterinarian would have been a multi-signature institution with a
+// parliamentary vote behind them. With a quorum of two, a single lawful sale
+// needed two of those to exist first. That is not a high bar in a pastoral
+// zone; it is an impossible one, and a lawful route nobody can take pushes the
+// trade off the register entirely.
+//
+// Accreditation is the office's own act, which is also how it works off-chain:
+// a national veterinary order admits and strikes off its own members without
+// asking a legislature. What governance still decides is which offices exist,
+// which is the level where that question belongs.
+func (m msgServer) AccreditAgent(
+	ctx context.Context, msg *types.MsgAccreditAgent,
+) (*types.MsgAccreditAgentResponse, error) {
+	office, err := m.activeAuthority(ctx, msg.Authority)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := m.addressCodec.StringToBytes(msg.Agent); err != nil {
+		return nil, types.ErrInvalidAgent.Wrapf("%q", msg.Agent)
+	}
+
+	// An office cannot accredit an office. Not tidiness: an office is a group
+	// account whose members already decide together, and letting one hold a
+	// plain-key agent record would give it a second identity that attests
+	// alone — which is the independence rule defeated from inside.
+	if _, err := m.Authority.Get(ctx, msg.Agent); err == nil {
+		return nil, types.ErrInvalidAgent.Wrapf(
+			"%s is a registry office, not a person", msg.Agent)
+	} else if !isNotFound(err) {
+		return nil, err
+	}
+
+	// Re-accrediting an agent already registered to a DIFFERENT office would
+	// move them silently, and every past attestation of theirs was weighed for
+	// independence against the office they belonged to at the time. The record
+	// stays where it is; the other office must strike them off first.
+	if existing, err := m.Agent.Get(ctx, msg.Agent); err == nil {
+		if existing.Authority != office.Address {
+			return nil, types.ErrInvalidAgent.Wrapf(
+				"%s is accredited by %s and must be struck off there first",
+				msg.Agent, existing.Authority)
+		}
+	} else if !isNotFound(err) {
+		return nil, err
+	}
+
+	if err := m.Agent.Set(ctx, msg.Agent, types.Agent{
+		Address: msg.Agent,
+		Name:    msg.Name,
+		// The office's own perimeter. An agent cannot be accredited into a
+		// jurisdiction their office does not hold, so this is copied rather
+		// than accepted from the message.
+		Authority:    office.Address,
+		Jurisdiction: office.Jurisdiction,
+		Active:       msg.Active,
+		AccreditedAt: blockTime(ctx),
+	}); err != nil {
+		return nil, err
+	}
+	return &types.MsgAccreditAgentResponse{}, nil
+}
