@@ -392,6 +392,8 @@
     gap: var(--sp-4);
     flex-wrap: wrap;
   }
+  .brand a { color: inherit; text-decoration: none; }
+  .brand a:hover { text-decoration: underline; }
   .brand {
     font-family: var(--font-display);
     font-weight: 700;
@@ -698,7 +700,7 @@
 
 <header class="top">
   <div class="top__in">
-    <div class="brand">Yamale <span>·</span> Oversight</div>
+    <div class="brand"><a href="/" title="Retour à Yamale">Yamale</a> <span>·</span> Oversight</div>
     <div class="top__meta" id="meta">
       <span class="y-chip y-chip--mute" id="chip-chain">reading…</span>
     </div>

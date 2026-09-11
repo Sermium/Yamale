@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// The door out.
+//
+// # What this module is, in one sentence
+//
+// It is the record that an account holder demanded their own private key, was
+// warned what that means, waited, and asked again — and that from that height
+// the operator's custody obligations over that account are discharged.
+//
+// # There is no seed phrase, and saying so is the first honest thing
+//
+// A consumer account on this chain is a 2-of-3 threshold ECDSA key produced by
+// distributed key generation. It exists as three shares and, per mpc/mpc.go,
+// "in no other form, anywhere, ever". No BIP39 mnemonic was generated at
+// enrolment, because none is needed and none could be held without defeating
+// the design. So "retrieve my seed phrase" cannot mean unlocking a vault: there
+// is nothing in the vault. It can only mean RECONSTRUCTING the key from two
+// shares, which is a thing that has never happened before and can never be
+// undone.
+//
+// This matters for the wording a person is shown. Handing somebody twenty-four
+// words that encode those key bytes would be worse than refusing: BIP39 words
+// are entropy, fed through a derivation, so every standard wallet would import
+// them and arrive at a DIFFERENT key at a different address. The holder would
+// see an empty account and conclude the platform had lost their money. The
+// export is a private key and is labelled as one.
+//
+// # Why the chain holds this and not a checkbox in an application
+//
+// Two reasons, and the second is the load-bearing one.
+//
+// A disclaimer clicked in a modal is deniable afterwards by everybody. A
+// transaction signed by the account's own key, at a height, naming the exact
+// version and hash of the warning that was shown, is not. It is the operator's
+// defence and it is also the holder's receipt.
+//
+// And the pathway has to be one the OPERATOR CANNOT REFUSE. A platform that
+// says "your keys" and can decline to release them has not said anything. The
+// delay here is enforced by the chain, so the operator cannot shorten it for a
+// favoured customer and cannot extend it for an inconvenient one. What the
+// operator still controls in practice is its own participation — releasing its
+// share — and the honest statement is that this module makes a refusal visible
+// and dated rather than impossible.
+
+// Disclosure is the permanent record that one account's key was taken.
+//
+// There is no message that removes one, and that is not an oversight. A key
+// cannot be un-disclosed. Re-sharing an account produces new shares under the
+// SAME public key — which is exactly why a password reset does not change the
+// address and does not retire the x/alias identifier — so the exported key
+// keeps signing for ever. Nothing the operator or the holder can subsequently
+// do makes this account safe again; the only remedy is to move the funds to a
+// new account, and the record says so rather than implying a repair exists.
+message Disclosure {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // When the holder first asked, and when they confirmed. Both are kept: the
+  // gap between them is the evidence that the waiting period was served, and
+  // it is the first thing anybody reviewing a disputed export will look for.
+  int64 requested_at = 2;
+  int64 disclosed_at = 3;
+
+  // The height, because a timestamp is a claim about a clock and a height is a
+  // position in a chain other people also hold.
+  int64 disclosed_at_height = 4;
+
+  // Exactly which warning was shown. The version is for a human reading a
+  // dispute; the hash is what makes the claim checkable, because a version
+  // string can be reused over edited text and a hash cannot.
+  string acknowledgement_version = 5;
+  string acknowledgement_hash = 6;
+}
+
+// Request is a disclosure that has been asked for and not yet confirmed.
+//
+// Removed when the holder confirms or cancels, so this collection holds only
+// live requests. The waiting period exists for one specific person: the
+// account holder whose phone was taken. They cannot be helped by the
+// custodian's usual defences once a key is out — a freeze does not bind a key
+// somebody holds in plaintext, and recovery re-shares the same public key — so
+// the only protection available is time plus notice, and this is the time.
+message Request {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 requested_at = 2;
+  string acknowledgement_version = 3;
+  string acknowledgement_hash = 4;
+}

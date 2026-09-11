@@ -52,6 +52,14 @@ body{margin:0;background:var(--paper);color:var(--ink);
   -webkit-font-smoothing:antialiased}
 .wrap{max-width:1080px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 80px}
 
+.back{display:inline-block;margin:18px 0 0;font-size:13px;color:var(--ink-faint);
+  text-decoration:none;letter-spacing:.02em}
+.back:hover{color:var(--acacia);text-decoration:underline}
+.tabs{display:flex;gap:2px;margin:0 0 26px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.tabs a{padding:9px 14px;font-size:13.5px;color:var(--ink-faint);text-decoration:none;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--acacia);font-weight:500}
 header.top{padding:clamp(22px,4vw,42px) 0 20px;border-bottom:2px solid var(--ink);
   display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}
 h1{font-family:Newsreader,Georgia,serif;font-weight:500;font-size:clamp(26px,4.4vw,40px);
@@ -162,6 +170,13 @@ footer a{color:var(--acacia)}
 </style>
 
 <div class="wrap">
+  <!-- The way back.
+       Every console on this site routed within itself and none of them offered
+       a route out, so somebody who opened this from the menu and wanted the
+       wallet had to edit the address bar. On a phone, in front of somebody,
+       that is where a demonstration stops. -->
+  <a class="back" href="/">← Yamale</a>
+
   <header class="top">
     <div>
       <h1>Registre du <span>Ladoum</span></h1>
@@ -171,18 +186,25 @@ footer a{color:var(--acacia)}
     <div class="chainstate" id="chainstate">lecture de la chaîne…</div>
   </header>
 
-  <div class="searchbar">
+  <!-- Three views, because the register answers three different questions and
+       one page answering all of them buries two. A buyer checks one animal; an
+       officer looks at a herd; a bailleur wants the vaccination coverage. -->
+  <nav class="tabs" id="tabs"></nav>
+
+  <div class="searchbar" id="searchbar">
     <input type="search" id="q" placeholder="IDN, puce ou n° d'inscription — 221/682/021029/L"
            aria-label="Rechercher un animal par son IDN, sa puce ou son numéro" autocomplete="off">
     <button id="go">Vérifier</button>
     <button class="ghost" id="clear">Effacer</button>
   </div>
-  <p class="hint">Aucun compte n'est nécessaire et personne n'est informé de votre consultation.
+  <p class="hint" id="searchhint">Aucun compte n'est nécessaire et personne n'est informé de votre consultation.
     Un acheteur vérifie ici sans avoir à faire confiance à l'émetteur du certificat.</p>
 
   <div id="out"></div>
 
   <section class="roll" id="roll"></section>
+  <section id="herd" hidden></section>
+  <section id="offices" hidden></section>
 
   <footer>
     <p><strong>Démonstrateur.</strong> Les animaux inscrits ici le sont sur un réseau de
@@ -206,7 +228,8 @@ footer a{color:var(--acacia)}
 <script type="module">
 import {
   lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage, missingParent,
-  offices, params, roll, chainHead, provenance, hasParent, sexLabel,
+  offices, params, roll, chainHead, provenance, hasParent, sexLabel, speciesLabel,
+  herdByRef, animalsOf, healthOf,
 } from './ladoum.js';
 import { PEDIGREE_DEPTH, JURISDICTION } from './registrar.js';
 
@@ -528,6 +551,130 @@ document.getElementById('clear').addEventListener('click', () => {
   document.getElementById('q').value = ''; out.innerHTML = '';
 });
 
+/* ------------------------------------------------------------------ router */
+
+/**
+ * Trois vues, parce que le registre répond à trois questions différentes.
+ *
+ * Un acheteur vérifie UN animal ; un agent regarde un troupeau ; un bailleur
+ * veut la couverture vaccinale. Une page unique qui répondrait aux trois en
+ * enterrerait deux — et c'est la question de l'acheteur, celle qui se pose
+ * debout dans un marché, qui serait enterrée la première.
+ */
+const VIEWS = [
+  ['#/', 'Vérifier un animal', ['searchbar', 'searchhint', 'out', 'roll']],
+  ['#/troupeau', 'Un troupeau', ['herd']],
+  ['#/offices', 'Les offices', ['offices']],
+];
+
+function renderTabs(hash) {
+  document.getElementById('tabs').innerHTML = VIEWS.map(([h, label]) => {
+    const on = h === '#/' ? (hash === '#/' || hash === '') : hash.startsWith(h);
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`;
+  }).join('');
+}
+
+function route() {
+  const hash = window.location.hash || '#/';
+  renderTabs(hash);
+  const current = VIEWS.find(([h]) => h !== '#/' && hash.startsWith(h)) || VIEWS[0];
+  const shown = new Set(current[2]);
+  for (const [, , ids] of VIEWS) {
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      // `hidden` rather than style.display: the reset in this page sets
+      // [hidden]{display:none!important}, and a style attribute fights it.
+      if (el) el.hidden = !shown.has(id);
+    }
+  }
+  if (current[0] === '#/troupeau') showHerd();
+  if (current[0] === '#/offices') showOffices();
+}
+
+/** Un troupeau : ses animaux et ce pour quoi il a été traité. */
+async function showHerd() {
+  const el = document.getElementById('herd');
+  el.innerHTML = '<h3>Un troupeau</h3><p class="hint">lecture…</p>';
+  try {
+    const h = await herdByRef('SN-RF-H-000147');
+    if (!h) {
+      el.innerHTML = `<h3>Un troupeau</h3>
+        <div class="note"><div class="h">Aucun troupeau inscrit</div>
+        <p>Le registre a répondu et ne connaît pas encore de troupeau sous cette
+        référence. C'est une absence, pas une panne.</p></div>`;
+      return;
+    }
+    const [animals, health] = await Promise.all([animalsOf(h.id), healthOf(h.id)]);
+    const treated = health.reduce((n, e) => n + Number(e.treated || 0), 0);
+
+    el.innerHTML = `<h3>Troupeau ${esc(h.reference)}</h3>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td>Localité</td><td>${esc(h.locality || '—')}</td></tr>
+          <tr><td>Espèce</td><td>${esc(speciesLabel(h.species))}</td></tr>
+          <tr><td>Taille déclarée</td><td>${esc(h.declared_size)}</td></tr>
+          <tr><td>Inscrits individuellement</td><td>${esc(animals.length)}</td></tr>
+          <tr><td>Détenteur</td><td class="mono">${esc(h.keeper)}</td></tr>
+        </tbody></table></div>
+
+      <h3 style="margin-top:26px">Santé</h3>
+      ${health.length ? `<div class="tablewrap"><table>
+        <thead><tr><th>Maladie</th><th>Lot</th><th>Traités</th><th>Bloc</th></tr></thead>
+        <tbody>${health.map((e) => `<tr>
+          <td>${esc(e.disease)}</td><td class="mono">${esc(e.batch || '—')}</td>
+          <td>${esc(e.treated)}</td><td class="mono">${esc(e.recorded_at)}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="hint">${esc(treated)} animaux traités sur ${esc(h.declared_size)} déclarés.
+        C'est une COUVERTURE, et c'est la différence qui intéresse un bailleur :
+        mille doses livrées ne disent rien, mille troupeaux traités disent tout.</p>`
+        : '<p class="hint">Aucune campagne enregistrée pour ce troupeau.</p>'}`;
+  } catch (e) {
+    el.innerHTML = `<h3>Un troupeau</h3>
+      <div class="note bad"><div class="h">Lecture impossible</div><p>${esc(e.message)}</p></div>`;
+  }
+}
+
+/** Les offices admis, et les règles qu'ils appliquent. */
+async function showOffices() {
+  const el = document.getElementById('offices');
+  el.innerHTML = '<h3>Les offices</h3><p class="hint">lecture…</p>';
+  try {
+    const [os, p] = await Promise.all([offices(), params().catch(() => null)]);
+    el.innerHTML = `<h3>Les offices admis</h3>
+      <p class="hint">Les offices sont admis par la gouvernance de la chaîne, jamais
+      entre eux — c'est ce qui empêche une bergerie de se déclarer registre. Chacun
+      est un compte de groupe, donc chacune de ses décisions requiert déjà plusieurs
+      signatures à l'intérieur de l'office.</p>
+      ${os.length ? `<div class="tablewrap"><table>
+        <thead><tr><th>Nom</th><th>Juridiction</th><th>Adresse</th></tr></thead>
+        <tbody>${os.map((o) => `<tr><td>${esc(o.name)}</td>
+          <td>${esc(o.jurisdiction)}</td>
+          <td class="mono">${esc(o.address.slice(0, 18))}…</td></tr>`).join('')}
+        </tbody></table></div>`
+        : `<div class="note bad"><div class="h">Aucun office admis</div>
+           <p>Tant qu'aucun office n'est admis, aucune inscription n'est possible.</p></div>`}
+
+      ${p ? `<h3 style="margin-top:26px">Les règles en vigueur</h3>
+      <div class="tablewrap"><table><tbody>
+        <tr><td>Attestations par cession</td><td>${esc(p.attestation_quorum)}</td></tr>
+        <tr><td>Délai de contestation</td><td>${
+          esc(Math.round(Number(p.challenge_window) / 86400))} jours</td></tr>
+        <tr><td>Intervalle minimal entre deux mises bas</td><td>${
+          esc(p.min_birth_interval_days)} jours</td></tr>
+        <tr><td>ADN exigé pour une certification</td><td>${
+          p.require_dna_for_certified ? 'oui' : 'non'}</td></tr>
+      </tbody></table></div>
+      <p class="hint">Aucune de ces règles ne prouve une filiation — seul un
+      laboratoire le fait. Chacune refuse une filiation qui ne peut pas être vraie.</p>` : ''}`;
+  } catch (e) {
+    el.innerHTML = `<h3>Les offices</h3>
+      <div class="note bad"><div class="h">Lecture impossible</div><p>${esc(e.message)}</p></div>`;
+  }
+}
+
+window.addEventListener('hashchange', route);
+
 showHead();
 showRoll();
+route();
 </script>
