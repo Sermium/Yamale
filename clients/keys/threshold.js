@@ -183,6 +183,125 @@ export function decodeBalances(bytes) {
   return coins;
 }
 
+// ------------------------------------------------------- the door out
+
+/**
+ * The key-disclosure pathway, read from the chain.
+ *
+ * This page's whole claim is that a key exists in three shares and in no other
+ * form. The obvious question is then "so can I ever have it?", and a page that
+ * did not answer would be making the claim and hiding the cost.
+ *
+ * The answer lives in x/selfcustody, on the chain, so that the terms are the
+ * ones actually enforced rather than a paragraph somebody wrote here. The
+ * waiting period is a chain parameter the operator cannot shorten for a
+ * favoured customer or lengthen for an inconvenient one; the warning text is
+ * pinned by HASH, so what a person agreed to can be checked rather than
+ * asserted.
+ *
+ * Params { disclosure_delay = 1 (int64), acknowledgement_version = 2 (string),
+ *          acknowledgement_hash = 3 (string), request_expiry = 4 (int64) },
+ * wrapped in QueryParamsResponse at field 1.
+ */
+export async function disclosureTerms() {
+  const result = await rpc(
+    'abci_query?path=%22/blockchain.selfcustody.v1.Query/Params%22&data=0x',
+  );
+  const response = result.response;
+  if (response.code !== 0) {
+    // A chain built without this module answers with a non-zero code rather
+    // than with empty params, and the two mean opposite things: "no such
+    // query" is a deployment that has no pathway at all, which this page must
+    // say plainly rather than render as a pathway with blank terms.
+    throw new Unreachable(`selfcustody params: ${response.log || `code ${response.code}`}`);
+  }
+  const outer = response.value ? fromBase64(response.value) : new Uint8Array();
+  const params = fieldsOf(outer).get(1)?.[0];
+  if (!params) throw new Unreachable('selfcustody params: empty response');
+
+  const f = fieldsOf(params);
+  const text = (n) => (f.get(n) ? new TextDecoder().decode(f.get(n)[0]) : '');
+  const num = (n) => Number(f.get(n) ? f.get(n)[0] : 0n);
+
+  return {
+    delaySeconds: num(1),
+    version: text(2),
+    hash: text(3),
+    expirySeconds: num(4),
+    height: Number(response.height),
+  };
+}
+
+/**
+ * How many accounts have taken their keys, and how many are inside the wait.
+ *
+ * A count and never a list. A public roll of accounts whose private keys are
+ * known to be sitting in somebody's downloads folder is a target list, ordered
+ * by how easy each one is to rob — so x/selfcustody publishes no query that
+ * returns one. What the count buys is that the RATE stays visible: an operator
+ * quietly pushing customers out of custody, or a sudden spike meaning an attack
+ * campaign is under way, are both observable without anybody being named.
+ *
+ * QueryCountResponse { disclosed = 1 (uint64), pending = 2 (uint64) }.
+ */
+export async function disclosureCount() {
+  const result = await rpc(
+    'abci_query?path=%22/blockchain.selfcustody.v1.Query/Count%22&data=0x',
+  );
+  const response = result.response;
+  if (response.code !== 0) {
+    throw new Unreachable(`selfcustody count: ${response.log || `code ${response.code}`}`);
+  }
+  const f = fieldsOf(response.value ? fromBase64(response.value) : new Uint8Array());
+  return {
+    disclosed: Number(f.get(1)?.[0] ?? 0n),
+    pending: Number(f.get(2)?.[0] ?? 0n),
+  };
+}
+
+/**
+ * Every field of a protobuf message, keyed by field number.
+ *
+ * A map of arrays rather than an object, so a repeated field keeps all of its
+ * entries. Unknown fields are kept rather than refused: a node running newer
+ * code than this page emits fields it has never heard of, and the right
+ * behaviour is to ignore them and parse the message around them.
+ */
+export function fieldsOf(bytes) {
+  const out = new Map();
+  const put = (n, v) => { const l = out.get(n); if (l) l.push(v); else out.set(n, [v]); };
+  let i = 0;
+  const readVarint = () => {
+    let result = 0n;
+    let shift = 0n;
+    for (;;) {
+      if (i >= bytes.length) throw new Error('truncated varint');
+      const byte = bytes[i];
+      i += 1;
+      result |= BigInt(byte & 0x7f) << shift;
+      if ((byte & 0x80) === 0) return result;
+      shift += 7n;
+    }
+  };
+  while (i < bytes.length) {
+    const tag = Number(readVarint());
+    const field = tag >> 3;
+    switch (tag & 7) {
+      case 0: put(field, readVarint()); break;
+      case 2: {
+        const length = Number(readVarint());
+        put(field, bytes.slice(i, i + length));
+        i += length;
+        break;
+      }
+      case 5: i += 4; break;
+      case 1: i += 8; break;
+      default: return out;
+    }
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ wasm
 
 let wasmReady = null;

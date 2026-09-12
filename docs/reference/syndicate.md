@@ -166,7 +166,7 @@ MsgOpenDeal puts an allocation in front of the investor base.
 | `target` | string |  |
 | `minimum` | string |  |
 | `minimum_ticket` | string |  |
-| `fees` | FeeSchedule |  |
+| `fee_schedule` | FeeSchedule | What the platform charges. Named `fee_schedule` rather than `fees`, and the reason is not taste. autocli turns every non-positional field of a Msg into a command flag, and the SDK's own AddTxFlagsToCmd adds `--fees` — the transaction fee — to every tx command there is. A field called `fees` therefore asks pflag to define one flag name twice, and pflag's answer is to PANIC. Not at `tx syndicate open-deal`: at process start, while the root command is built, so the binary died on `version`, on `start`, on everything. Measured on 2026-09-12, the first time this module was linked into a binary that was actually run: $ blockchaind version panic: open-deal flag redefined: fees The module's 37 tests, both build profiles and `buf lint` all passed throughout, because none of them constructs the CLI. The same trap is set for any Msg field named `gas`, `from`, `note`, `node`, `output`, `sequence` or `offline`; this is the only one in the repository. |
 | `closes_at` | int64 | When commitments stop. Bounded at both ends by the module parameters. |
 
 ### MsgRegisterOperator

@@ -1,0 +1,1231 @@
+<!--
+  Syndicate — the private-placement console.
+
+  What this page answers, in the order an investor asks it:
+
+    1. What is on offer, and will it happen at all?
+    2. What will the fees take, in money rather than in basis points?
+    3. What do I hold, and what am I owed right now?
+
+  Question 1 is two questions and the page never merges them. A book at 40% of
+  target sounds disappointing; a book at 40% of target that has passed its
+  minimum is a deal that is going to close. The bar carries the minimum as a
+  marked threshold for exactly that reason.
+
+  Read-only. This console composes no transaction and holds no key: committing
+  to a deal moves money, and every action panel shows the command that would do
+  it, signed by the account the chain checks — read off `cosmos.msg.v1.signer`
+  in tx.proto rather than guessed.
+
+  One file, no build step, no dependencies, like the land, markets, validator,
+  governance and foundation consoles. Every read goes over ABCI rather than
+  REST; see chain.js for the 401 that decided that.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Syndicate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked for the reason the other consoles inline it: one
+     file, no build step, and no second request standing between the reader and
+     a page that has to say whether a raise is still open.
+
+     The three-state theming is the part that must not be improvised. `:root`
+     carries the complete light palette; the dark blocks redefine TOKENS ONLY,
+     never a component rule — a colour whose sole definition sits inside a media
+     query or a [data-theme] block renders one theme's text on the other theme's
+     ground in the un-stamped state, and that bug has shipped here before.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+
+    --radius: 5px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+
+    /* Measured, not guessed — the finding is recorded in clients/markets. In
+       light, --brass and --warn fail 4.5:1 wherever they carry small text; both
+       are fine as a border, a bar or a rule. These two exist for text and
+       resolve to the palette colour in dark, where the palette already passes. */
+    --brass-text: #825d22;
+    --warn-text: #80590f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+      --brass-text: var(--brass);
+      --warn-text: var(--warn);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+    --brass-text: var(--brass);
+    --warn-text: var(--warn);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .mono, .addr, .num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .num, .tabular { font-variant-numeric: tabular-nums; }
+  .addr { word-break: break-all; font-size: 0.88em; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ======================================================== the console shell */
+
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600; }
+  header h1 a { color: inherit; text-decoration: none; }
+  .home {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-2); border-radius: var(--radius);
+    border: 1px solid var(--rule); white-space: nowrap;
+  }
+  .home:hover { color: var(--text); border-color: var(--brass); }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; margin: var(--sp-6) 0 var(--sp-3); }
+  h4 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  a { color: var(--accent); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--mute { border-inline-start: 3px solid var(--text-faint); }
+
+  .grid { display: grid; gap: var(--sp-3);
+          grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap;
+  }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
+
+  code { font-size: 0.86em; overflow-wrap: break-word; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2; max-width: none;
+  }
+
+  .err, .badbox, .warnbox, .notebox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-3) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err, .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn-text); }
+  .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
+  .notebox p + p, .warnbox p + p, .err p + p { margin-top: var(--sp-2); }
+
+  button { font: inherit; }
+  .btn {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    text-decoration: none; display: inline-block;
+  }
+  .btn:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input {
+    font-family: var(--font-mono); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%; max-width: 44rem;
+  }
+  input:hover { border-color: var(--text-faint); }
+  input::placeholder { color: var(--text-faint); }
+
+  details { margin-top: var(--sp-3); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+  /* Wide content scrolls inside its own box. The page body never scrolls
+     sideways — a horizontal scrollbar on the document is how a table takes the
+     whole layout with it. */
+  .scroll { overflow-x: auto; }
+
+  dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
+       gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
+  dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); }
+  dd { margin: 0; min-width: 0; word-break: break-word; }
+
+  /* ============================================================== the book bar
+
+     Not decoration, and not one number. A raise has TWO thresholds and an
+     investor is asking about the second: the target is what the allocation
+     holds, and the minimum is whether the deal happens at all. A single fill
+     bar answers the first and buries the second, so the minimum is drawn on the
+     bar as a marked threshold and the fill is coloured by which side of it the
+     book has reached.
+
+     Colour is never alone. The percentage, the shortfall and the state pill all
+     say the same thing in words. */
+  .book { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .book__bar {
+    position: relative; height: 12px; border-radius: 3px;
+    background: var(--surface-3); border: 1px solid var(--border); overflow: hidden;
+  }
+  .book__fill { height: 100%; display: block; }
+  .book--under .book__fill { background: var(--warn); }
+  .book--viable .book__fill { background: var(--ok); }
+  .book--failed .book__fill { background: var(--bad); }
+  .book--closed .book__fill { background: var(--accent); }
+  /* The minimum threshold. A 2px rule rather than a colour change, because it
+     has to be visible on top of the fill AND on top of the empty track. */
+  .book__min {
+    position: absolute; top: -1px; bottom: -1px; width: 2px;
+    background: var(--text); opacity: .55;
+  }
+  .book__scale {
+    display: flex; justify-content: space-between; gap: var(--sp-3);
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* =========================================================== the fee ladder
+
+     Basis points are what a deal is written in; money is what a person decides
+     on. Each rung shows both, and the rungs are read top to bottom as the money
+     actually moves: committed → fee → to the company. */
+  .ladder { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
+  .rung {
+    display: grid; grid-template-columns: 1fr auto; gap: var(--sp-3);
+    align-items: baseline; padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2); border-radius: var(--radius);
+    border-inline-start: 3px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .rung--out { border-inline-start-color: var(--brass); color: var(--text-muted); }
+  .rung--net { border-inline-start-color: var(--ok); font-weight: 600; }
+  .rung__what { font-size: var(--step--1); }
+  .rung__amt { font-family: var(--font-mono); font-size: var(--step-0); }
+
+  .dealhead { display: flex; justify-content: space-between; gap: var(--sp-4);
+              align-items: flex-start; flex-wrap: wrap; }
+  .deals-list .card { cursor: pointer; }
+  .deals-list .card:hover { border-color: var(--brass); }
+  .deals-list a.title { text-decoration: none; color: inherit; }
+  .deals-list a.title:hover { text-decoration: underline; }
+
+  footer { border-top: 1px solid var(--border); margin-top: var(--sp-7);
+           padding: var(--sp-5); color: var(--text-muted); font-size: var(--step--1); }
+  footer p { max-width: var(--measure); }
+  footer p + p { margin-top: var(--sp-3); }
+</style>
+
+<header>
+  <!-- The way back. Every console on this site routed within itself and none
+       of them offered a route out, so somebody who opened this from the menu
+       and wanted the wallet had to edit the address bar. On a phone, in front
+       of somebody, that is where a demonstration stops. -->
+  <a class="home" href="/" title="Back to Yamale">← Yamale</a>
+  <h1><a href="#/deals">Syndicate</a></h1>
+  <nav id="nav"></nav>
+  <!-- The honest signal that this is a live chain rather than a screenshot of
+       one. It is also the proof that this page's code ran at all: the Ladoum
+       console once shipped with a missing import, which fails the whole ES
+       module graph and leaves the static markup rendering — indistinguishable
+       from a platform with no deals. A height cannot appear unless the code
+       ran, so if it is missing, nothing below it is true either. -->
+  <span class="label" id="clock">reading…</span>
+  <button class="copy" id="theme" type="button">theme</button>
+</header>
+
+<div class="wrap">
+  <div id="banner"></div>
+  <main id="view"><p class="spin">Reading the chain…</p></main>
+</div>
+
+<footer>
+  <p><strong>Demonstrator.</strong> The deals shown here are on a demonstration network.
+    Everything on this page is read from the chain over its public ABCI interface; nothing is
+    simulated in the browser, so an empty platform reads as an empty platform rather than being
+    filled in with an example.</p>
+  <p><strong>Read-only, on purpose.</strong> Committing to a deal moves money. This console holds
+    no key and composes no transaction; each action shows the command that would send it and the
+    account whose signature the chain checks, so what would be signed is visible before anything
+    asks for a signature.</p>
+  <p><strong>What the chain does and does not decide.</strong> It holds the escrow, refuses a close
+    below the minimum, refunds in full when a raise fails, and pays every distribution to whoever
+    holds the token at that moment — including a buyer from a private sale the platform was never
+    told about. It does not perform the KYC checks and does not claim to: it records that a named,
+    accountable operator says they were performed, dated and attributable.</p>
+</footer>
+
+<script type="module">
+import {
+  commitments, deal, dealByRef, deals, entitlement, head, investor,
+  listings, operators, params,
+} from './chain.js';
+import {
+  amount, book, day, denomInfo, entryFees, money, pct,
+  shareBps, shortAddr, standing, transferable, until,
+} from './syndicate.js';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const view = document.getElementById('view');
+const banner = document.getElementById('banner');
+
+/** The chain's clock, not the browser's. Set by tick(); see below. */
+let chainNow = Math.floor(Date.now() / 1000);
+
+const addr = (a) =>
+  `<span class="addr" title="${esc(a)}">${esc(shortAddr(a))}</span>`;
+
+/* ========================================================================== */
+/*  Components                                                                */
+/* ========================================================================== */
+
+/**
+ * The book, drawn.
+ *
+ * The minimum marker is positioned as a percentage of the TARGET, which is what
+ * the bar's full width represents. A minimum above the target cannot exist —
+ * the chain refuses such a deal at OpenDeal — so the marker is always on the
+ * bar.
+ */
+function bookBar(d) {
+  const b = book(d);
+  const s = standing(d, chainNow);
+  const tone = d.state !== 'DEAL_STATE_OPEN' ? 'closed'
+    : s.state === 'failed' ? 'failed'
+    : b.viable ? 'viable' : 'under';
+
+  // The tone modifier is what gives the fill its colour: every
+  // `.book--* .book__fill` rule lives behind one, so a bar rendered with the
+  // bare `book` class has a transparent fill and reads as an empty book at
+  // every state — including a deal that is fully funded. Shipped that way for
+  // exactly as long as it took to look at the page.
+  return `
+    <div class="book book--${esc(tone)}">
+      <div class="book__bar" role="img"
+           aria-label="Raised ${esc(b.filledPct.toFixed(1))} percent of the allocation; the minimum sits at ${esc(b.minimumPct.toFixed(1))} percent">
+        <span class="book__fill" style="width:${b.filledPct}%"></span>
+        <span class="book__min" style="inset-inline-start:${b.minimumPct}%"
+              title="Minimum: ${esc(money(b.minimum, d.settlement_denom))}"></span>
+      </div>
+      <div class="book__scale">
+        <span>${esc(money(b.raised, d.settlement_denom))} raised</span>
+        <span>${esc(b.filledPct.toFixed(1))}% of ${esc(money(b.target, d.settlement_denom))}</span>
+      </div>
+    </div>`;
+}
+
+/** The state, as a pill and a sentence. */
+function statePill(d) {
+  const s = standing(d, chainNow);
+  return `<span class="pill p-${esc(s.tone)}">${esc(s.label)}</span>`;
+}
+
+/**
+ * The fee ladder: what an investor pays, what the platform takes, what reaches
+ * the company. In money first.
+ *
+ * Computed on what has ACTUALLY been raised rather than on the target, because
+ * the target is a hope and the raise is a fact. On an open deal the figure
+ * moves, and the page says which it is.
+ */
+function feeLadder(d) {
+  const f = entryFees(d);
+  const den = d.settlement_denom;
+  const open = d.state === 'DEAL_STATE_OPEN';
+
+  return `
+    <h4>Where the money goes</h4>
+    <p class="muted">${open
+      ? 'On the book as it stands. These figures move with every commitment, and are what a close would produce today.'
+      : 'As settled at the close.'}</p>
+    <div class="ladder">
+      <div class="rung">
+        <span class="rung__what">Committed by investors</span>
+        <span class="rung__amt">${esc(money(f.gross, den))}</span>
+      </div>
+      <div class="rung rung--out">
+        <span class="rung__what">Sourcing and syndication — ${esc(pct(f.bps))}
+          (${esc(pct(f.sourcingBps))} + ${esc(pct(f.syndicationBps))})</span>
+        <span class="rung__amt">− ${esc(money(f.fee, den))}</span>
+      </div>
+      <div class="rung rung--net">
+        <span class="rung__what">Reaches the company</span>
+        <span class="rung__amt">${esc(money(f.invested, den))}</span>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:var(--sp-3)">
+      The management fee of ${esc(pct(d.fees.management_bps))} is <strong>not</strong> in that
+      ladder and is not charged today. It comes off each distribution as it is paid, so the
+      platform is paid when and only when the investors are — an annual fee on an illiquid
+      position would have to be collected by calling more capital or by selling the position
+      down, and a syndicate can do neither.</p>
+    <p class="muted">Tokens are allocated against the <strong>gross</strong> cheque, not the net.
+      An investor's share of the syndicate is what they paid. Allocating against the net would
+      charge the fee twice — once in cash and again in ownership — and the arithmetic would
+      still balance, which is what makes it the easy mistake.</p>`;
+}
+
+/** A command, with what signs it. Never a button: this page holds no key. */
+function command(title, signer, why, cmd) {
+  return `
+    <details>
+      <summary>${esc(title)}</summary>
+      <p class="muted" style="margin-top:var(--sp-2)">Signed by <strong>${esc(signer)}</strong>.
+        ${esc(why)}</p>
+      <pre>${esc(cmd)}</pre>
+    </details>`;
+}
+
+/* ========================================================================== */
+/*  Views                                                                     */
+/* ========================================================================== */
+
+/** Every deal the platform has opened. */
+async function renderDeals() {
+  const [list, ops] = await Promise.all([deals(), operators().catch(() => [])]);
+
+  if (!ops.length) {
+    view.innerHTML = `
+      <h2>Syndications</h2>
+      <div class="badbox">
+        <p><strong>No operator is admitted.</strong> The chain knows no platform operator, so no
+          deal can be opened and none exists to show.</p>
+        <p>Operators are admitted by chain governance and never by each other, and x/syndicate
+          refuses to admit one that is a single key — an operator must be a group account, so
+          opening a deal, declaring it closed and moving escrowed money each already need several
+          signatures inside the operator.</p>
+      </div>`;
+    return;
+  }
+
+  if (!list.length) {
+    view.innerHTML = `
+      <h2>Syndications</h2>
+      <div class="notebox">
+        <p><strong>No deal has been opened yet.</strong> ${esc(ops.length)}
+          operator${ops.length > 1 ? 's are' : ' is'} admitted and the platform is empty.</p>
+        <p>The chain answered: this is an empty platform, not an unreachable one.</p>
+      </div>`;
+    return;
+  }
+
+  // Open deals first, then the ones that funded, then the ones that did not.
+  // An investor arrives to find what they can still act on; a deal that closed
+  // last year is history and belongs below it.
+  const rank = (d) => (d.state === 'DEAL_STATE_OPEN' ? 0
+    : d.state === 'DEAL_STATE_CLOSED' ? 1 : 2);
+  list.sort((a, b) => rank(a) - rank(b) || Number(b.id) - Number(a.id));
+
+  const live = list.filter((d) => d.state === 'DEAL_STATE_OPEN').length;
+
+  view.innerHTML = `
+    <h2>Syndications</h2>
+    <p class="muted" style="margin-bottom:var(--sp-5)">${esc(list.length)} deal${list.length > 1 ? 's' : ''}
+      on the platform, ${esc(live)} still taking commitments. A raise that misses its minimum
+      refunds everybody in full, fees included.</p>
+
+    <div class="deals-list">
+      ${list.map((d) => {
+        const b = book(d);
+        const s = standing(d, chainNow);
+        const t = until(d.closes_at, chainNow);
+        return `
+        <article class="card card--${esc(s.tone)}">
+          <div class="dealhead">
+            <div style="min-width:min(100%,18rem)">
+              <p class="eyebrow">${esc(d.reference)}</p>
+              <h4><a class="title" href="#/deal/${esc(d.id)}">${esc(d.company || 'Unnamed company')}</a></h4>
+              <p class="muted">${d.partner ? `with ${esc(d.partner)} · ` : ''}${statePill(d)}
+                ${d.state === 'DEAL_STATE_OPEN'
+                  ? `<span class="small">closes ${esc(t.phrase)}</span>` : ''}</p>
+            </div>
+            <div style="min-width:12rem;flex:1 1 14rem">
+              ${bookBar(d)}
+            </div>
+          </div>
+          <p class="small" style="margin-top:var(--sp-3);color:var(--text-muted)">${esc(s.what)}</p>
+        </article>`;
+      }).join('')}
+    </div>`;
+}
+
+/** One deal, in full. */
+async function renderDeal(id) {
+  const d = await deal(id);
+  if (!d) {
+    view.innerHTML = `
+      <h2>Deal ${esc(id)}</h2>
+      <div class="badbox">
+        <p><strong>No such deal.</strong> The chain answered and knows no deal
+          <code>${esc(id)}</code>. This is an absence, not a failure.</p>
+      </div>
+      <p><a class="btn" href="#/deals">← All deals</a></p>`;
+    return;
+  }
+
+  const b = book(d);
+  const s = standing(d, chainNow);
+  const t = until(d.closes_at, chainNow);
+  const den = d.settlement_denom;
+  const tr = transferable(d);
+
+  view.innerHTML = `
+    <p class="muted" style="margin-bottom:var(--sp-3)"><a href="#/deals">← All deals</a></p>
+    <p class="eyebrow">${esc(d.reference)}</p>
+    <h2>${esc(d.company || 'Unnamed company')}</h2>
+    <p class="muted">${d.partner ? `Syndicated alongside <strong>${esc(d.partner)}</strong>. ` : ''}
+      Operated by ${addr(d.operator)}.</p>
+
+    <div class="card card--${esc(s.tone)}" style="margin-top:var(--sp-5)">
+      <div class="row">
+        <div>${statePill(d)}</div>
+        <div class="small muted">${d.state === 'DEAL_STATE_OPEN'
+          ? `Window ${esc(t.past ? 'ran out' : 'closes')} ${esc(t.phrase)} · ${esc(day(d.closes_at))}`
+          : d.closed_at !== '0' ? `Closed ${esc(day(d.closed_at))}` : ''}</div>
+      </div>
+      <p style="margin-top:var(--sp-3)">${esc(s.what)}</p>
+      <div style="margin-top:var(--sp-4)">${bookBar(d)}</div>
+      ${!b.viable && d.state === 'DEAL_STATE_OPEN' ? `
+        <p class="small" style="margin-top:var(--sp-2);color:var(--warn-text)">
+          <strong>${esc(money(b.shortfall, den))} short of the minimum.</strong>
+          Below it, the chain refuses to close this deal at all.</p>` : ''}
+      ${b.viable && !b.full && d.state === 'DEAL_STATE_OPEN' ? `
+        <p class="small" style="margin-top:var(--sp-2)">
+          Room for ${esc(money(b.room, den))} more. A commitment above that is refused,
+          not truncated.</p>` : ''}
+    </div>
+
+    <div class="grid" style="margin-top:var(--sp-4)">
+      <div class="card">
+        <p class="label">Allocation</p>
+        <p class="stat">${esc(money(b.target, den))}</p>
+        <p class="muted">minimum ${esc(money(b.minimum, den))}</p>
+      </div>
+      <div class="card">
+        <p class="label">Smallest cheque</p>
+        <p class="stat">${esc(money(d.minimum_ticket, den))}</p>
+        <p class="muted">applies to the total held, not to each top-up</p>
+      </div>
+      <div class="card">
+        <p class="label">Settles in</p>
+        <p class="stat stat--words">${esc(denomInfo(den).symbol)}</p>
+        <p class="muted">${esc(denomInfo(den).name || den)}</p>
+      </div>
+      <div class="card">
+        <p class="label">Distributed so far</p>
+        <p class="stat">${esc(money(d.distributed, den))}</p>
+        <p class="muted">${d.denom ? `token ${esc(d.denom)}` : 'no token issued yet'}</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:var(--sp-4)">${feeLadder(d)}</div>
+
+    <h3>The book</h3>
+    <div id="bookpanel"><p class="spin">Reading commitments…</p></div>
+
+    <h3>Secondary market</h3>
+    <div class="card ${tr.ok ? '' : 'card--mute'}">
+      <p>${esc(tr.why)}</p>
+    </div>
+    <div id="listings"><p class="spin">Reading listings…</p></div>
+
+    <h3>What can be done, and who signs it</h3>
+    <div class="card">
+      <p class="muted">This console holds no key. Each command below names the account whose
+        signature the chain checks, read from <code>cosmos.msg.v1.signer</code> in
+        <code>tx.proto</code>.</p>
+      ${s.can.includes('commit') ? command(
+        'Commit to this deal', 'the investor',
+        'The money moves now, into the module\'s escrow — a commitment that is only a promise lets a deal close on paper and fail to fund. You may withdraw it in full at any time while the deal is open.',
+        `blockchaind tx syndicate commit ${d.id} <amount>${den} \\\n  --from <your-key> --chain-id yamale-devnet-2`) : ''}
+      ${s.can.includes('withdraw') ? command(
+        'Withdraw a commitment', 'the investor',
+        'Unconditional while the deal is open, and in full. Committed money is out of your hands and earning nothing against a deal that may never happen; a syndicate whose early commitments are hostages does not fill.',
+        `blockchaind tx syndicate withdraw-commitment ${d.id} \\\n  --from <your-key> --chain-id yamale-devnet-2`) : ''}
+      ${s.can.includes('abort') ? command(
+        'Abort this deal and refund everybody', 'anybody',
+        'Once the window has run and the minimum was missed, anybody may do this — no investor needs the operator\'s cooperation to get their cheque back. Refunds are in full including fees: no service was delivered, so nothing is charged for the attempt.',
+        `blockchaind tx syndicate abort-deal ${d.id} "window ran, minimum missed" \\\n  --from <any-key> --chain-id yamale-devnet-2`) : ''}
+      ${s.can.includes('claim') ? command(
+        'Claim what you are owed', 'the holder',
+        'Withdraws what has accrued without giving up the position. Your entitlement is your balance times the movement in the distribution index since you were last settled.',
+        `blockchaind tx syndicate claim ${d.id} \\\n  --from <your-key> --chain-id yamale-devnet-2`) : ''}
+      ${s.can.includes('list') ? command(
+        'Offer part of your holding', 'the seller',
+        'The quantity is escrowed by the module while the listing is live, so a listing cannot be offered twice. Naming a buyer makes it a private placement; leaving it empty opens it to anybody onboarded.',
+        `blockchaind tx syndicate list ${d.id} <quantity> <price>${den} \\\n  --buyer <address, or omit> --from <your-key> --chain-id yamale-devnet-2`) : ''}
+      ${s.can.length === 0 ? '<p class="muted">Nothing further can be done with this deal.</p>' : ''}
+    </div>`;
+
+  showBook(d);
+  showListings(d);
+}
+
+/** Who has committed what — public, and the reason belongs on the page. */
+async function showBook(d) {
+  const el = document.getElementById('bookpanel');
+  if (d.state !== 'DEAL_STATE_OPEN') {
+    el.innerHTML = `
+      <div class="notebox">
+        <p><strong>The book is settled.</strong> Commitments are consumed at the close: each one
+          becomes an allocation of tokens and the commitment record is removed, so there is
+          nothing left to list.</p>
+        <p>${d.denom
+          ? `${esc(money(d.supply, d.settlement_denom))} of <code>${esc(d.denom)}</code> is in issue —
+             one token per smallest unit raised, so a holder's share is simply their balance over
+             the supply and no rounding decision is hidden anywhere.`
+          : 'No tokens were issued: this deal never closed.'}</p>
+      </div>`;
+    return;
+  }
+
+  try {
+    const list = await commitments(d.id);
+    if (!list.length) {
+      el.innerHTML = '<div class="notebox"><p>No commitment yet. The chain answered: '
+        + 'the book is empty, not unreachable.</p></div>';
+      return;
+    }
+    list.sort((a, b) => (BigInt(b.amount) > BigInt(a.amount) ? 1 : -1));
+    const raised = book(d).raised;
+
+    el.innerHTML = `
+      <p class="muted">${esc(list.length)} commitment${list.length > 1 ? 's' : ''}.
+        Public, deliberately: how full the book is, is the single most useful figure to somebody
+        deciding whether to join a syndicate, and a platform that hid it would be asking for trust
+        it has not earned. What does not exist anywhere in this module is the query that goes the
+        other way — from a person to everything they hold.</p>
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Investor</th><th class="num">Cheque</th>
+            <th class="num">Share if it closes here</th><th class="num">Committed</th></tr></thead>
+          <tbody>${list.map((c) => `
+            <tr>
+              <td>${addr(c.investor)}</td>
+              <td class="num">${esc(money(c.amount, d.settlement_denom))}</td>
+              <td class="num">${esc(pct(shareBps(c.amount, raised)))}</td>
+              <td class="num">${esc(day(c.committed_at))}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="err"><p><strong>The book did not load.</strong>
+      <code>${esc(e.message)}</code></p></div>`;
+  }
+}
+
+/** Live and settled listings on one deal. */
+async function showListings(d) {
+  const el = document.getElementById('listings');
+  if (!d.denom) { el.innerHTML = ''; return; }
+
+  try {
+    const list = await listings(d.id);
+    if (!list.length) {
+      el.innerHTML = '<div class="notebox"><p>Nothing has been offered on this deal.</p></div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Seller</th><th class="num">Quantity</th><th class="num">Price</th>
+            <th>Open to</th><th>State</th></tr></thead>
+          <tbody>${list.map((l) => {
+            const live = l.state === 'LISTING_STATE_LIVE';
+            return `
+            <tr>
+              <td>${addr(l.seller)}</td>
+              <!-- A deal token is one per smallest unit of settlement raised, so
+                   a quantity is a large bare number with no unit anybody thinks
+                   in. "900 000" beside a price of "1.35 YML" reads as a
+                   different currency; what the reader wants is how much of the
+                   syndicate changed hands, so the share is given underneath.
+                   Found by rendering this table against a seeded chain. -->
+              <td class="num">${esc(amount(l.quantity, d.denom))}
+                <br><span class="small muted">${esc(pct(shareBps(l.quantity, d.supply)))} of the deal</span></td>
+              <td class="num">${esc(money(l.price.amount, l.price.denom))}</td>
+              <td>${l.buyer
+                ? `${addr(l.buyer)} <span class="pill p-brass">named</span>`
+                : '<span class="muted">anybody onboarded</span>'}</td>
+              <td><span class="pill p-${live ? 'ok' : 'mute'}">${
+                esc(l.state.replace('LISTING_STATE_', '').toLowerCase())}</span>${
+                l.filled_by ? `<br><span class="small muted">taken by ${esc(shortAddr(l.filled_by, 8))}</span>` : ''}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">A distribution reaches whoever holds the token at that moment, including a
+        buyer from a sale the platform was never told about. That is the claim the product is sold
+        on, and it is why the entitlement is an index rather than a register of holders.</p>`;
+  } catch (e) {
+    el.innerHTML = `<div class="err"><p><strong>Listings did not load.</strong>
+      <code>${esc(e.message)}</code></p></div>`;
+  }
+}
+
+/**
+ * What one address holds, across every deal.
+ *
+ * Assembled client-side from the deal list, because the module publishes no
+ * query from a person to everything they hold — and that absence is the design
+ * rather than a gap. Anybody can ask about one deal's book; a single call
+ * returning one investor's entire portfolio is a different object, and nobody
+ * has a right to it. Reconstructing it takes the reader's own address and one
+ * query per deal, which is exactly the cost that makes it a lookup rather than
+ * a roster.
+ */
+async function renderHolding(hash) {
+  const address = decodeURIComponent(hash.split('/')[2] ?? '');
+
+  view.innerHTML = `
+    <h2>A holding</h2>
+    <p class="muted">What one account is owed right now, and the working behind it.</p>
+    <form id="lookup">
+      <label for="who">Account address</label>
+      <input id="who" name="who" value="${esc(address)}" placeholder="yml1…"
+             autocomplete="off" spellcheck="false">
+      <p style="margin-top:var(--sp-3)"><button class="btn" type="submit">Look up</button></p>
+    </form>
+    <div id="holding"></div>`;
+
+  document.getElementById('lookup').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = document.getElementById('who').value.trim();
+    location.hash = v ? `#/holding/${encodeURIComponent(v)}` : '#/holding';
+  });
+
+  if (!address) return;
+
+  const el = document.getElementById('holding');
+  el.innerHTML = '<p class="spin">Reading every deal…</p>';
+
+  try {
+    const [status, list] = await Promise.all([
+      investor(address).catch(() => null),
+      deals(),
+    ]);
+
+    const funded = list.filter((d) => d.denom);
+    const rows = await Promise.all(funded.map(async (d) => {
+      try {
+        const e = await entitlement(d.id, address);
+        return { deal: d, ...e };
+      } catch {
+        return null;
+      }
+    }));
+
+    const held = rows.filter((r) => r && BigInt(r.balance) > 0n);
+
+    el.innerHTML = `
+      <div class="card ${status?.onboarded ? 'card--ok' : 'card--warn'}" style="margin-top:var(--sp-5)">
+        <p class="label">Onboarding</p>
+        <p class="stat stat--words">${status?.onboarded ? 'Completed' : 'Not completed'}</p>
+        <p class="muted">${status?.onboarded
+          ? `Recorded by ${esc(shortAddr(status.investor?.onboarded_by ?? '', 14))} on
+             ${esc(day(status.investor?.onboarded_at))}, against file reference
+             <code>${esc(status.investor?.reference || '—')}</code>
+             (${esc(status.investor?.jurisdiction || '—')}).`
+          : 'This account cannot receive a deal token. The gate is a transfer restriction on the '
+            + 'chain, not a check in the platform\'s software, so it binds on an ordinary send, on '
+            + 'authz, through a treasury and through a pool alike.'}</p>
+        <p class="muted" style="margin-top:var(--sp-2)">The chain does not perform the checks and
+          does not claim to. It records that a named, accountable operator says they were
+          performed, against a file reference somebody can later be asked to produce.</p>
+      </div>
+
+      ${held.length ? held.map((r) => {
+        const d = r.deal;
+        const den = d.settlement_denom;
+        return `
+        <div class="card" style="margin-top:var(--sp-3)">
+          <div class="row">
+            <div>
+              <p class="eyebrow">${esc(d.reference)}</p>
+              <h4><a href="#/deal/${esc(d.id)}">${esc(d.company)}</a></h4>
+            </div>
+            <div>${statePill(d)}</div>
+          </div>
+          <div class="grid" style="margin-top:var(--sp-3)">
+            <div>
+              <p class="label">Holding</p>
+              <p class="stat">${esc(amount(r.balance, d.denom))}</p>
+              <!-- Tokens are minted one per smallest unit of settlement raised,
+                   so a balance maps exactly onto a slice of the raise. Said
+                   that way rather than as "subscribed at", which would be
+                   false for anybody who bought on the secondary market. -->
+              <p class="muted">${esc(pct(r.share_bps))} of the syndicate —
+                ${esc(money(r.balance, den))} of the ${esc(money(d.supply, den))} raised</p>
+            </div>
+            <div>
+              <p class="label">Claimable now</p>
+              <p class="stat">${esc(money(r.claimable.amount, r.claimable.denom || den))}</p>
+              <p class="muted">settled and unsettled together — which is what a statement shows</p>
+            </div>
+            <div>
+              <p class="label">Deal has distributed</p>
+              <p class="stat">${esc(money(d.distributed, den))}</p>
+              <p class="muted">net of the ${esc(pct(d.fees.management_bps))} management fee</p>
+            </div>
+          </div>
+        </div>`;
+      }).join('') : `
+        <div class="notebox" style="margin-top:var(--sp-3)">
+          <p><strong>No holding in any closed deal.</strong> The chain answered for every one of
+            ${esc(funded.length)} funded deal${funded.length === 1 ? '' : 's'}.</p>
+          ${list.length && !funded.length
+            ? '<p>No deal on this platform has closed yet, so no token exists to hold.</p>' : ''}
+        </div>`}`;
+  } catch (e) {
+    el.innerHTML = `<div class="err"><p><strong>The chain did not answer.</strong>
+      <code>${esc(e.message)}</code></p></div>`;
+  }
+}
+
+/** The operators, and the ceilings governance put on them. */
+async function renderPlatform() {
+  const [ops, p] = await Promise.all([operators(), params().catch(() => null)]);
+
+  view.innerHTML = `
+    <h2>The platform</h2>
+    <p class="muted">Who may open a deal, and the limits they cannot exceed.</p>
+
+    <h3>Admitted operators</h3>
+    <p class="muted">Admitted by chain governance and never by each other. x/syndicate also
+      refuses an operator that is a single key: an operator must be a group account, so opening a
+      deal, declaring it closed and moving escrowed money to a drawdown account each need several
+      signatures inside the operator. A platform able to do those on one key is one key away from
+      taking money and not investing it — and these investors are spread across jurisdictions with
+      no practical recourse.</p>
+
+    ${ops.length ? `
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Name</th><th>Jurisdiction</th><th>Admitted</th><th>Address</th><th>State</th></tr></thead>
+          <tbody>${ops.map((o) => `
+            <tr>
+              <td>${esc(o.name || '—')}</td>
+              <td>${esc(o.jurisdiction)}</td>
+              <td>${esc(day(o.admitted_at))}</td>
+              <td>${addr(o.address)}</td>
+              <td><span class="pill p-${o.active ? 'ok' : 'mute'}">${o.active ? 'active' : 'struck off'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`
+    : `<div class="badbox"><p><strong>No operator is admitted.</strong> Until governance admits
+        one, no deal can be opened.</p></div>`}
+
+    ${p ? `
+      <h3>The ceilings</h3>
+      <p class="muted">Set by governance rather than by the operator, which is the point of
+        putting them on the chain: an operator free to set its own fee ceiling has not agreed
+        to one.</p>
+      <div class="grid">
+        <div class="card">
+          <p class="label">Entry fee ceiling</p>
+          <p class="stat">${esc(pct(p.max_entry_fee_bps))}</p>
+          <p class="muted">sourcing and syndication together, off the raise</p>
+        </div>
+        <div class="card">
+          <p class="label">Management fee ceiling</p>
+          <p class="stat">${esc(pct(p.max_management_fee_bps))}</p>
+          <p class="muted">off each distribution, never off committed capital</p>
+        </div>
+        <div class="card">
+          <p class="label">Shortest raise</p>
+          <p class="stat">${esc(until(Number(p.min_open_period), 0).text)}</p>
+          <p class="muted">a window too short is an allocation only insiders can reach</p>
+        </div>
+        <div class="card">
+          <p class="label">Longest raise</p>
+          <p class="stat">${esc(until(Number(p.max_open_period), 0).text)}</p>
+          <p class="muted">the longest anybody's money may sit in escrow</p>
+        </div>
+      </div>` : ''}
+
+    <h3>What is deliberately absent</h3>
+    <div class="notebox">
+      <p><strong>There is no query from a person to everything they hold.</strong> One deal's book
+        is public, because how full it is, is what an investor needs before committing. The reverse
+        lookup is a different object — a portfolio — and nobody has a right to somebody else's.</p>
+      <p><strong>There is no automatic sweeper.</strong> A deal past its window with its minimum
+        missed is not unwound by the chain on its own. An automatic refund would decide, on the
+        investors' behalf and with nobody present, that a deal is over — and a raise that closed one
+        cheque short is exactly the case where the operator wants to ring the last investor. What
+        makes that safe is that <em>anybody</em> may abort such a deal, so no investor needs the
+        operator's cooperation to get their money back.</p>
+    </div>`;
+}
+
+/** Find a deal by the platform's own file reference. */
+async function renderFind(hash) {
+  const ref = decodeURIComponent(hash.split('/')[2] ?? '');
+  view.innerHTML = `
+    <h2>Find a deal</h2>
+    <p class="muted">By the platform's own file reference — what appears on the paperwork.</p>
+    <form id="findform">
+      <label for="ref">Reference</label>
+      <input id="ref" value="${esc(ref)}" placeholder="SYN-2026-014" autocomplete="off" spellcheck="false">
+      <p style="margin-top:var(--sp-3)"><button class="btn" type="submit">Find</button></p>
+    </form>
+    <div id="found"></div>`;
+
+  document.getElementById('findform').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = document.getElementById('ref').value.trim();
+    location.hash = v ? `#/find/${encodeURIComponent(v)}` : '#/find';
+  });
+
+  if (!ref) return;
+  const el = document.getElementById('found');
+  el.innerHTML = '<p class="spin">Reading…</p>';
+  const d = await dealByRef(ref);
+  if (!d) {
+    el.innerHTML = `<div class="badbox"><p><strong>No deal under that reference.</strong>
+      The chain answered and knows no deal filed as <code>${esc(ref)}</code>. That is an absence,
+      not a failure — a document quoting this reference matches nothing on the platform.</p></div>`;
+    return;
+  }
+  location.hash = `#/deal/${d.id}`;
+}
+
+/* ========================================================================== */
+/*  Routing                                                                   */
+/* ========================================================================== */
+
+const ROUTES = [
+  ['#/deals', 'Deals'],
+  ['#/holding', 'A holding'],
+  ['#/find', 'Find'],
+  ['#/platform', 'Platform'],
+];
+
+function renderNav(hash) {
+  document.getElementById('nav').innerHTML = ROUTES.map(([h, label]) => {
+    // A deal page is part of the deals section, so the tab stays lit while
+    // somebody is reading one.
+    const on = hash.startsWith(h) || (h === '#/deals' && hash.startsWith('#/deal/'));
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`;
+  }).join('');
+}
+
+function setBanner(e) {
+  if (!e) { banner.innerHTML = ''; return; }
+  const denied = e.status === 401 || e.status === 403;
+  banner.innerHTML = `
+    <div class="err">
+      <p><strong>${denied
+        ? 'The chain refused to answer that question publicly.'
+        : 'The chain did not answer.'}</strong></p>
+      <p>${denied
+        ? 'A browser login box in front of a public query means a 401 at the edge. Nothing on this '
+          + 'page is behind a password — there is no account to log in to.'
+        : 'Nothing is shown rather than a figure nobody can confirm. An investor sizing a cheque '
+          + 'against stale room would be refused by the chain, and would not know why.'}</p>
+      <p class="muted"><code>${esc(e.message)}</code></p>
+    </div>`;
+}
+
+async function route() {
+  const hash = location.hash || '#/deals';
+  renderNav(hash);
+  setBanner(null);
+  view.innerHTML = '<p class="spin">Reading the chain…</p>';
+  try {
+    if (hash.startsWith('#/deal/')) await renderDeal(hash.split('/')[2]);
+    else if (hash.startsWith('#/holding')) await renderHolding(hash);
+    else if (hash.startsWith('#/find')) await renderFind(hash);
+    else if (hash.startsWith('#/platform')) await renderPlatform();
+    else await renderDeals();
+  } catch (e) {
+    setBanner(e);
+    view.innerHTML = '';
+  }
+}
+
+/* ========================================================================== */
+/*  Boot                                                                      */
+/* ========================================================================== */
+
+/**
+ * The chain head, and the clock every deadline on this page is measured
+ * against.
+ *
+ * The CHAIN's clock rather than the browser's. A laptop running an hour fast
+ * would otherwise declare a live raise closed and tell somebody their money is
+ * refundable when the chain would refuse.
+ */
+async function tick() {
+  const el = document.getElementById('clock');
+  try {
+    const h = await head();
+    chainNow = h.now || chainNow;
+    el.textContent = `height ${h.height.toLocaleString('en')} · ${h.at.toISOString().slice(11, 19)}Z`
+      + (h.catchingUp ? ' · node catching up' : '');
+    el.style.color = h.catchingUp ? 'var(--warn-text)' : '';
+    el.title = h.catchingUp
+      ? 'This node is replaying history. Every answer below is correct for a height that may be '
+        + 'hours old, which on an open raise is the difference between room and none.'
+      : '';
+  } catch (e) {
+    el.textContent = 'chain unreachable';
+    el.style.color = 'var(--bad)';
+    el.title = e.message;
+  }
+}
+
+// The theme toggle. Three states in CSS, two here: the un-stamped default
+// follows the system, and a click stamps a choice that overrides it. Wrapped in
+// try/catch because storage throws outright in a private window and in a
+// thumbnailer, and a page that cannot remember a preference must still render.
+const themeBtn = document.getElementById('theme');
+try {
+  const saved = localStorage.getItem('yamale-theme');
+  if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+} catch { /* storage unavailable */ }
+themeBtn.addEventListener('click', () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('yamale-theme', next); } catch { /* storage unavailable */ }
+});
+
+addEventListener('hashchange', route);
+
+// The head is read FIRST and awaited, because every deadline on the page is
+// measured against the chain's clock. Rendering before it arrives would draw
+// one frame of every raise judged against the browser's clock instead.
+await tick().catch(() => {});
+route();
+setInterval(tick, 15_000);
+</script>

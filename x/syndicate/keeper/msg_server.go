@@ -180,7 +180,7 @@ func (m msgServer) OpenDeal(
 		Target:            msg.Target,
 		Minimum:           msg.Minimum,
 		MinimumTicket:     msg.MinimumTicket,
-		Fees:              msg.Fees,
+		Fees:              msg.FeeSchedule,
 		ClosesAt:          msg.ClosesAt,
 		State:             types.DEAL_STATE_OPEN,
 		Raised:            math.ZeroInt(),
@@ -222,16 +222,16 @@ func validateTerms(msg *types.MsgOpenDeal, params types.Params, now int64) error
 			msg.MinimumTicket, msg.Target)
 	}
 
-	entry := uint64(msg.Fees.SourcingBps) + uint64(msg.Fees.SyndicationBps)
+	entry := uint64(msg.FeeSchedule.SourcingBps) + uint64(msg.FeeSchedule.SyndicationBps)
 	if entry > uint64(params.MaxEntryFeeBps) {
 		return types.ErrFeeTooHigh.Wrapf(
 			"sourcing and syndication come to %d basis points, and the ceiling is %d",
 			entry, params.MaxEntryFeeBps)
 	}
-	if msg.Fees.ManagementBps > params.MaxManagementFeeBps {
+	if msg.FeeSchedule.ManagementBps > params.MaxManagementFeeBps {
 		return types.ErrFeeTooHigh.Wrapf(
 			"the management fee is %d basis points, and the ceiling is %d",
-			msg.Fees.ManagementBps, params.MaxManagementFeeBps)
+			msg.FeeSchedule.ManagementBps, params.MaxManagementFeeBps)
 	}
 
 	open := msg.ClosesAt - now

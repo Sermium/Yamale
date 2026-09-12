@@ -259,7 +259,7 @@ open_deal() {
     \"partner\":\"Partech Africa\",\"drawdown_account\":\"$(addr "$PARTNER")\",
     \"settlement_denom\":\"$DENOM\",\"target\":\"$target\",\"minimum\":\"$minimum\",
     \"minimum_ticket\":\"$ticket\",
-    \"fees\":{\"sourcing_bps\":200,\"syndication_bps\":100,\"management_bps\":2000},
+    \"fee_schedule\":{\"sourcing_bps\":200,\"syndication_bps\":100,\"management_bps\":2000},
     \"closes_at\":\"$closes\"}" "$ref" "$operator"
 }
 

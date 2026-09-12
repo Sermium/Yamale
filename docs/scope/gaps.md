@@ -79,14 +79,35 @@ query against the live chain returns nothing for any of it.
 | The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
 | `x/herd` — the livestock registry | three levels of record, pedigree refused at consensus, four-party supervised transfer with an answerable objection, accredited agents | 44 tests; **exercised end to end on a local devnet 2026-09-10** — two offices admitted by a real governance vote, ten animals, seven certified lines four generations deep, a sale carried to ATTESTED with two independent attestations, four impossible pedigrees refused. Never run on devnet-2: the deployed binary predates the module |
 | The Ladoum console, on `x/herd` | certificate, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. Not deployed |
-| `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Not run on any chain**: Windows app-control refused to execute the freshly built binary by hash on 2026-09-10, so no node could be started to try. `scripts/devnet/seed-syndicate.sh` is written and unexercised |
+| `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Exercised end to end on a local devnet 2026-09-12**, all four stages of `scripts/devnet/seed-syndicate.sh`: an operator admitted by a real governance vote, a raise that missed its minimum, one that closed at 3.00 YML with 3% taken at entry, a private sale between two distributions, and three holders paid correctly across it with nobody reconciling anything. Running it is what found the panic below. Never run on devnet-2: the deployed binary predates the module |
+| The Syndicate console, on `x/syndicate` | the book against both its thresholds, the fee ladder in money, entitlement with its working, the secondary market, and the commands with the account that signs each | 62 browser tests; **rendered against that local chain** across all four views. Read-only: it holds no key and composes no transaction. Not deployed |
+| `x/selfcustody` — the key-disclosure pathway | request, chain-enforced wait, confirm, all three signed by the account itself; the warning pinned by hash; a permanent record and a published count but no roll | 22 tests. Linked into every build profile, unlike the commercial modules: the arrangement exists on a settlement deployment too, and a binary carrying the custody but not the door out of it would be the arrangement the acknowledgement promises this chain does not operate. **Exercised on a local devnet 2026-09-12**: a request recorded with its two deadlines computed from the parameters in force, a confirmation refused with "172800 seconds to go", and a cancellation that left nothing behind. The 48-hour wait has not been waited out on any chain, so the confirm-and-record half is proved only by the tests |
 
-**A note on the three rows added on 2026-09-10.** Two of them say "exercised on
-a LOCAL devnet", and that is a weaker claim than the section heading implies —
-deliberately so. A local chain proves the state machine; it does not prove the
-deployment, the proxy, the funnel, or that anybody but the author has run it.
-The third says plainly that it has run nowhere at all, which is the honest state
-of `x/syndicate` and is worth more than a row that reads the same as the others.
+**A note on the rows above.** Several say "exercised on a LOCAL devnet", and
+that is a weaker claim than the section heading implies — deliberately so. A
+local chain proves the state machine; it does not prove the deployment, the
+proxy, the funnel, or that anybody but the author has run it.
+
+**What running it was worth, measured.** `x/syndicate` sat in this table from
+2026-09-10 to 2026-09-12 as "not run on any chain", with 37 passing tests, both
+build profiles and a clean `buf lint`. On 2026-09-12 it was linked into a binary
+that was actually started, and the binary did not start:
+
+    $ blockchaind version
+      panic: open-deal flag redefined: fees
+
+`MsgOpenDeal.fees` collided with the SDK's universal `--fees` transaction flag,
+so pflag refused the duplicate while the root command was being built — killing
+`version`, `start` and every other subcommand, not merely `tx syndicate
+open-deal`. No test constructs the CLI, so nothing in the suite could have
+caught it. Renamed to `fee_schedule`.
+
+Rendering the console against the seeded chain found three more: a book bar
+whose fill colour was never applied, so every raise drew as empty including a
+fully funded one; a shortfall printed as `1600000` in a sentence next to
+"1.40 YML raised"; and a deal-token quantity with no unit a reader thinks in.
+All three are units-and-pixels faults, which is the class of defect that passes
+every arithmetic test there is.
 
 **Three rows left this table on 2026-08-31, and one of them had been wrong for
 four days.** `roles-that-do-something` was applied at height **95,400** — all

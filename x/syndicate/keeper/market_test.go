@@ -174,8 +174,8 @@ func TestAFeeAboveTheCeilingIsRefused(t *testing.T) {
 		Target: math.NewInt(100_000), Minimum: math.NewInt(50_000),
 		MinimumTicket: math.NewInt(1_000),
 		// 40% at entry, against a 5% ceiling.
-		Fees:     types.FeeSchedule{SourcingBps: 2000, SyndicationBps: 2000},
-		ClosesAt: f.env.Ctx.BlockTime().Unix() + week,
+		FeeSchedule: types.FeeSchedule{SourcingBps: 2000, SyndicationBps: 2000},
+		ClosesAt:    f.env.Ctx.BlockTime().Unix() + week,
 	})
 	require.ErrorIs(t, err, types.ErrFeeTooHigh)
 }

@@ -122,7 +122,7 @@ func (f *fixture) openDeal(t *testing.T, ref string) uint64 {
 		Target:          math.NewInt(100_000),
 		Minimum:         math.NewInt(50_000),
 		MinimumTicket:   math.NewInt(1_000),
-		Fees: types.FeeSchedule{
+		FeeSchedule: types.FeeSchedule{
 			SourcingBps: 200, SyndicationBps: 100, ManagementBps: 2000,
 		},
 		ClosesAt: f.env.Ctx.BlockTime().Unix() + week,

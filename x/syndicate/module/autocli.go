@@ -91,6 +91,27 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "OpenDeal",
 					Use:       "open-deal [reference] [company] [partner] [drawdown-account] [settlement-denom] [target] [minimum] [minimum-ticket] [closes-at]",
 					Short:     "Puts an allocation in front of the investor base",
+					// The fee schedule arrives as a --fee-schedule JSON flag,
+					// and autocli generates no description for a message-typed
+					// one — so an operator meeting
+					// "--fee-schedule blockchain.syndicate.v1.FeeSchedule (json)"
+					// with nothing after it has to read the proto to find out
+					// what to type. The example is here because it is the one
+					// thing that command cannot be run without.
+					//
+					// It is called --fee-schedule and not --fees because
+					// --fees is the SDK's transaction fee, present on every tx
+					// command. A proto field named `fees` makes pflag define
+					// one name twice, which panics while the root command is
+					// built — killing the binary on `version` and on `start`,
+					// not merely on this command. See tx.proto.
+					Long: "Puts an allocation in front of the investor base.\n\n" +
+						"The fee schedule is basis points, and the entry fees (sourcing plus " +
+						"syndication) come out of the raise at the close while the management " +
+						"fee comes off each distribution as it is paid:\n\n" +
+						"  --fee-schedule '{\"sourcing_bps\":200,\"syndication_bps\":100," +
+						"\"management_bps\":2000}'\n\n" +
+						"Both are capped by governance; see `query syndicate params`.",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
 						{ProtoField: "reference"},
 						{ProtoField: "company"},

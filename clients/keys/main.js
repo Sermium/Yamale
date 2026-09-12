@@ -14,6 +14,8 @@ import {
   balances,
   demonstrate,
   digestOf,
+  disclosureCount,
+  disclosureTerms,
   height,
   loadProtocol,
   refuseWithOneShare,
@@ -249,4 +251,59 @@ async function loadEvidence() {
   }
 }
 
+/**
+ * The terms of the door out, read from the chain rather than written here.
+ *
+ * The whole point of putting the waiting period and the warning's hash in
+ * consensus is that they are not the operator's to adjust. A page that printed
+ * "48 hours" as static text would be making exactly the promise the module
+ * exists to replace with a fact — so if the chain does not answer, this says so
+ * and shows no figure at all.
+ */
+async function loadDisclosureTerms() {
+  const el = document.getElementById('door-terms');
+  if (!el) return;
+  try {
+    const terms = await disclosureTerms();
+    const hours = Math.round(terms.delaySeconds / 3600);
+    const days = Math.round(terms.expirySeconds / 86400);
+
+    // The count is a separate call and a separate failure. Terms that loaded
+    // are worth showing even when the count did not, because the terms are
+    // what somebody deciding needs and the count is context.
+    let rate = '';
+    try {
+      const count = await disclosureCount();
+      rate = ` So far ${count.disclosed === 0 ? 'no account has' : `${count.disclosed} account${count.disclosed === 1 ? ' has' : 's have'}`}` +
+        ` taken their key on this chain, and ${count.pending === 0 ? 'none is' : `${count.pending} ${count.pending === 1 ? 'is' : 'are'}`} inside the waiting period.` +
+        ' A count, never a list: a public roll of accounts whose keys are in somebody\'s' +
+        ' downloads folder would be a target list, ordered by how easy each one is to rob.';
+    } catch { rate = ''; }
+
+    el.innerHTML = `
+      <p><strong>In force on this chain, at block ${at(terms.height)}:</strong>
+        a wait of <strong>${hours} hours</strong> between asking and confirming, and a
+        request lapses after <strong>${days} days</strong> if nobody completes it — a
+        request left standing is an authorisation to take a key, waiting for the day
+        somebody acquires the device.</p>
+      <p style="margin-top:0.7rem">The warning that must be acknowledged is version
+        <span class="mono">${escapeText(terms.version)}</span>, sha256
+        <span class="mono addr">${escapeText(terms.hash)}</span>. Acknowledged again at
+        the confirmation, not just at the request: if governance publishes new wording
+        during the wait, the terms have changed and the holder is sent back to read
+        them.${rate}</p>`;
+  } catch (err) {
+    el.textContent = err instanceof Unreachable
+      ? 'The chain is not answering, so the terms are not shown. They are enforced by '
+        + 'consensus rather than by this page, and a stale copy of them would be worth '
+        + 'less than none.'
+      : String(err.message || err);
+  }
+}
+
+const at = (h) => Number(h).toLocaleString();
+const escapeText = (t) => String(t ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 loadEvidence();
+loadDisclosureTerms();

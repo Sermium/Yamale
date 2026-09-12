@@ -258,6 +258,77 @@ footer a { color: inherit; }
   </div>
 </section>
 
+<section id="door">
+  <div class="wrap">
+    <h2>Taking your key, and what it costs you</h2>
+    <p class="sub">
+      The claim above has an obvious price, and a page that made the claim without
+      naming it would be selling half a story. If no single share can sign, can the
+      person whose money it is ever hold their own key?
+    </p>
+    <p class="sub">
+      Yes. It is theirs. But there is no seed phrase to hand over — the key was never
+      written down, as words or otherwise, and has never existed in one piece. What
+      leaves is the key itself, assembled for the first time, on the holder's own
+      device.
+    </p>
+
+    <div class="note" style="line-height:1.7;max-width:70ch">
+      <p><strong>It will not be twenty-four words, and nobody should accept twenty-four
+        words from anyone claiming to be us.</strong> BIP39 words are entropy fed
+        through a derivation: a phrase encoding these key bytes would import into any
+        ordinary wallet and arrive at a <em>different</em> key at a different address.
+        The holder would see an empty account and conclude the platform had lost their
+        money. So what is handed over is a private key, labelled as one.</p>
+    </div>
+
+    <h3 style="margin-top:2rem">Ask, wait, ask again</h3>
+    <p class="sub">
+      Three steps, every one of them signed by the account itself. The operator cannot
+      request a disclosure on somebody's behalf, cannot refuse one, and cannot shorten
+      the wait for a favoured customer or lengthen it for an inconvenient one — the
+      delay is a chain parameter, not a setting in the platform's software.
+    </p>
+    <p class="sub">
+      The waiting period exists for one person: the holder whose phone was taken an
+      hour ago. Once a key is out nothing protects them — a freeze does not bind a key
+      somebody holds in plaintext, and a re-share produces new shares under the
+      <em>same</em> public key, so a disclosed key signs for ever. Time plus notice is
+      the only protection left, and every enrolled device is told the moment a request
+      is made.
+    </p>
+
+    <div id="door-terms" class="note" style="margin-top:1.2rem">Reading the terms from the chain…</div>
+
+    <h3 style="margin-top:2rem">What ends</h3>
+    <ul class="note" style="line-height:1.7">
+      <li><strong>Anyone who sees the key owns the account.</strong> A screenshot, a
+        synced note, a support agent asking for a paste, malware on the machine it is
+        opened on. There is no second factor behind it any more.</li>
+      <li><strong>A stolen key cannot be cancelled.</strong> The account can be
+        re-keyed, but re-keying deliberately keeps the same address — so the exported
+        key keeps working. There is no revocation; the only escape is to move
+        everything to a new account.</li>
+      <li><strong>The custody guarantee ends.</strong> The platform keeps its share and
+        goes on co-signing, so the account still works and nothing is taken away. What
+        ends is the guarantee: two-of-three is no longer a property anybody can rely
+        on, because one of the three is now sufficient on its own for whoever holds
+        the exported key. Keeping the share is a convenience, not a protection, and
+        the acknowledgement says so.</li>
+      <li><strong>The account is marked, publicly and permanently.</strong> Anyone can
+        ask whether a given account's key has been disclosed. Some counterparties may
+        decline to deal with one that has.</li>
+    </ul>
+
+    <p class="sub" style="margin-top:1.2rem">
+      <a href="/docs/legal/key-disclosure-acknowledgement-v1.md">Read the acknowledgement
+      in full.</a> It is the exact text whose hash is recorded on the chain when somebody
+      confirms — which is what makes "they agreed to version 1" a claim anybody can check
+      rather than one they must take on trust.
+    </p>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <h2>What is not built</h2>
