@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.v1;
+
+import "blockchain/selfcustody/v1/params.proto";
+import "blockchain/selfcustody/v1/selfcustody.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// Query is the read side.
+//
+// One deliberate absence: there is no "list every disclosed account" endpoint.
+// A public roll of accounts whose private keys are known to be sitting in
+// somebody's downloads folder is a target list, ordered by how easy each one is
+// to rob. The per-account lookup exists because a counterparty has a right to
+// ask about an account they are dealing with; the enumeration does not, because
+// nobody has a right to the whole list. Only a count is published.
+service Query {
+  // Params returns the delay and the acknowledgement text now in force.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/selfcustody/v1/params";
+  }
+
+  // Disclosure reports whether one account's key has been taken.
+  rpc Disclosure(QueryDisclosureRequest) returns (QueryDisclosureResponse) {
+    option (google.api.http).get = "/yamale/blockchain/selfcustody/v1/disclosure/{account}";
+  }
+
+  // Request reports a pending request and when it becomes confirmable.
+  rpc Request(QueryRequestRequest) returns (QueryRequestResponse) {
+    option (google.api.http).get = "/yamale/blockchain/selfcustody/v1/request/{account}";
+  }
+
+  // Count is how many accounts have taken their keys. Published so the rate is
+  // visible — an operator quietly pushing customers out of custody should be
+  // observable — without naming anybody.
+  rpc Count(QueryCountRequest) returns (QueryCountResponse) {
+    option (google.api.http).get = "/yamale/blockchain/selfcustody/v1/count";
+  }
+}
+
+// QueryParamsRequest is empty.
+message QueryParamsRequest {}
+// QueryParamsResponse carries the parameters now in force.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDisclosureRequest names an account.
+message QueryDisclosureRequest {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// QueryDisclosureResponse says plainly whether the key was taken.
+//
+// `disclosed` is a separate boolean rather than leaving the caller to test
+// whether the record is empty. "This account is in custody" and "the query
+// failed" must not look alike to anybody deciding whether to rely on the
+// platform's safeguards for it.
+message QueryDisclosureResponse {
+  bool disclosed = 1;
+  Disclosure disclosure = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryRequestRequest names an account.
+message QueryRequestRequest {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// QueryRequestResponse carries a pending request, if there is one.
+message QueryRequestResponse {
+  bool pending = 1;
+  Request request = 2 [(gogoproto.nullable) = false];
+  // When the holder may confirm, and when the request lapses. Both computed
+  // rather than stored, so a change to the delay applies to requests already
+  // in flight — which is the honest behaviour when governance decides the
+  // waiting period was too short.
+  int64 eligible_at = 3;
+  int64 expires_at = 4;
+}
+
+// QueryCountRequest is empty.
+message QueryCountRequest {}
+// QueryCountResponse is how many accounts have taken their keys.
+message QueryCountResponse {
+  uint64 disclosed = 1;
+  uint64 pending = 2;
+}

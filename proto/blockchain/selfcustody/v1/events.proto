@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// Events are the notice half of the waiting period.
+//
+// The delay protects one specific person: the holder whose phone was taken an
+// hour ago. It protects them only if they find out, and they find out because
+// every device enrolled on the account, and any watcher they have asked to
+// watch for them, sees this event in the block it happened in. A waiting period
+// nobody is told about is not a safeguard, it is a delay.
+
+// EventDisclosureRequested is emitted when a holder starts the pathway.
+//
+// This is the one every enrolled device should turn into a push notification,
+// an email and an SMS. It carries the deadlines rather than making the reader
+// fetch parameters and do arithmetic, because the question it has to answer at
+// a glance is "how long do I have to stop this".
+message EventDisclosureRequested {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 requested_at = 2;
+
+  // When the holder may confirm — and therefore the moment by which somebody
+  // who did not make this request must have cancelled it.
+  int64 eligible_at = 3;
+  // When the request lapses on its own.
+  int64 expires_at = 4;
+}
+
+// EventDisclosureCancelled is emitted when a request is stopped.
+//
+// Also worth notifying. A cancellation the holder did not make is the signal
+// that somebody with access to the account is watching for their own request to
+// go through, and the holder should be told that as loudly as they were told
+// about the request.
+message EventDisclosureCancelled {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 cancelled_at = 2;
+  string reason = 3;
+}
+
+// EventDisclosed is emitted once, when custody of an account's key ends.
+//
+// It names the acknowledgement version and hash so that an indexer, a
+// counterparty or an auditor can establish exactly what was agreed from the
+// event stream alone, without reconstructing state at that height.
+message EventDisclosed {
+  string account = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 requested_at = 2;
+  int64 disclosed_at = 3;
+  int64 disclosed_at_height = 4;
+  string acknowledgement_version = 5;
+  string acknowledgement_hash = 6;
+}

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// Params are what governance fixes so that the operator cannot move it.
+//
+// Everything here exists to constrain the PLATFORM, not the holder. A person
+// asking for their own key is exercising a right; the parameters decide how
+// long they must wait and exactly which warning they were shown, and both of
+// those are things an operator would otherwise be free to adjust per customer.
+message Params {
+  option (amino.name) = "blockchain/x/selfcustody/Params";
+  option (gogoproto.equal) = true;
+
+  // How long between asking and confirming, in seconds.
+  //
+  // The waiting period exists for one person: the holder whose phone was taken
+  // an hour ago. Once a key is disclosed nothing can protect them — a freeze
+  // does not bind a key somebody holds in plaintext, and re-sharing produces
+  // new shares under the SAME public key, so the disclosed key keeps signing
+  // for ever. Time plus notice is the only protection available, and this is
+  // the time.
+  //
+  // Enforced by the chain rather than by the operator's software, so the
+  // operator cannot shorten it for a favoured customer or lengthen it for an
+  // inconvenient one.
+  int64 disclosure_delay = 1;
+
+  // The version and hash of the warning text a holder must acknowledge.
+  //
+  // The hash is what makes the acknowledgement checkable. A version string can
+  // be reused over edited text — the hash cannot, so "they agreed to version
+  // 3" becomes a claim somebody can verify rather than one they must accept.
+  //
+  // Set by governance, so the operator cannot quietly rewrite what people are
+  // agreeing to. A holder's request naming a hash that is not this one is
+  // refused: it means they were shown something else.
+  string acknowledgement_version = 2;
+  string acknowledgement_hash = 3;
+
+  // The longest a request may sit unconfirmed before it lapses, in seconds.
+  //
+  // A request nobody completes is a standing authorisation to take somebody's
+  // key, waiting for the day an attacker acquires their device. It expires.
+  int64 request_expiry = 4;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// Module is the config object for the key-disclosure pathway.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {go_import: "yamale/blockchain/x/selfcustody"};
+
+  // authority defaults to the governance module account, which is the intended
+  // setting: whoever holds it decides the waiting period and writes the warning
+  // every holder must acknowledge.
+  string authority = 1;
+}

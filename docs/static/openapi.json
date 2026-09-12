@@ -1403,6 +1403,561 @@
         ]
       }
     },
+    "/yamale/blockchain/herd/v1/agents": {
+      "get": {
+        "operationId": "Query_Agents",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAgentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "authority",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/animal/{id}": {
+      "get": {
+        "operationId": "Query_Animal",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAnimalResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/animal_by_national_id": {
+      "get": {
+        "operationId": "Query_AnimalByNationalID",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAnimalResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "national_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/animal_by_tag": {
+      "get": {
+        "operationId": "Query_AnimalByTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAnimalResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/animals": {
+      "get": {
+        "operationId": "Query_Animals",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAnimalsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "herd_id",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/authorities": {
+      "get": {
+        "operationId": "Query_Authorities",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAuthoritiesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/health_events": {
+      "get": {
+        "operationId": "Query_HealthEvents",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryHealthEventsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "herd_id",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/herd/{id}": {
+      "get": {
+        "operationId": "Query_Herd",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryHerdResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/herd_by_ref": {
+      "get": {
+        "operationId": "Query_HerdByRef",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryHerdResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/pedigree/{animal_id}": {
+      "get": {
+        "operationId": "Query_Pedigree",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPedigreeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/transfer/{id}": {
+      "get": {
+        "operationId": "Query_Transfer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryTransferResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/herd/v1/transfers_by_animal/{animal_id}": {
+      "get": {
+        "operationId": "Query_TransfersByAnimal",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryTransfersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/land/v1/authorities": {
       "get": {
         "operationId": "Query_Authorities",
@@ -2697,6 +3252,110 @@
         ]
       }
     },
+    "/yamale/blockchain/selfcustody/v1/count": {
+      "get": {
+        "operationId": "Query_Count",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCountResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/selfcustody/v1/disclosure/{account}": {
+      "get": {
+        "operationId": "Query_Disclosure",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDisclosureResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/selfcustody/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/selfcustody/v1/request/{account}": {
+      "get": {
+        "operationId": "Query_Request",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryRequestResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/stablecoin/v1/approved_issuer": {
       "get": {
         "operationId": "Query_ListApprovedIssuer",
@@ -2872,6 +3531,404 @@
       }
     },
     "/yamale/blockchain/stablecoin/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/commitments/{deal_id}": {
+      "get": {
+        "operationId": "Query_Commitments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCommitmentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/deal/{id}": {
+      "get": {
+        "operationId": "Query_Deal",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDealResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/deal_by_ref": {
+      "get": {
+        "operationId": "Query_DealByRef",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDealResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/deals": {
+      "get": {
+        "operationId": "Query_Deals",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDealsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/entitlement/{deal_id}/{holder}": {
+      "get": {
+        "operationId": "Query_Entitlement",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryEntitlementResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "holder",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/investor/{address}": {
+      "get": {
+        "operationId": "Query_Investor",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryInvestorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/listings/{deal_id}": {
+      "get": {
+        "operationId": "Query_Listings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "live_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/operators": {
+      "get": {
+        "operationId": "Query_Operators",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryOperatorsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/syndicate/v1/params": {
       "get": {
         "operationId": "Query_Params",
         "responses": {
@@ -4045,6 +5102,30 @@
     }
   },
   "definitions": {
+    "Agent": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "accredited_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "AmendmentStatus": {
       "type": "string",
       "enum": [
@@ -4173,6 +5254,24 @@
         },
         "paused": {
           "type": "boolean"
+        }
+      }
+    },
+    "Attestation": {
+      "type": "object",
+      "properties": {
+        "attestor": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "evidence_hash": {
+          "type": "string"
+        },
+        "attested_at": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -4383,6 +5482,31 @@
         "dispute_bond_bps": {
           "type": "integer",
           "format": "int64"
+        },
+        "attestors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Commitment": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "investor": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "committed_at": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -4431,6 +5555,17 @@
         "CYCLE_STATUS_HELD"
       ],
       "default": "CYCLE_STATUS_UNSPECIFIED"
+    },
+    "DealState": {
+      "type": "string",
+      "enum": [
+        "DEAL_STATE_UNSPECIFIED",
+        "DEAL_STATE_OPEN",
+        "DEAL_STATE_CLOSED",
+        "DEAL_STATE_ABORTED",
+        "DEAL_STATE_REALISED"
+      ],
+      "default": "DEAL_STATE_UNSPECIFIED"
     },
     "Deed": {
       "type": "object",
@@ -4546,6 +5681,9 @@
         },
         "gross_threshold": {
           "type": "string"
+        },
+        "aggregate_gross_threshold": {
+          "type": "string"
         }
       }
     },
@@ -4611,6 +5749,23 @@
         }
       }
     },
+    "FeeSchedule": {
+      "type": "object",
+      "properties": {
+        "sourcing_bps": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "syndication_bps": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "management_bps": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "Freeze": {
       "type": "object",
       "properties": {
@@ -4634,6 +5789,36 @@
           "type": "string"
         },
         "lifted_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "HealthEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "herd_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "disease": {
+          "type": "string"
+        },
+        "batch": {
+          "type": "string"
+        },
+        "treated": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "recorded_at": {
           "type": "string",
           "format": "int64"
         }
@@ -4729,6 +5914,65 @@
       ],
       "default": "LEGAL_INSTRUMENT_KIND_UNSPECIFIED"
     },
+    "Level": {
+      "type": "string",
+      "enum": [
+        "LEVEL_UNSPECIFIED",
+        "LEVEL_HERD",
+        "LEVEL_INDIVIDUAL",
+        "LEVEL_CERTIFIED"
+      ],
+      "default": "LEVEL_UNSPECIFIED"
+    },
+    "Listing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "deal_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "seller": {
+          "type": "string"
+        },
+        "buyer": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "price": {
+          "$ref": "#/definitions/Coin"
+        },
+        "state": {
+          "$ref": "#/definitions/ListingState"
+        },
+        "filled_by": {
+          "type": "string"
+        },
+        "listed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "filled_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ListingState": {
+      "type": "string",
+      "enum": [
+        "LISTING_STATE_UNSPECIFIED",
+        "LISTING_STATE_LIVE",
+        "LISTING_STATE_FILLED",
+        "LISTING_STATE_CANCELLED"
+      ],
+      "default": "LISTING_STATE_UNSPECIFIED"
+    },
     "Lock": {
       "type": "object",
       "properties": {
@@ -4808,6 +6052,17 @@
       ],
       "default": "LOCK_TYPE_UNSPECIFIED"
     },
+    "MintCeiling": {
+      "type": "object",
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "ceiling": {
+          "type": "string"
+        }
+      }
+    },
     "MissCounter": {
       "type": "object",
       "properties": {
@@ -4869,6 +6124,27 @@
         },
         "members": {
           "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "Operator": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "admitted_at": {
+          "type": "string",
           "format": "int64"
         }
       }
@@ -5044,6 +6320,21 @@
         }
       }
     },
+    "PedigreeNode": {
+      "type": "object",
+      "properties": {
+        "animal": {
+          "$ref": "#/definitions/v1.Animal"
+        },
+        "generation": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
     "Pool": {
       "type": "object",
       "properties": {
@@ -5089,6 +6380,21 @@
         },
         "net_position": {
           "type": "string"
+        }
+      }
+    },
+    "QueryAgentsResponse": {
+      "type": "object",
+      "properties": {
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Agent"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
         }
       }
     },
@@ -5341,6 +6647,29 @@
         }
       }
     },
+    "QueryAnimalResponse": {
+      "type": "object",
+      "properties": {
+        "animal": {
+          "$ref": "#/definitions/v1.Animal"
+        }
+      }
+    },
+    "QueryAnimalsResponse": {
+      "type": "object",
+      "properties": {
+        "animals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Animal"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryAppraisalHistoryResponse": {
       "type": "object",
       "properties": {
@@ -5503,6 +6832,21 @@
         }
       }
     },
+    "QueryCommitmentsResponse": {
+      "type": "object",
+      "properties": {
+        "commitments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Commitment"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryConcentrationResponse": {
       "type": "object",
       "properties": {
@@ -5524,6 +6868,19 @@
         "min_active_validators": {
           "type": "integer",
           "format": "int64"
+        }
+      }
+    },
+    "QueryCountResponse": {
+      "type": "object",
+      "properties": {
+        "disclosed": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "pending": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -5554,11 +6911,45 @@
         }
       }
     },
+    "QueryDealResponse": {
+      "type": "object",
+      "properties": {
+        "deal": {
+          "$ref": "#/definitions/v1.Deal"
+        }
+      }
+    },
+    "QueryDealsResponse": {
+      "type": "object",
+      "properties": {
+        "deals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Deal"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryDepositResponse": {
       "type": "object",
       "properties": {
         "deposit": {
           "$ref": "#/definitions/v1.Deposit"
+        }
+      }
+    },
+    "QueryDisclosureResponse": {
+      "type": "object",
+      "properties": {
+        "disclosed": {
+          "type": "boolean"
+        },
+        "disclosure": {
+          "$ref": "#/definitions/v1.Disclosure"
         }
       }
     },
@@ -5776,6 +7167,21 @@
         }
       }
     },
+    "QueryHealthEventsResponse": {
+      "type": "object",
+      "properties": {
+        "health_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/HealthEvent"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryHeldCasesResponse": {
       "type": "object",
       "properties": {
@@ -5800,11 +7206,30 @@
         }
       }
     },
+    "QueryHerdResponse": {
+      "type": "object",
+      "properties": {
+        "herd": {
+          "$ref": "#/definitions/v1.Herd"
+        }
+      }
+    },
     "QueryInvariantsResponse": {
       "type": "object",
       "properties": {
         "invariants": {
           "$ref": "#/definitions/v1.Invariants"
+        }
+      }
+    },
+    "QueryInvestorResponse": {
+      "type": "object",
+      "properties": {
+        "onboarded": {
+          "type": "boolean"
+        },
+        "investor": {
+          "$ref": "#/definitions/v1.Investor"
         }
       }
     },
@@ -5900,6 +7325,21 @@
         }
       }
     },
+    "QueryListingsResponse": {
+      "type": "object",
+      "properties": {
+        "listings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Listing"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryLocksByBeneficiaryResponse": {
       "type": "object",
       "properties": {
@@ -5954,6 +7394,21 @@
             "type": "object",
             "$ref": "#/definitions/Case"
           }
+        }
+      }
+    },
+    "QueryOperatorsResponse": {
+      "type": "object",
+      "properties": {
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Operator"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
         }
       }
     },
@@ -6028,6 +7483,21 @@
             "type": "object",
             "$ref": "#/definitions/PayloadReader"
           }
+        }
+      }
+    },
+    "QueryPedigreeResponse": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PedigreeNode"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
         }
       }
     },
@@ -6136,6 +7606,25 @@
         },
         "key": {
           "$ref": "#/definitions/ViewingKey"
+        }
+      }
+    },
+    "QueryRequestResponse": {
+      "type": "object",
+      "properties": {
+        "pending": {
+          "type": "boolean"
+        },
+        "request": {
+          "$ref": "#/definitions/v1.Request"
+        },
+        "eligible_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -6255,6 +7744,21 @@
       }
     },
     "QueryTransfersByParcelResponse": {
+      "type": "object",
+      "properties": {
+        "transfers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Transfer"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryTransfersResponse": {
       "type": "object",
       "properties": {
         "transfers": {
@@ -6464,6 +7968,15 @@
         },
         "disputed": {
           "type": "boolean"
+        },
+        "proceeds_paid": {
+          "$ref": "#/definitions/Coin"
+        },
+        "challenger": {
+          "type": "string"
+        },
+        "bond": {
+          "$ref": "#/definitions/Coin"
         }
       }
     },
@@ -6487,6 +8000,27 @@
         "SETTLEMENT_MODE_NET"
       ],
       "default": "SETTLEMENT_MODE_UNSPECIFIED"
+    },
+    "Sex": {
+      "type": "string",
+      "enum": [
+        "SEX_UNSPECIFIED",
+        "SEX_MALE",
+        "SEX_FEMALE"
+      ],
+      "default": "SEX_UNSPECIFIED"
+    },
+    "Species": {
+      "type": "string",
+      "enum": [
+        "SPECIES_UNSPECIFIED",
+        "SPECIES_CATTLE",
+        "SPECIES_SHEEP",
+        "SPECIES_GOAT",
+        "SPECIES_HORSE",
+        "SPECIES_CAMEL"
+      ],
+      "default": "SPECIES_UNSPECIFIED"
     },
     "SpendPolicy": {
       "type": "object",
@@ -6540,6 +8074,19 @@
           }
         }
       }
+    },
+    "TransferState": {
+      "type": "string",
+      "enum": [
+        "TRANSFER_STATE_UNSPECIFIED",
+        "TRANSFER_STATE_PROPOSED",
+        "TRANSFER_STATE_ACCEPTED",
+        "TRANSFER_STATE_ATTESTED",
+        "TRANSFER_STATE_OBJECTED",
+        "TRANSFER_STATE_COMPLETED",
+        "TRANSFER_STATE_CANCELLED"
+      ],
+      "default": "TRANSFER_STATE_UNSPECIFIED"
     },
     "Treasury": {
       "type": "object",
@@ -6596,6 +8143,13 @@
         },
         "denom": {
           "type": "string"
+        },
+        "held": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
         }
       }
     },
@@ -6738,6 +8292,70 @@
         }
       }
     },
+    "v1.Animal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "herd_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "national_id": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/definitions/Level"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sex": {
+          "$ref": "#/definitions/Sex"
+        },
+        "coat": {
+          "type": "string"
+        },
+        "born_on": {
+          "type": "string"
+        },
+        "birth_type": {
+          "type": "string"
+        },
+        "sire_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "dam_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "dna_hash": {
+          "type": "string"
+        },
+        "photo_hash": {
+          "type": "string"
+        },
+        "holder": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1.Status"
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Appraisal": {
       "type": "object",
       "properties": {
@@ -6841,6 +8459,75 @@
         }
       }
     },
+    "v1.Deal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "company": {
+          "type": "string"
+        },
+        "partner": {
+          "type": "string"
+        },
+        "drawdown_account": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "settlement_denom": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "minimum": {
+          "type": "string"
+        },
+        "minimum_ticket": {
+          "type": "string"
+        },
+        "fees": {
+          "$ref": "#/definitions/FeeSchedule"
+        },
+        "closes_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "state": {
+          "$ref": "#/definitions/DealState"
+        },
+        "raised": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "supply": {
+          "type": "string"
+        },
+        "distribution_index": {
+          "type": "string"
+        },
+        "distributed": {
+          "type": "string"
+        },
+        "opened_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "closed_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Declaration": {
       "type": "object",
       "properties": {
@@ -6883,6 +8570,32 @@
         "created_at_height": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "v1.Disclosure": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "disclosed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "disclosed_at_height": {
+          "type": "string",
+          "format": "int64"
+        },
+        "acknowledgement_version": {
+          "type": "string"
+        },
+        "acknowledgement_hash": {
+          "type": "string"
         }
       }
     },
@@ -6943,6 +8656,47 @@
         }
       }
     },
+    "v1.Herd": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "keeper": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "species": {
+          "$ref": "#/definitions/Species"
+        },
+        "declared_size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "locality": {
+          "type": "string"
+        },
+        "location_hash": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/v1.Status"
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Invariants": {
       "type": "object",
       "properties": {
@@ -6995,6 +8749,30 @@
         },
         "foundation_signature_threshold": {
           "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.Investor": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "onboarded_by": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "onboarded_at": {
+          "type": "string",
           "format": "int64"
         }
       }
@@ -7151,6 +8929,24 @@
           "format": "int64"
         },
         "settled_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "v1.Request": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "acknowledgement_version": {
+          "type": "string"
+        },
+        "acknowledgement_hash": {
           "type": "string"
         }
       }

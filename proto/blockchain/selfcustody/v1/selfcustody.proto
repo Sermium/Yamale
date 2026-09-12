@@ -3,7 +3,6 @@ syntax = "proto3";
 package blockchain.selfcustody.v1;
 
 import "cosmos_proto/cosmos.proto";
-import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/selfcustody/types";
 

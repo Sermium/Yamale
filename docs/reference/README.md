@@ -25,6 +25,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/netting](netting.md) | The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross. | 5 | 6 |
 | [x/oracle](oracle.md) |  | 7 | 9 |
 | [x/paymsg](paymsg.md) | ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry. | 7 | 7 |
+| [x/selfcustody](selfcustody.md) |  | 4 | 4 |
 | [x/stablecoin](stablecoin.md) | Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom. | 6 | 5 |
 | [x/syndicate](syndicate.md) |  | 13 | 9 |
 | [x/tokenisation](tokenisation.md) |  | 16 | 5 |

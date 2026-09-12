@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package blockchain.selfcustody.v1;
+
+import "blockchain/selfcustody/v1/params.proto";
+import "blockchain/selfcustody/v1/selfcustody.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/selfcustody/types";
+
+// GenesisState is every disclosure ever made, and every request in flight.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  // Exported and never pruned. A disclosure is the record that the platform's
+  // obligations over one account ended on a date — it is the operator's defence
+  // and the holder's receipt, and both of those have to survive a chain
+  // migration or they were never worth anything.
+  repeated Disclosure disclosures = 2 [(gogoproto.nullable) = false];
+
+  // Requests in flight. Exported because dropping them would silently restart
+  // somebody's waiting period, which on a chain upgrade would look to the
+  // holder like the platform stalling them.
+  repeated Request requests = 3 [(gogoproto.nullable) = false];
+}

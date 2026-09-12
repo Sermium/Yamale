@@ -15,6 +15,8 @@ import (
 	oraclemoduletypes "yamale/blockchain/x/oracle/types"
 	_ "yamale/blockchain/x/paymsg/module"
 	paymsgmoduletypes "yamale/blockchain/x/paymsg/types"
+	_ "yamale/blockchain/x/selfcustody/module"
+	selfcustodymoduletypes "yamale/blockchain/x/selfcustody/types"
 	_ "yamale/blockchain/x/stablecoin/module"
 	stablecoinmoduletypes "yamale/blockchain/x/stablecoin/types"
 	_ "yamale/blockchain/x/treasury/module"
@@ -279,6 +281,14 @@ var (
 			[]string{paymsgmoduletypes.ModuleName},
 			emissionInitGenesis,
 			[]string{treasurymoduletypes.ModuleName, oraclemoduletypes.ModuleName, enforcementmoduletypes.ModuleName, aliasmoduletypes.ModuleName, nettingmoduletypes.ModuleName},
+			// x/selfcustody is in every profile, unlike the commercial modules
+			// below it. It is not a product: it is the right of a person whose
+			// account is held as an MPC key to stop it being held that way, and
+			// those accounts exist on a settlement deployment exactly as they
+			// do here. A binary that carried the custody arrangement but not
+			// the door out of it would be the arrangement the acknowledgement
+			// text promises this chain does not operate.
+			[]string{selfcustodymoduletypes.ModuleName},
 			custodyInitGenesis,
 			tokenisationInitGenesis,
 			syndicateInitGenesis,
@@ -417,6 +427,9 @@ var (
 		}, {
 			Name:   nettingmoduletypes.ModuleName,
 			Config: appconfig.WrapAny(&nettingmoduletypes.Module{}),
+		}, {
+			Name:   selfcustodymoduletypes.ModuleName,
+			Config: appconfig.WrapAny(&selfcustodymoduletypes.Module{}),
 		}}, custodyModuleConfigs, tokenisationModuleConfigs, syndicateModuleConfigs),
 	})
 )
