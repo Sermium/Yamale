@@ -47,7 +47,14 @@ for app in app explorer wallet safe rwa; do
 done
 
 # Single-file consoles.
-for console in keys demo markets oversight land governance foundation validator; do
+#
+# `serve.mjs` is excluded alongside `serve.js`, below. Every console that has
+# one is a local proxy that forwards /api to a chain of the operator's choosing,
+# written for driving the page against a devnet — shipping it would put a
+# configurable forwarder on the public host, which is not what it was written to
+# be. The exclusion named the .js spelling only, and three consoles have since
+# been written with the .mjs one.
+for console in keys demo markets oversight land ladoum syndicate governance foundation validator; do
   [ -d "$clients/$console" ] || continue
   mkdir -p "$staging/$console"
   ( cd "$clients/$console"
@@ -55,12 +62,40 @@ for console in keys demo markets oversight land governance foundation validator;
       ! -path './node_modules/*' \
       ! -name 'package.json' ! -name 'package-lock.json' \
       ! -name '*.test.js' ! -name '*.test.mjs' \
-      ! -name 'serve.js' ! -name 'README.md' \
+      ! -name 'serve.js' ! -name 'serve.mjs' ! -name 'README.md' \
       -print0 | while IFS= read -r -d '' f; do
         mkdir -p "$staging/$console/$(dirname "$f")"
         cp "$f" "$staging/$console/$f"
       done )
 done
+
+# Every destination the site's own menu offers must exist in the bundle.
+#
+# The list above is hand-written and it drifted: the Ladoum console was added to
+# the menu on 2026-09-11 and never added here, so the menu linked to a path the
+# bundle did not contain and the console could not have been reached by anybody
+# who did not know its URL. deploy.sh reads the same menu and would have caught
+# it — but only after uploading, against the public hostname, which is a slow
+# and public way to find out a directory is missing. Checked here, the bundle
+# refuses to be built at all.
+#
+# Read out of the menu rather than listed, for the reason deploy.sh gives for
+# doing the same: a second hand-written list goes stale in the same direction as
+# the first.
+missing=
+for link in $(grep -oE 'class="app-link[^"]*" href="[^"]+"' "$clients/site/index.html" \
+              | grep -oE 'href="[^"]+"' | sed 's/href=//;s/"//g' | sort -u); do
+  # Only the first segment. /wallet/faucet and /safe/operations are routes
+  # inside an app, not directories of their own.
+  top=${link#/}; top=${top%%/*}
+  [ -n "$top" ] || continue
+  [ -d "$staging/$top" ] || missing="$missing $top"
+done
+if [ -n "$missing" ]; then
+  echo "error: the site menu links to$missing, which this bundle does not contain." >&2
+  echo "       add it to the console list above, or build its dist/." >&2
+  exit 1
+fi
 
 tar -czf "$out" -C "$staging" .
 echo "staged $(tar -tzf "$out" | wc -l) files into $out" >&2
