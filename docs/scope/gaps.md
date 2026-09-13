@@ -101,6 +101,28 @@ document has previously asserted:
   re-seeded by state sync; done 2026-09-13, 265,843 → head in about four
   minutes, and it is bonded again.
 
+**Seeded to show the state machines, 2026-09-13.** Both consoles were showing
+one frame of each module. Re-seeded so a demonstration can walk the whole range:
+
+- `x/herd` now carries **five of six transfer states** — PROPOSED, ACCEPTED,
+  ATTESTED, OBJECTED and CANCELLED, on five different animals. COMPLETED is
+  absent and cannot be seeded today: it needs the seven-day challenge window to
+  run after ATTESTED, which is the point of the window. The objection carries a
+  real reason and left its animal DISPUTED, which is the module's whole
+  argument — an objection anybody may raise and an office must answer.
+- `x/herd` now carries **cattle**. A second herd at Dahra Djolof, 60 head
+  declared and three Gobra zebu identified individually under `/B` identifiers
+  against the sheep's `/L`. The 57 unidentified are the module's economics
+  rather than an omission: a record costs what it proves, so a transhumant herd
+  is registered as a herd and only the animals that will be sold, pledged or
+  exported are worth identifying one by one. Until this, every animal on a
+  cattle register was ovine.
+- `x/syndicate` now carries **all four deal states** — OPEN, CLOSED, ABORTED and
+  REALISED. The abort repaid the committed 900,000 in full, fees included,
+  measured on the investor's balance before and after; the realisation was a
+  final distribution, which stops trading because every token is then a claim on
+  a known fixed sum.
+
 **A positioning error, corrected 2026-09-13.** The console was `clients/ladoum`,
 titled "Registre du Ladoum", and its certificate carried a hardcoded section
 header reading "Mouton" — so a general-purpose register whose first species is
