@@ -67,7 +67,7 @@ animals**, `x/syndicate` holds **1 admitted operator and 2 deals** (one OPEN and
 below its minimum, one CLOSED and paying out), and `x/selfcustody` publishes
 parameters whose acknowledgement hash matches the binary's embedded text. Both
 consoles answer 200 **on the funnel**, which is the host the public reaches:
-`yamale.tail4355e8.ts.net/ladoum/` and `/syndicate/`. So all three modules move
+`yamale.tail4355e8.ts.net/livestock/` and `/syndicate/`. So all three modules move
 out of "Merged, but not yet running" and into the table above.
 
 Two limits on that claim, stated because the section heading is a strong one.
@@ -100,6 +100,18 @@ document has previously asserted:
   connects, is dropped with EOF, and retries for ever at 0 peers. It has to be
   re-seeded by state sync; done 2026-09-13, 265,843 → head in about four
   minutes, and it is bonded again.
+
+**A positioning error, corrected 2026-09-13.** The console was `clients/ladoum`,
+titled "Registre du Ladoum", and its certificate carried a hardcoded section
+header reading "Mouton" — so a general-purpose register whose first species is
+cattle, offered against a tender for exactly that, introduced itself as a
+sheep-breed registry. `x/herd` itself was never breed-specific: five species,
+`SPECIES_CATTLE` first, and "Ladoum" only ever in comments as the worked example
+the identifier format was drawn from. Renamed to `/livestock/`, "Registre du
+cheptel", and the species is now read from the herd rather than asserted —
+verified on devnet-2, where Classico's certificate reads "Ovin" and a cattle
+record would read "Bovin" from the same code path. The old `/ladoum/` path is
+gone from both hosts and was never shared publicly.
 
 **A finding that qualifies the two-validator rows.** `pi-2` is bonded and
 counted live — `missed_blocks_counter` is 0 — but it precommits **nil** on
@@ -175,7 +187,7 @@ devnet-2" rather than "not on devnet-2 at all".
 | Enrolment over HTTP | `tools/custodian` `/v1/enrol/*`, driven by the device against two deployments (`--role custodian` and `--role recovery`) | built and tested; never run against a real browser or a deployed pair |
 | The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
 | `x/herd` — the livestock registry | three levels of record, pedigree refused at consensus, four-party supervised transfer with an answerable objection, accredited agents | 44 tests; **exercised end to end on a local devnet 2026-09-10** — two offices admitted by a real governance vote, ten animals, seven certified lines four generations deep, a sale carried to ATTESTED with two independent attestations, four impossible pedigrees refused. **Run on devnet-2 2026-09-13**: two offices admitted by governance (proposal 15), 9 animals, Classico's line walking three generations, and Bathie's sale carried to ATTESTED with two independent attestations |
-| The Ladoum console, on `x/herd` | certificate, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. **Deployed 2026-09-13**, answering 200 on the funnel |
+| The livestock console, on `x/herd` | certificate with the species read from the herd, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. **Deployed 2026-09-13**, answering 200 on the funnel |
 | `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Exercised end to end on a local devnet 2026-09-12**, all four stages of `scripts/devnet/seed-syndicate.sh`: an operator admitted by a real governance vote, a raise that missed its minimum, one that closed at 3.00 YML with 3% taken at entry, a private sale between two distributions, and three holders paid correctly across it with nobody reconciling anything. Running it is what found the panic below. **Run on devnet-2 2026-09-13**: operator admitted by governance (proposal 16), a raise short of its minimum, one closed at 3.00 YML, and a private sale followed by a distribution that paid the secondary buyer 144,000 without anybody reconciling anything |
 | The Syndicate console, on `x/syndicate` | the book against both its thresholds, the fee ladder in money, entitlement with its working, the secondary market, and the commands with the account that signs each | 62 browser tests; **rendered against that local chain** across all four views. Read-only: it holds no key and composes no transaction. **Deployed 2026-09-13**, answering 200 on the funnel |
 | `x/selfcustody` — the key-disclosure pathway | request, chain-enforced wait, confirm, all three signed by the account itself; the warning pinned by hash; a permanent record and a published count but no roll | 22 tests. Linked into every build profile, unlike the commercial modules: the arrangement exists on a settlement deployment too, and a binary carrying the custody but not the door out of it would be the arrangement the acknowledgement promises this chain does not operate. **Exercised on a local devnet 2026-09-12**: a request recorded with its two deadlines computed from the parameters in force, a confirmation refused with "172800 seconds to go", and a cancellation that left nothing behind. The 48-hour wait has not been waited out on any chain, so the confirm-and-record half is proved only by the tests |
