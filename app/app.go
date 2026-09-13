@@ -53,6 +53,7 @@ import (
 	nettingmodulekeeper "yamale/blockchain/x/netting/keeper"
 	oraclemodulekeeper "yamale/blockchain/x/oracle/keeper"
 	paymsgmodulekeeper "yamale/blockchain/x/paymsg/keeper"
+	selfcustodymodulekeeper "yamale/blockchain/x/selfcustody/keeper"
 	stablecoinmodulekeeper "yamale/blockchain/x/stablecoin/keeper"
 	treasurymodulekeeper "yamale/blockchain/x/treasury/keeper"
 	validatorgovmodulekeeper "yamale/blockchain/x/validatorgov/keeper"
@@ -114,6 +115,7 @@ type App struct {
 	custodyKeepers
 	tokenisationKeepers
 	syndicateKeepers
+	herdKeepers
 
 	// simulation manager
 	sm                 *module.SimulationManager
@@ -125,6 +127,7 @@ type App struct {
 	EnforcementKeeper  enforcementmodulekeeper.Keeper
 	ConstitutionKeeper constitutionmodulekeeper.Keeper
 	AliasKeeper        aliasmodulekeeper.Keeper
+	SelfCustodyKeeper  selfcustodymodulekeeper.Keeper
 	NettingKeeper      nettingmodulekeeper.Keeper
 	// GroupKeeper is here only so the ante chain can read the foundation
 	// group's membership. Nothing in this repository writes to it: the group
@@ -221,6 +224,7 @@ func New(
 		&app.EnforcementKeeper,
 		&app.ConstitutionKeeper,
 		&app.AliasKeeper,
+		&app.SelfCustodyKeeper,
 		&app.NettingKeeper,
 		&app.GroupKeeper,
 	}, slices.Concat(
@@ -230,6 +234,7 @@ func New(
 		app.custodyDepinjectOutputs(),
 		app.tokenisationDepinjectOutputs(),
 		app.syndicateDepinjectOutputs(),
+		app.herdDepinjectOutputs(),
 	)...)
 
 	if err := depinject.Inject(appConfig, outputs...); err != nil {

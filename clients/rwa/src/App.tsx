@@ -151,7 +151,11 @@ export function App() {
 
       <header className="bar">
         <div className="bar__inner">
-          <Link to="/" className="brand">
+          {/* A plain anchor, not <Link>. A router Link resolves inside the
+              app, so the logo navigated to /rwa/ and never left — which is
+              the opposite of what a logo in a header is for. Every other
+              console sends it to the site root. */}
+          <a href="/" className="brand">
             <span className="brand__mark" aria-hidden="true">
               <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor"
                    strokeWidth="1.8" strokeLinejoin="round">
@@ -160,7 +164,7 @@ export function App() {
               </svg>
             </span>
             <span className="brand__name">{t('rwa.title')}</span>
-          </Link>
+          </a>
 
           <nav className="bar__nav" aria-label={t('rwa.navLabel')}>
             <NavLink to="/" end className={({ isActive }) => `bar__link ${isActive ? 'is-on' : ''}`}>

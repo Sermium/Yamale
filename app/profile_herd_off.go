@@ -21,3 +21,7 @@ var (
 	herdInitGenesis   []string
 	herdModuleConfigs []*appv1alpha1.ModuleConfig
 )
+
+type herdKeepers struct{}
+
+func (app *App) herdDepinjectOutputs() []any { return nil }

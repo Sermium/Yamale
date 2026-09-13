@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -47,7 +48,16 @@ type Upgrade struct {
 // The machinery is exercised beyond this list too: app/upgrades_test.go
 // registers a synthetic upgrade and drives it end to end, so the path is known
 // to work rather than assumed to.
-var upgrades = []Upgrade{
+//
+// The list is concatenated with `profileUpgrades` rather than written out whole,
+// because an upgrade that adds a module's store can only be declared by a binary
+// that actually links that module. x/herd and x/syndicate are absent from the
+// settlement profile; declaring their stores here unconditionally would compile
+// — the types packages exist in every profile — and would then have a settlement
+// binary add two stores no module ever reads, while RunMigrations looked for
+// modules that are not in its manager. See profile_upgrades_on.go for the half
+// that exists when they are linked, and profile_upgrades_off.go for the other.
+var upgrades = slices.Concat([]Upgrade{
 	{
 		// x/alias identifiers gained a country prefix, so the module's
 		// migration retires every identifier issued before there was a
@@ -354,7 +364,7 @@ var upgrades = []Upgrade{
 			return vm, nil
 		},
 	},
-}
+}, profileUpgrades)
 
 // setupUpgradeHandlers registers every upgrade with the upgrade keeper and
 // configures the store loader for whichever one is due.
