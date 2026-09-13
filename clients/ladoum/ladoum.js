@@ -389,12 +389,49 @@ export async function params() {
  */
 export async function roll({ from = 1, limit = 40, jurisdiction = JURISDICTION } = {}) {
   const admitted = new Set((await offices(jurisdiction)).map((o) => o.address));
+
+  // Probed in small batches, and stopped at a run of misses.
+  //
+  // Three constraints pull against each other here, and all three are measured
+  // rather than assumed.
+  //
+  //   x/herd publishes no "every animal" query, deliberately: a public list of
+  //   who holds what valuable livestock is a targeting list. A roll therefore
+  //   has to be assembled by probing identifiers.
+  //
+  //   The edge allows 600r/m on the RPC zone — ten a second — and returns 503
+  //   past that. Forty parallel probes measured 38 x 200 and 2 x 503 on
+  //   2026-09-13, and the front page rendered "LECTURE IMPOSSIBLE".
+  //
+  //   One probe costs about 800ms from a browser through the proxy. Strictly
+  //   sequential probing is therefore not slow — it is unusable: nineteen
+  //   probes took 18 seconds, which reads as a hung page long before it
+  //   finishes.
+  //
+  // Four at a time satisfies all three: about five requests a second, half the
+  // limit, and the same nineteen probes finish in roughly four seconds.
+  const BATCH = 4;
+  const STOP_AFTER_MISSES = 10;
+
   const found = [];
-  for (let id = from; id < from + limit; id += 1) {
-    const a = await animalById(String(id));
-    if (!a) continue;
-    if (!admitted.has(a.authority)) continue;
-    found.push(a);
+  let misses = 0;
+
+  for (let id = from; id < from + limit && misses < STOP_AFTER_MISSES; id += BATCH) {
+    const ids = [];
+    for (let n = 0; n < BATCH && id + n < from + limit; n += 1) ids.push(id + n);
+
+    // Settled, not all: one probe failing must not discard the batch around it.
+    const batch = await Promise.all(ids.map((i) => animalById(String(i)).catch(() => null)));
+
+    // Counted in identifier order, so the run of misses means what it says.
+    // The keeper issues identifiers in sequence and never reuses one, and a
+    // retired animal still answers — so a gap this long is the end of the
+    // register rather than a hole in it.
+    for (const a of batch) {
+      if (!a) { misses += 1; continue; }
+      misses = 0;
+      if (admitted.has(a.authority)) found.push(a);
+    }
   }
   return found;
 }

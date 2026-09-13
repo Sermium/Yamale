@@ -97,6 +97,28 @@ export async function abci(path, requestBytes = new Uint8Array()) {
   } catch (e) {
     throw new CallFailed(path, 'unreachable', e.message);
   }
+  // A 503 here is the edge's rate limiter, not the chain.
+  //
+  // nginx allows 600r/m on the RPC zone - ten a second - and this console is
+  // inherently chatty: x/herd publishes no "every animal" query, deliberately,
+  // because a public list of who holds what valuable livestock is a targeting
+  // list. So the roll probes identifiers one at a time, and forty sequential
+  // probes over a fast connection clear ten a second easily. Measured on
+  // 2026-09-13: forty parallel probes returned 38 x 200 and 2 x 503, and the
+  // register's front page rendered "LECTURE IMPOSSIBLE".
+  //
+  // Retried once, after a pause longer than the limiter's window needs, because
+  // a rate limit is transient by construction. A second 503 is reported rather
+  // than hidden: at that point the edge is genuinely refusing, and a page that
+  // retried for ever would hang instead of saying so.
+  if (res.status === 503) {
+    await new Promise((r) => setTimeout(r, 700));
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (e) {
+      throw new CallFailed(path, 'unreachable', e.message);
+    }
+  }
   if (!res.ok) throw new CallFailed(path, res.status, '');
 
   const json = await res.json();

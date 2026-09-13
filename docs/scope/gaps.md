@@ -4,12 +4,14 @@ Checked against the tree and the running chain rather than against a task list �
 a task here was once marked complete while its artefact did not exist, so the
 list is not evidence.
 
-**Chain state** last verified 2026-09-05, against `yamale-devnet-2` at block
-196,559, queried over `https://yamale.tail4355e8.ts.net/api/rpc/`. That sweep
-covered the audit rows below and nothing else, so **a figure here carries the
-date it was read** — most of the rest were read on 2026-09-01 at block 141,500
-and say so. A figure with no date is older than both and should be re-read
-before it is relied on.
+**Chain state** re-verified 2026-09-13, against `yamale-devnet-2` at block
+**320,662**, over `https://pay.yamalelegal.com/api/rpc/`. This sweep re-read the
+open audit and configuration rows and nothing else, so **a figure here carries
+the date it was read**: rows dated 2026-09-13 are current, rows dated 2026-09-05
+(block 196,559) or 2026-09-01 (block 141,500) are older and say so, and a figure
+with no date is older still and should be re-read before it is relied on. What
+the 2026-09-13 sweep changed is recorded in *"What moved between 2026-09-05 and
+2026-09-13"* immediately below.
 
 **Repository state** last verified 2026-09-05, which is a weaker claim and is
 labelled separately on purpose: it means the code exists and its tests pass, not
@@ -33,11 +35,50 @@ running chain rather than the tree.
 
 ---
 
+## What moved between 2026-09-05 and 2026-09-13
+
+Re-read from the live chain at block **320,662** on 2026-09-13. Governance was
+active in the interval; five things that this document listed as open or
+undeployed are now closed on the chain, and are moved into the table below:
+
+- **The RPC method gate is deployed.** `POST /api/rpc/` with
+  `{"method":"net_info"}` (and `unconfirmed_txs`) now answers *"not available on
+  this endpoint"* — `tools/rpcgate` is on both hosts, so the JSON-RPC bypass that
+  "Two the audit did not find" recorded as *not deployed* is shut.
+- **The security headers are deployed.** `pay.yamalelegal.com` returns HSTS,
+  `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy` and a CSP
+  with `connect-src 'self'` — the row under "Operational loose ends" that read
+  *in the repo, not on the hosts* is closed.
+- **The ombudsman is set** to `yml1dlszg2sst9r69my4f84l3mj66zxcf3umcgujys30t84srg95dgvsrmuayr`
+  (a foundation group account), so `MsgOmbudsmanVeto` has a holder — the
+  "Configuration, measured in minutes" bullet is closed.
+- **The rolling seizure cap covers all 48 denoms**, not `uyml` alone — the same
+  bullet's second half is closed.
+- **The three commercial modules are in the deployed binary.**
+  `abci_query` on `/blockchain.herd.v1.Query/Params`,
+  `/blockchain.syndicate.v1.Query/Params` and
+  `/blockchain.selfcustody.v1.Query/Params` all return code 0, so the upgrade
+  that "Merged, but not yet running" describes has been applied. **They are
+  present, not exercised**: no office, animal or deal has been seeded on
+  devnet-2, and their consoles are still outside the public visibility gate (REST
+  → 401). Those rows stay in that section with this qualification rather than
+  moving up.
+
+Everything under "The one that makes the rest conditional" (the 887.9M-YML
+premine, C-3), "The governance electorate is a feeder key" (C-4), the treasury-2
+admin rotation (H-4), `max_gas = -1` (K-3), the `abci_query`-past-REST bypass
+("The gate that stops at the wall"), and the 100% concentration ceilings (H-5)
+was **re-confirmed still open** on 2026-09-13 and is unchanged below.
+
 ## Live on the chain, and verified there
 
 | | |
 |---|---|
 | Constitutional layer | 13 invariants fixed at genesis; `MsgUpdateParams` refuses them |
+| Public RPC gate | `tools/rpcgate` deployed both hosts — JSON-RPC POST bypass shut; verified 2026-09-13 |
+| Web security headers | HSTS, frame-deny, nosniff, referrer-policy, CSP `connect-src 'self'` on both hosts; 2026-09-13 |
+| Enforcement oversight, configured | ombudsman set and seizure cap over all 48 denoms; 2026-09-13 |
+| Commercial modules in the binary | `x/herd`, `x/syndicate`, `x/selfcustody` answer `abci_query` — upgrade applied; present, not yet exercised on devnet-2; 2026-09-13 |
 | Concentration caps | beneficial-ownership registry, epoch enforcement, demotion by jailing |
 | Enforcement oversight | legal instrument, delays scaling with amount, ombudsman veto, rolling window cap |
 | Foundation | 3-of-5 `x/group`, in genesis, as `recovery_destination` |
@@ -69,6 +110,14 @@ running chain rather than the tree.
 The distinction this document previously lost. Everything here is in `main` and
 has never been exercised against the network the validators are running, so a
 query against the live chain returns nothing for any of it.
+
+**Updated 2026-09-13.** The binary caveat below — *"the deployed binary predates
+the module"* — is no longer true for `x/herd`, `x/syndicate` and `x/selfcustody`:
+the upgrade landed and all three answer `abci_query` on devnet-2 at block
+320,662. What is still true is the second, weaker claim: none has been
+*exercised* there (no office, animal or deal seeded), and their consoles are not
+in the public gate. Read these rows as "present in the binary, not run on
+devnet-2" rather than "not on devnet-2 at all".
 
 | | | |
 |---|---|---|
@@ -749,8 +798,13 @@ the address.
 Closed in the tree by `tools/rpcgate`, an allow-list filter that parses the
 JSON-RPC envelope and applies the same decision whichever way the method
 arrives, including inside a batch. Eleven tests, of which 44 assertions fail
-against a permissive gate — which is the state of the host today. **Not
-deployed**: it needs a binary, a unit file and an nginx include on both hosts.
+against a permissive gate.
+
+**Deployed, verified 2026-09-13.** `POST /api/rpc/` with `{"method":"net_info"}`
+and `{"method":"unconfirmed_txs"}` now both return *"not available on this
+endpoint"* — the gate is on both hosts. This closes the disclosure only, not the
+MEV, and not the `abci_query`-past-REST reads, which remain open (see "The gate
+that stops at the wall").
 
 **The governance electorate of this chain is an oracle feeder key.**
 
@@ -850,17 +904,17 @@ cast by an account with none of the money.
   `SetSpendPolicy` is admin-only. **The example file is fixed; the treasury
   admin is not.** Rotate it to a separate key, ideally an x/group account.
 
-- **The ombudsman is unset**, so `MsgOmbudsmanVeto` — the only message that can
-  stop a seizure that has passed and is waiting out its delay — has no holder.
-  What remains is a 79-minute or 5-hour delay whose only recourse is a
-  governance `MsgReverseCase`, which on this chain is the same voter that could
-  have passed the seizure.
+- ~~**The ombudsman is unset.**~~ **Closed 2026-09-13.** `enforcement/v1/params`
+  now names `yml1dlszg2sst9r69my4f84l3mj66zxcf3umcgujys30t84srg95dgvsrmuayr` (a
+  foundation group account) as ombudsman, so `MsgOmbudsmanVeto` — the only
+  message that can stop a seizure that has passed and is waiting out its delay —
+  has a holder.
 
-- **The rolling seizure cap covers one denomination out of forty-eight.**
-  `seizure_window_cap` lists only `uyml` at 500 YML. A seizure of any of the 43
-  fiat currencies, or of an `amm/pool/*` or `tok/*` denom, is bounded only by
-  `max_seizures_per_window`: 5 per 31.6 hours, at any size. The code comment
-  anticipated exactly this; the configuration has not followed it.
+- ~~**The rolling seizure cap covers one denomination out of forty-eight.**~~
+  **Closed 2026-09-13.** `seizure_window_cap` now lists all 48 denoms —
+  `amm/pool/*` and `tok/*` at lower caps, the currencies at 500 YML — so a
+  seizure is no longer bounded by `max_seizures_per_window` alone for anything
+  but `uyml`.
 
 - **No payment participant is approved**, so `MsgSendPayment` cannot succeed for
   anybody and `x/netting` is in the same state. The payments product the public
@@ -929,8 +983,11 @@ payment has ever been made on this chain. It must be closed before one is.
   `mpc/` warrants its own cryptographic review** and was deliberately left
   alone, being under active modification at the time.
 - The in-browser key-generation page at `/keys/` deserves a dedicated review
-  given what it handles — and it is served with no Content-Security-Policy. See
-  the security-headers row under "Operational loose ends".
+  given what it handles. It is **no longer served without a CSP** (headers
+  deployed 2026-09-05/09-06, re-confirmed 2026-09-13) — but the deployed policy
+  allows `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`, and
+  `'unsafe-inline'` on the one page that generates key material is exactly the
+  gap a dedicated review should close.
 
 ---
 
