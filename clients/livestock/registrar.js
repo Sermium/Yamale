@@ -79,8 +79,9 @@ export const JURISDICTION = 'SN';
 /**
  * How deep a pedigree this page asks for.
  *
- * Four generations is what a Ladoum certificate prints and what a buyer argues
- * about. The chain bounds the walk at ten whatever is asked, so this is a
+ * Four generations is what a breeder argues about at a sale, whatever the
+ * species — it is what a Ladoum certificate prints, which is where the number
+ * came from, and it is also what a cattle herdbook carries. The chain bounds the walk at ten whatever is asked, so this is a
  * choice about what to show rather than a safety limit — and when the bound is
  * what stopped the walk, the response says so and the page must repeat it.
  */

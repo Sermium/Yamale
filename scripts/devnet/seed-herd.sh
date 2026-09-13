@@ -411,7 +411,7 @@ stage_flock() {
 
     # The DNA hash stands in for a laboratory report. Reproducible from this
     # file so the demonstration is repeatable, and clearly not a real profile.
-    dna=$(printf 'ladoum-dna-%s' "$nid" | sha256sum | cut -c1-64)
+    dna=$(printf 'herd-dna-%s' "$nid" | sha256sum | cut -c1-64)
     if as_office "{\"@type\":\"/blockchain.herd.v1.MsgCertifyAnimal\",
       \"creator\":\"$registry\",\"animal_id\":\"$id\",\"sire_id\":\"$sire_id\",
       \"dam_id\":\"$dam_id\",\"dna_hash\":\"$dna\",

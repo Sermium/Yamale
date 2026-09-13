@@ -1,5 +1,5 @@
 /**
- * Le registre du Ladoum, lu sur la chaîne.
+ * Le registre national du cheptel, lu sur la chaîne.
  *
  * # Ce que ce démonstrateur est
  *
@@ -137,9 +137,14 @@ export const speciesLabel = (s) => SPECIES_FR[s] ?? '—';
  * type ; un sexe est un enum, et c'est ce même enum qui fait refuser un père
  * qui n'est pas mâle.
  */
-export function certificate(animal) {
+export function certificate(animal, herd = null) {
   if (!animal) return null;
   return {
+    // L'espèce vient du troupeau, pas de l'animal — c'est là qu'x/herd la
+    // garde. Elle est passée plutôt que devinée : ce registre couvre bovins,
+    // ovins, caprins, équins et camelins, et une fiche qui écrivait « Mouton »
+    // en dur présentait un système généraliste comme une filière ovine.
+    espece: herd ? speciesLabel(herd.species) : null,
     idn: animal.national_id,
     puce: animal.tag || '—',
     nom: animal.name || '—',
@@ -179,6 +184,18 @@ export async function animalByTag(tag) {
 export async function animalById(id) {
   const res = await herdOrNull('Animal', String(id));
   return res?.animal || null;
+}
+
+/**
+ * Charge un troupeau par son numéro d'inscription.
+ *
+ * La fiche en a besoin pour l'espèce : x/herd la garde sur le troupeau et non
+ * sur l'animal, parce qu'un troupeau est d'une espèce et qu'un éleveur qui en
+ * tient deux tient deux troupeaux.
+ */
+export async function herdById(id) {
+  const res = await herdOrNull('Herd', String(id));
+  return res?.herd || null;
 }
 
 /** Charge un troupeau par sa référence de dossier papier. */

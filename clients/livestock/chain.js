@@ -452,7 +452,7 @@ export async function txsOf(msgType, limit = 30) {
  * whole module — and everything importing it — unloadable outside a browser.
  * That is not a portability nicety: it meant the register's read logic could
  * not be unit-tested at all, because the only way to reach a function in
- * ladoum.js was to load a page. So the one line that touched `window` at
+ * livestock.js was to load a page. So the one line that touched `window` at
  * import time decided that none of the code behind it was testable, and the
  * bugs that shipped were the ones a test would have caught.
  *

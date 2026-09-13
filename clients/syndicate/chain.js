@@ -16,7 +16,7 @@
 //
 // x/syndicate is the newest module on this chain, so its REST prefix is
 // certainly not on that allowlist. Reading over ABCI is not a workaround: it is
-// the interface the proxy publishes, and it is what clients/ladoum and
+// the interface the proxy publishes, and it is what clients/livestock and
 // clients/app both settled on for the same reason.
 //
 // ===========================================================================

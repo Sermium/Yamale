@@ -91,5 +91,5 @@ http.createServer(async (req, res) => {
   });
   res.end(fs.readFileSync(file));
 }).listen(PORT, () => {
-  console.log(`land console on http://localhost:${PORT}/land/ · /api → ${UPSTREAM}`);
+  console.log(`livestock console on http://localhost:${PORT}/livestock/ · /api → ${UPSTREAM}`);
 });

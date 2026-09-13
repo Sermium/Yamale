@@ -17,7 +17,7 @@
 // the proxy does publish. ABCI speaks protobuf and nothing else.
 //
 // ON THE DUPLICATION. The reader and writer below are close to the ones in
-// clients/land/proto.js and clients/ladoum/proto.js, and copying them was the
+// clients/land/proto.js and clients/livestock/proto.js, and copying them was the
 // choice rather than the accident. Each console is a self-contained tree
 // deployed to its own path with no build step and no shared runtime, so a
 // common module would have to be a fourth deployed artefact that all three

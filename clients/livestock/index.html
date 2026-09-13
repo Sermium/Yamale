@@ -1,14 +1,22 @@
 <!--
-  Le registre du Ladoum — démonstrateur.
+  Le registre national du cheptel — démonstrateur.
 
   Ce que la page montre, elle le lit sur la chaîne. Rien n'est simulé côté
   client : si le registre est vide, la page le dit et n'invente pas un animal
   pour se remplir.
 
+  Le registre couvre bovins, ovins, caprins, équins et camelins — x/herd tient
+  les cinq, et le bovin vient en premier parce que c'est là qu'est l'argument
+  du collatéral : le troupeau d'un ménage pastoral est toute sa richesse et ne
+  vaut rien pour une banque. La race n'est pas une catégorie du système ; le
+  Ladoum est l'exemple sur lequel la maquette a été dessinée, pas le périmètre.
+
   La mise en page du certificat reproduit celle que la filière délivre déjà —
   mêmes rubriques, même ordre, même IDN. C'est délibéré : l'offre n'est pas de
   remplacer ce document mais de lui donner une valeur de preuve, et un
-  démonstrateur qui redessinerait tout laisserait croire le contraire.
+  démonstrateur qui redessinerait tout laisserait croire le contraire. Ce qui
+  était en trop, et qui est corrigé, c'est que la fiche écrivait « Mouton » en
+  dur : l'espèce se lit maintenant sur le troupeau.
 
   Le style est autonome plutôt qu'importé de clients/shared/yamale.css. Ce
   document a une identité propre — celle du certificat papier, parchemin et
@@ -18,7 +26,7 @@
 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yamale · Registre du Ladoum</title>
+<title>Yamale · Registre du cheptel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600&family=Karla:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -179,7 +187,7 @@ footer a{color:var(--acacia)}
 
   <header class="top">
     <div>
-      <h1>Registre du <span>Ladoum</span></h1>
+      <h1>Registre du <span>cheptel</span></h1>
       <p class="sub">Chaque inscription est lue sur la chaîne. Le certificat garde la forme
         que la filière lui donne déjà ; ce qui change, c'est que personne ne peut le réécrire.</p>
     </div>
@@ -229,8 +237,8 @@ footer a{color:var(--acacia)}
 import {
   lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage, missingParent,
   offices, params, roll, chainHead, provenance, hasParent, sexLabel, speciesLabel,
-  herdByRef, animalsOf, healthOf,
-} from './ladoum.js';
+  herdById, herdByRef, animalsOf, healthOf,
+} from './livestock.js';
 import { PEDIGREE_DEPTH, JURISDICTION } from './registrar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
@@ -276,13 +284,17 @@ async function showHead() {
 
 /** Le certificat, la preuve, la généalogie et la provenance d'un animal. */
 async function render(animal) {
-  const c = certificate(animal);
+  // Le troupeau est lu d'abord, pour l'espèce. Une lecture de plus, et elle ne
+  // bloque pas la fiche : si elle échoue, la rubrique porte « Animal » plutôt
+  // que d'affirmer une espèce que la chaîne n'a pas confirmée.
+  const herd = await herdById(animal.herd_id).catch(() => null);
+  const c = certificate(animal, herd);
   const ev = evidenceLevel(animal);
 
   out.innerHTML = `
     <div class="split">
       <figure class="cert" style="margin:0">
-        <h2>Certificat de naissance Ladoum</h2>
+        <h2>Certificat de naissance</h2>
         <div class="wave" aria-hidden="true"></div>
         <div class="f hi"><span class="k">IDN</span><span class="v">${esc(c.idn)}</span></div>
         <div class="f"><span class="k">Puce</span><span class="v">${esc(c.puce)}</span></div>
@@ -292,7 +304,7 @@ async function render(animal) {
           <div class="f"><span class="k">Office</span><span class="v">${esc(c.office)}</span></div>
         </div>
         <div class="grp">
-          <div class="gn">Mouton</div>
+          <div class="gn">${esc(c.espece || 'Animal')}</div>
           <div class="f"><span class="k">Nom</span><span class="v">${esc(c.nom)}</span></div>
           <div class="f"><span class="k">Sexe</span><span class="v">${esc(c.sexe)}</span></div>
           <div class="f"><span class="k">Couleur robe</span><span class="v">${esc(c.robe)}</span></div>

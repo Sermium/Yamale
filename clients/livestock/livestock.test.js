@@ -2,7 +2,7 @@
 //
 // None of this could be tested before. `chain.js` computed the wallet URL from
 // `window.location.origin` at import time, so the module graph was unloadable
-// outside a browser, and the only way to reach a function in ladoum.js was to
+// outside a browser, and the only way to reach a function in livestock.js was to
 // open a page and look at it. One line that touched `window` too early decided
 // that everything behind it was untestable — and the bugs that shipped were
 // exactly the ones a test catches: an import that did not resolve, a decoder
@@ -23,7 +23,7 @@ import {
   pedigreeCoverage,
   sexLabel,
   speciesLabel,
-} from './ladoum.js';
+} from './livestock.js';
 
 /** An animal record as the decoder produces one. */
 const animal = (over = {}) => ({
