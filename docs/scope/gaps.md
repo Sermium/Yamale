@@ -58,11 +58,59 @@ undeployed are now closed on the chain, and are moved into the table below:
   `abci_query` on `/blockchain.herd.v1.Query/Params`,
   `/blockchain.syndicate.v1.Query/Params` and
   `/blockchain.selfcustody.v1.Query/Params` all return code 0, so the upgrade
-  that "Merged, but not yet running" describes has been applied. **They are
-  present, not exercised**: no office, animal or deal has been seeded on
-  devnet-2, and their consoles are still outside the public visibility gate (REST
-  → 401). Those rows stay in that section with this qualification rather than
-  moving up.
+  that "Merged, but not yet running" describes has been applied.
+
+**Superseded the same day.** The qualification above — "present, not exercised"
+— was written in the morning of 2026-09-13 and stopped being true that
+afternoon. Re-read at block 321,363: `x/herd` holds **2 registry offices and 9
+animals**, `x/syndicate` holds **1 admitted operator and 2 deals** (one OPEN and
+below its minimum, one CLOSED and paying out), and `x/selfcustody` publishes
+parameters whose acknowledgement hash matches the binary's embedded text. Both
+consoles answer 200 **on the funnel**, which is the host the public reaches:
+`yamale.tail4355e8.ts.net/ladoum/` and `/syndicate/`. So all three modules move
+out of "Merged, but not yet running" and into the table above.
+
+Two limits on that claim, stated because the section heading is a strong one.
+The 48-hour disclosure wait has still not been waited out on any chain, so
+`x/selfcustody`'s confirm-and-record half remains proved only by its tests. And
+the herd "refusals" stage was not run on devnet-2 — it writes nothing on
+success, every declaration being meant to fail, so it populates no state and its
+absence changes no row.
+
+**The funnel was dark for 21 hours and is back.** Between roughly 2026-09-12
+10:00Z and 2026-09-13 the Pi answered on no port: its SSD had stopped
+enumerating, so it fell back to an SD-card install that carries the kiosk and no
+web stack at all, and Tailscale was logged out on the OS that did boot. Three
+consequences worth recording, because each one contradicts something this
+document has previously asserted:
+
+- The Pi is **two machines**, not one. `BOOT_ORDER=0xf14` tries USB first and
+  falls back to the SD card, and the two disks carry different operating
+  systems: the SSD is the Yamale host (nginx, `/opt/yamale`, the validator), the
+  SD card is `borne-vacances-0001`, a SmartAX kiosk. "The Pi is down" and "the
+  Pi booted the other disk" are different faults with the same symptom.
+- Its crash loop was **not** the validator. Measured: the kiosk browser holds
+  ~2.2 GB of RSS+swap on a 1.8 GB box, swap lived on the SD card, and thrashing
+  drove iowait to 55% and the load average to 31 until `watchdog` reset the
+  machine — `error 253 = 'load average too high'`, in its own log. Stopping the
+  validator changed nothing. Moving swap to zram (zstd, ~5:1) dropped the load
+  to 0.2 and it has been stable since.
+- `pi-2` **cannot block-sync and never could**. The VM rejects it with
+  `invalid LastCommitRound 0 (must be -1 for initial height 265844)`, so it
+  connects, is dropped with EOF, and retries for ever at 0 peers. It has to be
+  re-seeded by state sync; done 2026-09-13, 265,843 → head in about four
+  minutes, and it is bonded again.
+
+**A finding that qualifies the two-validator rows.** `pi-2` is bonded and
+counted live — `missed_blocks_counter` is 0 — but it precommits **nil** on
+most blocks, committing roughly 3 in 14. The cause is structural rather than a
+fault: the VM holds 70.21%, its own supermajority, so it completes a round alone
+in ~150–230ms while the Pi needs ~250ms merely to execute the block. `pi-2`
+receives block and commit together and never sees a live round to vote in. This
+is the same arithmetic as "A validator above two thirds silently excludes every
+other validator" below, which was fixed once by rebalancing and has drifted
+back. You cannot have both "the VM can run alone" and "pi-2 meaningfully
+validates".
 
 Everything under "The one that makes the rest conditional" (the 887.9M-YML
 premine, C-3), "The governance electorate is a feeder key" (C-4), the treasury-2
@@ -126,10 +174,10 @@ devnet-2" rather than "not on devnet-2 at all".
 | Distributed key generation | `mpc.KeygenParty` — one participant per process, share computed locally and never transmitted | **closed 2026-09-03.** A test captures every byte the three parties exchange and asserts no party's secret scalar appears in it |
 | Enrolment over HTTP | `tools/custodian` `/v1/enrol/*`, driven by the device against two deployments (`--role custodian` and `--role recovery`) | built and tested; never run against a real browser or a deployed pair |
 | The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
-| `x/herd` — the livestock registry | three levels of record, pedigree refused at consensus, four-party supervised transfer with an answerable objection, accredited agents | 44 tests; **exercised end to end on a local devnet 2026-09-10** — two offices admitted by a real governance vote, ten animals, seven certified lines four generations deep, a sale carried to ATTESTED with two independent attestations, four impossible pedigrees refused. Never run on devnet-2: the deployed binary predates the module |
-| The Ladoum console, on `x/herd` | certificate, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. Not deployed |
-| `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Exercised end to end on a local devnet 2026-09-12**, all four stages of `scripts/devnet/seed-syndicate.sh`: an operator admitted by a real governance vote, a raise that missed its minimum, one that closed at 3.00 YML with 3% taken at entry, a private sale between two distributions, and three holders paid correctly across it with nobody reconciling anything. Running it is what found the panic below. Never run on devnet-2: the deployed binary predates the module |
-| The Syndicate console, on `x/syndicate` | the book against both its thresholds, the fee ladder in money, entitlement with its working, the secondary market, and the commands with the account that signs each | 62 browser tests; **rendered against that local chain** across all four views. Read-only: it holds no key and composes no transaction. Not deployed |
+| `x/herd` — the livestock registry | three levels of record, pedigree refused at consensus, four-party supervised transfer with an answerable objection, accredited agents | 44 tests; **exercised end to end on a local devnet 2026-09-10** — two offices admitted by a real governance vote, ten animals, seven certified lines four generations deep, a sale carried to ATTESTED with two independent attestations, four impossible pedigrees refused. **Run on devnet-2 2026-09-13**: two offices admitted by governance (proposal 15), 9 animals, Classico's line walking three generations, and Bathie's sale carried to ATTESTED with two independent attestations |
+| The Ladoum console, on `x/herd` | certificate, evidence level, chain-side pedigree walk, provenance including refused sales | 43 browser tests; **rendered against that local chain**, 14 of 14 ancestors resolved. **Deployed 2026-09-13**, answering 200 on the funnel |
+| `x/syndicate` — the syndication layer | escrowed commitments, close-or-refund, three fee points, KYC gate as a bank send restriction, pro-rata distribution index, private and open secondary listings | 37 tests, both build profiles. **Exercised end to end on a local devnet 2026-09-12**, all four stages of `scripts/devnet/seed-syndicate.sh`: an operator admitted by a real governance vote, a raise that missed its minimum, one that closed at 3.00 YML with 3% taken at entry, a private sale between two distributions, and three holders paid correctly across it with nobody reconciling anything. Running it is what found the panic below. **Run on devnet-2 2026-09-13**: operator admitted by governance (proposal 16), a raise short of its minimum, one closed at 3.00 YML, and a private sale followed by a distribution that paid the secondary buyer 144,000 without anybody reconciling anything |
+| The Syndicate console, on `x/syndicate` | the book against both its thresholds, the fee ladder in money, entitlement with its working, the secondary market, and the commands with the account that signs each | 62 browser tests; **rendered against that local chain** across all four views. Read-only: it holds no key and composes no transaction. **Deployed 2026-09-13**, answering 200 on the funnel |
 | `x/selfcustody` — the key-disclosure pathway | request, chain-enforced wait, confirm, all three signed by the account itself; the warning pinned by hash; a permanent record and a published count but no roll | 22 tests. Linked into every build profile, unlike the commercial modules: the arrangement exists on a settlement deployment too, and a binary carrying the custody but not the door out of it would be the arrangement the acknowledgement promises this chain does not operate. **Exercised on a local devnet 2026-09-12**: a request recorded with its two deadlines computed from the parameters in force, a confirmation refused with "172800 seconds to go", and a cancellation that left nothing behind. The 48-hour wait has not been waited out on any chain, so the confirm-and-record half is proved only by the tests |
 
 **A note on the rows above.** Several say "exercised on a LOCAL devnet", and
