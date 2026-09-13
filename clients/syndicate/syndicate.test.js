@@ -15,8 +15,8 @@ import assert from 'node:assert/strict';
 
 import {
   INDEX_SCALE, MAX_BPS, amount, book, day, denomInfo, entitlement, entryFees,
-  group, managementFee, money, pct, projectedShare, shareBps, shortAddr,
-  standing, transferable, until,
+  group, holderShare, managementFee, money, multiple, pct, projectedShare,
+  returnToDate, shareBps, shortAddr, standing, transferable, until,
 } from './syndicate.js';
 
 /**
@@ -415,4 +415,95 @@ test('an address is shortened but never silently', () => {
   assert.match(shortAddr(a), /…/);
   assert.ok(shortAddr(a).endsWith('zzzz'), 'the tail is kept — it is what distinguishes two addresses');
   assert.equal(shortAddr('yml1short'), 'yml1short', 'a short address is not decorated');
+});
+
+/* ========================================================================== */
+/*  The return                                                                */
+/* ========================================================================== */
+
+test('a deal that has paid nothing back has returned nothing, and says so', () => {
+  const r = returnToDate(aDeal({ raised: '400000000000', distributed: '0' }));
+  assert.equal(r.any, false);
+  assert.equal(r.bps, 0);
+});
+
+test('a deal with no raise does not divide by zero', () => {
+  const r = returnToDate(aDeal({ raised: '0', distributed: '0' }));
+  assert.equal(r.bps, 0);
+  assert.equal(r.any, false);
+});
+
+test('the return is distributions over subscriptions, both of them the deal’s own', () => {
+  // 331,000 paid back against 400,000 subscribed.
+  const r = returnToDate(aDeal({ raised: '400000000000', distributed: '331000000000' }));
+  assert.equal(r.bps, 8275);
+  assert.equal(pct(r.bps), '82.75%');
+  assert.equal(multiple(r.bps), '0.83×');
+  assert.equal(r.any, true);
+});
+
+test('a return above capital is reported as such and not capped at 100%', () => {
+  // The cap belongs on a progress bar, where the bar cannot be longer than
+  // itself. A return that clipped at 100% would turn the only outcome the
+  // whole business model depends on into the same figure as breaking even.
+  const r = returnToDate(aDeal({ raised: '100000000', distributed: '340000000' }));
+  assert.equal(pct(r.bps), '340%');
+  assert.equal(multiple(r.bps), '3.40×');
+});
+
+test('the ratio survives amounts beyond double precision', () => {
+  const r = returnToDate(aDeal({
+    raised: '123456789012345678901234567890',
+    distributed: '61728394506172839450617283945',
+  }));
+  assert.equal(r.bps, 5000);
+  assert.equal(multiple(r.bps), '0.50×');
+});
+
+test('a multiple keeps two decimals, because 1× and 1.004× are not the same claim', () => {
+  assert.equal(multiple(10000), '1.00×');
+  assert.equal(multiple(10040), '1.00×');  // truncated by toFixed, not dressed up
+  assert.equal(multiple(0), '0.00×');
+});
+
+/* ========================================================================== */
+/*  What one holding has been paid                                            */
+/* ========================================================================== */
+
+test('a holding is credited with its own proportion of what the deal distributed', () => {
+  const d = aDeal({
+    raised: '400000000000', supply: '400000000000', distributed: '331000000000',
+  });
+  const h = holderShare(d, '100000000000');   // a quarter of the syndicate
+  assert.equal(h.shareBps, 2500);
+  assert.equal(h.attributed, 82750000000n);   // a quarter of 331,000
+  assert.equal(h.whole, false);
+});
+
+test('the division is taken last, so the money is not rounded through a percentage', () => {
+  // Three sevenths of a million. The honest arithmetic is 3 * 1000000 / 7 =
+  // 428571. Going through the rounded share_bps the query returns —
+  // 3 * 10000 / 7 = 4285 bps, then 4285 * 1000000 / 10000 — gives 428500,
+  // which is 71 units of somebody's money lost to the order of two operations.
+  const d = aDeal({ supply: '7', distributed: '1000000', raised: '7' });
+  const h = holderShare(d, '3');
+  assert.equal(h.attributed, 428571n);
+  assert.equal(h.shareBps, 4285);
+  // The figure the shortcut would have produced, named so the test fails if
+  // somebody ever reintroduces it.
+  assert.notEqual(h.attributed, (BigInt(h.shareBps) * 1000000n) / 10000n);
+});
+
+test('a sole holder is credited with everything, and is flagged as sole', () => {
+  const d = aDeal({ supply: '900', distributed: '450', raised: '900' });
+  const h = holderShare(d, '900');
+  assert.equal(h.attributed, 450n);
+  assert.equal(h.shareBps, 10000);
+  assert.equal(h.whole, true);
+});
+
+test('a deal with no supply yet attributes nothing rather than dividing by zero', () => {
+  const h = holderShare(aDeal(), '0');
+  assert.equal(h.attributed, 0n);
+  assert.equal(h.shareBps, 0);
 });

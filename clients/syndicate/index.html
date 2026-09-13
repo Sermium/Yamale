@@ -485,8 +485,8 @@ import {
   listings, operators, params,
 } from './chain.js';
 import {
-  amount, book, day, denomInfo, entryFees, money, pct,
-  shareBps, shortAddr, standing, transferable, until,
+  amount, book, day, denomInfo, entryFees, holderShare, money, multiple, pct,
+  returnToDate, shareBps, shortAddr, standing, transferable, until,
 } from './syndicate.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
@@ -591,6 +591,80 @@ function feeLadder(d) {
       still balance, which is what makes it the easy mistake.</p>`;
 }
 
+/**
+ * The return, and the four things it is not.
+ *
+ * Every number here is arithmetic on two fields of the deal — `raised` and
+ * `distributed` — so it is exact. What is NOT exact is everything an investor
+ * will want to extrapolate from it, and the caveats are on the page rather than
+ * in a footnote because a return figure with its caveats removed is the single
+ * most misleading thing a platform like this can print.
+ */
+function returnPanel(d) {
+  const den = d.settlement_denom;
+  const r = returnToDate(d);
+  const f = entryFees(d);
+  const final = d.state === 'DEAL_STATE_REALISED';
+
+  if (!d.denom) {
+    return `
+      <div class="card card--mute">
+        <p class="muted">This deal has not closed, so no capital has been drawn and there is
+          nothing to return. A return figure before a close would be a figure about money that
+          is still sitting in escrow under the investors’ own control.</p>
+      </div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="ladder">
+        <div class="rung">
+          <span class="rung__what">Subscribed by investors</span>
+          <span class="rung__amt">${esc(money(r.raised, den))}</span>
+        </div>
+        <div class="rung rung--net">
+          <span class="rung__what">Paid back to them, ${final ? 'in total' : 'so far'}</span>
+          <span class="rung__amt">${esc(money(r.distributed, den))}</span>
+        </div>
+      </div>
+      <p style="margin-top:var(--sp-4)"><strong>${esc(pct(r.bps))} of capital returned</strong>
+        — ${esc(multiple(r.bps))}. ${final
+          ? 'The deal is realised and the final distribution has been paid, so this is what it '
+            + 'made: nothing further will arrive.'
+          : r.bps >= 10000
+            ? 'Capital is back. Everything from here is profit, and the position is still live.'
+            : 'The deal is still live, so this is a partial figure and not a result.'}</p>
+
+      <p class="muted" style="margin-top:var(--sp-3)">Both numbers are the chain’s own.
+        The amount paid back is <strong>net of the ${esc(pct(d.fees.management_bps))}
+        management fee</strong> — it is what reached the holders, not what the company
+        paid out. The amount subscribed is the <strong>gross</strong> cheque, so the
+        ${esc(pct(f.bps))} entry fee is already working against this ratio: of the
+        ${esc(money(f.gross, den))} put in, ${esc(money(f.invested, den))} reached the company,
+        and the return is still measured against the whole cheque because that is what the
+        investor actually parted with.</p>
+
+      <div class="notebox" style="margin-top:var(--sp-4)">
+        <p><strong>It is not an annual rate.</strong> An IRR needs the date of every cash flow.
+          The chain carries the distribution <em>total</em> rather than its schedule — that
+          is what lets a payment to thousands of holders cost one write — so a number here
+          that looked like an IRR would have been invented.</p>
+        <p><strong>It is not a valuation.</strong> ${final
+          ? 'For a realised deal the two coincide, which is the only case where they do.'
+          : 'What is still invested may be worth several times this or nothing at all. A '
+            + 'register of payments cannot know what a private company is worth, and this page '
+            + 'will not pretend it does.'}</p>
+        <p><strong>It is not your return.</strong> It is the deal’s. Yours depends on when
+          you bought and at what price, and for anybody who bought on the secondary market the
+          two differ. <a href="#/holding">Look up an account</a> for the figures that are
+          specific to one holding.</p>
+        <p><strong>It is not a forecast of the others.</strong> Venture returns are not an
+          average; a syndicate expects most deals to return less than this one and its result to
+          come from a small number that return far more.</p>
+      </div>
+    </div>`;
+}
+
 /** A command, with what signs it. Never a button: this page holds no key. */
 function command(title, signer, why, cmd) {
   return `
@@ -655,6 +729,7 @@ async function renderDeals() {
         const b = book(d);
         const s = standing(d, chainNow);
         const t = until(d.closes_at, chainNow);
+        const r = returnToDate(d);
         return `
         <article class="card card--${esc(s.tone)}">
           <div class="dealhead">
@@ -669,7 +744,15 @@ async function renderDeals() {
               ${bookBar(d)}
             </div>
           </div>
-          <p class="small" style="margin-top:var(--sp-3);color:var(--text-muted)">${esc(s.what)}</p>
+          <p class="small" style="margin-top:var(--sp-3);color:var(--text-muted)">${esc(s.what)}${
+            // The return belongs on the list, not only on the deal page: a
+            // syndicate is judged on its record, and a record nobody can see
+            // without opening five pages is not being shown.
+            r.any ? d.state === 'DEAL_STATE_REALISED'
+              ? ` <strong>Realised at ${esc(pct(r.bps))} of capital (${esc(multiple(r.bps))});
+                  nothing further will arrive.</strong>`
+              : ` <strong>Has returned ${esc(pct(r.bps))} of capital so far
+                  (${esc(multiple(r.bps))}).</strong>` : ''}</p>
         </article>`;
       }).join('')}
     </div>`;
@@ -694,6 +777,7 @@ async function renderDeal(id) {
   const t = until(d.closes_at, chainNow);
   const den = d.settlement_denom;
   const tr = transferable(d);
+  const r = returnToDate(d);
 
   view.innerHTML = `
     <p class="muted" style="margin-bottom:var(--sp-3)"><a href="#/deals">← All deals</a></p>
@@ -737,14 +821,21 @@ async function renderDeal(id) {
         <p class="stat stat--words">${esc(denomInfo(den).symbol)}</p>
         <p class="muted">${esc(denomInfo(den).name || den)}</p>
       </div>
-      <div class="card">
-        <p class="label">Distributed so far</p>
-        <p class="stat">${esc(money(d.distributed, den))}</p>
-        <p class="muted">${d.denom ? `token ${esc(d.denom)}` : 'no token issued yet'}</p>
+      <div class="card${r.any ? ' card--ok' : ''}">
+        <p class="label">Returned to date</p>
+        <p class="stat">${r.any ? esc(pct(r.bps)) : '—'}</p>
+        <p class="muted">${r.any
+          ? `${esc(money(r.distributed, den))} paid out against ${esc(money(r.raised, den))}
+             subscribed, a multiple of ${esc(multiple(r.bps))}`
+          : d.denom ? 'nothing has been distributed yet'
+          : 'no token issued yet, so nothing can have been distributed'}</p>
       </div>
     </div>
 
     <div class="card" style="margin-top:var(--sp-4)">${feeLadder(d)}</div>
+
+    <h3>The return</h3>
+    ${returnPanel(d)}
 
     <h3>The book</h3>
     <div id="bookpanel"><p class="spin">Reading commitments…</p></div>
@@ -965,6 +1056,8 @@ async function renderHolding(hash) {
       ${held.length ? held.map((r) => {
         const d = r.deal;
         const den = d.settlement_denom;
+        const h = holderShare(d, r.balance);
+        const dr = returnToDate(d);
         return `
         <div class="card" style="margin-top:var(--sp-3)">
           <div class="row">
@@ -991,11 +1084,30 @@ async function renderHolding(hash) {
               <p class="muted">settled and unsettled together — which is what a statement shows</p>
             </div>
             <div>
-              <p class="label">Deal has distributed</p>
-              <p class="stat">${esc(money(d.distributed, den))}</p>
-              <p class="muted">net of the ${esc(pct(d.fees.management_bps))} management fee</p>
+              <p class="label">Paid on a holding this size</p>
+              <p class="stat">${esc(money(h.attributed, den))}</p>
+              <p class="muted">the deal has returned ${esc(pct(dr.bps))} of capital
+                (${esc(multiple(dr.bps))}), net of the
+                ${esc(pct(d.fees.management_bps))} management fee</p>
             </div>
           </div>
+          <!-- The caveat is not optional and not a footnote. The index
+               mechanism accrues per position and keeps no register of payments
+               per holder — which is exactly what makes a distribution to
+               thousands of holders cost one write — so "what did THIS
+               account receive" is not a fact the chain retains. -->
+          <p class="muted small" style="margin-top:var(--sp-3)">That last figure is what a
+            position of <em>this size</em> is entitled to over the whole life of the deal. It is
+            what this account has been paid only if its holding has not changed since the close.
+            The chain accrues against the position and keeps no register of payments per holder
+            — which is exactly what makes a distribution to thousands of holders cost one
+            write — so anybody who has traded since will differ from it: part of a bought
+            position’s share was paid to the seller before this account owned anything, and a
+            seller keeps whatever had already accrued on what they sold.${
+              BigInt(r.claimable.amount || '0') > h.attributed ? ` Which is the case here —
+              this account can claim <strong>more</strong> than a position this size has earned,
+              because it held more of the deal earlier than it does now.` : ''}
+            <strong>Claimable now</strong> is exact; this one is context.</p>
         </div>`;
       }).join('') : `
         <div class="notebox" style="margin-top:var(--sp-3)">

@@ -163,6 +163,90 @@ export function projectedShare(deal, cheque) {
   };
 }
 
+/**
+ * What the deal has returned, as a proportion of what was put in.
+ *
+ * `distributed` is NET of the management fee — it is what actually reached the
+ * holders — and `raised` is what they subscribed. So this is the figure an
+ * investor means by "how much of my capital has come back", and it is exact at
+ * the deal level because both numbers are on the deal.
+ *
+ * Reported as a PERCENTAGE OF CAPITAL and as a multiple, because those are the
+ * two ways the same fact gets said in this business and each is unreadable to
+ * somebody used to the other. Nothing here is annualised: an IRR needs the date
+ * of every cash flow, the chain holds the distribution total rather than its
+ * schedule, and a number that looked like an IRR but ignored timing would be
+ * worse than no number at all.
+ *
+ * It is a RETURN TO DATE and never a valuation. A deal that has returned 40% of
+ * capital may be worth three times that or nothing; what remains invested is not
+ * something a register of payments can know, and the page must not imply it
+ * does.
+ */
+export function returnToDate(deal) {
+  const raised = big(deal.raised);
+  const distributed = big(deal.distributed);
+  if (raised === 0n) {
+    return { pctOfCapital: 0, multiple: 0, bps: 0, distributed, raised, any: false };
+  }
+
+  // Basis points then divided, so the ratio is not taken through a float on
+  // numbers that are arbitrary precision on the wire.
+  const bps = Number((distributed * MAX_BPS) / raised);
+  return {
+    raised,
+    distributed,
+    any: distributed > 0n,
+    bps,
+    pctOfCapital: bps / 100,
+    multiple: bps / 10000,
+  };
+}
+
+/**
+ * A return expressed the other way round: "0.83x". Two decimals always, because
+ * a multiple printed as "1x" reads as exactly break-even and 1.004 is not.
+ */
+export function multiple(bps) {
+  return `${(Number(bps) / 10000).toFixed(2)}×`;
+}
+
+/**
+ * What a holding of this size has been paid across the deal's life.
+ *
+ * `balance / supply * distributed`, in that order so the division is taken last
+ * and the result is not rounded twice. Computed from the balance rather than
+ * from the `share_bps` the query returns, because that field is a rounded
+ * integer of basis points and a percentage applied to money is a percentage
+ * rounding money.
+ *
+ * THE CONDITION IS PART OF THE ANSWER, and the caller must print it. This is
+ * what a position of this size is entitled to over the WHOLE life of the deal,
+ * which equals what this holder has been paid only if they have held it since
+ * the close. Somebody who bought on the secondary market is credited here with
+ * distributions that were paid to the seller, before they owned anything.
+ *
+ * The chain could not answer it exactly even if asked. The index mechanism
+ * carries an accrual per position, not a register of payments per holder — that
+ * is precisely what makes distributing to thousands of holders cost one write
+ * instead of thousands — so "what has THIS account actually received" is not a
+ * fact the state retains. `claimable` is exact and is the figure to lead with;
+ * this one is context.
+ */
+export function holderShare(deal, balance) {
+  const held = big(balance);
+  const supply = big(deal.supply);
+  const distributed = big(deal.distributed);
+  if (supply === 0n || held === 0n) {
+    return { attributed: 0n, shareBps: 0, whole: supply > 0n && held === supply };
+  }
+  return {
+    attributed: (held * distributed) / supply,
+    shareBps: Number((held * MAX_BPS) / supply),
+    whole: held === supply,
+  };
+}
+
 /* ========================================================================== */
 /*  Entitlement                                                               */
 /* ========================================================================== */

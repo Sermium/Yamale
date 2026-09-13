@@ -149,6 +149,33 @@ one frame of each module. Re-seeded so a demonstration can walk the whole range:
   measured on the investor's balance before and after; the realisation was a
   final distribution, which stops trading because every token is then a claim on
   a known fixed sum.
+- `x/syndicate` now carries **a syndicate-shaped book**. Four more investors
+  across SN, NG, KE and MA, onboarded in one batched group proposal, and a live
+  raise at 8.10 of 12.00 YML against a 7.00 minimum spread over six cheques from
+  2.80 down to 0.40. Two investors is a co-investment; the spread is the product,
+  and one investor who can write the whole cheque does not need a syndicate.
+- **The console now shows the return.** `distributed / raised` at the deal level
+  — exact, because both are fields of the deal — as a percentage of capital and
+  as a multiple, on the deal list, on a card, and in a ladder with the four
+  things it is not: not an annual rate (an IRR needs the date of every cash
+  flow, and the chain carries the distribution total rather than its schedule),
+  not a valuation, not any one holder's return, and not a forecast of the other
+  deals. The holding view attributes a share of it to a position, and says in
+  the same breath that this is exact only for a position that has not traded:
+  the index accrues per position and keeps no register of payments per holder,
+  which is what makes a distribution to thousands of them cost one write. On
+  `syn-alice` that caveat is visible rather than theoretical — she can claim
+  more than a position her current size has earned, because she held more of
+  the deal earlier.
+
+**Still open in `x/syndicate`: a deal has no documents.** `Deal` carries
+`reference`, a free-text string, and nothing else. There is no field for a term
+sheet, a subscription agreement or a shareholders' agreement — no hash, no URI,
+no kind. So the console can explain the economics of a deal exactly and can say
+nothing whatever about the papers an investor is actually signing, and a
+document produced later cannot be checked against what was agreed. Closing it
+needs a repeated message field on `Deal` (kind, sha256, uri), a keeper change
+and a consensus upgrade, which would be the second in two days. Not started.
 
 **A positioning error, corrected 2026-09-13.** The console was `clients/ladoum`,
 titled "Registre du Ladoum", and its certificate carried a hardcoded section
