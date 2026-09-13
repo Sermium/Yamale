@@ -101,6 +101,33 @@ document has previously asserted:
   re-seeded by state sync; done 2026-09-13, 265,843 → head in about four
   minutes, and it is bonded again.
 
+**The four refusals, run on devnet-2 2026-09-13.** Each declaration is one a
+paper certificate would carry without complaint, and each was refused by
+consensus with the chain's own reason, read out of the execution events rather
+than inferred — a group proposal whose message is refused still rides a
+SUCCESSFUL transaction, so the tx result would have reported every one of them
+as an acceptance.
+
+| declaration | the chain's reason |
+| --- | --- |
+| a dam that is male | `animal 4 is SEX_MALE` |
+| a sire born after his own offspring | `sire 7 was born 2023-06-14 and…` |
+| a parent the register does not hold | `sire 9041: the parent named is…` |
+| a certification with no laboratory | `animal 12: a certified animal…` |
+
+Kept as `scripts/devnet/herd-refusals.sh`, because the seeder's own `refusals`
+stage can no longer be used for this: its probes name animals that are now
+mid-transfer or disputed, so they would be refused for not being ACTIVE rather
+than for the pedigree being impossible — which that script's own comment
+correctly calls worse than showing nothing.
+
+**One probe was mislabelled and is worth recording rather than quietly fixing.**
+"An animal as its own ancestor" IS refused, but by the BIRTH-DATE rule, not the
+cycle check: a dated cycle always implies a descendant older than its ancestor,
+so dates catch it first. That is why x/herd's own cycle tests use undated
+animals. It was replaced with a parent the register does not hold, which fails
+for a reason nothing else covers.
+
 **Seeded to show the state machines, 2026-09-13.** Both consoles were showing
 one frame of each module. Re-seeded so a demonstration can walk the whole range:
 
