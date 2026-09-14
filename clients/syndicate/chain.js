@@ -139,6 +139,23 @@ export async function query(name, arg) {
 }
 
 /**
+ * Whether the chain's binary predates the query being asked.
+ *
+ * A node that has never heard of a query path answers `code 6, unknown query
+ * path`, and that is a fact about the BINARY rather than about the data. An
+ * interface that reported it as "the chain did not answer" would send somebody
+ * looking for a broken node, when the true statement is "this chain has not
+ * taken the upgrade yet" — which is actionable and is not a fault.
+ *
+ * Matched on the log rather than on the code, for the same reason queryOrNull
+ * is: the numeric code is the SDK's and moves between versions.
+ */
+export function isUnknownQuery(e) {
+  const text = `${e?.message ?? ''} ${e?.detail ?? ''}`.toLowerCase();
+  return text.includes('unknown query path') || text.includes('unknown request');
+}
+
+/**
  * Returns null when the chain answered "there is no such thing".
  *
  * Matched on the log rather than on the ABCI code, because the code is the

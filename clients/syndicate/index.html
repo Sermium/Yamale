@@ -500,7 +500,7 @@
 <script type="module">
 import {
   commitments, deal, dealByRef, deals, documents, entitlement, head, investor,
-  listings, operators, params,
+  isUnknownQuery, listings, operators, params,
 } from './chain.js';
 import {
   DIGEST_MEANS, amount, book, day, denomInfo, entryFees, holderShare, money,
@@ -749,6 +749,21 @@ async function showPapers(d) {
         public chain is a disclosure no later correction can withdraw.</p>
       <div class="papers">${list.map(paper).join('')}</div>`;
   } catch (e) {
+    // A node that has never heard of the query is a fact about the BINARY, not
+    // about the deal, and reporting it as a failure sends somebody looking for
+    // a broken node. It is also the state this console is in against any chain
+    // that has not taken the deal-documents upgrade yet.
+    if (isUnknownQuery(e)) {
+      el.innerHTML = `
+        <div class="notebox">
+          <p><strong>This chain does not carry deal documents yet.</strong> Its binary predates
+            them: the node answers <code>unknown query path</code>, which is the node saying it
+            has no such feature rather than saying it has no such papers.</p>
+          <p>It arrives with the <code>syndicate-documents</code> upgrade, at a halt height
+            governance sets. Nothing else on this page is affected.</p>
+        </div>`;
+      return;
+    }
     el.innerHTML = `<div class="err"><p><strong>The chain did not answer for the papers.</strong>
       <code>${esc(e.message)}</code></p></div>`;
   }

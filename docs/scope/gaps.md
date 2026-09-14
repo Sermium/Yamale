@@ -168,14 +168,23 @@ one frame of each module. Re-seeded so a demonstration can walk the whole range:
   more than a position her current size has earned, because she held more of
   the deal earlier.
 
-**Still open in `x/syndicate`: a deal has no documents.** `Deal` carries
-`reference`, a free-text string, and nothing else. There is no field for a term
-sheet, a subscription agreement or a shareholders' agreement — no hash, no URI,
-no kind. So the console can explain the economics of a deal exactly and can say
-nothing whatever about the papers an investor is actually signing, and a
-document produced later cannot be checked against what was agreed. Closing it
-needs a repeated message field on `Deal` (kind, sha256, uri), a keeper change
-and a consensus upgrade, which would be the second in two days. Not started.
+**Deal documents, built 2026-09-14, awaiting a halt height.** `Deal` carried
+`reference`, a free-text string, and nothing else — no term sheet, no
+subscription agreement, no shareholders' agreement. `x/syndicate` now has
+`MsgAttachDocument` and `Query/Documents`: an admitted operator group records a
+SHA-256 digest, a kind, a title and a location, in any deal state including
+REALISED, and amends by supersession so the earlier version stays readable. The
+documents themselves are never written to the chain — a subscription agreement
+names its investor and their cheque. 18 keeper tests, 8 console tests, both
+build profiles, reference docs and the OpenAPI spec regenerated.
+
+Not live yet: it is consensus-breaking, and proposal **17** on devnet-2 carries
+the plan `syndicate-documents` at halt height **333,108**. The binary is staged
+on both validators as `/opt/yamale/bin/blockchaind.next`, verified to boot and
+to carry the new command. Until the chain crosses that height
+`Query/Documents` answers `code 6` and the console's papers panel reports that
+the chain did not answer — which is the honest state rather than a fault.
+Runbook: [upgrade-devnet-2-syndicate-documents.md](../guides/upgrade-devnet-2-syndicate-documents.md).
 
 **A positioning error, corrected 2026-09-13.** The console was `clients/ladoum`,
 titled "Registre du Ladoum", and its certificate carried a hardcoded section
