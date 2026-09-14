@@ -168,22 +168,39 @@ one frame of each module. Re-seeded so a demonstration can walk the whole range:
   more than a position her current size has earned, because she held more of
   the deal earlier.
 
-**Deal documents, built 2026-09-14, awaiting a halt height.** `Deal` carried
+**Deal documents, live on devnet-2 since 2026-09-14.** `Deal` carried
 `reference`, a free-text string, and nothing else — no term sheet, no
 subscription agreement, no shareholders' agreement. `x/syndicate` now has
 `MsgAttachDocument` and `Query/Documents`: an admitted operator group records a
 SHA-256 digest, a kind, a title and a location, in any deal state including
 REALISED, and amends by supersession so the earlier version stays readable. The
 documents themselves are never written to the chain — a subscription agreement
-names its investor and their cheque. 18 keeper tests, 8 console tests, both
-build profiles, reference docs and the OpenAPI spec regenerated.
+names its investor and their cheque.
 
-Not live yet: it is consensus-breaking, and proposal **17** on devnet-2 carries
-the plan `syndicate-documents` at halt height **333,108**. The binary is staged
-on both validators as `/opt/yamale/bin/blockchaind.next`, verified to boot and
-to carry the new command. Until the chain crosses that height
-`Query/Documents` answers `code 6` and the console's papers panel reports that
-the chain did not answer — which is the honest state rather than a fault.
+Proposal 18 passed (37.0% of bonded, no votes against) and the plan
+`syndicate-documents` applied at height **335,762** on both validators.
+`Query/Documents` answers `code 0`. Deals 2, 4 and 5 carry real papers whose
+digests were verified against `sha256sum` of the files that produced them. 18
+keeper tests, 8 console tests, both build profiles, reference docs and the
+OpenAPI spec regenerated.
+
+**Proposal 17, the first attempt, was REJECTED with zero votes** — the
+30-minute window ran out while nobody was at the keyboard. Worth recording
+because the failure was clean: an unvoted upgrade proposal never schedules its
+plan, so the chain sailed past 333,108 without halting and nothing needed
+undoing.
+
+**Two mistakes of my own, both on the chain for good.** The seeder hard-coded
+deal ids from creation order; deal 1 is SYN-2026-FAIL and not SYN-2026-001, so
+seven papers describing Sahel Logistics were filed against Kigali Fintech.
+There is no delete — by design — so the correction went forward: six Kigali
+Fintech papers now supersede them and the wrong ones stay visible. Ids resolve
+through the reference now. Separately, the binary-swap script refused a node
+that had genuinely halted, because it grepped 200 journal lines for
+`UPGRADE NEEDED` and thirty-second pex chatter had scrolled it away; it tests
+the height against the scheduled plan instead. Both fixes are in
+`scripts/devnet/`.
+
 Runbook: [upgrade-devnet-2-syndicate-documents.md](../guides/upgrade-devnet-2-syndicate-documents.md).
 
 **A positioning error, corrected 2026-09-13.** The console was `clients/ladoum`,
