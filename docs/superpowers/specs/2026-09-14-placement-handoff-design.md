@@ -83,11 +83,21 @@ no default guessing:
 
 - **Onboarded by an institution** — the ordinary path. Country required,
   institution chosen from the dropdown of B1 below.
-- **Foundation administrator** — no country. The screen states the rule rather
-  than merely skipping the field: chain-wide or nothing, capped by
-  `MaxFoundationAdministrators`, and because chain-wide scope may be granted by
-  governance and nobody else, the output is a governance proposal rather than a
-  participant's command.
+- **Foundation administrator** — no placement request at all, and the reason is
+  more specific than "no country". Corrected after reading the keeper on
+  2026-09-15: such an account has **no jurisdiction record**, and
+  `Keeper.CountryOf` falls through to `hasFoundationGrant` and returns
+  `FoundationCountry` = `ZZ`, which is *derived from holding the role and never
+  stored*. `MsgSetJurisdiction` refuses `ZZ` outright, precisely so the marker
+  cannot be handed to an ordinary account.
+
+  So the screen must not ask for a country, must not produce a participant
+  command, and must not say "you will get no user ID" — which is the current
+  copy and is false for them. Once governance grants the role, `CountryOf`
+  answers `ZZ` and the ordinary Claim-user-ID button works, issuing an
+  identifier with a `ZZ` prefix. What the screen owes them is that sequence, the
+  cap (`MaxFoundationAdministrators`), and the fact that chain-wide scope is
+  governance-only.
 
 **Foundation support staff are not a category the chain has.** There is no
 support role in `role.proto`. Somebody working at the foundation who is not an
@@ -129,6 +139,15 @@ parses it, then **checks it against the chain rather than trusting the paste**:
 - is the country one ISO has assigned — the reserved codes, `ZZ` among them, are
   refused precisely so the marker the foundation administrators carry cannot be
   handed to an ordinary account.
+
+**Read over REST, not ABCI, and the measurement is the reason.** The other
+consoles speak `abci_query` because the proxy denies their modules' REST
+prefixes. Measured 2026-09-15, both endpoints this console needs answer `200`
+over `/api/rest`:
+`yamale/blockchain/paymsg/v1/approved_participant` and
+`yamale/blockchain/alias/v1/jurisdiction/{address}`. REST returns JSON, so this
+console transcribes no protobuf at all. Do not "fix" it to ABCI without
+re-measuring.
 
 **Sign it.** Shows what will be recorded, who signs it, and prints the
 `MsgSetJurisdiction` for the participant's group.
