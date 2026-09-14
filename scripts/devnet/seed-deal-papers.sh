@@ -29,6 +29,31 @@ OPERATOR=$("$BIN" query syndicate operators $Q 2>/dev/null | python3 -c "
 import sys, json; print(json.load(sys.stdin)['operators'][0]['address'])")
 [ -n "$OPERATOR" ] || { echo 'no operator'; exit 1; }
 
+# Deal ids are resolved from the REFERENCE, never assumed from creation order.
+#
+# The first run of this script hard-coded 1, 4 and 5 from the order the deals
+# were seeded in. Deal 1 is SYN-2026-FAIL and not SYN-2026-001, so seven papers
+# describing Sahel Logistics were attached to Kigali Fintech -- and documents are
+# append-only by design, so that misfiling is on the chain for good. An id is a
+# position; a reference is a name, and the operator's own file is kept under the
+# name.
+deal_for() {
+  local id
+  id=$("$BIN" query syndicate deals $Q 2>/dev/null | python3 -c "
+import sys, json
+want = sys.argv[1]
+for d in json.load(sys.stdin)['deals']:
+    if d['reference'] == want:
+        print(d['id']); break" "$1")
+  [ -n "$id" ] || { echo "no deal with reference $1" >&2; return 1; }
+  printf '%s' "$id"
+}
+
+SAHEL=$(deal_for SYN-2026-001)  || exit 1
+THIES=$(deal_for SYN-2026-EXITED) || exit 1
+JOKKO=$(deal_for SYN-2026-014)  || exit 1
+echo "  resolved: SYN-2026-001=$SAHEL  SYN-2026-EXITED=$THIES  SYN-2026-014=$JOKKO"
+
 as_operator() {
   local body=$1 note=$2
   cat > /tmp/paper-msg.json <<JSON
@@ -167,22 +192,39 @@ for name, body in files.items():
 print('  %d files written to %s' % (len(files), d))
 PY
 
+# Attaching is append-only, so a second run would file every paper twice. A
+# seeder that cannot be run again is a seeder nobody runs.
+already() {
+  local n
+  n=$("$BIN" query syndicate documents "$1" $Q 2>/dev/null | python3 -c "
+import sys, json; print(len(json.load(sys.stdin).get('documents', [])))" 2>/dev/null)
+  [ "${n:-0}" != "0" ]
+}
+
 echo
-echo "== deal 1, Sahel Logistics: a funded deal with its full paper trail =="
-paper 1 DOCUMENT_KIND_TERM_SHEET             "Term sheet"                       en 0 "$DOCS/d1-term-sheet.txt"
-paper 1 DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT "Subscription agreement"           en 0 "$DOCS/d1-subscription.txt"
-paper 1 DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT "Shareholders agreement"           en 0 "$DOCS/d1-sha.txt"
-paper 1 DOCUMENT_KIND_DISCLOSURE             "Risk warnings and fee disclosure" en 0 "$DOCS/d1-disclosure.txt"
-paper 1 DOCUMENT_KIND_DILIGENCE              "Partech Africa diligence pack"    en 0 "$DOCS/d1-diligence.txt"
-paper 1 DOCUMENT_KIND_REPORT                 "Etats financiers 2026"            fr 0 "$DOCS/d1-accounts.txt"
+echo "== Sahel Logistics (deal $SAHEL): a funded deal with its full paper trail =="
+if already "$SAHEL"; then
+  echo "  skipped — deal $SAHEL already carries papers; documents cannot be attached twice"
+else
+paper "$SAHEL" DOCUMENT_KIND_TERM_SHEET             "Term sheet"                       en 0 "$DOCS/d1-term-sheet.txt"
+paper "$SAHEL" DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT "Subscription agreement"           en 0 "$DOCS/d1-subscription.txt"
+paper "$SAHEL" DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT "Shareholders agreement"           en 0 "$DOCS/d1-sha.txt"
+paper "$SAHEL" DOCUMENT_KIND_DISCLOSURE             "Risk warnings and fee disclosure" en 0 "$DOCS/d1-disclosure.txt"
+paper "$SAHEL" DOCUMENT_KIND_DILIGENCE              "Partech Africa diligence pack"    en 0 "$DOCS/d1-diligence.txt"
+paper "$SAHEL" DOCUMENT_KIND_REPORT                 "Etats financiers 2026"            fr 0 "$DOCS/d1-accounts.txt"
+
+fi
 
 echo
 echo "== the amendment, which is the part a paper register cannot do =="
 # The old agreement STAYS on the record. A dispute is almost always about what
 # the terms were at a date rather than about what they are now.
-OLD=$(doc_id 1 "Shareholders agreement")
-if [ -n "$OLD" ]; then
-  paper 1 DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT "Shareholders agreement (amended)" en "$OLD" \
+OLD=$(doc_id "$SAHEL" "Shareholders agreement")
+AMENDED=$(doc_id "$SAHEL" "Shareholders agreement (amended)")
+if [ -n "$AMENDED" ]; then
+  echo "  skipped — the amendment is already on the record as document $AMENDED"
+elif [ -n "$OLD" ]; then
+  paper "$SAHEL" DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT "Shareholders agreement (amended)" en "$OLD" \
     "$DOCS/d1-sha-amended.txt"
   echo "  the earlier version stays readable as document $OLD"
 else
@@ -190,15 +232,21 @@ else
 fi
 
 echo
-echo "== deal 4, Thies Solar: realised, so its papers arrived after the money =="
-paper 4 DOCUMENT_KIND_TERM_SHEET "Term sheet"                              en 0 "$DOCS/d4-term-sheet.txt"
-paper 4 DOCUMENT_KIND_RESOLUTION "Completion statement and exit resolution" en 0 "$DOCS/d4-completion.txt"
-paper 4 DOCUMENT_KIND_REPORT     "Final investor report"                    en 0 "$DOCS/d4-final-report.txt"
+echo "== Thies Solar (deal $THIES): realised, so its papers arrived after the money =="
+if already "$THIES"; then echo "  skipped — already carries papers"; else
+paper "$THIES" DOCUMENT_KIND_TERM_SHEET "Term sheet"                              en 0 "$DOCS/d4-term-sheet.txt"
+paper "$THIES" DOCUMENT_KIND_RESOLUTION "Completion statement and exit resolution" en 0 "$DOCS/d4-completion.txt"
+paper "$THIES" DOCUMENT_KIND_REPORT     "Final investor report"                    en 0 "$DOCS/d4-final-report.txt"
+
+fi
 
 echo
-echo "== deal 5, Jokkolabs Health: still raising, so only what exists yet =="
-paper 5 DOCUMENT_KIND_TERM_SHEET "Term sheet"                              en 0 "$DOCS/d5-term-sheet.txt"
-paper 5 DOCUMENT_KIND_DISCLOSURE "Avertissements sur les risques et frais"  fr 0 "$DOCS/d5-disclosure.txt"
+echo "== Jokkolabs Health (deal $JOKKO): still raising, so only what exists yet =="
+if already "$JOKKO"; then echo "  skipped — already carries papers"; else
+paper "$JOKKO" DOCUMENT_KIND_TERM_SHEET "Term sheet"                              en 0 "$DOCS/d5-term-sheet.txt"
+paper "$JOKKO" DOCUMENT_KIND_DISCLOSURE "Avertissements sur les risques et frais"  fr 0 "$DOCS/d5-disclosure.txt"
+
+fi
 
 echo
 echo "== what each deal now carries =="
