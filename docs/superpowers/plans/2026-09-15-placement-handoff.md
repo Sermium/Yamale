@@ -151,10 +151,10 @@ Add `foundationPlacement` to the import list at the top of that file.
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd clients/sdk && npx vitest run src/placement.test.ts`
+Run: `cd clients/sdk && node --experimental-strip-types --test src/placement.test.ts`
 Expected: FAIL — `foundationPlacement is not exported` (or `is not a function`).
 
-If this repo's SDK tests run under `node --test` instead, use `node --test src/placement.test.ts`. Check `clients/sdk/package.json` `scripts.test` and use whatever it names.
+That is the runner `clients/sdk/package.json` names, and `--experimental-strip-types` is what lets `node --test` run TypeScript in this package. No other test runner is installed here, so do not reach for one.
 
 - [ ] **Step 3: Implement it**
 
@@ -263,15 +263,20 @@ git commit -m "The placement form had no path for the one account the chain exem
 Create `clients/sdk/src/participants.test.ts`:
 
 ```typescript
-import { describe, expect, test } from 'vitest';
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+
 import { ChainClient } from './client.ts';
 
 const clientWith = (body: unknown) =>
   new ChainClient({
     restUrl: '/api/rest',
     rpcUrl: '/api/rpc',
-    fetchImpl: async () =>
-      new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }),
+    fetchImpl: (async () =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as typeof fetch,
   });
 
 test('an empty register is an empty list, not a failure', async () => {
@@ -279,7 +284,7 @@ test('an empty register is an empty list, not a failure', async () => {
   // threw here would show a loading error on the one screen that most needs to
   // say something true.
   const c = clientWith({ approved_participant: [], pagination: { next_key: null, total: '0' } });
-  expect(await c.approvedParticipants()).toEqual([]);
+  assert.deepEqual(await c.approvedParticipants(), []);
 });
 
 test('participants come back with the three fields a dropdown needs', async () => {
@@ -289,7 +294,7 @@ test('participants come back with the three fields a dropdown needs', async () =
     ],
     pagination: { next_key: null, total: '1' },
   });
-  expect(await c.approvedParticipants()).toEqual([
+  assert.deepEqual(await c.approvedParticipants(), [
     { participant: 'yml1bank', code: 'SN-CBAO', name: 'CBAO Senegal' },
   ]);
 });
@@ -297,7 +302,7 @@ test('participants come back with the three fields a dropdown needs', async () =
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd clients/sdk && npx vitest run src/participants.test.ts`
+Run: `cd clients/sdk && node --experimental-strip-types --test src/participants.test.ts`
 Expected: FAIL — `c.approvedParticipants is not a function`.
 
 - [ ] **Step 3: Implement the method**
@@ -328,8 +333,8 @@ Add to `ChainClient` in `clients/sdk/src/client.ts`, beside `userIdOf`:
 
 - [ ] **Step 4: Run the test again**
 
-Run: `cd clients/sdk && npx vitest run src/participants.test.ts`
-Expected: PASS, both tests.
+Run: `cd clients/sdk && node --experimental-strip-types --test src/participants.test.ts`
+Expected: PASS, both tests. Then run `npm test` in that package and confirm nothing else broke.
 
 - [ ] **Step 5: Add the fork to the wallet form**
 
