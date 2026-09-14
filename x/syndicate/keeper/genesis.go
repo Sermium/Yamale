@@ -66,10 +66,22 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 		}
 	}
 
+	for _, d := range gs.Documents {
+		if err := k.Document.Set(ctx, d.Id, d); err != nil {
+			return err
+		}
+		if err := k.DocumentsByDeal.Set(ctx, collections.Join(d.DealId, d.Id)); err != nil {
+			return err
+		}
+	}
+
 	if err := k.NextDealID.Set(ctx, gs.NextDealId); err != nil {
 		return err
 	}
-	return k.NextListingID.Set(ctx, gs.NextListingId)
+	if err := k.NextListingID.Set(ctx, gs.NextListingId); err != nil {
+		return err
+	}
+	return k.NextDocumentID.Set(ctx, gs.NextDocumentId)
 }
 
 // ExportGenesis reads the platform out.
@@ -118,11 +130,20 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}); err != nil {
 		return nil, err
 	}
+	if err := k.Document.Walk(ctx, nil, func(_ uint64, d types.Document) (bool, error) {
+		gs.Documents = append(gs.Documents, d)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
 
 	if gs.NextDealId, err = k.NextDealID.Peek(ctx); err != nil {
 		return nil, err
 	}
 	if gs.NextListingId, err = k.NextListingID.Peek(ctx); err != nil {
+		return nil, err
+	}
+	if gs.NextDocumentId, err = k.NextDocumentID.Peek(ctx); err != nil {
 		return nil, err
 	}
 	return &gs, nil

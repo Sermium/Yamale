@@ -106,6 +106,74 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 
+	// Documents. The supersession chain is checked as a whole rather than
+	// document by document, because the failure it guards against is a SHAPE:
+	// two documents pointing at the same predecessor leave a reader with two
+	// current versions of one agreement and no rule for choosing, which is
+	// worse than no register at all because the register looks authoritative.
+	docs := map[uint64]Document{}
+	replacedBy := map[uint64]uint64{}
+	for _, d := range gs.Documents {
+		if d.Id == 0 {
+			return fmt.Errorf("document 0 is never issued")
+		}
+		if d.Id >= gs.NextDocumentId {
+			return fmt.Errorf(
+				"document %d exists but next_document_id is %d", d.Id, gs.NextDocumentId)
+		}
+		if _, ok := docs[d.Id]; ok {
+			return fmt.Errorf("document %d appears twice", d.Id)
+		}
+		if _, ok := deals[d.DealId]; !ok {
+			return fmt.Errorf("document %d names deal %d, which is not here", d.Id, d.DealId)
+		}
+		if err := ValidateDocument(d.Kind, d.Title, d.Sha256, d.Uri, d.Language); err != nil {
+			return fmt.Errorf("document %d: %w", d.Id, err)
+		}
+		docs[d.Id] = d
+	}
+	for _, d := range gs.Documents {
+		if d.Supersedes != 0 {
+			prev, ok := docs[d.Supersedes]
+			if !ok {
+				return fmt.Errorf("document %d replaces document %d, which is not here",
+					d.Id, d.Supersedes)
+			}
+			if prev.DealId != d.DealId {
+				return fmt.Errorf("document %d replaces document %d, which belongs to another deal",
+					d.Id, d.Supersedes)
+			}
+			if other, ok := replacedBy[d.Supersedes]; ok {
+				return fmt.Errorf(
+					"documents %d and %d both replace document %d, so the deal has two current versions",
+					other, d.Id, d.Supersedes)
+			}
+			replacedBy[d.Supersedes] = d.Id
+		}
+		// The back-pointer is not independent information: it is the forward
+		// pointer read the other way, and a file where the two disagree would
+		// show a reader a superseded document as current, or the reverse.
+		if d.SupersededBy != 0 {
+			next, ok := docs[d.SupersededBy]
+			if !ok {
+				return fmt.Errorf("document %d is replaced by document %d, which is not here",
+					d.Id, d.SupersededBy)
+			}
+			if next.Supersedes != d.Id {
+				return fmt.Errorf(
+					"document %d says it was replaced by %d, but %d replaces %d",
+					d.Id, d.SupersededBy, next.Id, next.Supersedes)
+			}
+		}
+	}
+	for old, new := range replacedBy {
+		if docs[old].SupersededBy != new {
+			return fmt.Errorf(
+				"document %d replaces document %d, but %d does not say so",
+				new, old, old)
+		}
+	}
+
 	return nil
 }
 

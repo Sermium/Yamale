@@ -64,4 +64,10 @@ var (
 		"this listing is a private sale to a named buyer")
 	ErrSelfDeal      = errors.Register(ModuleName, 31, "you cannot buy your own listing")
 	ErrInvalidAmount = errors.Register(ModuleName, 32, "the amount must be positive")
+
+	ErrNoDocument      = errors.Register(ModuleName, 33, "no such document")
+	ErrInvalidDocument = errors.Register(ModuleName, 34,
+		"a document needs a kind, a title and a 32-byte SHA-256 digest of its contents")
+	ErrAlreadySuperseded = errors.Register(ModuleName, 35,
+		"that document has already been replaced; amend the current version instead")
 )

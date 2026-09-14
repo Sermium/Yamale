@@ -36,6 +36,7 @@ var (
 	InvestorKey = collections.NewPrefix("investor")
 	DealKey     = collections.NewPrefix("deal")
 	ListingKey  = collections.NewPrefix("listing")
+	DocumentKey = collections.NewPrefix("document")
 
 	// (deal, investor) -> commitment, and (deal, holder) -> position, so one
 	// deal's commitments or holders are a prefix walk rather than a scan.
@@ -51,9 +52,14 @@ var (
 	ByDenomKey = collections.NewPrefix("idx_by_denom")
 	// (deal, listing) so one deal's market is a prefix walk.
 	ListingsByDealKey = collections.NewPrefix("idx_listings_by_deal")
+	// (deal, document) so one deal's papers are a prefix walk, in id order,
+	// which is the order they were attached in and therefore the order the
+	// deal happened in.
+	DocumentsByDealKey = collections.NewPrefix("idx_documents_by_deal")
 
-	NextDealIDKey    = collections.NewPrefix("next_deal_id")
-	NextListingIDKey = collections.NewPrefix("next_listing_id")
+	NextDealIDKey     = collections.NewPrefix("next_deal_id")
+	NextListingIDKey  = collections.NewPrefix("next_listing_id")
+	NextDocumentIDKey = collections.NewPrefix("next_document_id")
 )
 
 // IndexScale is the fixed-point scale the distribution index is carried at.
@@ -70,6 +76,25 @@ var (
 // remains is left in the pot and paid out with the next distribution rather
 // than swept, because sweeping it needs somebody to sweep it to.
 const IndexScale = 1_000_000_000_000_000_000
+
+// SHA256Len is how long a digest is, in bytes.
+//
+// Checked rather than assumed. A hash field that accepts any length accepts a
+// truncated one, and a truncated SHA-256 is not a weaker proof, it is a
+// forgeable one.
+const SHA256Len = 32
+
+// MaxDocumentTitle and MaxDocumentURI bound the free text on a document.
+//
+// Not because storage is scarce but because these fields are copied into every
+// interface that reads them, and a title long enough to be a document in its
+// own right is how somebody puts the contract in the field that was built to
+// hold its name — which would be exactly the public disclosure the hash design
+// exists to avoid.
+const (
+	MaxDocumentTitle = 256
+	MaxDocumentURI   = 512
+)
 
 // MaxBps is one hundred percent.
 const MaxBps = 10_000

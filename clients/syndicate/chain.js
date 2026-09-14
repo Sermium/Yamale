@@ -210,6 +210,16 @@ export const listings = async (dealId, liveOnly = false) =>
   (await query('Listings', { dealId, liveOnly })).listings ?? [];
 
 /**
+ * One deal's papers.
+ *
+ * Digests, never contents. Superseded versions come back by default because
+ * what was agreed at a date is usually the question a document register is
+ * asked, and a reader who can only see the current version cannot answer it.
+ */
+export const documents = async (dealId, currentOnly = false) =>
+  (await query('Documents', { dealId, currentOnly })).documents ?? [];
+
+/**
  * Whether an address may hold a deal token.
  *
  * `onboarded` comes from the chain's own boolean rather than from the presence

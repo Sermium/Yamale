@@ -71,6 +71,20 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:          "The secondary market for one deal",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "deal_id"}},
 				},
+				{
+					RpcMethod: "Documents",
+					Use:       "documents [deal-id]",
+					Short:     "The papers a deal depends on \u2014 their digests, never their contents",
+					Long: "The papers a deal depends on: kind, title, SHA-256 digest and " +
+						"where to find it.\n\n" +
+						"Verify one you have been sent with `sha256sum <file>` and compare. A " +
+						"digest that matches proves the file is the document this operator " +
+						"attested to at that block. It proves nothing about whether the document " +
+						"says what its title claims, or whether anybody signed it.\n\n" +
+						"Superseded versions are listed by default, because what was agreed at a " +
+						"date is usually the question. Pass --current-only for the live set alone.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "deal_id"}},
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{
@@ -192,6 +206,33 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:            "buy [listing-id]",
 					Short:          "Fills a listing. Payment and tokens move together, in one block",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "listing_id"}},
+				},
+				{
+					RpcMethod: "AttachDocument",
+					// Deliberately no positional args. An operator is a group account
+					// by construction, so this message is submitted inside a group
+					// proposal as JSON rather than typed as a transaction, and the
+					// command exists mainly so that --help documents the fields
+					// somebody has to write into that JSON.
+					Use:   "attach-document",
+					Short: "Records the digest of a paper this deal depends on. Never the paper itself",
+					Long: "Records the SHA-256 digest of a document \u2014 term sheet, subscription " +
+						"agreement, shareholders' agreement, accounts, exit resolution \u2014 so that " +
+						"a file produced later can be proved to be, or not to be, the one that " +
+						"was agreed.\n\n" +
+						"The document itself is never sent. A subscription agreement names its " +
+						"investor and their cheque and a diligence pack holds a private " +
+						"company's accounts; either on a public chain is a permanent disclosure " +
+						"made on behalf of people who did not consent to it.\n\n" +
+						"The operator is a group, so this goes in as a proposal:\n\n" +
+						"  {\"@type\":\"/blockchain.syndicate.v1.MsgAttachDocument\",\n" +
+						"   \"operator\":\"<operator group>\",\"deal_id\":\"3\",\n" +
+						"   \"kind\":\"DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT\",\n" +
+						"   \"title\":\"Subscription agreement (EN)\",\n" +
+						"   \"sha256\":\"<base64 of the 32 raw digest bytes>\",\n" +
+						"   \"uri\":\"ipfs://...\",\"language\":\"en\",\"supersedes\":\"0\"}\n\n" +
+						"Proposal JSON carries bytes as base64, not hex:\n\n" +
+						"  sha256sum -b doc.pdf | cut -d' ' -f1 | xxd -r -p | base64 -w0",
 				},
 				{
 					RpcMethod: "RegisterOperator",

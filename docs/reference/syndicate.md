@@ -24,6 +24,29 @@ In full including the fees, because no service was delivered. A platform that ke
 | `deal_id` | uint64 |  |
 | `reason` | string |  |
 
+### MsgAttachDocument
+
+`/blockchain.syndicate.v1.MsgAttachDocument`
+
+Signed by the `operator` field.
+
+MsgAttachDocument records a paper the deal depends on: its digest, what kind of paper it is, and where it can be found.
+
+The document itself is never sent. A subscription agreement names its investor and their cheque and a diligence pack holds a private company's accounts, so putting either on a public chain would be a permanent disclosure made on behalf of people who did not consent to it.
+
+Signed by the operator group, so an attestation is an institution's decision rather than one employee's. Accepted in ANY deal state including REALISED, because accounts, completion statements and exit papers arrive after the money has moved and a register that stopped accepting them at the close would be missing exactly the documents a later dispute is about.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `operator` | string |  |
+| `deal_id` | uint64 |  |
+| `kind` | DocumentKind |  |
+| `title` | string |  |
+| `sha256` | bytes | Exactly 32 bytes. Not a hex string: a hex string is a format somebody gets wrong in the second character, and two spellings of the same digest that do not compare equal are worse than no digest. |
+| `uri` | string |  |
+| `language` | string |  |
+| `supersedes` | uint64 | The document this one replaces. Zero if it replaces nothing. It must belong to the same deal and must not already have been superseded - an amendment chain that forks has two current versions, which is the state this field exists to prevent. |
+
 ### MsgBuy
 
 `/blockchain.syndicate.v1.MsgBuy`
@@ -294,6 +317,25 @@ Response:
 | `deals` | repeated Deal |  |
 | `pagination` | PageResponse |  |
 
+### Documents
+
+`GET /yamale/blockchain/syndicate/v1/documents/{deal_id}`
+
+Documents are the papers one deal depends on: their digests, not their contents. Public like everything else here, because an investor who cannot see which agreements govern what they own is back in the spreadsheet the platform exists to replace.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `deal_id` | uint64 |  |
+| `current_only` | bool | Omit the versions that have been superseded. False by default, and the default is the deliberate one: what was agreed at a date is usually the question, and an interface that can only show the current version cannot answer it. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `documents` | repeated Document |  |
+
 ### Entitlement
 
 `GET /yamale/blockchain/syndicate/v1/entitlement/{deal_id}/{holder}`
@@ -428,6 +470,34 @@ Deal is one syndicated allocation into one company.
 | `opened_at` | int64 |  |
 | `closed_at` | int64 |  |
 
+### Document
+
+Document is a paper the deal depends on, proved to exist and proved not to have changed.
+
+#### The chain holds the hash and never the document
+
+A subscription agreement names its investor and their cheque; a diligence pack contains a private company's accounts. Writing either to a public chain is a permanent disclosure that no later correction can withdraw, and it would be made on behalf of people who did not consent to it. So what is stored here is a SHA-256 digest, a kind, a title and a location - never bytes.
+
+What that is worth is precise, and worth being precise about. It proves that a document with exactly these contents existed at a stated block, attested by a named operator group whose members can be asked about it. It proves that a file produced in a dispute years later either is or is not that document. It proves nothing whatever about whether the document says what its title claims, whether anybody signed it, or whether it is still available - the URI can rot, and an operator who takes the file down has removed the document while leaving this record standing. A hash is evidence of integrity, not of custody and not of truth.
+
+#### Append-only, and superseded rather than replaced
+
+Documents are never deleted and never edited. A register of what was agreed that can forget what was agreed is not a register. An amended agreement is a NEW document naming the one it supersedes, so the chain of amendments reads in both directions and the superseded version stays visible - which is the version somebody will need, because a dispute is almost always about what the terms were at a date rather than about what they are now.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | uint64 | Assigned by the chain. Never reused. |
+| `deal_id` | uint64 |  |
+| `kind` | DocumentKind |  |
+| `title` | string | What the document is called, in words, for a person reading a list. |
+| `sha256` | bytes | SHA-256 of the document's bytes. Exactly 32 bytes, and the algorithm is fixed rather than carried in a field: an algorithm field is an invitation to attach an MD5 and call it proof. |
+| `uri` | string | Where the document can be fetched. Free text, because the honest answer varies - an IPFS CID, a data room URL, or a shelf in an office. It may be empty, and it may stop working; the chain makes no promise about it and neither should any interface built on this. |
+| `language` | string | ISO 639-1. Recorded because these deals are written across French, English and Portuguese jurisdictions, and which language a binding agreement is in is not a presentational detail. |
+| `attested_by` | string | The operator group that attested to it. A group account, so attaching a document is a decision of an institution rather than of one employee with a keyboard. |
+| `attached_at` | int64 |  |
+| `supersedes` | uint64 | The document this one replaces, if any. Zero if it replaces nothing. |
+| `superseded_by` | uint64 | Filled in on the OLD document when a newer one supersedes it, so a reader who arrives at the stale version is told there is a later one rather than being left to act on it. |
+
 ### FeeSchedule
 
 Fees, in basis points, at the three points the platform earns.
@@ -519,6 +589,24 @@ DealState is where a syndication has got to.
 | `DEAL_STATE_ABORTED` | The target was not met, or the platform pulled the deal. Every commitment is refunded in full, including the fees, because no service was delivered. |
 | `DEAL_STATE_REALISED` | Realised: the investment has been exited and the proceeds are in the distribution pot. Tokens stop trading and become a claim on a known fixed sum, which is the only honest thing they can be at that point. |
 
+### DocumentKind
+
+DocumentKind says what a paper IS, so a holder can tell the document that binds them from the document that merely describes the deal.
+
+A kind rather than free text because the distinction is the whole point. An investor scrolling a list of attachments needs to see at a glance which one is the agreement they are party to and which is the partner's marketing pack, and "Deck_final_v3_REALLY_final.pdf" does not tell them.
+
+| Value | Meaning |
+| --- | --- |
+| `DOCUMENT_KIND_UNSPECIFIED` | Never stored on a document that exists. |
+| `DOCUMENT_KIND_TERM_SHEET` | The commercial terms, before anybody has signed anything. |
+| `DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT` | What the investor themselves signs to subscribe. The one document on this list that creates an obligation on the person reading it. |
+| `DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT` | The shareholders' agreement the syndicate's position is held under: drag, tag, pre-emption, information rights. What an investor actually owns is this document as much as it is a number of shares. |
+| `DOCUMENT_KIND_CONSTITUTIONAL` | The company's constitutional documents - articles, statuts. |
+| `DOCUMENT_KIND_DISCLOSURE` | Risk warnings, conflicts of interest, the fee disclosure. Separated from the term sheet because a disclosure buried inside a commercial document is a disclosure that was not made. |
+| `DOCUMENT_KIND_DILIGENCE` | The partner firm's diligence pack. The premise of the whole syndicate is riding alongside somebody who did this work, so whether it exists is a question an investor is entitled to have answered. |
+| `DOCUMENT_KIND_REPORT` | Accounts, valuations, investor updates - the reporting that arrives after the money has gone. |
+| `DOCUMENT_KIND_RESOLUTION` | A board or shareholder resolution, an exit notice, a completion statement. The papers behind a state change rather than behind the raise. |
+
 ### ListingState
 
 ListingState is where a secondary sale has got to.
@@ -562,6 +650,9 @@ Every way a transaction to this module can be rejected.
 | 30 | `ErrNotNamedBuyer` | this listing is a private sale to a named buyer |
 | 31 | `ErrSelfDeal` | you cannot buy your own listing |
 | 32 | `ErrInvalidAmount` | the amount must be positive |
+| 33 | `ErrNoDocument` | no such document |
+| 34 | `ErrInvalidDocument` | a document needs a kind, a title and a 32-byte SHA-256 digest of its contents |
+| 35 | `ErrAlreadySuperseded` | that document has already been replaced; amend the current version instead |
 | 4 | `ErrOperatorNotGroup` | a platform operator must be a group account, so taking money needs several signatures |
 | 5 | `ErrInvalidJurisdiction` | that is not a country this chain recognises |
 | 6 | `ErrNotOnboarded` | this address has not completed KYC onboarding and cannot hold a deal token |

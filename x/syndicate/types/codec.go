@@ -22,6 +22,7 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgList{},
 		&MsgCancelListing{},
 		&MsgBuy{},
+		&MsgAttachDocument{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)

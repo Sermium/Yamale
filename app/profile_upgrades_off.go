@@ -65,4 +65,28 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The other half of syndicate-documents. See profile_upgrades_on.go.
+		//
+		// x/syndicate is not linked into a settlement build, so there is nothing
+		// to do here — but the upgrade must EXIST under this name, and that is
+		// the whole point of the entry. An upgrade the binary does not know is
+		// not a no-op: x/upgrade panics the node at the halt height and it stays
+		// down until somebody installs a binary that knows the name. A settlement
+		// chain that never adopts this proposal never reaches the height and
+		// never runs this; a settlement chain that does adopt it carries on.
+		Name: "syndicate-documents",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"deal documents: nothing to do",
+				"absent", "x/syndicate is not linked into a settlement build, so there are no deals "+
+					"to attach papers to",
+			)
+			return vm, nil
+		},
+	},
 }

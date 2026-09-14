@@ -71,6 +71,14 @@ service Query {
   rpc Listings(QueryListingsRequest) returns (QueryListingsResponse) {
     option (google.api.http).get = "/yamale/blockchain/syndicate/v1/listings/{deal_id}";
   }
+
+  // Documents are the papers one deal depends on: their digests, not their
+  // contents. Public like everything else here, because an investor who cannot
+  // see which agreements govern what they own is back in the spreadsheet the
+  // platform exists to replace.
+  rpc Documents(QueryDocumentsRequest) returns (QueryDocumentsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/syndicate/v1/documents/{deal_id}";
+  }
 }
 
 // QueryParamsRequest is empty.
@@ -170,4 +178,21 @@ message QueryListingsRequest {
 message QueryListingsResponse {
   repeated Listing listings = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryDocumentsRequest asks for one deal's papers.
+message QueryDocumentsRequest {
+  uint64 deal_id = 1;
+
+  // Omit the versions that have been superseded. False by default, and the
+  // default is the deliberate one: what was agreed at a date is usually the
+  // question, and an interface that can only show the current version cannot
+  // answer it.
+  bool current_only = 2;
+}
+
+// QueryDocumentsResponse lists them, oldest first, which is the order the deal
+// happened in.
+message QueryDocumentsResponse {
+  repeated Document documents = 1 [(gogoproto.nullable) = false];
 }

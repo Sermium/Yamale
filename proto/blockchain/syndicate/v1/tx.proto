@@ -57,6 +57,10 @@ service Msg {
 
   // Buy fills a listing: settlement one way, tokens the other, in one block.
   rpc Buy(MsgBuy) returns (MsgBuyResponse);
+
+  // AttachDocument records the hash of a paper the deal depends on. Never the
+  // paper itself.
+  rpc AttachDocument(MsgAttachDocument) returns (MsgAttachDocumentResponse);
 }
 
 // MsgUpdateParams sets the platform-wide ceilings.
@@ -342,3 +346,46 @@ message MsgBuy {
 }
 // MsgBuyResponse is empty.
 message MsgBuyResponse {}
+
+// MsgAttachDocument records a paper the deal depends on: its digest, what kind
+// of paper it is, and where it can be found.
+//
+// The document itself is never sent. A subscription agreement names its
+// investor and their cheque and a diligence pack holds a private company's
+// accounts, so putting either on a public chain would be a permanent
+// disclosure made on behalf of people who did not consent to it.
+//
+// Signed by the operator group, so an attestation is an institution's decision
+// rather than one employee's. Accepted in ANY deal state including REALISED,
+// because accounts, completion statements and exit papers arrive after the
+// money has moved and a register that stopped accepting them at the close
+// would be missing exactly the documents a later dispute is about.
+message MsgAttachDocument {
+  option (cosmos.msg.v1.signer) = "operator";
+  option (amino.name) = "blockchain/x/syndicate/MsgAttachDocument";
+
+  string operator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 deal_id = 2;
+
+  DocumentKind kind = 3;
+  string title = 4;
+
+  // Exactly 32 bytes. Not a hex string: a hex string is a format somebody gets
+  // wrong in the second character, and two spellings of the same digest that
+  // do not compare equal are worse than no digest.
+  bytes sha256 = 5;
+
+  string uri = 6;
+  string language = 7;
+
+  // The document this one replaces. Zero if it replaces nothing. It must
+  // belong to the same deal and must not already have been superseded - an
+  // amendment chain that forks has two current versions, which is the state
+  // this field exists to prevent.
+  uint64 supersedes = 8;
+}
+
+// MsgAttachDocumentResponse carries the id the chain assigned.
+message MsgAttachDocumentResponse {
+  uint64 id = 1;
+}

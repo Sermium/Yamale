@@ -414,6 +414,24 @@
      Basis points are what a deal is written in; money is what a person decides
      on. Each rung shows both, and the rungs are read top to bottom as the money
      actually moves: committed → fee → to the company. */
+  /* The papers. A document is a row rather than a card because the list is
+     scanned for one line — "which of these binds me" — and cards make
+     scanning eight of them a scroll. */
+  .papers { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .paper {
+    display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2); border-radius: var(--radius);
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--border);
+  }
+  .paper--binding { border-inline-start-color: var(--brass); }
+  .paper--stale { opacity: 0.72; }
+  .paper__head { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
+  .paper__title { font-weight: 600; }
+  .digest {
+    font-family: var(--font-mono); font-size: var(--step--1);
+    overflow-wrap: anywhere; color: var(--text-muted);
+  }
+
   .ladder { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
   .rung {
     display: grid; grid-template-columns: 1fr auto; gap: var(--sp-3);
@@ -481,12 +499,13 @@
 
 <script type="module">
 import {
-  commitments, deal, dealByRef, deals, entitlement, head, investor,
+  commitments, deal, dealByRef, deals, documents, entitlement, head, investor,
   listings, operators, params,
 } from './chain.js';
 import {
-  amount, book, day, denomInfo, entryFees, holderShare, money, multiple, pct,
-  returnToDate, shareBps, shortAddr, standing, transferable, until,
+  DIGEST_MEANS, amount, book, day, denomInfo, entryFees, holderShare, money,
+  multiple, papers, pct, returnToDate, shareBps, shortAddr, standing,
+  transferable, until,
 } from './syndicate.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
@@ -665,6 +684,76 @@ function returnPanel(d) {
     </div>`;
 }
 
+/** One paper: what it is, what it binds, and the digest that proves it. */
+function paper(d) {
+  const cls = ['paper'];
+  if (d.binding) cls.push('paper--binding');
+  if (d.stale) cls.push('paper--stale');
+
+  return `
+    <div class="${cls.join(' ')}">
+      <div class="paper__head">
+        <span class="pill ${d.binding ? 'p-brass' : 'p-mute'}">${esc(d.label)}</span>
+        <span class="paper__title">${esc(d.title)}</span>
+        ${d.language ? `<span class="small muted">${esc(d.language.toUpperCase())}</span>` : ''}
+        ${d.stale ? '<span class="pill p-warn">superseded</span>' : ''}
+        ${d.amends && !d.stale ? '<span class="pill p-ok">current version</span>' : ''}
+      </div>
+      ${d.what ? `<p class="small muted">${esc(d.what)}</p>` : ''}
+      ${d.stale ? `
+        <p class="small" style="color:var(--warn-text)"><strong>Replaced by document
+          ${esc(d.superseded_by)}.</strong> It is kept because what was agreed at a date is
+          usually the question, but it is not what governs today.</p>` : ''}
+      ${d.amends ? `
+        <p class="small muted">Amends document ${esc(d.supersedes)}, which is still on the
+          record above.</p>` : ''}
+      <details>
+        <summary>SHA-256 · <span class="digest">${esc(d.short)}</span></summary>
+        <p class="small muted" style="margin-top:var(--sp-2)">Compare it against a file you have
+          been sent:</p>
+        <pre>sha256sum "your-file.pdf"</pre>
+        <p class="digest">${esc(d.sha256)}</p>
+        <p class="small muted">Attested by ${addr(d.attested_by)} on
+          ${esc(day(d.attached_at))}. ${esc(DIGEST_MEANS)}</p>
+        ${d.uri ? `<p class="small muted">Held at <code>${esc(d.uri)}</code> — the chain makes
+          no promise that this still resolves.</p>`
+          : '<p class="small muted">No location recorded. The digest still proves a file is or '
+            + 'is not the document; finding a copy is somebody else’s job.</p>'}
+      </details>
+    </div>`;
+}
+
+/** Every paper on one deal, or an honest account of why there are none. */
+async function showPapers(d) {
+  const el = document.getElementById('papers');
+  if (!el) return;
+  try {
+    const list = papers(await documents(d.id));
+    if (list.length === 0) {
+      el.innerHTML = `
+        <div class="notebox">
+          <p><strong>No papers are attached to this deal.</strong> That is what the chain says,
+            not an error and not a claim that none exist — an operator who has not attached
+            them has not attached them.</p>
+          <p>An investor deciding on this deal is relying on documents held somewhere else,
+            with nothing on the record to check a later copy against.</p>
+        </div>`;
+      return;
+    }
+    const binding = list.filter((x) => x.binding).length;
+    el.innerHTML = `
+      <p class="muted">${esc(list.length)} document${list.length === 1 ? '' : 's'} on the record,
+        ${esc(binding)} of which ${binding === 1 ? 'creates an obligation' : 'create obligations'}
+        on the people in this deal. The chain holds the <strong>digest</strong> of each and never
+        the document: a subscription agreement names its investor and their cheque, and that on a
+        public chain is a disclosure no later correction can withdraw.</p>
+      <div class="papers">${list.map(paper).join('')}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="err"><p><strong>The chain did not answer for the papers.</strong>
+      <code>${esc(e.message)}</code></p></div>`;
+  }
+}
+
 /** A command, with what signs it. Never a button: this page holds no key. */
 function command(title, signer, why, cmd) {
   return `
@@ -837,6 +926,9 @@ async function renderDeal(id) {
     <h3>The return</h3>
     ${returnPanel(d)}
 
+    <h3>The papers</h3>
+    <div id="papers"><p class="spin">Reading documents…</p></div>
+
     <h3>The book</h3>
     <div id="bookpanel"><p class="spin">Reading commitments…</p></div>
 
@@ -871,11 +963,25 @@ async function renderDeal(id) {
         'Offer part of your holding', 'the seller',
         'The quantity is escrowed by the module while the listing is live, so a listing cannot be offered twice. Naming a buyer makes it a private placement; leaving it empty opens it to anybody onboarded.',
         `blockchaind tx syndicate list ${d.id} <quantity> <price>${den} \\\n  --buyer <address, or omit> --from <your-key> --chain-id yamale-devnet-2`) : ''}
-      ${s.can.length === 0 ? '<p class="muted">Nothing further can be done with this deal.</p>' : ''}
+      ${command(
+        'Attach a document', 'the operator group',
+        'Records the SHA-256 digest of a paper this deal depends on, in any state including '
+        + 'realised — completion statements and final accounts arrive after the money has '
+        + 'moved. The document itself is never sent. An amended agreement is a new document '
+        + 'naming the one it replaces, so the superseded version stays readable.',
+        `# the digest, as proposal JSON carries it
+sha256sum -b term-sheet.pdf | cut -d' ' -f1 \
+  | xxd -r -p | base64 -w0
+
+`
+        + `blockchaind tx group submit-proposal proposal.json \
+  --from <member-key> --chain-id yamale-devnet-2`)}
+      ${s.can.length === 0 ? '<p class="muted">The deal itself is settled; only documents can still be added.</p>' : ''}
     </div>`;
 
   showBook(d);
   showListings(d);
+  showPapers(d);
 }
 
 /** Who has committed what — public, and the reason belongs on the page. */

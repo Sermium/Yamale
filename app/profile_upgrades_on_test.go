@@ -145,3 +145,77 @@ func TestTheUpgradeRefusesAPreAdmittedOperator(t *testing.T) {
 	require.Error(t, err, "an operator nobody voted for must halt the upgrade")
 	require.Contains(t, err.Error(), "admitted by a vote")
 }
+
+/* ========================================================================== */
+/*  syndicate-documents                                                       */
+/* ========================================================================== */
+
+// The deal-papers upgrade adds NO store, and that is the assertion.
+//
+// The documents live in collections under x/syndicate's existing store key, so
+// mounting a second one would be mounting a store nothing writes to — and an
+// entry in StoreUpgrades.Added for a key that is already mounted is not
+// harmless. What makes this a coordinated halt at all is the message: a
+// validator on the old binary cannot decode MsgAttachDocument.
+func TestTheDocumentsUpgradeAddsNoStore(t *testing.T) {
+	u := findUpgrade(t, "syndicate-documents")
+	require.NotNil(t, u.Handler)
+	require.Empty(t, u.StoreUpgrades.Added,
+		"documents live under x/syndicate's existing store key; nothing new is mounted")
+	require.Empty(t, u.StoreUpgrades.Renamed)
+	require.Empty(t, u.StoreUpgrades.Deleted)
+}
+
+// After the upgrade the new collections must ANSWER, and answer empty.
+//
+// Answering proves they were built into the keeper's schema rather than
+// silently absent — an unregistered collection reads as a zero value and fails
+// at the first write, in a block, rather than here. Empty proves the handler
+// invented no attestation: a document's worth is the accountability of whoever
+// attested to it, and nobody attested to anything during a halt.
+func TestDocumentsArriveEmptyAndTheirCounterStartsAtZero(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	first := findUpgrade(t, "herd-syndicate-selfcustody")
+	_, err := first.Handler(ctx, app, priorVersions(app,
+		herdtypes.ModuleName, syndicatetypes.ModuleName, selfcustodytypes.ModuleName))
+	require.NoError(t, err)
+
+	u := findUpgrade(t, "syndicate-documents")
+	_, err = u.Handler(ctx, app, app.ModuleManager.GetVersionMap())
+	require.NoError(t, err)
+
+	documents := 0
+	require.NoError(t, app.SyndicateKeeper.Document.Walk(ctx, nil,
+		func(uint64, syndicatetypes.Document) (bool, error) { documents++; return false, nil }))
+	require.Zero(t, documents)
+
+	next, err := app.SyndicateKeeper.NextDocumentID.Peek(ctx)
+	require.NoError(t, err)
+	require.Zero(t, next)
+}
+
+// And it must refuse a document that arrived without anybody attesting to it.
+//
+// Without this the test above only checks that DefaultGenesis is empty, which
+// is the thing most likely to drift under it.
+func TestTheDocumentsUpgradeRefusesAPaperNobodyAttestedTo(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	first := findUpgrade(t, "herd-syndicate-selfcustody")
+	_, err := first.Handler(ctx, app, priorVersions(app,
+		herdtypes.ModuleName, syndicatetypes.ModuleName, selfcustodytypes.ModuleName))
+	require.NoError(t, err)
+
+	require.NoError(t, app.SyndicateKeeper.Document.Set(ctx, 1, syndicatetypes.Document{
+		Id: 1, DealId: 1, Kind: syndicatetypes.DOCUMENT_KIND_TERM_SHEET,
+		Title: "Attested By Nobody", Sha256: make([]byte, 32),
+	}))
+
+	u := findUpgrade(t, "syndicate-documents")
+	_, err = u.Handler(ctx, app, app.ModuleManager.GetVersionMap())
+	require.Error(t, err, "a document written during a halt must stop the upgrade")
+	require.Contains(t, err.Error(), "not written during a halt")
+}

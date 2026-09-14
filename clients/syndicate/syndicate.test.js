@@ -14,9 +14,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  INDEX_SCALE, MAX_BPS, amount, book, day, denomInfo, entitlement, entryFees,
-  group, holderShare, managementFee, money, multiple, pct, projectedShare,
-  returnToDate, shareBps, shortAddr, standing, transferable, until,
+  INDEX_SCALE, MAX_BPS, amount, book, day, denomInfo, document, entitlement,
+  entryFees, group, holderShare, managementFee, money, multiple, papers, pct,
+  projectedShare, returnToDate, shareBps, shortAddr, standing, transferable,
+  until,
 } from './syndicate.js';
 
 /**
@@ -506,4 +507,101 @@ test('a deal with no supply yet attributes nothing rather than dividing by zero'
   const h = holderShare(aDeal(), '0');
   assert.equal(h.attributed, 0n);
   assert.equal(h.shareBps, 0);
+});
+
+/* ========================================================================== */
+/*  The papers                                                                */
+/* ========================================================================== */
+
+/** A document as the chain hands one over: ids are strings, digests are hex. */
+const aDoc = (over = {}) => ({
+  id: '1',
+  deal_id: '1',
+  kind: 'DOCUMENT_KIND_TERM_SHEET',
+  title: 'Term sheet',
+  sha256: 'a'.repeat(64),
+  uri: 'ipfs://bafyterm',
+  language: 'en',
+  attested_by: 'yml1operator',
+  attached_at: '1788000000',
+  supersedes: '0',
+  superseded_by: '0',
+  ...over,
+});
+
+test('a binding document is marked as one, and a describing document is not', () => {
+  // The whole reason the chain carries a kind. An investor scanning a list
+  // needs to see which paper puts an obligation on THEM, and a filename cannot
+  // tell them.
+  const sub = document(aDoc({ kind: 'DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT' }));
+  assert.equal(sub.binding, true);
+
+  assert.equal(document(aDoc({ kind: 'DOCUMENT_KIND_DILIGENCE' })).binding, false);
+  assert.equal(document(aDoc({ kind: 'DOCUMENT_KIND_TERM_SHEET' })).binding, false,
+    'a term sheet is the commercial terms before anybody signed; it binds nobody');
+});
+
+test('an unknown kind is labelled rather than dropped', () => {
+  // A console a version behind the chain must show the document it cannot
+  // classify, not hide it. A paper missing from the list is indistinguishable
+  // from a paper that was never attached.
+  const d = document(aDoc({ kind: 'DOCUMENT_KIND_SOMETHING_NEWER' }));
+  assert.equal(d.label, 'Document');
+  assert.equal(d.binding, false);
+  assert.equal(d.title, 'Term sheet');
+});
+
+test('a superseded document is flagged stale, in both directions', () => {
+  const old = document(aDoc({ id: '1', superseded_by: '2' }));
+  assert.equal(old.stale, true);
+  assert.equal(old.amends, false);
+
+  const current = document(aDoc({ id: '2', supersedes: '1' }));
+  assert.equal(current.stale, false);
+  assert.equal(current.amends, true);
+});
+
+test('a zero id means no relation, not document zero', () => {
+  // proto3: an unset uint64 is 0, and document 0 is never issued precisely so
+  // the two cannot be confused. A page that read `supersedes: '0'` as a link
+  // would offer every document an amendment history it does not have.
+  const plain = document(aDoc());
+  assert.equal(plain.stale, false);
+  assert.equal(plain.amends, false);
+});
+
+test('the digest is shortened for the summary and kept whole underneath', () => {
+  // A truncated digest cannot be compared against anything, so the short form
+  // is a label and the whole one has to stay reachable beside it.
+  const full = '0123456789' + 'f'.repeat(44) + 'abcdef0123';
+  const d = document(aDoc({ sha256: full }));
+  assert.equal(d.sha256, full);
+  assert.equal(d.sha256.length, 64);
+  assert.equal(d.short, '01234567…cdef0123');
+});
+
+test('papers put what binds you first, and each group oldest first', () => {
+  // The chain returns attachment order, which is the order the DEAL happened
+  // in — right for a history and wrong for a reader whose question is "what am
+  // I signing".
+  const sorted = papers([
+    aDoc({ id: '1', kind: 'DOCUMENT_KIND_DILIGENCE' }),
+    aDoc({ id: '2', kind: 'DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT' }),
+    aDoc({ id: '3', kind: 'DOCUMENT_KIND_REPORT' }),
+    aDoc({ id: '4', kind: 'DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT' }),
+  ]);
+  assert.deepEqual(sorted.map((d) => d.id), ['2', '4', '1', '3']);
+});
+
+test('sorting the papers does not reorder the caller’s array', () => {
+  const given = [
+    aDoc({ id: '1', kind: 'DOCUMENT_KIND_REPORT' }),
+    aDoc({ id: '2', kind: 'DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT' }),
+  ];
+  papers(given);
+  assert.deepEqual(given.map((d) => d.id), ['1', '2']);
+});
+
+test('a deal with no papers is an empty list, not a failure', () => {
+  assert.deepEqual(papers([]), []);
 });

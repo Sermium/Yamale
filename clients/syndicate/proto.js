@@ -170,6 +170,9 @@ export const u32 = (f, num) => Number(first(f, num) ?? 0n);
 
 export const bool = (f, num) => Boolean(first(f, num) ?? 0n);
 
+/** A bytes field, as the raw view. Empty rather than undefined when absent. */
+export const bytes = (f, num) => first(f, num) ?? new Uint8Array();
+
 /** A nested message, decoded by `fn`, or `null` when the field is absent. */
 export const sub = (f, num, fn) => {
   const v = first(f, num);
@@ -321,6 +324,46 @@ export const decodeListing = (f) => ({
   filled_at: u64(f, 10),
 });
 
+/** DocumentKind - syndicate.proto. Index IS the enum value. */
+export const DOCUMENT_KIND = [
+  'DOCUMENT_KIND_UNSPECIFIED',
+  'DOCUMENT_KIND_TERM_SHEET',
+  'DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT',
+  'DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT',
+  'DOCUMENT_KIND_CONSTITUTIONAL',
+  'DOCUMENT_KIND_DISCLOSURE',
+  'DOCUMENT_KIND_DILIGENCE',
+  'DOCUMENT_KIND_REPORT',
+  'DOCUMENT_KIND_RESOLUTION',
+];
+
+/**
+ * Document: id=1, deal_id=2, kind=3, title=4, sha256=5 (bytes), uri=6,
+ * language=7, attested_by=8, attached_at=9, supersedes=10, superseded_by=11.
+ *
+ * The digest is handed to the page as lower-case HEX and not as base64, which
+ * is what the wire carries. `sha256sum` prints hex, so hex is what somebody
+ * verifying a file has in front of them, and a page that displayed base64 would
+ * be asking them to convert before they could compare.
+ *
+ * `supersedes` and `superseded_by` are the same relation read from either end.
+ * Both are carried because a reader can arrive at either document, and the one
+ * who arrives at the stale version is exactly the one who must be told.
+ */
+export const decodeDocument = (f) => ({
+  id: u64(f, 1),
+  deal_id: u64(f, 2),
+  kind: DOCUMENT_KIND[u32(f, 3)] ?? 'DOCUMENT_KIND_UNSPECIFIED',
+  title: str(f, 4),
+  sha256: toHex(bytes(f, 5)),
+  uri: str(f, 6),
+  language: str(f, 7),
+  attested_by: str(f, 8),
+  attached_at: u64(f, 9),
+  supersedes: u64(f, 10),
+  superseded_by: u64(f, 11),
+});
+
 /* --------------------------------------------------------- query envelopes */
 /* query.proto. Each response wraps its payload, so the wrapper is decoded here
    and the page never sees a field number. */
@@ -395,6 +438,19 @@ export const QUERY = {
     request: ({ dealId, liveOnly = false }) =>
       write((w) => w.num(1, dealId).bool(2, liveOnly)),
     response: (f) => ({ listings: subs(f, 1, decodeListing) }),
+  },
+  /**
+   * One deal's papers, oldest first.
+   *
+   * `currentOnly` is left false by default here as well as on the chain. What
+   * was agreed at a date is usually the question, and a console that could only
+   * show the current version of an agreement could not answer it.
+   */
+  Documents: {
+    path: '/blockchain.syndicate.v1.Query/Documents',
+    request: ({ dealId, currentOnly = false }) =>
+      write((w) => w.num(1, dealId).bool(2, currentOnly)),
+    response: (f) => ({ documents: subs(f, 1, decodeDocument) }),
   },
 };
 

@@ -37,6 +37,7 @@ type Keeper struct {
 	Investor collections.Map[string, types.Investor]
 	Deal     collections.Map[uint64, types.Deal]
 	Listing  collections.Map[uint64, types.Listing]
+	Document collections.Map[uint64, types.Document]
 
 	// (deal, investor) and (deal, holder). One deal's commitments or holders
 	// are a prefix walk; one investor's place in one deal is a single read.
@@ -51,9 +52,12 @@ type Keeper struct {
 	ByDenom collections.Map[string, uint64]
 	// (deal, listing) so one deal's market is a prefix walk.
 	ListingsByDeal collections.KeySet[collections.Pair[uint64, uint64]]
+	// (deal, document), same reason and the same shape.
+	DocumentsByDeal collections.KeySet[collections.Pair[uint64, uint64]]
 
-	NextDealID    collections.Sequence
-	NextListingID collections.Sequence
+	NextDealID     collections.Sequence
+	NextListingID  collections.Sequence
+	NextDocumentID collections.Sequence
 }
 
 func NewKeeper(
@@ -89,6 +93,8 @@ func NewKeeper(
 			collections.Uint64Key, codec.CollValue[types.Deal](cdc)),
 		Listing: collections.NewMap(sb, types.ListingKey, "listing",
 			collections.Uint64Key, codec.CollValue[types.Listing](cdc)),
+		Document: collections.NewMap(sb, types.DocumentKey, "document",
+			collections.Uint64Key, codec.CollValue[types.Document](cdc)),
 
 		Commitment: collections.NewMap(sb, types.CommitmentKey, "commitment",
 			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
@@ -103,9 +109,12 @@ func NewKeeper(
 			collections.StringKey, collections.Uint64Value),
 		ListingsByDeal: collections.NewKeySet(sb, types.ListingsByDealKey, "listings_by_deal",
 			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
+		DocumentsByDeal: collections.NewKeySet(sb, types.DocumentsByDealKey, "documents_by_deal",
+			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
 
-		NextDealID:    collections.NewSequence(sb, types.NextDealIDKey, "next_deal_id"),
-		NextListingID: collections.NewSequence(sb, types.NextListingIDKey, "next_listing_id"),
+		NextDealID:     collections.NewSequence(sb, types.NextDealIDKey, "next_deal_id"),
+		NextListingID:  collections.NewSequence(sb, types.NextListingIDKey, "next_listing_id"),
+		NextDocumentID: collections.NewSequence(sb, types.NextDocumentIDKey, "next_document_id"),
 	}
 
 	schema, err := sb.Build()

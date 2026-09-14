@@ -3734,6 +3734,43 @@
         ]
       }
     },
+    "/yamale/blockchain/syndicate/v1/documents/{deal_id}": {
+      "get": {
+        "operationId": "Query_Documents",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDocumentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "current_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/syndicate/v1/entitlement/{deal_id}/{holder}": {
       "get": {
         "operationId": "Query_Entitlement",
@@ -5716,6 +5753,65 @@
       ],
       "default": "DISPUTE_STATE_NONE"
     },
+    "Document": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "deal_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "kind": {
+          "$ref": "#/definitions/DocumentKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "format": "byte"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "attested_by": {
+          "type": "string"
+        },
+        "attached_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "supersedes": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "superseded_by": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "DocumentKind": {
+      "type": "string",
+      "enum": [
+        "DOCUMENT_KIND_UNSPECIFIED",
+        "DOCUMENT_KIND_TERM_SHEET",
+        "DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT",
+        "DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT",
+        "DOCUMENT_KIND_CONSTITUTIONAL",
+        "DOCUMENT_KIND_DISCLOSURE",
+        "DOCUMENT_KIND_DILIGENCE",
+        "DOCUMENT_KIND_REPORT",
+        "DOCUMENT_KIND_RESOLUTION"
+      ],
+      "default": "DOCUMENT_KIND_UNSPECIFIED"
+    },
     "EmissionState": {
       "type": "object",
       "properties": {
@@ -6950,6 +7046,18 @@
         },
         "disclosure": {
           "$ref": "#/definitions/v1.Disclosure"
+        }
+      }
+    },
+    "QueryDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Document"
+          }
         }
       }
     },

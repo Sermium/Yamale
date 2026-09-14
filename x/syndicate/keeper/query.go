@@ -189,3 +189,20 @@ func (q queryServer) Listings(
 	}
 	return out, nil
 }
+
+// Documents are one deal's papers: their digests, never their contents.
+//
+// Public like everything else on this query service, and for the same reason —
+// an investor who cannot see which agreements govern what they own is back in
+// the spreadsheet somebody else holds, which is the arrangement this platform
+// exists to replace. Nothing private is disclosed by it: a hash reveals nothing
+// about a document to anybody who does not already have the document.
+func (q queryServer) Documents(
+	ctx context.Context, req *types.QueryDocumentsRequest,
+) (*types.QueryDocumentsResponse, error) {
+	docs, err := q.Keeper.DealDocuments(ctx, req.DealId, req.CurrentOnly)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryDocumentsResponse{Documents: docs}, nil
+}

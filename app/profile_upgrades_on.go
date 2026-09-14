@@ -119,4 +119,78 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// Deal papers.
+		//
+		// x/syndicate could state a deal's economics to the last basis point and
+		// could say nothing whatever about the documents an investor is actually
+		// bound by: `Deal.reference` was a free-text string and there was no
+		// field for a term sheet, a subscription agreement or a shareholders'
+		// agreement. A platform that is precise about a 3% fee and silent about
+		// the contract is not being careful, it is being selective.
+		//
+		// NO STORE UPGRADE, and that is not an oversight. The documents live in
+		// collections under x/syndicate's EXISTING store key, so nothing new is
+		// mounted. What makes this a halt at all is the message: a validator
+		// running the old binary cannot decode MsgAttachDocument and would fork
+		// the moment one is included.
+		//
+		// NO CONSENSUS VERSION BUMP either. A bump obliges a registered
+		// migration, and there is nothing to migrate: every existing deal is
+		// valid with no documents attached, the new collections start empty, and
+		// the id sequence starts at zero on its own. A no-op migration
+		// registered only to satisfy a version number is a lie about what the
+		// upgrade did.
+		Name: "syndicate-documents",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// The store must answer, and it must answer EMPTY.
+			//
+			// Answering proves the new collections were built into the schema
+			// rather than silently absent — a keeper field left unregistered
+			// reads as a zero value and fails at the first write, in a block,
+			// rather than here. Empty proves this handler did not invent a
+			// document: an attestation that a paper existed is worth exactly the
+			// accountability of whoever made it, and nobody attested to anything
+			// during a halt.
+			documents := 0
+			if err := app.SyndicateKeeper.Document.Walk(ctx, nil,
+				func(uint64, syndicatetypes.Document) (bool, error) { documents++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the deal documents this upgrade just mounted: %w", err)
+			}
+			if documents != 0 {
+				return nil, fmt.Errorf(
+					"x/syndicate arrived with %d document(s) attached; a document is attested by a "+
+						"named operator who can be asked about it, not written during a halt", documents)
+			}
+
+			next, err := app.SyndicateKeeper.NextDocumentID.Peek(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the document id sequence: %w", err)
+			}
+			if next != 0 {
+				return nil, fmt.Errorf("the document id sequence starts at %d, not 0", next)
+			}
+
+			ctx.Logger().Info(
+				"deal documents arrived",
+				"syndicate", "an operator may now attach the SHA-256 digest of a term sheet, a "+
+					"subscription agreement, accounts or an exit resolution to a deal, in any state, "+
+					"and supersede one with a later version",
+				"never", "the documents themselves. The chain holds a digest, a kind, a title and a "+
+					"location; a subscription agreement names its investor and their cheque, and that "+
+					"on a public chain is a disclosure no later correction can withdraw",
+				"worth", "a file produced in a dispute can be proved to be, or not to be, the one "+
+					"that was attested. It proves nothing about whether the document says what its "+
+					"title claims, or whether anybody signed it",
+			)
+
+			return vm, nil
+		},
+	},
 }

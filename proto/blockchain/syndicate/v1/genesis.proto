@@ -34,6 +34,11 @@ message GenesisState {
 
   repeated Listing listings = 7 [(gogoproto.nullable) = false];
 
+  // The deal papers. Hashes only, so this costs a genesis file 32 bytes and a
+  // title per document, and losing them would lose the proof that anything was
+  // ever agreed.
+  repeated Document documents = 10 [(gogoproto.nullable) = false];
+
   // The counters, exported explicitly rather than derived from the highest id
   // present. A counter derived that way moves backwards the moment the
   // highest-numbered deal is one that was aborted, and a platform that reissues
@@ -41,4 +46,5 @@ message GenesisState {
   // with one name.
   uint64 next_deal_id = 8;
   uint64 next_listing_id = 9;
+  uint64 next_document_id = 11;
 }

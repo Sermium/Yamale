@@ -248,6 +248,107 @@ export function holderShare(deal, balance) {
 }
 
 /* ========================================================================== */
+/*  The papers                                                                */
+/* ========================================================================== */
+
+/** What each kind of document IS, in the words a person would use. */
+const KINDS = {
+  DOCUMENT_KIND_TERM_SHEET: {
+    label: 'Term sheet',
+    what: 'The commercial terms, before anybody signed anything.',
+  },
+  DOCUMENT_KIND_SUBSCRIPTION_AGREEMENT: {
+    label: 'Subscription agreement',
+    what: 'What an investor signs to subscribe — the one document here that puts an '
+      + 'obligation on the person reading it.',
+    binding: true,
+  },
+  DOCUMENT_KIND_SHAREHOLDERS_AGREEMENT: {
+    label: 'Shareholders’ agreement',
+    what: 'How the position is held: drag, tag, pre-emption, information rights. What the '
+      + 'syndicate owns is this document as much as it is a number of shares.',
+    binding: true,
+  },
+  DOCUMENT_KIND_CONSTITUTIONAL: {
+    label: 'Constitutional documents',
+    what: 'The company’s articles or statuts.',
+    binding: true,
+  },
+  DOCUMENT_KIND_DISCLOSURE: {
+    label: 'Disclosure',
+    what: 'Risk warnings, conflicts of interest, the fee disclosure.',
+  },
+  DOCUMENT_KIND_DILIGENCE: {
+    label: 'Diligence pack',
+    what: 'The partner firm’s work. The premise of a syndicate is riding alongside '
+      + 'somebody who did it.',
+  },
+  DOCUMENT_KIND_REPORT: {
+    label: 'Report',
+    what: 'Accounts, valuations and investor updates — the reporting that arrives after '
+      + 'the money has gone.',
+  },
+  DOCUMENT_KIND_RESOLUTION: {
+    label: 'Resolution',
+    what: 'A board or shareholder resolution, an exit notice, a completion statement.',
+  },
+};
+
+/**
+ * One document, described rather than listed.
+ *
+ * `binding` separates the papers that create an obligation on the reader from
+ * the papers that describe the deal to them, and that separation is the reason
+ * the chain carries a kind at all: an investor scanning a list needs to see
+ * which one they are party to, and a filename cannot tell them.
+ *
+ * `stale` is the property a reader arriving from a link most needs and is least
+ * likely to check for themselves.
+ */
+export function document(doc) {
+  const kind = KINDS[doc.kind] ?? { label: 'Document', what: '' };
+  return {
+    ...doc,
+    label: kind.label,
+    what: kind.what,
+    binding: Boolean(kind.binding),
+    stale: doc.superseded_by !== '0',
+    amends: doc.supersedes !== '0',
+    // 64 hex characters. Shown in full on request rather than truncated by
+    // default: a truncated digest cannot be compared, and a digest nobody can
+    // compare is decoration.
+    short: `${doc.sha256.slice(0, 8)}…${doc.sha256.slice(-8)}`,
+  };
+}
+
+/**
+ * The papers, sorted the way somebody reads them rather than the way they
+ * arrived.
+ *
+ * Binding documents first, then everything else, each group oldest first. The
+ * chain returns them in attachment order, which is the order the DEAL
+ * happened in — correct for a history and wrong for a reader whose question
+ * is "what am I signing".
+ */
+export function papers(list) {
+  const all = list.map(document);
+  const rank = (d) => (d.binding ? 0 : 1);
+  return [...all].sort((a, b) => rank(a) - rank(b) || Number(a.id) - Number(b.id));
+}
+
+/**
+ * What a digest is worth, in one sentence, and what it is not.
+ *
+ * A function rather than a string in the template because it is the same claim
+ * everywhere it appears, and a claim about evidence that is worded differently
+ * in two places is a claim somebody will read as two different claims.
+ */
+export const DIGEST_MEANS =
+  'A digest proves a file is byte-for-byte the one the operator attested to, and when. It '
+  + 'proves nothing about whether the document says what its title claims, whether anybody '
+  + 'signed it, or whether it can still be fetched.';
+
+/* ========================================================================== */
 /*  Entitlement                                                               */
 /* ========================================================================== */
 
