@@ -172,6 +172,73 @@ and the sector as a required choice.
 
 ---
 
+## Recording what was paid, so a return can be computed
+
+Requested 2026-09-15: *"should record the initial investment for sure to get the
+ROI all along"*. Correct, and it removes the largest hole in the investor
+dashboard, which today can say what a holding has RECEIVED and not what it
+RETURNED.
+
+### Why it is not just a field
+
+A token balance says what an account holds and never what it paid, and tokens
+move by ordinary bank send — which carries no price. So a `cost_basis` on
+`Position` is only as good as the events allowed to write it.
+
+Three ways a position is acquired, and basis behaves differently in each:
+
+1. **Subscription at issue.** The sponsor knows what each investor paid. Nothing
+   records it today: the timber placement was six bank sends, and $0.60 exists
+   only in the brief. Needs `MsgRecordSubscription(asset, investor, tokens,
+   paid)`, signed by the collection authority — the party that took the money.
+
+2. **A marketplace fill.** The price is *in* the trade, so basis is written
+   without anybody asserting anything. This is the one that makes the figure
+   trustworthy at scale, and it is why the marketplace and the cost basis want
+   to land together rather than a phase apart.
+
+3. **A plain transfer.** No price exists. Basis carries proportionally from the
+   sender — their average cost per token times the tokens moved — because a
+   transfer with no consideration genuinely inherits the giver's cost in most
+   treatments. Where the sender has no recorded basis the receiver gets none,
+   and the position is shown as **cost not recorded** rather than as cost zero.
+   Cost zero would report an infinite return, which is the single most flattering
+   and most wrong number this platform could print.
+
+### The state
+
+`Position` gains two fields, both `cosmos.Int`:
+
+- `cost_basis` — what was paid, in the vault's income denomination.
+- `cost_qty` — the tokens that basis covers.
+
+Two rather than one, because a holding can be **partly** covered: 9,000,000
+tokens of which 5,000,000 were subscribed and 4,000,000 arrived as a transfer
+from somebody with no basis. The dashboard then reports a return on the covered
+part and says plainly how much is not covered, instead of averaging a known cost
+with an unknown one and presenting the result as a fact.
+
+### What it unlocks
+
+- **Income return**: received ÷ cost. Exact, and available the moment a
+  distribution is made.
+- **Total return**: adds the current value of the holding, which needs a price —
+  so it arrives with the marketplace and not before.
+- **Return over time**: distributions are already timestamped events, so a
+  console can walk them. The chain need not store a series.
+
+### Where it lands
+
+`cost_basis` and `MsgRecordSubscription` go in the **Phase 2** bundle, beside
+pro-rata temporis, which touches the same `Position` record. The marketplace in
+Phase 3 then writes basis on every fill. The dashboard shows a return on the
+covered portion from Phase 2, and a total return once a price exists.
+
+Until then the dashboard shows what it can check — what the vaults have paid on
+a holding — and no return percentage at all.
+
+---
+
 ## Specimen documents
 
 The brief asks for incorporation, share-creation and SPV papers. These are
