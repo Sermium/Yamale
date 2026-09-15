@@ -742,11 +742,18 @@ body {
 }
 .kpi__value {
   margin: var(--sp-1) 0 0;
-  font-size: var(--step-3);
-  line-height: 1.1;
+  font-size: var(--step-2);
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  /* NEVER break inside a figure. `overflow-wrap: anywhere` shipped here for one
+     deploy and rendered 100,000,000 as "100,000,0" above "00" — a number split
+     across two lines is not a smaller number, it is a different one, and it is
+     worse than the flat layout this band replaced. The tile scrolls instead. */
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.kpi__value::-webkit-scrollbar { display: none; }
 .kpi__unit {
   margin-inline-start: 0.3em;
   font-size: var(--step-0);
@@ -759,6 +766,12 @@ body {
   margin: var(--sp-2) 0 0;
   font-size: var(--step--1);
   color: var(--text-muted);
+  /* Three lines is a paragraph, and a paragraph under every tile makes the band
+     taller than the content it introduces. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .folders {
