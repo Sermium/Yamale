@@ -15,6 +15,10 @@ import { ChainSigner, translateError, type TranslatedError } from '@yamale/chain
 import type { OfflineSigner } from '@cosmjs/proto-signing';
 
 import {
+  QueryDenomOwnersRequest,
+  QueryDenomOwnersResponse,
+} from '../../sdk/src/generated/cosmos/bank/v1beta1/query.ts';
+import {
   QueryAssetRequest,
   QueryAssetResponse,
   QueryAssetsRequest,
@@ -132,6 +136,7 @@ function toSale(s: WireSale | undefined): SaleReport | null {
 /* ------------------------------------------------------------------ reads */
 
 const Q = {
+  denomOwners: '/cosmos.bank.v1beta1.Query/DenomOwners',
   collections: '/blockchain.tokenisation.v1.Query/Collections',
   assets: '/blockchain.tokenisation.v1.Query/Assets',
   asset: '/blockchain.tokenisation.v1.Query/Asset',
@@ -190,6 +195,60 @@ export async function vehicle(assetId: string): Promise<Outcome<VehicleRecord>> 
  * multiplied a balance by an index it read once would be wrong for anybody who
  * had bought or sold since.
  */
+export interface Holder {
+  address: string;
+  /** Tokens held, in base units. A string: supplies here exceed a double. */
+  amount: string;
+}
+
+/**
+ * The register of who owns a tokenisation, read from the bank.
+ *
+ * x/tokenisation has no holders query and does not need one: the shareholding
+ * IS an ordinary bank denomination, so "who holds this" is bank's question and
+ * always was. Its positions are keyed (asset, holder) with no list read, which
+ * is why this goes to `cosmos.bank.v1beta1.Query/DenomOwners` instead.
+ *
+ * Sorted largest first, because the question a cap table is opened for is
+ * concentration: who could carry a vote alone, and how much of this is one
+ * person. Alphabetical by address answers nothing anybody asked.
+ *
+ * The limit is deliberate and so is what happens past it. A register of
+ * thousands is the SUCCESS case for this platform -- the whole argument is that
+ * the buyer pool goes from ten to thousands -- so a page that silently showed
+ * the first two hundred and called it the holders would understate
+ * concentration precisely when it matters least and mislead precisely when it
+ * matters most. The caller is told whether more exist.
+ */
+export async function holders(denom: string, limit = 200): Promise<Outcome<{
+  rows: Holder[];
+  more: boolean;
+}>> {
+  const request = QueryDenomOwnersRequest.encode({
+    denom,
+    pagination: {
+      key: new Uint8Array(0), offset: '0', limit: String(limit + 1),
+      countTotal: false, reverse: false,
+    },
+  }).finish();
+
+  const raw = await query(Q.denomOwners, request);
+  return decoded(raw, (b) => {
+    const owners = QueryDenomOwnersResponse.decode(b).denomOwners ?? [];
+    const rows = owners.map((o) => ({
+      address: o.address ?? '',
+      amount: o.balance?.amount ?? '0',
+    }));
+    const more = rows.length > limit;
+    if (more) rows.length = limit;
+    // BigInt, not Number: a supply of 100,000,000 tokens is comfortable but the
+    // next vehicle's may not be, and a sort that silently ties every balance
+    // above 2^53 would put the cap table in the wrong order without erroring.
+    rows.sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
+    return { rows, more };
+  });
+}
+
 export async function entitlement(assetId: string, holder: string): Promise<Outcome<Coin>> {
   const request = QueryEntitlementRequest.encode({ assetId, holder }).finish();
   const raw = await query(Q.entitlement, request);

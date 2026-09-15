@@ -235,6 +235,12 @@ proto-ts:
 	@# SDK rather than from this repository's protos, and nothing here imports
 	@# them, so buf would not otherwise generate them.
 	@#
+	@# cosmos/bank is here for the same reason and one more: DenomOwners is how
+	@# a tokenisation's cap table is read. x/tokenisation has no holders query --
+	@# its positions are keyed (asset, holder) with no list read -- but the
+	@# shareholding is an ordinary bank denomination, so the register of who owns
+	@# what is bank's to answer and always was.
+	@#
 	@# This runs FIRST, and the repository's own generation runs after it, because
 	@# the two overlap: both emit google/protobuf/*.ts and cosmos/base/*.ts. A
 	@# module named on the command line resolves its own dependencies rather than
@@ -247,7 +253,7 @@ proto-ts:
 	@#
 	@# Pinned to the same commit buf.lock records, so the output does not change
 	@# under us when the module is updated upstream.
-	@go tool github.com/bufbuild/buf/cmd/buf generate buf.build/cosmos/cosmos-sdk:65fa41963e6a41dd95a35934239029df --template proto/buf.gen.ts.yaml --path cosmos/feegrant/v1beta1
+	@go tool github.com/bufbuild/buf/cmd/buf generate buf.build/cosmos/cosmos-sdk:65fa41963e6a41dd95a35934239029df --template proto/buf.gen.ts.yaml --path cosmos/feegrant/v1beta1 --path cosmos/bank/v1beta1
 	@go tool github.com/bufbuild/buf/cmd/buf generate --template proto/buf.gen.ts.yaml
 	@# importSuffix makes relative imports explicit, which Node's type stripping
 	@# requires — but ts-proto applies it to the protobufjs import too, and that
