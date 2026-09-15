@@ -749,11 +749,13 @@ body {
      deploy and rendered 100,000,000 as "100,000,0" above "00" — a number split
      across two lines is not a smaller number, it is a different one, and it is
      worse than the flat layout this band replaced. The tile scrolls instead. */
-  white-space: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* The number never splits; the UNIT may drop to its own line. `nowrap` alone
+     clipped "15,000,000 USD" to "15,000,000 U", which reads as a different
+     unit rather than a truncated one. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
-.kpi__value::-webkit-scrollbar { display: none; }
 .kpi__unit {
   margin-inline-start: 0.3em;
   font-size: var(--step-0);
