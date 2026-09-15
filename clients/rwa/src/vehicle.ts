@@ -674,3 +674,59 @@ export function actionsFor(
       : { enabled: true },
   };
 }
+
+/* ========================================================================== */
+/*  What a tokenisation is, read out of its uri                               */
+/* ========================================================================== */
+
+export interface Descriptor {
+  /** A readable name, or null when the uri carries none. */
+  name: string | null;
+  /** SHA-256 of the document manifest, lower-case hex, or null. */
+  docsDigest: string | null;
+  /** Whatever the uri was, unchanged, for the reader who wants it. */
+  raw: string;
+}
+
+/**
+ * The asset's descriptor, parsed from `uri`.
+ *
+ * `Asset` has no name, no description and no sector: it has `uri`, which is the
+ * field designed to carry the off-chain descriptor, and there is no message
+ * that edits it after minting. So a page that wants to say "SRM Timber Holding"
+ * rather than "Asset 4" has exactly one honest source, and this is it.
+ *
+ * The shape read is `yamale:<slug>;key=value;key=value`. Anything that is not
+ * that -- an http url, an ipfs cid, empty -- yields a null name and the raw
+ * string, because inventing a name for an asset whose uri does not carry one
+ * would put a label on the screen that nothing on the chain supports.
+ *
+ * This is a stopgap and should be read as one. Proper `name`, `description` and
+ * `sector` fields are part of the next upgrade; when they land, this function's
+ * callers switch to them and this becomes the fallback for assets minted
+ * before.
+ */
+export function descriptorOf(uri: string): Descriptor {
+  const raw = uri ?? '';
+  if (!raw.startsWith('yamale:')) return { name: null, docsDigest: null, raw };
+
+  const [slug, ...rest] = raw.slice('yamale:'.length).split(';');
+  const attrs = new Map<string, string>();
+  for (const part of rest) {
+    const eq = part.indexOf('=');
+    if (eq > 0) attrs.set(part.slice(0, eq).trim(), part.slice(eq + 1).trim());
+  }
+
+  const docs = attrs.get('docs') ?? '';
+  const digest = docs.startsWith('sha256:') ? docs.slice('sha256:'.length) : null;
+
+  // srm-timber-holding -> SRM Timber Holding. Two-and-three letter segments
+  // upper-cased, because a slug carries no case and "Srm" is wrong in a way
+  // a reader notices immediately.
+  const name = slug
+    ? slug.split('-').filter(Boolean).map((w) =>
+        w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : null;
+
+  return { name, docsDigest: digest && /^[0-9a-f]{64}$/.test(digest) ? digest : null, raw };
+}

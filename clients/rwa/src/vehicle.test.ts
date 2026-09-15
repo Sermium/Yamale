@@ -22,6 +22,7 @@ import {
   type Collection,
   type LandAuthorisation,
   type SaleReport,
+  descriptorOf,
 } from './vehicle.ts';
 
 /* ------------------------------------------------------------- fixtures */
@@ -463,4 +464,35 @@ test('a closed window and an existing dispute are different refusals', () => {
 
   const none = saleState({ status: 'STATUS_ACTIVE' }, null, collection(), new Date());
   assert.equal(actionsFor(ACTIVE, none, '1000', '0', true).dispute.whyKey, 'rwa.act.noSale');
+});
+
+/* ----------------------------------------------------- the uri descriptor */
+
+test('a yamale uri yields a readable name and the manifest digest', () => {
+  const d = descriptorOf('yamale:srm-timber-holding;docs=sha256:' + 'a'.repeat(64));
+  assert.equal(d.name, 'SRM Timber Holding');
+  assert.equal(d.docsDigest, 'a'.repeat(64));
+});
+
+test('a uri that is not ours yields no name rather than an invented one', () => {
+  // Inventing a label for an asset whose uri does not carry one would put a
+  // name on the screen that nothing on the chain supports.
+  for (const uri of ['https://example.com/deed.pdf', 'ipfs://bafy123', '']) {
+    const d = descriptorOf(uri);
+    assert.equal(d.name, null, uri);
+    assert.equal(d.raw, uri);
+  }
+});
+
+test('a malformed digest is dropped, not shown', () => {
+  // A digest of the wrong length cannot be compared against anything, and one
+  // shown beside the word SHA-256 invites somebody to try.
+  const d = descriptorOf('yamale:a-thing;docs=sha256:abc');
+  assert.equal(d.name, 'A Thing');
+  assert.equal(d.docsDigest, null);
+});
+
+test('the raw uri survives parsing', () => {
+  const uri = 'yamale:x;docs=sha256:' + 'f'.repeat(64);
+  assert.equal(descriptorOf(uri).raw, uri);
 });

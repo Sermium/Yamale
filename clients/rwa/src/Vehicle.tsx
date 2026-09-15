@@ -389,16 +389,68 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
           {' / '}
           {a.collectionId || t('rwa.noCollection')}
         </p>
+        {/* The name comes out of the uri, which is the only field on the asset
+            that carries one. Falling back to "Tokenisation 4" rather than
+            inventing something: an asset whose uri names nothing has no name,
+            and a page that made one up would label it with a fact the chain
+            does not hold. See descriptorOf. */}
         <div className="page__titleRow">
-          <h1 className="page__title">{t('rwa.vehicleN', { id: a.id })}</h1>
+          <h1 className="page__title">
+            {desc.name ?? t('rwa.vehicleN', { id: a.id })}
+          </h1>
           <Chip tone={statusTone(a.status)}>{t(statusKey(a.status))}</Chip>
         </div>
+        {/* The raw uri was the page's opening line: machine text, presented as
+            the headline. It is a reference, so it goes where references go. */}
         <p className="page__lede">
-          {a.uri
-            ? <a href={a.uri} rel="noopener noreferrer nofollow" target="_blank" className="linkish">{a.uri}</a>
-            : t('rwa.noDoc')}
+          {desc.name
+            ? t('rwa.vehicleN', { id: a.id })
+            : (a.uri || t('rwa.noDoc'))}
         </p>
       </header>
+
+      {/* The figures a reader came for, before the prose explaining them.
+          Every one is read from the chain. What is deliberately absent is a
+          price and therefore a yield: nothing on this chain knows what a token
+          was sold for until a sale is reported or a market exists, and a
+          headline yield computed from an assumed price would be the most
+          quoted number on the page and the only invented one. */}
+      <KpiBand>
+        <Kpi
+          label={t('rwa.kpiIssued')}
+          value={held?.supply ? group(held.supply) : (a.fractionDenom ? '—' : t('rwa.kpiNotIssued'))}
+          unit={a.fractionDenom ? symbolOf(a.fractionDenom) : undefined}
+          hint={t('rwa.kpiIssuedHint')}
+        />
+        <Kpi
+          label={t('rwa.kpiHolders')}
+          value={cap.loading ? '…' : cap.outcome.ok ? group(String(cap.outcome.value.rows.length)) : '—'}
+          hint={!cap.loading && cap.outcome.ok && cap.outcome.value.more
+            ? t('rwa.kpiHoldersMore')
+            : t('rwa.kpiHoldersHint')}
+        />
+        <Kpi
+          label={t('rwa.kpiLargest')}
+          value={largest === null ? '—' : `${(largest * 100).toFixed(1)}%`}
+          tone={largest !== null && largest >= 0.5 ? 'warn' : undefined}
+          hint={t('rwa.kpiLargestHint')}
+        />
+        <Kpi
+          label={t('rwa.kpiDistributed')}
+          value={vault ? <Amount amount={fundedTotal} denom={vault.denom} /> : '—'}
+          hint={t('rwa.kpiDistributedHint')}
+        />
+        <Kpi
+          label={t('rwa.kpiHolderShare')}
+          value={`${(a.holderShareBps / 100).toFixed(a.holderShareBps % 100 ? 2 : 0)}%`}
+          hint={t('rwa.kpiHolderShareHint')}
+        />
+        <Kpi
+          label={t('rwa.kpiSettles')}
+          value={vault ? symbolOf(vault.denom) : '—'}
+          hint={t('rwa.kpiSettlesHint')}
+        />
+      </KpiBand>
 
       <div className="split">
         <div className="split__main">

@@ -263,3 +263,131 @@ export function Unreachable({ detail, onRetry }: { detail?: string; onRetry?: ()
 export function Loading({ what }: { what: string }) {
   return <p className="loading" role="status">{what}</p>;
 }
+
+/* ========================================================================== */
+/*  Information design                                                        */
+/* ========================================================================== */
+
+/**
+ * The figures a reader came for, before the prose explaining them.
+ *
+ * A tokenisation page previously opened with label/value pairs set at the same
+ * size as their labels, so nothing on it read as a figure and the numbers that
+ * decide whether to buy were indistinguishable from the collection id. A KPI is
+ * a number first: large, tabular, with its unit attached and its qualifier
+ * underneath.
+ *
+ * `hint` is where a figure's limit goes. Several of these are exact and one or
+ * two are not, and a band that presented all of them in the same voice would be
+ * claiming a precision the chain does not have.
+ */
+export function Kpi({ label, value, unit, hint, tone }: {
+  label: string;
+  value: ReactNode;
+  unit?: string;
+  hint?: ReactNode;
+  tone?: Tone;
+}) {
+  return (
+    <div className={`kpi${tone ? ` kpi--${tone}` : ''}`}>
+      <p className="kpi__label">{label}</p>
+      <p className="kpi__value">
+        {value}
+        {unit ? <span className="kpi__unit">{unit}</span> : null}
+      </p>
+      {hint ? <p className="kpi__hint">{hint}</p> : null}
+    </div>
+  );
+}
+
+export function KpiBand({ children }: { children: ReactNode }) {
+  return <div className="kpiband">{children}</div>;
+}
+
+/**
+ * Folders, because one scrolling column is not a document.
+ *
+ * Everything a tokenisation holds — what it is, its papers, its register of
+ * holders, what it has paid — was previously stacked in a single column, so
+ * finding the cap table meant scrolling past the risk disclosure. These are
+ * areas a reader chooses between, and the choice is in the URL hash so a folder
+ * can be linked to.
+ *
+ * Tabs rather than an accordion: the sections are peers and a reader wants one
+ * at a time. Accordions invite everything open at once, which is the column
+ * again with extra clicks.
+ */
+export function Folders({ tabs, active, onSelect }: {
+  tabs: { id: string; label: string; count?: number | null }[];
+  active: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="folders" role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={tab.id === active}
+          className={`folder${tab.id === active ? ' folder--on' : ''}`}
+          onClick={() => onSelect(tab.id)}
+        >
+          {tab.label}
+          {tab.count !== null && tab.count !== undefined
+            ? <span className="folder__count">{tab.count}</span>
+            : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Concentration, drawn.
+ *
+ * A cap table is opened to answer one question — how much of this is one person
+ * — and a list of twelve percentages answers it slowly. The ring answers it
+ * before the reader has read anything.
+ *
+ * Everything past the first eight holders is one "others" arc rather than
+ * hundreds of hairlines, because a thousand holders is the SUCCESS case for
+ * this platform and a chart that became unreadable at that point would fail
+ * exactly when the argument was won.
+ *
+ * Drawn as stroked arcs on one circle: no library, no canvas, and it inherits
+ * the theme's tokens like everything else.
+ */
+export function Donut({ slices, hole = 0.62 }: {
+  slices: { label: string; fraction: number; tone: string }[];
+  hole?: number;
+}) {
+  const r = 100;
+  const width = r * 2 * (1 - hole);
+  const rad = r - width / 2;
+  const circumference = 2 * Math.PI * rad;
+
+  let offset = 0;
+  return (
+    <svg className="donut" viewBox="0 0 200 200" role="img"
+         aria-label={slices.map((s) => `${s.label} ${(s.fraction * 100).toFixed(1)}%`).join(', ')}>
+      <circle cx="100" cy="100" r={rad} fill="none" strokeWidth={width}
+              className="donut__track" />
+      {slices.map((s) => {
+        const len = Math.max(0, s.fraction) * circumference;
+        const el = (
+          <circle
+            key={s.label}
+            cx="100" cy="100" r={rad} fill="none" strokeWidth={width}
+            stroke={s.tone}
+            strokeDasharray={`${len} ${circumference - len}`}
+            strokeDashoffset={-offset}
+            transform="rotate(-90 100 100)"
+          />
+        );
+        offset += len;
+        return el;
+      })}
+    </svg>
+  );
+}

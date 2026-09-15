@@ -29,6 +29,8 @@ import {
   type AuthorisationRecord,
   type ParcelRecord,
   type VehicleRecord,
+  holders,
+  type Holder,
 } from './chain.ts';
 import { isRealId, landGate, type Asset, type Coin, type Collection, type LandGate } from './vehicle.ts';
 
@@ -268,4 +270,32 @@ export function useBalances(address: string): [Load<Coin[]>, () => void] {
   }, [address, nonce]);
 
   return [state, useCallback(() => setNonce((n) => n + 1), [])];
+}
+
+/**
+ * The register of holders of one tokenisation.
+ *
+ * Read from the bank rather than from x/tokenisation, which has no holders
+ * query: the shareholding is an ordinary bank denomination, so who owns it is
+ * bank's question. See chain.ts holders().
+ *
+ * An unfractionalised asset has no denomination and therefore no register, and
+ * that is an answer rather than a gap: nothing has been issued, so nobody holds
+ * anything. It resolves immediately without asking the chain.
+ */
+export function useHolders(denom: string): Load<{ rows: Holder[]; more: boolean }> {
+  const [state, setState] = useState<Load<{ rows: Holder[]; more: boolean }>>({ loading: true });
+
+  useEffect(() => {
+    let live = true;
+    if (!denom) {
+      setState({ loading: false, outcome: { ok: true, value: { rows: [], more: false }, height: 0 } });
+      return;
+    }
+    setState({ loading: true });
+    holders(denom).then((outcome) => { if (live) setState({ loading: false, outcome }); });
+    return () => { live = false; };
+  }, [denom]);
+
+  return state;
 }

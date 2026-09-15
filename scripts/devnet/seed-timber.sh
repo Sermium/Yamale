@@ -57,10 +57,20 @@ tx() {
   local what=$1; shift
   local out hash code log
   out=$("$BIN" tx "$@" $TX 2>&1)
+  # The CLI prints `gas estimate: N` on its own line before the JSON when
+  # --gas auto is used, so the output as a whole is not a JSON document. Parse
+  # the last line that is one. (Found the hard way: every tx reported "not
+  # broadcast" while every one of them had in fact been broadcast.)
   hash=$(printf '%s' "$out" | python3 -c "
 import sys, json
-try: print(json.loads(sys.stdin.read()).get('txhash',''))
-except Exception: print('')
+h = ''
+for line in sys.stdin.read().splitlines():
+    line = line.strip()
+    if not line.startswith('{'):
+        continue
+    try: h = json.loads(line).get('txhash', '') or h
+    except Exception: pass
+print(h)
 " 2>/dev/null)
   if [ -z "$hash" ]; then
     printf '  FAIL  %-34s not broadcast\n' "$what"
@@ -208,7 +218,7 @@ echo "  manifest ${MHASH:0:16}"
 
 echo
 echo "== title and shareholding =="
-ASSET=$("$BIN" query tokenisation assets $Q 2>/dev/null | python3 -c "
+ASSET=$("$BIN" query tokenisation assets "$COLLECTION" $Q 2>/dev/null | python3 -c "
 import sys, json
 for a in json.load(sys.stdin).get('assets', []):
     if a.get('collection_id') == '$COLLECTION': print(a['id']); break" 2>/dev/null)
@@ -216,7 +226,7 @@ for a in json.load(sys.stdin).get('assets', []):
 if [ -z "$ASSET" ]; then
   tx "mint title" tokenisation mint-asset "$COLLECTION" "$SPONSOR" \
     "yamale:srm-timber-holding;docs=sha256:$MHASH" --from $SPONSOR_KEY || exit 1
-  ASSET=$("$BIN" query tokenisation assets $Q 2>/dev/null | python3 -c "
+  ASSET=$("$BIN" query tokenisation assets "$COLLECTION" $Q 2>/dev/null | python3 -c "
 import sys, json
 for a in json.load(sys.stdin).get('assets', []):
     if a.get('collection_id') == '$COLLECTION': print(a['id']); break")
@@ -255,6 +265,8 @@ place tim-regional       800000
 
 echo
 echo "== year one =="
+# `vault` sits beside `asset` in QueryAssetResponse rather than inside it.
+# Reading asset.vault returns nothing and reports a funded vault as empty.
 FUNDED=$("$BIN" query tokenisation asset "$ASSET" $Q 2>/dev/null | python3 -c "
 import sys, json
 v = json.load(sys.stdin).get('vault') or {}
@@ -269,13 +281,15 @@ echo
 echo "== the tokenisation now =="
 "$BIN" query tokenisation asset "$ASSET" $Q 2>/dev/null | python3 -c "
 import sys, json
-a = json.load(sys.stdin)['asset']
+d = json.load(sys.stdin)
+a = d['asset']
 print('  asset %s | %s | %s' % (a.get('id'), a.get('collection_id'), a.get('status','').replace('STATUS_','')))
 print('  denom %s' % a.get('fraction_denom'))
 print('  uri   %s' % a.get('uri'))
-v = a.get('vault') or {}
+v = d.get('vault') or {}
 f = sum(int(c['amount']) for c in (v.get('funded') or []))
-print('  funded \$%s' % format(f/1e6, ',.0f'))"
+print('  funded \$%s in %s' % (format(f/1e6, ',.0f'), v.get('denom','-')))
+print('  index  %s per token' % format(int(v.get('cumulative_per_token','0') or 0)/1e18/1e6, ',.4f'))"
 
 echo
 for k in srm-holding tim-familyoffice tim-tradinghouse tim-esgfund tim-diaspora tim-angel tim-regional; do

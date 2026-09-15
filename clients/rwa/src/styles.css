@@ -701,3 +701,135 @@ body {
   .sheet { padding: var(--sp-3) var(--sp-2); }
   .sheet__box { padding: var(--sp-4); }
 }
+
+/* ==========================================================================
+   Information design: KPI band, folders, cap-table ring.
+
+   Added 2026-09-15. The tokenisation page opened with label/value pairs set at
+   the same size as their labels, stacked in one scrolling column, with no
+   register of holders and no area for documents. Nothing on it read as a
+   figure and nothing could be linked to.
+
+   Every colour below is a shared token. The one thing this block adds is
+   layout.
+   ========================================================================== */
+
+.kpiband {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.kpi {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  border-inline-start: 3px solid var(--rule);
+}
+.kpi--ok { border-inline-start-color: var(--ok); }
+.kpi--warn { border-inline-start-color: var(--warn); }
+.kpi--bad { border-inline-start-color: var(--bad); }
+.kpi--mute { border-inline-start-color: var(--text-faint); }
+
+.kpi__label {
+  margin: 0;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.kpi__value {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--step-3);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.kpi__unit {
+  margin-inline-start: 0.3em;
+  font-size: var(--step-0);
+  color: var(--text-muted);
+}
+/* Where a figure's limit goes. Several are exact and one or two are not, and a
+   band that spoke about all of them in one voice would claim a precision the
+   chain does not have. */
+.kpi__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+
+.folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: var(--sp-4);
+}
+.folder {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  cursor: pointer;
+  /* The selected folder sits ON the rule rather than above it, so the area
+     below reads as the inside of the folder rather than as a separate box. */
+  margin-bottom: -1px;
+}
+.folder:hover { color: var(--text); }
+.folder--on {
+  background: var(--surface);
+  border-color: var(--hair);
+  border-bottom: 1px solid var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.folder__count {
+  margin-inline-start: 0.45em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.captable {
+  display: grid;
+  grid-template-columns: minmax(10rem, 16rem) 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+@media (max-width: 40rem) { .captable { grid-template-columns: 1fr; } }
+
+.donut { width: 100%; height: auto; max-width: 16rem; }
+.donut__track { stroke: var(--surface-2); }
+
+.holders { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.holders th {
+  text-align: start;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
+  border-bottom: 1px solid var(--hair);
+}
+.holders td {
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
+  border-bottom: 1px solid var(--hair);
+}
+.holders td:last-child, .holders th:last-child { text-align: end; padding-inline-end: 0; }
+.holders__swatch {
+  display: inline-block;
+  width: 0.7em; height: 0.7em;
+  border-radius: 2px;
+  margin-inline-end: 0.5em;
+}
+/* The sponsor is not just another row: the whole retention promise is about
+   this one line, so it is marked rather than left to be counted. */
+.holders__row--self td { font-weight: 600; }
