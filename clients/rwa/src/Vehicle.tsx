@@ -20,16 +20,20 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatAmount, t, useLocale } from '@yamale/chain';
+import { formatAmount, t, useLocale, resolveDenom,} from '@yamale/chain';
 
 import { ClaimDialog, DisputeDialog, RedeemDialog } from './Act.tsx';
 import { GradeChip } from './Vehicles.tsx';
 import { addressOf, canSign, type Account } from './address.ts';
-import { useCollections, useHolding, useLand, useVehicle } from './data.ts';
+import { useCollections, useHolders, useHolding, useLand, useVehicle } from './data.ts';
 import { formatDate, formatDuration } from './duration.ts';
 import {
   Address,
   Amount,
+  Donut,
+  Folders,
+  Kpi,
+  KpiBand,
   Chip,
   Empty,
   Field,
@@ -46,6 +50,7 @@ import {
 import {
   actionsFor,
   bpsToPercent,
+  descriptorOf,
   dilutionProtected,
   parcelStatusKey,
   parcelTone,
@@ -328,6 +333,107 @@ function SalePanel({ sale, state, collection, onDispute, disputeWhy }: {
   );
 }
 
+/**
+ * Who owns this tokenisation.
+ *
+ * The register is public and needs nobody's permission: the shareholding is an
+ * ordinary bank denomination, so the holders are bank's answer rather than
+ * something the sponsor chooses to publish. That is most of what the whole
+ * argument for tokenising rests on, and it had no screen until now.
+ *
+ * The ring answers the question a cap table is opened for -- how much of this
+ * is one person -- before the reader has read a row. Everything past the first
+ * eight is one arc, because a thousand holders is the SUCCESS case here and a
+ * chart that shattered at that point would fail exactly when the argument was
+ * won.
+ */
+function CapTable({ cap, supply, sponsor, denom }: {
+  cap: ReturnType<typeof useHolders>;
+  supply: string | null;
+  sponsor: string;
+  denom: string;
+}) {
+  if (cap.loading) return <Panel title={t('rwa.holdersTitle')}><Loading what={t('rwa.reading')} /></Panel>;
+  if (!cap.outcome.ok) {
+    return (
+      <Panel title={t('rwa.holdersTitle')}>
+        <Note tone="warn">{t('rwa.unreachableWhy')}</Note>
+      </Panel>
+    );
+  }
+
+  const rows = cap.outcome.value.rows;
+  const total = BigInt(supply || '0');
+  if (rows.length === 0 || total === 0n) {
+    return (
+      <Panel title={t('rwa.holdersTitle')}>
+        <p className="panel__lede">{t('rwa.holdersEmpty')}</p>
+      </Panel>
+    );
+  }
+
+  const fraction = (amount: string) => Number((BigInt(amount) * 1000000n) / total) / 1000000;
+
+  // Eight arcs and a remainder. The palette is the shared accent walked through
+  // decreasing opacity rather than eight invented hues: a cap table is one
+  // quantity split up, not eight unrelated categories, and eight hues would
+  // imply a difference in kind that is not there.
+  const TOP = 8;
+  const shown = rows.slice(0, TOP);
+  const rest = rows.slice(TOP);
+  const restFraction = rest.reduce((sum, r) => sum + fraction(r.amount), 0);
+
+  const tone = (i: number) => `color-mix(in srgb, var(--accent) ${100 - i * 9}%, var(--surface-2))`;
+  const slices = shown.map((r, i) => ({
+    label: r.address, fraction: fraction(r.amount), tone: tone(i),
+  }));
+  if (restFraction > 0) {
+    slices.push({ label: t('rwa.holdersOthers'), fraction: restFraction, tone: 'var(--text-faint)' });
+  }
+
+  return (
+    <Panel eyebrow={t('rwa.tabHolders')} title={t('rwa.holdersTitle')}>
+      <p className="panel__lede">{t('rwa.holdersLede')}</p>
+      <div className="captable">
+        <Donut slices={slices} />
+        <table className="holders">
+          <thead>
+            <tr>
+              <th>{t('rwa.colHolder')}</th>
+              <th>{t('rwa.colTokens')}</th>
+              <th>{t('rwa.colShare')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r, i) => (
+              <tr key={r.address} className={r.address === sponsor ? 'holders__row--self' : ''}>
+                <td>
+                  <span className="holders__swatch" style={{ background: tone(i) }} />
+                  <Address value={r.address} />
+                  {r.address === sponsor ? <span className="muted"> ({t('rwa.holdersSponsor')})</span> : null}
+                </td>
+                <td><Amount amount={r.amount} denom={denom} /></td>
+                <td><Percent value={fraction(r.amount) * 100} places={2} /></td>
+              </tr>
+            ))}
+            {rest.length > 0 && (
+              <tr>
+                <td>
+                  <span className="holders__swatch" style={{ background: 'var(--text-faint)' }} />
+                  {t('rwa.holdersOthers')} <span className="muted">({rest.length})</span>
+                </td>
+                <td><Amount amount={rest.reduce((n, r) => n + BigInt(r.amount), 0n).toString()} denom={denom} /></td>
+                <td><Percent value={restFraction * 100} places={2} /></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {cap.outcome.value.more && <Note tone="mute">{t('rwa.kpiHoldersMore')}</Note>}
+    </Panel>
+  );
+}
+
 /* ------------------------------------------------------------------- page */
 
 export function Vehicle({ assetId, account }: { assetId: string; account: Account }) {
@@ -335,6 +441,11 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
   const [record, reload] = useVehicle(assetId);
   const [collections] = useCollections();
   const [dialog, setDialog] = useState<'claim' | 'redeem' | 'dispute' | null>(null);
+  // Which folder is open. In state rather than the URL for now: the route is
+  // /v/:assetId and adding a second segment would change every link to a
+  // tokenisation that exists. A folder worth linking to gets its own segment
+  // when the creation surface lands and the routes are revisited anyway.
+  const [folder, setFolder] = useState('overview');
 
   const asset = record.loading || !record.outcome.ok ? null : record.outcome.value.asset;
   const parcelId = asset?.parcelId ?? '0';
@@ -342,6 +453,7 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
 
   const land = useLand(parcelId, Math.floor(Date.now() / 1000));
   const [holding, reloadHolding] = useHolding(assetId, fractionDenom, addressOf(account));
+  const cap = useHolders(fractionDenom);
 
   if (record.loading) return <div className="page"><Loading what={t('rwa.reading')} /></div>;
 
@@ -375,6 +487,26 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
   const protection = collection ? protectionOf(collection) : null;
 
   const held = holding.loading || !holding.outcome.ok ? null : holding.outcome.value;
+
+  // What this tokenisation is, read out of its uri: the only field on the asset
+  // that carries a name. See descriptorOf.
+  const desc = descriptorOf(a.uri);
+
+  // Everything paid into the vault over the tokenisation's life, across every
+  // denomination it has been funded in. Summed rather than assumed to be one
+  // coin: `funded` is a repeated Coin and a vehicle refunded in a second
+  // currency would otherwise show only the first.
+  const fundedTotal = vault
+    ? vault.funded.reduce((sum, c) => sum + BigInt(c.amount || '0'), 0n).toString()
+    : '0';
+
+  // Concentration: the share of the whole held by the largest single account.
+  // The question a cap table is opened to answer.
+  const capRows = cap.loading || !cap.outcome.ok ? null : cap.outcome.value.rows;
+  const supplyInt = BigInt(held?.supply || '0');
+  const largest = capRows && capRows.length > 0 && supplyInt > 0n
+    ? Number((BigInt(capRows[0]!.amount) * 10000n) / supplyInt) / 100
+    : null;
   const share = shareholding(held?.balance ?? '0', held?.supply ?? '0', a.holderShareBps);
 
   const acts = state
@@ -410,50 +542,100 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
       </header>
 
       {/* The figures a reader came for, before the prose explaining them.
-          Every one is read from the chain. What is deliberately absent is a
-          price and therefore a yield: nothing on this chain knows what a token
-          was sold for until a sale is reported or a market exists, and a
-          headline yield computed from an assumed price would be the most
-          quoted number on the page and the only invented one. */}
+          Every one is read from the chain.
+
+          What is deliberately absent is a PRICE, and therefore a yield.
+          Nothing on this chain knows what a token was sold for until a sale is
+          reported or a market exists. A headline yield computed from an assumed
+          price would be the most quoted number on this page and the only
+          invented one on it. */}
       <KpiBand>
         <Kpi
           label={t('rwa.kpiIssued')}
-          value={held?.supply ? group(held.supply) : (a.fractionDenom ? '—' : t('rwa.kpiNotIssued'))}
-          unit={a.fractionDenom ? symbolOf(a.fractionDenom) : undefined}
+          value={a.fractionDenom
+            ? <Amount amount={held?.supply ?? null} denom={a.fractionDenom} />
+            : t('rwa.kpiNotIssued')}
+          unit={a.fractionDenom ? resolveDenom(a.fractionDenom).symbol : undefined}
           hint={t('rwa.kpiIssuedHint')}
         />
         <Kpi
           label={t('rwa.kpiHolders')}
-          value={cap.loading ? '…' : cap.outcome.ok ? group(String(cap.outcome.value.rows.length)) : '—'}
+          value={cap.loading ? '…' : cap.outcome.ok ? String(cap.outcome.value.rows.length) : '—'}
           hint={!cap.loading && cap.outcome.ok && cap.outcome.value.more
             ? t('rwa.kpiHoldersMore')
             : t('rwa.kpiHoldersHint')}
         />
         <Kpi
           label={t('rwa.kpiLargest')}
-          value={largest === null ? '—' : `${(largest * 100).toFixed(1)}%`}
-          tone={largest !== null && largest >= 0.5 ? 'warn' : undefined}
+          value={<Percent value={largest} places={1} />}
+          tone={largest !== null && largest >= 50 ? 'warn' : undefined}
           hint={t('rwa.kpiLargestHint')}
         />
         <Kpi
           label={t('rwa.kpiDistributed')}
-          value={vault ? <Amount amount={fundedTotal} denom={vault.denom} /> : '—'}
+          value={vault
+            ? <Amount amount={fundedTotal} denom={vault.denom} />
+            : '—'}
+          unit={vault ? resolveDenom(vault.denom).symbol : undefined}
           hint={t('rwa.kpiDistributedHint')}
         />
         <Kpi
           label={t('rwa.kpiHolderShare')}
-          value={`${(a.holderShareBps / 100).toFixed(a.holderShareBps % 100 ? 2 : 0)}%`}
+          value={<Percent value={bpsToPercent(a.holderShareBps)} places={2} />}
           hint={t('rwa.kpiHolderShareHint')}
         />
         <Kpi
-          label={t('rwa.kpiSettles')}
-          value={vault ? symbolOf(vault.denom) : '—'}
-          hint={t('rwa.kpiSettlesHint')}
+          label={t('rwa.kpiStatus')}
+          value={t(statusKey(a.status))}
+          tone={statusTone(a.status)}
+          hint={t('rwa.kpiStatusHint')}
         />
       </KpiBand>
 
+      {/* Folders, because one scrolling column is not a document. Finding the
+          register of holders previously meant scrolling past a risk
+          disclosure. */}
+      <Folders
+        active={folder}
+        onSelect={setFolder}
+        tabs={[
+          { id: 'overview', label: t('rwa.tabOverview') },
+          {
+            id: 'holders',
+            label: t('rwa.tabHolders'),
+            count: cap.loading || !cap.outcome.ok ? null : cap.outcome.value.rows.length,
+          },
+          { id: 'documents', label: t('rwa.tabDocuments') },
+          { id: 'distributions', label: t('rwa.tabDistributions') },
+        ]}
+      />
+
       <div className="split">
         <div className="split__main">
+          {folder === 'holders' && (
+            <CapTable cap={cap} supply={held?.supply ?? null} sponsor={a.owner}
+                      denom={a.fractionDenom} />
+          )}
+
+          {folder === 'documents' && (
+            <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.docsTitle')}>
+              {desc.docsDigest ? (
+                <>
+                  <p className="panel__lede">{t('rwa.docsLede')}</p>
+                  <Fields>
+                    <Field label={t('rwa.docsManifest')} wide>
+                      <span className="y-mono">{desc.docsDigest}</span>
+                    </Field>
+                  </Fields>
+                  <Note tone="mute" title={t('rwa.docsOneFileTitle')}>{t('rwa.docsOneFileBody')}</Note>
+                </>
+              ) : (
+                <p className="panel__lede">{t('rwa.docsNone')}</p>
+              )}
+            </Panel>
+          )}
+
+          {folder === 'overview' && (
           <Panel eyebrow={t('rwa.whatEyebrow')} title={t('rwa.whatTitle')}>
             <Fields>
               <Field label={t('rwa.collection')}>
@@ -495,16 +677,21 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             </Raw>
           </Panel>
 
-          {/* Only shown when this vehicle IS over registered land. A vehicle over
-              a company renders nothing here; see LandPanel. */}
-          {land.loading
+          )}
+
+          {/* Only shown when this tokenisation IS over registered land, and only
+              in the overview. A tokenisation over a company renders nothing
+              here; see LandPanel. */}
+          {folder === 'overview' && (land.loading
             ? <Panel title={t('rwa.landTitle')}><Loading what={t('rwa.reading')} /></Panel>
             : land.outcome.ok
               ? <LandPanel gate={land.outcome.value.gate} parcel={land.outcome.value.parcel}
                            parcelUnreadable={land.outcome.value.parcelUnreadable} />
-              : <Panel title={t('rwa.landTitle')}><Note tone="warn">{t('rwa.auth.unreachable')}</Note></Panel>}
+              : <Panel title={t('rwa.landTitle')}><Note tone="warn">{t('rwa.auth.unreachable')}</Note></Panel>)}
 
-          {/* --- what could go wrong. The part that matters most. --- */}
+          {/* --- what could go wrong. The part that matters most, so it stays
+                  in the overview rather than behind a folder nobody opens. --- */}
+          {folder === 'overview' && (
           <Panel eyebrow={t('rwa.riskEyebrow')} title={t('rwa.riskTitle')} className="panel--risk">
             <p className="panel__lede">{t('rwa.riskLede')}</p>
 
@@ -548,8 +735,11 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
               <Note tone="warn">{t('rwa.noCollectionRead')}</Note>
             )}
           </Panel>
+          )}
 
-          {collection && state && (
+          {/* A reported sale is what every payout is computed from, so it lives
+              with the distributions rather than in the overview. */}
+          {folder === 'distributions' && collection && state && (
             <SalePanel
               sale={sale}
               state={state}
@@ -559,6 +749,43 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                 ? () => setDialog('dispute')
                 : null}
             />
+          )}
+
+          {/* The vault had no panel anywhere: what has been paid in, what is
+              still held against it, and the per-token index every entitlement
+              on this chain is computed from. */}
+          {folder === 'distributions' && (
+            <Panel eyebrow={t('rwa.tabDistributions')} title={t('rwa.vaultTitle')}>
+              {vault ? (
+                <Fields>
+                  <Field label={t('rwa.kpiDistributed')}>
+                    <Amount amount={fundedTotal} denom={vault.denom} />{' '}
+                    <Symbol denom={vault.denom} />
+                  </Field>
+                  {/* `held` -- what the module still holds against this
+                      tokenisation, being what has been funded but not yet
+                      claimed -- is on the chain's Vault and is dropped by this
+                      console's mapper. Worth adding, and deliberately not added
+                      here: it widens the wire mapping, and the two figures
+                      below are the ones a holder checks their own entitlement
+                      against. */}
+                  <Field label={t('rwa.vaultPerToken')} wide>
+                    {/* The index is carried at 1e18 and the denomination has its
+                        own exponent, so a per-token figure is the index divided
+                        by both. Shown because it is the number every
+                        entitlement is derived from, and a holder who cannot see
+                        it cannot check their own. */}
+                    <span className="y-mono">
+                      {(Number(BigInt(vault.cumulativePerToken || '0') / 1000000000000n) / 1e6
+                        / Math.pow(10, resolveDenom(vault.denom).exponent ?? 0)).toFixed(6)}
+                    </span>{' '}
+                    <Symbol denom={vault.denom} /> {t('rwa.vaultPerTokenUnit')}
+                  </Field>
+                </Fields>
+              ) : (
+                <p className="panel__lede">{t('rwa.vaultNone')}</p>
+              )}
+            </Panel>
           )}
         </div>
 
