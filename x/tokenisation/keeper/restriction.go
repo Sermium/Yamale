@@ -58,6 +58,15 @@ func (k Keeper) SendRestrictionFn(ctx context.Context, from, to sdk.AccAddress, 
 		if err := k.Settle(ctx, assetID, to, toBalance); err != nil {
 			return to, err
 		}
+
+		// Cost moves with the tokens, AFTER both sides are settled and before
+		// the balances change. A transfer names no price, so there is nothing
+		// to record as a purchase; what there is, is the sender's own cost for
+		// the tokens leaving. See CarryBasis for why it is proportional and why
+		// the rounding favours the sender.
+		if err := k.CarryBasis(ctx, assetID, from, to, coin.Amount); err != nil {
+			return to, err
+		}
 	}
 
 	return to, nil

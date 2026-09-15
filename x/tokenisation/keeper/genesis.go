@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"cosmossdk.io/math"
 
 	"cosmossdk.io/collections"
 
@@ -51,6 +52,15 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 		}
 	}
 	for _, p := range gs.Positions {
+		// A file written before cost_basis existed carries neither field, and
+		// math.Int's zero value is nil, which panics on arithmetic rather than
+		// erroring. Normalised on the way in so an old export still imports.
+		if p.CostBasis.IsNil() {
+			p.CostBasis = math.ZeroInt()
+		}
+		if p.CostQty.IsNil() {
+			p.CostQty = math.ZeroInt()
+		}
 		if err := k.Positions.Set(ctx, collections.Join(p.AssetId, p.Holder), p); err != nil {
 			return err
 		}

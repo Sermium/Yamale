@@ -107,4 +107,7 @@ var (
 		"the holders' share of the reported price has not been paid into the vault, so redemption cannot open")
 	ErrOverpayment = sdkerrors.Register(ModuleName, 37,
 		"that is more than the sale still owes, and the surplus would have no owner")
+
+	ErrInvalidSubscription = sdkerrors.Register(ModuleName, 38,
+		"that subscription cannot be recorded against this holding")
 )

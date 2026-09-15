@@ -135,6 +135,10 @@ func (m msgServer) MintAsset(ctx context.Context, msg *types.MsgMintAsset) (*typ
 		Uri:          msg.Uri,
 		ParcelId:     msg.ParcelId,
 		Status:       types.STATUS_HELD,
+		// Unset is permitted and means "not stated" rather than "unknown to
+		// anybody": an asset minted before this field existed carries the same
+		// value, and an interface must not distinguish them by guessing.
+		Sector: msg.Sector,
 	}
 	if err := m.Assets.Set(ctx, id, asset); err != nil {
 		return nil, err
@@ -513,4 +517,46 @@ func (m msgServer) FinaliseSale(
 		return nil, err
 	}
 	return &types.MsgFinaliseSaleResponse{}, m.Keeper.FinaliseSale(ctx, msg.AssetId)
+}
+
+// RecordSubscription states what an investor paid for tokens they hold.
+//
+// Signed by the collection authority — the party that took the money — and
+// never by the investor. An investor able to state their own cost could publish
+// a flattering return beside a real balance, on a register whose whole value is
+// that its figures are not the holder's word.
+//
+// It does NOT claim the money was received, or received in this denomination,
+// or at arm's length. It records a dated, attributable assertion by a named
+// party. That is the same thing a KYC reference is and is worth the same: not
+// proof, but evidence somebody can be asked about.
+func (m msgServer) RecordSubscription(
+	ctx context.Context, msg *types.MsgRecordSubscription,
+) (*types.MsgRecordSubscriptionResponse, error) {
+	asset, err := m.Assets.Get(ctx, msg.AssetId)
+	if err != nil {
+		return nil, types.ErrAssetNotFound
+	}
+	c, err := m.Collections.Get(ctx, asset.CollectionId)
+	if err != nil {
+		return nil, types.ErrCollectionNotFound
+	}
+	if c.Authority == "" {
+		return nil, types.ErrNoAuthority
+	}
+	if c.Authority != msg.Authority {
+		return nil, types.ErrNotAuthority
+	}
+
+	investor, err := m.addressCodec.StringToBytes(msg.Investor)
+	if err != nil {
+		return nil, err
+	}
+
+	basis, qty, err := m.Keeper.RecordSubscription(
+		ctx, msg.AssetId, investor, msg.Quantity, msg.Paid)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgRecordSubscriptionResponse{CostBasis: basis, CostQty: qty}, nil
 }

@@ -189,8 +189,19 @@ func (k Keeper) Settle(ctx context.Context, assetID uint64, holder sdk.AccAddres
 			Holder:    holder.String(),
 			LastIndex: vault.CumulativePerToken,
 			Accrued:   math.ZeroInt(),
+			// Explicitly zero, never left unset. math.Int's zero value is nil
+			// and panics on arithmetic rather than erroring, so a position
+			// created without these is a halt waiting for the first transfer.
+			CostBasis: math.ZeroInt(),
+			CostQty:   math.ZeroInt(),
 		}
 	}
+
+	// Positions written before cost_basis existed decode with both fields nil.
+	// The upgrade migrates them; this is the belt to that braces, because the
+	// cost of a missed row is a panic in a block rather than a wrong number.
+	pos.CostBasis = zeroIfNil(pos.CostBasis)
+	pos.CostQty = zeroIfNil(pos.CostQty)
 
 	delta := vault.CumulativePerToken.Sub(pos.LastIndex)
 	if delta.IsPositive() && balance.IsPositive() {

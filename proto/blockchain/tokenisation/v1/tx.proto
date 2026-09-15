@@ -33,6 +33,10 @@ service Msg {
   // The collection's appointed authority only.
   rpc MintAsset(MsgMintAsset) returns (MsgMintAssetResponse);
 
+  // RecordSubscription states what an investor paid for tokens they hold, so a
+  // return can be computed against something rather than assumed.
+  rpc RecordSubscription(MsgRecordSubscription) returns (MsgRecordSubscriptionResponse);
+
   // Title holder.
   rpc Fractionalise(MsgFractionalise) returns (MsgFractionaliseResponse);
   // TransferAsset moves the title only. The fraction tokens are ordinary
@@ -161,6 +165,12 @@ message MsgMintAsset {
   // the named owner, is refused outright rather than left to fail later when
   // shares are being sold and there is money on the other side of it.
   uint64 parcel_id = 5;
+
+  // What the tokenised thing does. Optional only so that a mint written before
+  // this field existed still decodes; a mint that names no sector is accepted
+  // and the asset carries SECTOR_UNSPECIFIED, which an interface shows as "not
+  // stated" rather than guessing.
+  Sector sector = 6;
 }
 // MsgMintAssetResponse carries the id of the title just created.
 message MsgMintAssetResponse {
@@ -379,4 +389,72 @@ message MsgRedeem {
 // MsgRedeemResponse reports what the surrendered tokens were worth.
 message MsgRedeemResponse {
   repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+}
+
+// MsgRecordSubscription records what an investor paid for tokens they hold.
+//
+// # Why this message has to exist
+//
+// A token balance says what an account holds and never what it paid. Tokens
+// move by ordinary bank send, which carries no price, so without an explicit
+// record there is nothing to compute a return against — and an interface then
+// either shows no return at all, or invents an entry price, which is worse.
+//
+// # Who may sign it, and why it is not the investor
+//
+// The collection's authority: the party that took the money. An investor able
+// to state their own cost could state a low one and publish a flattering
+// return beside a real balance, on a register whose whole value is that its
+// figures are not the holder's word.
+//
+// # What it does NOT claim
+//
+// That the money was received, or received in this denomination, or at arm's
+// length. It records an assertion by a named, accountable party, dated and
+// attributable — the same thing a KYC reference is, and worth the same: not
+// proof, but evidence somebody can be asked about.
+//
+// Additive. Recording a second subscription for the same holder adds to both
+// the basis and the quantity, so an investor who subscribed twice at two prices
+// carries a weighted average, which is what an average cost is.
+message MsgRecordSubscription {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgRecordSubscription";
+
+  // The collection authority for the asset. Not the investor.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+  string investor = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Tokens this subscription covers. Refused above the investor's balance: a
+  // basis covering more tokens than exist in the account would report a return
+  // on tokens nobody holds.
+  string quantity = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // What was paid for them, in the vault's income denomination. The
+  // denomination is taken from the vault rather than named here, so a
+  // subscription cannot be recorded in a currency the vehicle does not pay in.
+  string paid = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgRecordSubscriptionResponse reports the holder's basis after the record.
+message MsgRecordSubscriptionResponse {
+  string cost_basis = 1 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string cost_qty = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
 }
