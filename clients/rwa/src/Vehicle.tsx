@@ -555,7 +555,6 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
           value={a.fractionDenom
             ? <Amount amount={held?.supply ?? null} denom={a.fractionDenom} />
             : t('rwa.kpiNotIssued')}
-          unit={a.fractionDenom ? resolveDenom(a.fractionDenom).symbol : undefined}
           hint={t('rwa.kpiIssuedHint')}
         />
         <Kpi
@@ -576,7 +575,6 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
           value={vault
             ? <Amount amount={fundedTotal} denom={vault.denom} />
             : '—'}
-          unit={vault ? resolveDenom(vault.denom).symbol : undefined}
           hint={t('rwa.kpiDistributedHint')}
         />
         <Kpi
