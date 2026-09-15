@@ -74,13 +74,18 @@ function LandPanel({ gate, parcel, parcelUnreadable }: {
 }) {
   const locale = useLocale();
 
-  if (gate.kind === 'not-land') {
-    return (
-      <Panel eyebrow={t('rwa.underlyingEyebrow')} title={t('rwa.notLandTitle')}>
-        <p className="panel__lede">{t('rwa.notLandBody')}</p>
-      </Panel>
-    );
-  }
+  // A tokenisation over a company is not a tokenisation over land, and a panel
+  // headed "The underlying / Not registered land" tells its reader that land was
+  // the expected answer and this one fell short. Most vehicles worth issuing are
+  // not land: an operating business, a holding company, a receivable.
+  //
+  // So nothing is rendered here. The one fact that panel carried which a holder
+  // actually needs — that no registry caps what may be issued and no office can
+  // withdraw permission — is not lost: it moves into the risk panel, beside the
+  // other protections a holder has and does not have. An absence does not
+  // deserve a section of its own; it deserves a line where the reader is already
+  // looking for what can go wrong.
+  if (gate.kind === 'not-land') return null;
 
   const live = gate.kind === 'live';
   const auth = 'auth' in gate ? gate.auth : null;
@@ -438,6 +443,8 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             </Raw>
           </Panel>
 
+          {/* Only shown when this vehicle IS over registered land. A vehicle over
+              a company renders nothing here; see LandPanel. */}
           {land.loading
             ? <Panel title={t('rwa.landTitle')}><Loading what={t('rwa.reading')} /></Panel>
             : land.outcome.ok
@@ -448,6 +455,14 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
           {/* --- what could go wrong. The part that matters most. --- */}
           <Panel eyebrow={t('rwa.riskEyebrow')} title={t('rwa.riskTitle')} className="panel--risk">
             <p className="panel__lede">{t('rwa.riskLede')}</p>
+
+            {/* Moved out of the old "Not registered land" panel. The fact is
+                worth keeping and the panel was not: a holder needs to know
+                nothing outside this chain caps issuance, and they need to know
+                it here, among the other things that can go wrong. */}
+            {!land.loading && land.outcome.ok && land.outcome.value.gate.kind === 'not-land' && (
+              <Note tone="mute" title={t('rwa.notLandTitle')}>{t('rwa.notLandBody')}</Note>
+            )}
 
             {dilutionProtected(a) ? (
               <Note tone="ok" title={t('rwa.noDilutionTitle')}>{t('rwa.noDilutionBody')}</Note>

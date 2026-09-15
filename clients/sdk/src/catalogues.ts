@@ -879,7 +879,7 @@ export const en = {
   'rwa.noCollectionRead': "The collection behind this tokenisation could not be read, so its verification terms cannot be shown.",
   'rwa.underlyingEyebrow': "The underlying",
   'rwa.notLandTitle': "Not registered land",
-  'rwa.notLandBody': "This tokenisation names no parcel, so the land registry governs nothing here: nothing outside this chain caps what may be issued, and no registry office can withdraw permission.",
+  'rwa.notLandBody': "Nothing outside this chain caps what may be issued here, and no registry office can withdraw permission. That is the ordinary case for a tokenisation over a company rather than over land — the protections are the ones on this page and no others.",
   'rwa.landTitle': "The land, and the registry's permission",
   'rwa.authLiveChip': "Authorisation live",
   'rwa.authDeadChip': "Not authorised",
