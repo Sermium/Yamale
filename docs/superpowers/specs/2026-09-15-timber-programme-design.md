@@ -123,6 +123,55 @@ the state tree and would delay anything visible by weeks. I chose visible.
 
 ---
 
+## The sector, and the land link
+
+Two requirements from 2026-09-15, both about what a tokenisation IS rather than
+what it pays.
+
+### A sector, chosen from a list
+
+`Asset` has no sector today, and there is no message that edits an asset's `uri`
+after minting, so this cannot be retrofitted onto the timber vehicle by any
+means short of re-minting it. It is a **new field on `Asset`, set at
+`MintAsset`** — consensus-breaking, and therefore part of the Phase 2 bundle.
+
+**An enum, not free text**, for the same reason `DocumentKind` is an enum: the
+sector is what an investor filters a marketplace by, and "Timber / timber /
+Bois / forestry products" is four sectors to a machine and one to a person.
+
+**Aligned to ISIC Rev. 4 sections** rather than invented here. A securities
+offering is described to regulators in a classification they already use, and a
+bespoke list would have to be mapped to one eventually — by somebody with less
+context than whoever writes it now. The sections are A–U; the enum carries them
+with names a reader recognises.
+
+The timber holding is **manufacturing** (ISIC section C), on the owner's
+instruction and defensibly so: the operation's value is in what leaves the
+sawmill, and the deck's whole ramp is a processing ramp. Forestry (section A)
+would describe the concession, which is precisely the thing that is not being
+tokenised.
+
+### The land link is optional, and already is
+
+`MsgMintAsset.parcel_id` is documented as "the x/land parcel this asset is title
+over, or 0 when it is not land", and the CLI exposes it as an optional
+`--parcel-id` flag. So the chain has always treated land as one case among many.
+
+What was wrong was the interface. The vehicle page rendered a panel headed *"The
+underlying / Not registered land"* for every vehicle that was not land, which
+told the reader that land was the expected answer and this vehicle had fallen
+short. Most vehicles worth issuing are not land: an operating business, a
+holding company, a receivable. Fixed 2026-09-15 — the panel renders only when
+there IS a parcel, and the one fact it carried that a holder needs (nothing
+outside the chain caps issuance, no office can withdraw permission) moved into
+the risk panel, beside the other protections a holder has and does not have.
+
+A creation surface does not exist yet — the console is read-only and vehicles
+are minted from the CLI. When it is built it offers the land link as an option
+and the sector as a required choice.
+
+---
+
 ## Specimen documents
 
 The brief asks for incorporation, share-creation and SPV papers. These are
