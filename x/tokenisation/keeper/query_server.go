@@ -94,3 +94,23 @@ func (q queryServer) Entitlement(ctx context.Context, req *types.QueryEntitlemen
 	}
 	return &types.QueryEntitlementResponse{Owed: sdk.NewCoin(vault.Denom, owed)}, nil
 }
+
+// Covenants lists what has been published against one tokenisation.
+//
+// Public, and unauthenticated like every other read here. A holder who cannot
+// see which undertakings govern what they own is back in the arrangement where
+// the operator decides what to tell them, which is the arrangement this whole
+// module exists to replace. Nothing private is disclosed by it: a digest says
+// nothing about a document to anybody who does not already have the document.
+func (q queryServer) Covenants(
+	ctx context.Context, req *types.QueryCovenantsRequest,
+) (*types.QueryCovenantsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+	covenants, err := q.k.AssetCovenants(ctx, req.AssetId, req.CurrentOnly)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryCovenantsResponse{Covenants: covenants}, nil
+}

@@ -560,3 +560,37 @@ func (m msgServer) RecordSubscription(
 	}
 	return &types.MsgRecordSubscriptionResponse{CostBasis: basis, CostQty: qty}, nil
 }
+
+// PublishCovenant files an undertaking against a tokenisation.
+//
+// The collection authority signs: the party that answers for the vehicle. A
+// holder able to publish against it could file an announcement in the operator's
+// name, on a register whose value is that its filings are attributable.
+//
+// Accepted in any status. Accounts, resolutions and material events arrive after
+// a sale as readily as before one, and a register that stopped accepting them at
+// realisation would be missing the filings a later dispute is about.
+func (m msgServer) PublishCovenant(
+	ctx context.Context, msg *types.MsgPublishCovenant,
+) (*types.MsgPublishCovenantResponse, error) {
+	asset, err := m.Assets.Get(ctx, msg.AssetId)
+	if err != nil {
+		return nil, types.ErrAssetNotFound
+	}
+	c, err := m.Collections.Get(ctx, asset.CollectionId)
+	if err != nil {
+		return nil, types.ErrCollectionNotFound
+	}
+	if c.Authority == "" {
+		return nil, types.ErrNoAuthority
+	}
+	if c.Authority != msg.Authority {
+		return nil, types.ErrNotAuthority
+	}
+
+	id, err := m.Keeper.PublishCovenant(ctx, msg.AssetId, msg.Authority, msg)
+	if err != nil {
+		return nil, err
+	}
+	return &types.MsgPublishCovenantResponse{Id: id}, nil
+}

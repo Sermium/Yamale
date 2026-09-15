@@ -338,6 +338,120 @@ message Position {
   ];
 }
 
+// CovenantKind is what an operator is publishing, so a holder can tell an
+// obligation from an announcement.
+//
+// The distinction is the point. A general assembly notice with a date is
+// something a holder must ACT on and can miss; a set of accounts is something
+// they read. A register that filed both as "document" makes the one with a
+// deadline as easy to overlook as the one without.
+enum CovenantKind {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  COVENANT_KIND_UNSPECIFIED = 0;
+
+  // Annual or interim accounts. The undertaking most holders were sold.
+  COVENANT_KIND_FINANCIAL_STATEMENTS = 1;
+
+  // A change to the structure itself: a new subsidiary, a redomiciliation, a
+  // change of control at the operating company. What a holder bought into is
+  // not what it was.
+  COVENANT_KIND_STRUCTURE_CHANGE = 2;
+
+  // A distribution declared: the amount, the period it covers, and when it
+  // will be paid. Published BEFORE the money moves, so a holder can check the
+  // payment against what was announced rather than the other way round.
+  COVENANT_KIND_DIVIDEND_NOTICE = 3;
+
+  // A general assembly: the date, the agenda, the resolutions. Carries a
+  // deadline, which is why it is not filed as a report.
+  COVENANT_KIND_GENERAL_ASSEMBLY = 4;
+
+  // The minutes and resolutions of one, after the fact.
+  COVENANT_KIND_RESOLUTION = 5;
+
+  // An auditor's opinion, a valuation, a technical certification -- work by a
+  // third party that the operator did not do and cannot revise.
+  COVENANT_KIND_INDEPENDENT_REPORT = 6;
+
+  // Anything the operator is obliged to disclose promptly and that fits none of
+  // the above: litigation, a covenant breach, a material contract lost.
+  COVENANT_KIND_MATERIAL_EVENT = 7;
+}
+
+// Covenant is an undertaking published against a tokenisation: the digest of a
+// document, what kind of document it is, and when it was filed.
+//
+// # Why this is not the same as the asset's uri
+//
+// The uri is one string fixed at mint. An operating business publishes for as
+// long as it exists -- accounts every year, a notice before every assembly, a
+// disclosure whenever something breaks -- and none of that can be known at the
+// moment title is created.
+//
+// # The chain holds the digest and never the document
+//
+// A set of accounts names customers, salaries and counterparties. Writing it to
+// a public chain is a permanent disclosure made on behalf of people who did not
+// consent to it. What is stored is a SHA-256 digest, a kind, a title, a period
+// and a location.
+//
+// What that is worth, exactly: it proves a document with these contents existed
+// at this block and was published by the party that controls the collection. It
+// proves nothing about whether the accounts are true, whether the assembly was
+// held, or whether the file can still be fetched.
+//
+// # Append-only
+//
+// Never deleted, never edited. An operator who could withdraw a disclosure
+// after publishing it has a register that says whatever is convenient today.
+// A correction is a new covenant naming the one it supersedes, exactly as a
+// deal document is.
+message Covenant {
+  uint64 id = 1;
+  uint64 asset_id = 2;
+  CovenantKind kind = 3;
+
+  // What it is called, for a person reading a list.
+  string title = 4;
+
+  // SHA-256 of the document. Exactly 32 bytes; the algorithm is fixed rather
+  // than carried in a field, because an algorithm field is an invitation to
+  // attach an MD5 and call it proof.
+  bytes sha256 = 5;
+
+  // Where it can be fetched. May be empty and may stop working; the chain makes
+  // no promise about it.
+  string uri = 6;
+
+  // The period this covers, as unix seconds. Both zero for a document that
+  // covers a moment rather than a span -- a material event, a resolution.
+  //
+  // Carried because "the 2026 accounts" published late and "the 2027 accounts"
+  // published early are the same filing date and different documents, and a
+  // holder checking whether a year is missing needs the period rather than the
+  // filing.
+  int64 period_start = 7;
+  int64 period_end = 8;
+
+  // When a holder must have acted by, as unix seconds. Zero when nothing is
+  // required of them. Set for an assembly notice, and it is the field that
+  // makes a deadline visible as a deadline.
+  int64 acts_by = 9;
+
+  // The account that published it: the collection authority at the time.
+  string published_by = 10 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  int64 published_at = 11;
+
+  // The covenant this replaces, and the one that replaced it. Same shape and
+  // same reason as a deal document: a correction goes forward and the earlier
+  // version stays readable, because a dispute is usually about what was said at
+  // a date rather than what is said now.
+  uint64 supersedes = 12;
+  uint64 superseded_by = 13;
+}
+
 // SaleReport is a reported price inside or past its challenge window.
 message SaleReport {
   uint64 asset_id = 1;

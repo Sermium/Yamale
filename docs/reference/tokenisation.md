@@ -145,6 +145,7 @@ A mint names its recipient, so title is attributed at creation and never exists 
 | `owner` | string |  |
 | `uri` | string |  |
 | `parcel_id` | uint64 | The x/land parcel this asset is title over, or 0 when it is not land. Checked here as well as at fractionalisation, because it is cheap: a mint naming a parcel that does not exist, or one held by somebody other than the named owner, is refused outright rather than left to fail later when shares are being sold and there is money on the other side of it. |
+| `sector` | Sector | What the tokenised thing does. Optional only so that a mint written before this field existed still decodes; a mint that names no sector is accepted and the asset carries SECTOR_UNSPECIFIED, which an interface shows as "not stated" rather than guessing. |
 
 ### MsgPaySaleProceeds
 
@@ -161,6 +162,65 @@ Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone quie
 | `payer` | string |  |
 | `asset_id` | uint64 |  |
 | `amount` | Coin |  |
+
+### MsgPublishCovenant
+
+`/blockchain.tokenisation.v1.MsgPublishCovenant`
+
+Signed by the `authority` field.
+
+MsgPublishCovenant files an undertaking against a tokenisation.
+
+Signed by the collection authority: the party that answers for the vehicle. A holder able to publish against it could file an announcement in the operator's name, on a register whose value is that its filings are attributable.
+
+Accepted in any status. Accounts, resolutions and material events arrive after a sale as readily as before one, and a register that stopped accepting them at realisation would be missing the filings a later dispute is about.
+
+PublishCovenant files an undertaking against a tokenisation: accounts, a structure change, a dividend notice, an assembly. The digest, never the document.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string |  |
+| `asset_id` | uint64 |  |
+| `kind` | CovenantKind |  |
+| `title` | string |  |
+| `sha256` | bytes | Exactly 32 bytes. Not a hex string: two spellings of one digest that do not compare equal are worse than no digest. |
+| `uri` | string |  |
+| `period_start` | int64 | The period covered, unix seconds; both zero for a document covering a moment rather than a span. |
+| `period_end` | int64 |  |
+| `acts_by` | int64 | When a holder must have acted by. Zero when nothing is asked of them. |
+| `supersedes` | uint64 | The covenant this corrects. Zero if it corrects nothing. Must belong to the same asset and must not already have been superseded -- two corrections of one filing leave two current versions and no rule for choosing. |
+
+### MsgRecordSubscription
+
+`/blockchain.tokenisation.v1.MsgRecordSubscription`
+
+Signed by the `authority` field.
+
+MsgRecordSubscription records what an investor paid for tokens they hold.
+
+#### Why this message has to exist
+
+A token balance says what an account holds and never what it paid. Tokens move by ordinary bank send, which carries no price, so without an explicit record there is nothing to compute a return against — and an interface then either shows no return at all, or invents an entry price, which is worse.
+
+#### Who may sign it, and why it is not the investor
+
+The collection's authority: the party that took the money. An investor able to state their own cost could state a low one and publish a flattering return beside a real balance, on a register whose whole value is that its figures are not the holder's word.
+
+#### What it does NOT claim
+
+That the money was received, or received in this denomination, or at arm's length. It records an assertion by a named, accountable party, dated and attributable — the same thing a KYC reference is, and worth the same: not proof, but evidence somebody can be asked about.
+
+Additive. Recording a second subscription for the same holder adds to both the basis and the quantity, so an investor who subscribed twice at two prices carries a weighted average, which is what an average cost is.
+
+RecordSubscription states what an investor paid for tokens they hold, so a return can be computed against something rather than assumed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string | The collection authority for the asset. Not the investor. |
+| `asset_id` | uint64 |  |
+| `investor` | string |  |
+| `quantity` | string | Tokens this subscription covers. Refused above the investor's balance: a basis covering more tokens than exist in the account would report a return on tokens nobody holds. |
+| `paid` | string | What was paid for them, in the vault's income denomination. The denomination is taken from the vault rather than named here, so a subscription cannot be recorded in a currency the vehicle does not pay in. |
 
 ### MsgRedeem
 
@@ -339,6 +399,25 @@ Response:
 | `collections` | repeated Collection |  |
 | `pagination` | PageResponse |  |
 
+### Covenants
+
+`GET /yamale/blockchain/tokenisation/v1/covenants/{asset_id}`
+
+Covenants lists what has been published against one tokenisation.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `asset_id` | uint64 |  |
+| `current_only` | bool | Omit filings that have been corrected. False by default: what was said at a date is usually the question, and a reader who can only see the current version cannot answer it. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `covenants` | repeated Covenant |  |
+
 ### Entitlement
 
 `GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}`
@@ -388,6 +467,7 @@ Title and shareholding are separate registers. This record says who owns the ass
 | `holder_share_bps` | uint32 | Share of the asset's economics carried by the tokens, in basis points. The sponsor keeps the rest. Fixed at fractionalisation and never editable: an issuer who could revise it would dilute every holder without minting a single token. |
 | `status` | Status |  |
 | `parcel_id` | uint64 | The x/land parcel this vehicle is over, or 0 when the asset is not land. Naming the parcel is what makes the registry's authorisation enforceable: fractionalising an asset with a parcel id is refused unless the registry has a live permission for that parcel, the issued share is inside the ceiling it set, and the sponsor is still the parcel's holder. Zero means none of that applies, so a warehouse receipt or a bond is untouched. The parcel is referenced, never moved. Title stays in x/land held by the same account, which is what keeps a fractionalised parcel governed by the registry rather than by whoever accumulated the tokens. |
+| `sector` | Sector | What the tokenised thing does. Set at mint and never edited: a sector an issuer could revise is a sector an issuer revises after the market has priced the first one. |
 
 ### Collection
 
@@ -405,6 +485,40 @@ Collections are chain-level constructs. There is no permissionless message that 
 | `dispute_bond_bps` | uint32 | Fraction of the reported sale price a challenger must bond, in basis points. Scales with the vehicle rather than being flat: a flat bond is trivial for a large fraud to post and prohibitive for a small holder. |
 | `attestors` | repeated string | attestors is the register of accounts that may attest a sale reported under this collection. Required when verification is VERIFY_ATTESTORS, and it must hold at least attestation_threshold entries: a threshold higher than the register is one no honest sale can ever meet, which turns every vehicle in the collection into a one-way door. #### Why a register rather than nothing Without one, AttestSale accepts a signature from any address at all, and a sponsor meets any threshold with N fresh keys for the cost of the gas. The threshold is the whole of what stands between a shareholder and a sale reported below what was received, so a threshold anybody can meet is not a protection, it is the appearance of one. #### Who sets it, which is the whole of why it works Governance, and only governance — the same signer that creates the collection in the first place. A sponsor cannot appoint their own attestors, so they cannot manufacture a quorum, and that is the difference between this register and a decorative one. What the chain still cannot decide is whether an account governance appointed is genuinely independent of the seller. That is not a fact the chain holds. What it can do is make the appointment a visible, deliberate act by a signer the seller does not control, which is the same arrangement x/land uses for the offices that attest a transfer. |
 
+### Covenant
+
+Covenant is an undertaking published against a tokenisation: the digest of a document, what kind of document it is, and when it was filed.
+
+#### Why this is not the same as the asset's uri
+
+The uri is one string fixed at mint. An operating business publishes for as long as it exists -- accounts every year, a notice before every assembly, a disclosure whenever something breaks -- and none of that can be known at the moment title is created.
+
+#### The chain holds the digest and never the document
+
+A set of accounts names customers, salaries and counterparties. Writing it to a public chain is a permanent disclosure made on behalf of people who did not consent to it. What is stored is a SHA-256 digest, a kind, a title, a period and a location.
+
+What that is worth, exactly: it proves a document with these contents existed at this block and was published by the party that controls the collection. It proves nothing about whether the accounts are true, whether the assembly was held, or whether the file can still be fetched.
+
+#### Append-only
+
+Never deleted, never edited. An operator who could withdraw a disclosure after publishing it has a register that says whatever is convenient today. A correction is a new covenant naming the one it supersedes, exactly as a deal document is.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | uint64 |  |
+| `asset_id` | uint64 |  |
+| `kind` | CovenantKind |  |
+| `title` | string | What it is called, for a person reading a list. |
+| `sha256` | bytes | SHA-256 of the document. Exactly 32 bytes; the algorithm is fixed rather than carried in a field, because an algorithm field is an invitation to attach an MD5 and call it proof. |
+| `uri` | string | Where it can be fetched. May be empty and may stop working; the chain makes no promise about it. |
+| `period_start` | int64 | The period this covers, as unix seconds. Both zero for a document that covers a moment rather than a span -- a material event, a resolution. Carried because "the 2026 accounts" published late and "the 2027 accounts" published early are the same filing date and different documents, and a holder checking whether a year is missing needs the period rather than the filing. |
+| `period_end` | int64 |  |
+| `acts_by` | int64 | When a holder must have acted by, as unix seconds. Zero when nothing is required of them. Set for an assembly notice, and it is the field that makes a deadline visible as a deadline. |
+| `published_by` | string | The account that published it: the collection authority at the time. |
+| `published_at` | int64 |  |
+| `supersedes` | uint64 | The covenant this replaces, and the one that replaced it. Same shape and same reason as a deal document: a correction goes forward and the earlier version stays readable, because a dispute is usually about what was said at a date rather than what is said now. |
+| `superseded_by` | uint64 |  |
+
 ### Position
 
 Position is one account's place in the index.
@@ -417,6 +531,8 @@ Settled whenever the balance moves, so what is owed is always balance * (cumulat
 | `holder` | string |  |
 | `last_index` | string |  |
 | `accrued` | string | Settled but not yet withdrawn. |
+| `cost_basis` | string | What this holder PAID, in the vault's income denomination, for the tokens `cost_qty` covers. #### Why two fields and not one A holding can be partly covered. Nine million tokens of which five million were subscribed at a recorded price and four million arrived as a plain transfer from somebody with no basis is the ordinary case, not an edge one. With a single field the interface must either average a known cost with an unknown one, or report a return on the whole holding that is only true of part of it. With two it can say: this much returned on this much invested, and this much not covered. #### Why it cannot simply be derived A token balance records what an account holds and never what it paid, and tokens move by ordinary bank send, which carries no price. So basis is only as good as the events allowed to write it: a recorded subscription, where the party that took the money states the figure, and a marketplace fill, where the price is in the trade and nobody has to assert anything. #### Zero is never assumed A transfer from a holder with no basis leaves the recipient with none, and an interface must show that as COST NOT RECORDED rather than as cost zero. Cost zero reports an infinite return, which is the most flattering and most wrong figure this module could produce. |
+| `cost_qty` | string | How many tokens `cost_basis` was paid for. Never larger than the balance: a transfer out reduces both proportionally. |
 
 ### SaleReport
 
@@ -448,6 +564,48 @@ Vault holds what is owed to shareholders and the running index that says how muc
 | `held` | repeated Coin | What the module account actually holds on this vehicle's behalf. One module account serves every vehicle, so a balance is not an ownership record: without this ledger a vehicle that funded nothing pays its holders out of a different vehicle's vault, and the bank keeper has no way to object. Every credit is a transfer in, every debit is a payout, and no payout is made that this does not cover. |
 
 ## Value types
+
+### CovenantKind
+
+CovenantKind is what an operator is publishing, so a holder can tell an obligation from an announcement.
+
+The distinction is the point. A general assembly notice with a date is something a holder must ACT on and can miss; a set of accounts is something they read. A register that filed both as "document" makes the one with a deadline as easy to overlook as the one without.
+
+| Value | Meaning |
+| --- | --- |
+| `COVENANT_KIND_UNSPECIFIED` |  |
+| `COVENANT_KIND_FINANCIAL_STATEMENTS` | Annual or interim accounts. The undertaking most holders were sold. |
+| `COVENANT_KIND_STRUCTURE_CHANGE` | A change to the structure itself: a new subsidiary, a redomiciliation, a change of control at the operating company. What a holder bought into is not what it was. |
+| `COVENANT_KIND_DIVIDEND_NOTICE` | A distribution declared: the amount, the period it covers, and when it will be paid. Published BEFORE the money moves, so a holder can check the payment against what was announced rather than the other way round. |
+| `COVENANT_KIND_GENERAL_ASSEMBLY` | A general assembly: the date, the agenda, the resolutions. Carries a deadline, which is why it is not filed as a report. |
+| `COVENANT_KIND_RESOLUTION` | The minutes and resolutions of one, after the fact. |
+| `COVENANT_KIND_INDEPENDENT_REPORT` | An auditor's opinion, a valuation, a technical certification -- work by a third party that the operator did not do and cannot revise. |
+| `COVENANT_KIND_MATERIAL_EVENT` | Anything the operator is obliged to disclose promptly and that fits none of the above: litigation, a covenant breach, a material contract lost. |
+
+### Sector
+
+Sector is what the tokenised thing DOES, so an investor can filter a market by it and a regulator can recognise the description.
+
+ISIC Rev. 4 sections, not a list invented here. A securities offering is described to a regulator in a classification they already use, and a bespoke list has to be mapped onto one eventually -- by somebody with less context than whoever wrote it. The sections are A to U; the names below are the ones a reader recognises rather than the standard's own wording.
+
+An enum rather than free text for the reason DocumentKind is an enum: this is what a marketplace filters on, and "Timber / timber / Bois / forestry products" is four sectors to a machine and one to a person.
+
+| Value | Meaning |
+| --- | --- |
+| `SECTOR_UNSPECIFIED` | Never stored on an asset minted after this field existed. Assets minted before it carry this, and that is an absence rather than a claim: it means the chain was not asked, not that the sector is unknown to anybody. |
+| `SECTOR_AGRICULTURE` | A. Agriculture, forestry and fishing -- including a standing concession. |
+| `SECTOR_EXTRACTION` | B. Mining and quarrying. |
+| `SECTOR_MANUFACTURING` | C. Manufacturing, which is anything that transforms a material. A sawmill is here rather than in A: what is sold is what leaves the mill. |
+| `SECTOR_UTILITIES` | D and E. Electricity, gas, water and waste. |
+| `SECTOR_CONSTRUCTION` | F. Construction. |
+| `SECTOR_TRADE` | G. Wholesale and retail trade. |
+| `SECTOR_TRANSPORT` | H. Transport and storage. |
+| `SECTOR_HOSPITALITY` | I. Accommodation and food service. |
+| `SECTOR_TECHNOLOGY` | J. Information and communication. |
+| `SECTOR_FINANCIAL` | K. Financial and insurance activities. |
+| `SECTOR_REAL_ESTATE` | L. Real estate. Distinct from an asset being OVER registered land: a warehouse operator is real estate, and a sawmill built on a titled parcel is not. |
+| `SECTOR_SERVICES` | M and N. Professional, scientific, technical and administrative services. |
+| `SECTOR_PUBLIC_AND_SOCIAL` | O to U. Public administration, education, health, arts, and the rest. |
 
 ### Status
 
@@ -513,7 +671,11 @@ Every way a transaction to this module can be rejected.
 | 35 | `ErrVaultUnfunded` | this vehicle does not hold enough to pay that, and the money of another vehicle is not available to it |
 | 36 | `ErrProceedsUnpaid` | the holders' share of the reported price has not been paid into the vault, so redemption cannot open |
 | 37 | `ErrOverpayment` | that is more than the sale still owes, and the surplus would have no owner |
+| 38 | `ErrInvalidSubscription` | that subscription cannot be recorded against this holding |
+| 39 | `ErrInvalidCovenant` | a filing needs a kind, a title and a 32-byte SHA-256 digest of its contents |
 | 4 | `ErrNoAuthority` | this collection has no minting authority |
+| 40 | `ErrCovenantNotFound` | no such filing |
+| 41 | `ErrCovenantSuperseded` | that filing has already been corrected; correct the current version instead |
 | 5 | `ErrNotAuthority` | this account is not the collection's minting authority |
 | 6 | `ErrAssetNotFound` | no such asset |
 | 7 | `ErrNotOwner` | this account does not hold title to that asset |

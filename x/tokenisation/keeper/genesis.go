@@ -73,6 +73,18 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	// Set explicitly, never derived from the asset list. A counter that
 	// recomputes itself writes zero where InitGenesis wrote nothing, and the
 	// export stops matching the import byte for byte.
+	for _, c := range gs.Covenants {
+		if err := k.Covenants.Set(ctx, c.Id, c); err != nil {
+			return err
+		}
+		if err := k.CovenantsByAsset.Set(ctx, collections.Join(c.AssetId, c.Id)); err != nil {
+			return err
+		}
+	}
+	if err := k.NextCovenantID.Set(ctx, gs.NextCovenantId); err != nil {
+		return err
+	}
+
 	return k.NextAssetID.Set(ctx, gs.NextAssetId)
 }
 
@@ -116,11 +128,24 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		return nil, err
 	}
 
+	if err := k.Covenants.Walk(ctx, nil, func(_ uint64, c types.Covenant) (bool, error) {
+		gs.Covenants = append(gs.Covenants, c)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+
 	next, err := k.NextAssetID.Peek(ctx)
 	if err != nil {
 		return nil, err
 	}
 	gs.NextAssetId = next
+
+	nextCov, err := k.NextCovenantID.Peek(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gs.NextCovenantId = nextCov
 
 	return gs, nil
 }

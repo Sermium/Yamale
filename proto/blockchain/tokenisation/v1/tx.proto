@@ -37,6 +37,11 @@ service Msg {
   // return can be computed against something rather than assumed.
   rpc RecordSubscription(MsgRecordSubscription) returns (MsgRecordSubscriptionResponse);
 
+  // PublishCovenant files an undertaking against a tokenisation: accounts, a
+  // structure change, a dividend notice, an assembly. The digest, never the
+  // document.
+  rpc PublishCovenant(MsgPublishCovenant) returns (MsgPublishCovenantResponse);
+
   // Title holder.
   rpc Fractionalise(MsgFractionalise) returns (MsgFractionaliseResponse);
   // TransferAsset moves the title only. The fraction tokens are ordinary
@@ -457,4 +462,49 @@ message MsgRecordSubscriptionResponse {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
+}
+
+// MsgPublishCovenant files an undertaking against a tokenisation.
+//
+// Signed by the collection authority: the party that answers for the vehicle.
+// A holder able to publish against it could file an announcement in the
+// operator's name, on a register whose value is that its filings are
+// attributable.
+//
+// Accepted in any status. Accounts, resolutions and material events arrive
+// after a sale as readily as before one, and a register that stopped accepting
+// them at realisation would be missing the filings a later dispute is about.
+message MsgPublishCovenant {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/tokenisation/MsgPublishCovenant";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+
+  CovenantKind kind = 3;
+  string title = 4;
+
+  // Exactly 32 bytes. Not a hex string: two spellings of one digest that do not
+  // compare equal are worse than no digest.
+  bytes sha256 = 5;
+
+  string uri = 6;
+
+  // The period covered, unix seconds; both zero for a document covering a
+  // moment rather than a span.
+  int64 period_start = 7;
+  int64 period_end = 8;
+
+  // When a holder must have acted by. Zero when nothing is asked of them.
+  int64 acts_by = 9;
+
+  // The covenant this corrects. Zero if it corrects nothing. Must belong to the
+  // same asset and must not already have been superseded -- two corrections of
+  // one filing leave two current versions and no rule for choosing.
+  uint64 supersedes = 10;
+}
+
+// MsgPublishCovenantResponse carries the id the chain assigned.
+message MsgPublishCovenantResponse {
+  uint64 id = 1;
 }

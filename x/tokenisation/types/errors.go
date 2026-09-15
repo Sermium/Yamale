@@ -110,4 +110,10 @@ var (
 
 	ErrInvalidSubscription = sdkerrors.Register(ModuleName, 38,
 		"that subscription cannot be recorded against this holding")
+
+	ErrInvalidCovenant = sdkerrors.Register(ModuleName, 39,
+		"a filing needs a kind, a title and a 32-byte SHA-256 digest of its contents")
+	ErrCovenantNotFound   = sdkerrors.Register(ModuleName, 40, "no such filing")
+	ErrCovenantSuperseded = sdkerrors.Register(ModuleName, 41,
+		"that filing has already been corrected; correct the current version instead")
 )

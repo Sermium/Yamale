@@ -21,4 +21,15 @@ message GenesisState {
   // counter that recomputes itself from the asset list writes zero where
   // InitGenesis wrote nothing, and the export stops round-tripping.
   uint64 next_asset_id = 7;
+
+  // The filings, and their counter. Digests only, so this costs a genesis file
+  // 32 bytes and a title per filing -- and losing them would lose the proof
+  // that anything was ever published.
+  repeated Covenant covenants = 8 [(gogoproto.nullable) = false];
+
+  // Exported explicitly rather than derived from the highest id present. A
+  // counter derived that way reissues an id the moment the highest-numbered
+  // filing is removed, and two filings under one id is a register
+  // contradicting itself.
+  uint64 next_covenant_id = 9;
 }

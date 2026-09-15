@@ -61,7 +61,13 @@ type Keeper struct {
 	// is sometimes not enforced.
 	ParcelIssuedBps collections.Map[uint64, uint32]
 
-	NextAssetID collections.Sequence
+	// Covenants by id, with a key set beside them so one vehicle's filings are a
+	// prefix walk rather than a scan of every filing on the chain.
+	Covenants        collections.Map[uint64, types.Covenant]
+	CovenantsByAsset collections.KeySet[collections.Pair[uint64, uint64]]
+
+	NextAssetID    collections.Sequence
+	NextCovenantID collections.Sequence
 }
 
 func NewKeeper(
@@ -93,7 +99,13 @@ func NewKeeper(
 		ByDenom: collections.NewMap(sb, types.ByDenomKey, "by_denom", collections.StringKey, collections.Uint64Value),
 		ParcelIssuedBps: collections.NewMap(sb, types.ParcelIssuedBpsKey, "parcel_issued_bps",
 			collections.Uint64Key, collections.Uint32Value),
-		NextAssetID: collections.NewSequence(sb, types.NextAssetIDKey, "next_asset_id"),
+		Covenants: collections.NewMap(sb, types.CovenantsKey, "covenants",
+			collections.Uint64Key, codec.CollValue[types.Covenant](cdc)),
+		CovenantsByAsset: collections.NewKeySet(sb, types.CovenantsByAssetKey, "covenants_by_asset",
+			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
+
+		NextAssetID:    collections.NewSequence(sb, types.NextAssetIDKey, "next_asset_id"),
+		NextCovenantID: collections.NewSequence(sb, types.NextCovenantIDKey, "next_covenant_id"),
 	}
 
 	schema, err := sb.Build()

@@ -58,6 +58,19 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
 				},
 				{
+					RpcMethod: "Covenants",
+					Use:       "covenants [asset-id]",
+					Short:     "What the operator has published against this tokenisation",
+					Long: "Accounts, structure changes, dividend notices, assembly notices.\n\n" +
+						"Digests, never the documents. Verify one you have been sent with\n" +
+						"`sha256sum <file>` and compare: a match proves the file is the one the\n" +
+						"operator published, and when. It proves nothing about whether the\n" +
+						"accounts are true or the assembly was held.\n\n" +
+						"Corrected filings are listed by default; pass --current-only for the\n" +
+						"live set alone.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
+				},
+				{
 					RpcMethod: "Entitlement",
 					Use:       "entitlement [asset-id] [holder]",
 					Short:     "Shows what one holder may claim from an asset's vault right now",
@@ -152,6 +165,45 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 						{ProtoField: "collection_id"},
 						{ProtoField: "attestors", Varargs: true},
 					},
+				},
+				{
+					RpcMethod: "RecordSubscription",
+					Use:       "record-subscription [asset-id] [investor] [quantity] [paid]",
+					Short:     "State what an investor paid, so a return can be computed against something",
+					Long: "State what an investor paid for tokens they already hold.\n\n" +
+						"--from must be the collection authority: the party that took the money." +
+						" An investor able to state their own cost could publish a flattering" +
+						" return beside a real balance.\n\n" +
+						"[paid] is in the vault's income denomination, as a bare integer in base" +
+						" units. It is additive: a second subscription adds to both the money and" +
+						" the quantity, so two prices become a weighted average.\n\n" +
+						"This records an assertion, not a receipt. It does not claim the money" +
+						" arrived, or arrived in this currency, or at arm's length.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "asset_id"},
+						{ProtoField: "investor"},
+						{ProtoField: "quantity"},
+						{ProtoField: "paid"},
+					},
+				},
+				{
+					RpcMethod: "PublishCovenant",
+					// No positional args: the collection authority is a group account
+					// in practice, so this rides in a proposal as JSON rather than
+					// being typed. The command exists so --help documents the fields.
+					Use:   "publish-covenant",
+					Short: "File an undertaking: accounts, a structure change, a dividend notice, an assembly",
+					Long: "File an undertaking against a tokenisation. The digest, never the\n" +
+						"document: a set of accounts names customers, salaries and\n" +
+						"counterparties, and that on a public chain is a permanent disclosure\n" +
+						"made on behalf of people who did not consent to it.\n\n" +
+						"Append-only. A correction is a NEW filing naming the one it corrects,\n" +
+						"and the earlier version stays readable -- a dispute is usually about\n" +
+						"what was said at a date rather than what is said now.\n\n" +
+						"acts_by is what makes a deadline visible as a deadline. Set it on an\n" +
+						"assembly notice; leave it zero when nothing is asked of a holder.\n\n" +
+						"Proposal JSON carries bytes as base64, not hex:\n\n" +
+						"  sha256sum -b accounts.pdf | cut -d' ' -f1 | xxd -r -p | base64 -w0",
 				},
 				{
 					RpcMethod: "MintAsset",

@@ -40,6 +40,11 @@ service Query {
   rpc Entitlement(QueryEntitlementRequest) returns (QueryEntitlementResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}";
   }
+
+  // Covenants lists what has been published against one tokenisation.
+  rpc Covenants(QueryCovenantsRequest) returns (QueryCovenantsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/covenants/{asset_id}";
+  }
 }
 
 // QueryParamsRequest is the request type for the Params RPC.
@@ -93,4 +98,20 @@ message QueryEntitlementRequest {
 // settled income included — not the balance of their last settlement.
 message QueryEntitlementResponse {
   cosmos.base.v1beta1.Coin owed = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryCovenantsRequest asks for one tokenisation's filings.
+message QueryCovenantsRequest {
+  uint64 asset_id = 1;
+
+  // Omit filings that have been corrected. False by default: what was said at a
+  // date is usually the question, and a reader who can only see the current
+  // version cannot answer it.
+  bool current_only = 2;
+}
+
+// QueryCovenantsResponse lists them, oldest first, which is the order the
+// vehicle's life happened in.
+message QueryCovenantsResponse {
+  repeated Covenant covenants = 1 [(gogoproto.nullable) = false];
 }

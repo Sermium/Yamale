@@ -28,7 +28,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/selfcustody](selfcustody.md) |  | 4 | 4 |
 | [x/stablecoin](stablecoin.md) | Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom. | 6 | 5 |
 | [x/syndicate](syndicate.md) |  | 14 | 10 |
-| [x/tokenisation](tokenisation.md) |  | 16 | 5 |
+| [x/tokenisation](tokenisation.md) |  | 18 | 6 |
 | [x/treasury](treasury.md) | Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone. | 16 | 12 |
 | [x/validatorgov](validatorgov.md) | Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted. | 9 | 11 |
 

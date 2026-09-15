@@ -22,6 +22,13 @@ var (
 	// ParcelIssuedBpsKey totals the shares issued over one x/land parcel across
 	// every vehicle opened on it.
 	ParcelIssuedBpsKey = collections.NewPrefix(8)
+
+	// Covenants are keyed by their own id, with a (asset, covenant) key set
+	// beside them so one vehicle's filings are a prefix walk rather than a scan
+	// of every filing on the chain.
+	CovenantsKey        = collections.NewPrefix(9)
+	CovenantsByAssetKey = collections.NewPrefix(10)
+	NextCovenantIDKey   = collections.NewPrefix(11)
 )
 
 // FractionDenom is the denom minted against an asset.
@@ -46,3 +53,17 @@ func itoa(v uint64) string {
 	}
 	return string(buf[i:])
 }
+
+// SHA256Len is how long a digest is. Checked rather than assumed: a hash field
+// that accepts any length accepts a truncated one, and a truncated SHA-256 is
+// not a weaker proof but a forgeable one.
+const SHA256Len = 32
+
+// Bounds on the free text a covenant carries. Not because storage is scarce,
+// but because a title long enough to be a document is how somebody puts the
+// accounts in the field built to hold their name -- which would be exactly the
+// public disclosure the digest design exists to avoid.
+const (
+	MaxCovenantTitle = 256
+	MaxCovenantURI   = 512
+)
