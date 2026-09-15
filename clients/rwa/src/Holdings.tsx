@@ -134,42 +134,41 @@ export function Holdings({ account }: { account: Account }) {
 
   if (loading) return <div className="page"><Loading what={t('rwa.reading')} /></div>;
 
-  // Claimable across the portfolio. Summed only when every tokenisation pays in
-  // the SAME denomination: adding dollars to francs produces a number that is
-  // true of nothing, and a portfolio spanning two currencies is the normal case
-  // on a chain carrying forty of them. Mixed portfolios say so instead.
-  const denoms = new Set(rows.map((r) => r.owed?.denom || r.incomeDenom).filter(Boolean));
-  const mixed = denoms.size > 1;
-  const oneDenom = denoms.size === 1 ? [...denoms][0]! : '';
-  const anyUnknown = rows.some((r) => r.owedUnknown);
-
-  const claimable = {
-    denom: oneDenom,
-    mixed,
-    // A failed read is carried rather than summed as zero: telling somebody
-    // their portfolio owes them nothing because one query timed out is the
-    // truth about the network and a lie about their money.
-    total: mixed || anyUnknown
-      ? null
-      : rows.reduce((sum, r) => sum + BigInt(r.owed?.amount || '0'), 0n).toString(),
-  };
-
-  // What the vaults have paid out that is attributable to THIS holding.
+  // Claimable across the portfolio, SUBTOTALLED PER CURRENCY.
   //
-  // balance/supply of each vault's lifetime funding. Exact only for a holder
-  // who has held the position since issuance -- the chain accrues against a
-  // position and keeps no register of payments per holder -- so the hint says
-  // so rather than leaving the reader to assume otherwise.
-  const attributed = {
-    denom: oneDenom,
-    total: mixed
-      ? null
-      : rows.reduce((sum, r) => {
-          const supply = BigInt(r.supply || '0');
-          if (supply === 0n) return sum;
-          return sum + (BigInt(r.balance || '0') * BigInt(r.funded || '0')) / supply;
-        }, 0n).toString(),
-  };
+  // Not one number. Each tokenisation pays in one currency and a portfolio may
+  // span several, so a single total would be dollars added to francs: a figure
+  // true of nothing. The chain does carry exchange rates, and converting would
+  // produce one number -- at the cost of making today's claimable depend on
+  // today's rate, which is a different and less checkable claim than "you may
+  // withdraw this much of each".
+  //
+  // An earlier version refused to total a mixed portfolio and printed an
+  // explanation instead. That answered a bad question. A subtotal per currency
+  // is simply correct, and in the ordinary case there is exactly one of them.
+  const byDenom = new Map<string, bigint>();
+  let anyUnknown = false;
+  for (const r of rows) {
+    if (r.owedUnknown) { anyUnknown = true; continue; }
+    const denom = r.owed?.denom || r.incomeDenom;
+    if (!denom) continue;
+    byDenom.set(denom, (byDenom.get(denom) ?? 0n) + BigInt(r.owed?.amount || '0'));
+  }
+  const claimable = [...byDenom.entries()]
+    .map(([denom, amount]) => ({ denom, amount: amount.toString() }))
+    .sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
+
+  // The same, for what the vaults have already paid on this holding.
+  const paidByDenom = new Map<string, bigint>();
+  for (const r of rows) {
+    const supply = BigInt(r.supply || '0');
+    if (supply === 0n || !r.incomeDenom) continue;
+    const share = (BigInt(r.balance || '0') * BigInt(r.funded || '0')) / supply;
+    paidByDenom.set(r.incomeDenom, (paidByDenom.get(r.incomeDenom) ?? 0n) + share);
+  }
+  const attributed = [...paidByDenom.entries()]
+    .map(([denom, amount]) => ({ denom, amount: amount.toString() }))
+    .sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
 
   // Concentration of the investor's OWN portfolio: the largest single position
   // as a share of everything they hold, measured in the income each throws off
@@ -208,17 +207,25 @@ export function Holdings({ account }: { account: Account }) {
           />
           <Kpi
             label={t('rwa.pfClaimable')}
-            value={claimable.total === null
-              ? <span className="muted">{t('rwa.owedUnknown')}</span>
-              : <Amount amount={claimable.total} denom={claimable.denom} />}
-            tone={claimable.total !== null && BigInt(claimable.total) > 0n ? 'ok' : undefined}
-            hint={claimable.mixed ? t('rwa.pfClaimableMixed') : t('rwa.pfClaimableHint')}
+            value={claimable.length === 0
+              ? <Amount amount="0" denom="" />
+              : <span className="kpi__stack">
+                  {claimable.map((c) => (
+                    <span key={c.denom}><Amount amount={c.amount} denom={c.denom} /></span>
+                  ))}
+                </span>}
+            tone={claimable.some((c) => BigInt(c.amount) > 0n) ? 'ok' : undefined}
+            hint={anyUnknown ? t('rwa.pfClaimablePartial') : t('rwa.pfClaimableHint')}
           />
           <Kpi
             label={t('rwa.pfAttributed')}
-            value={attributed.total === null
+            value={attributed.length === 0
               ? '—'
-              : <Amount amount={attributed.total} denom={attributed.denom} />}
+              : <span className="kpi__stack">
+                  {attributed.map((c) => (
+                    <span key={c.denom}><Amount amount={c.amount} denom={c.denom} /></span>
+                  ))}
+                </span>}
             hint={t('rwa.pfAttributedHint')}
           />
           <Kpi

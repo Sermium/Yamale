@@ -848,3 +848,8 @@ body {
 /* The sponsor is not just another row: the whole retention promise is about
    this one line, so it is marked rather than left to be counted. */
 .holders__row--self td { font-weight: 600; }
+
+/* A KPI carrying one line per currency. Usually one; a portfolio spanning two
+   shows two rather than a total that added dollars to francs. */
+.kpi__stack { display: flex; flex-direction: column; gap: 0.1em; }
+.kpi__stack > span + span { font-size: var(--step-0); color: var(--text-muted); }
