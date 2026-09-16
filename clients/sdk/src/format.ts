@@ -85,7 +85,18 @@ export function timeAgo(timestamp: string | Date, now: Date = new Date()): strin
   return `${Math.floor(seconds / YEAR)} years ago`;
 }
 
-/** Renders a future instant as remaining time: "12 days left". */
+/**
+ * Renders a future instant as remaining time: "12 days left".
+ *
+ * STILL ENGLISH, and deliberately not half-fixed. Unlike formatDuration this
+ * builds a sentence — "left", "now", "less than a minute" — so localising it
+ * means catalogue keys and a plural rule per language, not a formatter. Passing
+ * a locale to the number while leaving the words English would produce
+ * "21 jours left", which is worse than either language alone.
+ *
+ * Tracked rather than silently tolerated: the surfaces that show a deadline in
+ * French are reading half a translation today.
+ */
 export function timeUntil(timestamp: string | Date, now: Date = new Date()): string {
   const then = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
   if (Number.isNaN(then.getTime())) return 'unknown';
@@ -99,17 +110,59 @@ export function timeUntil(timestamp: string | Date, now: Date = new Date()): str
   return `${plural(Math.floor(seconds / MONTH), 'month')} left`;
 }
 
-/** A duration in seconds as a phrase: "21 days", "2 hours". */
-export function formatDuration(seconds: number): string {
-  if (seconds < MINUTE) return `${seconds} seconds`;
-  if (seconds < HOUR) return plural(Math.round(seconds / MINUTE), 'minute');
-  if (seconds < DAY) return plural(Math.round(seconds / HOUR), 'hour');
-  if (seconds < YEAR) return plural(Math.round(seconds / DAY), 'day');
-  return plural(Math.round(seconds / YEAR), 'year');
-}
-
+/** The English pluraliser timeUntil still needs. formatDuration does not. */
 function plural(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? '' : 's'}`;
+}
+
+/** A duration in seconds as a phrase, in the reader's language. */
+export function formatDuration(seconds: number, locale = 'en-GB'): string {
+  const [amount, unit] = scale(seconds);
+  return fmt(locale, amount, unit);
+}
+
+/** Seconds reduced to the largest unit that leaves a number worth reading. */
+function scale(seconds: number): [number, Intl.RelativeTimeFormatUnit] {
+  if (seconds < MINUTE) return [seconds, 'second'];
+  if (seconds < HOUR) return [Math.round(seconds / MINUTE), 'minute'];
+  if (seconds < DAY) return [Math.round(seconds / HOUR), 'hour'];
+  if (seconds < YEAR) return [Math.round(seconds / DAY), 'day'];
+  return [Math.round(seconds / YEAR), 'year'];
+}
+
+/**
+ * Durations in the reader's language, not in English with a number in front.
+ *
+ * This used to build `${count} ${unit}` and pluralise by appending an `s`,
+ * which produced "Le retrait prend 21 days" on the French pages — and 21 days
+ * is the unbonding period, so the one duration a delegator most needs to
+ * understand was the one written in a language they had not chosen.
+ *
+ * `Intl.NumberFormat` with `style: 'unit'` knows the plural rules of every
+ * locale it is given, including the ones English does not have: Arabic
+ * distinguishes zero, one, two, a few and many, and an `s` cannot express any
+ * of that.
+ *
+ * Cached because a formatter is expensive to construct and these are called
+ * once per row.
+ */
+const formatters = new Map<string, Intl.NumberFormat>();
+
+function fmt(locale: string, amount: number, unit: string): string {
+  const key = `${locale}:${unit}`;
+  let f = formatters.get(key);
+  if (!f) {
+    try {
+      f = new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'long' });
+    } catch {
+      // A runtime without the unit style, or a unit it does not know. Falling
+      // back to English is wrong but legible; throwing would take the page down
+      // over a label.
+      return `${amount} ${unit}${amount === 1 ? '' : 's'}`;
+    }
+    formatters.set(key, f);
+  }
+  return f.format(amount);
 }
 
 /** Full timestamp for the expert view and tooltips. */

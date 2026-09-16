@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { displayName, onAddressBookChange, type DisplayName } from './addressbook.ts';
 
@@ -25,14 +25,28 @@ export function useDisplayName(
   const [userId, setUserId] = useState<string | null>(null);
   const [, bump] = useState(0);
 
+  // The lookup is held in a ref and kept OUT of the effect's dependencies.
+  //
+  // Keyed on `lookup`, this effect re-ran on every render for any caller that
+  // passed an inline arrow — which is the obvious way to call it, and which the
+  // Safe did. Measured: five identical 404s for one address in a few seconds,
+  // and worst for accounts with no user ID, because a lookup that never
+  // resolves to anything never stops being retried.
+  //
+  // The address is the identity of this effect. A caller changing which
+  // function does the looking, without changing whose name is being looked up,
+  // is not a reason to ask the chain again.
+  const latest = useRef(lookup);
+  latest.current = lookup;
+
   useEffect(() => {
     if (!address) return;
     let cancelled = false;
-    void lookup(address).then((id) => !cancelled && setUserId(id));
+    void latest.current(address).then((id) => !cancelled && setUserId(id));
     return () => {
       cancelled = true;
     };
-  }, [address, lookup]);
+  }, [address]);
 
   // A name saved in one component should appear in the others without a
   // reload; the address book fires an event precisely so this is possible.
