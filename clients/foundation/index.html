@@ -315,6 +315,161 @@
   }
 
   /* ==========================================================================
+     INFORMATION DESIGN — copied from clients/shared/yamale.css, same as the block
+     above. The reasoning for each pattern is in that file; what is here is the
+     declarations, byte-identical and in the same order.
+     ========================================================================== */
+
+  /* --- The figures a reader came for, before the prose explaining them ----- */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+       and rendered 100,000,000 as "100,000,0" above "00" — a number split in two
+       is not a smaller number, it is a different one. The unit may drop; the
+       digits may not. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  /* Where a figure's limit goes. Some are exact and some are not, and a band
+     that spoke about all of them in one voice would claim a precision the chain
+     does not have. Clamped, because a paragraph under every tile makes the band
+     taller than the content it introduces. */
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* --- Folders, because one scrolling column is not a document ------------- */
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    /* The open folder sits ON the rule rather than above it, so the area below
+       reads as the inside of the folder rather than as a separate box. */
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  /* --- Data tables that can actually be read ------------------------------ */
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  /* Numbers right, words left. A column of figures that is not aligned on its
+     units cannot be compared down the page, which is the only reason to put
+     figures in a column. */
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  /* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+  .y-scrollx { overflow-x: auto; }
+
+  /* --- A proportion, drawn ------------------------------------------------- */
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
+  /* ==========================================================================
      THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
      else: clients/foundation, clients/governance, clients/land,
      clients/validator. Kept identical in all four for the same reason as the
@@ -582,6 +737,63 @@
     font-family: var(--font-mono); font-feature-settings: 'zero' 1;
     font-weight: 500; letter-spacing: 0.08em; font-size: var(--step--1);
   }
+
+  /* --- local additions to the shared information-design block --------------
+     Two rules the shared band does not have. Kept here and labelled rather than
+     pushed into clients/shared/yamale.css, because neither has a second
+     consumer yet and a shared rule with one caller is one the next surface
+     inherits a slightly wrong version of.
+
+     A KPI whose honest answer is a word — "nothing", which is what a custody
+     account holds for most of its life — set at the size of a balance makes an
+     ordinary week look like an event.
+
+     The shared band has --ok, --warn, --bad and --mute, which are verdicts.
+     The signature threshold is not a verdict about anything: it is the number
+     this whole console exists around, and the console chrome already spends
+     brass on "this is the thing a person acts on". So the band gets the same
+     edge for the same reason. */
+  .y-kpi__value--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .y-kpi--brass { border-inline-start-color: var(--brass); }
+
+  /* The folder tabs are links rather than buttons: a folder is a place, it
+     belongs in the URL, and a custodian gets sent to one. The shared .y-folder
+     is written for a <button>, which is inline-block and carries no underline
+     by default; an anchor is neither. */
+  a.y-folder { display: inline-block; text-decoration: none; }
+
+  /* The signature count on a proposal card. The same shape as a KPI value — a
+     figure with its denominator set small beside it — but inline on a card
+     rather than in a tile, so it does not get the tile's box.
+
+     "2 of 3" is nowrap and the words after it are not, which is why they are a
+     separate element in the flex row rather than part of the figure: a count
+     and the threshold it is counted against are one fact, and "2" at the end of
+     one line above "of 3" at the start of the next is a proposal that reads as
+     approved. The words "signatures needed" can wrap wherever they like. */
+  .sigrow { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap;
+            margin-top: var(--sp-3); }
+  .signum {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin: 0; white-space: nowrap;
+  }
+  .signum__of { font-family: var(--font-sans); font-size: var(--step-0); font-weight: 400;
+                letter-spacing: 0; color: var(--text-muted); margin-inline-start: 0.4em; }
+
+  /* The same measured defect as in the governance console: the shared `.num`
+     rule drops a cell's trailing padding so a column of figures ends flush with
+     the table edge, which is right for the last column and wrong for one that
+     is not. Here it is the vote-weight column, which sits between a fingerprint
+     and an address. */
+  .y-data .num:not(:last-child) { padding-inline-end: var(--sp-3); }
+
+  /* A truncated identifier is already as short as it is going to get, and
+     breaking "03D2E89A1F…9BB83C" across two lines in a table cell makes a
+     column of hashes impossible to run an eye down. Only while it is
+     truncated: revealed, the whole hash has to be free to wrap or it pushes
+     the table sideways. */
+  .y-data .y-id:not(.y-id--open) .y-id__text { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -723,7 +935,10 @@ const TABS = [
 
 function renderNav(path) {
   document.getElementById('nav').innerHTML = TABS.map(([h, label]) => {
-    const on = h === path || (h === '#/proposals' && path.startsWith('#/proposal/'));
+    // A folder inside the proposals screen is still the proposals screen —
+    // '#/proposals/waiting' must not leave the nav with nothing marked.
+    const on = h === path
+      || (h === '#/proposals' && (path.startsWith('#/proposal/') || path.startsWith('#/proposals/')));
     return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${esc(label)}</a>`;
   }).join('');
 }
@@ -1143,6 +1358,28 @@ function wireCopies() {
   });
 }
 
+// ---------------------------------------------------------------- the figures
+//
+// One tile of the band at the top of a screen.
+//
+// `value` carries the digits and nothing else; `unit` is separate and set
+// small, so a narrow column drops the unit off the end of the line rather than
+// splitting the number — "3" above "of 5" is a figure that has lost its
+// denominator, which on this account is the difference between a threshold and
+// a count.
+//
+// `words` is for a tile whose honest answer is not a figure: "nothing" is the
+// answer to what a custody account holds for most of its life, and setting it
+// at the size of a balance makes an ordinary week look like an event.
+function kpi({ label, value, unit, hint, tone, words }) {
+  return `<div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+      <p class="y-kpi__label">${esc(label)}</p>
+      <p class="y-kpi__value${words ? ' y-kpi__value--words' : ''}">${value}${
+        unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+      ${hint ? `<p class="y-kpi__hint">${hint}</p>` : ''}
+    </div>`;
+}
+
 /** A deadline as a date and a distance, never as a height. */
 function deadline(seconds, label) {
   if (seconds === null) return `<span class="muted small">${esc(label)}: not stated</span>`;
@@ -1156,7 +1393,22 @@ function voteBar(counted) {
   const total = counted.rows.reduce((s, r) => s + r.custodian.weight, 0) || 1;
   const pct = (n) => `${(100 * n / total).toFixed(2)}%`;
   const line = `${(100 * counted.threshold / total).toFixed(2)}%`;
-  return `<div class="barwrap">
+  // The count, as a count, above the bar that draws it.
+  //
+  // "2 approved of 3 needed" used to be the first clause of a four-clause line
+  // of small muted text, at the same size as the words around it — so the one
+  // number a custodian opens a proposal to find was the hardest thing on the
+  // card to see. It is a signature count out of a fixed threshold, which is
+  // exactly the shape a figure is for.
+  return `<div class="sigrow">
+      <p class="signum">${counted.yes}<span class="signum__of">of ${counted.threshold}</span></p>
+      <span class="small muted">signature${counted.threshold === 1 ? '' : 's'} needed</span>
+      ${counted.reached
+        ? '<span class="pill p-ok">threshold reached</span>'
+        : `<span class="pill ${counted.couldStillPass ? 'p-warn' : 'p-bad'}">${
+            counted.stillNeeded} more to reach it</span>`}
+    </div>
+    <div class="barwrap">
       <div class="bar">
         <span style="width:${pct(counted.yes)};background:var(--ok)"></span>
         <span style="width:${pct(counted.no + counted.veto)};background:var(--bad)"></span>
@@ -1164,8 +1416,8 @@ function voteBar(counted) {
       </div>
       <div class="thresh" style="left:${line}" title="threshold"></div>
     </div>
-    <p class="muted small">${counted.yes} approved of ${counted.threshold} needed ·
-      ${counted.no + counted.veto} against · ${counted.abstain} abstained ·
+    <p class="muted small">${counted.no + counted.veto} against ·
+      ${counted.abstain} abstained ·
       ${counted.undecided} ${counted.individualVotes ? 'yet to vote' : 'did not vote'}</p>`;
 }
 
@@ -1274,16 +1526,30 @@ async function screenFoundation() {
           page. Compare each fingerprint below against the paper from the ceremony.</p>
       </div>`;
 
+  // A table rather than five rows of loose text. The question a reader brings
+  // to this list is "does the paper from the ceremony match the chain", and
+  // that is a column-by-column comparison: five fingerprints under each other,
+  // in one place, in a face where a zero cannot be an O. As a flex row with the
+  // address pushed to the far edge, the fingerprints did not line up at all and
+  // nothing could be run down with a finger.
   const custodianRows = f.custodians.map((c) => `
-    <div class="vrow">
-      <strong>${esc(c.name || 'unnamed custodian')}</strong>
-      ${c.fingerprint
+    <tr${ME === c.name ? ' class="y-data__self"' : ''}>
+      <td>${esc(c.name || 'unnamed custodian')}${
+        ME === c.name ? ' <span class="pill p-brass">you</span>' : ''}</td>
+      <td>${c.fingerprint
         ? `<span class="fp">${esc(c.fingerprint)}</span>`
-        : '<span class="pill p-warn">no fingerprint recorded</span>'}
-      ${c.weight === 1 ? '' : `<span class="pill p-warn">weight ${esc(c.weight)}</span>`}
-      ${ME === c.name ? '<span class="pill p-brass">you</span>' : ''}
-      <span style="margin-inline-start:auto">${idHtml(c.address, { label: 'custodian' })}</span>
-    </div>`).join('');
+        : '<span class="pill p-warn">none recorded</span>'}</td>
+      <td class="num">${c.weight === 1
+        ? '<span class="muted">1</span>'
+        : `<strong>${esc(c.weight)}</strong> <span class="pill p-warn">not one vote</span>`}</td>
+      <td>${idHtml(c.address, { label: 'custodian' })}</td>
+    </tr>`).join('');
+
+  // Counted rather than assumed. A custodian with no fingerprint on the chain
+  // cannot be checked against the ceremony paper at all, and a band that said
+  // "5 custodians" without saying how many of them are checkable would be
+  // reporting the count as the assurance.
+  const withFingerprints = f.custodians.filter((c) => c.fingerprint).length;
 
   // Said out loud, because a single row and a truncated list look identical,
   // and on this account the difference is what the foundation is holding.
@@ -1311,52 +1577,84 @@ async function screenFoundation() {
     ${verdict}
     ${others.map((o) => `<div class="warnbox">${esc(o.text)}</div>`).join('')}
 
-    <div class="grid">
-      <div class="card">
-        <div class="label">Signatures needed</div>
-        <div class="stat">${esc(f.threshold)} of ${esc(f.custodians.length)}</div>
-        <div class="muted small">Fixed by the constitution. Changing it takes an amendment —
-          weeks in public and a four-fifths ratification — not a vote of the custodians it
-          constrains.</div>
-      </div>
-      <div class="card">
-        <div class="label">Voting period</div>
-        <div class="stat">${esc(Math.round(f.votingPeriodSeconds / 86400))} days</div>
-        <div class="muted small">${
-          f.minExecutionSeconds === 0
-            ? 'A deadline for votes, not a delay before acting: once the threshold is reached a ' +
-              'proposal can be carried out immediately.'
-            : `And a minimum wait of ${Math.round(f.minExecutionSeconds / 3600)} hours after
-               approval before it can be carried out.`
-        }</div>
-      </div>
-      <div class="card">
-        <div class="label">Group</div>
-        <div class="stat">#${esc(f.groupId)}</div>
-        <div class="muted small">Version ${esc(f.groupInfo?.version ?? '?')} — a proposal raised
-          against an older version is void, so a membership change cancels whatever was in
-          flight.</div>
-      </div>
-      <div class="card">
-        <div class="label">Administered by</div>
-        <div class="stat stat--words">itself</div>
-        <div class="muted small">${
-          f.policy?.admin === f.policyAddress
-            ? 'The group is its own admin, so membership can only change by a vote of the ' +
-              'custodians and never by one key.'
-            : `<span class="pill p-bad">admin is ${esc(short(f.policy?.admin))}</span> —
-               a single key outside the group can change it.`
-        }</div>
-      </div>
+    <!-- The figures, before the prose that qualifies them. A custodian opens
+         this account to answer three things — who can act, how many signatures
+         it takes, and what is in it — and every one of those was previously a
+         label and a value at the same size as each other. -->
+    <div class="y-kpis">
+      ${kpi({
+        label: 'Signatures needed', tone: 'brass',
+        value: esc(f.threshold), unit: `of ${f.custodians.length}`,
+        hint: 'Fixed by the constitution. Changing it takes an amendment — weeks in public and a '
+          + 'four-fifths ratification — not a vote of the custodians it constrains.',
+      })}
+      ${kpi({
+        label: 'Custodians', tone: withFingerprints === f.custodians.length ? 'ok' : 'warn',
+        value: esc(f.custodians.length),
+        hint: withFingerprints === f.custodians.length
+          ? 'each with a key fingerprint on the chain to compare against the paper from the '
+            + 'ceremony'
+          : `only ${withFingerprints} of them carry a key fingerprint, so the rest cannot be
+             checked against the ceremony paper from here`,
+      })}
+      ${kpi({
+        label: 'Voting period', tone: 'mute',
+        value: esc(Math.round(f.votingPeriodSeconds / 86400)), unit: 'days',
+        hint: f.minExecutionSeconds === 0
+          ? 'A deadline for votes, not a delay before acting: once the threshold is reached a '
+            + 'proposal can be carried out immediately.'
+          : `And a minimum wait of ${Math.round(f.minExecutionSeconds / 3600)} hours after
+             approval before it can be carried out.`,
+      })}
+      ${kpi({
+        label: 'Group version', tone: 'mute',
+        value: `#${esc(f.groupId)}`, unit: `v${esc(f.groupInfo?.version ?? '?')}`,
+        hint: 'A proposal raised against an older version is void, so a membership change cancels '
+          + 'whatever was in flight.',
+      })}
+      ${kpi({
+        label: 'Currencies held', tone: f.balances.length ? 'ok' : 'mute',
+        value: f.balances.length || 'nothing', words: !f.balances.length,
+        hint: f.balancesTruncated
+          ? 'and more than this page asked for — the list below is incomplete'
+          : (f.balances.length
+            ? 'the whole of what this account holds, listed below'
+            : 'either nothing has been recovered yet, or what was has already been paid out'),
+      })}
     </div>
 
-    <h2>The five custodians</h2>
-    <div class="card">${custodianRows}</div>
+    <h2>The custodians</h2>
+    <div class="card">
+      <p class="muted small">Compare each fingerprint against the paper from the ceremony. A
+        custodian with no fingerprint on the chain cannot be checked from here at all, which is a
+        different thing from one that fails the check.</p>
+      <div class="y-scrollx">
+        <table class="y-data">
+          <thead><tr><th>Custodian</th><th>Key fingerprint</th><th class="num">Votes</th>
+            <th>Account</th></tr></thead>
+          <tbody>${custodianRows}</tbody>
+        </table>
+      </div>
+    </div>
 
     <h2>What it holds</h2>
     <div class="card">${holdings}
       <p class="muted small" style="margin-top:.6rem">Account
         ${idHtml(f.policyAddress, { label: 'the foundation account' })}</p>
+    </div>
+
+    <h2>Who can change the membership</h2>
+    <div class="card${f.policy?.admin === f.policyAddress ? ' card--ok' : ' card--bad'}">
+      <p class="lede">${f.policy?.admin === f.policyAddress
+        ? 'The group administers itself.'
+        : 'A key outside the group administers it.'}</p>
+      <p class="muted small">${f.policy?.admin === f.policyAddress
+        ? 'So membership can only change by a vote of the custodians, and never by one key. This '
+          + 'is the fact that makes the threshold above mean anything: an admin outside the group '
+          + 'could replace the members that the threshold is counted over.'
+        : `The admin is ${esc(short(f.policy?.admin))}, which is not this account — a single key
+           outside the group can change who the custodians are, and with them anything the
+           threshold above appears to guarantee.`}</p>
     </div>
 
     <h2>The rules that pin this</h2>
@@ -1404,7 +1702,7 @@ function identityFooter(f) {
 
 // -------------------------------------------------------- screen: proposals
 
-async function screenProposals() {
+async function screenProposals(folder) {
   const f = await loadFoundation();
   const [all, done] = await Promise.all([loadProposals(f), loadCarriedOut()]);
 
@@ -1452,41 +1750,190 @@ async function screenProposals() {
     return;
   }
 
-  view.innerHTML = `
-    ${waiting.length ? `
-      <h2>Waiting to be carried out</h2>
-      <p class="muted small">These have the signatures they need. Nothing has moved yet —
-        a proposal has to be executed, and anybody at all can send that transaction: it needs
-        no permission, only that somebody does it.</p>
-      ${waiting.map((d) => proposalCard(d, f, true)).join('')}` : ''}
+  // Which of these are waiting on the person reading the page. This is the
+  // question a custodian opens the console with, and it was previously
+  // answerable only by reading five vote lists. It is a real figure or it is
+  // not shown: a page opened by nobody in particular has no answer to it.
+  const me = ME && f.custodians.find((c) => c.name === ME);
+  const mine = me
+    ? open.filter((d) => d.counted.individualVotes
+        && d.counted.rows.some((r) => r.custodian.address === me.address && !r.option))
+    : null;
 
-    <h2>Open for voting</h2>
-    ${open.length
+  // Four folders, and the one that opens is the one with something in it.
+  // A custodian who opens this screen to a "carried out" list when three
+  // proposals are waiting on their signature has been shown the archive
+  // instead of the work.
+  const FOLDERS = [
+    ['waiting', 'Waiting to be carried out', waiting.length],
+    ['open', 'Open for voting', open.length],
+    // '?' rather than 0: a transaction search that failed and an account that
+    // has never paid anything out are opposite facts, and a zero here would
+    // report the first as the second.
+    ['carried', 'Carried out', done.failed ? '?' : done.history.length],
+    ['settled', 'Refused, void or expired', settled.length],
+  ];
+  const known = FOLDERS.map(([id]) => id);
+  const chosen = known.includes(folder) ? folder
+    : waiting.length ? 'waiting'
+    : open.length ? 'open'
+    : 'carried';
+
+  const folderTabs = `<div class="y-folders" role="tablist" aria-label="Proposals">
+      ${FOLDERS.map(([id, label, count]) => `<a class="y-folder${id === chosen ? ' y-folder--on' : ''}"
+          role="tab" aria-selected="${id === chosen}" href="#/proposals/${id}"
+          >${esc(label)} <span class="y-folder__count">${esc(String(count))}</span></a>`).join('')}
+    </div>`;
+
+  const panes = {
+    waiting: waiting.length
+      ? `<p class="muted small">These have the signatures they need. Nothing has moved yet —
+          a proposal has to be executed, and anybody at all can send that transaction: it needs
+          no permission, only that somebody does it.</p>
+        ${waiting.map((d) => proposalCard(d, f, true)).join('')}`
+      : `<div class="card card--ok"><p class="lede">Nothing is waiting to be carried out.</p>
+          <p class="muted small">Both reads behind this screen answered. A proposal appears here
+            once it has ${esc(f.threshold)} of ${esc(f.custodians.length)} signatures and before
+            anybody has executed it — which is the state worth watching for, because such a
+            proposal has moved nothing while looking finished.</p></div>`,
+    open: open.length
       ? open.map((d) => proposalCard(d, f, false)).join('')
-      : '<p class="empty">Nothing is open for voting.</p>'}
-
-    <h2>Carried out</h2>
-    <p class="muted small">x/group deletes a proposal once it has been executed, so these are
-      rebuilt from the transaction log rather than read from the proposal list — where they no
-      longer appear. A restitution that went through leaves no proposal behind, which is what
-      success looks like here and is easy to mistake for something having been lost.</p>
-    ${done.failed
-      ? `<div class="warnbox">The transaction log could not be searched, so this list is empty
-          for a reason that has nothing to do with whether anything was paid out. Do not read it
-          as "nothing has ever been carried out".</div>`
-      : carriedOutList(done.history, f)}
-
-    <h2>Refused, void or expired</h2>
-    ${settled.length
+      : `<div class="card"><p class="lede">Nothing is open for voting.</p>
+          <p class="muted small">The chain answered and its proposal list holds nothing in a
+            voting period. This is the ordinary state of a custody account rather than a failed
+            read.</p></div>`,
+    carried: `<p class="muted small">x/group deletes a proposal once it has been executed, so these
+        are rebuilt from the transaction log rather than read from the proposal list — where they no
+        longer appear. A restitution that went through leaves no proposal behind, which is what
+        success looks like here and is easy to mistake for something having been lost.</p>
+      ${done.failed
+        ? `<div class="warnbox"><strong>The transaction log could not be searched.</strong>
+            This list is empty for a reason that has nothing to do with whether anything was paid
+            out. Do not read it as "nothing has ever been carried out" — that is a different fact
+            and this page cannot tell you which one is true.</div>`
+        : carriedOutList(done.history, f)}`,
+    settled: settled.length
       ? settled.map((d) => proposalCard(d, f, false)).join('')
-      : '<p class="empty">Nothing has been refused.</p>'}`;
+      : `<div class="card"><p class="lede">Nothing has been refused.</p>
+          <p class="muted small">No proposal on this account has been voted down, has run out of
+            time, or has been made void by a membership change.</p></div>`,
+  };
+
+  view.innerHTML = `
+    <h2>Proposals</h2>
+    <div class="y-kpis">
+      ${mine === null ? '' : kpi({
+        label: 'Waiting on you', tone: mine.length ? 'brass' : 'ok',
+        value: mine.length || 'nothing', words: !mine.length,
+        hint: mine.length
+          ? `open for voting, with no vote recorded from ${esc(ME)}`
+          : `every proposal open for voting already carries a vote from ${esc(ME)}`,
+      })}
+      ${kpi({
+        label: 'Waiting to be carried out', tone: waiting.length ? 'bad' : 'mute',
+        value: waiting.length || 'none', words: !waiting.length,
+        hint: 'has the signatures it needs and has not been executed — decided, and nothing has '
+          + 'moved',
+      })}
+      ${kpi({
+        label: 'Open for voting', tone: open.length ? 'warn' : 'mute',
+        value: open.length || 'none', words: !open.length,
+        hint: `each needs ${esc(f.threshold)} of ${esc(f.custodians.length)} signatures`,
+      })}
+      ${kpi({
+        label: 'Carried out', tone: done.failed ? 'warn' : 'mute',
+        value: done.failed ? 'not read' : (done.history.length || 'none'),
+        words: done.failed || !done.history.length,
+        hint: done.failed
+          ? 'the transaction log could not be searched, so this is not a count of nothing — it is '
+            + 'the absence of an answer'
+          : 'rebuilt from the transaction log, because x/group deletes a proposal once it has '
+            + 'been executed',
+      })}
+    </div>
+
+    ${folderTabs}
+    ${panes[chosen]}`;
   wireCopies();
 }
 
+/**
+ * Everything this account has ever done, as a register.
+ *
+ * Forty-one executions drawn as forty-one cards — each with its own effect
+ * block, its own raw-message disclosure and its own warning box — was a wall
+ * nobody reads to the bottom of, on the screen that answers "has this account
+ * ever paid anything out". It is a register, and a register is a table: one
+ * line per execution, aligned, with the block height and the approval count in
+ * columns that can be run down with an eye.
+ *
+ * The id links to the proposal screen rather than opening a row, because
+ * x/group has already deleted these proposals and that screen exists precisely
+ * to say so and to rebuild what it can from the log. It also survives this
+ * screen's sixty-second refresh, which an expanded row would not.
+ */
 function carriedOutList(history, f) {
   if (!history.length) {
-    return '<p class="empty">Nothing has been carried out on this account yet.</p>';
+    return `<div class="card"><p class="lede">Nothing has been carried out on this account yet.</p>
+      <p class="muted small">The transaction log was searched and holds no execution against this
+        account. That is an answer, not a failed read — the failed read says so in its own
+        words.</p></div>`;
   }
+
+  // One line each, and the line says what was done rather than what kind of
+  // message did it. A message this console cannot decode is named as such in
+  // the row: a blank cell would read as "nothing", and on an account that pays
+  // restitution those are not close.
+  const summary = (h) => {
+    if (!h.proposal) {
+      return '<span class="muted">the transaction that raised it is outside the window searched '
+        + 'here, so what it did cannot be shown</span>';
+    }
+    const described = describeProposal(h.proposal, {
+      policyAddress: f.policyAddress,
+      registry: f.registry,
+      names: f.names,
+      currentMembers: f.memberAddresses,
+      expectedCount: Number(f.invariants.foundation_custodian_count ?? 0),
+    });
+    if (described.empty) return '<span class="pill p-bad">no messages</span>';
+    const first = described.messages[0];
+    const more = described.messages.length - 1;
+    return `${first.understood
+        ? esc(first.headline)
+        : `<span class="pill p-warn">not decoded</span> ${esc(first.headline)}`}${
+      more > 0 ? ` <span class="muted">and ${more} more message${more === 1 ? '' : 's'}</span>` : ''}`;
+  };
+
+  return `<div class="card"><div class="y-scrollx">
+    <table class="y-data">
+      <thead><tr><th class="num">#</th><th>What it did</th><th class="num">Approved</th>
+        <th class="num">Block</th><th>Executed</th><th>Transaction</th></tr></thead>
+      <tbody>${history.map((h) => {
+        const t = h.tally ?? {};
+        const against = Number(t.no_count ?? 0) + Number(t.no_with_veto_count ?? 0);
+        return `<tr>
+          <td class="num"><a href="#/proposal/${esc(h.proposalId)}">${esc(h.proposalId)}</a></td>
+          <td>${esc(h.proposal?.title || '')}${h.proposal?.title ? '<br>' : ''}
+            <span class="small">${summary(h)}</span></td>
+          <td class="num">${esc(t.yes_count ?? '?')}<span class="muted"> to ${esc(against)}</span></td>
+          <td class="num">${esc(h.height)}</td>
+          <td>${h.time
+            ? esc(new Date(h.time).toUTCString().replace('GMT', 'UTC').slice(5, 22))
+            : '<span class="muted">not recorded</span>'}</td>
+          <td>${idHtml(h.hash, { label: 'transaction hash' })}</td>
+        </tr>`;
+      }).join('')}</tbody>
+      <caption>Rebuilt from the transaction log. x/group deletes a proposal once it has been
+        executed, so the titles and payloads here are recovered from the transaction that raised
+        each one — and where that transaction is outside the searched window the row says so
+        rather than showing an empty cell.</caption>
+    </table>
+  </div></div>`;
+}
+
+/** Kept for the single-proposal screen, which shows one execution in full. */
+function carriedOutCards(history, f) {
   return history.map((h) => {
     const described = h.proposal
       ? describeProposal(h.proposal, {
@@ -1705,7 +2152,7 @@ async function screenGoneProposal(id, f, originalError) {
           proposal itself can no longer be looked up. What is below comes from the transaction
           log, which keeps it.</p>
       </div>
-      ${carriedOutList([hit], f)}`;
+      ${carriedOutCards([hit], f)}`;
     return;
   }
 
@@ -2674,7 +3121,13 @@ async function route() {
 
   try {
     if (path.startsWith('#/proposal/')) await screenProposal(path.slice(11));
-    else if (path === '#/proposals') await screenProposals();
+    // The folder is part of the path rather than page state, for two reasons: a
+    // custodian can be sent a link to the four proposals waiting on them, and
+    // this screen re-renders itself every sixty seconds — a folder held in a
+    // variable would spring back to the default under a reader each minute.
+    else if (path === '#/proposals' || path.startsWith('#/proposals/')) {
+      await screenProposals(path.slice('#/proposals/'.length));
+    }
     else if (path === '#/propose') await screenPropose();
     else await screenFoundation();
     // The chain's height, not the browser's clock, because that is what the

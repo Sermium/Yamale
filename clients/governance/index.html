@@ -308,6 +308,161 @@
   }
 
   /* ==========================================================================
+     INFORMATION DESIGN — copied from clients/shared/yamale.css, same as the block
+     above. The reasoning for each pattern is in that file; what is here is the
+     declarations, byte-identical and in the same order.
+     ========================================================================== */
+
+  /* --- The figures a reader came for, before the prose explaining them ----- */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+       and rendered 100,000,000 as "100,000,0" above "00" — a number split in two
+       is not a smaller number, it is a different one. The unit may drop; the
+       digits may not. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  /* Where a figure's limit goes. Some are exact and some are not, and a band
+     that spoke about all of them in one voice would claim a precision the chain
+     does not have. Clamped, because a paragraph under every tile makes the band
+     taller than the content it introduces. */
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* --- Folders, because one scrolling column is not a document ------------- */
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    /* The open folder sits ON the rule rather than above it, so the area below
+       reads as the inside of the folder rather than as a separate box. */
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  /* --- Data tables that can actually be read ------------------------------ */
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  /* Numbers right, words left. A column of figures that is not aligned on its
+     units cannot be compared down the page, which is the only reason to put
+     figures in a column. */
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  /* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+  .y-scrollx { overflow-x: auto; }
+
+  /* --- A proportion, drawn ------------------------------------------------- */
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
+  /* ==========================================================================
      THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
      else: clients/foundation, clients/governance, clients/land,
      clients/validator. Kept identical in all four for the same reason as the
@@ -550,6 +705,45 @@
 
   :root { color-scheme: light dark; }
 
+  /* --- local additions to the shared information-design block --------------
+     Three rules the shared system does not have. Kept here, clearly labelled,
+     rather than pushed into clients/shared/yamale.css, because none of them has
+     a second consumer yet and a shared rule with one caller is a rule the next
+     surface inherits a slightly wrong version of.
+
+     A KPI whose honest answer is a phrase rather than a figure — "none open",
+     "not stated" — set at the figure size makes a quiet week look like an
+     event, and wraps where a figure would not. One step down is still
+     unmistakably the tile's value.
+
+     A table row that opens: the detail is a full-width cell under the row it
+     belongs to. It must not carry the row hover, or the reader gets a hover
+     that lights up two rows and suggests they are one. */
+  .y-kpi__value--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .y-data tbody tr.y-data__detail:hover { background: none; }
+  .y-data__detail > td { padding: var(--sp-2) 0 var(--sp-5); }
+  /* The proposal title column carries the only prose in the table and would
+     otherwise set the table's width from the longest one. */
+  .y-data td.title { min-width: 18rem; max-width: 34rem; }
+
+  /* MEASURED, on this table. The shared `.num` rule drops a cell's trailing
+     padding so that a column of figures ends flush with the table's edge, which
+     is right for the last column — which is the case it was written for. Three
+     of the columns here are numeric and none of them is last, and with no
+     trailing gap the proposal id ran straight into the title: "20A supply
+     ceiling for the dollar". So the padding is restored on any numeric cell
+     that is not the last one, which leaves the flush right edge intact where it
+     was the point. */
+  .y-data .num:not(:last-child) { padding-inline-end: var(--sp-3); }
+
+  /* A proposal that won its vote and then failed to execute is the row nobody
+     may skim past: nothing it describes happened, and x/gov reports that
+     nowhere anybody is watching. Weight rather than colour, because the outcome
+     chip beside it is already carrying the colour and a row that is both bold
+     and red reads as an error in the page rather than as a fact about the
+     chain. */
+  .y-data tr.didnt-execute > td { font-weight: 600; }
+
   /* Freezing and seizing are handled by the same module and sit next to each
      other, and they are not the same kind of thing at all: one validator and
      reversible against two thirds and permanent. A UI that renders them as two
@@ -643,43 +837,85 @@
 <div class="wrap">
   <div id="error"></div>
 
-  <!-- The answer to "is anything happening", before any of the detail. Every
-       one of the four sections below spends most of its life empty, and four
-       "nothing here" lines under four headings reads as a page that failed to
-       load rather than as a quiet week. -->
-  <div id="summary"></div>
+  <!-- The answer to "is anything happening", before any of the detail — and now
+       as figures rather than as a row of chips. Every section below spends most
+       of its life empty, and four "nothing here" lines under four headings
+       reads as a page that failed to load rather than as a quiet week.
 
-  <h2>The rules in force</h2>
-  <div class="grid" id="rules"></div>
+       Every number in the band is read off this chain. Where one cannot be read
+       the tile says what is missing instead of showing a plausible figure: on a
+       page where the figure is the share of voting power needed to take
+       somebody's money, a default is a lie with a decimal point. -->
+  <div id="kpis"></div>
 
-  <!-- Deliberately high on the page, above the proposal lists. This is the one
-       power on the chain that can move an account out from under the authority
-       investigating it, and until this section existed there was no interface
-       that composed the message appointing it — the list was empty on the live
-       chain and there was no way to appoint anybody. -->
-  <h2>Who may correct a recorded country</h2>
-  <div id="administrators"></div>
+  <!-- Four jobs, four folders.
+       ==========================================================================
+       This console answers four unrelated questions — what is being decided, who
+       has been stopped, who may correct a country, and what the rules are — and
+       it used to stack all four in one column. That made "has anybody proposed
+       anything" a scroll past the freeze register, and put twenty decided
+       proposals between a validator and the case list.
 
-  <h2>Open for voting</h2>
-  <p class="muted small">Each validator votes from its own node, where its key is.
-     Press the button if this page is open as you, or copy the command and run it there.</p>
-  <div id="open"></div>
+       Tabs rather than an accordion: these are peers and a reader wants one at a
+       time. The choice is in the URL hash, so a validator can be sent a link to
+       the folder rather than to the page. -->
+  <div class="y-folders" role="tablist" aria-label="Areas of this console">
+    <button class="y-folder" type="button" role="tab" id="fld-decisions"
+            aria-controls="pane-decisions" data-folder="decisions">Decisions
+      <span class="y-folder__count" id="cnt-decisions"></span></button>
+    <button class="y-folder" type="button" role="tab" id="fld-enforcement"
+            aria-controls="pane-enforcement" data-folder="enforcement">Enforcement
+      <span class="y-folder__count" id="cnt-enforcement"></span></button>
+    <button class="y-folder" type="button" role="tab" id="fld-administrators"
+            aria-controls="pane-administrators" data-folder="administrators">Administrators
+      <span class="y-folder__count" id="cnt-administrators"></span></button>
+    <button class="y-folder" type="button" role="tab" id="fld-rules"
+            aria-controls="pane-rules" data-folder="rules">The rules in force</button>
+  </div>
 
-  <h2>Decided</h2>
-  <div id="proposals"></div>
+  <section id="pane-decisions" role="tabpanel" aria-labelledby="fld-decisions">
+    <h2>Open for voting</h2>
+    <p class="muted small">Each validator votes from its own node, where its key is.
+       Press the button if this page is open as you, or copy the command and run it there.</p>
+    <div id="open"></div>
 
-  <h2>Emergency powers</h2>
-  <div class="grid" id="emergency"></div>
+    <h2>Decided</h2>
+    <p class="muted small">Every proposal this chain has finished with, most recent first. Open a
+       row for what it would have done, the tally it got, and the message as the chain holds it.</p>
+    <div id="proposals"></div>
+  </section>
 
-  <h2>Frozen wallets</h2>
-  <p class="muted small">One validator can freeze in a single block. It is fast on purpose —
-     stopping money moving is reversible, so it is worth being wrong about.</p>
-  <div id="freezes"></div>
+  <section id="pane-enforcement" role="tabpanel" aria-labelledby="fld-enforcement" hidden>
+    <h2>Emergency powers</h2>
+    <div class="grid" id="emergency"></div>
 
-  <h2>Asset recovery cases</h2>
-  <p class="muted small">Taking somebody's funds is not. These need a supermajority of voting
-     power and, where required, evidence — and once executed they cannot be undone.</p>
-  <div id="cases"></div>
+    <h2>Frozen wallets</h2>
+    <p class="muted small">One validator can freeze in a single block. It is fast on purpose —
+       stopping money moving is reversible, so it is worth being wrong about.</p>
+    <div id="freezes"></div>
+
+    <h2>Asset recovery cases</h2>
+    <p class="muted small">Taking somebody's funds is not. These need a supermajority of voting
+       power and, where required, evidence — and once executed they cannot be undone.</p>
+    <div id="cases"></div>
+  </section>
+
+  <!-- Its own folder rather than a section half way down the page. This is the
+       one power on the chain that can move an account out from under the
+       authority investigating it, and until this interface existed there was no
+       way to appoint anybody at all — the list was empty on the live chain. -->
+  <section id="pane-administrators" role="tabpanel" aria-labelledby="fld-administrators" hidden>
+    <h2>Who may correct a recorded country</h2>
+    <div id="administrators"></div>
+  </section>
+
+  <section id="pane-rules" role="tabpanel" aria-labelledby="fld-rules" hidden>
+    <h2>The rules in force</h2>
+    <p class="muted small">Read from the chain's own enforcement parameters and gov parameters at
+       every refresh, not from a description of how the modules are meant to work.</p>
+    <div class="grid" id="rules"></div>
+    <div id="govrules"></div>
+  </section>
 </div>
 
 <script type="module">
@@ -883,6 +1119,87 @@ const asTime = (blocks) => {
   return `${Math.round(s / 60)} min`;
 };
 
+// ------------------------------------------------------------------ folders
+//
+// Four areas, one open at a time, and the choice in the URL hash.
+//
+// The panes are static markup; load() writes into the containers inside them.
+// So switching folders never re-reads the chain, and a refresh never changes
+// which folder is open — anything else would move the page under a reader every
+// fifteen seconds, which is the behaviour that makes an operator stop trusting
+// a live page.
+const FOLDERS = ['decisions', 'enforcement', 'administrators', 'rules'];
+
+function showFolder(which) {
+  const open = FOLDERS.includes(which) ? which : FOLDERS[0];
+  for (const id of FOLDERS) {
+    document.getElementById(`fld-${id}`).setAttribute('aria-selected', String(id === open));
+    document.getElementById(`pane-${id}`).hidden = id !== open;
+  }
+  // replaceState rather than assigning location.hash: assigning it pushes a
+  // history entry per click, so Back walks through the folders instead of
+  // leaving the console. The relative '#x' keeps ?as=, which is the whole of
+  // this page's identity.
+  if (location.hash.slice(1) !== open) history.replaceState(null, '', `#${open}`);
+}
+
+document.querySelectorAll('[data-folder]').forEach((b) => {
+  b.addEventListener('click', () => showFolder(b.dataset.folder));
+});
+window.addEventListener('hashchange', () => showFolder(location.hash.slice(1)));
+showFolder(location.hash.slice(1));
+
+/** The count beside a folder's name. Null leaves it blank rather than showing 0. */
+function folderCount(id, n) {
+  const el = document.getElementById(`cnt-${id}`);
+  if (el) el.textContent = n === null || n === undefined ? '' : String(n);
+}
+
+// ---------------------------------------------------------------- the figures
+//
+// The band at the top of the page. Every tile is a number this chain holds,
+// set large enough to read as a number — which is the defect these consoles
+// were all sharing: a figure at the same size as its label is not a figure, it
+// is a word that happens to be made of digits.
+
+/**
+ * One tile.
+ *
+ * `value` carries the digits and nothing else; `unit` is separate so that a
+ * narrow column drops the unit off the end of the line rather than splitting
+ * the number — 100,000,000 rendered as "100,000,0" above "00" is not a smaller
+ * number, it is a different one.
+ *
+ * `words` is for a tile whose honest answer is not a figure at all: "none open"
+ * is the answer to how many proposals are open, and setting it at the size of a
+ * six-digit total makes a quiet week look like an event. The shared band has no
+ * variant for this, so there is a two-line local rule for it above.
+ */
+function kpi({ label, value, unit, hint, tone, words }) {
+  return `<div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+      <p class="y-kpi__label">${esc(label)}</p>
+      <p class="y-kpi__value${words ? ' y-kpi__value--words' : ''}">${value}${
+        unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+      ${hint ? `<p class="y-kpi__hint">${hint}</p>` : ''}
+    </div>`;
+}
+
+/**
+ * A duration split into a figure and its unit, on the same thresholds timeLeft
+ * uses for its sentence.
+ *
+ * Split rather than formatted, because the tile sets the figure large and the
+ * unit small: "4" and "hours" are a KPI, "in 4 hours" is a caption.
+ */
+function splitTime(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  const unit = (n, word) => ({ n: String(n), unit: Number(n) === 1 ? word : `${word}s` });
+  if (s < 90) return { n: 'under 2', unit: 'minutes', words: true };
+  if (s < 5400) return unit(Math.round(s / 60), 'minute');
+  if (s < 172800) return unit(Math.round(s / 3600), 'hour');
+  return unit(Math.round(s / 86400), 'day');
+}
+
 /**
  * An identifier: truncated, in mono, with the whole of it one click away and a
  * copy button beside it.
@@ -1074,24 +1391,29 @@ const adm = {
 };
 
 /**
- * The administrators chip in the summary strip.
+ * The count beside the Administrators folder.
  *
- * Written by both loops, because the summary is drawn by load() and the
- * administrators are read by loadAdministrators() — which are deliberately
- * separate and deliberately on different timers. Without this the strip said
- * "not read" for the first fifteen seconds of every visit while the panel below
- * it showed the answer, which reads as the page contradicting itself.
+ * Written by loadAdministrators() rather than by load(), because the two are
+ * deliberately separate and deliberately on different timers. It used to be a
+ * chip in a summary strip drawn by load(), which said "not read" for the first
+ * fifteen seconds of every visit while the panel below it showed the answer —
+ * the page contradicting itself.
+ *
+ * The three states are kept apart on a folder tab as carefully as anywhere
+ * else: a question mark is a read that failed, an ellipsis is a read in
+ * flight, and a zero is the chain saying nobody has been appointed. Blanking
+ * the count on a failed read would make the most consequential of those look
+ * like the least.
  */
-function adminSummaryChip() {
-  if (adm.unreadable) return '<span class="pill p-warn">could not be read</span>';
-  if (!adm.params) return '<span class="pill p-mute">reading…</span>';
-  const n = adm.params.administrators.length;
-  return `<span class="pill ${n ? 'p-bad' : 'p-mute'}">${n || 'nobody'}</span>`;
-}
-
 function renderAdminSummary() {
-  const box = document.getElementById('sum-adm');
-  if (box) box.innerHTML = adminSummaryChip();
+  const el = document.getElementById('cnt-administrators');
+  if (!el) return;
+  if (adm.unreadable) { el.textContent = '?'; el.title = 'the alias parameters could not be read'; return; }
+  if (!adm.params) { el.textContent = '…'; el.title = 'reading'; return; }
+  el.textContent = String(adm.params.administrators.length);
+  el.title = adm.params.administrators.length
+    ? 'accounts that may correct a recorded country'
+    : 'nobody has been appointed';
 }
 
 /** A read that answers with the status rather than throwing, for the group lookup. */
@@ -1489,6 +1811,33 @@ async function readChainRules() {
   chainRules.bondedTokens = pool?.pool?.bonded_tokens ?? '0';
 }
 
+/**
+ * Which decided proposals the reader has opened.
+ *
+ * Held outside load() because load() re-runs every fifteen seconds and rebuilds
+ * the table. Without this, a validator who opens a proposal to read its payload
+ * watches it shut again while they are reading — on the one page where the
+ * payload is the thing being judged.
+ */
+const openDetail = new Set();
+
+// One listener for every disclosure in the decided table, installed once rather
+// than per render, for the same reason the copy buttons are delegated: load()
+// replaces this markup on a timer and a handler bound to a removed node is a
+// button that silently does nothing.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-detail]');
+  if (!btn) return;
+  const id = btn.dataset.detail;
+  const row = document.getElementById(`det-${id}`);
+  if (!row) return;
+  const open = row.hidden;
+  row.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.textContent = open ? 'close' : 'open';
+  if (open) openDetail.add(id); else openDetail.delete(id);
+});
+
 async function load() {
   try {
     document.getElementById('error').innerHTML = '';
@@ -1701,26 +2050,76 @@ async function load() {
     const decided = proposals
       .filter(pr => !isOpen(pr))
       .sort((a, b) => Number(b.id) - Number(a.id));
-    document.getElementById('proposals').innerHTML = decided.map(pr => {
-      const failed = String(pr.status) === 'PROPOSAL_STATUS_FAILED';
-      const closed = timestampSeconds(pr.voting_end_time);
-      return `
-      <div class="card${failed ? ' card--bad' : ''}">
-        <div class="row">
-          <strong>#${esc(pr.id)} ${esc(pr.title || pr.summary)}</strong>
-          ${statusPill(pr.status)}
+    // Twenty decided proposals, each drawn as a card with two progress meters,
+    // was four screens of scrolling to answer "what has this chain decided" —
+    // and the answer to that question is a list, which is a table. Every figure
+    // those cards carried is still here: the outcome, the tally and the payload
+    // are in the row's own detail, one click down rather than four screens
+    // apart.
+    //
+    // The two percentages are in the table rather than behind the disclosure
+    // because they are what makes the list scannable: a reader running an eye
+    // down the turnout column sees which decisions were made by a handful of
+    // validators, which is not a thing twenty separate bars can show.
+    const pct = (bps, why) => (bps === null || bps === undefined
+      ? `<span class="muted" title="${esc(why)}">—</span>`
+      : esc(asPercent(bps)));
+
+    document.getElementById('proposals').innerHTML = decided.length ? `
+      <div class="card">
+        <div class="y-scrollx">
+          <table class="y-data">
+            <thead><tr>
+              <th class="num">#</th><th>Proposal</th><th>Outcome</th><th>Voting closed</th>
+              <th class="num">Turnout</th><th class="num">In favour</th><th>Detail</th>
+            </tr></thead>
+            <tbody>${decided.map(pr => {
+              const failed = String(pr.status) === 'PROPOSAL_STATUS_FAILED';
+              const closed = timestampSeconds(pr.voting_end_time);
+              const t = tallyOf({
+                tally: pr.final_tally_result, bondedTokens: chainRules.bondedTokens,
+                params: chainRules.tally,
+              });
+              const isOpenRow = openDetail.has(String(pr.id));
+              return `<tr${failed ? ' class="didnt-execute"' : ''}>
+                  <td class="num">${esc(pr.id)}</td>
+                  <td class="title">${esc(pr.title || pr.summary || '(untitled)')}</td>
+                  <td>${statusPill(pr.status)}</td>
+                  <td>${closed === null
+                    ? '<span class="muted">not stated</span>'
+                    : `<span title="${esc(new Date(closed * 1000).toUTCString().replace('GMT', 'UTC'))}"
+                        >${esc(timeLeft(closed - now))}</span>`}</td>
+                  <td class="num">${t.anyVotes
+                    ? pct(t.turnoutBps, 'the bonded total could not be read, so a share of it cannot be computed')
+                    : '<span class="muted" title="no vote was cast on this proposal">none</span>'}</td>
+                  <td class="num">${t.anyVotes
+                    ? pct(t.yesBps, 'no vote took a side, so there is no share to compute')
+                    : '<span class="muted">—</span>'}</td>
+                  <td><button type="button" class="copy" data-detail="${esc(pr.id)}"
+                    aria-expanded="${isOpenRow}" aria-controls="det-${esc(pr.id)}"
+                    >${isOpenRow ? 'close' : 'open'}</button></td>
+                </tr>
+                <tr class="y-data__detail" id="det-${esc(pr.id)}"${isOpenRow ? '' : ' hidden'}>
+                  <td colspan="7">
+                    ${outcomesHtml(pr.messages)}
+                    ${failed ? `<div class="badbox"><strong>This proposal won its vote and then
+                      failed to execute, so nothing it describes happened.</strong> The chain
+                      reports that nowhere anybody is watching, which is why it is stated here in
+                      those words rather than as "failed".${pr.failed_reason
+                        ? `<br>The chain's reason: <code>${esc(pr.failed_reason)}</code>` : ''}</div>`
+                      : ''}
+                    ${tallyHtml(pr.final_tally_result, chainRules)}
+                  </td>
+                </tr>`;
+            }).join('')}</tbody>
+            <caption>Turnout is measured against the bonded total <strong>as it is today</strong>,
+              which is the only denominator the chain still publishes. x/gov decided each of these
+              against the total bonded when its own voting period closed, and does not keep that
+              figure — so for an older proposal the column is an estimate that moves as stake moves,
+              and the tally inside the row is the part that is exact.</caption>
+          </table>
         </div>
-        ${closed === null ? '' : `<p class="muted small">Voting closed ${
-          esc(timeLeft(closed - now))}, on ${
-          esc(new Date(closed * 1000).toUTCString().replace('GMT', 'UTC'))}</p>`}
-        ${outcomesHtml(pr.messages)}
-        ${failed ? `<div class="badbox"><strong>This proposal won its vote and then failed to
-          execute, so nothing it describes happened.</strong> The chain reports that nowhere anybody
-          is watching, which is why it is stated here in those words rather than as "failed".${
-          pr.failed_reason ? `<br>The chain's reason: <code>${esc(pr.failed_reason)}</code>` : ''}</div>` : ''}
-        ${tallyHtml(pr.final_tally_result, chainRules)}
-      </div>`;
-    }).join('') || `<div class="card">
+      </div>` : `<div class="card">
         <p class="lede">No proposal has been decided yet.</p>
         <p class="muted small">The chain answered — its proposal list is empty. Everything this
           chain's governance has ever done would appear here, most recent first.</p>
@@ -1759,21 +2158,82 @@ async function load() {
           event, and it is meant to look like one.</p>
       </div>`;
 
-    // The summary strip, last, because it counts what the sections above found.
+    // The figures, last, because they count what the sections above found.
+    //
+    // Five tiles, and every one of them is a number this chain answered with.
+    // Five rather than six because the band is auto-fit at an 11rem minimum in a
+    // 1080px column, which is five across: a sixth tile drops onto a row of its
+    // own and reads as an afterthought rather than as part of the band. The
+    // bonded total, which was the sixth, is inside the threshold tile's hint,
+    // where it is the denominator the figure above it is a share of.
+    //
+    // The two tiles that can be absent — the nearest deadline and the seizure
+    // threshold — say what is missing rather than showing a default, because the
+    // second of them is the share of voting power needed to take somebody's
+    // money and a plausible figure there is worse than a blank.
     const openCount = open.length;
-    document.getElementById('summary').innerHTML = `
-      <div class="summary">
-        <span class="summary__item"><span class="label">Open for voting</span>
-          <span class="pill ${openCount ? 'p-warn' : 'p-mute'}">${openCount || 'none'}</span></span>
-        <span class="summary__item"><span class="label">Frozen wallets</span>
-          <span class="pill ${fr.length ? 'p-warn' : 'p-mute'}">${fr.length || 'none'}</span></span>
-        <span class="summary__item"><span class="label">Recovery cases</span>
-          <span class="pill ${cs.length ? 'p-bad' : 'p-mute'}">${cs.length || 'none'}</span></span>
-        <span class="summary__item"><span class="label">May correct a country</span>
-          <span id="sum-adm">${adminSummaryChip()}</span></span>
-        <span class="summary__item" style="margin-inline-start:auto"><span class="label">Bonded</span>
-          <span class="small y-num">${wholeAmount(chainRules.bondedTokens, chainRules.exponent)}
-            ${esc(chainRules.symbol)}</span></span>
+
+    // The soonest deadline among the open proposals. A validator's question is
+    // "how long have I got", and the answer to it is on the proposal closing
+    // first — not on the one that happens to be at the top of the list.
+    const deadlines = open
+      .map((pr) => timestampSeconds(pr.voting_end_time))
+      .filter((s) => s !== null)
+      .sort((a, b) => a - b);
+    const soonest = deadlines.length ? splitTime(deadlines[0] - now) : null;
+
+    const thresholdBps = /^\d+$/.test(String(p.threshold_bps ?? '')) ? Number(p.threshold_bps) : null;
+
+    // The proposal list is asked for thirty. If thirty came back there may be a
+    // thirty-first, and a total presented as complete when it is a page is the
+    // kind of figure a reader builds a sentence on.
+    const readAll = proposals.length < 30;
+
+    document.getElementById('kpis').innerHTML = `
+      <div class="y-kpis">
+        ${kpi({
+          label: 'Open for voting', tone: openCount ? 'warn' : 'mute',
+          value: openCount || 'none', words: !openCount,
+          hint: `of ${fmt(proposals.length)} proposal${proposals.length === 1 ? '' : 's'} ${
+            readAll ? 'this chain has ever raised' : 'read — which is as many as this page asks '
+            + 'for, so there may be older ones'}`,
+        })}
+        ${kpi({
+          label: 'Closing soonest', tone: soonest ? 'warn' : 'mute',
+          value: soonest ? esc(soonest.n) : 'no deadline', unit: soonest ? soonest.unit : '',
+          words: !soonest || soonest.words,
+          hint: soonest
+            ? `on the first of ${fmt(deadlines.length)} open proposal${
+                deadlines.length === 1 ? '' : 's'}; a proposal below quorum when its period closes
+                is rejected and its deposit burned, so the deadline decides as much as the vote`
+            : (openCount
+              ? 'none of the open proposals states a voting end time, so there is no deadline to '
+                + 'show — that is the chain\'s answer and not a missing read'
+              : 'no proposal is in its voting period'),
+        })}
+        ${kpi({
+          label: 'Frozen wallets', tone: fr.length ? 'warn' : 'mute',
+          value: fr.length || 'none', words: !fr.length,
+          hint: `one validator's signature each, lapsing after ${esc(asTime(p.provisional_freeze_blocks))}
+            unless a case is opened`,
+        })}
+        ${kpi({
+          label: 'Recovery cases', tone: cs.length ? 'bad' : 'mute',
+          value: cs.length || 'none', words: !cs.length,
+          hint: 'a case is a vote to take the funds, and once executed it cannot be undone',
+        })}
+        ${kpi({
+          label: 'To seize funds', tone: 'bad',
+          value: thresholdBps === null ? 'not readable' : esc((thresholdBps / 100).toFixed(2)),
+          unit: thresholdBps === null ? '' : '%', words: thresholdBps === null,
+          hint: thresholdBps === null
+            ? 'the enforcement parameters answered without a threshold, so this page will not '
+              + 'state one — a plausible default here is the bar that stops a minority taking money'
+            : `of voting power${p.seize_requires_evidence ? ', with evidence' : ''} —
+               ${esc(wholeAmount(shareOfBonded(p.threshold_bps), chainRules.exponent))}
+               of the ${esc(wholeAmount(chainRules.bondedTokens, chainRules.exponent))}
+               ${esc(chainRules.symbol)} bonded today`,
+        })}
       </div>
       ${chainRules.source === 'chain' ? '' : `<p class="warnbox">${
         chainRules.source === 'absent'
@@ -1785,6 +2245,43 @@ async function load() {
           : `The denom metadata could not be read at all, so nothing is known about
              <code>${esc(chainRules.denom)}</code> — including whether the chain publishes an entry
              for it. Six decimal places are being assumed below.`}</p>`}`;
+
+    // The bars every tally on this page is drawn against, stated once in the
+    // rules folder rather than only implied by the meters. A reader asking "is
+    // quorum in reach" is asking about this table.
+    const bar = (label, bps, what) => `<tr>
+        <th>${esc(label)}</th>
+        <td class="num">${bps === null || bps === undefined
+          ? '<span class="pill p-warn">could not be read</span>'
+          : `<strong>${esc(asPercent(bps))}</strong>`}</td>
+        <td>${what}</td>
+      </tr>`;
+    document.getElementById('govrules').innerHTML = `
+      <div class="card">
+        <h3>The bar a proposal has to clear</h3>
+        <p class="muted small">Read from the chain's own gov parameters. Where one of these could
+          not be read the meter beside a tally is not drawn at all, rather than drawn against a
+          plausible default — a bar in the wrong place reports a proposal as passing that did
+          not.</p>
+        <table class="y-data">
+          <tbody>
+            ${bar('Quorum', chainRules.tally.quorumBps,
+              'of the bonded total must vote, counting abstentions. Below it the proposal is '
+              + 'rejected whatever the votes say, and its deposit is burned.')}
+            ${bar('Threshold', chainRules.tally.thresholdBps,
+              'of the votes that took a side must be in favour. An abstention deliberately is '
+              + 'not a side.')}
+            ${bar('Veto', chainRules.tally.vetoBps,
+              'of the votes that took a side, cast with veto, rejects the proposal outright and '
+              + 'burns the deposit whatever the rest of the tally says.')}
+          </tbody>
+        </table>
+      </div>`;
+
+    // The counts beside the folder names: how much is in each folder, so a
+    // reader can tell an empty folder from one they have not opened.
+    folderCount('decisions', proposals.length);
+    folderCount('enforcement', fr.length + cs.length);
 
     document.getElementById('clock').textContent = 'read ' + new Date().toLocaleTimeString();
   } catch (e) {
@@ -1803,6 +2300,17 @@ async function load() {
           + 'missing from the proxy in front of the node rather than from the node itself, and no '
           + 'password was ever issued for it.'
         : ''}</p>`;
+    // The band above still shows the last figures it managed to read, and they
+    // are now a claim about a moment that has passed. Said on the band itself
+    // rather than only in the error box six lines up: a reader looks at the
+    // figure, not at the paragraph above it. Removed by the next successful
+    // load, which replaces the whole band.
+    const band = document.getElementById('kpis');
+    if (band && !band.querySelector('.kpis-stale')) {
+      band.insertAdjacentHTML('afterbegin', `<p class="warnbox kpis-stale"><strong>The figures
+        below were read before this failure and have not been refreshed since.</strong> They are
+        the last answer this page got, not a statement about now.</p>`);
+    }
     document.getElementById('clock').textContent = 'not reading the chain';
   }
 }
@@ -1816,10 +2324,12 @@ document.getElementById('acting').innerHTML = ME
 // The pending state, drawn rather than left blank. Every section on this page
 // spends most of its life empty, so a blank page and a quiet chain look
 // identical — and only one of them is a reason to go and look at a node.
-document.getElementById('summary').innerHTML = `
-  <div class="summary"><span class="y-eyebrow">Reading the chain</span>
-    <span class="muted small">Proposals, the enforcement parameters, the freeze register and the
-      recovery cases. Nothing below is drawn from a partial answer.</span></div>`;
+document.getElementById('kpis').innerHTML = `
+  <div class="card"><span class="y-eyebrow">Reading the chain</span>
+    <p class="muted small" style="margin:.3rem 0 0">Proposals, the enforcement parameters, the
+      freeze register and the recovery cases. No figure is drawn until they answer: a band of
+      zeroes and a quiet chain look identical, and only one of them is a reason to go and look at a
+      node.</p></div>`;
 
 load();
 setInterval(load, 15000);
