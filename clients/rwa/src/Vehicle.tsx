@@ -1172,9 +1172,11 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             <Panel eyebrow={t('rwa.tabDistributions')} title={t('rwa.vaultTitle')}>
               {vault ? (
                 <Fields>
+                  {/* No <Symbol> after this: Amount already ends in the unit,
+                      and the pair printed "15,000,000 USD USD". The same
+                      mistake was made once before with SRMT. */}
                   <Field label={t('rwa.kpiDistributed')}>
-                    <Amount amount={fundedTotal} denom={vault.denom} />{' '}
-                    <Symbol denom={vault.denom} />
+                    <Amount amount={fundedTotal} denom={vault.denom} />
                   </Field>
                   {/* What the module still holds against THIS tokenisation:
                       funded and not yet claimed. One module account serves
