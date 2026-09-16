@@ -294,3 +294,168 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   INFORMATION DESIGN
+   Added 2026-09-16, after the owner's verdict on the consoles: "this is just
+   not looking good".
+
+   The diagnosis was the same on every surface. Figures were set at the same
+   size as their labels, so nothing read as a figure; everything lived in one
+   scrolling column, so finding anything meant scrolling past everything; and
+   data surfaces had no information design at all — a table of numbers with no
+   alignment, no emphasis and no shape.
+
+   These are the three patterns that fix it, defined ONCE here so eleven
+   consoles do not invent eleven versions. Every colour is an existing token:
+   this block adds layout and hierarchy, never a palette.
+   ========================================================================== */
+
+/* --- The figures a reader came for, before the prose explaining them ----- */
+
+.y-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.y-kpi {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  border-inline-start: 3px solid var(--rule);
+}
+.y-kpi--ok   { border-inline-start-color: var(--ok); }
+.y-kpi--warn { border-inline-start-color: var(--warn); }
+.y-kpi--bad  { border-inline-start-color: var(--bad); }
+.y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+.y-kpi__label {
+  margin: 0;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.y-kpi__value {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--step-2);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+     and rendered 100,000,000 as "100,000,0" above "00" — a number split in two
+     is not a smaller number, it is a different one. The unit may drop; the
+     digits may not. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+/* Where a figure's limit goes. Some are exact and some are not, and a band
+   that spoke about all of them in one voice would claim a precision the chain
+   does not have. Clamped, because a paragraph under every tile makes the band
+   taller than the content it introduces. */
+.y-kpi__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Folders, because one scrolling column is not a document ------------- */
+
+.y-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--sp-4);
+}
+.y-folder {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  cursor: pointer;
+  /* The open folder sits ON the rule rather than above it, so the area below
+     reads as the inside of the folder rather than as a separate box. */
+  margin-bottom: -1px;
+}
+.y-folder:hover { color: var(--text); }
+.y-folder[aria-selected='true'], .y-folder--on {
+  background: var(--surface);
+  border-color: var(--rule);
+  border-bottom: 1px solid var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+/* --- Data tables that can actually be read ------------------------------ */
+
+.y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.y-data th {
+  text-align: start;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.y-data td {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+/* Numbers right, words left. A column of figures that is not aligned on its
+   units cannot be compared down the page, which is the only reason to put
+   figures in a column. */
+.y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+.y-data tbody tr:hover { background: var(--surface-2); }
+.y-data__self td { font-weight: 600; }
+.y-data caption {
+  caption-side: bottom;
+  text-align: start;
+  padding-top: var(--sp-2);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+
+/* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+.y-scrollx { overflow-x: auto; }
+
+/* --- A proportion, drawn ------------------------------------------------- */
+
+.y-ring { width: 100%; height: auto; max-width: 15rem; }
+.y-ring__track { stroke: var(--surface-2); }
+
+.y-split {
+  display: grid;
+  grid-template-columns: minmax(9rem, 15rem) 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+@media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+.y-swatch {
+  display: inline-block;
+  width: 0.7em; height: 0.7em;
+  border-radius: 2px;
+  margin-inline-end: 0.5em;
+  vertical-align: baseline;
+}
