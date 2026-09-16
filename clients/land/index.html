@@ -226,6 +226,13 @@
   .y-num, .y-tabular, td.y-num, th.y-num {
     font-variant-numeric: tabular-nums;
   }
+  /* Tabular digits align a column only if the column is aligned. `.y-num` gave
+     the digits equal width and left every cell ragged against a left edge, so a
+     cap and the amount remaining under it could not be compared down the page —
+     which is the only reason to put figures in a column at all.
+     Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+     consoles, and right-aligning a number inside a sentence would be wrong. */
+  td.y-num, th.y-num { text-align: end; }
   .y-addr { word-break: break-all; font-size: 0.88em; }
 
   .y-eyebrow {
@@ -389,7 +396,14 @@
     border-bottom: 1px solid var(--rule);
     vertical-align: baseline;
   }
-  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  /* Numbers right, words left.
+     `padding-inline-end: 0` used to be unconditional here, which is right only
+     for a LAST column: three numeric columns in the governance table are not
+     last, and an id ran straight into the title beside it ("20A supply ceiling
+     for the dollar"). The trailing padding is dropped only where there is
+     nothing after it. */
+  .y-data .num, .y-data th.num { text-align: end; }
+  .y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
   .y-data tbody tr:hover { background: var(--surface-2); }
   .y-data__self td { font-weight: 600; }
   .y-data caption {
@@ -421,14 +435,6 @@
     vertical-align: baseline;
   }
 
-  /* LOCAL, and a genuine gap in the shared system rather than a variation on
-     it. `.num` sets `padding-inline-end: 0`, which is right for the LAST
-     column — a figure then sits flush against the edge of the table — and
-     wrong for any other: two figure columns side by side end up touching, so
-     "1" and "320898" read as one number. A figure abutting its neighbour is
-     not a badly spaced figure, it is a different one. The padding is given
-     back to every figure column that is not the last. */
-  .y-data .num:not(:last-child) { padding-inline-end: var(--sp-3); }
 
   /* ==========================================================================
      THE CONSOLE CHROME — shared by the four operator consoles, and by nothing

@@ -429,9 +429,6 @@ td.y-num, th.y-num { text-align: end; }
   border-bottom: 1px solid var(--rule);
   vertical-align: baseline;
 }
-/* Numbers right, words left. A column of figures that is not aligned on its
-   units cannot be compared down the page, which is the only reason to put
-   figures in a column. */
 /* Numbers right, words left.
    `padding-inline-end: 0` used to be unconditional here, which is right only
    for a LAST column: three numeric columns in the governance table are not

@@ -228,6 +228,13 @@
   .y-num, .y-tabular, td.y-num, th.y-num {
     font-variant-numeric: tabular-nums;
   }
+  /* Tabular digits align a column only if the column is aligned. `.y-num` gave
+     the digits equal width and left every cell ragged against a left edge, so a
+     cap and the amount remaining under it could not be compared down the page —
+     which is the only reason to put figures in a column at all.
+     Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+     consoles, and right-aligning a number inside a sentence would be wrong. */
+  td.y-num, th.y-num { text-align: end; }
   .y-addr { word-break: break-all; font-size: 0.88em; }
 
   .y-eyebrow {
@@ -405,10 +412,14 @@
     border-bottom: 1px solid var(--rule);
     vertical-align: baseline;
   }
-  /* Numbers right, words left. A column of figures that is not aligned on its
-     units cannot be compared down the page, which is the only reason to put
-     figures in a column. */
-  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  /* Numbers right, words left.
+     `padding-inline-end: 0` used to be unconditional here, which is right only
+     for a LAST column: three numeric columns in the governance table are not
+     last, and an id ran straight into the title beside it ("20A supply ceiling
+     for the dollar"). The trailing padding is dropped only where there is
+     nothing after it. */
+  .y-data .num, .y-data th.num { text-align: end; }
+  .y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
   .y-data tbody tr:hover { background: var(--surface-2); }
   .y-data__self td { font-weight: 600; }
   .y-data caption {
@@ -880,21 +891,6 @@
      across. */
   .y-kpi__value--words { font-size: var(--step-1); letter-spacing: -0.01em; }
 
-  /* MEASURED DEFECT IN THE SHARED SYSTEM, found while checking these tables at
-     1600px. `.y-num` gives a figure tabular digits and nothing else — it does
-     not align it. So every numeric column on this page was ragged against a
-     left edge: the cap column and the remaining column in the rolling-cap table
-     could not be compared down the page, which is the only reason to put
-     figures in a column.
-
-     Fixed here rather than in clients/shared/yamale.css for the same reason as
-     the brass defect at the top of this file: `.y-num` is also used on inline
-     spans in four consoles, and putting a text-align on all of them is not a
-     change to make from one page. Scoped to table cells, which is where
-     alignment is the whole point. The shared `.y-data` block already does this
-     with its own `.num`; this is the same rule for the tables that predate
-     it. */
-  table td.y-num, table th.y-num { text-align: end; }
 
   .y-data td { vertical-align: top; }
   .y-data td.small, .y-data td .small { max-width: 32rem; }
