@@ -69,8 +69,13 @@ service Msg {
   // window has passed and the holders' share has actually been paid in.
   rpc FinaliseSale(MsgFinaliseSale) returns (MsgFinaliseSaleResponse);
   // Claim withdraws accrued income without giving up the shareholding — a
-  // coupon should not force an exit.
+  // coupon should not force an exit. It pays a dividend token, not the stable;
+  // ExchangeDividend is the second half.
   rpc Claim(MsgClaim) returns (MsgClaimResponse);
+  // ExchangeDividend cashes a dividend token for the stable behind it, 1:1,
+  // out of the reserve the claim set aside. Permissionless, and refusable on
+  // nothing but the arithmetic: the money is already the holder's.
+  rpc ExchangeDividend(MsgExchangeDividend) returns (MsgExchangeDividendResponse);
   // Redeem burns tokens and pays their share in one step. The burn is the
   // claim: burning first and expecting a later claim would strand whoever is
   // slow, asleep or dead.
@@ -360,6 +365,70 @@ message MsgResolveDispute {
 message MsgResolveDisputeResponse {}
 
 // MsgClaim withdraws accrued income without giving up the shareholding.
+//
+// It pays a DIVIDEND TOKEN -- div/<asset_id>/<SYMBOL>, one per vehicle --
+// rather than the stable itself, and the stable it stands for is moved out of
+// the vehicle's spendable ledger into its dividend reserve in the same write.
+// MsgExchangeDividend converts it back, 1:1, whenever the holder can take it.
+//
+// # Why a token at all, rather than just paying the stable
+//
+// Three things it buys, and one it deliberately does not.
+//
+// 1. A holder who cannot receive the stable can still be PAID. A stable on this
+//    chain may carry its own send restriction -- a KYC gate, a sanctions list,
+//    a licence the holder does not have where they live. Paying such a holder
+//    directly either fails the whole claim, which leaves them accruing forever
+//    against a vehicle that has done nothing wrong, or succeeds into an account
+//    that cannot move the money on. The dividend token is issued by this module
+//    and gated by nothing, so the entitlement always lands; cashing it is a
+//    separate act that can happen later, elsewhere, or through an assignee who
+//    is permitted to hold the stable.
+//
+// 2. The claim becomes AUDITABLE SEPARATELY FROM THE SETTLEMENT. "Declared and
+//    not yet cashed", per vehicle, used to be a figure that existed only spread
+//    across every holder's accrued balance and could not be read without
+//    walking the whole holder set. As a token supply it is one query, it is
+//    public, and anybody can check it against the reserve without trusting this
+//    module's own accounting.
+//
+// 3. It separates WHEN a holder is credited from WHEN they are paid, which is
+//    what an operating business does anyway. A holder can claim on the record
+//    date and cash months later, without the chain holding an unattributed
+//    balance in the meantime.
+//
+// And the thing it deliberately does NOT buy: credit. A dividend token is never
+// issued against a declaration that has not been funded. It is fully backed at
+// the instant it is minted or it is not minted -- see Vault.dividend_reserve.
+// The tempting version of this feature is a token a vehicle can issue when it
+// has DECLARED but not yet funded, so holders hold something in the meantime.
+// That version is refused here: a token mintable against an unfunded
+// declaration is a claim the chain cannot honour, and the first holder to reach
+// the exchange would be paid out of a neighbouring vehicle's reserve. What a
+// vehicle publishes before the money arrives is a COVENANT_KIND_DIVIDEND_NOTICE
+// -- a filing, which is honest about being an announcement.
+//
+// # Transferable, deliberately
+//
+// The dividend token is an ordinary bank denomination and this module places no
+// restriction on it. If it could not move it would be a ledger row with extra
+// steps -- Position.accrued already is one -- and reason 1 above would collapse
+// with it: a holder who cannot hold the stable has to be able to ASSIGN the
+// claim to somebody who can.
+//
+// The consequence, stated rather than hidden: a dividend token can be sold, and
+// it can be sold below par by somebody who needs the money before they can
+// reach the exchange. The chain neither prevents that nor could -- it is the
+// same freedom that makes the token useful. What it does guarantee is that the
+// discount is never justified by the backing: par is available from the
+// reserve, in every status, to whoever holds the token.
+//
+// Unlike the fraction token it is NOT halted at realisation and is not offered
+// to the AMM's restricted-denom classifier. The fraction token halts because at
+// realisation it becomes a claim on a fixed pot that a pool would still quote a
+// stale price for. A dividend token is a claim on a fixed pot at a fixed 1:1
+// rate from the moment it exists and never changes, so there is no stale price
+// for anybody to take.
 message MsgClaim {
   option (cosmos.msg.v1.signer) = "holder";
   option (amino.name) = "blockchain/x/tokenisation/MsgClaim";
@@ -370,7 +439,67 @@ message MsgClaim {
 // MsgClaimResponse reports what was paid, which is the income accrued since
 // the holder last settled rather than a figure they asked for.
 message MsgClaimResponse {
+  // The dividend tokens minted to the holder.
   repeated cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+
+  // The stable moved into the vehicle's dividend reserve to back them: equal in
+  // amount, in the vault's income denomination.
+  //
+  // Reported because a caller holding only paid knows what they were given and
+  // not what it is worth. The dividend token's denomination says which vehicle
+  // owes it and says nothing about the currency behind it, so naming both
+  // halves of a 1:1 pair in the receipt is what lets a client show "12,500
+  // uusd, claimable" instead of a denom nobody recognises.
+  cosmos.base.v1beta1.Coin backing = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgExchangeDividend cashes a dividend token for the stable behind it, 1:1.
+//
+// # Permissionless, and refusable on nothing but the arithmetic
+//
+// Whoever holds the token exchanges it. There is no role, no admin, no pause
+// and no status check, because by the time a dividend token exists the chain
+// has already taken the stable out of the vehicle's spendable ledger and set it
+// aside under this token's name. Refusing to honour it afterwards would be the
+// chain defaulting on a payment it has already reserved the money for.
+//
+// That is also why it stays open at STATUS_REALISED and at STATUS_CLOSED, when
+// the fraction token can no longer move at all. Trading halts because a share
+// in a sold vehicle is a claim on a fixed pot a market would misprice; a
+// dividend token is a debt that crystallised before the sale and has nothing to
+// do with what the vehicle fetched. A holder who claimed in March and had not
+// got round to exchanging by the time the warehouse sold in September is paid
+// in full in October, out of money that was never available to redemption.
+//
+// The exchange is NOT routed through x/treasury. See the keeper for why.
+message MsgExchangeDividend {
+  option (cosmos.msg.v1.signer) = "holder";
+  option (amino.name) = "blockchain/x/tokenisation/MsgExchangeDividend";
+
+  // Whoever holds the tokens -- not necessarily the shareholder who claimed
+  // them, because the dividend token is transferable on purpose.
+  string holder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 asset_id = 2;
+
+  // How many to cash. Named explicitly rather than inferred from the balance,
+  // so a holder cashing part of a position does not have to move the rest out
+  // of the way first.
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgExchangeDividendResponse reports both legs of the swap.
+message MsgExchangeDividendResponse {
+  // The stable paid out, in the vault's income denomination.
+  cosmos.base.v1beta1.Coin paid = 1 [(gogoproto.nullable) = false];
+
+  // The dividend tokens burned. Equal in amount to paid: the rate is 1:1 and is
+  // not a parameter, because a rate somebody could set is a rate that can be
+  // set to something other than what the reserve actually holds.
+  cosmos.base.v1beta1.Coin burned = 2 [(gogoproto.nullable) = false];
 }
 
 // MsgRedeem burns tokens and pays their share in the same step.

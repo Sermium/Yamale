@@ -20,6 +20,21 @@ import (
 // transfer would credit the sender's history to the recipient.
 func (k Keeper) SendRestrictionFn(ctx context.Context, from, to sdk.AccAddress, amount sdk.Coins) (sdk.AccAddress, error) {
 	for _, coin := range amount {
+		// ByDenom holds fraction denoms only, which is what makes a DIVIDEND
+		// denom fall out here — and it must. A div/… transfer settled as though
+		// it were a share transfer would run the income arithmetic against a
+		// balance in the wrong token: the sender's whole entitlement history
+		// recomputed against however many dividend tokens they happened to
+		// hold. Nothing errors; the positions are simply wrong afterwards.
+		//
+		// Leaving the dividend token unrestricted is also the right answer on
+		// its own terms. The fraction token is halted at realisation because it
+		// becomes a claim on a fixed pot that a pool would keep quoting a stale
+		// price for; a dividend token is a claim on a fixed pot at a fixed 1:1
+		// rate from the moment it is minted, so there is no stale price and no
+		// free lunch. It is transferable on purpose — a holder who cannot
+		// receive the stable has to be able to assign the claim to somebody who
+		// can, and that is most of the reason the token exists.
 		assetID, err := k.ByDenom.Get(ctx, coin.Denom)
 		if err != nil {
 			continue // not a fraction denom

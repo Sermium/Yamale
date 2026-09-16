@@ -36,13 +36,54 @@ var (
 	PeriodRatesKey = collections.NewPrefix(12)
 )
 
+// Denomination prefixes. Two registers, one per vehicle: what you own, and
+// what you are owed.
+const (
+	// FractionPrefix marks a shareholding.
+	FractionPrefix = "tok/"
+
+	// DividendPrefix marks a claim on one vehicle's dividend reserve.
+	//
+	// A different prefix rather than a different symbol, so the two can never
+	// be mistaken for one another by a string comparison that matched the
+	// symbol alone — and so ByDenom, which drives the send restriction and the
+	// AMM's classifier, answers "not mine" for a dividend denom without having
+	// to know what one is. Settling a dividend transfer as though it were a
+	// share transfer would credit a holder's income history against a balance
+	// in the wrong token.
+	DividendPrefix = "div/"
+)
+
 // FractionDenom is the denom minted against an asset.
 //
 // The asset id is in the denom because symbols are not unique and never will
 // be: two issuers will both want SOLAR, and a chain that let the second one
 // have it would have let them mint claims on the first one's warehouse.
 func FractionDenom(assetID uint64, symbol string) string {
-	return "tok/" + itoa(assetID) + "/" + symbol
+	return FractionPrefix + itoa(assetID) + "/" + symbol
+}
+
+// DividendDenom is the claim token one vehicle pays its dividends in, derived
+// from its fraction denom by swapping the prefix: tok/7/WHSE -> div/7/WHSE.
+//
+// Derived rather than rebuilt from (id, symbol) because the symbol is not
+// stored anywhere after fractionalisation — only the assembled fraction denom
+// is. Rebuilding it would mean carrying the symbol a second time, and two
+// copies of a string that must agree is a way for them to disagree: the one
+// that matters here mints a token, and a dividend token whose denom does not
+// match the one the exchange burns is money issued against nothing.
+//
+// Returns "" for anything that is not a fraction denom, including the empty
+// denom of an asset that was never fractionalised. Every caller must refuse on
+// empty rather than carry on: minting "div//" would put one denom across every
+// unfractionalised vehicle on the chain, and its holders would be exchanging
+// against each other's reserves.
+func DividendDenom(fractionDenom string) string {
+	if len(fractionDenom) <= len(FractionPrefix) ||
+		fractionDenom[:len(FractionPrefix)] != FractionPrefix {
+		return ""
+	}
+	return DividendPrefix + fractionDenom[len(FractionPrefix):]
 }
 
 func itoa(v uint64) string {

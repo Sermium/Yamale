@@ -306,6 +306,18 @@ func (m msgServer) FundVault(ctx context.Context, msg *types.MsgFundVault) (*typ
 
 // Claim withdraws accrued income without giving up the shareholding — a coupon
 // should not force an exit.
+//
+// It pays a DIVIDEND TOKEN rather than the stable. What used to happen here —
+// release from the vehicle's ledger, send the stable — still happens, but the
+// stable stops at the vehicle's dividend reserve and the holder is given a
+// token that is exchangeable for it 1:1, in any status, forever. See
+// keeper/dividend.go for what backs it and why the reserve is segregated from
+// Held; see the proto for why a token rather than the money itself.
+//
+// The settlement above is untouched, and that is the point: the dividend token
+// changes what a holder is paid IN, never what they are owed. Pro-rata temporis
+// decides the amount exactly as before, and the cost basis is not consulted
+// here at all.
 func (m msgServer) Claim(ctx context.Context, msg *types.MsgClaim) (*types.MsgClaimResponse, error) {
 	holder, err := m.addressCodec.StringToBytes(msg.Holder)
 	if err != nil {
@@ -314,10 +326,6 @@ func (m msgServer) Claim(ctx context.Context, msg *types.MsgClaim) (*types.MsgCl
 	asset, err := m.Assets.Get(ctx, msg.AssetId)
 	if err != nil {
 		return nil, types.ErrAssetNotFound
-	}
-	vault, err := m.Vaults.Get(ctx, msg.AssetId)
-	if err != nil {
-		return nil, err
 	}
 
 	balance := m.bankKeeper.GetBalance(sdk.UnwrapSDKContext(ctx), holder, asset.FractionDenom).Amount
@@ -331,22 +339,21 @@ func (m msgServer) Claim(ctx context.Context, msg *types.MsgClaim) (*types.MsgCl
 		return nil, types.ErrNothingOwed
 	}
 
-	paid := sdk.NewCoin(vault.Denom, pos.Accrued)
+	owed := pos.Accrued
 	pos.Accrued = math.ZeroInt()
 	if err := m.Positions.Set(ctx, key, pos); err != nil {
 		return nil, err
 	}
-	// Off this vehicle's ledger before the bank keeper is asked, so a payout
-	// this vehicle cannot cover fails here rather than succeeding out of a
-	// different vehicle's rent.
-	if err := m.release(ctx, msg.AssetId, paid); err != nil {
+
+	// The position is zeroed BEFORE the token is minted, so the two can never
+	// both be outstanding. Minting first and zeroing after would, if anything
+	// between them ever returned early without an error, leave a holder with a
+	// token and an undiminished entitlement — which is the whole vault, twice.
+	paid, backing, err := m.Keeper.mintDividend(ctx, msg.AssetId, holder, owed)
+	if err != nil {
 		return nil, err
 	}
-	payout := sdk.NewCoins(paid)
-	if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, holder, payout); err != nil {
-		return nil, err
-	}
-	return &types.MsgClaimResponse{Paid: payout}, nil
+	return &types.MsgClaimResponse{Paid: sdk.NewCoins(paid), Backing: backing}, nil
 }
 
 // Redeem burns tokens and pays their share in one step.

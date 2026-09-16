@@ -60,6 +60,12 @@ service Query {
   rpc Covenants(QueryCovenantsRequest) returns (QueryCovenantsResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/covenants/{asset_id}";
   }
+
+  // DividendReserve is the backing check, exposed so it does not have to be
+  // taken on trust.
+  rpc DividendReserve(QueryDividendReserveRequest) returns (QueryDividendReserveResponse) {
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/dividend-reserve";
+  }
 }
 
 // QueryParamsRequest is the request type for the Params RPC.
@@ -166,4 +172,42 @@ message QueryPositionResponse {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
+}
+
+// QueryDividendReserveRequest names one vehicle.
+message QueryDividendReserveRequest {
+  uint64 asset_id = 1;
+}
+
+// QueryDividendReserveResponse is what a vehicle owes its dividend token and
+// what it has set aside to pay it.
+//
+// # Why this is a query rather than a comment in the code
+//
+// The promise the dividend token makes is that outstanding and reserve are
+// equal, at every height, for every vehicle. A promise nobody outside the
+// module can check is a promise, and this makes it a measurement: outstanding
+// comes from the bank keeper's supply of the dividend denom, reserve comes from
+// this module's own per-vehicle ledger, and the two are computed from different
+// state by different modules. A reader who does not trust this module can read
+// the supply from the bank module and compare it themselves.
+message QueryDividendReserveResponse {
+  // The denomination claims against this vehicle are paid in. Empty for a
+  // vehicle that has not been fractionalised, which is not the same as one
+  // whose dividend token has zero supply.
+  string dividend_denom = 1;
+
+  // Dividend tokens issued and not yet cashed: what the vehicle still owes.
+  cosmos.base.v1beta1.Coin outstanding = 2 [(gogoproto.nullable) = false];
+
+  // Stable set aside to pay them. Equal to outstanding in amount whenever the
+  // module is behaving; a difference is a bug, and a difference in the wrong
+  // direction is an exchange that will run dry.
+  cosmos.base.v1beta1.Coin reserve = 3 [(gogoproto.nullable) = false];
+
+  // What the vehicle still holds that is NOT promised to anybody: the pool a
+  // future distribution can be credited against, and the pool redemption pays
+  // out of. Returned beside the other two because the useful question about a
+  // vault is which of its money is already spoken for.
+  cosmos.base.v1beta1.Coin unreserved = 4 [(gogoproto.nullable) = false];
 }

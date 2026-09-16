@@ -188,3 +188,36 @@ func (q queryServer) Position(
 		Position: pos, Found: true, Owed: owed, PendingTokenSeconds: pending,
 	}, nil
 }
+
+// DividendReserve makes the backing promise measurable from outside.
+//
+// The two figures it compares come from different modules' state: `outstanding`
+// is the bank keeper's supply of the dividend denom, `reserve` is this module's
+// per-vehicle ledger. A reader who does not trust this module can read the
+// supply from x/bank themselves and compare. Taking both from here would be
+// comparing a number with itself, which always agrees and checks nothing.
+func (q queryServer) DividendReserve(
+	ctx context.Context, req *types.QueryDividendReserveRequest,
+) (*types.QueryDividendReserveResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+	vault, err := q.k.Vaults.Get(ctx, req.AssetId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "no vault for that asset")
+	}
+	denom, err := q.k.dividendDenom(ctx, req.AssetId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "that asset has no shareholding, so it has no dividend token")
+	}
+	outstanding, err := q.k.DividendOutstanding(ctx, req.AssetId)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryDividendReserveResponse{
+		DividendDenom: denom,
+		Outstanding:   outstanding,
+		Reserve:       sdk.NewCoin(vault.Denom, sdk.Coins(vault.DividendReserve).AmountOf(vault.Denom)),
+		Unreserved:    sdk.NewCoin(vault.Denom, sdk.Coins(vault.Held).AmountOf(vault.Denom)),
+	}, nil
+}

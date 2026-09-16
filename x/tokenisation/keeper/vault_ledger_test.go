@@ -252,10 +252,26 @@ func TestFundVaultCollectsOnlyTheHoldersShare(t *testing.T) {
 	require.Equal(t, math.NewInt(250_000), sdk.Coins(vault.Held).AmountOf(income))
 	require.Equal(t, math.NewInt(1_000_000), sdk.Coins(vault.Funded).AmountOf(income))
 
+	// Two steps rather than one since the dividend token landed. A claim mints
+	// div/<asset>/RENT and reserves the stable behind it; the exchange cashes
+	// it. The figure asserted is unchanged, and that is the point -- the
+	// dividend token changed what a holder is paid IN and must never change
+	// what they are paid.
 	sponsorAddr := mustAddr(t, env, sponsor)
 	paid, err := ms.Claim(env.Ctx, &types.MsgClaim{Holder: sponsor, AssetId: minted.AssetId})
 	require.NoError(t, err)
-	require.Equal(t, math.NewInt(250_000), sdk.Coins(paid.Paid).AmountOf(income))
+	require.Equal(t, price(250_000), paid.Backing)
+	require.Equal(t, math.NewInt(250_000),
+		sdk.Coins(paid.Paid).AmountOf(types.DividendDenom(fractionDenom(t, k, env, minted.AssetId))))
+
+	// Still in the module account at this point, and reserved rather than
+	// spendable: the vault owes it to a token now instead of to an index.
+	require.Equal(t, math.NewInt(250_000), env.ModuleBalance(types.ModuleName, income))
+
+	_, err = ms.ExchangeDividend(env.Ctx, &types.MsgExchangeDividend{
+		Holder: sponsor, AssetId: minted.AssetId, Amount: math.NewInt(250_000),
+	})
+	require.NoError(t, err)
 	require.Equal(t, math.NewInt(250_000), env.Balance(sponsorAddr, income))
 	require.True(t, env.ModuleBalance(types.ModuleName, income).IsZero())
 }
