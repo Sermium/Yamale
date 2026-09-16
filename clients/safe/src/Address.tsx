@@ -1,4 +1,4 @@
-import { truncateAddress } from '@yamale/chain';
+import { t, truncateAddress } from '@yamale/chain';
 import { useState } from 'react';
 
 import { Named } from './Named.tsx';
@@ -60,7 +60,7 @@ export function Address({
            expert can check it without a click and a screen reader announces
            what will be copied rather than "button". */
         title={address}
-        aria-label={copied ? `Copied ${address}` : `Copy ${address}`}
+        aria-label={`${copied ? t('app.copied') : t('app.copy')}: ${address}`}
       >
         <span className="addr__label">
           {name ? <Named address={address} /> : <span className="y-mono">{truncateAddress(address)}</span>}
@@ -90,7 +90,7 @@ export function Address({
         aria-expanded={shown}
         onClick={() => setShown(!shown)}
       >
-        {shown ? 'hide' : 'show'}
+        {shown ? t('app.hide') : t('app.reveal')}
       </button>
       {shown && <code className="addr__full y-addr">{address}</code>}
     </span>

@@ -1101,6 +1101,63 @@ export const en = {
   'rwa.holdNoAccountTitle': "No account attached",
   'rwa.holdNoAccountBody': "Connect a wallet, or watch any address, to see what it holds. Watching signs nothing.",
   'rwa.holdFoot': "Percentages are of the shares issued and of the asset's economics. The two differ by whatever the sponsor kept back.",
+
+  // ==========================================================================
+  // yamale-safe / information design  (2026-09-16)
+  //
+  // The Safe console's KPI band, its folders and its cross-treasury custody
+  // summary. Kept as one contiguous block behind this banner so a concurrent
+  // branch adding keys elsewhere in this file conflicts cleanly here rather
+  // than interleaving with them.
+  // ==========================================================================
+  'sd.kpi.treasuries': "Treasuries",
+  'sd.kpi.treasuriesHint': "shared funds this chain holds",
+  'sd.kpi.currencies': "Currencies held",
+  'sd.kpi.currenciesHint': "counted across every treasury; balances are never added across currencies",
+  'sd.kpi.commitments': "Commitments",
+  'sd.kpi.commitmentsHint': "promises the chain enforces against everybody, including the admin",
+  'sd.kpi.frozen': "Frozen",
+  'sd.kpi.frozenHint': "treasuries that can pay nobody until they are unfrozen",
+  'sd.kpi.unread': "the node did not answer",
+  'sd.fold.treasuries': "Treasuries",
+  'sd.fold.custody': "How custody works",
+  'sd.custody.summary': "Across every treasury, by currency",
+  'sd.custody.summaryLede': "One row per currency. Nothing here is added across currencies: a total putting nairas and francs in one figure would be an invented exchange rate, on the screen where somebody decides what they can spend.",
+  'sd.custody.none': "No treasury on this chain holds a balance yet.",
+  'sd.col.currency': "Currency",
+  'sd.col.split': "Available against committed",
+  'sd.tre.kpiAvailable': "Available to spend",
+  'sd.tre.kpiAvailableHint': "what the signers can move today",
+  'sd.tre.kpiCommitted': "Committed",
+  'sd.tre.kpiCommittedHint': "out of reach of every signer, by the keeper and not by this page",
+  'sd.tre.kpiSigners': "Named signers",
+  'sd.tre.kpiSignersHint': "people holding a role on this treasury, besides the admin",
+  'sd.tre.kpiCommitments': "Commitments",
+  'sd.tre.kpiCommitmentsHint': "beneficiaries with a claim no later proposal can touch",
+  'sd.tre.oneCurrency': "in {denom}",
+  'sd.tre.manyCurrencies': "across {count} currencies",
+  'sd.tre.nothingCommitted': "nothing is committed",
+  'sd.ops.lede': "What is waiting on a decision, and the exact messages that make one. Nothing here signs anything.",
+  'sd.ops.waiting': "Waiting on a vote",
+  'sd.ops.reading': "Reading cases",
+  'sd.ops.unknownBody': "The node did not answer, so this page cannot say whether anything is waiting on a decision. Treat that as unknown rather than as nothing.",
+  'sd.ops.retry': "Try again",
+  'sd.ops.nothingTitle': "Nothing waiting",
+  'sd.ops.nothingBody': "No enforcement case is open, and no account is frozen pending a decision.",
+  'sd.ops.start': "Start something",
+  'sd.ops.caseN': "Case {id}",
+  'sd.ops.freezeOnly': "Freeze only",
+  'sd.ops.seizeAction': "Freeze and seize",
+  'sd.ops.emergency': "Founders' emergency",
+  'sd.ops.against': "Against {target}, opened by {opener}",
+  'sd.ops.target': "Account",
+  'sd.ops.openedBy': "Opened by",
+  'sd.ops.tally': "{yes} of the {needed} voting power it needs · {no} against · voting ends at block {height}",
+  'sd.ops.tallyAlt': "{yes} of the {needed} voting power needed",
+  'sd.kpi.openCases': "Waiting on a vote",
+  'sd.kpi.openCasesHint': "enforcement cases open; each one has an account frozen while it runs",
+  'sd.kpi.seizures': "Of those, seizures",
+  'sd.kpi.seizuresHint': "cases that would take the balance, not merely stop it",
 };
 
 export const fr = {
@@ -2162,6 +2219,63 @@ export const fr = {
   'rwa.holdNoAccountTitle': "Aucun compte rattaché",
   'rwa.holdNoAccountBody': "Connectez un portefeuille, ou surveillez n'importe quelle adresse, pour voir ce qu'elle détient. La surveillance ne signe rien.",
   'rwa.holdFoot': "Les pourcentages portent sur les parts émises et sur l'économie de l'actif. L'écart entre les deux est ce que le promoteur a conservé.",
+
+  // ==========================================================================
+  // yamale-safe / information design  (2026-09-16)
+  //
+  // The Safe console's KPI band, its folders and its cross-treasury custody
+  // summary. Kept as one contiguous block behind this banner so a concurrent
+  // branch adding keys elsewhere in this file conflicts cleanly here rather
+  // than interleaving with them.
+  // ==========================================================================
+  'sd.kpi.treasuries': "Trésoreries",
+  'sd.kpi.treasuriesHint': "fonds partagés détenus par cette chaîne",
+  'sd.kpi.currencies': "Devises détenues",
+  'sd.kpi.currenciesHint': "comptées sur l'ensemble des trésoreries ; les soldes ne sont jamais additionnés entre devises",
+  'sd.kpi.commitments': "Engagements",
+  'sd.kpi.commitmentsHint': "promesses que la chaîne oppose à tous, y compris à l'administrateur",
+  'sd.kpi.frozen': "Gelées",
+  'sd.kpi.frozenHint': "trésoreries qui ne peuvent payer personne tant qu'elles ne sont pas dégelées",
+  'sd.kpi.unread': "le nœud n'a pas répondu",
+  'sd.fold.treasuries': "Trésoreries",
+  'sd.fold.custody': "Comment fonctionne la garde",
+  'sd.custody.summary': "Toutes trésoreries confondues, par devise",
+  'sd.custody.summaryLede': "Une ligne par devise. Rien n'est additionné entre devises : un total mêlant nairas et francs serait un taux de change inventé, sur l'écran même où l'on décide de ce que l'on peut dépenser.",
+  'sd.custody.none': "Aucune trésorerie de cette chaîne ne détient encore de solde.",
+  'sd.col.currency': "Devise",
+  'sd.col.split': "Disponible face à l'engagé",
+  'sd.tre.kpiAvailable': "Disponible à dépenser",
+  'sd.tre.kpiAvailableHint': "ce que les signataires peuvent déplacer aujourd'hui",
+  'sd.tre.kpiCommitted': "Engagé",
+  'sd.tre.kpiCommittedHint': "hors d'atteinte de tout signataire, par le keeper et non par cette interface",
+  'sd.tre.kpiSigners': "Signataires nommés",
+  'sd.tre.kpiSignersHint': "personnes titulaires d'un rôle sur cette trésorerie, hors administrateur",
+  'sd.tre.kpiCommitments': "Engagements",
+  'sd.tre.kpiCommitmentsHint': "bénéficiaires dont la créance échappe à toute proposition ultérieure",
+  'sd.tre.oneCurrency': "en {denom}",
+  'sd.tre.manyCurrencies': "sur {count} devises",
+  'sd.tre.nothingCommitted': "rien n'est engagé",
+  'sd.ops.lede': "Ce qui attend une décision, et les messages exacts qui la produisent. Rien ici ne signe quoi que ce soit.",
+  'sd.ops.waiting': "En attente d'un vote",
+  'sd.ops.reading': "Lecture des dossiers",
+  'sd.ops.unknownBody': "Le nœud n'a pas répondu : cette page ne peut pas dire si quelque chose attend une décision. À traiter comme inconnu, et non comme rien.",
+  'sd.ops.retry': "Réessayer",
+  'sd.ops.nothingTitle': "Rien en attente",
+  'sd.ops.nothingBody': "Aucun dossier d'exécution n'est ouvert, et aucun compte n'est gelé dans l'attente d'une décision.",
+  'sd.ops.start': "Engager une action",
+  'sd.ops.caseN': "Dossier {id}",
+  'sd.ops.freezeOnly': "Gel seul",
+  'sd.ops.seizeAction': "Gel et saisie",
+  'sd.ops.emergency': "Urgence des fondateurs",
+  'sd.ops.against': "Contre {target}, ouvert par {opener}",
+  'sd.ops.target': "Compte",
+  'sd.ops.openedBy': "Ouvert par",
+  'sd.ops.tally': "{yes} du pouvoir de vote requis de {needed} · {no} contre · le vote se clôt au bloc {height}",
+  'sd.ops.tallyAlt': "{yes} sur les {needed} de pouvoir de vote requis",
+  'sd.kpi.openCases': "En attente d'un vote",
+  'sd.kpi.openCasesHint': "dossiers d'exécution ouverts ; chacun gèle un compte le temps de son instruction",
+  'sd.kpi.seizures': "Dont saisies",
+  'sd.kpi.seizuresHint': "dossiers qui prendraient le solde, et non seulement l'immobiliseraient",
 };
 
 export const pt = {
@@ -3222,6 +3336,63 @@ export const pt = {
   'rwa.holdNoAccountTitle': "Nenhuma conta ligada",
   'rwa.holdNoAccountBody': "Ligue uma carteira, ou acompanhe qualquer endereço, para ver o que detém. Acompanhar não assina nada.",
   'rwa.holdFoot': "As percentagens são das participações emitidas e da economia do ativo. A diferença entre as duas é o que o promotor reteve.",
+
+  // ==========================================================================
+  // yamale-safe / information design  (2026-09-16)
+  //
+  // The Safe console's KPI band, its folders and its cross-treasury custody
+  // summary. Kept as one contiguous block behind this banner so a concurrent
+  // branch adding keys elsewhere in this file conflicts cleanly here rather
+  // than interleaving with them.
+  // ==========================================================================
+  'sd.kpi.treasuries': "Tesourarias",
+  'sd.kpi.treasuriesHint': "fundos partilhados que esta cadeia detém",
+  'sd.kpi.currencies': "Moedas detidas",
+  'sd.kpi.currenciesHint': "contadas em todas as tesourarias; os saldos nunca são somados entre moedas",
+  'sd.kpi.commitments': "Compromissos",
+  'sd.kpi.commitmentsHint': "promessas que a cadeia opõe a todos, incluindo ao administrador",
+  'sd.kpi.frozen': "Congeladas",
+  'sd.kpi.frozenHint': "tesourarias que não podem pagar a ninguém enquanto não forem descongeladas",
+  'sd.kpi.unread': "o nó não respondeu",
+  'sd.fold.treasuries': "Tesourarias",
+  'sd.fold.custody': "Como funciona a custódia",
+  'sd.custody.summary': "Em todas as tesourarias, por moeda",
+  'sd.custody.summaryLede': "Uma linha por moeda. Nada é somado entre moedas: um total que juntasse nairas e francos seria uma taxa de câmbio inventada, no ecrã onde se decide o que se pode gastar.",
+  'sd.custody.none': "Nenhuma tesouraria desta cadeia detém ainda um saldo.",
+  'sd.col.currency': "Moeda",
+  'sd.col.split': "Disponível face ao comprometido",
+  'sd.tre.kpiAvailable': "Disponível para gastar",
+  'sd.tre.kpiAvailableHint': "o que os signatários podem mover hoje",
+  'sd.tre.kpiCommitted': "Comprometido",
+  'sd.tre.kpiCommittedHint': "fora do alcance de qualquer signatário, pelo keeper e não por esta interface",
+  'sd.tre.kpiSigners': "Signatários nomeados",
+  'sd.tre.kpiSignersHint': "pessoas com um papel nesta tesouraria, além do administrador",
+  'sd.tre.kpiCommitments': "Compromissos",
+  'sd.tre.kpiCommitmentsHint': "beneficiários com um direito que nenhuma proposta posterior pode tocar",
+  'sd.tre.oneCurrency': "em {denom}",
+  'sd.tre.manyCurrencies': "em {count} moedas",
+  'sd.tre.nothingCommitted': "nada está comprometido",
+  'sd.ops.lede': "O que aguarda uma decisão, e as mensagens exatas que a produzem. Nada aqui assina o que quer que seja.",
+  'sd.ops.waiting': "À espera de votação",
+  'sd.ops.reading': "A ler os processos",
+  'sd.ops.unknownBody': "O nó não respondeu, por isso esta página não pode dizer se algo aguarda uma decisão. Trate isso como desconhecido, não como nada.",
+  'sd.ops.retry': "Tentar de novo",
+  'sd.ops.nothingTitle': "Nada à espera",
+  'sd.ops.nothingBody': "Nenhum processo de execução está aberto, e nenhuma conta está congelada à espera de uma decisão.",
+  'sd.ops.start': "Iniciar uma ação",
+  'sd.ops.caseN': "Processo {id}",
+  'sd.ops.freezeOnly': "Apenas congelar",
+  'sd.ops.seizeAction': "Congelar e apreender",
+  'sd.ops.emergency': "Emergência dos fundadores",
+  'sd.ops.against': "Contra {target}, aberto por {opener}",
+  'sd.ops.target': "Conta",
+  'sd.ops.openedBy': "Aberto por",
+  'sd.ops.tally': "{yes} do poder de voto necessário de {needed} · {no} contra · a votação termina no bloco {height}",
+  'sd.ops.tallyAlt': "{yes} do poder de voto necessário de {needed}",
+  'sd.kpi.openCases': "À espera de votação",
+  'sd.kpi.openCasesHint': "processos de execução abertos; cada um mantém uma conta congelada enquanto decorre",
+  'sd.kpi.seizures': "Destes, apreensões",
+  'sd.kpi.seizuresHint': "processos que levariam o saldo, e não apenas o imobilizariam",
 };
 
 export const sw = {
@@ -4282,6 +4453,63 @@ export const sw = {
   'rwa.holdNoAccountTitle': "Hakuna akaunti iliyoambatanishwa",
   'rwa.holdNoAccountBody': "Unganisha pochi, au fuatilia anwani yoyote, ili kuona inachoshikilia. Kufuatilia hakusaini chochote.",
   'rwa.holdFoot': "Asilimia ni za hisa zilizotolewa na za uchumi wa mali. Tofauti kati yao ni kile mdhamini alichobakiza.",
+
+  // ==========================================================================
+  // yamale-safe / information design  (2026-09-16)
+  //
+  // The Safe console's KPI band, its folders and its cross-treasury custody
+  // summary. Kept as one contiguous block behind this banner so a concurrent
+  // branch adding keys elsewhere in this file conflicts cleanly here rather
+  // than interleaving with them.
+  // ==========================================================================
+  'sd.kpi.treasuries': "Hazina",
+  'sd.kpi.treasuriesHint': "fedha za pamoja zinazoshikiliwa na mnyororo huu",
+  'sd.kpi.currencies': "Sarafu zinazoshikiliwa",
+  'sd.kpi.currenciesHint': "zimehesabiwa katika hazina zote; salio hazijumlishwi kamwe kati ya sarafu",
+  'sd.kpi.commitments': "Ahadi",
+  'sd.kpi.commitmentsHint': "ahadi ambazo mnyororo huzitekeleza dhidi ya kila mtu, hata msimamizi",
+  'sd.kpi.frozen': "Zilizogandishwa",
+  'sd.kpi.frozenHint': "hazina zisizoweza kumlipa mtu yeyote hadi zifunguliwe",
+  'sd.kpi.unread': "nodi haikujibu",
+  'sd.fold.treasuries': "Hazina",
+  'sd.fold.custody': "Jinsi ulinzi unavyofanya kazi",
+  'sd.custody.summary': "Katika hazina zote, kwa sarafu",
+  'sd.custody.summaryLede': "Safu moja kwa kila sarafu. Hakuna kinachojumlishwa kati ya sarafu: jumla inayochanganya naira na faranga ingekuwa kiwango cha ubadilishaji kilichobuniwa, kwenye skrini ileile ambapo mtu anaamua anachoweza kutumia.",
+  'sd.custody.none': "Hakuna hazina ya mnyororo huu yenye salio bado.",
+  'sd.col.currency': "Sarafu",
+  'sd.col.split': "Inayopatikana dhidi ya iliyoahidiwa",
+  'sd.tre.kpiAvailable': "Inayopatikana kutumia",
+  'sd.tre.kpiAvailableHint': "kile watia sahihi wanaweza kuhamisha leo",
+  'sd.tre.kpiCommitted': "Iliyoahidiwa",
+  'sd.tre.kpiCommittedHint': "nje ya uwezo wa mtia sahihi yeyote, kwa keeper na si kwa ukurasa huu",
+  'sd.tre.kpiSigners': "Watia sahihi walioteuliwa",
+  'sd.tre.kpiSignersHint': "watu wenye jukumu kwenye hazina hii, mbali na msimamizi",
+  'sd.tre.kpiCommitments': "Ahadi",
+  'sd.tre.kpiCommitmentsHint': "wanufaika wenye haki ambayo hakuna pendekezo la baadaye linaloweza kuigusa",
+  'sd.tre.oneCurrency': "kwa {denom}",
+  'sd.tre.manyCurrencies': "katika sarafu {count}",
+  'sd.tre.nothingCommitted': "hakuna kilichoahidiwa",
+  'sd.ops.lede': "Kinachosubiri uamuzi, na ujumbe kamili unaoufanya. Hakuna kinachotiwa sahihi hapa.",
+  'sd.ops.waiting': "Inasubiri kura",
+  'sd.ops.reading': "Inasoma mashauri",
+  'sd.ops.unknownBody': "Nodi haikujibu, hivyo ukurasa huu hauwezi kusema kama kuna kinachosubiri uamuzi. Chukulia hilo kama hakijulikani, si kama hakuna kitu.",
+  'sd.ops.retry': "Jaribu tena",
+  'sd.ops.nothingTitle': "Hakuna kinachosubiri",
+  'sd.ops.nothingBody': "Hakuna shauri la utekelezaji lililo wazi, na hakuna akaunti iliyogandishwa ikisubiri uamuzi.",
+  'sd.ops.start': "Anzisha hatua",
+  'sd.ops.caseN': "Shauri {id}",
+  'sd.ops.freezeOnly': "Kugandisha tu",
+  'sd.ops.seizeAction': "Kugandisha na kutwaa",
+  'sd.ops.emergency': "Dharura ya waanzilishi",
+  'sd.ops.against': "Dhidi ya {target}, lililofunguliwa na {opener}",
+  'sd.ops.target': "Akaunti",
+  'sd.ops.openedBy': "Lilifunguliwa na",
+  'sd.ops.tally': "{yes} kati ya nguvu ya kura {needed} inayohitajika · {no} dhidi · kupiga kura kunaisha kwenye kizuizi {height}",
+  'sd.ops.tallyAlt': "{yes} kati ya nguvu ya kura {needed} inayohitajika",
+  'sd.kpi.openCases': "Yanasubiri kura",
+  'sd.kpi.openCasesHint': "mashauri ya utekelezaji yaliyo wazi; kila moja hugandisha akaunti wakati linaendelea",
+  'sd.kpi.seizures': "Kati ya hayo, utwaaji",
+  'sd.kpi.seizuresHint': "mashauri yatakayochukua salio, si kulizuia tu",
 };
 
 // Arabic drives the right-to-left path. Every logical property in the
@@ -5345,6 +5573,63 @@ export const ar = {
   'rwa.holdNoAccountTitle': "لا حساب مرتبط",
   'rwa.holdNoAccountBody': "اربط محفظة، أو تابع أي عنوان، لرؤية ما يملكه. المتابعة لا توقّع شيئاً.",
   'rwa.holdFoot': "النسب محسوبة من الحصص المُصدَرة ومن اقتصاديات الأصل. الفارق بينهما هو ما احتفظ به الراعي.",
+
+  // ==========================================================================
+  // yamale-safe / information design  (2026-09-16)
+  //
+  // The Safe console's KPI band, its folders and its cross-treasury custody
+  // summary. Kept as one contiguous block behind this banner so a concurrent
+  // branch adding keys elsewhere in this file conflicts cleanly here rather
+  // than interleaving with them.
+  // ==========================================================================
+  'sd.kpi.treasuries': "الخزائن",
+  'sd.kpi.treasuriesHint': "أموال مشتركة تحتفظ بها هذه السلسلة",
+  'sd.kpi.currencies': "العملات المحتفظ بها",
+  'sd.kpi.currenciesHint': "محسوبة عبر كل الخزائن؛ ولا تُجمع الأرصدة أبداً عبر العملات",
+  'sd.kpi.commitments': "الالتزامات",
+  'sd.kpi.commitmentsHint': "وعود تفرضها السلسلة على الجميع، بمن فيهم المسؤول",
+  'sd.kpi.frozen': "المجمّدة",
+  'sd.kpi.frozenHint': "خزائن لا تستطيع الدفع لأحد حتى يُرفع تجميدها",
+  'sd.kpi.unread': "لم تستجب العقدة",
+  'sd.fold.treasuries': "الخزائن",
+  'sd.fold.custody': "كيف تعمل الحيازة",
+  'sd.custody.summary': "عبر كل الخزائن، بحسب العملة",
+  'sd.custody.summaryLede': "سطر لكل عملة. ولا يُجمع شيء عبر العملات: مجموع يخلط النايرا بالفرنك هو سعر صرف مُختلَق، على الشاشة نفسها التي يُقرَّر فيها ما يمكن إنفاقه.",
+  'sd.custody.none': "لا خزينة على هذه السلسلة تحمل رصيداً بعد.",
+  'sd.col.currency': "العملة",
+  'sd.col.split': "المتاح مقابل الملتزَم به",
+  'sd.tre.kpiAvailable': "المتاح للإنفاق",
+  'sd.tre.kpiAvailableHint': "ما يستطيع الموقّعون تحريكه اليوم",
+  'sd.tre.kpiCommitted': "الملتزَم به",
+  'sd.tre.kpiCommittedHint': "بعيد عن متناول أي موقّع، بفعل الحافظ لا بفعل هذه الواجهة",
+  'sd.tre.kpiSigners': "الموقّعون المسمّون",
+  'sd.tre.kpiSignersHint': "أشخاص يحملون دوراً على هذه الخزينة، عدا المسؤول",
+  'sd.tre.kpiCommitments': "الالتزامات",
+  'sd.tre.kpiCommitmentsHint': "مستفيدون لهم حق لا يمسّه أي اقتراح لاحق",
+  'sd.tre.oneCurrency': "بـ{denom}",
+  'sd.tre.manyCurrencies': "عبر {count} عملات",
+  'sd.tre.nothingCommitted': "لا شيء ملتزَم به",
+  'sd.ops.lede': "ما ينتظر قراراً، والرسائل الدقيقة التي تصنعه. لا شيء هنا يوقّع أي شيء.",
+  'sd.ops.waiting': "بانتظار تصويت",
+  'sd.ops.reading': "قراءة القضايا",
+  'sd.ops.unknownBody': "لم تستجب العقدة، فلا تستطيع هذه الصفحة أن تقول إن كان ثمة ما ينتظر قراراً. عامِل ذلك كمجهول، لا كعدم.",
+  'sd.ops.retry': "حاول مجدداً",
+  'sd.ops.nothingTitle': "لا شيء بالانتظار",
+  'sd.ops.nothingBody': "لا قضية إنفاذ مفتوحة، ولا حساب مجمّد بانتظار قرار.",
+  'sd.ops.start': "ابدأ إجراءً",
+  'sd.ops.caseN': "القضية {id}",
+  'sd.ops.freezeOnly': "تجميد فقط",
+  'sd.ops.seizeAction': "تجميد ومصادرة",
+  'sd.ops.emergency': "طوارئ المؤسِّسين",
+  'sd.ops.against': "ضد {target}، فتحها {opener}",
+  'sd.ops.target': "الحساب",
+  'sd.ops.openedBy': "فتحها",
+  'sd.ops.tally': "{yes} من قوة التصويت المطلوبة البالغة {needed} · {no} ضدّها · ينتهي التصويت عند الكتلة {height}",
+  'sd.ops.tallyAlt': "{yes} من قوة التصويت المطلوبة البالغة {needed}",
+  'sd.kpi.openCases': "بانتظار تصويت",
+  'sd.kpi.openCasesHint': "قضايا إنفاذ مفتوحة؛ كل واحدة تُجمّد حساباً ما دامت جارية",
+  'sd.kpi.seizures': "منها مصادرات",
+  'sd.kpi.seizuresHint': "قضايا تأخذ الرصيد، لا تكتفي بإيقافه",
 };
 
 /** Locales shipped today. Tier 2 arrives through contribution. */
