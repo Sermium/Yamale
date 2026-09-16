@@ -206,6 +206,11 @@ func (m msgServer) Fractionalise(ctx context.Context, msg *types.MsgFractionalis
 		AssetId:            msg.AssetId,
 		CumulativePerToken: math.LegacyZeroDec(),
 		Denom:              msg.IncomeDenom,
+		// The first period starts at issuance rather than at the epoch. Left at
+		// zero, the first distribution would divide by fifty-six years of
+		// token-seconds and pay a rate of approximately nothing.
+		PeriodIndex: 0,
+		PeriodStart: blockSeconds(ctx),
 	}); err != nil {
 		return nil, err
 	}

@@ -29,6 +29,11 @@ var (
 	CovenantsKey        = collections.NewPrefix(9)
 	CovenantsByAssetKey = collections.NewPrefix(10)
 	NextCovenantIDKey   = collections.NewPrefix(11)
+
+	// (asset, period) -> PeriodRate. Keyed as a pair so one vehicle's rate
+	// history is a prefix walk, and so a settle reads exactly the two entries
+	// it needs without scanning.
+	PeriodRatesKey = collections.NewPrefix(12)
 )
 
 // FractionDenom is the denom minted against an asset.

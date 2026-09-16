@@ -63,6 +63,10 @@ type Keeper struct {
 
 	// Covenants by id, with a key set beside them so one vehicle's filings are a
 	// prefix walk rather than a scan of every filing on the chain.
+	// (asset, period) -> what that distribution paid. Read by a settle, never
+	// walked: two entries answer any gap.
+	PeriodRates collections.Map[collections.Pair[uint64, uint64], types.PeriodRate]
+
 	Covenants        collections.Map[uint64, types.Covenant]
 	CovenantsByAsset collections.KeySet[collections.Pair[uint64, uint64]]
 
@@ -99,6 +103,10 @@ func NewKeeper(
 		ByDenom: collections.NewMap(sb, types.ByDenomKey, "by_denom", collections.StringKey, collections.Uint64Value),
 		ParcelIssuedBps: collections.NewMap(sb, types.ParcelIssuedBpsKey, "parcel_issued_bps",
 			collections.Uint64Key, collections.Uint32Value),
+		PeriodRates: collections.NewMap(sb, types.PeriodRatesKey, "period_rates",
+			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key),
+			codec.CollValue[types.PeriodRate](cdc)),
+
 		Covenants: collections.NewMap(sb, types.CovenantsKey, "covenants",
 			collections.Uint64Key, codec.CollValue[types.Covenant](cdc)),
 		CovenantsByAsset: collections.NewKeySet(sb, types.CovenantsByAssetKey, "covenants_by_asset",
@@ -167,14 +175,18 @@ func (k Keeper) creditHolders(ctx context.Context, assetID uint64, credited, gro
 			sdk.Coins(vault.Held).AmountOf(vault.Denom), vault.Denom, credited)
 	}
 
-	// Truncation here favours the vault, never the holders: a fraction of a
-	// unit that cannot be divided stays behind rather than being conjured. The
-	// same rule governs redemption and x/amm.
-	perToken := math.LegacyNewDecFromInt(credited).QuoTruncate(math.LegacyNewDecFromInt(supply))
-
-	vault.CumulativePerToken = vault.CumulativePerToken.Add(perToken)
+	// The period closes here, which is what apportions this distribution by the
+	// time each holder actually held rather than by who is present now.
+	// ClosePeriod records the rate and advances the cumulative figure, so the
+	// index this used to bump directly now lives in the period record.
+	//
+	// Funded is written first and the vault re-read inside ClosePeriod, so the
+	// two writes cannot disagree about which is authoritative.
 	vault.Funded = sdk.Coins(vault.Funded).Add(sdk.NewCoin(vault.Denom, gross))
-	return k.Vaults.Set(ctx, assetID, vault)
+	if err := k.Vaults.Set(ctx, assetID, vault); err != nil {
+		return err
+	}
+	return k.ClosePeriod(ctx, assetID, credited, supply)
 }
 
 // Settle brings one holder's position up to date with the index.
@@ -214,11 +226,17 @@ func (k Keeper) Settle(ctx context.Context, assetID uint64, holder sdk.AccAddres
 	// cost of a missed row is a panic in a block rather than a wrong number.
 	pos.CostBasis = zeroIfNil(pos.CostBasis)
 	pos.CostQty = zeroIfNil(pos.CostQty)
+	pos.Accrued = zeroIfNil(pos.Accrued)
 
-	delta := vault.CumulativePerToken.Sub(pos.LastIndex)
-	if delta.IsPositive() && balance.IsPositive() {
-		earned := delta.MulInt(balance).TruncateInt()
-		pos.Accrued = pos.Accrued.Add(earned)
+	// Pro rata temporis. This is what pays a holder for the time they held
+	// rather than for being present when a cheque was declared, and it credits
+	// everything owed for periods that have closed since they last touched.
+	//
+	// It replaces the bare index delta that used to be here. The index itself
+	// survives inside PeriodRate.cumulative_per_token, which is what settles
+	// whole periods in one subtraction.
+	if err := k.AccruePosition(ctx, assetID, &pos, balance, blockSeconds(ctx)); err != nil {
+		return err
 	}
 	pos.LastIndex = vault.CumulativePerToken
 
@@ -238,13 +256,27 @@ func (k Keeper) Entitlement(ctx context.Context, assetID uint64, holder sdk.AccA
 
 	owed := math.ZeroInt()
 	key := collections.Join(assetID, holder.String())
-	if pos, err := k.Positions.Get(ctx, key); err == nil {
-		owed = pos.Accrued
-		balance := k.bankKeeper.GetBalance(sdk.UnwrapSDKContext(ctx), holder, asset.FractionDenom).Amount
-		if delta := vault.CumulativePerToken.Sub(pos.LastIndex); delta.IsPositive() && balance.IsPositive() {
-			owed = owed.Add(delta.MulInt(balance).TruncateInt())
-		}
+	pos, err := k.Positions.Get(ctx, key)
+	if err != nil {
+		return owed, nil
 	}
+
+	// Computed on a COPY, never written. A query that settled as a side effect
+	// would make reading a balance change it, and two readers in one block
+	// would then disagree about what a third account is owed.
+	balance := k.bankKeeper.GetBalance(sdk.UnwrapSDKContext(ctx), holder, asset.FractionDenom).Amount
+	settled := pos
+	if err := k.AccruePosition(ctx, assetID, &settled, balance, blockSeconds(ctx)); err != nil {
+		return math.ZeroInt(), err
+	}
+	owed = zeroIfNil(settled.Accrued)
+
+	// What is accruing in the CURRENT period is deliberately NOT added. Its
+	// rate is unknown until the period closes, so converting it at the last
+	// period's rate would put a forecast beside a settled figure in the same
+	// units, and a reader cannot tell those apart once both are money.
+	// PendingTokenSeconds is how an interface shows it, in its own units.
+	_ = vault
 	return owed, nil
 }
 
@@ -261,4 +293,11 @@ func (k Keeper) ModuleAddress() sdk.AccAddress {
 
 func (k Keeper) Logger(ctx context.Context) log.Logger {
 	return sdk.UnwrapSDKContext(ctx).Logger().With("module", "x/"+types.ModuleName)
+}
+
+// blockSeconds is the chain's clock. Every accrual in this module is an
+// integral of balance over time, so it has to come from the block rather than
+// from anything a caller could choose.
+func blockSeconds(ctx context.Context) int64 {
+	return sdk.UnwrapSDKContext(ctx).BlockTime().Unix()
 }

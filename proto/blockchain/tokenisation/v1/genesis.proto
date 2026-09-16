@@ -32,4 +32,10 @@ message GenesisState {
   // filing is removed, and two filings under one id is a register
   // contradicting itself.
   uint64 next_covenant_id = 9;
+
+  // The per-period rates. Exported rather than derived: a rate is what a
+  // holder who has not settled since that period is still owed at, and it
+  // cannot be recomputed from anything else in the file once the period has
+  // closed.
+  repeated PeriodRate period_rates = 10 [(gogoproto.nullable) = false];
 }

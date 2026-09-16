@@ -73,6 +73,12 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	// Set explicitly, never derived from the asset list. A counter that
 	// recomputes itself writes zero where InitGenesis wrote nothing, and the
 	// export stops matching the import byte for byte.
+	for _, r := range gs.PeriodRates {
+		if err := k.PeriodRates.Set(ctx, collections.Join(r.AssetId, r.PeriodIndex), r); err != nil {
+			return err
+		}
+	}
+
 	for _, c := range gs.Covenants {
 		if err := k.Covenants.Set(ctx, c.Id, c); err != nil {
 			return err
@@ -125,6 +131,14 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 		gs.SaleReports = append(gs.SaleReports, s)
 		return false, nil
 	}); err != nil {
+		return nil, err
+	}
+
+	if err := k.PeriodRates.Walk(ctx, nil,
+		func(_ collections.Pair[uint64, uint64], r types.PeriodRate) (bool, error) {
+			gs.PeriodRates = append(gs.PeriodRates, r)
+			return false, nil
+		}); err != nil {
 		return nil, err
 	}
 

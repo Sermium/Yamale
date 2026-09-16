@@ -519,6 +519,26 @@ Never deleted, never edited. An operator who could withdraw a disclosure after p
 | `supersedes` | uint64 | The covenant this replaces, and the one that replaced it. Same shape and same reason as a deal document: a correction goes forward and the earlier version stays readable, because a dispute is usually about what was said at a date rather than what is said now. |
 | `superseded_by` | uint64 |  |
 
+### PeriodRate
+
+PeriodRate is what one distribution paid, kept so a holder who settles long afterwards is still paid at the rate of the period they held through.
+
+Two figures rather than one, and the second is what removes a loop:
+
+`rate` is money per token-second, and pays a PARTIAL period -- the stretch a holder was present for before or after their balance moved.
+
+`cumulative_per_token` is the running total of income per token after this distribution. A holder who was present for several WHOLE periods is paid for all of them by subtracting one of these from another, so settling never walks the periods in between however many there are.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `asset_id` | uint64 |  |
+| `period_index` | uint64 |  |
+| `amount` | string | What this distribution paid, and the total token-seconds it is divided over. Two integers rather than one pre-divided rate, and the reason is precision. A rate stored as `amount / token_seconds` and later multiplied back by a holder's seconds loses the division twice: measured, a holder owed exactly 100,000 was paid 99,999. Kept this way the credit is `amount * held_seconds / token_seconds` -- one truncation, at the end, favouring the vault the way every other rounding in this module does. |
+| `token_seconds` | string | Supply times the period's length: the denominator every holder's share of this distribution is taken over. Zero for a period of no length, which is what makes that case detectable rather than a division by zero. |
+| `per_token` | string | What THIS distribution paid per token: amount / supply. Used when the period had no length at all -- two distributions in one block. Nobody held for any time, so token-seconds cannot apportion it and the only sensible answer is the old rule, by balance. Without this the money is written into the cumulative figure and credited to nobody, which is how a distribution silently strands in the vault. |
+| `cumulative_per_token` | string | Income per token accumulated over the vehicle's life, after this one. |
+| `ended_at` | int64 | When the period this paid for ended. The period it covers is [previous.ended_at, ended_at]. |
+
 ### Position
 
 Position is one account's place in the index.
@@ -533,6 +553,9 @@ Settled whenever the balance moves, so what is owed is always balance * (cumulat
 | `accrued` | string | Settled but not yet withdrawn. |
 | `cost_basis` | string | What this holder PAID, in the vault's income denomination, for the tokens `cost_qty` covers. #### Why two fields and not one A holding can be partly covered. Nine million tokens of which five million were subscribed at a recorded price and four million arrived as a plain transfer from somebody with no basis is the ordinary case, not an edge one. With a single field the interface must either average a known cost with an unknown one, or report a return on the whole holding that is only true of part of it. With two it can say: this much returned on this much invested, and this much not covered. #### Why it cannot simply be derived A token balance records what an account holds and never what it paid, and tokens move by ordinary bank send, which carries no price. So basis is only as good as the events allowed to write it: a recorded subscription, where the party that took the money states the figure, and a marketplace fill, where the price is in the trade and nobody has to assert anything. #### Zero is never assumed A transfer from a holder with no basis leaves the recipient with none, and an interface must show that as COST NOT RECORDED rather than as cost zero. Cost zero reports an infinite return, which is the most flattering and most wrong figure this module could produce. |
 | `cost_qty` | string | How many tokens `cost_basis` was paid for. Never larger than the balance: a transfer out reduces both proportionally. |
+| `token_seconds` | string | Token-seconds accrued in ONE period and not yet turned into money. This is what makes a mid-period sale split the dividend: the seller stops accruing at the moment of sale and the buyer starts, so each is paid for the time they actually held rather than for being present when the cheque was declared. |
+| `token_seconds_period` | uint64 | Which period those seconds belong to. Carried because the rate is only known when the period closes, so seconds accrued in period 3 must be paid at period 3's rate however long the holder waits to settle. |
+| `last_touch` | int64 | When this position last accrued. Every balance change touches it, which is what keeps the integral of balance over time exact rather than sampled. |
 
 ### SaleReport
 
@@ -561,6 +584,8 @@ Vault holds what is owed to shareholders and the running index that says how muc
 | `cumulative_per_token` | string | Income per token, accumulated over the vehicle's life, scaled by 1e18. An index rather than a snapshot because a snapshot is snipeable: buy from the pool at H-1, be holder of record at H, sell at H+1, and collect a quarter's rent for two blocks of exposure with no capital at risk. An index is time-weighted, so two blocks earn two blocks. It also removes a halt: there is no holder set to iterate. |
 | `funded` | repeated Coin | Total gross income ever declared against the vehicle, for the solvency view. Larger than what the module holds for it, because only the holders' share is ever collected. |
 | `denom` | string | The denomination income arrives in. |
+| `period_index` | uint64 | How many distributions this vault has made. A PERIOD is the span between two distributions, and it is what pro-rata temporis apportions. Zero means none yet: everything since period_start is the first period. |
+| `period_start` | int64 | When the current period began: the last distribution, or the moment the vault started accruing. For a vehicle that existed before pro-rata temporis, this is the UPGRADE HEIGHT's time and not issuance. The chain has no record of when balances moved before that, so token-seconds for the past cannot be reconstructed, and assuming everyone held from issuance would credit a buyer from last week with a year of accrual. The discontinuity is real and is the honest option; see docs/superpowers/specs. |
 | `held` | repeated Coin | What the module account actually holds on this vehicle's behalf. One module account serves every vehicle, so a balance is not an ownership record: without this ledger a vehicle that funded nothing pays its holders out of a different vehicle's vault, and the bank keeper has no way to object. Every credit is a transfer in, every debit is a payout, and no payout is made that this does not cover. |
 
 ## Value types

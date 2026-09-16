@@ -265,6 +265,24 @@ message Vault {
   // The denomination income arrives in.
   string denom = 4;
 
+  // How many distributions this vault has made.
+  //
+  // A PERIOD is the span between two distributions, and it is what pro-rata
+  // temporis apportions. Zero means none yet: everything since period_start is
+  // the first period.
+  uint64 period_index = 6;
+
+  // When the current period began: the last distribution, or the moment the
+  // vault started accruing.
+  //
+  // For a vehicle that existed before pro-rata temporis, this is the UPGRADE
+  // HEIGHT's time and not issuance. The chain has no record of when balances
+  // moved before that, so token-seconds for the past cannot be reconstructed,
+  // and assuming everyone held from issuance would credit a buyer from last
+  // week with a year of accrual. The discontinuity is real and is the honest
+  // option; see docs/superpowers/specs.
+  int64 period_start = 7;
+
   // What the module account actually holds on this vehicle's behalf.
   //
   // One module account serves every vehicle, so a balance is not an ownership
@@ -336,6 +354,92 @@ message Position {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
+
+  // Token-seconds accrued in ONE period and not yet turned into money.
+  //
+  // This is what makes a mid-period sale split the dividend: the seller stops
+  // accruing at the moment of sale and the buyer starts, so each is paid for
+  // the time they actually held rather than for being present when the cheque
+  // was declared.
+  string token_seconds = 7 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Which period those seconds belong to. Carried because the rate is only
+  // known when the period closes, so seconds accrued in period 3 must be paid
+  // at period 3's rate however long the holder waits to settle.
+  uint64 token_seconds_period = 8;
+
+  // When this position last accrued. Every balance change touches it, which is
+  // what keeps the integral of balance over time exact rather than sampled.
+  int64 last_touch = 9;
+}
+
+// PeriodRate is what one distribution paid, kept so a holder who settles long
+// afterwards is still paid at the rate of the period they held through.
+//
+// Two figures rather than one, and the second is what removes a loop:
+//
+//   `rate` is money per token-second, and pays a PARTIAL period -- the stretch
+//   a holder was present for before or after their balance moved.
+//
+//   `cumulative_per_token` is the running total of income per token after this
+//   distribution. A holder who was present for several WHOLE periods is paid
+//   for all of them by subtracting one of these from another, so settling never
+//   walks the periods in between however many there are.
+message PeriodRate {
+  uint64 asset_id = 1;
+  uint64 period_index = 2;
+
+  // What this distribution paid, and the total token-seconds it is divided
+  // over.
+  //
+  // Two integers rather than one pre-divided rate, and the reason is precision.
+  // A rate stored as `amount / token_seconds` and later multiplied back by a
+  // holder's seconds loses the division twice: measured, a holder owed exactly
+  // 100,000 was paid 99,999. Kept this way the credit is
+  // `amount * held_seconds / token_seconds` -- one truncation, at the end,
+  // favouring the vault the way every other rounding in this module does.
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Supply times the period's length: the denominator every holder's share of
+  // this distribution is taken over. Zero for a period of no length, which is
+  // what makes that case detectable rather than a division by zero.
+  string token_seconds = 6 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // What THIS distribution paid per token: amount / supply.
+  //
+  // Used when the period had no length at all -- two distributions in one
+  // block. Nobody held for any time, so token-seconds cannot apportion it and
+  // the only sensible answer is the old rule, by balance. Without this the
+  // money is written into the cumulative figure and credited to nobody, which
+  // is how a distribution silently strands in the vault.
+  string per_token = 7 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // Income per token accumulated over the vehicle's life, after this one.
+  string cumulative_per_token = 4 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // When the period this paid for ended. The period it covers is
+  // [previous.ended_at, ended_at].
+  int64 ended_at = 5;
 }
 
 // CovenantKind is what an operator is publishing, so a holder can tell an

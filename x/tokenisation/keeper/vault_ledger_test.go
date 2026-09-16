@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"cosmossdk.io/collections"
 	"testing"
 	"time"
 
@@ -154,11 +155,30 @@ func TestAVehicleCannotPayOutMoreThanItHolds(t *testing.T) {
 	// follows accrues to them rather than starting them at the new figure.
 	require.NoError(t, k.Settle(env.Ctx, idA, mustAddr(t, env, attacker), math.NewInt(1_000)))
 
-	// Reach past the handlers and raise A's index directly, as a credit that
-	// nothing was collected for would have to.
+	// Reach past the handlers and manufacture a credit that nothing was
+	// collected for.
+	//
+	// Rewritten when pro-rata temporis landed. Raising CumulativePerToken alone
+	// no longer creates an entitlement -- what a holder is owed now comes from
+	// the per-period records -- so the old setup produced a phantom credit of
+	// zero and the test passed without ever reaching the guard it exists for.
+	// The phantom is built the way it can now be built: a closed period paying
+	// 500 per token, which the attacker's position settles against.
 	vault, err := k.Vaults.Get(env.Ctx, idA)
 	require.NoError(t, err)
 	vault.CumulativePerToken = math.LegacyNewDec(500)
+	require.NoError(t, k.PeriodRates.Set(env.Ctx,
+		collections.Join(idA, vault.PeriodIndex), types.PeriodRate{
+			AssetId:            idA,
+			PeriodIndex:        vault.PeriodIndex,
+			Amount:             math.NewInt(500_000),
+			TokenSeconds:       math.ZeroInt(),
+			PerToken:           math.LegacyNewDec(500),
+			CumulativePerToken: math.LegacyNewDec(500),
+			EndedAt:            env.Ctx.BlockTime().Unix(),
+		}))
+	vault.PeriodIndex++
+	vault.PeriodStart = env.Ctx.BlockTime().Unix()
 	require.NoError(t, k.Vaults.Set(env.Ctx, idA, vault))
 
 	asset, err := k.Assets.Get(env.Ctx, idA)
