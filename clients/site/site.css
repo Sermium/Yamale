@@ -39,8 +39,16 @@
   --measure: 62ch;
 }
 
+/* Dark, for the two states that reach it, written the way yamale.css writes it:
+   the system preference below, GUARDED so an explicit light choice can override
+   it, and the explicit dark choice after that. A token redefined in only one of
+   the two leaves the other state reading a colour meant for the opposite
+   ground — and since this file overrides only SOME of yamale.css's tokens, an
+   unguarded block here would have paired this file's dark --bg with that file's
+   light --ok. Dark green on a dark ground. That has shipped in this repository
+   before. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     /* Dark grounds are the brand's ink lightened in steps, so the two themes
        are the same palette rather than two palettes that happen to coexist.
        Accent lifts to #8fa4c4 because navy on ink fails contrast outright. */
@@ -60,6 +68,24 @@
 
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b1523;
+  --surface: #12253f;
+  --surface-2: #18304f;
+  --border: #24405f;
+
+  --text: #e8eef7;
+  --text-muted: #8fa4c4;
+
+  --accent: #8fa4c4;
+  --accent-soft: #18304f;
+  --brass: #d2a65e;
+  --positive: #4cc38a;
+  --negative: #f2777a;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
 * { box-sizing: border-box; }
@@ -220,6 +246,12 @@ h2 {
   border-radius: var(--radius);
   padding: 1.4rem;
   box-shadow: var(--shadow);
+  /* A column, so the refusal at the foot of each card can be pushed to the
+     bottom. The seven descriptions are different lengths, so the one line the
+     grid exists to be scanned for — what each module will NOT do — started at a
+     different height in every card and stopped being a row at all. */
+  display: flex;
+  flex-direction: column;
 }
 .card h3 {
   margin: 0 0 0.6rem;
@@ -386,11 +418,19 @@ footer p { max-width: none; }
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); margin-bottom: 0.5rem;
 }
+/* Each group is an area rather than a run of links under a caption. The rule
+   under the heading is what makes three audiences read as three, which is the
+   whole point of grouping them — fourteen links in three unmarked columns is
+   fourteen links. */
 .menu__group h4 {
-  margin: 0.5rem 0 0.15rem; padding: 0 0.7rem;
+  margin: 0.6rem 0 0.35rem; padding: 0 0.7rem 0.35rem;
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
   color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
+/* The lead spans the row above them and is a destination, not a group, so it
+   takes no rule. */
+.menu__group--lead h4 { border-bottom: 0; }
 @media (max-width: 640px) {
   /* In the flow rather than floating: an absolutely positioned panel on a phone
      covers the page it is a menu for. width:auto rather than a reset of
@@ -490,6 +530,14 @@ footer p { max-width: none; }
   font-weight: 500;
   line-height: 1.1;
   color: var(--text);
+  /* A figure never breaks across two lines. A height of 1,366,584 split after
+     the comma is not a smaller height, it is a different one — and this band is
+     the one place on the site where a visitor checks a claim against the
+     running chain. In a four-up grid at a narrow width the box scrolls; the
+     digits stay together. */
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .proof__note {
@@ -859,8 +907,13 @@ footer p { max-width: none; }
  * A list of seven capabilities reads like every other chain's feature list.
  * What distinguishes this one is what each module will not do, and that was
  * buried mid-paragraph or missing. Set apart so the grid can be scanned for it. */
-.card__refuses {
-  margin: 0.9rem 0 0;
+/* `.card .card__refuses`, not `.card__refuses`: the grid card sets `.card p {
+   margin: 0 }`, which at (0,1,1) beat the class on its own — so the 0.9rem this
+   rule has always asked for was never applied, and neither was the auto that
+   pushes the refusal to the foot of the card. The gap came from padding-top
+   instead, which is why nobody noticed. */
+.card .card__refuses {
+  margin: auto 0 0;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
   font-size: 0.83rem;

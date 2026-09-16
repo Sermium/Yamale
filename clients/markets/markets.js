@@ -236,6 +236,52 @@ export function truncatedFrom(base, denom, registry) {
 }
 
 /**
+ * An exchange rate, at a number of places a person can read.
+ *
+ * x/oracle stores a rate as an SDK decimal, so the JSON carries eighteen
+ * places: the Angolan kwanza came back as `0.001076604864160851` and was
+ * printed exactly like that, at figure size, in a column. Eighteen places is
+ * not precision a reader can use — it is the storage format, and presenting the
+ * storage format as the headline is how a page ends up looking like a debug
+ * dump of itself.
+ *
+ * Cut, never rounded, for the same reason amounts are: a rounded rate is a
+ * number the chain does not hold, and rounding UP a rate quotes a price nobody
+ * will get. The digits left of the point are never touched — cutting those
+ * changes the magnitude rather than the precision.
+ *
+ * Returns the exact string as `exact` when anything was cut, so the caller can
+ * put it on the mark the way every truncated amount on this surface already is.
+ */
+export function rateFigure(rate, { significant = 6, minPlaces = 2 } = {}) {
+  const text = String(rate ?? '').trim();
+  if (!/^-?\d+(?:\.\d+)?$/.test(text)) return { shown: text, exact: null };
+
+  const negative = text.startsWith('-');
+  const [whole, fraction = ''] = (negative ? text.slice(1) : text).split('.');
+
+  // Significant digits start at the first non-zero. For a rate below one that
+  // is somewhere inside the fraction, which is why a fixed number of decimal
+  // places would show 0.00 for a currency worth a tenth of a cent.
+  const leadingZeros = whole === '0' ? (fraction.match(/^0*/) ?? [''])[0].length : 0;
+  const digitsBeforePoint = whole === '0' ? 0 : whole.length;
+  const places = Math.max(minPlaces, leadingZeros + Math.max(0, significant - digitsBeforePoint));
+
+  const kept = fraction.slice(0, places).replace(/0+$/, '');
+  const shownFraction = kept || fraction.slice(0, minPlaces) || '';
+  const shown = `${negative ? '-' : ''}${whole}${shownFraction ? `.${shownFraction}` : ''}`;
+
+  // A rate of exactly one prints as "1.00" and nothing was cut to get there,
+  // so the two are compared with their trailing zeros stripped. Marking that
+  // figure as truncated would have claimed the chain held something past the
+  // decimal point that it does not.
+  const bare = (s) => (s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s);
+  const exactTrimmed = `${negative ? '-' : ''}${whole}${
+    fraction.replace(/0+$/, '') ? `.${fraction.replace(/0+$/, '')}` : ''}`;
+  return { shown, exact: bare(shown) === bare(exactTrimmed) ? null : exactTrimmed };
+}
+
+/**
  * What a person typed, as base units.
  *
  * Strings and BigInt at every step. `Math.round(Number(input) * 10 ** exponent)`

@@ -8,125 +8,199 @@
 <link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="/yamale.css">
 <style>
-/* Local to this page. Everything shared lives in /yamale.css, and every colour
-   below is a token defined for BOTH themes at :root — a colour whose only
-   definition sits inside a media query renders one theme's text on the other
-   theme's ground, which has shipped in this repo before. */
+/* Local to this page.
+ *
+ * Everything shared lives in /yamale.css: the typefaces, the scale, the spacing
+ * grid, the semantic colours, .y-kpi, .y-data and .y-chip. This file used to
+ * define an entire palette of its own — --k-ground, --k-panel, --k-ink,
+ * --k-soft, --k-line, --k-ok, --k-refuse and five more — which is how one page
+ * ends up a slightly different product from the eleven beside it. All of them
+ * are gone, replaced by the tokens that were already there.
+ *
+ * ONE exception survives, and it is a real gap rather than a preference.
+ *
+ * THE THREE PARTIES NEED A CATEGORICAL SCALE. A reader has to tell the device
+ * share from the custodian share from the recovery share at a glance, in the
+ * diagram, in the table of combinations and in the transcript of a live
+ * protocol run. Three hues of equal weight, meaning nothing but "not each
+ * other". The shared system has only a SEMANTIC scale — ok, warn, bad — where
+ * the hue carries a judgement, and colouring the custodian with --ok would say
+ * the custodian is the good one. It is not; it is one of three, and the whole
+ * claim of this page is that no one of them outranks another.
+ *
+ * Two of the three come from the brand: the device takes the accent and the
+ * recovery takes brass. Only the custodian's violet is new.
+ *
+ * Defined at :root for light, and again in BOTH dark blocks. A colour whose
+ * only definition sits inside a media query is undefined in the un-stamped
+ * default, which is the state most readers are in — and that has shipped here.
+ */
 :root {
-  --k-ground: #ffffff;
-  --k-panel: #f7f8fa;
-  --k-ink: #14181f;
-  --k-soft: #565f6d;
-  --k-line: #d9dee6;
-  --k-device: #1f5f8b;
-  --k-custodian: #7a4f9c;
-  --k-recovery: #8a6a2f;
-  --k-refuse: #9a2d2d;
-  --k-refuse-ink: #7a1f1f;
-  --k-ok: #1f6b4a;
-  --k-wash: rgba(31, 95, 139, 0.08);
+  --party-device: #1f5f8b;
+  --party-custodian: #6b3f93;
+  --party-recovery: #8a6a2f;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --k-ground: #0e1116;
-    --k-panel: #161b23;
-    --k-ink: #e9edf3;
-    --k-soft: #9aa5b4;
-    --k-line: #2a323d;
-    --k-device: #6fb2dd;
-    --k-custodian: #bb96db;
-    --k-recovery: #d4ac63;
-    --k-refuse: #e08585;
-    --k-refuse-ink: #f0b0b0;
-    --k-ok: #6fc79c;
-    --k-wash: rgba(111, 178, 221, 0.12);
+  :root:not([data-theme='light']) {
+    --party-device: #6fb2dd;
+    --party-custodian: #bb96db;
+    --party-recovery: #d4ac63;
   }
 }
-:root[data-theme="dark"] {
-  --k-ground: #0e1116;
-  --k-panel: #161b23;
-  --k-ink: #e9edf3;
-  --k-soft: #9aa5b4;
-  --k-line: #2a323d;
-  --k-device: #6fb2dd;
-  --k-custodian: #bb96db;
-  --k-recovery: #d4ac63;
-  --k-refuse: #e08585;
-  --k-refuse-ink: #f0b0b0;
-  --k-ok: #6fc79c;
-  --k-wash: rgba(111, 178, 221, 0.12);
+:root[data-theme='dark'] {
+  --party-device: #6fb2dd;
+  --party-custodian: #bb96db;
+  --party-recovery: #d4ac63;
 }
 
-body { background: var(--k-ground); color: var(--k-ink); margin: 0; }
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
-header.top { border-bottom: 1px solid var(--k-line); padding: 1rem 0; }
-header.top .wrap { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
-.brand { font-weight: 700; letter-spacing: -0.01em; }
+/* ------------------------------------------------------------------ shell */
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--sp-5); }
+
+header.top { border-bottom: 1px solid var(--border); padding: var(--sp-4) 0; background: var(--surface); }
+header.top .wrap { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; }
 .brand a { color: inherit; text-decoration: none; }
-.top nav { margin-left: auto; display: flex; gap: 1rem; flex-wrap: wrap; }
-.top nav a { color: var(--k-soft); text-decoration: none; font-size: 0.9rem; }
-.top nav a:hover, .top nav a:focus-visible { color: var(--k-ink); text-decoration: underline; }
+.top nav { margin-inline-start: auto; display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+.top nav a {
+  color: var(--text-muted); text-decoration: none; font-size: var(--step--1);
+}
+.top nav a:hover, .top nav a:focus-visible { color: var(--text); }
 
-.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--k-line); }
-.hero h1 { font-size: clamp(1.9rem, 4vw, 2.9rem); line-height: 1.1; margin: 0 0 0.9rem; text-wrap: balance; max-width: 22ch; }
-.lede { font-size: 1.08rem; color: var(--k-soft); max-width: 62ch; margin: 0; }
-.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--k-soft); margin: 0 0 0.6rem; }
+.hero { padding: var(--sp-8) 0 var(--sp-6); border-bottom: 1px solid var(--border); }
+.hero h1 { font-size: var(--step-5); margin: 0 0 var(--sp-4); max-width: 20ch; }
+.lede { font-size: var(--step-1); color: var(--text-muted); max-width: 62ch; margin: 0; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--brass-ink); margin: 0 0 var(--sp-3);
+}
 
-section { padding: 2.5rem 0; border-bottom: 1px solid var(--k-line); }
-h2 { font-size: 1.45rem; margin: 0 0 0.4rem; text-wrap: balance; }
-h3 { font-size: 1.02rem; margin: 0 0 0.35rem; }
-.sub { color: var(--k-soft); max-width: 66ch; margin: 0 0 1.4rem; }
+section { padding: var(--sp-7) 0; border-bottom: 1px solid var(--border); }
+h2 { font-size: var(--step-3); margin: 0 0 var(--sp-2); }
+h3 { font-size: var(--step-1); margin: 0 0 var(--sp-2); }
+.sub { color: var(--text-muted); max-width: 66ch; margin: 0 0 var(--sp-5); }
+.note { color: var(--text-muted); font-size: var(--step-0); max-width: 66ch; }
+p { margin: 0 0 var(--sp-3); }
+p:last-child { margin-bottom: 0; }
+a { color: var(--brass-ink); }
 
-.shares { display: grid; gap: 0.9rem; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .shares { grid-template-columns: repeat(3, 1fr); } }
-.share { border: 1px solid var(--k-line); border-radius: 6px; padding: 1rem; background: var(--k-panel); border-top-width: 3px; }
-.share--device { border-top-color: var(--k-device); }
-.share--custodian { border-top-color: var(--k-custodian); }
-.share--recovery { border-top-color: var(--k-recovery); }
-.share .who { font-weight: 650; margin-bottom: 0.25rem; }
-.share p { margin: 0; color: var(--k-soft); font-size: 0.92rem; }
+/* ------------------------------------------------------- the three parties */
 
-.rule { border: 1px solid var(--k-line); border-left: 3px solid var(--k-refuse); border-radius: 6px;
-        background: var(--k-panel); padding: 0.9rem 1rem; margin: 1.2rem 0 0; }
-.rule .k { font-weight: 650; color: var(--k-refuse-ink); }
+.shares { display: grid; gap: var(--sp-4); grid-template-columns: 1fr; }
+@media (min-width: 48rem) { .shares { grid-template-columns: repeat(3, 1fr); } }
+.share {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--sp-4); background: var(--surface); box-shadow: var(--shadow-1);
+  border-top: 3px solid var(--rule);
+  display: flex; flex-direction: column;
+}
+.share--device { border-top-color: var(--party-device); }
+.share--custodian { border-top-color: var(--party-custodian); }
+.share--recovery { border-top-color: var(--party-recovery); }
+.share .who { font-family: var(--font-display); font-weight: 600; margin-bottom: var(--sp-2); }
+.share--device .who { color: var(--party-device); }
+.share--custodian .who { color: var(--party-custodian); }
+.share--recovery .who { color: var(--party-recovery); }
+.share p { margin: 0; color: var(--text-muted); font-size: var(--step--1); }
 
-table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
-th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--k-line); vertical-align: top; }
-th { font-weight: 600; color: var(--k-soft); font-weight: 600; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.scroll { overflow-x: auto; }
+/* The 2-of-3, drawn.
+   Three shares and three pairs is a shape before it is a sentence, and it was a
+   sentence — "ordinary payments are device plus custodian, a person who has
+   lost their password and their phone is recovered by recovery plus custodian,
+   and if the operator disappeared entirely device plus recovery still signs",
+   which is the whole mechanism buried in one 46-word clause. The triangle says
+   it in one look: three corners, three edges, any edge signs. */
+.tri { width: 100%; height: auto; display: block; }
+.tri__edge { stroke-width: 2.5; fill: none; }
+.tri__disc { stroke-width: 2; }
+.tri__name { font-family: var(--font-display); font-size: 12px; font-weight: 600; }
+.tri__edgelabel { font-size: 9.5px; fill: var(--text-muted); }
+.tri__mid { font-family: var(--font-display); font-size: 15px; font-weight: 600; fill: var(--text); }
+.tri__midsub { font-size: 9px; fill: var(--text-muted); letter-spacing: 0.08em; }
 
-.mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
-.addr { word-break: break-all; }
+.mech { display: grid; gap: var(--sp-6); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 60rem) { .mech { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); } }
 
-button { font: inherit; border-radius: 5px; border: 1px solid var(--k-line);
-         background: var(--k-panel); color: var(--k-ink); padding: 0.5rem 0.9rem; cursor: pointer; }
-button:hover:not(:disabled) { border-color: var(--k-device); }
-button:disabled { opacity: 0.55; cursor: default; }
-button.primary { background: var(--k-device); border-color: var(--k-device); color: #fff; font-weight: 600; }
-:root[data-theme="dark"] button.primary, :root:not([data-theme="light"]) button.primary { color: #08101a; }
-.actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0 0 1rem; }
+/* The refusal is the product, so it is a row of the table rather than a note
+   under it: a reader comparing what signs against what does not should not have
+   to leave the comparison to find the second half of it. */
+.y-data tr.refuses td { color: var(--bad); }
+.y-data tr.refuses td:first-child { font-weight: 600; }
 
-.status { color: var(--k-soft); font-size: 0.92rem; margin: 0 0 0.9rem; min-height: 1.4em; }
-.verdict { border-radius: 6px; padding: 0.85rem 1rem; margin: 1rem 0 0; border: 1px solid var(--k-line); background: var(--k-panel); }
-.verdict--ok { border-left: 3px solid var(--k-ok); }
-.verdict--no { border-left: 3px solid var(--k-refuse); }
-.verdict .head { font-weight: 650; margin-bottom: 0.25rem; }
+/* ---------------------------------------------------------- the demo ------ */
 
-.wires { border: 1px solid var(--k-line); border-radius: 6px; background: var(--k-panel);
-         max-height: 17rem; overflow-y: auto; padding: 0.4rem 0; }
-.wire { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.6rem; align-items: baseline;
-        padding: 0.28rem 0.9rem; font-size: 0.86rem; }
-.wire .r { color: var(--k-soft); font-variant-numeric: tabular-nums; }
-.wire .b { color: var(--k-soft); font-variant-numeric: tabular-nums; }
+.actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin: 0 0 var(--sp-4); }
+button { font: inherit; }
+.btn {
+  border-radius: var(--radius); border: 1px solid var(--rule);
+  background: var(--surface); color: var(--text);
+  padding: var(--sp-2) var(--sp-4); cursor: pointer;
+  font-size: var(--step--1); font-weight: 600;
+}
+.btn:hover:not(:disabled) { border-color: var(--brass); background: var(--surface-2); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn--primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.btn--primary:hover:not(:disabled) { border-color: var(--accent); background: var(--accent); }
+
+.status { color: var(--text-muted); font-size: var(--step--1); margin: 0 0 var(--sp-4); min-height: 1.4em; }
+
+.verdict {
+  border-radius: var(--radius); padding: var(--sp-4);
+  margin: var(--sp-4) 0 0; border: 1px solid var(--border);
+  background: var(--surface); box-shadow: var(--shadow-1);
+  border-inline-start: 3px solid var(--rule);
+}
+.verdict--ok { border-inline-start-color: var(--ok); background: var(--wash-ok); }
+.verdict--no { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+.verdict .head { font-family: var(--font-display); font-weight: 600; margin-bottom: var(--sp-2); }
+.verdict--ok .head { color: var(--ok); }
+.verdict--no .head { color: var(--bad); }
+
+/* The transcript is a data surface: a column of round numbers, a column of
+   who-to-whom, a column of sizes. It was three unaligned spans. */
+.wires {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); max-height: 17rem; overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+.wire {
+  display: grid; grid-template-columns: 3.2rem 1fr 5rem; gap: var(--sp-3);
+  align-items: baseline; padding: 0.22rem var(--sp-4);
+  font-size: var(--step--1); font-family: var(--font-mono);
+}
+.wire .r { color: var(--text-faint); font-variant-numeric: tabular-nums; text-align: end; }
+.wire .b { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: end; }
 .tag { font-weight: 600; }
-.tag--device { color: var(--k-device); }
-.tag--custodian { color: var(--k-custodian); }
+.tag--device { color: var(--party-device); }
+.tag--custodian { color: var(--party-custodian); }
+.tag--recovery { color: var(--party-recovery); }
 
-.note { color: var(--k-soft); font-size: 0.9rem; max-width: 66ch; }
-.gone { color: var(--k-soft); font-style: italic; }
-footer { padding: 2rem 0 3rem; color: var(--k-soft); font-size: 0.9rem; }
+/* -------------------------------------------------------------- the rest -- */
+
+.rule {
+  border: 1px solid var(--border); border-inline-start: 3px solid var(--bad);
+  border-radius: var(--radius); background: var(--surface);
+  padding: var(--sp-4); margin: var(--sp-5) 0 0; box-shadow: var(--shadow-1);
+}
+.rule .k { font-weight: 600; color: var(--bad); }
+.rule--ok { border-inline-start-color: var(--ok); }
+.rule--ok .k { color: var(--ok); }
+
+.mono { font-family: var(--font-mono); font-size: 0.88em; }
+.addr { word-break: break-all; }
+.gone { color: var(--text-muted); font-style: italic; }
+ul.note { padding-inline-start: 1.2rem; }
+ul.note li { margin-bottom: var(--sp-3); }
+
+footer { padding: var(--sp-6) 0 var(--sp-7); color: var(--text-muted); font-size: var(--step--1); }
 footer a { color: inherit; }
+
+/* `.y-data .num` zeroes the trailing padding, which is right for a numeric
+   column that is LAST and wrong for any other. Restored for a .num that is not.
+   A finding about clients/shared/yamale.css, not about this file. */
+.y-data td.num:not(:last-child), .y-data th.num:not(:last-child) {
+  padding-inline-end: var(--sp-5);
+}
 </style>
 </head>
 <body>
@@ -155,6 +229,35 @@ footer a { color: inherit; }
       front of you, refuses in front of you, and reads the consequences off the public
       chain.
     </p>
+    <div class="y-kpis">
+      <div class="y-kpi">
+        <p class="y-kpi__label">The key exists in</p>
+        <p class="y-kpi__value">3<span class="y-kpi__unit">shares</span></p>
+        <p class="y-kpi__hint">And in no other form. It has never been assembled, written down, or held
+          anywhere in one piece.</p>
+      </div>
+      <div class="y-kpi y-kpi--ok">
+        <p class="y-kpi__label">A signature needs</p>
+        <p class="y-kpi__value">2<span class="y-kpi__unit">of them</span></p>
+        <p class="y-kpi__hint">Any two. Which two decides what the signature is for, not whether one is
+          possible.</p>
+      </div>
+      <div class="y-kpi y-kpi--bad">
+        <p class="y-kpi__label">One share alone can</p>
+        <p class="y-kpi__value">nothing</p>
+        <p class="y-kpi__hint">Not a policy and not a rule anybody enforces. The protocol has no state a
+          single share can reach.</p>
+      </div>
+      <!-- Read from the chain, and rendered as unread until it answers. The
+           whole point of putting the waiting period in consensus is that it is
+           not the operator's to adjust, so a number written into this page
+           would be making exactly the promise the module exists to replace. -->
+      <div class="y-kpi" id="kpi-wait">
+        <p class="y-kpi__label">Before a key may leave</p>
+        <p class="y-kpi__value">–</p>
+        <p class="y-kpi__hint">Reading the chain.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -187,12 +290,81 @@ footer a { color: inherit; }
           party holding custodian and recovery would be a custodian again.</p>
       </div>
     </div>
-    <div class="rule">
-      <span class="k">Refuses </span>
-      Any one share, acting alone. Ordinary payments are device plus custodian. A person
-      who has lost their password and their phone is recovered by recovery plus custodian,
-      and only after two approvers, a delay, and notice to every enrolled device. If the
-      operator disappeared entirely, device plus recovery still signs.
+    <h3 style="margin-top:2.5rem">Any two of them, and which two says what for</h3>
+    <p class="sub">Three shares make three pairs, and each pair is a different situation. This was one
+      forty-six word sentence, which is the whole mechanism in a place nobody reads it twice.</p>
+
+    <div class="mech">
+      <!-- Three corners, three edges, any edge signs. A triangle is what a
+           two-of-three IS; drawing it is not decoration, it is the shortest
+           correct statement of the rule. Stroked from the same tokens as
+           everything else, so it follows the theme rather than being a picture
+           of one theme. -->
+      <figure style="margin:0">
+        <svg class="tri" viewBox="0 0 300 260" role="img"
+             aria-label="Three shares — device, custodian and recovery — joined by three edges. Any two of
+                         the three produce a signature; no one of them can.">
+          <g class="tri__edge">
+            <line x1="150" y1="42" x2="48" y2="212" stroke="var(--party-device)"/>
+            <line x1="150" y1="42" x2="252" y2="212" stroke="var(--party-recovery)"/>
+            <line x1="48" y1="212" x2="252" y2="212" stroke="var(--party-custodian)"/>
+          </g>
+
+          <text class="tri__mid" x="150" y="150" text-anchor="middle">2 of 3</text>
+          <text class="tri__midsub" x="150" y="166" text-anchor="middle">ANY EDGE SIGNS</text>
+
+          <circle class="tri__disc" cx="150" cy="42" r="15"
+                  fill="var(--surface)" stroke="var(--party-device)"/>
+          <circle class="tri__disc" cx="48" cy="212" r="15"
+                  fill="var(--surface)" stroke="var(--party-custodian)"/>
+          <circle class="tri__disc" cx="252" cy="212" r="15"
+                  fill="var(--surface)" stroke="var(--party-recovery)"/>
+
+          <text class="tri__name" x="150" y="20" text-anchor="middle"
+                fill="var(--party-device)">Device</text>
+          <text class="tri__name" x="48" y="245" text-anchor="middle"
+                fill="var(--party-custodian)">Custodian</text>
+          <text class="tri__name" x="252" y="245" text-anchor="middle"
+                fill="var(--party-recovery)">Recovery</text>
+
+          <text class="tri__edgelabel" x="66" y="120" text-anchor="middle">every payment</text>
+          <text class="tri__edgelabel" x="234" y="120" text-anchor="middle">operator gone</text>
+          <text class="tri__edgelabel" x="150" y="228" text-anchor="middle">a password reset</text>
+        </svg>
+      </figure>
+
+      <div class="y-scroll">
+        <table class="y-data">
+          <thead>
+            <tr><th>These two</th><th>Sign</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag--device">Device</span> + <span class="tag tag--custodian">Custodian</span></td>
+              <td>Ordinary payments</td>
+              <td>Every day. The phone asks, the service co-signs, and neither could have sent it alone.</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--recovery">Recovery</span> + <span class="tag tag--custodian">Custodian</span></td>
+              <td>A reset that keeps the address</td>
+              <td>Password and phone both lost — and only after two approvers, a delay, and notice to every
+                enrolled device.</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag--device">Device</span> + <span class="tag tag--recovery">Recovery</span></td>
+              <td>Everything</td>
+              <td>If the operator disappeared entirely. This is the edge that makes the custodian optional
+                rather than trusted.</td>
+            </tr>
+            <tr class="refuses">
+              <td>Any one, alone</td>
+              <td>Nothing</td>
+              <td>Always. This row is the product — the three above are what it buys.</td>
+            </tr>
+          </tbody>
+          <caption>The custodian appears in two of the three pairs and is required by none of them.</caption>
+        </table>
+      </div>
     </div>
   </div>
 </section>
@@ -216,14 +388,16 @@ footer a { color: inherit; }
     </p>
 
     <div class="actions">
-      <button id="go" class="primary" type="button">Sign with two shares</button>
-      <button id="one" type="button">Try it with one share</button>
+      <button id="go" class="btn btn--primary" type="button">Sign with two shares</button>
+      <button id="one" class="btn" type="button">Try it with one share</button>
     </div>
     <p class="status" id="status">The protocol module is several megabytes and loads only when you ask.</p>
 
     <div id="verdict"></div>
 
     <h3 style="margin-top:1.6rem">Messages exchanged</h3>
+    <p class="note" style="margin-bottom:0.7rem">Round, who sent it to whom, and how many bytes it was. A
+      round is one message neither party could have produced on its own.</p>
     <div class="wires" id="wires"><p class="wire gone" style="grid-template-columns:1fr">Nothing yet.</p></div>
   </div>
 </section>
@@ -237,19 +411,20 @@ footer a { color: inherit; }
       password reset that did not move the address. Read live from
       <span class="mono">yamale-devnet-2</span>, not written into this page.
     </p>
-    <div class="scroll">
-      <table>
+    <div class="y-scroll">
+      <table class="y-data">
         <thead>
           <tr><th>Transaction</th><th class="num">Block</th><th>Signed by</th><th>Result</th></tr>
         </thead>
         <tbody id="chain">
           <tr><td colspan="4" class="gone">Reading the chain…</td></tr>
         </tbody>
+        <caption id="chain-caption"></caption>
       </table>
     </div>
     <p class="note" id="account" style="margin-top:0.9rem"></p>
-    <div class="rule" style="border-left-color: var(--k-ok)">
-      <span class="k" style="color:var(--k-ok)">Why the address did not move </span>
+    <div class="rule rule--ok">
+      <span class="k">Why the address did not move </span>
       A password reset re-splits the key under the same public key. On a multi-signature
       account it would change the address instead — and on this chain an address carries
       the account's identifier, so resetting a password would retire the handle its owner
