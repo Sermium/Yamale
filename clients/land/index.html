@@ -421,6 +421,15 @@
     vertical-align: baseline;
   }
 
+  /* LOCAL, and a genuine gap in the shared system rather than a variation on
+     it. `.num` sets `padding-inline-end: 0`, which is right for the LAST
+     column — a figure then sits flush against the edge of the table — and
+     wrong for any other: two figure columns side by side end up touching, so
+     "1" and "320898" read as one number. A figure abutting its neighbour is
+     not a badly spaced figure, it is a different one. The padding is given
+     back to every figure column that is not the last. */
+  .y-data .num:not(:last-child) { padding-inline-end: var(--sp-3); }
+
   /* ==========================================================================
      THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
      else: clients/foundation, clients/governance, clients/land,
@@ -1137,14 +1146,17 @@ async function registerRoll({ from = 1, limit = 48 } = {}) {
   // number"; the other is "the register did not answer", and counting the
   // second as the first is how a page ends a roll early and calls it complete.
   let unreadable = null;
+  const failed = [];
+
+  const probe = (i) => landOrNull('Parcel', String(i))
+    .then((r) => (r ? r.parcel : null))
+    .catch((e) => { failed.push({ id: i, e }); return undefined; });
 
   for (let id = from; id < from + limit && misses < STOP_AFTER_MISSES; id += BATCH) {
     const ids = [];
     for (let n = 0; n < BATCH && id + n < from + limit; n += 1) ids.push(id + n);
 
-    const batch = await Promise.all(ids.map((i) => landOrNull('Parcel', String(i))
-      .then((r) => (r ? r.parcel : null))
-      .catch((e) => { unreadable = unreadable || e; return undefined; })));
+    const batch = await Promise.all(ids.map(probe));
 
     for (const p of batch) {
       if (p === undefined) continue;        // failed — says nothing either way
@@ -1153,6 +1165,27 @@ async function registerRoll({ from = 1, limit = 48 } = {}) {
       found.push(p);
     }
   }
+
+  // ONE RETRY, AND ONE ONLY, for the probes that failed.
+  //
+  // Measured on this deployment: one probe in a fourteen-probe scan came back
+  // 503. That is the edge's rate limit rather than a fault — the roll shares
+  // 600 requests a minute with everything else the page is doing — and the
+  // consequence is that a title silently drops off a register somebody is
+  // reading before they hand over their savings. The page said so, honestly,
+  // in the caption; a sentence admitting the list may be short is not as good
+  // as a list that is not short.
+  //
+  // Retried one at a time, after the scan, when nothing is competing. What
+  // still fails is reported and is never turned into an absence.
+  const retry = failed.splice(0, failed.length);
+  for (const { id, e } of retry) {
+    const p = await landOrNull('Parcel', String(id)).catch(() => undefined);
+    if (p === undefined) { unreadable = unreadable || e; continue; }
+    if (p) found.push(p.parcel);
+  }
+  found.sort((a, b) => Number(a.id) - Number(b.id));
+
   return { parcels: found, unreadable, scanned: limit, complete: misses >= STOP_AFTER_MISSES };
 }
 
