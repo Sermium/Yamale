@@ -27,6 +27,7 @@ import {
   bpsToPercent,
   protectionOf,
   saleState,
+  descriptorOf,
   statusKey,
   statusTone,
   type Asset,
@@ -58,11 +59,23 @@ function VehicleCard({ asset, collection, now }: {
           <Chip tone={statusTone(asset.status)}>{t(statusKey(asset.status))}</Chip>
         </div>
 
+        {/* The same name the vehicle's own page shows, taken from the same
+            place: the uri is the only field on the asset that carries one.
+            The list headed every card "Tokenisation 4" and printed the raw
+            uri under it, so three cards side by side differed only by a digit
+            and the one thing that told them apart was a line of machine text.
+            An asset whose uri names nothing still falls back to the number —
+            inventing a name would label a card with a fact the chain does not
+            hold. */}
         <h3 className="vcard__title">
-          {t('rwa.vehicleN', { id: asset.id })}
+          {descriptorOf(asset.uri).name ?? t('rwa.vehicleN', { id: asset.id })}
         </h3>
 
-        <p className="vcard__uri">{asset.uri || t('rwa.noDoc')}</p>
+        <p className="vcard__uri">
+          {descriptorOf(asset.uri).name
+            ? t('rwa.vehicleN', { id: asset.id })
+            : (asset.uri || t('rwa.noDoc'))}
+        </p>
 
         <dl className="vcard__stats">
           <div>
