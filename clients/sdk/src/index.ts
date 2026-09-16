@@ -69,6 +69,7 @@ export {
 export {
   countryName,
   countryProblem,
+  foundationPlacement,
   placementRequest,
   placementVerdict,
   type Placement,
