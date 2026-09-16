@@ -244,14 +244,25 @@ done
 # the file whose staleness is least visible: the page still renders, just
 # wrongly, and only against the current design.
 #
+# Compared against clients/site/yamale.css because that is the file stage-site.sh
+# publishes AS /yamale.css. clients/shared/yamale.css is the canonical one, and
+# clients/site/theme.test.js is what keeps the two equal — checking the wrong one
+# here reported a stale host on the very deploy that fixed it, because the two
+# files differ in line endings alone in a Windows checkout.
+#
+# Carriage returns are stripped from both sides for the same reason: .gitattributes
+# pins some client directories to eol=lf and not others, so the same content
+# hashes differently depending on where it was checked out, and a deploy check
+# that fails on a checkout artefact is a check people learn to ignore.
+#
 # Five more consoles INLINE their own copy of the same file. Those cannot drift
 # on the host, only in the repository, which is what clients/*/theme.test.js
 # checks. This is the other half of that guard.
 echo "==> the shared stylesheet is the one in the repository"
-want=$(sha256sum < "$ROOT/clients/shared/yamale.css" | cut -d' ' -f1)
-got=$(curl -s --max-time 30 "$PUBLIC/yamale.css" | sha256sum | cut -d' ' -f1)
+want=$(tr -d '' < "$ROOT/clients/site/yamale.css" | sha256sum | cut -d' ' -f1)
+got=$(curl -s --max-time 30 "$PUBLIC/yamale.css" | tr -d '' | sha256sum | cut -d' ' -f1)
 if [ "$want" = "$got" ]; then
-  printf '    ok   /yamale.css matches clients/shared/yamale.css
+  printf '    ok   /yamale.css matches clients/site/yamale.css
 '
 else
   printf '    FAIL /yamale.css is not the file in this repository
@@ -259,7 +270,7 @@ else
   printf '         served  %s (%s lines)
 ' "${got:0:16}"          "$(curl -s --max-time 30 "$PUBLIC/yamale.css" | wc -l)"
   printf '         repo    %s (%s lines)
-' "${want:0:16}"          "$(wc -l < "$ROOT/clients/shared/yamale.css")"
+' "${want:0:16}"          "$(wc -l < "$ROOT/clients/site/yamale.css")"
   printf '         every console that LINKS it is rendering against the served one.
 '
   fail=1
