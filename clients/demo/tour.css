@@ -15,50 +15,21 @@
  * broken one. It is checked at 1600.
  */
 
-/* ------------------------------------------------- three contrast repairs */
+/* ----------------------------------------- where the contrast repair went */
 
-/* Three of the shared system's colours do not clear 4.5:1 in the LIGHT theme
-   at the sizes this page uses them. Measured in the browser, compositing each
-   colour against its real backdrop rather than against the token it nominally
-   sits on — a probe that ignores alpha reported 1.00 in this repository once
-   and was wrong:
- *
- *     --brass      #a87b3c on --paper       3.52:1   (eyebrows, 13px)
- *     --warn       #a8791b on --wash-warn   3.39:1   (chips, 11px)
- *     --text-muted #5c6e88 on --surface-2   4.42:1   (labels, 11–15px)
- *
- * They are fixed here rather than in yamale.css because that file is shared by
- * eleven deployed surfaces and darkening a brand colour under all of them is
- * not a change to make from inside one page. Reported separately instead.
- *
- * The three-state shape is followed exactly: a complete set of values on bare
- * :root, then TOKENS ONLY redefined in both dark states. Setting a colour whose
- * sole definition sat inside the media query would leave the un-stamped,
- * system-preference state rendering light values on a dark ground — the exact
- * bug this repository has already shipped once. */
-:root {
-  --ink-eyebrow: #856024;   /* brass, darkened: 5.30 on paper, 5.15 on surface-2 */
-  --ink-muted: #52637b;     /* muted, darkened: 5.55 on surface-2 */
-  --ink-warn: #856014;      /* warn, darkened:  4.99 on the warn wash */
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    /* The dark palette already clears 4.5:1 for all three, measured. They
-       revert to the shared tokens so this page cannot drift from the system. */
-    --ink-eyebrow: var(--brass);
-    --ink-muted: var(--text-muted);
-    --ink-warn: var(--warn);
-  }
-}
-:root[data-theme='dark'] {
-  --ink-eyebrow: var(--brass);
-  --ink-muted: var(--text-muted);
-  --ink-warn: var(--warn);
-}
+/* Three of the shared system's colours did not clear 4.5:1 in the LIGHT theme at
+   the sizes this page uses them — brass eyebrows, amber chips, and muted labels.
+   This file used to carry its own darkened copies (--ink-eyebrow, --ink-muted,
+   --ink-warn) and re-point .y-eyebrow, .y-label and .y-chip--warn at them,
+   because darkening a brand colour for eleven deployed surfaces was not a change
+   to make from inside one page.
 
-.y-eyebrow { color: var(--ink-eyebrow); }
-.y-label { color: var(--ink-muted); }
-.y-chip--warn { color: var(--ink-warn); }
+   It has since been made there. yamale.css now defines --brass-ink and
+   --warn-ink, and darkens --text-muted, in all three theme states; .y-eyebrow
+   and .y-chip--warn already name them. Keeping a local copy as well would be two
+   rules for one decision, which is how the next person fixes the wrong one — so
+   the local tokens are gone and this page names the shared ones. */
+
 
 .wrap {
   width: 100%;
@@ -118,7 +89,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   font-weight: 400;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-eyebrow);
+  color: var(--brass-ink);
 }
 
 .masthead__nav {
@@ -128,7 +99,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   flex-wrap: wrap;
 }
 .masthead__navlink {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   text-decoration: none;
   font-size: var(--step-0);
   white-space: nowrap;
@@ -147,7 +118,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   gap: var(--sp-2);
   font-family: var(--font-mono);
   font-size: var(--step--1);
-  color: var(--ink-muted);
+  color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.25rem 0.7rem;
@@ -162,7 +133,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 .theme {
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--ink-muted);
+  color: var(--text-muted);
   border-radius: var(--radius);
   width: 34px;
   height: 30px;
@@ -179,7 +150,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 .hero__lede {
   font-size: var(--step-2);
   line-height: 1.55;
-  color: var(--ink-muted);
+  color: var(--text-muted);
   max-width: 62ch;
   margin-bottom: var(--sp-4);
 }
@@ -198,10 +169,22 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   box-shadow: var(--shadow-1);
 }
 .hero__stat { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.hero__stat strong { font-size: var(--step-3); font-weight: 500; overflow-wrap: anywhere; }
+/* These four are figures — a height, a measured block time, a count. A figure
+   NEVER breaks across lines: `overflow-wrap: anywhere` here rendered 100,000,000
+   as "100,000,0" above "00", and a number split in two is not a smaller number,
+   it is a different one. `word-break: keep-all` plus `overflow-wrap: normal`
+   leaves the digit-group commas unbreakable (they are infix separators, not
+   break opportunities) while still wrapping between words. Same shape as
+   .y-kpi__value in the shared system, for the same reason. */
+.hero__stat strong {
+  font-size: var(--step-3);
+  font-weight: 500;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
 
 .hero__caveat {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--step-0);
   max-width: 70ch;
   border-left: 2px solid var(--warn);
@@ -219,7 +202,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 /* ---------------------------------------------------------------- sections */
 
 .section__lede {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--step-1);
   max-width: 68ch;
   margin-top: var(--sp-3);
@@ -249,12 +232,12 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 .surface:hover { border-color: var(--accent); box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .surface__top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .surface__label { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; }
-.surface__blurb { color: var(--ink-muted); font-size: var(--step--1); line-height: 1.45; }
+.surface__blurb { color: var(--text-muted); font-size: var(--step--1); line-height: 1.45; }
 /* --text-muted, not --text-faint. Measured against --surface in the dark
    theme, faint composites to 4.28:1 at this size and muted clears 4.5. The
    token is the right one for a de-emphasised label; it is the wrong one for a
    label somebody is expected to read the path out of. */
-.surface__href { color: var(--ink-muted); font-size: 0.75rem; }
+.surface__href { color: var(--text-muted); font-size: 0.75rem; }
 .surface--building { border-style: dashed; }
 
 /* -------------------------------------------------------------------- acts */
@@ -293,7 +276,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   gap: var(--sp-4);
 }
 .mech__block { display: flex; flex-direction: column; gap: var(--sp-2); }
-.mech__does { color: var(--ink-muted); max-width: 54ch; }
+.mech__does { color: var(--text-muted); max-width: 54ch; }
 
 .mech__block--refuses {
   border-left: 2px solid var(--brass);
@@ -337,7 +320,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   background: transparent;
   border: 1px dashed var(--rule);
 }
-.mech__go--building:hover { filter: none; border-color: var(--ink-muted); }
+.mech__go--building:hover { filter: none; border-color: var(--text-muted); }
 
 /* -------------------------------------------------------------------- proof */
 
@@ -350,7 +333,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   gap: var(--sp-3);
 }
 .proof__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
-.proof__watch { color: var(--ink-muted); font-size: var(--step-0); max-width: 54ch; }
+.proof__watch { color: var(--text-muted); font-size: var(--step-0); max-width: 54ch; }
 
 .proof__rows {
   display: grid;
@@ -360,7 +343,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   align-items: baseline;
 }
 .proof__label {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--step-0);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -368,11 +351,16 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 .proof__value {
   margin: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* Second place the same split shipped. Most proof values are amounts, heights
+     and block numbers, so they may not break inside. The values that genuinely
+     cannot fit — addresses and hashes — are marked `full` by the builder and
+     carry .y-addr, whose `word-break: break-all` handles them on their own row. */
+  word-break: keep-all;
+  overflow-wrap: normal;
   font-variant-numeric: tabular-nums;
 }
 .proof__value--emphasis { color: var(--text); font-weight: 600; }
-.proof__value--full { grid-column: 1 / -1; color: var(--ink-muted); }
+.proof__value--full { grid-column: 1 / -1; color: var(--text-muted); }
 /* A quoted objection is somebody's words about a death and a court. It is set
    apart so it does not read as a field this page computed. */
 .proof__value--quote {
@@ -384,7 +372,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 }
 
 .proof__note {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--step-0);
   line-height: 1.5;
   max-width: 58ch;
@@ -419,7 +407,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
   border-left: 2px solid var(--bad);
   border-radius: var(--radius);
   padding: var(--sp-4);
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-size: var(--step-0);
   line-height: 1.5;
 }
@@ -428,7 +416,7 @@ a { color: var(--accent); text-underline-offset: 0.18em; }
 
 .foot { border-top: 1px solid var(--border); padding: var(--sp-6) 0 var(--sp-7); background: var(--surface-2); }
 .foot__inner { display: flex; justify-content: space-between; gap: var(--sp-5); flex-wrap: wrap; }
-.foot p { color: var(--ink-muted); font-size: var(--step-0); max-width: 62ch; }
+.foot p { color: var(--text-muted); font-size: var(--step-0); max-width: 62ch; }
 .foot__links { display: flex; gap: var(--sp-4); }
 /* --accent composites to 4.34:1 against --surface-2 in the dark theme, which
    is under 4.5 at this size. The footer sits on --surface-2, so its links take

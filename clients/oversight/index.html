@@ -110,20 +110,30 @@
     --rule: #d3dae6;
 
     --text: var(--ink);
-    --text-muted: var(--slate);
+    --text-muted: #526178;
     --text-faint: #8798af;
     --accent: var(--navy);
     --accent-ink: #ffffff;
     --focus: #1f6feb;
 
-    --ok: #0d7a4a;
+    --ok: #0c6d42;
     --warn: #a8791b;
-    --bad: #b02a25;
+    --bad: #ac2924;
     --wash-ok: rgba(13, 122, 74, .10);
     --wash-warn: rgba(168, 121, 27, .12);
     --wash-bad: rgba(176, 42, 37, .10);
     --wash-mute: rgba(92, 110, 136, .10);
     --wash-brass: rgba(168, 123, 60, .12);
+
+    /* Brass and amber are brand colours before they are type, and as type neither
+       clears 4.5:1 in the light palette. Measured in a browser at 1600px:
+       3.77:1 for a brass link on white, 3.31:1 for a brass chip on its own wash,
+       3.38:1 for an amber chip on its own. Darkened along the same hue rather
+       than replaced, and used only where the colour carries words — a border or a
+       rule at 3.3:1 is doing a different job and reads correctly there. The dark
+       palette needs no equivalent: both already pass, also measured. */
+    --brass-ink: #78582b;
+    --warn-ink: #795814;
 
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
@@ -157,6 +167,8 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
+      --brass-ink: #c79d5e;
+      --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -187,6 +199,8 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: #c79d5e;
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -242,7 +256,7 @@
     font-size: var(--step--1);
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--brass-ink);
   }
 
   .y-label {
@@ -273,10 +287,10 @@
     white-space: nowrap;
   }
   .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
-  .y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
   .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
   .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
-  .y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   .y-scroll { overflow-x: auto; }
 
@@ -466,94 +480,37 @@
      theme's ground in the un-stamped, system-preference state.
      ========================================================================== */
 
-  /* --------------------------------------------------- a fix, and a defect
-     MEASURED DEFECT IN THE SHARED PALETTE, worked around here rather than
-     silently inherited.
+  /* ------------------------------------------- where the contrast repair went
 
-     `--brass` is #a87b3c, and the shared system uses it for `.y-eyebrow` and
-     `.y-chip--brass` — small uppercase text, which is where contrast matters
-     most. Composited against the real backdrops in the LIGHT theme (each wash
-     flattened against what is actually behind it, not assumed opaque) it
-     measures:
+     This console used to carry four ink tokens of its own — --brass-ink,
+     --warn-ink, --mute-ink and --ok-ink — because four of the shared palette's
+     colours did not clear 4.5:1 in the LIGHT theme at chip and eyebrow sizes,
+     and a shared palette change did not belong in one page. Measured then,
+     compositing each wash against what is really behind it rather than treating
+     it as opaque, which is the mistake that reported 1.00 on this project once:
 
-        .y-chip--brass on --wash-brass over --surface   3.31 : 1
-        .y-eyebrow on --bg                              3.53 : 1
-        .brand span on --surface                        3.77 : 1
+        .y-chip--brass  (--brass on --wash-brass)       3.31 : 1
+        .y-chip--warn   (--warn on --wash-warn)         3.38 : 1
+        .y-chip--mute   (--text-muted on --wash-mute)   4.28 : 1
+        .y-chip--ok     (--ok on --wash-ok)             4.39 : 1
 
-     WCAG AA wants 4.5 for text this size. The dark theme's brass (#c49856) is
-     fine — it measures 4.88 — so this is a light-theme defect only, which is
-     exactly the kind that survives review when the reviewer's machine is in
-     dark mode.
+     The shared file has since fixed all four, and the block above is that fix:
+     --brass-ink and --warn-ink are shared tokens now, and --text-muted and --ok
+     were darkened at source, which removes the need for --mute-ink and --ok-ink
+     entirely. Re-measured against the shared values on the darkest light ground
+     the page uses (--surface-3), every one of the four now clears: brass 4.94,
+     amber 4.94, muted 4.79, ok 4.82.
 
-     Fixed with a separate ink token rather than by changing --brass, because
-     --brass is also a border and rule colour where it is doing no contrast
-     work and is correct as it is. The token follows the same three-state rule
-     as everything else: full LIGHT value on bare :root, tokens only in the two
-     dark blocks.
+     So the local copies are gone. Keeping them as well would be two rules for
+     one decision, and the next person would fix the one that is not rendering.
+     `.y-eyebrow`, `.y-chip--warn`, `.y-chip--brass`, `.y-chip--mute` and
+     `.y-chip--ok` all take their colour from the shared block above now.
 
-     This defect is in clients/shared/yamale.css and therefore in the four
-     sibling consoles too. It is NOT fixed there from here — a shared palette
-     change belongs in its own change against all of them.
-
-     A comment terminator used to sit at the end of the line above, closing
-     this comment sixteen lines early. (It cannot be quoted here: the two
-     characters end a CSS comment wherever they appear, including inside what
-     looks like a quotation — which is how this happened in the first place,
-     and how it happened a second time while the paragraph you are reading was
-     being written.)
-
-     Everything down to the real terminator was then CSS
-     source rather than prose, and the parser's error recovery swallowed tokens
-     until the next block — which was the `:root` immediately below, the one
-     that defines the four ink tokens this whole comment is about. So in the
-     LIGHT theme --brass-ink, --warn-ink, --mute-ink and --ok-ink were
-     undefined and every `color: var(--brass-ink)` fell back to the inherited
-     colour: the measured contrast fix documented here was the one thing on the
-     page that was not applied. Confirmed in the browser before removing it —
-     getPropertyValue('--brass-ink') returned "" in light mode and the dark
-     value in dark mode, because the two dark blocks are separate rules and
-     survived. A comment that silently deletes the rule it describes is worth a
-     paragraph of its own.
-
-     The same measurement caught two more of the same shape, so all three are
-     corrected together:
-
-        .y-chip--warn  (--warn on --wash-warn)          3.38 : 1
-        .y-chip--mute  (--text-muted on --wash-mute)     4.28 : 1
-        .y-chip--ok    (--ok on --wash-ok)               4.39 : 1
-
-     Note the pattern: it is always a semantic colour sitting on its OWN wash.
-     The wash is that colour at ten or twelve percent over the surface, so it
-     lightens the ground far less than it dims the contrast, and a probe that
-     treated the wash as opaque — or ignored it and measured against the white
-     behind it — would report all three as passing. That naive probe has
-     reported 1.00 on this project before. Every figure above composites each
-     rgba layer against what is actually behind it. */
-  :root {
-    --brass-ink: #80591c;
-    --warn-ink: #8a6110;
-    --mute-ink: #4a5a72;
-    --ok-ink: #0a6740;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
-      --brass-ink: #c49856;
-      --warn-ink: #d2a65e;
-      --mute-ink: #8fa4c4;
-      --ok-ink: #6fbfa5;
-    }
-  }
-  :root[data-theme='dark'] {
-    --brass-ink: #c49856;
-    --warn-ink: #d2a65e;
-    --mute-ink: #8fa4c4;
-    --ok-ink: #6fbfa5;
-  }
-
-  .y-eyebrow, .y-chip--brass, .brand span { color: var(--brass-ink); }
-  .y-chip--warn { color: var(--warn-ink); }
-  .y-chip--mute { color: var(--mute-ink); }
-  .y-chip--ok { color: var(--ok-ink); }
+     One warning kept from what stood here, because it cost two diagnoses: a
+     comment terminator written by accident inside a paragraph like this one
+     closes the comment early, and everything after it becomes CSS the parser
+     discards up to the next block — which last time was the :root that defined
+     these very tokens, so the documented fix was the one thing not applied. */
 
   .wrap {
     max-width: 1180px;
@@ -588,8 +545,8 @@
     letter-spacing: -0.02em;
     margin-right: auto;
   }
-  /* --brass-ink, not --brass: see the defect note above. This rule sits after
-     the override block, so it has to name the corrected token itself. */
+  /* --brass-ink, not --brass: the wordmark's second word is display type on
+     --surface, where plain brass measures 3.77:1. The token is the shared one. */
   .brand span { color: var(--brass-ink); }
 
   .top__meta {
