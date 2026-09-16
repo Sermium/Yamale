@@ -39,10 +39,22 @@ export interface Params {
    * float.
    */
   feeBps: number;
+  /**
+   * reserve_report_max_age_blocks is how long an attestor's reserve report
+   * counts for.
+   *
+   * Without it, a threshold made of one live attestor and two who reported a
+   * year ago is a threshold of one. A figure too old to trust is not a figure —
+   * the same rule x/oracle applies to a price.
+   *
+   * Zero means reports never go stale, which is the wrong direction and is
+   * refused by Validate().
+   */
+  reserveReportMaxAgeBlocks: string;
 }
 
 function createBaseParams(): Params {
-  return { attestationThreshold: 0, redemptionDelayBlocks: "0", feeBps: 0 };
+  return { attestationThreshold: 0, redemptionDelayBlocks: "0", feeBps: 0, reserveReportMaxAgeBlocks: "0" };
 }
 
 export const Params = {
@@ -55,6 +67,9 @@ export const Params = {
     }
     if (message.feeBps !== 0) {
       writer.uint32(24).uint32(message.feeBps);
+    }
+    if (message.reserveReportMaxAgeBlocks !== "0") {
+      writer.uint32(32).uint64(message.reserveReportMaxAgeBlocks);
     }
     return writer;
   },
@@ -87,6 +102,13 @@ export const Params = {
 
           message.feeBps = reader.uint32();
           continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.reserveReportMaxAgeBlocks = longToString(reader.uint64() as Long);
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -103,6 +125,9 @@ export const Params = {
         ? globalThis.String(object.redemptionDelayBlocks)
         : "0",
       feeBps: isSet(object.feeBps) ? globalThis.Number(object.feeBps) : 0,
+      reserveReportMaxAgeBlocks: isSet(object.reserveReportMaxAgeBlocks)
+        ? globalThis.String(object.reserveReportMaxAgeBlocks)
+        : "0",
     };
   },
 
@@ -117,6 +142,9 @@ export const Params = {
     if (message.feeBps !== 0) {
       obj.feeBps = Math.round(message.feeBps);
     }
+    if (message.reserveReportMaxAgeBlocks !== "0") {
+      obj.reserveReportMaxAgeBlocks = message.reserveReportMaxAgeBlocks;
+    }
     return obj;
   },
 
@@ -128,6 +156,7 @@ export const Params = {
     message.attestationThreshold = object.attestationThreshold ?? 0;
     message.redemptionDelayBlocks = object.redemptionDelayBlocks ?? "0";
     message.feeBps = object.feeBps ?? 0;
+    message.reserveReportMaxAgeBlocks = object.reserveReportMaxAgeBlocks ?? "0";
     return message;
   },
 };

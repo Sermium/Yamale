@@ -230,9 +230,47 @@ export interface Redemption {
  */
 export interface Reserve {
   denom: string;
+  /**
+   * held is the figure the chain will act on: the LOWEST of the fresh reports
+   * from at least attestation_threshold attestors.
+   *
+   * Lowest, not latest and not averaged. This is the number the solvency query
+   * publishes unauthenticated and the number the credit path now checks a mint
+   * against, so the direction it errs in is the whole design: understating the
+   * reserve refuses an honest mint, overstating it permits an unbacked one.
+   *
+   * It used to be whatever the last single attestor wrote. Any one of them
+   * could overwrite it with any figure, and that was the accountability number.
+   */
+  held: string;
+  /**
+   * as_of_height is the OLDEST of the reports that produced held, so the
+   * figure's age is the age of its weakest input rather than of its freshest.
+   */
+  asOfHeight: string;
+  /** attestor is whichever one reported the figure that was taken. */
+  attestor: string;
+  /** attestors is how many fresh reports stood behind it. */
+  attestors: number;
+}
+
+/**
+ * ReserveReport is one attestor's statement of what is held.
+ *
+ * Kept per attestor rather than collapsed into a single figure, for the reason
+ * Attestation gives: a threshold reached by two attestors is a fact about those
+ * two, and a reserve figure that turns out to be wrong should name who said it.
+ *
+ * Exact agreement is deliberately NOT required. A reserve moves, so two honest
+ * attestors reporting hours apart will disagree by design, and a rule demanding
+ * equality would deadlock the module rather than secure it. What is required is
+ * enough recent reports, and the lowest of them is what counts.
+ */
+export interface ReserveReport {
+  denom: string;
+  attestor: string;
   held: string;
   asOfHeight: string;
-  attestor: string;
 }
 
 /**
@@ -803,7 +841,7 @@ export const Redemption = {
 };
 
 function createBaseReserve(): Reserve {
-  return { denom: "", held: "", asOfHeight: "0", attestor: "" };
+  return { denom: "", held: "", asOfHeight: "0", attestor: "", attestors: 0 };
 }
 
 export const Reserve = {
@@ -819,6 +857,9 @@ export const Reserve = {
     }
     if (message.attestor !== "") {
       writer.uint32(34).string(message.attestor);
+    }
+    if (message.attestors !== 0) {
+      writer.uint32(40).uint32(message.attestors);
     }
     return writer;
   },
@@ -858,6 +899,13 @@ export const Reserve = {
 
           message.attestor = reader.string();
           continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.attestors = reader.uint32();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -873,6 +921,7 @@ export const Reserve = {
       held: isSet(object.held) ? globalThis.String(object.held) : "",
       asOfHeight: isSet(object.asOfHeight) ? globalThis.String(object.asOfHeight) : "0",
       attestor: isSet(object.attestor) ? globalThis.String(object.attestor) : "",
+      attestors: isSet(object.attestors) ? globalThis.Number(object.attestors) : 0,
     };
   },
 
@@ -890,6 +939,9 @@ export const Reserve = {
     if (message.attestor !== "") {
       obj.attestor = message.attestor;
     }
+    if (message.attestors !== 0) {
+      obj.attestors = Math.round(message.attestors);
+    }
     return obj;
   },
 
@@ -902,6 +954,111 @@ export const Reserve = {
     message.held = object.held ?? "";
     message.asOfHeight = object.asOfHeight ?? "0";
     message.attestor = object.attestor ?? "";
+    message.attestors = object.attestors ?? 0;
+    return message;
+  },
+};
+
+function createBaseReserveReport(): ReserveReport {
+  return { denom: "", attestor: "", held: "", asOfHeight: "0" };
+}
+
+export const ReserveReport = {
+  encode(message: ReserveReport, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.denom !== "") {
+      writer.uint32(10).string(message.denom);
+    }
+    if (message.attestor !== "") {
+      writer.uint32(18).string(message.attestor);
+    }
+    if (message.held !== "") {
+      writer.uint32(26).string(message.held);
+    }
+    if (message.asOfHeight !== "0") {
+      writer.uint32(32).int64(message.asOfHeight);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): ReserveReport {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReserveReport();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.attestor = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.held = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.asOfHeight = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReserveReport {
+    return {
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      attestor: isSet(object.attestor) ? globalThis.String(object.attestor) : "",
+      held: isSet(object.held) ? globalThis.String(object.held) : "",
+      asOfHeight: isSet(object.asOfHeight) ? globalThis.String(object.asOfHeight) : "0",
+    };
+  },
+
+  toJSON(message: ReserveReport): unknown {
+    const obj: any = {};
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.attestor !== "") {
+      obj.attestor = message.attestor;
+    }
+    if (message.held !== "") {
+      obj.held = message.held;
+    }
+    if (message.asOfHeight !== "0") {
+      obj.asOfHeight = message.asOfHeight;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<ReserveReport>): ReserveReport {
+    return ReserveReport.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<ReserveReport>): ReserveReport {
+    const message = createBaseReserveReport();
+    message.denom = object.denom ?? "";
+    message.attestor = object.attestor ?? "";
+    message.held = object.held ?? "";
+    message.asOfHeight = object.asOfHeight ?? "0";
     return message;
   },
 };

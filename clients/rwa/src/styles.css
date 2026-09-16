@@ -279,7 +279,19 @@ body {
 
 /* ---------------------------------------------------------------- amounts */
 
-.amount { font-variant-numeric: tabular-nums; }
+.amount {
+  font-variant-numeric: tabular-nums;
+  /* A FIGURE NEVER SPLITS.
+     `.field__value` sets `overflow-wrap: anywhere`, which is right for a uri
+     and an address and catastrophic for money: in the narrow side column it
+     rendered a balance as "9,000,000,000,00" above "0 SRMT", which is not a
+     smaller number but a different one. This is the same defect that shipped
+     once in the KPI band, arriving by inheritance instead of by declaration.
+     The number holds together and the UNIT may drop to its own line, which is
+     why this is `normal` rather than `nowrap` — see .kpi__value. */
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
 .amount--empty { color: var(--text-muted); }
 
 /* --------------------------------------------------------------- addresses */
@@ -853,3 +865,181 @@ body {
    shows two rather than a total that added dollars to francs. */
 .kpi__stack { display: flex; flex-direction: column; gap: 0.1em; }
 .kpi__stack > span + span { font-size: var(--step-0); color: var(--text-muted); }
+
+/* ==========================================================================
+   The register of filings, cost basis, and the open period.
+
+   Added 2026-09-16, for three things that landed on x/tokenisation the same
+   day: Query/Covenants, Position.cost_basis, and the pro-rata-temporis period.
+
+   Every colour is a shared token. What this block adds is layout and one
+   deliberate emphasis: a filing that carries a DEADLINE does not look like a
+   filing that does not, because a register presenting both alike would make the
+   one somebody can miss as easy to overlook as the one they cannot.
+   ========================================================================== */
+
+.filings { display: grid; gap: var(--sp-4); margin-block: var(--sp-4); }
+
+.filing {
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+}
+
+/* Dimmed and labelled, NEVER hidden. A dispute is usually about what was said
+   at a date rather than what is said now, so a corrected filing stays readable
+   — it only stops competing with the version that replaced it. The chip beside
+   the title is what carries the fact; this lowers the volume, and stops short
+   of the opacity that would make body text fail contrast. */
+.filing--superseded { opacity: 0.68; border-style: dashed; }
+
+.filing__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-block-end: var(--sp-3);
+}
+.filing__title { margin: 0; font-size: var(--step-1); font-family: var(--font-display); }
+
+/* The deadline, as a block rather than as one more label/value row. A row
+   reading "Acts by: 4 October" among six others is exactly as skippable as the
+   row above it, which is the failure the chain added the field to prevent. */
+.filing__deadline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
+  margin-block-end: var(--sp-3);
+  border-radius: var(--radius);
+  border-inline-start: 3px solid var(--rule);
+  background: var(--wash-mute);
+}
+.filing__deadline--open {
+  background: var(--wash-warn);
+  border-inline-start-color: var(--warn);
+}
+.filing__deadline--passed,
+.filing__deadline--mute {
+  background: var(--wash-mute);
+  border-inline-start-color: var(--slate);
+}
+
+/* The date never breaks. A deadline split across two lines is the same defect
+   as a figure split across two lines, and worse: half a date is a different
+   day. The block wraps between its parts instead. */
+.filing__by {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  white-space: nowrap;
+}
+.filing__left { font-size: var(--step--1); color: var(--text-muted); white-space: nowrap; }
+
+/* A uri is machine text of unbounded length, so this is the one place on a
+   filing that may break anywhere: it is a reference, not a figure. */
+.filing__uri { overflow-wrap: anywhere; font-size: var(--step--1); }
+
+/* --- the digest ------------------------------------------------------- */
+
+.digest { display: grid; gap: var(--sp-2); justify-items: start; }
+.digest__line { display: flex; align-items: baseline; gap: var(--sp-2); }
+
+.digest__more { inline-size: 100%; }
+.digest__summary {
+  cursor: pointer;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+.digest__summary:hover { color: var(--accent); }
+.digest__body {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: start;
+  margin-block-start: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.digest__label { margin: 0; }
+
+/* Breaking anywhere is CORRECT here and only here. This is a hash, not a
+   figure: every character has to be visible for the comparison to mean
+   anything, and a hash that ran off the edge would be as useless as a
+   truncated one. */
+.digest__full {
+  margin: 0;
+  font-size: var(--step--1);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.digest__cmd {
+  margin: 0;
+  inline-size: 100%;
+  padding: var(--sp-2);
+  background: var(--surface-3);
+  border-radius: var(--radius);
+  font-size: var(--step--1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.digest__note { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
+
+.copybtn {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 0.2rem var(--sp-2);
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.copybtn:hover { border-color: var(--accent); color: var(--accent); }
+.copybtn__ico { color: var(--text-muted); }
+.copybtn--mono { font-family: var(--font-mono); }
+
+/* A folder holding something with a deadline says so on its tab, because the
+   reader who never opens it is exactly the reader who misses the assembly. */
+.folder__flag {
+  margin-inline-start: 0.4em;
+  color: var(--warn);
+  font-size: 0.7em;
+  vertical-align: middle;
+}
+
+/* --- cost basis and the open period ----------------------------------- */
+
+.cost, .accrual {
+  margin-block-start: var(--sp-4);
+  padding-block-start: var(--sp-3);
+  border-block-start: 1px solid var(--hair);
+}
+
+.accrual__period {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin: 0 0 var(--sp-2);
+}
+.accrual__periodName { font-family: var(--font-display); }
+.accrual__periodSince { color: var(--text-muted); font-size: var(--step--1); }
+
+/* Token-seconds run to fifteen digits and are NOT money, so they get tabular
+   figures and the same no-break rule as every other figure on this surface.
+   `100,000,0` above `00` shipped once already; a token-second count split the
+   same way would be a different quantity, and one nobody could check against
+   the balance above it. It scrolls instead. */
+.accrual__figure {
+  white-space: nowrap;
+  overflow-x: auto;
+  max-inline-size: 100%;
+  display: inline-block;
+  vertical-align: bottom;
+}
+.accrual__at { margin: var(--sp-2) 0 0; font-size: var(--step--1); color: var(--text-muted); }

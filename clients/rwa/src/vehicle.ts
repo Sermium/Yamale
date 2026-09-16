@@ -66,6 +66,28 @@ export interface Vault {
   cumulativePerToken: string;
   funded: Coin[];
   denom: string;
+  /**
+   * What the module account still holds on this vehicle's behalf: funded, not
+   * yet claimed. One module account serves every vehicle, so this ledger rather
+   * than a bank balance is the only thing that says what belongs to whom.
+   */
+  held: Coin[];
+  /**
+   * How many distributions this vault has made. A PERIOD is the span between
+   * two of them, and it is what pro-rata temporis apportions. Zero means none
+   * yet, so everything since periodStart is the first period.
+   */
+  periodIndex: string;
+  /**
+   * Unix seconds: when the current period began — the last distribution, or the
+   * moment the vault started accruing.
+   *
+   * For a vehicle that predates pro-rata temporis this is the UPGRADE HEIGHT's
+   * time and not issuance, because the chain has no record of when balances
+   * moved before that. A screen presenting it as "held since" would be wrong by
+   * the whole life of the vehicle.
+   */
+  periodStart: number;
 }
 
 export interface SaleReport {

@@ -183,6 +183,35 @@ export interface MsgRegisterCustomerResponse {
 }
 
 /**
+ * MsgConfirmParticipant is the account's own word on who banks it.
+ *
+ * Signed by the customer, which is the point: without it a participant's claim
+ * was the whole of the record, and the account it named had no say and no way
+ * out. Confirming turns a claim into a relationship a payment can rely on;
+ * refusing removes it and frees the account to bank elsewhere.
+ */
+export interface MsgConfirmParticipant {
+  customer: string;
+  /**
+   * The participant being confirmed. Named so that a confirmation cannot be
+   * replayed against a different claim than the one the account read.
+   */
+  participant: string;
+  /**
+   * false removes the record, whether it was confirmed or not. An account may
+   * always leave.
+   */
+  confirm: boolean;
+}
+
+/**
+ * MsgConfirmParticipantResponse is empty: the outcome is the relationship
+ * itself, which the customer query reports.
+ */
+export interface MsgConfirmParticipantResponse {
+}
+
+/**
  * MsgSetPayloadStore records where a participant serves encrypted payment
  * payloads.
  *
@@ -1032,6 +1061,138 @@ export const MsgRegisterCustomerResponse = {
   },
 };
 
+function createBaseMsgConfirmParticipant(): MsgConfirmParticipant {
+  return { customer: "", participant: "", confirm: false };
+}
+
+export const MsgConfirmParticipant = {
+  encode(message: MsgConfirmParticipant, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.customer !== "") {
+      writer.uint32(10).string(message.customer);
+    }
+    if (message.participant !== "") {
+      writer.uint32(18).string(message.participant);
+    }
+    if (message.confirm !== false) {
+      writer.uint32(24).bool(message.confirm);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgConfirmParticipant {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgConfirmParticipant();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.customer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.participant = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.confirm = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgConfirmParticipant {
+    return {
+      customer: isSet(object.customer) ? globalThis.String(object.customer) : "",
+      participant: isSet(object.participant) ? globalThis.String(object.participant) : "",
+      confirm: isSet(object.confirm) ? globalThis.Boolean(object.confirm) : false,
+    };
+  },
+
+  toJSON(message: MsgConfirmParticipant): unknown {
+    const obj: any = {};
+    if (message.customer !== "") {
+      obj.customer = message.customer;
+    }
+    if (message.participant !== "") {
+      obj.participant = message.participant;
+    }
+    if (message.confirm !== false) {
+      obj.confirm = message.confirm;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgConfirmParticipant>): MsgConfirmParticipant {
+    return MsgConfirmParticipant.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgConfirmParticipant>): MsgConfirmParticipant {
+    const message = createBaseMsgConfirmParticipant();
+    message.customer = object.customer ?? "";
+    message.participant = object.participant ?? "";
+    message.confirm = object.confirm ?? false;
+    return message;
+  },
+};
+
+function createBaseMsgConfirmParticipantResponse(): MsgConfirmParticipantResponse {
+  return {};
+}
+
+export const MsgConfirmParticipantResponse = {
+  encode(_: MsgConfirmParticipantResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgConfirmParticipantResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgConfirmParticipantResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgConfirmParticipantResponse {
+    return {};
+  },
+
+  toJSON(_: MsgConfirmParticipantResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgConfirmParticipantResponse>): MsgConfirmParticipantResponse {
+    return MsgConfirmParticipantResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgConfirmParticipantResponse>): MsgConfirmParticipantResponse {
+    const message = createBaseMsgConfirmParticipantResponse();
+    return message;
+  },
+};
+
 function createBaseMsgSetPayloadStore(): MsgSetPayloadStore {
   return { participant: "", url: "" };
 }
@@ -1173,6 +1334,11 @@ export interface Msg {
    */
   RegisterCustomer(request: MsgRegisterCustomer): Promise<MsgRegisterCustomerResponse>;
   /**
+   * ConfirmParticipant is the account answering a claim made about it. The
+   * only message in this module signed by somebody other than a participant.
+   */
+  ConfirmParticipant(request: MsgConfirmParticipant): Promise<MsgConfirmParticipantResponse>;
+  /**
    * SetPayloadStore records where an approved participant serves the encrypted
    * payloads of the payments it instructed.
    */
@@ -1191,6 +1357,7 @@ export class MsgClientImpl implements Msg {
     this.SendPayment = this.SendPayment.bind(this);
     this.ApproveParticipant = this.ApproveParticipant.bind(this);
     this.RegisterCustomer = this.RegisterCustomer.bind(this);
+    this.ConfirmParticipant = this.ConfirmParticipant.bind(this);
     this.SetPayloadStore = this.SetPayloadStore.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
@@ -1221,6 +1388,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgRegisterCustomer.encode(request).finish();
     const promise = this.rpc.request(this.service, "RegisterCustomer", data);
     return promise.then((data) => MsgRegisterCustomerResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ConfirmParticipant(request: MsgConfirmParticipant): Promise<MsgConfirmParticipantResponse> {
+    const data = MsgConfirmParticipant.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ConfirmParticipant", data);
+    return promise.then((data) => MsgConfirmParticipantResponse.decode(_m0.Reader.create(data)));
   }
 
   SetPayloadStore(request: MsgSetPayloadStore): Promise<MsgSetPayloadStoreResponse> {

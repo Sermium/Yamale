@@ -24,16 +24,22 @@ import {
   QueryAssetsRequest,
   QueryAssetsResponse,
   QueryCollectionsResponse,
+  QueryCovenantsRequest,
+  QueryCovenantsResponse,
   QueryEntitlementRequest,
   QueryEntitlementResponse,
 } from '../../sdk/src/generated/blockchain/tokenisation/v1/query.ts';
 import {
+  Position as WirePosition,
   Status as WireStatus,
   VerificationMode as WireVerification,
+  covenantKindToJSON,
   statusToJSON,
   verificationModeToJSON,
   type Asset as WireAsset,
   type Collection as WireCollection,
+  type Covenant as WireCovenant,
+  type CovenantKind as WireCovenantKind,
   type SaleReport as WireSale,
   type Vault as WireVault,
 } from '../../sdk/src/generated/blockchain/tokenisation/v1/tokenisation.ts';
@@ -46,6 +52,8 @@ import {
 import { statusToJSON as parcelStatusToJSON, type Parcel as WireParcel } from '../../sdk/src/generated/blockchain/land/v1/parcel.ts';
 
 import { decoded, query, type Outcome } from './abci.ts';
+import { toHex as digestHex, type Covenant, type CovenantKind } from './covenant.ts';
+import { positionKey, type Position } from './position.ts';
 import type {
   Asset,
   Coin,
@@ -117,6 +125,45 @@ function toVault(v: WireVault | undefined): Vault | null {
     cumulativePerToken: v.cumulativePerToken,
     funded: (v.funded ?? []).map((c) => ({ denom: c.denom, amount: c.amount })),
     denom: v.denom,
+    // `held`, `periodIndex` and `periodStart` were on the chain's Vault and
+    // dropped here, which is why the distributions panel could say what had
+    // been paid in and nothing about what was still there or what was accruing.
+    held: (v.held ?? []).map((c) => ({ denom: c.denom, amount: c.amount })),
+    periodIndex: v.periodIndex ?? '0',
+    periodStart: Number(v.periodStart ?? '0'),
+  };
+}
+
+/**
+ * A filing's kind, through the generated helper for the same reason
+ * `verificationName` uses one: a hand-written map goes stale the first time a
+ * kind is added, and it does it silently — an unrecognised kind falling through
+ * to "unspecified", which this app renders as a document that asks nothing of
+ * anybody. A new kind that carries a deadline would be filed as a leaflet.
+ */
+function covenantKindName(k: WireCovenantKind): CovenantKind {
+  const name = covenantKindToJSON(k);
+  return name === 'UNRECOGNIZED' ? 'COVENANT_KIND_UNSPECIFIED' : (name as CovenantKind);
+}
+
+function toCovenant(c: WireCovenant): Covenant {
+  return {
+    id: c.id,
+    assetId: c.assetId,
+    kind: covenantKindName(c.kind),
+    title: c.title,
+    // Hex at the wire boundary, once. Every screen that shows a digest shows
+    // the same string, and the bytes never reach a component that might
+    // truncate them differently.
+    digest: digestHex(c.sha256),
+    uri: c.uri,
+    periodStart: Number(c.periodStart ?? '0'),
+    periodEnd: Number(c.periodEnd ?? '0'),
+    actsBy: Number(c.actsBy ?? '0'),
+    publishedBy: c.publishedBy,
+    publishedAt: Number(c.publishedAt ?? '0'),
+    supersedes: c.supersedes ?? '0',
+    supersededBy: c.supersededBy ?? '0',
   };
 }
 
@@ -141,8 +188,18 @@ const Q = {
   assets: '/blockchain.tokenisation.v1.Query/Assets',
   asset: '/blockchain.tokenisation.v1.Query/Asset',
   entitlement: '/blockchain.tokenisation.v1.Query/Entitlement',
+  covenants: '/blockchain.tokenisation.v1.Query/Covenants',
   parcel: '/blockchain.land.v1.Query/Parcel',
   landAuth: '/blockchain.land.v1.Query/FractionalisationAuthority',
+  /**
+   * The raw store, which is how a Position is read at all.
+   *
+   * x/tokenisation exposes no RPC that returns one, so `cost_basis`, `cost_qty`
+   * and `token_seconds` have no gRPC path. CometBFT serves the store directly
+   * and the proxy does not gate it. See position.ts `positionKey` for the key
+   * layout and why depending on it is defensible.
+   */
+  store: '/store/tokenisation/key',
 } as const;
 
 export async function collections(): Promise<Outcome<Collection[]>> {
@@ -246,6 +303,60 @@ export async function holders(denom: string, limit = 200): Promise<Outcome<{
     // above 2^53 would put the cap table in the wrong order without erroring.
     rows.sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
     return { rows, more };
+  });
+}
+
+/**
+ * Everything published against one tokenisation.
+ *
+ * `currentOnly` is false and stays false. The query offers to hide filings that
+ * have been corrected and this app declines, because a dispute is usually about
+ * what was said at a date rather than what is said now — a superseded filing is
+ * dimmed and labelled by the panel, never dropped.
+ *
+ * Unpaginated because the query is: x/tokenisation returns a vehicle's whole
+ * register in one response, walked from a key set keyed by asset.
+ */
+export async function covenants(assetId: string): Promise<Outcome<Covenant[]>> {
+  const request = QueryCovenantsRequest.encode({ assetId, currentOnly: false }).finish();
+  const raw = await query(Q.covenants, request);
+  return decoded(raw, (b) => QueryCovenantsResponse.decode(b).covenants.map(toCovenant));
+}
+
+/**
+ * One holder's position: what they paid, and what is accruing on it.
+ *
+ * Read out of the raw store rather than through a query, because there is no
+ * query. See position.ts `positionKey`.
+ *
+ * An absent position comes back as `ok` with a null value rather than as
+ * 'not-found', and the distinction is the whole reason this signature is shaped
+ * this way: the store answers a missing key with code 0 and an empty value, so
+ * "this holder has no position" IS the chain's answer and must not be rendered
+ * as a node that failed to reply. A cost panel that said "could not read" when
+ * the truth is "nothing was ever recorded" would send somebody looking for a
+ * network fault that does not exist.
+ */
+export async function position(
+  assetId: string,
+  holder: string,
+): Promise<Outcome<Position | null>> {
+  if (!holder) return { ok: true, value: null, height: 0 };
+
+  const raw = await query(Q.store, positionKey(assetId, holder));
+  return decoded(raw, (bytes) => {
+    if (bytes.length === 0) return null;
+    const p: WirePosition = WirePosition.decode(bytes);
+    return {
+      assetId: p.assetId,
+      holder: p.holder,
+      accrued: p.accrued,
+      costBasis: p.costBasis,
+      costQty: p.costQty,
+      tokenSeconds: p.tokenSeconds,
+      tokenSecondsPeriod: p.tokenSecondsPeriod,
+      lastTouch: Number(p.lastTouch ?? '0'),
+    } satisfies Position;
   });
 }
 

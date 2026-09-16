@@ -20,6 +20,10 @@ export const protobufPackage = "blockchain.tokenisation.v1";
  * further obligation to anybody afterwards.
  */
 export const VerificationMode = {
+  /**
+   * VERIFICATION_UNSPECIFIED - Unset. A collection must choose how its sales are verified, so this is
+   * never a working configuration — it is what an incomplete genesis reads as.
+   */
   VERIFICATION_UNSPECIFIED: 0,
   /**
    * VERIFY_VALUER - The appointed independent valuer signs the figure. x/oracle already holds
@@ -95,10 +99,178 @@ export function verificationModeToJSON(object: VerificationMode): string {
 }
 
 /**
+ * Sector is what the tokenised thing DOES, so an investor can filter a market
+ * by it and a regulator can recognise the description.
+ *
+ * ISIC Rev. 4 sections, not a list invented here. A securities offering is
+ * described to a regulator in a classification they already use, and a bespoke
+ * list has to be mapped onto one eventually -- by somebody with less context
+ * than whoever wrote it. The sections are A to U; the names below are the ones
+ * a reader recognises rather than the standard's own wording.
+ *
+ * An enum rather than free text for the reason DocumentKind is an enum: this is
+ * what a marketplace filters on, and "Timber / timber / Bois / forestry
+ * products" is four sectors to a machine and one to a person.
+ */
+export const Sector = {
+  /**
+   * SECTOR_UNSPECIFIED - Never stored on an asset minted after this field existed. Assets minted
+   * before it carry this, and that is an absence rather than a claim: it means
+   * the chain was not asked, not that the sector is unknown to anybody.
+   */
+  SECTOR_UNSPECIFIED: 0,
+  /** SECTOR_AGRICULTURE - A. Agriculture, forestry and fishing -- including a standing concession. */
+  SECTOR_AGRICULTURE: 1,
+  /** SECTOR_EXTRACTION - B. Mining and quarrying. */
+  SECTOR_EXTRACTION: 2,
+  /**
+   * SECTOR_MANUFACTURING - C. Manufacturing, which is anything that transforms a material. A sawmill
+   * is here rather than in A: what is sold is what leaves the mill.
+   */
+  SECTOR_MANUFACTURING: 3,
+  /** SECTOR_UTILITIES - D and E. Electricity, gas, water and waste. */
+  SECTOR_UTILITIES: 4,
+  /** SECTOR_CONSTRUCTION - F. Construction. */
+  SECTOR_CONSTRUCTION: 5,
+  /** SECTOR_TRADE - G. Wholesale and retail trade. */
+  SECTOR_TRADE: 6,
+  /** SECTOR_TRANSPORT - H. Transport and storage. */
+  SECTOR_TRANSPORT: 7,
+  /** SECTOR_HOSPITALITY - I. Accommodation and food service. */
+  SECTOR_HOSPITALITY: 8,
+  /** SECTOR_TECHNOLOGY - J. Information and communication. */
+  SECTOR_TECHNOLOGY: 9,
+  /** SECTOR_FINANCIAL - K. Financial and insurance activities. */
+  SECTOR_FINANCIAL: 10,
+  /**
+   * SECTOR_REAL_ESTATE - L. Real estate. Distinct from an asset being OVER registered land: a
+   * warehouse operator is real estate, and a sawmill built on a titled parcel
+   * is not.
+   */
+  SECTOR_REAL_ESTATE: 11,
+  /** SECTOR_SERVICES - M and N. Professional, scientific, technical and administrative services. */
+  SECTOR_SERVICES: 12,
+  /** SECTOR_PUBLIC_AND_SOCIAL - O to U. Public administration, education, health, arts, and the rest. */
+  SECTOR_PUBLIC_AND_SOCIAL: 13,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type Sector = typeof Sector[keyof typeof Sector];
+
+export namespace Sector {
+  export type SECTOR_UNSPECIFIED = typeof Sector.SECTOR_UNSPECIFIED;
+  export type SECTOR_AGRICULTURE = typeof Sector.SECTOR_AGRICULTURE;
+  export type SECTOR_EXTRACTION = typeof Sector.SECTOR_EXTRACTION;
+  export type SECTOR_MANUFACTURING = typeof Sector.SECTOR_MANUFACTURING;
+  export type SECTOR_UTILITIES = typeof Sector.SECTOR_UTILITIES;
+  export type SECTOR_CONSTRUCTION = typeof Sector.SECTOR_CONSTRUCTION;
+  export type SECTOR_TRADE = typeof Sector.SECTOR_TRADE;
+  export type SECTOR_TRANSPORT = typeof Sector.SECTOR_TRANSPORT;
+  export type SECTOR_HOSPITALITY = typeof Sector.SECTOR_HOSPITALITY;
+  export type SECTOR_TECHNOLOGY = typeof Sector.SECTOR_TECHNOLOGY;
+  export type SECTOR_FINANCIAL = typeof Sector.SECTOR_FINANCIAL;
+  export type SECTOR_REAL_ESTATE = typeof Sector.SECTOR_REAL_ESTATE;
+  export type SECTOR_SERVICES = typeof Sector.SECTOR_SERVICES;
+  export type SECTOR_PUBLIC_AND_SOCIAL = typeof Sector.SECTOR_PUBLIC_AND_SOCIAL;
+  export type UNRECOGNIZED = typeof Sector.UNRECOGNIZED;
+}
+
+export function sectorFromJSON(object: any): Sector {
+  switch (object) {
+    case 0:
+    case "SECTOR_UNSPECIFIED":
+      return Sector.SECTOR_UNSPECIFIED;
+    case 1:
+    case "SECTOR_AGRICULTURE":
+      return Sector.SECTOR_AGRICULTURE;
+    case 2:
+    case "SECTOR_EXTRACTION":
+      return Sector.SECTOR_EXTRACTION;
+    case 3:
+    case "SECTOR_MANUFACTURING":
+      return Sector.SECTOR_MANUFACTURING;
+    case 4:
+    case "SECTOR_UTILITIES":
+      return Sector.SECTOR_UTILITIES;
+    case 5:
+    case "SECTOR_CONSTRUCTION":
+      return Sector.SECTOR_CONSTRUCTION;
+    case 6:
+    case "SECTOR_TRADE":
+      return Sector.SECTOR_TRADE;
+    case 7:
+    case "SECTOR_TRANSPORT":
+      return Sector.SECTOR_TRANSPORT;
+    case 8:
+    case "SECTOR_HOSPITALITY":
+      return Sector.SECTOR_HOSPITALITY;
+    case 9:
+    case "SECTOR_TECHNOLOGY":
+      return Sector.SECTOR_TECHNOLOGY;
+    case 10:
+    case "SECTOR_FINANCIAL":
+      return Sector.SECTOR_FINANCIAL;
+    case 11:
+    case "SECTOR_REAL_ESTATE":
+      return Sector.SECTOR_REAL_ESTATE;
+    case 12:
+    case "SECTOR_SERVICES":
+      return Sector.SECTOR_SERVICES;
+    case 13:
+    case "SECTOR_PUBLIC_AND_SOCIAL":
+      return Sector.SECTOR_PUBLIC_AND_SOCIAL;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Sector.UNRECOGNIZED;
+  }
+}
+
+export function sectorToJSON(object: Sector): string {
+  switch (object) {
+    case Sector.SECTOR_UNSPECIFIED:
+      return "SECTOR_UNSPECIFIED";
+    case Sector.SECTOR_AGRICULTURE:
+      return "SECTOR_AGRICULTURE";
+    case Sector.SECTOR_EXTRACTION:
+      return "SECTOR_EXTRACTION";
+    case Sector.SECTOR_MANUFACTURING:
+      return "SECTOR_MANUFACTURING";
+    case Sector.SECTOR_UTILITIES:
+      return "SECTOR_UTILITIES";
+    case Sector.SECTOR_CONSTRUCTION:
+      return "SECTOR_CONSTRUCTION";
+    case Sector.SECTOR_TRADE:
+      return "SECTOR_TRADE";
+    case Sector.SECTOR_TRANSPORT:
+      return "SECTOR_TRANSPORT";
+    case Sector.SECTOR_HOSPITALITY:
+      return "SECTOR_HOSPITALITY";
+    case Sector.SECTOR_TECHNOLOGY:
+      return "SECTOR_TECHNOLOGY";
+    case Sector.SECTOR_FINANCIAL:
+      return "SECTOR_FINANCIAL";
+    case Sector.SECTOR_REAL_ESTATE:
+      return "SECTOR_REAL_ESTATE";
+    case Sector.SECTOR_SERVICES:
+      return "SECTOR_SERVICES";
+    case Sector.SECTOR_PUBLIC_AND_SOCIAL:
+      return "SECTOR_PUBLIC_AND_SOCIAL";
+    case Sector.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/**
  * Status is the vehicle's life. It ends; this is a closed-end instrument, not a
  * perpetual registry.
  */
 export const Status = {
+  /**
+   * STATUS_UNSPECIFIED - Unset. No asset is ever written in this state; it is what a zero value
+   * in a hand-edited genesis looks like.
+   */
   STATUS_UNSPECIFIED: 0,
   /** STATUS_HELD - Title exists, no shareholders yet. */
   STATUS_HELD: 1,
@@ -195,6 +367,122 @@ export function statusToJSON(object: Status): string {
 }
 
 /**
+ * CovenantKind is what an operator is publishing, so a holder can tell an
+ * obligation from an announcement.
+ *
+ * The distinction is the point. A general assembly notice with a date is
+ * something a holder must ACT on and can miss; a set of accounts is something
+ * they read. A register that filed both as "document" makes the one with a
+ * deadline as easy to overlook as the one without.
+ */
+export const CovenantKind = {
+  COVENANT_KIND_UNSPECIFIED: 0,
+  /** COVENANT_KIND_FINANCIAL_STATEMENTS - Annual or interim accounts. The undertaking most holders were sold. */
+  COVENANT_KIND_FINANCIAL_STATEMENTS: 1,
+  /**
+   * COVENANT_KIND_STRUCTURE_CHANGE - A change to the structure itself: a new subsidiary, a redomiciliation, a
+   * change of control at the operating company. What a holder bought into is
+   * not what it was.
+   */
+  COVENANT_KIND_STRUCTURE_CHANGE: 2,
+  /**
+   * COVENANT_KIND_DIVIDEND_NOTICE - A distribution declared: the amount, the period it covers, and when it
+   * will be paid. Published BEFORE the money moves, so a holder can check the
+   * payment against what was announced rather than the other way round.
+   */
+  COVENANT_KIND_DIVIDEND_NOTICE: 3,
+  /**
+   * COVENANT_KIND_GENERAL_ASSEMBLY - A general assembly: the date, the agenda, the resolutions. Carries a
+   * deadline, which is why it is not filed as a report.
+   */
+  COVENANT_KIND_GENERAL_ASSEMBLY: 4,
+  /** COVENANT_KIND_RESOLUTION - The minutes and resolutions of one, after the fact. */
+  COVENANT_KIND_RESOLUTION: 5,
+  /**
+   * COVENANT_KIND_INDEPENDENT_REPORT - An auditor's opinion, a valuation, a technical certification -- work by a
+   * third party that the operator did not do and cannot revise.
+   */
+  COVENANT_KIND_INDEPENDENT_REPORT: 6,
+  /**
+   * COVENANT_KIND_MATERIAL_EVENT - Anything the operator is obliged to disclose promptly and that fits none of
+   * the above: litigation, a covenant breach, a material contract lost.
+   */
+  COVENANT_KIND_MATERIAL_EVENT: 7,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type CovenantKind = typeof CovenantKind[keyof typeof CovenantKind];
+
+export namespace CovenantKind {
+  export type COVENANT_KIND_UNSPECIFIED = typeof CovenantKind.COVENANT_KIND_UNSPECIFIED;
+  export type COVENANT_KIND_FINANCIAL_STATEMENTS = typeof CovenantKind.COVENANT_KIND_FINANCIAL_STATEMENTS;
+  export type COVENANT_KIND_STRUCTURE_CHANGE = typeof CovenantKind.COVENANT_KIND_STRUCTURE_CHANGE;
+  export type COVENANT_KIND_DIVIDEND_NOTICE = typeof CovenantKind.COVENANT_KIND_DIVIDEND_NOTICE;
+  export type COVENANT_KIND_GENERAL_ASSEMBLY = typeof CovenantKind.COVENANT_KIND_GENERAL_ASSEMBLY;
+  export type COVENANT_KIND_RESOLUTION = typeof CovenantKind.COVENANT_KIND_RESOLUTION;
+  export type COVENANT_KIND_INDEPENDENT_REPORT = typeof CovenantKind.COVENANT_KIND_INDEPENDENT_REPORT;
+  export type COVENANT_KIND_MATERIAL_EVENT = typeof CovenantKind.COVENANT_KIND_MATERIAL_EVENT;
+  export type UNRECOGNIZED = typeof CovenantKind.UNRECOGNIZED;
+}
+
+export function covenantKindFromJSON(object: any): CovenantKind {
+  switch (object) {
+    case 0:
+    case "COVENANT_KIND_UNSPECIFIED":
+      return CovenantKind.COVENANT_KIND_UNSPECIFIED;
+    case 1:
+    case "COVENANT_KIND_FINANCIAL_STATEMENTS":
+      return CovenantKind.COVENANT_KIND_FINANCIAL_STATEMENTS;
+    case 2:
+    case "COVENANT_KIND_STRUCTURE_CHANGE":
+      return CovenantKind.COVENANT_KIND_STRUCTURE_CHANGE;
+    case 3:
+    case "COVENANT_KIND_DIVIDEND_NOTICE":
+      return CovenantKind.COVENANT_KIND_DIVIDEND_NOTICE;
+    case 4:
+    case "COVENANT_KIND_GENERAL_ASSEMBLY":
+      return CovenantKind.COVENANT_KIND_GENERAL_ASSEMBLY;
+    case 5:
+    case "COVENANT_KIND_RESOLUTION":
+      return CovenantKind.COVENANT_KIND_RESOLUTION;
+    case 6:
+    case "COVENANT_KIND_INDEPENDENT_REPORT":
+      return CovenantKind.COVENANT_KIND_INDEPENDENT_REPORT;
+    case 7:
+    case "COVENANT_KIND_MATERIAL_EVENT":
+      return CovenantKind.COVENANT_KIND_MATERIAL_EVENT;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return CovenantKind.UNRECOGNIZED;
+  }
+}
+
+export function covenantKindToJSON(object: CovenantKind): string {
+  switch (object) {
+    case CovenantKind.COVENANT_KIND_UNSPECIFIED:
+      return "COVENANT_KIND_UNSPECIFIED";
+    case CovenantKind.COVENANT_KIND_FINANCIAL_STATEMENTS:
+      return "COVENANT_KIND_FINANCIAL_STATEMENTS";
+    case CovenantKind.COVENANT_KIND_STRUCTURE_CHANGE:
+      return "COVENANT_KIND_STRUCTURE_CHANGE";
+    case CovenantKind.COVENANT_KIND_DIVIDEND_NOTICE:
+      return "COVENANT_KIND_DIVIDEND_NOTICE";
+    case CovenantKind.COVENANT_KIND_GENERAL_ASSEMBLY:
+      return "COVENANT_KIND_GENERAL_ASSEMBLY";
+    case CovenantKind.COVENANT_KIND_RESOLUTION:
+      return "COVENANT_KIND_RESOLUTION";
+    case CovenantKind.COVENANT_KIND_INDEPENDENT_REPORT:
+      return "COVENANT_KIND_INDEPENDENT_REPORT";
+    case CovenantKind.COVENANT_KIND_MATERIAL_EVENT:
+      return "COVENANT_KIND_MATERIAL_EVENT";
+    case CovenantKind.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/**
  * Collection is a class of real-world asset the chain will record title for:
  * a deeds registry, a warehouse operator's receipts, a vehicle register.
  *
@@ -232,6 +520,35 @@ export interface Collection {
    * trivial for a large fraud to post and prohibitive for a small holder.
    */
   disputeBondBps: number;
+  /**
+   * attestors is the register of accounts that may attest a sale reported
+   * under this collection. Required when verification is VERIFY_ATTESTORS, and
+   * it must hold at least attestation_threshold entries: a threshold higher
+   * than the register is one no honest sale can ever meet, which turns every
+   * vehicle in the collection into a one-way door.
+   *
+   * # Why a register rather than nothing
+   *
+   * Without one, AttestSale accepts a signature from any address at all, and a
+   * sponsor meets any threshold with N fresh keys for the cost of the gas. The
+   * threshold is the whole of what stands between a shareholder and a sale
+   * reported below what was received, so a threshold anybody can meet is not a
+   * protection, it is the appearance of one.
+   *
+   * # Who sets it, which is the whole of why it works
+   *
+   * Governance, and only governance — the same signer that creates the
+   * collection in the first place. A sponsor cannot appoint their own
+   * attestors, so they cannot manufacture a quorum, and that is the difference
+   * between this register and a decorative one.
+   *
+   * What the chain still cannot decide is whether an account governance
+   * appointed is genuinely independent of the seller. That is not a fact the
+   * chain holds. What it can do is make the appointment a visible, deliberate
+   * act by a signer the seller does not control, which is the same arrangement
+   * x/land uses for the offices that attest a transfer.
+   */
+  attestors: string[];
 }
 
 /**
@@ -281,6 +598,12 @@ export interface Asset {
    * registry rather than by whoever accumulated the tokens.
    */
   parcelId: string;
+  /**
+   * What the tokenised thing does. Set at mint and never edited: a sector an
+   * issuer could revise is a sector an issuer revises after the market has
+   * priced the first one.
+   */
+  sector: Sector;
 }
 
 /**
@@ -300,10 +623,44 @@ export interface Vault {
    * It also removes a halt: there is no holder set to iterate.
    */
   cumulativePerToken: string;
-  /** Total ever paid in, for the solvency view. */
+  /**
+   * Total gross income ever declared against the vehicle, for the solvency
+   * view. Larger than what the module holds for it, because only the holders'
+   * share is ever collected.
+   */
   funded: Coin[];
   /** The denomination income arrives in. */
   denom: string;
+  /**
+   * How many distributions this vault has made.
+   *
+   * A PERIOD is the span between two distributions, and it is what pro-rata
+   * temporis apportions. Zero means none yet: everything since period_start is
+   * the first period.
+   */
+  periodIndex: string;
+  /**
+   * When the current period began: the last distribution, or the moment the
+   * vault started accruing.
+   *
+   * For a vehicle that existed before pro-rata temporis, this is the UPGRADE
+   * HEIGHT's time and not issuance. The chain has no record of when balances
+   * moved before that, so token-seconds for the past cannot be reconstructed,
+   * and assuming everyone held from issuance would credit a buyer from last
+   * week with a year of accrual. The discontinuity is real and is the honest
+   * option; see docs/superpowers/specs.
+   */
+  periodStart: string;
+  /**
+   * What the module account actually holds on this vehicle's behalf.
+   *
+   * One module account serves every vehicle, so a balance is not an ownership
+   * record: without this ledger a vehicle that funded nothing pays its holders
+   * out of a different vehicle's vault, and the bank keeper has no way to
+   * object. Every credit is a transfer in, every debit is a payout, and no
+   * payout is made that this does not cover.
+   */
+  held: Coin[];
 }
 
 /**
@@ -318,6 +675,192 @@ export interface Position {
   lastIndex: string;
   /** Settled but not yet withdrawn. */
   accrued: string;
+  /**
+   * What this holder PAID, in the vault's income denomination, for the tokens
+   * `cost_qty` covers.
+   *
+   * # Why two fields and not one
+   *
+   * A holding can be partly covered. Nine million tokens of which five million
+   * were subscribed at a recorded price and four million arrived as a plain
+   * transfer from somebody with no basis is the ordinary case, not an edge one.
+   * With a single field the interface must either average a known cost with an
+   * unknown one, or report a return on the whole holding that is only true of
+   * part of it. With two it can say: this much returned on this much invested,
+   * and this much not covered.
+   *
+   * # Why it cannot simply be derived
+   *
+   * A token balance records what an account holds and never what it paid, and
+   * tokens move by ordinary bank send, which carries no price. So basis is only
+   * as good as the events allowed to write it: a recorded subscription, where
+   * the party that took the money states the figure, and a marketplace fill,
+   * where the price is in the trade and nobody has to assert anything.
+   *
+   * # Zero is never assumed
+   *
+   * A transfer from a holder with no basis leaves the recipient with none, and
+   * an interface must show that as COST NOT RECORDED rather than as cost zero.
+   * Cost zero reports an infinite return, which is the most flattering and most
+   * wrong figure this module could produce.
+   */
+  costBasis: string;
+  /**
+   * How many tokens `cost_basis` was paid for. Never larger than the balance:
+   * a transfer out reduces both proportionally.
+   */
+  costQty: string;
+  /**
+   * Token-seconds accrued in ONE period and not yet turned into money.
+   *
+   * This is what makes a mid-period sale split the dividend: the seller stops
+   * accruing at the moment of sale and the buyer starts, so each is paid for
+   * the time they actually held rather than for being present when the cheque
+   * was declared.
+   */
+  tokenSeconds: string;
+  /**
+   * Which period those seconds belong to. Carried because the rate is only
+   * known when the period closes, so seconds accrued in period 3 must be paid
+   * at period 3's rate however long the holder waits to settle.
+   */
+  tokenSecondsPeriod: string;
+  /**
+   * When this position last accrued. Every balance change touches it, which is
+   * what keeps the integral of balance over time exact rather than sampled.
+   */
+  lastTouch: string;
+}
+
+/**
+ * PeriodRate is what one distribution paid, kept so a holder who settles long
+ * afterwards is still paid at the rate of the period they held through.
+ *
+ * Two figures rather than one, and the second is what removes a loop:
+ *
+ *   `rate` is money per token-second, and pays a PARTIAL period -- the stretch
+ *   a holder was present for before or after their balance moved.
+ *
+ *   `cumulative_per_token` is the running total of income per token after this
+ *   distribution. A holder who was present for several WHOLE periods is paid
+ *   for all of them by subtracting one of these from another, so settling never
+ *   walks the periods in between however many there are.
+ */
+export interface PeriodRate {
+  assetId: string;
+  periodIndex: string;
+  /**
+   * What this distribution paid, and the total token-seconds it is divided
+   * over.
+   *
+   * Two integers rather than one pre-divided rate, and the reason is precision.
+   * A rate stored as `amount / token_seconds` and later multiplied back by a
+   * holder's seconds loses the division twice: measured, a holder owed exactly
+   * 100,000 was paid 99,999. Kept this way the credit is
+   * `amount * held_seconds / token_seconds` -- one truncation, at the end,
+   * favouring the vault the way every other rounding in this module does.
+   */
+  amount: string;
+  /**
+   * Supply times the period's length: the denominator every holder's share of
+   * this distribution is taken over. Zero for a period of no length, which is
+   * what makes that case detectable rather than a division by zero.
+   */
+  tokenSeconds: string;
+  /**
+   * What THIS distribution paid per token: amount / supply.
+   *
+   * Used when the period had no length at all -- two distributions in one
+   * block. Nobody held for any time, so token-seconds cannot apportion it and
+   * the only sensible answer is the old rule, by balance. Without this the
+   * money is written into the cumulative figure and credited to nobody, which
+   * is how a distribution silently strands in the vault.
+   */
+  perToken: string;
+  /** Income per token accumulated over the vehicle's life, after this one. */
+  cumulativePerToken: string;
+  /**
+   * When the period this paid for ended. The period it covers is
+   * [previous.ended_at, ended_at].
+   */
+  endedAt: string;
+}
+
+/**
+ * Covenant is an undertaking published against a tokenisation: the digest of a
+ * document, what kind of document it is, and when it was filed.
+ *
+ * # Why this is not the same as the asset's uri
+ *
+ * The uri is one string fixed at mint. An operating business publishes for as
+ * long as it exists -- accounts every year, a notice before every assembly, a
+ * disclosure whenever something breaks -- and none of that can be known at the
+ * moment title is created.
+ *
+ * # The chain holds the digest and never the document
+ *
+ * A set of accounts names customers, salaries and counterparties. Writing it to
+ * a public chain is a permanent disclosure made on behalf of people who did not
+ * consent to it. What is stored is a SHA-256 digest, a kind, a title, a period
+ * and a location.
+ *
+ * What that is worth, exactly: it proves a document with these contents existed
+ * at this block and was published by the party that controls the collection. It
+ * proves nothing about whether the accounts are true, whether the assembly was
+ * held, or whether the file can still be fetched.
+ *
+ * # Append-only
+ *
+ * Never deleted, never edited. An operator who could withdraw a disclosure
+ * after publishing it has a register that says whatever is convenient today.
+ * A correction is a new covenant naming the one it supersedes, exactly as a
+ * deal document is.
+ */
+export interface Covenant {
+  id: string;
+  assetId: string;
+  kind: CovenantKind;
+  /** What it is called, for a person reading a list. */
+  title: string;
+  /**
+   * SHA-256 of the document. Exactly 32 bytes; the algorithm is fixed rather
+   * than carried in a field, because an algorithm field is an invitation to
+   * attach an MD5 and call it proof.
+   */
+  sha256: Uint8Array;
+  /**
+   * Where it can be fetched. May be empty and may stop working; the chain makes
+   * no promise about it.
+   */
+  uri: string;
+  /**
+   * The period this covers, as unix seconds. Both zero for a document that
+   * covers a moment rather than a span -- a material event, a resolution.
+   *
+   * Carried because "the 2026 accounts" published late and "the 2027 accounts"
+   * published early are the same filing date and different documents, and a
+   * holder checking whether a year is missing needs the period rather than the
+   * filing.
+   */
+  periodStart: string;
+  periodEnd: string;
+  /**
+   * When a holder must have acted by, as unix seconds. Zero when nothing is
+   * required of them. Set for an assembly notice, and it is the field that
+   * makes a deadline visible as a deadline.
+   */
+  actsBy: string;
+  /** The account that published it: the collection authority at the time. */
+  publishedBy: string;
+  publishedAt: string;
+  /**
+   * The covenant this replaces, and the one that replaced it. Same shape and
+   * same reason as a deal document: a correction goes forward and the earlier
+   * version stays readable, because a dispute is usually about what was said at
+   * a date rather than what is said now.
+   */
+  supersedes: string;
+  supersededBy: string;
 }
 
 /** SaleReport is a reported price inside or past its challenge window. */
@@ -335,6 +878,24 @@ export interface SaleReport {
   /** Attestors who have signed this figure, when the mode requires them. */
   attestors: string[];
   disputed: boolean;
+  /**
+   * The holders' share of the price, actually paid into the vault.
+   *
+   * A reported price is a claim about an off-chain sale. Crediting the index
+   * from the claim alone distributes money the vehicle never received, and the
+   * shared module account makes the shortfall somebody else's. Finalisation
+   * waits on this reaching what the holders are owed.
+   */
+  proceedsPaid:
+    | Coin
+    | undefined;
+  /**
+   * Who challenged the figure, and what they posted to do it. Held so the bond
+   * has somewhere to go: returned when the challenge was right, forfeited to
+   * the vault when it was not.
+   */
+  challenger: string;
+  bond: Coin | undefined;
 }
 
 function createBaseCollection(): Collection {
@@ -345,6 +906,7 @@ function createBaseCollection(): Collection {
     attestationThreshold: 0,
     challengeWindowSeconds: "0",
     disputeBondBps: 0,
+    attestors: [],
   };
 }
 
@@ -367,6 +929,9 @@ export const Collection = {
     }
     if (message.disputeBondBps !== 0) {
       writer.uint32(48).uint32(message.disputeBondBps);
+    }
+    for (const v of message.attestors) {
+      writer.uint32(58).string(v!);
     }
     return writer;
   },
@@ -420,6 +985,13 @@ export const Collection = {
 
           message.disputeBondBps = reader.uint32();
           continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.attestors.push(reader.string());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -439,6 +1011,9 @@ export const Collection = {
         ? globalThis.String(object.challengeWindowSeconds)
         : "0",
       disputeBondBps: isSet(object.disputeBondBps) ? globalThis.Number(object.disputeBondBps) : 0,
+      attestors: globalThis.Array.isArray(object?.attestors)
+        ? object.attestors.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -462,6 +1037,9 @@ export const Collection = {
     if (message.disputeBondBps !== 0) {
       obj.disputeBondBps = Math.round(message.disputeBondBps);
     }
+    if (message.attestors?.length) {
+      obj.attestors = message.attestors;
+    }
     return obj;
   },
 
@@ -476,6 +1054,7 @@ export const Collection = {
     message.attestationThreshold = object.attestationThreshold ?? 0;
     message.challengeWindowSeconds = object.challengeWindowSeconds ?? "0";
     message.disputeBondBps = object.disputeBondBps ?? 0;
+    message.attestors = object.attestors?.map((e) => e) || [];
     return message;
   },
 };
@@ -490,6 +1069,7 @@ function createBaseAsset(): Asset {
     holderShareBps: 0,
     status: 0,
     parcelId: "0",
+    sector: 0,
   };
 }
 
@@ -518,6 +1098,9 @@ export const Asset = {
     }
     if (message.parcelId !== "0") {
       writer.uint32(64).uint64(message.parcelId);
+    }
+    if (message.sector !== 0) {
+      writer.uint32(72).int32(message.sector);
     }
     return writer;
   },
@@ -585,6 +1168,13 @@ export const Asset = {
 
           message.parcelId = longToString(reader.uint64() as Long);
           continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.sector = reader.int32() as any;
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -604,6 +1194,7 @@ export const Asset = {
       holderShareBps: isSet(object.holderShareBps) ? globalThis.Number(object.holderShareBps) : 0,
       status: isSet(object.status) ? statusFromJSON(object.status) : 0,
       parcelId: isSet(object.parcelId) ? globalThis.String(object.parcelId) : "0",
+      sector: isSet(object.sector) ? sectorFromJSON(object.sector) : 0,
     };
   },
 
@@ -633,6 +1224,9 @@ export const Asset = {
     if (message.parcelId !== "0") {
       obj.parcelId = message.parcelId;
     }
+    if (message.sector !== 0) {
+      obj.sector = sectorToJSON(message.sector);
+    }
     return obj;
   },
 
@@ -649,12 +1243,13 @@ export const Asset = {
     message.holderShareBps = object.holderShareBps ?? 0;
     message.status = object.status ?? 0;
     message.parcelId = object.parcelId ?? "0";
+    message.sector = object.sector ?? 0;
     return message;
   },
 };
 
 function createBaseVault(): Vault {
-  return { assetId: "0", cumulativePerToken: "", funded: [], denom: "" };
+  return { assetId: "0", cumulativePerToken: "", funded: [], denom: "", periodIndex: "0", periodStart: "0", held: [] };
 }
 
 export const Vault = {
@@ -670,6 +1265,15 @@ export const Vault = {
     }
     if (message.denom !== "") {
       writer.uint32(34).string(message.denom);
+    }
+    if (message.periodIndex !== "0") {
+      writer.uint32(48).uint64(message.periodIndex);
+    }
+    if (message.periodStart !== "0") {
+      writer.uint32(56).int64(message.periodStart);
+    }
+    for (const v of message.held) {
+      Coin.encode(v!, writer.uint32(42).fork()).ldelim();
     }
     return writer;
   },
@@ -709,6 +1313,27 @@ export const Vault = {
 
           message.denom = reader.string();
           continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.periodIndex = longToString(reader.uint64() as Long);
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.periodStart = longToString(reader.int64() as Long);
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.held.push(Coin.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -724,6 +1349,9 @@ export const Vault = {
       cumulativePerToken: isSet(object.cumulativePerToken) ? globalThis.String(object.cumulativePerToken) : "",
       funded: globalThis.Array.isArray(object?.funded) ? object.funded.map((e: any) => Coin.fromJSON(e)) : [],
       denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      periodIndex: isSet(object.periodIndex) ? globalThis.String(object.periodIndex) : "0",
+      periodStart: isSet(object.periodStart) ? globalThis.String(object.periodStart) : "0",
+      held: globalThis.Array.isArray(object?.held) ? object.held.map((e: any) => Coin.fromJSON(e)) : [],
     };
   },
 
@@ -741,6 +1369,15 @@ export const Vault = {
     if (message.denom !== "") {
       obj.denom = message.denom;
     }
+    if (message.periodIndex !== "0") {
+      obj.periodIndex = message.periodIndex;
+    }
+    if (message.periodStart !== "0") {
+      obj.periodStart = message.periodStart;
+    }
+    if (message.held?.length) {
+      obj.held = message.held.map((e) => Coin.toJSON(e));
+    }
     return obj;
   },
 
@@ -753,12 +1390,25 @@ export const Vault = {
     message.cumulativePerToken = object.cumulativePerToken ?? "";
     message.funded = object.funded?.map((e) => Coin.fromPartial(e)) || [];
     message.denom = object.denom ?? "";
+    message.periodIndex = object.periodIndex ?? "0";
+    message.periodStart = object.periodStart ?? "0";
+    message.held = object.held?.map((e) => Coin.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBasePosition(): Position {
-  return { assetId: "0", holder: "", lastIndex: "", accrued: "" };
+  return {
+    assetId: "0",
+    holder: "",
+    lastIndex: "",
+    accrued: "",
+    costBasis: "",
+    costQty: "",
+    tokenSeconds: "",
+    tokenSecondsPeriod: "0",
+    lastTouch: "0",
+  };
 }
 
 export const Position = {
@@ -774,6 +1424,21 @@ export const Position = {
     }
     if (message.accrued !== "") {
       writer.uint32(34).string(message.accrued);
+    }
+    if (message.costBasis !== "") {
+      writer.uint32(42).string(message.costBasis);
+    }
+    if (message.costQty !== "") {
+      writer.uint32(50).string(message.costQty);
+    }
+    if (message.tokenSeconds !== "") {
+      writer.uint32(58).string(message.tokenSeconds);
+    }
+    if (message.tokenSecondsPeriod !== "0") {
+      writer.uint32(64).uint64(message.tokenSecondsPeriod);
+    }
+    if (message.lastTouch !== "0") {
+      writer.uint32(72).int64(message.lastTouch);
     }
     return writer;
   },
@@ -813,6 +1478,41 @@ export const Position = {
 
           message.accrued = reader.string();
           continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.costBasis = reader.string();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.costQty = reader.string();
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.tokenSeconds = reader.string();
+          continue;
+        case 8:
+          if (tag !== 64) {
+            break;
+          }
+
+          message.tokenSecondsPeriod = longToString(reader.uint64() as Long);
+          continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.lastTouch = longToString(reader.int64() as Long);
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -828,6 +1528,11 @@ export const Position = {
       holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
       lastIndex: isSet(object.lastIndex) ? globalThis.String(object.lastIndex) : "",
       accrued: isSet(object.accrued) ? globalThis.String(object.accrued) : "",
+      costBasis: isSet(object.costBasis) ? globalThis.String(object.costBasis) : "",
+      costQty: isSet(object.costQty) ? globalThis.String(object.costQty) : "",
+      tokenSeconds: isSet(object.tokenSeconds) ? globalThis.String(object.tokenSeconds) : "",
+      tokenSecondsPeriod: isSet(object.tokenSecondsPeriod) ? globalThis.String(object.tokenSecondsPeriod) : "0",
+      lastTouch: isSet(object.lastTouch) ? globalThis.String(object.lastTouch) : "0",
     };
   },
 
@@ -845,6 +1550,21 @@ export const Position = {
     if (message.accrued !== "") {
       obj.accrued = message.accrued;
     }
+    if (message.costBasis !== "") {
+      obj.costBasis = message.costBasis;
+    }
+    if (message.costQty !== "") {
+      obj.costQty = message.costQty;
+    }
+    if (message.tokenSeconds !== "") {
+      obj.tokenSeconds = message.tokenSeconds;
+    }
+    if (message.tokenSecondsPeriod !== "0") {
+      obj.tokenSecondsPeriod = message.tokenSecondsPeriod;
+    }
+    if (message.lastTouch !== "0") {
+      obj.lastTouch = message.lastTouch;
+    }
     return obj;
   },
 
@@ -857,6 +1577,421 @@ export const Position = {
     message.holder = object.holder ?? "";
     message.lastIndex = object.lastIndex ?? "";
     message.accrued = object.accrued ?? "";
+    message.costBasis = object.costBasis ?? "";
+    message.costQty = object.costQty ?? "";
+    message.tokenSeconds = object.tokenSeconds ?? "";
+    message.tokenSecondsPeriod = object.tokenSecondsPeriod ?? "0";
+    message.lastTouch = object.lastTouch ?? "0";
+    return message;
+  },
+};
+
+function createBasePeriodRate(): PeriodRate {
+  return {
+    assetId: "0",
+    periodIndex: "0",
+    amount: "",
+    tokenSeconds: "",
+    perToken: "",
+    cumulativePerToken: "",
+    endedAt: "0",
+  };
+}
+
+export const PeriodRate = {
+  encode(message: PeriodRate, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.assetId !== "0") {
+      writer.uint32(8).uint64(message.assetId);
+    }
+    if (message.periodIndex !== "0") {
+      writer.uint32(16).uint64(message.periodIndex);
+    }
+    if (message.amount !== "") {
+      writer.uint32(26).string(message.amount);
+    }
+    if (message.tokenSeconds !== "") {
+      writer.uint32(50).string(message.tokenSeconds);
+    }
+    if (message.perToken !== "") {
+      writer.uint32(58).string(message.perToken);
+    }
+    if (message.cumulativePerToken !== "") {
+      writer.uint32(34).string(message.cumulativePerToken);
+    }
+    if (message.endedAt !== "0") {
+      writer.uint32(40).int64(message.endedAt);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): PeriodRate {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePeriodRate();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.periodIndex = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount = reader.string();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.tokenSeconds = reader.string();
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.perToken = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.cumulativePerToken = reader.string();
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.endedAt = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PeriodRate {
+    return {
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      periodIndex: isSet(object.periodIndex) ? globalThis.String(object.periodIndex) : "0",
+      amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
+      tokenSeconds: isSet(object.tokenSeconds) ? globalThis.String(object.tokenSeconds) : "",
+      perToken: isSet(object.perToken) ? globalThis.String(object.perToken) : "",
+      cumulativePerToken: isSet(object.cumulativePerToken) ? globalThis.String(object.cumulativePerToken) : "",
+      endedAt: isSet(object.endedAt) ? globalThis.String(object.endedAt) : "0",
+    };
+  },
+
+  toJSON(message: PeriodRate): unknown {
+    const obj: any = {};
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.periodIndex !== "0") {
+      obj.periodIndex = message.periodIndex;
+    }
+    if (message.amount !== "") {
+      obj.amount = message.amount;
+    }
+    if (message.tokenSeconds !== "") {
+      obj.tokenSeconds = message.tokenSeconds;
+    }
+    if (message.perToken !== "") {
+      obj.perToken = message.perToken;
+    }
+    if (message.cumulativePerToken !== "") {
+      obj.cumulativePerToken = message.cumulativePerToken;
+    }
+    if (message.endedAt !== "0") {
+      obj.endedAt = message.endedAt;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<PeriodRate>): PeriodRate {
+    return PeriodRate.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<PeriodRate>): PeriodRate {
+    const message = createBasePeriodRate();
+    message.assetId = object.assetId ?? "0";
+    message.periodIndex = object.periodIndex ?? "0";
+    message.amount = object.amount ?? "";
+    message.tokenSeconds = object.tokenSeconds ?? "";
+    message.perToken = object.perToken ?? "";
+    message.cumulativePerToken = object.cumulativePerToken ?? "";
+    message.endedAt = object.endedAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseCovenant(): Covenant {
+  return {
+    id: "0",
+    assetId: "0",
+    kind: 0,
+    title: "",
+    sha256: new Uint8Array(0),
+    uri: "",
+    periodStart: "0",
+    periodEnd: "0",
+    actsBy: "0",
+    publishedBy: "",
+    publishedAt: "0",
+    supersedes: "0",
+    supersededBy: "0",
+  };
+}
+
+export const Covenant = {
+  encode(message: Covenant, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.id !== "0") {
+      writer.uint32(8).uint64(message.id);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    if (message.kind !== 0) {
+      writer.uint32(24).int32(message.kind);
+    }
+    if (message.title !== "") {
+      writer.uint32(34).string(message.title);
+    }
+    if (message.sha256.length !== 0) {
+      writer.uint32(42).bytes(message.sha256);
+    }
+    if (message.uri !== "") {
+      writer.uint32(50).string(message.uri);
+    }
+    if (message.periodStart !== "0") {
+      writer.uint32(56).int64(message.periodStart);
+    }
+    if (message.periodEnd !== "0") {
+      writer.uint32(64).int64(message.periodEnd);
+    }
+    if (message.actsBy !== "0") {
+      writer.uint32(72).int64(message.actsBy);
+    }
+    if (message.publishedBy !== "") {
+      writer.uint32(82).string(message.publishedBy);
+    }
+    if (message.publishedAt !== "0") {
+      writer.uint32(88).int64(message.publishedAt);
+    }
+    if (message.supersedes !== "0") {
+      writer.uint32(96).uint64(message.supersedes);
+    }
+    if (message.supersededBy !== "0") {
+      writer.uint32(104).uint64(message.supersededBy);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Covenant {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCovenant();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.id = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.kind = reader.int32() as any;
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.title = reader.string();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.sha256 = reader.bytes();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.uri = reader.string();
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.periodStart = longToString(reader.int64() as Long);
+          continue;
+        case 8:
+          if (tag !== 64) {
+            break;
+          }
+
+          message.periodEnd = longToString(reader.int64() as Long);
+          continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.actsBy = longToString(reader.int64() as Long);
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.publishedBy = reader.string();
+          continue;
+        case 11:
+          if (tag !== 88) {
+            break;
+          }
+
+          message.publishedAt = longToString(reader.int64() as Long);
+          continue;
+        case 12:
+          if (tag !== 96) {
+            break;
+          }
+
+          message.supersedes = longToString(reader.uint64() as Long);
+          continue;
+        case 13:
+          if (tag !== 104) {
+            break;
+          }
+
+          message.supersededBy = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Covenant {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "0",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      kind: isSet(object.kind) ? covenantKindFromJSON(object.kind) : 0,
+      title: isSet(object.title) ? globalThis.String(object.title) : "",
+      sha256: isSet(object.sha256) ? bytesFromBase64(object.sha256) : new Uint8Array(0),
+      uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
+      periodStart: isSet(object.periodStart) ? globalThis.String(object.periodStart) : "0",
+      periodEnd: isSet(object.periodEnd) ? globalThis.String(object.periodEnd) : "0",
+      actsBy: isSet(object.actsBy) ? globalThis.String(object.actsBy) : "0",
+      publishedBy: isSet(object.publishedBy) ? globalThis.String(object.publishedBy) : "",
+      publishedAt: isSet(object.publishedAt) ? globalThis.String(object.publishedAt) : "0",
+      supersedes: isSet(object.supersedes) ? globalThis.String(object.supersedes) : "0",
+      supersededBy: isSet(object.supersededBy) ? globalThis.String(object.supersededBy) : "0",
+    };
+  },
+
+  toJSON(message: Covenant): unknown {
+    const obj: any = {};
+    if (message.id !== "0") {
+      obj.id = message.id;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.kind !== 0) {
+      obj.kind = covenantKindToJSON(message.kind);
+    }
+    if (message.title !== "") {
+      obj.title = message.title;
+    }
+    if (message.sha256.length !== 0) {
+      obj.sha256 = base64FromBytes(message.sha256);
+    }
+    if (message.uri !== "") {
+      obj.uri = message.uri;
+    }
+    if (message.periodStart !== "0") {
+      obj.periodStart = message.periodStart;
+    }
+    if (message.periodEnd !== "0") {
+      obj.periodEnd = message.periodEnd;
+    }
+    if (message.actsBy !== "0") {
+      obj.actsBy = message.actsBy;
+    }
+    if (message.publishedBy !== "") {
+      obj.publishedBy = message.publishedBy;
+    }
+    if (message.publishedAt !== "0") {
+      obj.publishedAt = message.publishedAt;
+    }
+    if (message.supersedes !== "0") {
+      obj.supersedes = message.supersedes;
+    }
+    if (message.supersededBy !== "0") {
+      obj.supersededBy = message.supersededBy;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<Covenant>): Covenant {
+    return Covenant.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Covenant>): Covenant {
+    const message = createBaseCovenant();
+    message.id = object.id ?? "0";
+    message.assetId = object.assetId ?? "0";
+    message.kind = object.kind ?? 0;
+    message.title = object.title ?? "";
+    message.sha256 = object.sha256 ?? new Uint8Array(0);
+    message.uri = object.uri ?? "";
+    message.periodStart = object.periodStart ?? "0";
+    message.periodEnd = object.periodEnd ?? "0";
+    message.actsBy = object.actsBy ?? "0";
+    message.publishedBy = object.publishedBy ?? "";
+    message.publishedAt = object.publishedAt ?? "0";
+    message.supersedes = object.supersedes ?? "0";
+    message.supersededBy = object.supersededBy ?? "0";
     return message;
   },
 };
@@ -870,6 +2005,9 @@ function createBaseSaleReport(): SaleReport {
     claimableAt: undefined,
     attestors: [],
     disputed: false,
+    proceedsPaid: undefined,
+    challenger: "",
+    bond: undefined,
   };
 }
 
@@ -895,6 +2033,15 @@ export const SaleReport = {
     }
     if (message.disputed !== false) {
       writer.uint32(56).bool(message.disputed);
+    }
+    if (message.proceedsPaid !== undefined) {
+      Coin.encode(message.proceedsPaid, writer.uint32(66).fork()).ldelim();
+    }
+    if (message.challenger !== "") {
+      writer.uint32(74).string(message.challenger);
+    }
+    if (message.bond !== undefined) {
+      Coin.encode(message.bond, writer.uint32(82).fork()).ldelim();
     }
     return writer;
   },
@@ -955,6 +2102,27 @@ export const SaleReport = {
 
           message.disputed = reader.bool();
           continue;
+        case 8:
+          if (tag !== 66) {
+            break;
+          }
+
+          message.proceedsPaid = Coin.decode(reader, reader.uint32());
+          continue;
+        case 9:
+          if (tag !== 74) {
+            break;
+          }
+
+          message.challenger = reader.string();
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.bond = Coin.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -975,6 +2143,9 @@ export const SaleReport = {
         ? object.attestors.map((e: any) => globalThis.String(e))
         : [],
       disputed: isSet(object.disputed) ? globalThis.Boolean(object.disputed) : false,
+      proceedsPaid: isSet(object.proceedsPaid) ? Coin.fromJSON(object.proceedsPaid) : undefined,
+      challenger: isSet(object.challenger) ? globalThis.String(object.challenger) : "",
+      bond: isSet(object.bond) ? Coin.fromJSON(object.bond) : undefined,
     };
   },
 
@@ -1001,6 +2172,15 @@ export const SaleReport = {
     if (message.disputed !== false) {
       obj.disputed = message.disputed;
     }
+    if (message.proceedsPaid !== undefined) {
+      obj.proceedsPaid = Coin.toJSON(message.proceedsPaid);
+    }
+    if (message.challenger !== "") {
+      obj.challenger = message.challenger;
+    }
+    if (message.bond !== undefined) {
+      obj.bond = Coin.toJSON(message.bond);
+    }
     return obj;
   },
 
@@ -1016,9 +2196,39 @@ export const SaleReport = {
     message.claimableAt = object.claimableAt ?? undefined;
     message.attestors = object.attestors?.map((e) => e) || [];
     message.disputed = object.disputed ?? false;
+    message.proceedsPaid = (object.proceedsPaid !== undefined && object.proceedsPaid !== null)
+      ? Coin.fromPartial(object.proceedsPaid)
+      : undefined;
+    message.challenger = object.challenger ?? "";
+    message.bond = (object.bond !== undefined && object.bond !== null) ? Coin.fromPartial(object.bond) : undefined;
     return message;
   },
 };
+
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
+}
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 

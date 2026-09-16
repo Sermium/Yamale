@@ -74,6 +74,55 @@ export interface EventReserveChanged {
   deposited: boolean;
 }
 
+/**
+ * EventHoldOverdue is emitted at every cycle boundary for a slice that has been
+ * held longer than max_hold_cycles.
+ *
+ * It is a repeated alarm and not a one-off, because an event emitted once at
+ * the moment a bound is crossed is one an operator can be on leave for, and the
+ * state it describes — somebody's collateral locked with no settlement in
+ * sight — does not go away while nobody is looking.
+ *
+ * The chain does nothing else about it. Releasing collateral automatically once
+ * a timer expired would be a settlement system quietly giving up on paying
+ * people, and the reason held slices are retried unchanged is that nobody
+ * wanted obligations resolved by anything but a decision. So this event exists
+ * to make sure somebody knows, and MsgAbandonHeldSlice is where the decision
+ * is taken.
+ */
+export interface EventHoldOverdue {
+  cycleId: string;
+  denom: string;
+  /**
+   * held_since is the cycle at which this slice was FIRST held. It does not
+   * move when a retry fails, so the age below is real.
+   */
+  heldSince: string;
+  cyclesHeld: string;
+  bound: string;
+}
+
+/**
+ * EventHeldSliceAbandoned records governance giving up on settling a slice and
+ * releasing the collateral behind it.
+ *
+ * Worth reading carefully if you find one of these in a log: it means debtors
+ * got their collateral back while creditors in the same slice were never paid.
+ * The obligations are untouched and still record who owed what — the debt did
+ * not disappear, it left this ledger.
+ */
+export interface EventHeldSliceAbandoned {
+  cycleId: string;
+  denom: string;
+  cyclesHeld: string;
+  reason: string;
+  /**
+   * released names each debtor and what returned to them, so the effect is in
+   * the log rather than only in the state it changed.
+   */
+  released: string[];
+}
+
 function createBaseEventObligationSubmitted(): EventObligationSubmitted {
   return { id: "0", cycleId: "0", mode: 0, fromParticipant: "", toParticipant: "", denom: "", amount: "" };
 }
@@ -569,6 +618,244 @@ export const EventReserveChanged = {
     message.denom = object.denom ?? "";
     message.amount = object.amount ?? "";
     message.deposited = object.deposited ?? false;
+    return message;
+  },
+};
+
+function createBaseEventHoldOverdue(): EventHoldOverdue {
+  return { cycleId: "0", denom: "", heldSince: "0", cyclesHeld: "0", bound: "0" };
+}
+
+export const EventHoldOverdue = {
+  encode(message: EventHoldOverdue, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.cycleId !== "0") {
+      writer.uint32(8).uint64(message.cycleId);
+    }
+    if (message.denom !== "") {
+      writer.uint32(18).string(message.denom);
+    }
+    if (message.heldSince !== "0") {
+      writer.uint32(24).uint64(message.heldSince);
+    }
+    if (message.cyclesHeld !== "0") {
+      writer.uint32(32).uint64(message.cyclesHeld);
+    }
+    if (message.bound !== "0") {
+      writer.uint32(40).uint64(message.bound);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventHoldOverdue {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHoldOverdue();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.cycleId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.heldSince = longToString(reader.uint64() as Long);
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.cyclesHeld = longToString(reader.uint64() as Long);
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.bound = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHoldOverdue {
+    return {
+      cycleId: isSet(object.cycleId) ? globalThis.String(object.cycleId) : "0",
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      heldSince: isSet(object.heldSince) ? globalThis.String(object.heldSince) : "0",
+      cyclesHeld: isSet(object.cyclesHeld) ? globalThis.String(object.cyclesHeld) : "0",
+      bound: isSet(object.bound) ? globalThis.String(object.bound) : "0",
+    };
+  },
+
+  toJSON(message: EventHoldOverdue): unknown {
+    const obj: any = {};
+    if (message.cycleId !== "0") {
+      obj.cycleId = message.cycleId;
+    }
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.heldSince !== "0") {
+      obj.heldSince = message.heldSince;
+    }
+    if (message.cyclesHeld !== "0") {
+      obj.cyclesHeld = message.cyclesHeld;
+    }
+    if (message.bound !== "0") {
+      obj.bound = message.bound;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHoldOverdue>): EventHoldOverdue {
+    return EventHoldOverdue.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHoldOverdue>): EventHoldOverdue {
+    const message = createBaseEventHoldOverdue();
+    message.cycleId = object.cycleId ?? "0";
+    message.denom = object.denom ?? "";
+    message.heldSince = object.heldSince ?? "0";
+    message.cyclesHeld = object.cyclesHeld ?? "0";
+    message.bound = object.bound ?? "0";
+    return message;
+  },
+};
+
+function createBaseEventHeldSliceAbandoned(): EventHeldSliceAbandoned {
+  return { cycleId: "0", denom: "", cyclesHeld: "0", reason: "", released: [] };
+}
+
+export const EventHeldSliceAbandoned = {
+  encode(message: EventHeldSliceAbandoned, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.cycleId !== "0") {
+      writer.uint32(8).uint64(message.cycleId);
+    }
+    if (message.denom !== "") {
+      writer.uint32(18).string(message.denom);
+    }
+    if (message.cyclesHeld !== "0") {
+      writer.uint32(24).uint64(message.cyclesHeld);
+    }
+    if (message.reason !== "") {
+      writer.uint32(34).string(message.reason);
+    }
+    for (const v of message.released) {
+      writer.uint32(42).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventHeldSliceAbandoned {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHeldSliceAbandoned();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.cycleId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.cyclesHeld = longToString(reader.uint64() as Long);
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.released.push(reader.string());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHeldSliceAbandoned {
+    return {
+      cycleId: isSet(object.cycleId) ? globalThis.String(object.cycleId) : "0",
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      cyclesHeld: isSet(object.cyclesHeld) ? globalThis.String(object.cyclesHeld) : "0",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+      released: globalThis.Array.isArray(object?.released) ? object.released.map((e: any) => globalThis.String(e)) : [],
+    };
+  },
+
+  toJSON(message: EventHeldSliceAbandoned): unknown {
+    const obj: any = {};
+    if (message.cycleId !== "0") {
+      obj.cycleId = message.cycleId;
+    }
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.cyclesHeld !== "0") {
+      obj.cyclesHeld = message.cyclesHeld;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    if (message.released?.length) {
+      obj.released = message.released;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHeldSliceAbandoned>): EventHeldSliceAbandoned {
+    return EventHeldSliceAbandoned.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHeldSliceAbandoned>): EventHeldSliceAbandoned {
+    const message = createBaseEventHeldSliceAbandoned();
+    message.cycleId = object.cycleId ?? "0";
+    message.denom = object.denom ?? "";
+    message.cyclesHeld = object.cyclesHeld ?? "0";
+    message.reason = object.reason ?? "";
+    message.released = object.released?.map((e) => e) || [];
     return message;
   },
 };

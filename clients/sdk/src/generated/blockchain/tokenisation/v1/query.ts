@@ -10,53 +10,92 @@ import _m0 from "protobufjs/minimal.js";
 import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pagination.ts";
 import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 import { Params } from "./params.ts";
-import { Asset, Collection, SaleReport, Vault } from "./tokenisation.ts";
+import { Asset, Collection, Covenant, SaleReport, Vault } from "./tokenisation.ts";
 
 export const protobufPackage = "blockchain.tokenisation.v1";
 
+/** QueryParamsRequest is the request type for the Params RPC. */
 export interface QueryParamsRequest {
 }
 
+/** QueryParamsResponse carries the module parameters. */
 export interface QueryParamsResponse {
   params: Params | undefined;
 }
 
+/** QueryCollectionsRequest pages through the collections. */
 export interface QueryCollectionsRequest {
   pagination: PageRequest | undefined;
 }
 
+/** QueryCollectionsResponse carries a page of collections. */
 export interface QueryCollectionsResponse {
   collections: Collection[];
   pagination: PageResponse | undefined;
 }
 
+/**
+ * QueryAssetsRequest pages through vehicles, narrowed to one collection
+ * when collection_id is set and across all of them when it is not.
+ */
 export interface QueryAssetsRequest {
   collectionId: string;
   pagination: PageRequest | undefined;
 }
 
+/** QueryAssetsResponse carries a page of vehicles. */
 export interface QueryAssetsResponse {
   assets: Asset[];
   pagination: PageResponse | undefined;
 }
 
+/** QueryAssetRequest names one vehicle by its chain id. */
 export interface QueryAssetRequest {
   assetId: string;
 }
 
+/**
+ * QueryAssetResponse carries the vehicle, its vault and its sale report if
+ * one has been made. The sale is absent rather than empty when none has,
+ * so "not sold" and "sold for nothing" cannot be confused.
+ */
 export interface QueryAssetResponse {
   asset: Asset | undefined;
   vault: Vault | undefined;
   sale: SaleReport | undefined;
 }
 
+/** QueryEntitlementRequest names a holder and the vehicle they hold. */
 export interface QueryEntitlementRequest {
   assetId: string;
   holder: string;
 }
 
+/**
+ * QueryEntitlementResponse is what the holder could withdraw right now,
+ * settled income included — not the balance of their last settlement.
+ */
 export interface QueryEntitlementResponse {
   owed: Coin | undefined;
+}
+
+/** QueryCovenantsRequest asks for one tokenisation's filings. */
+export interface QueryCovenantsRequest {
+  assetId: string;
+  /**
+   * Omit filings that have been corrected. False by default: what was said at a
+   * date is usually the question, and a reader who can only see the current
+   * version cannot answer it.
+   */
+  currentOnly: boolean;
+}
+
+/**
+ * QueryCovenantsResponse lists them, oldest first, which is the order the
+ * vehicle's life happened in.
+ */
+export interface QueryCovenantsResponse {
+  covenants: Covenant[];
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -729,16 +768,171 @@ export const QueryEntitlementResponse = {
   },
 };
 
+function createBaseQueryCovenantsRequest(): QueryCovenantsRequest {
+  return { assetId: "0", currentOnly: false };
+}
+
+export const QueryCovenantsRequest = {
+  encode(message: QueryCovenantsRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.assetId !== "0") {
+      writer.uint32(8).uint64(message.assetId);
+    }
+    if (message.currentOnly !== false) {
+      writer.uint32(16).bool(message.currentOnly);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryCovenantsRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryCovenantsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.currentOnly = reader.bool();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryCovenantsRequest {
+    return {
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      currentOnly: isSet(object.currentOnly) ? globalThis.Boolean(object.currentOnly) : false,
+    };
+  },
+
+  toJSON(message: QueryCovenantsRequest): unknown {
+    const obj: any = {};
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.currentOnly !== false) {
+      obj.currentOnly = message.currentOnly;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryCovenantsRequest>): QueryCovenantsRequest {
+    return QueryCovenantsRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryCovenantsRequest>): QueryCovenantsRequest {
+    const message = createBaseQueryCovenantsRequest();
+    message.assetId = object.assetId ?? "0";
+    message.currentOnly = object.currentOnly ?? false;
+    return message;
+  },
+};
+
+function createBaseQueryCovenantsResponse(): QueryCovenantsResponse {
+  return { covenants: [] };
+}
+
+export const QueryCovenantsResponse = {
+  encode(message: QueryCovenantsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.covenants) {
+      Covenant.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryCovenantsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryCovenantsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.covenants.push(Covenant.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryCovenantsResponse {
+    return {
+      covenants: globalThis.Array.isArray(object?.covenants)
+        ? object.covenants.map((e: any) => Covenant.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: QueryCovenantsResponse): unknown {
+    const obj: any = {};
+    if (message.covenants?.length) {
+      obj.covenants = message.covenants.map((e) => Covenant.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryCovenantsResponse>): QueryCovenantsResponse {
+    return QueryCovenantsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryCovenantsResponse>): QueryCovenantsResponse {
+    const message = createBaseQueryCovenantsResponse();
+    message.covenants = object.covenants?.map((e) => Covenant.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+/**
+ * Query is the read side of the closed-end vehicle registry.
+ *
+ * Open to the public on this chain, deliberately: an offering nobody can
+ * inspect is an offering nobody should subscribe to, and these records disclose
+ * only what a prospectus would.
+ */
 export interface Query {
+  /** Params returns the module parameters. */
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse>;
+  /**
+   * Collections lists the registries vehicles are minted into. A collection is
+   * who may mint, how a sale is verified, and how long a reported price sits
+   * before it can be acted on.
+   */
   Collections(request: QueryCollectionsRequest): Promise<QueryCollectionsResponse>;
+  /** Assets lists the vehicles in a collection, or across all of them. */
   Assets(request: QueryAssetsRequest): Promise<QueryAssetsResponse>;
+  /**
+   * Asset returns one vehicle with its vault and any reported sale, which is
+   * everything a holder needs to decide whether to redeem.
+   */
   Asset(request: QueryAssetRequest): Promise<QueryAssetResponse>;
   /**
    * What an account is owed right now, including income that has accrued since
    * its balance last moved.
    */
   Entitlement(request: QueryEntitlementRequest): Promise<QueryEntitlementResponse>;
+  /** Covenants lists what has been published against one tokenisation. */
+  Covenants(request: QueryCovenantsRequest): Promise<QueryCovenantsResponse>;
 }
 
 export const QueryServiceName = "blockchain.tokenisation.v1.Query";
@@ -753,6 +947,7 @@ export class QueryClientImpl implements Query {
     this.Assets = this.Assets.bind(this);
     this.Asset = this.Asset.bind(this);
     this.Entitlement = this.Entitlement.bind(this);
+    this.Covenants = this.Covenants.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -782,6 +977,12 @@ export class QueryClientImpl implements Query {
     const data = QueryEntitlementRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Entitlement", data);
     return promise.then((data) => QueryEntitlementResponse.decode(_m0.Reader.create(data)));
+  }
+
+  Covenants(request: QueryCovenantsRequest): Promise<QueryCovenantsResponse> {
+    const data = QueryCovenantsRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "Covenants", data);
+    return promise.then((data) => QueryCovenantsResponse.decode(_m0.Reader.create(data)));
   }
 }
 

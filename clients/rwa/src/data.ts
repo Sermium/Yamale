@@ -20,9 +20,11 @@ import {
   assets as fetchAssets,
   balances as fetchBalances,
   collections as fetchCollections,
+  covenants as fetchCovenants,
   entitlement as fetchEntitlement,
   landAuthorisation,
   parcel as fetchParcel,
+  position as fetchPosition,
   supplyOf,
   balanceOf,
   vehicle as fetchVehicle,
@@ -32,6 +34,8 @@ import {
   holders,
   type Holder,
 } from './chain.ts';
+import type { Covenant } from './covenant.ts';
+import type { Position } from './position.ts';
 import { isRealId, landGate, type Asset, type Coin, type Collection, type LandGate } from './vehicle.ts';
 
 /** A read in flight, or its result. */
@@ -167,6 +171,26 @@ export function useLand(parcelId: string, nowSeconds: number): Load<LandView> {
   return state;
 }
 
+/* ---------------------------------------------------------- what was filed */
+
+/**
+ * The register of what has been published against one tokenisation.
+ *
+ * Its failure is kept whole rather than flattened to an empty list, and on this
+ * panel that matters more than most: "this operator has filed nothing" is an
+ * accusation, and rendering it because a node did not answer would make it
+ * against an operator who may have filed everything. The three outcomes stay
+ * distinct all the way to the render.
+ *
+ * A vehicle that has never been fractionalised still gets asked. An operator
+ * can publish against title before shares exist — a valuation, an independent
+ * report — and skipping the query for those would hide exactly the filings a
+ * reader wants before they subscribe.
+ */
+export function useCovenants(assetId: string): [Load<Covenant[]>, () => void] {
+  return useRead(() => fetchCovenants(assetId), [assetId]);
+}
+
 /* ------------------------------------------------------------- one holding */
 
 export interface Holding {
@@ -178,6 +202,17 @@ export interface Holding {
   owed: Coin | null;
   /** Set when the entitlement query itself failed, so a zero is not implied. */
   owedUnknown: boolean;
+  /**
+   * The chain's position record: what was paid, and what is accruing.
+   *
+   * Null means the chain answered that there is no such position, which is a
+   * finding — nobody ever recorded a cost — and NOT the absence of an answer.
+   * `positionUnknown` carries that separately for the same reason `owedUnknown`
+   * exists: rendering a failed read as "cost not recorded" would tell somebody
+   * the chain has forgotten what they paid when it has not been asked.
+   */
+  position: Position | null;
+  positionUnknown: boolean;
 }
 
 /**
@@ -206,7 +241,10 @@ export function useHolding(
         loading: false,
         outcome: {
           ok: true,
-          value: { balance: null, supply: null, owed: null, owedUnknown: false },
+          value: {
+            balance: null, supply: null, owed: null, owedUnknown: false,
+            position: null, positionUnknown: false,
+          },
           height: 0,
         },
       });
@@ -218,7 +256,8 @@ export function useHolding(
       supplyOf(fractionDenom),
       address ? balanceOf(address, fractionDenom) : Promise.resolve(null),
       address ? fetchEntitlement(assetId, address) : Promise.resolve(null),
-    ]).then(([supply, balance, owed]) => {
+      address ? fetchPosition(assetId, address) : Promise.resolve(null),
+    ]).then(([supply, balance, owed, position]) => {
       if (!live) return;
       setState({
         loading: false,
@@ -231,6 +270,13 @@ export function useHolding(
             // Only a real failure counts. No address means nothing was asked,
             // which is not the same as an unanswered question.
             owedUnknown: owed !== null && !owed.ok && owed.reason === 'unreachable',
+            position: position && position.ok ? position.value : null,
+            // A refusal counts here as well as a timeout, and deliberately: the
+            // position is read out of the raw store, so a node that has stopped
+            // serving that path answers 'refused' rather than failing to
+            // answer. Both mean "we do not know what this cost", and neither
+            // means "nothing was paid".
+            positionUnknown: position !== null && !position.ok,
           },
           height: owed && owed.ok ? owed.height : 0,
         },

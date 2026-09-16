@@ -76,6 +76,42 @@ export interface MsgApproveIssuer {
 export interface MsgApproveIssuerResponse {
 }
 
+/**
+ * MsgRevokeIssuer takes a currency's issuing licence away.
+ *
+ * Until this existed there was no way to remove an approved issuer at all. The
+ * message set had ApproveIssuer and nothing else, and ApproveIssuer refuses an
+ * application that is no longer Pending — so a compromised issuer key could not
+ * be replaced by governance without a chain upgrade, on a chain where one key
+ * was the issuer for every currency.
+ *
+ * Revoking leaves the currency registered and its supply outstanding. It stops
+ * new issuance and nothing else: burning what is already held is a separate
+ * decision belonging to whoever holds it.
+ */
+export interface MsgRevokeIssuer {
+  /**
+   * Governance, or the national authority whose perimeter the issuer sits in —
+   * the same test ApproveIssuer applies, read from the stored record rather
+   * than from this message.
+   */
+  authority: string;
+  denom: string;
+  /**
+   * Recorded on the event. A licence withdrawn with no stated grounds is not
+   * one anybody can argue with afterwards.
+   */
+  reason: string;
+}
+
+/**
+ * MsgRevokeIssuerResponse is empty. Revocation stops new issuance and
+ * changes nothing about the supply already outstanding, so there is no
+ * figure to report.
+ */
+export interface MsgRevokeIssuerResponse {
+}
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -798,6 +834,138 @@ export const MsgApproveIssuerResponse = {
   },
 };
 
+function createBaseMsgRevokeIssuer(): MsgRevokeIssuer {
+  return { authority: "", denom: "", reason: "" };
+}
+
+export const MsgRevokeIssuer = {
+  encode(message: MsgRevokeIssuer, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.denom !== "") {
+      writer.uint32(18).string(message.denom);
+    }
+    if (message.reason !== "") {
+      writer.uint32(26).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeIssuer {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeIssuer();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRevokeIssuer {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+    };
+  },
+
+  toJSON(message: MsgRevokeIssuer): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeIssuer>): MsgRevokeIssuer {
+    return MsgRevokeIssuer.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRevokeIssuer>): MsgRevokeIssuer {
+    const message = createBaseMsgRevokeIssuer();
+    message.authority = object.authority ?? "";
+    message.denom = object.denom ?? "";
+    message.reason = object.reason ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgRevokeIssuerResponse(): MsgRevokeIssuerResponse {
+  return {};
+}
+
+export const MsgRevokeIssuerResponse = {
+  encode(_: MsgRevokeIssuerResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRevokeIssuerResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRevokeIssuerResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgRevokeIssuerResponse {
+    return {};
+  },
+
+  toJSON(_: MsgRevokeIssuerResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRevokeIssuerResponse>): MsgRevokeIssuerResponse {
+    return MsgRevokeIssuerResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgRevokeIssuerResponse>): MsgRevokeIssuerResponse {
+    const message = createBaseMsgRevokeIssuerResponse();
+    return message;
+  },
+};
+
 /** Msg defines the Msg service. */
 export interface Msg {
   /**
@@ -817,6 +985,11 @@ export interface Msg {
    * registration submitted via MsgRegisterCurrency.
    */
   ApproveIssuer(request: MsgApproveIssuer): Promise<MsgApproveIssuerResponse>;
+  /**
+   * RevokeIssuer withdraws a currency's issuing licence. Until this existed a
+   * compromised issuer key could not be answered without a chain upgrade.
+   */
+  RevokeIssuer(request: MsgRevokeIssuer): Promise<MsgRevokeIssuerResponse>;
 }
 
 export const MsgServiceName = "blockchain.stablecoin.v1.Msg";
@@ -831,6 +1004,7 @@ export class MsgClientImpl implements Msg {
     this.MintCoin = this.MintCoin.bind(this);
     this.BurnCoin = this.BurnCoin.bind(this);
     this.ApproveIssuer = this.ApproveIssuer.bind(this);
+    this.RevokeIssuer = this.RevokeIssuer.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -860,6 +1034,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgApproveIssuer.encode(request).finish();
     const promise = this.rpc.request(this.service, "ApproveIssuer", data);
     return promise.then((data) => MsgApproveIssuerResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RevokeIssuer(request: MsgRevokeIssuer): Promise<MsgRevokeIssuerResponse> {
+    const data = MsgRevokeIssuer.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RevokeIssuer", data);
+    return promise.then((data) => MsgRevokeIssuerResponse.decode(_m0.Reader.create(data)));
   }
 }
 

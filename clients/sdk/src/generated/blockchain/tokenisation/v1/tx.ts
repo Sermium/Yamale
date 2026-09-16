@@ -9,15 +9,25 @@ import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 import { Params } from "./params.ts";
-import { Collection } from "./tokenisation.ts";
+import {
+  Collection,
+  CovenantKind,
+  covenantKindFromJSON,
+  covenantKindToJSON,
+  Sector,
+  sectorFromJSON,
+  sectorToJSON,
+} from "./tokenisation.ts";
 
 export const protobufPackage = "blockchain.tokenisation.v1";
 
+/** MsgUpdateParams sets the module parameters. Governance only. */
 export interface MsgUpdateParams {
   authority: string;
   params: Params | undefined;
 }
 
+/** MsgUpdateParamsResponse is empty. */
 export interface MsgUpdateParamsResponse {
 }
 
@@ -33,6 +43,7 @@ export interface MsgCreateCollection {
   collection: Collection | undefined;
 }
 
+/** MsgCreateCollectionResponse is empty; the collection is addressed by the id it was given. */
 export interface MsgCreateCollectionResponse {
 }
 
@@ -53,7 +64,35 @@ export interface MsgSetCollectionAuthority {
   newAuthority: string;
 }
 
+/** MsgSetCollectionAuthorityResponse is empty. */
 export interface MsgSetCollectionAuthorityResponse {
+}
+
+/**
+ * MsgSetCollectionAttestors replaces the register of accounts that may attest a
+ * sale reported under this collection.
+ *
+ * Governance only, like CreateCollection and SetCollectionAuthority beside it.
+ * If the seller could appoint the accounts that check the seller, the register
+ * would restate the problem rather than fix it.
+ *
+ * It replaces rather than appends, because a register that could only grow
+ * would let one careless proposal dilute a careful appointment for good.
+ *
+ * Attestations already recorded against a reported sale are not revisited. They
+ * were made by an appointed attestor at the moment they were made, and rewriting
+ * history to match a later appointment would let an authority manufacture or
+ * destroy a quorum after the fact — which is a worse power than the one this
+ * message exists to constrain.
+ */
+export interface MsgSetCollectionAttestors {
+  authority: string;
+  collectionId: string;
+  attestors: string[];
+}
+
+/** MsgSetCollectionAttestorsResponse is empty. */
+export interface MsgSetCollectionAttestorsResponse {
 }
 
 /**
@@ -78,8 +117,16 @@ export interface MsgMintAsset {
    * shares are being sold and there is money on the other side of it.
    */
   parcelId: string;
+  /**
+   * What the tokenised thing does. Optional only so that a mint written before
+   * this field existed still decodes; a mint that names no sector is accepted
+   * and the asset carries SECTOR_UNSPECIFIED, which an interface shows as "not
+   * stated" rather than guessing.
+   */
+  sector: Sector;
 }
 
+/** MsgMintAssetResponse carries the id of the title just created. */
 export interface MsgMintAssetResponse {
   assetId: string;
 }
@@ -109,6 +156,7 @@ export interface MsgFractionalise {
   incomeDenom: string;
 }
 
+/** MsgFractionaliseResponse carries the denomination the shares were issued in. */
 export interface MsgFractionaliseResponse {
   fractionDenom: string;
 }
@@ -125,6 +173,7 @@ export interface MsgTransferAsset {
   recipient: string;
 }
 
+/** MsgTransferAssetResponse is empty; the new holder is on the asset record. */
 export interface MsgTransferAssetResponse {
 }
 
@@ -135,10 +184,21 @@ export interface MsgTransferAssetResponse {
 export interface MsgFundVault {
   funder: string;
   assetId: string;
+  /**
+   * The gross income for the period. The chain collects holder_share_bps of
+   * it and leaves the rest where it is, which is what the sentence above has
+   * always said and what the response reports.
+   */
   amount: Coin | undefined;
 }
 
+/**
+ * MsgFundVaultResponse reports what was actually taken, which is the holders'
+ * share of the gross figure the message named rather than the whole of it.
+ */
 export interface MsgFundVaultResponse {
+  /** What was actually taken from the funder. */
+  collected: Coin | undefined;
 }
 
 /**
@@ -155,7 +215,36 @@ export interface MsgReportSale {
   evidenceUri: string;
 }
 
+/**
+ * MsgReportSaleResponse is empty. The reported figure and the window it must
+ * sit out are both on the sale record.
+ */
 export interface MsgReportSaleResponse {
+}
+
+/**
+ * MsgPaySaleProceeds pays the holders' share of a reported price into the
+ * vault, which is what finalisation waits on.
+ *
+ * Anyone may pay: the obligation is the sponsor's, but a sponsor who has gone
+ * quiet should not be able to strand every holder, and money arriving is never
+ * the problem. Overpayment is refused rather than accepted and stranded.
+ */
+export interface MsgPaySaleProceeds {
+  payer: string;
+  assetId: string;
+  amount: Coin | undefined;
+}
+
+/**
+ * MsgPaySaleProceedsResponse reports what has been paid and what is still
+ * outstanding, so a payer settling in instalments knows when finalisation
+ * becomes possible without querying for it.
+ */
+export interface MsgPaySaleProceedsResponse {
+  /** Paid so far against this sale, and what finalisation still waits on. */
+  paid: Coin | undefined;
+  outstanding: Coin | undefined;
 }
 
 /** MsgAttestSale signs a reported figure when the collection requires attestors. */
@@ -165,6 +254,7 @@ export interface MsgAttestSale {
   price: Coin | undefined;
 }
 
+/** MsgAttestSaleResponse is empty; the count of attestors stands on the sale. */
 export interface MsgAttestSaleResponse {
 }
 
@@ -183,7 +273,37 @@ export interface MsgDisputeSale {
   reason: string;
 }
 
+/**
+ * MsgDisputeSaleResponse is empty. The bond posted is recorded on the sale so
+ * that it can be returned or forfeited when the dispute is decided.
+ */
 export interface MsgDisputeSaleResponse {
+}
+
+/**
+ * MsgFinaliseSale opens redemption on an asset whose reported price has cleared
+ * verification and its challenge window.
+ *
+ * Anybody may send it, and that is deliberate rather than lax. Every condition
+ * it checks is already fixed by the report and the clock, so the sender decides
+ * nothing; what they contribute is the gas. If only the sponsor could finalise,
+ * a sponsor could decline to — and shareholders unable to exit until the party
+ * holding their money chooses to let them is the position this whole instrument
+ * exists to avoid.
+ *
+ * A crank rather than an EndBlocker sweep, because iterating every reported sale
+ * on every block is a denial-of-service surface that grows with usage.
+ */
+export interface MsgFinaliseSale {
+  caller: string;
+  assetId: string;
+}
+
+/**
+ * MsgFinaliseSaleResponse is empty; the vehicle reaching REALISED is the
+ * outcome, and it is what opens redemption.
+ */
+export interface MsgFinaliseSaleResponse {
 }
 
 /** MsgResolveDispute is governance deciding the contested figure. */
@@ -194,6 +314,7 @@ export interface MsgResolveDispute {
   correctedPrice: Coin | undefined;
 }
 
+/** MsgResolveDisputeResponse is empty. */
 export interface MsgResolveDisputeResponse {
 }
 
@@ -203,6 +324,10 @@ export interface MsgClaim {
   assetId: string;
 }
 
+/**
+ * MsgClaimResponse reports what was paid, which is the income accrued since
+ * the holder last settled rather than a figure they asked for.
+ */
 export interface MsgClaimResponse {
   paid: Coin[];
 }
@@ -221,8 +346,106 @@ export interface MsgRedeem {
   amount: string;
 }
 
+/** MsgRedeemResponse reports what the surrendered tokens were worth. */
 export interface MsgRedeemResponse {
   paid: Coin[];
+}
+
+/**
+ * MsgRecordSubscription records what an investor paid for tokens they hold.
+ *
+ * # Why this message has to exist
+ *
+ * A token balance says what an account holds and never what it paid. Tokens
+ * move by ordinary bank send, which carries no price, so without an explicit
+ * record there is nothing to compute a return against — and an interface then
+ * either shows no return at all, or invents an entry price, which is worse.
+ *
+ * # Who may sign it, and why it is not the investor
+ *
+ * The collection's authority: the party that took the money. An investor able
+ * to state their own cost could state a low one and publish a flattering
+ * return beside a real balance, on a register whose whole value is that its
+ * figures are not the holder's word.
+ *
+ * # What it does NOT claim
+ *
+ * That the money was received, or received in this denomination, or at arm's
+ * length. It records an assertion by a named, accountable party, dated and
+ * attributable — the same thing a KYC reference is, and worth the same: not
+ * proof, but evidence somebody can be asked about.
+ *
+ * Additive. Recording a second subscription for the same holder adds to both
+ * the basis and the quantity, so an investor who subscribed twice at two prices
+ * carries a weighted average, which is what an average cost is.
+ */
+export interface MsgRecordSubscription {
+  /** The collection authority for the asset. Not the investor. */
+  authority: string;
+  assetId: string;
+  investor: string;
+  /**
+   * Tokens this subscription covers. Refused above the investor's balance: a
+   * basis covering more tokens than exist in the account would report a return
+   * on tokens nobody holds.
+   */
+  quantity: string;
+  /**
+   * What was paid for them, in the vault's income denomination. The
+   * denomination is taken from the vault rather than named here, so a
+   * subscription cannot be recorded in a currency the vehicle does not pay in.
+   */
+  paid: string;
+}
+
+/** MsgRecordSubscriptionResponse reports the holder's basis after the record. */
+export interface MsgRecordSubscriptionResponse {
+  costBasis: string;
+  costQty: string;
+}
+
+/**
+ * MsgPublishCovenant files an undertaking against a tokenisation.
+ *
+ * Signed by the collection authority: the party that answers for the vehicle.
+ * A holder able to publish against it could file an announcement in the
+ * operator's name, on a register whose value is that its filings are
+ * attributable.
+ *
+ * Accepted in any status. Accounts, resolutions and material events arrive
+ * after a sale as readily as before one, and a register that stopped accepting
+ * them at realisation would be missing the filings a later dispute is about.
+ */
+export interface MsgPublishCovenant {
+  authority: string;
+  assetId: string;
+  kind: CovenantKind;
+  title: string;
+  /**
+   * Exactly 32 bytes. Not a hex string: two spellings of one digest that do not
+   * compare equal are worse than no digest.
+   */
+  sha256: Uint8Array;
+  uri: string;
+  /**
+   * The period covered, unix seconds; both zero for a document covering a
+   * moment rather than a span.
+   */
+  periodStart: string;
+  periodEnd: string;
+  /** When a holder must have acted by. Zero when nothing is asked of them. */
+  actsBy: string;
+  /**
+   * The covenant this corrects. Zero if it corrects nothing. Must belong to the
+   * same asset and must not already have been superseded -- two corrections of
+   * one filing leave two current versions and no rule for choosing.
+   */
+  supersedes: string;
+}
+
+/** MsgPublishCovenantResponse carries the id the chain assigned. */
+export interface MsgPublishCovenantResponse {
+  id: string;
 }
 
 function createBaseMsgUpdateParams(): MsgUpdateParams {
@@ -595,8 +818,142 @@ export const MsgSetCollectionAuthorityResponse = {
   },
 };
 
+function createBaseMsgSetCollectionAttestors(): MsgSetCollectionAttestors {
+  return { authority: "", collectionId: "", attestors: [] };
+}
+
+export const MsgSetCollectionAttestors = {
+  encode(message: MsgSetCollectionAttestors, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.collectionId !== "") {
+      writer.uint32(18).string(message.collectionId);
+    }
+    for (const v of message.attestors) {
+      writer.uint32(26).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetCollectionAttestors {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetCollectionAttestors();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.collectionId = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.attestors.push(reader.string());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgSetCollectionAttestors {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      collectionId: isSet(object.collectionId) ? globalThis.String(object.collectionId) : "",
+      attestors: globalThis.Array.isArray(object?.attestors)
+        ? object.attestors.map((e: any) => globalThis.String(e))
+        : [],
+    };
+  },
+
+  toJSON(message: MsgSetCollectionAttestors): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.collectionId !== "") {
+      obj.collectionId = message.collectionId;
+    }
+    if (message.attestors?.length) {
+      obj.attestors = message.attestors;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetCollectionAttestors>): MsgSetCollectionAttestors {
+    return MsgSetCollectionAttestors.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgSetCollectionAttestors>): MsgSetCollectionAttestors {
+    const message = createBaseMsgSetCollectionAttestors();
+    message.authority = object.authority ?? "";
+    message.collectionId = object.collectionId ?? "";
+    message.attestors = object.attestors?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseMsgSetCollectionAttestorsResponse(): MsgSetCollectionAttestorsResponse {
+  return {};
+}
+
+export const MsgSetCollectionAttestorsResponse = {
+  encode(_: MsgSetCollectionAttestorsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgSetCollectionAttestorsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetCollectionAttestorsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgSetCollectionAttestorsResponse {
+    return {};
+  },
+
+  toJSON(_: MsgSetCollectionAttestorsResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgSetCollectionAttestorsResponse>): MsgSetCollectionAttestorsResponse {
+    return MsgSetCollectionAttestorsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgSetCollectionAttestorsResponse>): MsgSetCollectionAttestorsResponse {
+    const message = createBaseMsgSetCollectionAttestorsResponse();
+    return message;
+  },
+};
+
 function createBaseMsgMintAsset(): MsgMintAsset {
-  return { minter: "", collectionId: "", owner: "", uri: "", parcelId: "0" };
+  return { minter: "", collectionId: "", owner: "", uri: "", parcelId: "0", sector: 0 };
 }
 
 export const MsgMintAsset = {
@@ -615,6 +972,9 @@ export const MsgMintAsset = {
     }
     if (message.parcelId !== "0") {
       writer.uint32(40).uint64(message.parcelId);
+    }
+    if (message.sector !== 0) {
+      writer.uint32(48).int32(message.sector);
     }
     return writer;
   },
@@ -661,6 +1021,13 @@ export const MsgMintAsset = {
 
           message.parcelId = longToString(reader.uint64() as Long);
           continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.sector = reader.int32() as any;
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -677,6 +1044,7 @@ export const MsgMintAsset = {
       owner: isSet(object.owner) ? globalThis.String(object.owner) : "",
       uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
       parcelId: isSet(object.parcelId) ? globalThis.String(object.parcelId) : "0",
+      sector: isSet(object.sector) ? sectorFromJSON(object.sector) : 0,
     };
   },
 
@@ -697,6 +1065,9 @@ export const MsgMintAsset = {
     if (message.parcelId !== "0") {
       obj.parcelId = message.parcelId;
     }
+    if (message.sector !== 0) {
+      obj.sector = sectorToJSON(message.sector);
+    }
     return obj;
   },
 
@@ -710,6 +1081,7 @@ export const MsgMintAsset = {
     message.owner = object.owner ?? "";
     message.uri = object.uri ?? "";
     message.parcelId = object.parcelId ?? "0";
+    message.sector = object.sector ?? 0;
     return message;
   },
 };
@@ -1186,11 +1558,14 @@ export const MsgFundVault = {
 };
 
 function createBaseMsgFundVaultResponse(): MsgFundVaultResponse {
-  return {};
+  return { collected: undefined };
 }
 
 export const MsgFundVaultResponse = {
-  encode(_: MsgFundVaultResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+  encode(message: MsgFundVaultResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.collected !== undefined) {
+      Coin.encode(message.collected, writer.uint32(10).fork()).ldelim();
+    }
     return writer;
   },
 
@@ -1201,6 +1576,13 @@ export const MsgFundVaultResponse = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.collected = Coin.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1210,20 +1592,26 @@ export const MsgFundVaultResponse = {
     return message;
   },
 
-  fromJSON(_: any): MsgFundVaultResponse {
-    return {};
+  fromJSON(object: any): MsgFundVaultResponse {
+    return { collected: isSet(object.collected) ? Coin.fromJSON(object.collected) : undefined };
   },
 
-  toJSON(_: MsgFundVaultResponse): unknown {
+  toJSON(message: MsgFundVaultResponse): unknown {
     const obj: any = {};
+    if (message.collected !== undefined) {
+      obj.collected = Coin.toJSON(message.collected);
+    }
     return obj;
   },
 
   create(base?: DeepPartial<MsgFundVaultResponse>): MsgFundVaultResponse {
     return MsgFundVaultResponse.fromPartial(base ?? {});
   },
-  fromPartial(_: DeepPartial<MsgFundVaultResponse>): MsgFundVaultResponse {
+  fromPartial(object: DeepPartial<MsgFundVaultResponse>): MsgFundVaultResponse {
     const message = createBaseMsgFundVaultResponse();
+    message.collected = (object.collected !== undefined && object.collected !== null)
+      ? Coin.fromPartial(object.collected)
+      : undefined;
     return message;
   },
 };
@@ -1371,6 +1759,173 @@ export const MsgReportSaleResponse = {
   },
   fromPartial(_: DeepPartial<MsgReportSaleResponse>): MsgReportSaleResponse {
     const message = createBaseMsgReportSaleResponse();
+    return message;
+  },
+};
+
+function createBaseMsgPaySaleProceeds(): MsgPaySaleProceeds {
+  return { payer: "", assetId: "0", amount: undefined };
+}
+
+export const MsgPaySaleProceeds = {
+  encode(message: MsgPaySaleProceeds, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.payer !== "") {
+      writer.uint32(10).string(message.payer);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    if (message.amount !== undefined) {
+      Coin.encode(message.amount, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgPaySaleProceeds {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPaySaleProceeds();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.payer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgPaySaleProceeds {
+    return {
+      payer: isSet(object.payer) ? globalThis.String(object.payer) : "",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      amount: isSet(object.amount) ? Coin.fromJSON(object.amount) : undefined,
+    };
+  },
+
+  toJSON(message: MsgPaySaleProceeds): unknown {
+    const obj: any = {};
+    if (message.payer !== "") {
+      obj.payer = message.payer;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.amount !== undefined) {
+      obj.amount = Coin.toJSON(message.amount);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgPaySaleProceeds>): MsgPaySaleProceeds {
+    return MsgPaySaleProceeds.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgPaySaleProceeds>): MsgPaySaleProceeds {
+    const message = createBaseMsgPaySaleProceeds();
+    message.payer = object.payer ?? "";
+    message.assetId = object.assetId ?? "0";
+    message.amount = (object.amount !== undefined && object.amount !== null)
+      ? Coin.fromPartial(object.amount)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseMsgPaySaleProceedsResponse(): MsgPaySaleProceedsResponse {
+  return { paid: undefined, outstanding: undefined };
+}
+
+export const MsgPaySaleProceedsResponse = {
+  encode(message: MsgPaySaleProceedsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.paid !== undefined) {
+      Coin.encode(message.paid, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.outstanding !== undefined) {
+      Coin.encode(message.outstanding, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgPaySaleProceedsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPaySaleProceedsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.paid = Coin.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.outstanding = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgPaySaleProceedsResponse {
+    return {
+      paid: isSet(object.paid) ? Coin.fromJSON(object.paid) : undefined,
+      outstanding: isSet(object.outstanding) ? Coin.fromJSON(object.outstanding) : undefined,
+    };
+  },
+
+  toJSON(message: MsgPaySaleProceedsResponse): unknown {
+    const obj: any = {};
+    if (message.paid !== undefined) {
+      obj.paid = Coin.toJSON(message.paid);
+    }
+    if (message.outstanding !== undefined) {
+      obj.outstanding = Coin.toJSON(message.outstanding);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgPaySaleProceedsResponse>): MsgPaySaleProceedsResponse {
+    return MsgPaySaleProceedsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgPaySaleProceedsResponse>): MsgPaySaleProceedsResponse {
+    const message = createBaseMsgPaySaleProceedsResponse();
+    message.paid = (object.paid !== undefined && object.paid !== null) ? Coin.fromPartial(object.paid) : undefined;
+    message.outstanding = (object.outstanding !== undefined && object.outstanding !== null)
+      ? Coin.fromPartial(object.outstanding)
+      : undefined;
     return message;
   },
 };
@@ -1635,6 +2190,123 @@ export const MsgDisputeSaleResponse = {
   },
   fromPartial(_: DeepPartial<MsgDisputeSaleResponse>): MsgDisputeSaleResponse {
     const message = createBaseMsgDisputeSaleResponse();
+    return message;
+  },
+};
+
+function createBaseMsgFinaliseSale(): MsgFinaliseSale {
+  return { caller: "", assetId: "0" };
+}
+
+export const MsgFinaliseSale = {
+  encode(message: MsgFinaliseSale, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.caller !== "") {
+      writer.uint32(10).string(message.caller);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgFinaliseSale {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgFinaliseSale();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.caller = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgFinaliseSale {
+    return {
+      caller: isSet(object.caller) ? globalThis.String(object.caller) : "",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+    };
+  },
+
+  toJSON(message: MsgFinaliseSale): unknown {
+    const obj: any = {};
+    if (message.caller !== "") {
+      obj.caller = message.caller;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgFinaliseSale>): MsgFinaliseSale {
+    return MsgFinaliseSale.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgFinaliseSale>): MsgFinaliseSale {
+    const message = createBaseMsgFinaliseSale();
+    message.caller = object.caller ?? "";
+    message.assetId = object.assetId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgFinaliseSaleResponse(): MsgFinaliseSaleResponse {
+  return {};
+}
+
+export const MsgFinaliseSaleResponse = {
+  encode(_: MsgFinaliseSaleResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgFinaliseSaleResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgFinaliseSaleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgFinaliseSaleResponse {
+    return {};
+  },
+
+  toJSON(_: MsgFinaliseSaleResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgFinaliseSaleResponse>): MsgFinaliseSaleResponse {
+    return MsgFinaliseSaleResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgFinaliseSaleResponse>): MsgFinaliseSaleResponse {
+    const message = createBaseMsgFinaliseSaleResponse();
     return message;
   },
 };
@@ -2050,23 +2722,544 @@ export const MsgRedeemResponse = {
   },
 };
 
+function createBaseMsgRecordSubscription(): MsgRecordSubscription {
+  return { authority: "", assetId: "0", investor: "", quantity: "", paid: "" };
+}
+
+export const MsgRecordSubscription = {
+  encode(message: MsgRecordSubscription, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    if (message.investor !== "") {
+      writer.uint32(26).string(message.investor);
+    }
+    if (message.quantity !== "") {
+      writer.uint32(34).string(message.quantity);
+    }
+    if (message.paid !== "") {
+      writer.uint32(42).string(message.paid);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRecordSubscription {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRecordSubscription();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.investor = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.quantity = reader.string();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.paid = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRecordSubscription {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      investor: isSet(object.investor) ? globalThis.String(object.investor) : "",
+      quantity: isSet(object.quantity) ? globalThis.String(object.quantity) : "",
+      paid: isSet(object.paid) ? globalThis.String(object.paid) : "",
+    };
+  },
+
+  toJSON(message: MsgRecordSubscription): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.investor !== "") {
+      obj.investor = message.investor;
+    }
+    if (message.quantity !== "") {
+      obj.quantity = message.quantity;
+    }
+    if (message.paid !== "") {
+      obj.paid = message.paid;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRecordSubscription>): MsgRecordSubscription {
+    return MsgRecordSubscription.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRecordSubscription>): MsgRecordSubscription {
+    const message = createBaseMsgRecordSubscription();
+    message.authority = object.authority ?? "";
+    message.assetId = object.assetId ?? "0";
+    message.investor = object.investor ?? "";
+    message.quantity = object.quantity ?? "";
+    message.paid = object.paid ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgRecordSubscriptionResponse(): MsgRecordSubscriptionResponse {
+  return { costBasis: "", costQty: "" };
+}
+
+export const MsgRecordSubscriptionResponse = {
+  encode(message: MsgRecordSubscriptionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.costBasis !== "") {
+      writer.uint32(10).string(message.costBasis);
+    }
+    if (message.costQty !== "") {
+      writer.uint32(18).string(message.costQty);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRecordSubscriptionResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRecordSubscriptionResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.costBasis = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.costQty = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRecordSubscriptionResponse {
+    return {
+      costBasis: isSet(object.costBasis) ? globalThis.String(object.costBasis) : "",
+      costQty: isSet(object.costQty) ? globalThis.String(object.costQty) : "",
+    };
+  },
+
+  toJSON(message: MsgRecordSubscriptionResponse): unknown {
+    const obj: any = {};
+    if (message.costBasis !== "") {
+      obj.costBasis = message.costBasis;
+    }
+    if (message.costQty !== "") {
+      obj.costQty = message.costQty;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRecordSubscriptionResponse>): MsgRecordSubscriptionResponse {
+    return MsgRecordSubscriptionResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRecordSubscriptionResponse>): MsgRecordSubscriptionResponse {
+    const message = createBaseMsgRecordSubscriptionResponse();
+    message.costBasis = object.costBasis ?? "";
+    message.costQty = object.costQty ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgPublishCovenant(): MsgPublishCovenant {
+  return {
+    authority: "",
+    assetId: "0",
+    kind: 0,
+    title: "",
+    sha256: new Uint8Array(0),
+    uri: "",
+    periodStart: "0",
+    periodEnd: "0",
+    actsBy: "0",
+    supersedes: "0",
+  };
+}
+
+export const MsgPublishCovenant = {
+  encode(message: MsgPublishCovenant, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    if (message.kind !== 0) {
+      writer.uint32(24).int32(message.kind);
+    }
+    if (message.title !== "") {
+      writer.uint32(34).string(message.title);
+    }
+    if (message.sha256.length !== 0) {
+      writer.uint32(42).bytes(message.sha256);
+    }
+    if (message.uri !== "") {
+      writer.uint32(50).string(message.uri);
+    }
+    if (message.periodStart !== "0") {
+      writer.uint32(56).int64(message.periodStart);
+    }
+    if (message.periodEnd !== "0") {
+      writer.uint32(64).int64(message.periodEnd);
+    }
+    if (message.actsBy !== "0") {
+      writer.uint32(72).int64(message.actsBy);
+    }
+    if (message.supersedes !== "0") {
+      writer.uint32(80).uint64(message.supersedes);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgPublishCovenant {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPublishCovenant();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.kind = reader.int32() as any;
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.title = reader.string();
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.sha256 = reader.bytes();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.uri = reader.string();
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.periodStart = longToString(reader.int64() as Long);
+          continue;
+        case 8:
+          if (tag !== 64) {
+            break;
+          }
+
+          message.periodEnd = longToString(reader.int64() as Long);
+          continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.actsBy = longToString(reader.int64() as Long);
+          continue;
+        case 10:
+          if (tag !== 80) {
+            break;
+          }
+
+          message.supersedes = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgPublishCovenant {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      kind: isSet(object.kind) ? covenantKindFromJSON(object.kind) : 0,
+      title: isSet(object.title) ? globalThis.String(object.title) : "",
+      sha256: isSet(object.sha256) ? bytesFromBase64(object.sha256) : new Uint8Array(0),
+      uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
+      periodStart: isSet(object.periodStart) ? globalThis.String(object.periodStart) : "0",
+      periodEnd: isSet(object.periodEnd) ? globalThis.String(object.periodEnd) : "0",
+      actsBy: isSet(object.actsBy) ? globalThis.String(object.actsBy) : "0",
+      supersedes: isSet(object.supersedes) ? globalThis.String(object.supersedes) : "0",
+    };
+  },
+
+  toJSON(message: MsgPublishCovenant): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.kind !== 0) {
+      obj.kind = covenantKindToJSON(message.kind);
+    }
+    if (message.title !== "") {
+      obj.title = message.title;
+    }
+    if (message.sha256.length !== 0) {
+      obj.sha256 = base64FromBytes(message.sha256);
+    }
+    if (message.uri !== "") {
+      obj.uri = message.uri;
+    }
+    if (message.periodStart !== "0") {
+      obj.periodStart = message.periodStart;
+    }
+    if (message.periodEnd !== "0") {
+      obj.periodEnd = message.periodEnd;
+    }
+    if (message.actsBy !== "0") {
+      obj.actsBy = message.actsBy;
+    }
+    if (message.supersedes !== "0") {
+      obj.supersedes = message.supersedes;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgPublishCovenant>): MsgPublishCovenant {
+    return MsgPublishCovenant.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgPublishCovenant>): MsgPublishCovenant {
+    const message = createBaseMsgPublishCovenant();
+    message.authority = object.authority ?? "";
+    message.assetId = object.assetId ?? "0";
+    message.kind = object.kind ?? 0;
+    message.title = object.title ?? "";
+    message.sha256 = object.sha256 ?? new Uint8Array(0);
+    message.uri = object.uri ?? "";
+    message.periodStart = object.periodStart ?? "0";
+    message.periodEnd = object.periodEnd ?? "0";
+    message.actsBy = object.actsBy ?? "0";
+    message.supersedes = object.supersedes ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgPublishCovenantResponse(): MsgPublishCovenantResponse {
+  return { id: "0" };
+}
+
+export const MsgPublishCovenantResponse = {
+  encode(message: MsgPublishCovenantResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.id !== "0") {
+      writer.uint32(8).uint64(message.id);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgPublishCovenantResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPublishCovenantResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.id = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgPublishCovenantResponse {
+    return { id: isSet(object.id) ? globalThis.String(object.id) : "0" };
+  },
+
+  toJSON(message: MsgPublishCovenantResponse): unknown {
+    const obj: any = {};
+    if (message.id !== "0") {
+      obj.id = message.id;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgPublishCovenantResponse>): MsgPublishCovenantResponse {
+    return MsgPublishCovenantResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgPublishCovenantResponse>): MsgPublishCovenantResponse {
+    const message = createBaseMsgPublishCovenantResponse();
+    message.id = object.id ?? "0";
+    return message;
+  },
+};
+
+/**
+ * Msg is the write side of the closed-end vehicle registry: mint a title,
+ * fractionalise it, pay income in, report the sale that ends it, and redeem.
+ */
 export interface Msg {
   /** Governance only. */
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse>;
+  /**
+   * CreateCollection opens a registry. Governance only, because a collection
+   * decides how a sale is verified and who may mint into it.
+   */
   CreateCollection(request: MsgCreateCollection): Promise<MsgCreateCollectionResponse>;
+  /** SetCollectionAuthority moves who may mint into a collection. */
   SetCollectionAuthority(request: MsgSetCollectionAuthority): Promise<MsgSetCollectionAuthorityResponse>;
+  /**
+   * Governance appoints who may attest a sale, so that a seller cannot appoint
+   * the accounts that check the seller.
+   */
+  SetCollectionAttestors(request: MsgSetCollectionAttestors): Promise<MsgSetCollectionAttestorsResponse>;
+  /**
+   * ResolveDispute is governance deciding a contested figure. An empty
+   * corrected price upholds what was reported.
+   */
   ResolveDispute(request: MsgResolveDispute): Promise<MsgResolveDisputeResponse>;
   /** The collection's appointed authority only. */
   MintAsset(request: MsgMintAsset): Promise<MsgMintAssetResponse>;
+  /**
+   * RecordSubscription states what an investor paid for tokens they hold, so a
+   * return can be computed against something rather than assumed.
+   */
+  RecordSubscription(request: MsgRecordSubscription): Promise<MsgRecordSubscriptionResponse>;
+  /**
+   * PublishCovenant files an undertaking against a tokenisation: accounts, a
+   * structure change, a dividend notice, an assembly. The digest, never the
+   * document.
+   */
+  PublishCovenant(request: MsgPublishCovenant): Promise<MsgPublishCovenantResponse>;
   /** Title holder. */
   Fractionalise(request: MsgFractionalise): Promise<MsgFractionaliseResponse>;
+  /**
+   * TransferAsset moves the title only. The fraction tokens are ordinary
+   * balances and stay where they are — selling the vehicle does not sell its
+   * shareholders out from under them.
+   */
   TransferAsset(request: MsgTransferAsset): Promise<MsgTransferAssetResponse>;
+  /**
+   * FundVault pays income in. The holders' share is collected and the rest
+   * stays with the funder.
+   */
   FundVault(request: MsgFundVault): Promise<MsgFundVaultResponse>;
+  /**
+   * ReportSale states what the underlying sold for. It does not open
+   * redemption: the figure sits for the collection's challenge window first.
+   */
   ReportSale(request: MsgReportSale): Promise<MsgReportSaleResponse>;
-  /** Permissionless. */
+  /**
+   * PaySaleProceeds pays the holders' share of a reported sale into the
+   * vault, which is what finalisation waits on.
+   */
+  PaySaleProceeds(request: MsgPaySaleProceeds): Promise<MsgPaySaleProceedsResponse>;
+  /**
+   * An attestor appointed by the collection. This used to sit under
+   * "permissionless", which made the attestation threshold meetable by anybody
+   * and therefore no threshold at all.
+   */
   AttestSale(request: MsgAttestSale): Promise<MsgAttestSaleResponse>;
+  /** Permissionless. */
   DisputeSale(request: MsgDisputeSale): Promise<MsgDisputeSaleResponse>;
+  /**
+   * FinaliseSale is the permissionless crank that opens redemption, once the
+   * window has passed and the holders' share has actually been paid in.
+   */
+  FinaliseSale(request: MsgFinaliseSale): Promise<MsgFinaliseSaleResponse>;
+  /**
+   * Claim withdraws accrued income without giving up the shareholding — a
+   * coupon should not force an exit.
+   */
   Claim(request: MsgClaim): Promise<MsgClaimResponse>;
+  /**
+   * Redeem burns tokens and pays their share in one step. The burn is the
+   * claim: burning first and expecting a later claim would strand whoever is
+   * slow, asleep or dead.
+   */
   Redeem(request: MsgRedeem): Promise<MsgRedeemResponse>;
 }
 
@@ -2080,14 +3273,19 @@ export class MsgClientImpl implements Msg {
     this.UpdateParams = this.UpdateParams.bind(this);
     this.CreateCollection = this.CreateCollection.bind(this);
     this.SetCollectionAuthority = this.SetCollectionAuthority.bind(this);
+    this.SetCollectionAttestors = this.SetCollectionAttestors.bind(this);
     this.ResolveDispute = this.ResolveDispute.bind(this);
     this.MintAsset = this.MintAsset.bind(this);
+    this.RecordSubscription = this.RecordSubscription.bind(this);
+    this.PublishCovenant = this.PublishCovenant.bind(this);
     this.Fractionalise = this.Fractionalise.bind(this);
     this.TransferAsset = this.TransferAsset.bind(this);
     this.FundVault = this.FundVault.bind(this);
     this.ReportSale = this.ReportSale.bind(this);
+    this.PaySaleProceeds = this.PaySaleProceeds.bind(this);
     this.AttestSale = this.AttestSale.bind(this);
     this.DisputeSale = this.DisputeSale.bind(this);
+    this.FinaliseSale = this.FinaliseSale.bind(this);
     this.Claim = this.Claim.bind(this);
     this.Redeem = this.Redeem.bind(this);
   }
@@ -2109,6 +3307,12 @@ export class MsgClientImpl implements Msg {
     return promise.then((data) => MsgSetCollectionAuthorityResponse.decode(_m0.Reader.create(data)));
   }
 
+  SetCollectionAttestors(request: MsgSetCollectionAttestors): Promise<MsgSetCollectionAttestorsResponse> {
+    const data = MsgSetCollectionAttestors.encode(request).finish();
+    const promise = this.rpc.request(this.service, "SetCollectionAttestors", data);
+    return promise.then((data) => MsgSetCollectionAttestorsResponse.decode(_m0.Reader.create(data)));
+  }
+
   ResolveDispute(request: MsgResolveDispute): Promise<MsgResolveDisputeResponse> {
     const data = MsgResolveDispute.encode(request).finish();
     const promise = this.rpc.request(this.service, "ResolveDispute", data);
@@ -2119,6 +3323,18 @@ export class MsgClientImpl implements Msg {
     const data = MsgMintAsset.encode(request).finish();
     const promise = this.rpc.request(this.service, "MintAsset", data);
     return promise.then((data) => MsgMintAssetResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RecordSubscription(request: MsgRecordSubscription): Promise<MsgRecordSubscriptionResponse> {
+    const data = MsgRecordSubscription.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RecordSubscription", data);
+    return promise.then((data) => MsgRecordSubscriptionResponse.decode(_m0.Reader.create(data)));
+  }
+
+  PublishCovenant(request: MsgPublishCovenant): Promise<MsgPublishCovenantResponse> {
+    const data = MsgPublishCovenant.encode(request).finish();
+    const promise = this.rpc.request(this.service, "PublishCovenant", data);
+    return promise.then((data) => MsgPublishCovenantResponse.decode(_m0.Reader.create(data)));
   }
 
   Fractionalise(request: MsgFractionalise): Promise<MsgFractionaliseResponse> {
@@ -2145,6 +3361,12 @@ export class MsgClientImpl implements Msg {
     return promise.then((data) => MsgReportSaleResponse.decode(_m0.Reader.create(data)));
   }
 
+  PaySaleProceeds(request: MsgPaySaleProceeds): Promise<MsgPaySaleProceedsResponse> {
+    const data = MsgPaySaleProceeds.encode(request).finish();
+    const promise = this.rpc.request(this.service, "PaySaleProceeds", data);
+    return promise.then((data) => MsgPaySaleProceedsResponse.decode(_m0.Reader.create(data)));
+  }
+
   AttestSale(request: MsgAttestSale): Promise<MsgAttestSaleResponse> {
     const data = MsgAttestSale.encode(request).finish();
     const promise = this.rpc.request(this.service, "AttestSale", data);
@@ -2155,6 +3377,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgDisputeSale.encode(request).finish();
     const promise = this.rpc.request(this.service, "DisputeSale", data);
     return promise.then((data) => MsgDisputeSaleResponse.decode(_m0.Reader.create(data)));
+  }
+
+  FinaliseSale(request: MsgFinaliseSale): Promise<MsgFinaliseSaleResponse> {
+    const data = MsgFinaliseSale.encode(request).finish();
+    const promise = this.rpc.request(this.service, "FinaliseSale", data);
+    return promise.then((data) => MsgFinaliseSaleResponse.decode(_m0.Reader.create(data)));
   }
 
   Claim(request: MsgClaim): Promise<MsgClaimResponse> {
@@ -2172,6 +3400,31 @@ export class MsgClientImpl implements Msg {
 
 interface Rpc {
   request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
