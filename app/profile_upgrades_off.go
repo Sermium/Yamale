@@ -109,4 +109,31 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The other half of market. x/tokenisation is not linked into a
+		// settlement build, and a secondary market in tokenised shareholdings
+		// is a market in something this profile does not carry — so x/market is
+		// not linked either, and there is nothing to mount.
+		//
+		// The entry still has to exist, and this is the one that would have been
+		// easiest to leave out: it does nothing. But an upgrade name the binary
+		// does not know is not a no-op. x/upgrade panics the node AT THE HALT
+		// HEIGHT and it stays down until somebody installs a binary that knows
+		// the name — so the cost of omitting an empty handler is a stopped chain
+		// and a rebuild under time pressure, and the cost of including it is
+		// these twelve lines.
+		Name: "market",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"the secondary market: nothing to do",
+				"absent", "x/market and x/tokenisation are not linked into a settlement build, so "+
+					"there are no shareholdings to trade and no cost basis for a fill to write",
+			)
+			return vm, nil
+		},
+	},
 }
