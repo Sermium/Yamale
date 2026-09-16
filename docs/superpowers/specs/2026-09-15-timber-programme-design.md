@@ -172,6 +172,82 @@ and the sector as a required choice.
 
 ---
 
+## Pro-rata temporis: the mechanism, worked out
+
+The hard part is not the intent — hold January to June, sell, still earn half
+the year — it is doing it **without iterating holders**. The present index
+exists precisely so a distribution to a thousand accounts costs one write; a
+design that walked the holder set to apportion a dividend would halt the chain
+on the vehicle this platform most wants to succeed with.
+
+### Why the obvious approach fails
+
+A distribution of X at time T covering period [P, T] gives everyone a rate of
+`X / (S x (T - P))` per token-second, where S is supply. A holder's credit is
+that rate times **their** token-seconds in the period — and the chain cannot
+know those for every holder at T without walking them all.
+
+Note first what does NOT change: a holder whose balance was constant across the
+whole period earns `B x (T-P) x rate` = `B x X / S`, which is exactly what the
+existing index pays. **Pro-rata temporis differs from today only for a balance
+that moved mid-period.** That is the entire delta, and it is what makes a
+bounded solution possible.
+
+### The state
+
+A period is the span between two distributions.
+
+`Vault` gains `period_index` (how many distributions have happened) and
+`period_start`. `Position` gains `token_seconds`, the `token_seconds_period`
+they belong to, and `last_touch`.
+
+A new record per distribution — keyed (asset, period) — holds two figures: the
+**rate per token-second** for that period, and the **cumulative-per-token after
+it**. Both, because they answer two different questions cheaply.
+
+### Settling, in constant time
+
+On any balance change, at time `now`, with period `p`:
+
+- **Same period as the position's pending seconds** — accrue
+  `balance x (now - last_touch)` and stop.
+- **A later period** — three steps, none of them a loop:
+  1. the pending seconds belong to a closed period, so credit
+     `token_seconds x rate[pending_period]`;
+  2. every period fully spanned since is covered by the cumulative figure, so
+     credit `balance x (cum_after[p-1] - cum_after[pending_period])` — one
+     subtraction, not a walk;
+  3. start a new pending accrual at `balance x (now - period_start)`.
+
+Two map reads and some arithmetic, whatever the gap. The cumulative-after figure
+is what removes the loop over intervening periods, and it is why the record
+carries two numbers rather than one.
+
+### What this buys, and what it costs
+
+It is **more** snipe-resistant than the present index: buying a block before a
+declaration earns one block of share-time out of a year, rather than a full
+quarter's rent for two blocks of exposure.
+
+The cost is a rewrite of the mechanism every existing vehicle depends on, plus a
+migration: positions on chain carry none of these fields, and `math.Int`'s zero
+value is nil and panics rather than erroring. Every existing position must be
+given a `period_index`, a `last_touch` and zeroed seconds at the upgrade height,
+or the first transfer after it takes the chain down.
+
+### The decision that has to be made explicitly
+
+**The first period of a migrated vehicle starts at the upgrade height, not at
+issuance.** The chain has no record of when balances moved before that, so
+token-seconds for the past cannot be reconstructed — and inventing them by
+assuming everyone held from issuance would credit a buyer from last week with a
+year of accrual. So migrated vehicles apportion by time from the upgrade
+forward, and the period before it pays on the old rule. That is a real
+discontinuity, it is visible on the timber vehicle, and it is the honest option:
+the alternative is a figure the chain cannot support.
+
+---
+
 ## Recording what was paid, so a return can be computed
 
 Requested 2026-09-15: *"should record the initial investment for sure to get the
