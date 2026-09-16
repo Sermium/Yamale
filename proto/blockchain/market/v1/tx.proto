@@ -1,0 +1,298 @@
+syntax = "proto3";
+
+package blockchain.market.v1;
+
+import "amino/amino.proto";
+import "blockchain/market/v1/market.proto";
+import "blockchain/market/v1/params.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/market/types";
+
+// Msg is the write side of the secondary market.
+//
+// Three mechanisms, and each one is a pair: an offer that escrows, and the
+// event that releases the escrow. Nothing here has a handler that can leave
+// property in the module account with no record pointing at it.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams sets the market-wide limits. Governance only.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // List offers a parcel of shares for a fixed total.
+  rpc List(MsgList) returns (MsgListResponse);
+
+  // Buy takes a listing whole: money one way, shares the other, in one message.
+  rpc Buy(MsgBuy) returns (MsgBuyResponse);
+
+  // CancelListing withdraws an offer and returns the escrowed shares.
+  rpc CancelListing(MsgCancelListing) returns (MsgCancelListingResponse);
+
+  // OpenAuction offers a parcel to the best bid received by a deadline.
+  rpc OpenAuction(MsgOpenAuction) returns (MsgOpenAuctionResponse);
+
+  // Bid improves on the standing bid, refunding it in the same message.
+  rpc Bid(MsgBid) returns (MsgBidResponse);
+
+  // SettleAuction closes it out after the deadline. Anybody may send it.
+  rpc SettleAuction(MsgSettleAuction) returns (MsgSettleAuctionResponse);
+
+  // CancelAuction withdraws one that nobody has bid on.
+  rpc CancelAuction(MsgCancelAuction) returns (MsgCancelAuctionResponse);
+
+  // PlaceOrder crosses what it can against the book and rests the remainder.
+  rpc PlaceOrder(MsgPlaceOrder) returns (MsgPlaceOrderResponse);
+
+  // CancelOrder withdraws a resting order and returns what it still escrows.
+  rpc CancelOrder(MsgCancelOrder) returns (MsgCancelOrderResponse);
+}
+
+// MsgUpdateParams sets the market-wide limits.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/market/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+// MsgUpdateParamsResponse is empty.
+message MsgUpdateParamsResponse {}
+
+/* ========================================================================== */
+/*  Fixed price                                                               */
+/* ========================================================================== */
+
+// MsgList offers a parcel of shares for a fixed total.
+//
+// The shares leave the seller here, not at fill. A listing backed by shares the
+// seller still holds can be listed again, or transferred away, and the first
+// buyer to pay discovers there is nothing to deliver — at which point the chain
+// has taken somebody's money for an asset that is not there, and the only
+// remedy is off-chain.
+message MsgList {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/market/MsgList";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // The share denomination: tok/<asset>/<SYMBOL>.
+  string denom = 2;
+
+  string quantity = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The total asked. Must be denominated in the vehicle's income denomination;
+  // see Listing.price.
+  cosmos.base.v1beta1.Coin price = 4 [(gogoproto.nullable) = false];
+}
+// MsgListResponse returns the listing's id.
+message MsgListResponse {
+  uint64 id = 1;
+}
+
+// MsgBuy takes a listing whole.
+//
+// There is no quantity: a fixed-price listing is a parcel at a sum, and a
+// partial fill of one would need a price per share the seller never named.
+// Somebody who wants to buy part of a holding is asking the book, not a
+// listing.
+message MsgBuy {
+  option (cosmos.msg.v1.signer) = "buyer";
+  option (amino.name) = "blockchain/x/market/MsgBuy";
+
+  string buyer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 listing_id = 2;
+}
+// MsgBuyResponse is empty.
+message MsgBuyResponse {}
+
+// MsgCancelListing withdraws an offer.
+message MsgCancelListing {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/market/MsgCancelListing";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 listing_id = 2;
+}
+// MsgCancelListingResponse is empty.
+message MsgCancelListingResponse {}
+
+/* ========================================================================== */
+/*  Auction                                                                   */
+/* ========================================================================== */
+
+// MsgOpenAuction offers a parcel to the best bid received by a deadline.
+message MsgOpenAuction {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/market/MsgOpenAuction";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+
+  string quantity = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The least the seller will accept, as a total. Zero means no reserve.
+  cosmos.base.v1beta1.Coin reserve = 4 [(gogoproto.nullable) = false];
+
+  // Unix seconds at which bidding stops. Bounded by the params at both ends.
+  //
+  // An absolute time rather than a duration, because a duration is measured
+  // from whenever the transaction happens to be included — so a seller signing
+  // "one week" during congestion gets an auction closing at a moment they did
+  // not choose, and their shares are escrowed for the difference.
+  int64 closes_at = 5;
+}
+// MsgOpenAuctionResponse returns the auction's id.
+message MsgOpenAuctionResponse {
+  uint64 id = 1;
+}
+
+// MsgBid improves on the standing bid.
+//
+// The money is escrowed here and the previous best bid is refunded in this same
+// message. A bid whose money stayed with the bidder is a bid that can be
+// withdrawn by spending the balance, which means the seller's reserve was met
+// by somebody who was never committed to anything.
+message MsgBid {
+  option (cosmos.msg.v1.signer) = "bidder";
+  option (amino.name) = "blockchain/x/market/MsgBid";
+
+  string bidder = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 auction_id = 2;
+
+  // The total offered for the whole parcel. Must strictly beat the standing
+  // bid, and must meet the reserve.
+  cosmos.base.v1beta1.Coin amount = 3 [(gogoproto.nullable) = false];
+}
+// MsgBidResponse is empty.
+message MsgBidResponse {}
+
+// MsgSettleAuction closes an auction out after its deadline.
+//
+// Anybody may send it, and that is the point rather than a convenience. The
+// winner's money and the seller's shares are both in the module account; if
+// settlement needed the seller's signature, a seller who disliked the result
+// could strand the winner's capital indefinitely by doing nothing. Nobody
+// should need a counterparty's cooperation to end a mechanism that has already
+// finished.
+message MsgSettleAuction {
+  option (cosmos.msg.v1.signer) = "settler";
+  option (amino.name) = "blockchain/x/market/MsgSettleAuction";
+
+  string settler = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 auction_id = 2;
+}
+// MsgSettleAuctionResponse is empty.
+message MsgSettleAuctionResponse {}
+
+// MsgCancelAuction withdraws an auction nobody has bid on.
+//
+// Only while there is no bid. Once somebody has committed money the seller is
+// in it: a seller who could cancel after seeing the bids would be running a
+// free valuation exercise paid for by the bidders, whose capital was escrowed
+// for the duration and who get nothing for it.
+message MsgCancelAuction {
+  option (cosmos.msg.v1.signer) = "seller";
+  option (amino.name) = "blockchain/x/market/MsgCancelAuction";
+
+  string seller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 auction_id = 2;
+}
+// MsgCancelAuctionResponse is empty.
+message MsgCancelAuctionResponse {}
+
+/* ========================================================================== */
+/*  Order book                                                                */
+/* ========================================================================== */
+
+// MsgPlaceOrder crosses against the book and rests what is left.
+//
+// # Escrow first, then fill
+//
+// The whole of the trader's side is escrowed before a single match is
+// attempted: shares for an ask, money for a bid, at the trader's own limit.
+// Every fill is then paid out of that escrow, and whatever is left over is
+// either the remainder resting or a refund at the end.
+//
+// The alternative — fill from the trader's own balance and escrow only what
+// rests — is one bank send shorter and wrong in a way that only shows up under
+// load. It leaves a window inside the cross where the trader's balance is still
+// theirs, so a fill part-way through the loop can fail for insufficient funds
+// after earlier fills have already settled, and the handler is then holding
+// half a trade.
+//
+// # Price improvement belongs to the taker
+//
+// A fill happens at the RESTING order's price, never the incoming one. The
+// resting order named a price and waited; the incoming order accepted it. Where
+// a bid crosses an ask below its limit, the difference is refunded to the
+// bidder rather than paid to the seller — the seller asked for their price and
+// got it, and a mechanism that quietly paid them more would be charging the
+// taker for the privilege of having been patient.
+message MsgPlaceOrder {
+  option (cosmos.msg.v1.signer) = "trader";
+  option (amino.name) = "blockchain/x/market/MsgPlaceOrder";
+
+  string trader = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string denom = 2;
+
+  Side side = 3;
+
+  string quantity = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Settlement units per one share, and a limit rather than a target: a bid
+  // will not pay more, an ask will not take less. There is no market order,
+  // deliberately — on a book this thin an unpriced order is an instruction to
+  // accept whatever single resting order happens to be there, which on a
+  // vehicle with four holders is not a price.
+  uint64 unit_price = 5;
+}
+// MsgPlaceOrderResponse says what happened to the order.
+message MsgPlaceOrderResponse {
+  // The order's id. Issued even when the order filled completely and never
+  // rested, because the fills are recorded against it.
+  uint64 id = 1;
+
+  // How much crossed immediately, and what it cost or raised in total.
+  string filled = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  cosmos.base.v1beta1.Coin settled = 3 [(gogoproto.nullable) = false];
+
+  // What is now resting. Non-zero here with a full book behind it means the
+  // per-transaction fill bound was reached rather than the price running out;
+  // the remainder is in the book and the next transaction continues it.
+  string resting = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgCancelOrder withdraws a resting order.
+message MsgCancelOrder {
+  option (cosmos.msg.v1.signer) = "trader";
+  option (amino.name) = "blockchain/x/market/MsgCancelOrder";
+
+  string trader = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 order_id = 2;
+}
+// MsgCancelOrderResponse is empty.
+message MsgCancelOrderResponse {}

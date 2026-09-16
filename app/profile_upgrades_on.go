@@ -3,6 +3,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
@@ -10,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	herdtypes "yamale/blockchain/x/herd/types"
+	markettypes "yamale/blockchain/x/market/types"
 	selfcustodytypes "yamale/blockchain/x/selfcustody/types"
 	syndicatetypes "yamale/blockchain/x/syndicate/types"
 )
@@ -245,6 +247,91 @@ var profileUpgrades = []Upgrade{
 					"operator can publish covenants against it — accounts, structure changes, "+
 					"dividend notices, assembly notices — as digests, never as documents",
 			)
+			return vm, nil
+		},
+	},
+	{
+		// The secondary market.
+		//
+		// A new store, so it is a halt: x/market keeps its listings, auctions and
+		// order book under its own key, and a store has to be mounted before any
+		// module migration runs or the module’s InitGenesis writes into a store
+		// the app has not got.
+		//
+		// It ships alone rather than alongside anything else because it is the
+		// first module on this chain that WRITES to another module’s state as a
+		// matter of course — every fill records a cost basis in x/tokenisation —
+		// and the wiring that makes that correct is not in this handler at all.
+		// It is in app.registerMarketEscrow, which runs when the binary starts.
+		// That is worth a halt of its own, because the failure mode if a binary
+		// were missing it is not a crash: it is a chain that trades correctly and
+		// reports every holder’s cost wrong.
+		//
+		// It also has to come after tokenisation-prorata, because the cost basis
+		// every fill writes is the field that migration creates.
+		Name: "market",
+		StoreUpgrades: storetypes.StoreUpgrades{Added: []string{
+			markettypes.StoreKey,
+		}},
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// The store must answer, which proves the collections were built into
+			// the schema rather than silently absent — an unregistered keeper field
+			// reads as a zero value and fails at the first write, in a block,
+			// rather than here.
+			params, err := app.MarketKeeper.Params.Get(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the market params this upgrade just mounted: %w", err)
+			}
+
+			// And the bound must be usable. At zero no incoming order could ever
+			// cross another: every order would rest, the book would fill with
+			// orders overlapping in price that never trade, and the market would
+			// LOOK like it worked — orders accepted, book deep — while being a
+			// machine for escrowing property and giving it back. A market that
+			// refuses orders is visibly broken; one that matches none is not.
+			if params.MaxFillsPerOrder == 0 {
+				return nil, fmt.Errorf(
+					"x/market arrived with max_fills_per_order at zero, so no order could ever "+
+						"cross another and the book would rest everything it accepted")
+			}
+
+			// Every id sequence starts at zero, which is how the module knows it is
+			// new. A counter arriving part-used would mean this handler had written
+			// an order during the halt — an offer nobody made, escrowed with
+			// property nobody committed.
+			for name, peek := range map[string]func(context.Context) (uint64, error){
+				"listing": app.MarketKeeper.NextListingID.Peek,
+				"auction": app.MarketKeeper.NextAuctionID.Peek,
+				"order":   app.MarketKeeper.NextOrderID.Peek,
+			} {
+				next, err := peek(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("reading the %s id sequence: %w", name, err)
+				}
+				if next != 0 {
+					return nil, fmt.Errorf(
+						"the %s id sequence starts at %d, not 0; this upgrade wrote a %s nobody asked for",
+						name, next, name)
+				}
+			}
+
+			ctx.Logger().Info(
+				"the secondary market arrived",
+				"market", "a holder of a tokenised shareholding may now sell it three ways: a "+
+					"fixed-price listing, an auction by deadline, or a resting order in a book",
+				"why", "a bank send names no price, so the register knew what everybody held and "+
+					"nothing about what any of it cost. Every fill here writes the buyer’s cost "+
+					"basis from the trade, which is the one figure no party has to be trusted for",
+				"escrowed", "shares behind an ask or a listing, money behind a bid or a standing "+
+					"auction bid. The module account is blocked, so nothing reaches it except "+
+					"through an order the module can return",
+			)
+
 			return vm, nil
 		},
 	},

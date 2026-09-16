@@ -3,12 +3,14 @@
 package app
 
 import (
+	"context"
 	"testing"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
 	herdtypes "yamale/blockchain/x/herd/types"
+	markettypes "yamale/blockchain/x/market/types"
 	selfcustodytypes "yamale/blockchain/x/selfcustody/types"
 	syndicatetypes "yamale/blockchain/x/syndicate/types"
 )
@@ -218,4 +220,67 @@ func TestTheDocumentsUpgradeRefusesAPaperNobodyAttestedTo(t *testing.T) {
 	_, err = u.Handler(ctx, app, app.ModuleManager.GetVersionMap())
 	require.Error(t, err, "a document written during a halt must stop the upgrade")
 	require.Contains(t, err.Error(), "not written during a halt")
+}
+
+// The market upgrade, which is the one that mounts a store and then depends on
+// something that is NOT in its handler.
+
+// A new module means a new store, and a store missing here is not a cosmetic
+// omission: the module’s InitGenesis writes into a store the app never mounted,
+// and the failure surfaces at the halt height on every validator at once.
+func TestTheMarketAddsItsStore(t *testing.T) {
+	u := findUpgrade(t, "market")
+	require.Contains(t, u.StoreUpgrades.Added, markettypes.StoreKey)
+}
+
+// The market arrives able to match, and having traded nothing.
+//
+// max_fills_per_order is the assertion that is not ceremonial. At zero no
+// incoming order could ever cross another: every order would rest, the book
+// would fill with orders overlapping in price that never trade, and the market
+// would LOOK like it worked — orders accepted, book deep — while being a machine
+// for escrowing property and giving it straight back. A market that refuses
+// orders is visibly broken; one that matches none is not.
+func TestTheMarketArrivesAbleToMatchAndHavingTradedNothing(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	u := findUpgrade(t, "market")
+	_, err := u.Handler(ctx, app, priorVersions(app, markettypes.ModuleName))
+	require.NoError(t, err)
+
+	params, err := app.MarketKeeper.Params.Get(ctx)
+	require.NoError(t, err)
+	require.NotZero(t, params.MaxFillsPerOrder,
+		"a book that can never cross accepts every order and matches none")
+
+	// Ids start at 1, so the sequences start at 0. A counter arriving part-used
+	// would mean the handler wrote an order during the halt — an offer nobody
+	// made, escrowed with property nobody committed.
+	for _, peek := range []func(ctx2 context.Context) (uint64, error){
+		app.MarketKeeper.NextListingID.Peek,
+		app.MarketKeeper.NextAuctionID.Peek,
+		app.MarketKeeper.NextOrderID.Peek,
+	} {
+		next, err := peek(ctx)
+		require.NoError(t, err)
+		require.Zero(t, next)
+	}
+}
+
+// The escrow is declared to x/tokenisation by the BINARY, not by the upgrade.
+//
+// This is the property worth a test of its own, because its failure is silent.
+// x/tokenisation carries a sender’s cost basis along with the shares on every
+// transfer; across a marketplace escrow that is wrong twice over, and the
+// symptom is not a crash but a chain that trades correctly and reports every
+// holder’s cost wrong. Nothing in the upgrade handler can check it, so it is
+// checked here against a fully wired app.
+func TestTheMarketEscrowIsRegisteredWithTheRegister(t *testing.T) {
+	app := newUpgradeTestApp(t)
+
+	require.True(t,
+		app.TokenisationKeeper.IsEscrow(app.MarketKeeper.ModuleAddress()),
+		"app.registerMarketEscrow must have run; without it a holder who withdraws "+
+			"an offer nobody took comes back with their cost basis spent")
 }
