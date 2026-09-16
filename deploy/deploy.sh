@@ -234,6 +234,37 @@ for probe in "/keys/:a path with no location of its own" \
   fi
 done
 
+# The shared stylesheet, by CONTENT rather than by status code.
+#
+# Every check above asks whether a path answers. /yamale.css answered 200 for
+# weeks while the file behind it was 282 lines against a repository carrying
+# 472 — no INFORMATION DESIGN block, so every console linking it rendered its
+# KPI markup with no .y-kpi rules at all and its eyebrows in an undefined
+# colour. A 200 is not a statement about which version was served, and this is
+# the file whose staleness is least visible: the page still renders, just
+# wrongly, and only against the current design.
+#
+# Five more consoles INLINE their own copy of the same file. Those cannot drift
+# on the host, only in the repository, which is what clients/*/theme.test.js
+# checks. This is the other half of that guard.
+echo "==> the shared stylesheet is the one in the repository"
+want=$(sha256sum < "$ROOT/clients/shared/yamale.css" | cut -d' ' -f1)
+got=$(curl -s --max-time 30 "$PUBLIC/yamale.css" | sha256sum | cut -d' ' -f1)
+if [ "$want" = "$got" ]; then
+  printf '    ok   /yamale.css matches clients/shared/yamale.css
+'
+else
+  printf '    FAIL /yamale.css is not the file in this repository
+'
+  printf '         served  %s (%s lines)
+' "${got:0:16}"          "$(curl -s --max-time 30 "$PUBLIC/yamale.css" | wc -l)"
+  printf '         repo    %s (%s lines)
+' "${want:0:16}"          "$(wc -l < "$ROOT/clients/shared/yamale.css")"
+  printf '         every console that LINKS it is rendering against the served one.
+'
+  fail=1
+fi
+
 # The RPC method gate, checked in the form the bypass actually takes.
 #
 # Every one of these answered in full on the live funnel on 2026-09-05 while
