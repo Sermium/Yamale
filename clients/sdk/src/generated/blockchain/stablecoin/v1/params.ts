@@ -11,14 +11,52 @@ export const protobufPackage = "blockchain.stablecoin.v1";
 
 /** Params defines the parameters for the module. */
 export interface Params {
+  /**
+   * The largest total supply an approved issuer may bring into existence for a
+   * currency that has no ceiling of its own.
+   *
+   * MintCoin checked that the signer was the recorded issuer and then minted
+   * whatever it was asked for. On a chain where one key was the approved issuer
+   * for all 43 currencies, that key could mint unlimited quantities of every
+   * national currency the chain represented, and there was no cap, no period
+   * limit and no reserve check anywhere in the path.
+   *
+   * Empty or zero means NO MINTING, not unlimited. That is the safe direction
+   * and it is the direction the rest of this chain already fails in: a chain
+   * upgraded past this point cannot issue until governance states a figure,
+   * which is the decision being forced rather than a side effect.
+   */
+  defaultMintCeiling: string;
+  /**
+   * Per-currency ceilings, for the ones the default does not suit. A currency
+   * listed here uses its own figure; everything else uses the default.
+   */
+  mintCeilings: MintCeiling[];
+}
+
+/** MintCeiling is one currency's supply cap. */
+export interface MintCeiling {
+  denom: string;
+  /**
+   * The largest total supply of this denomination that may exist. Zero means
+   * this currency may not be minted at all, which is a usable state: it is how
+   * a currency is suspended without revoking its issuer.
+   */
+  ceiling: string;
 }
 
 function createBaseParams(): Params {
-  return {};
+  return { defaultMintCeiling: "", mintCeilings: [] };
 }
 
 export const Params = {
-  encode(_: Params, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+  encode(message: Params, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.defaultMintCeiling !== "") {
+      writer.uint32(10).string(message.defaultMintCeiling);
+    }
+    for (const v of message.mintCeilings) {
+      MintCeiling.encode(v!, writer.uint32(18).fork()).ldelim();
+    }
     return writer;
   },
 
@@ -29,6 +67,20 @@ export const Params = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.defaultMintCeiling = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.mintCeilings.push(MintCeiling.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -38,20 +90,107 @@ export const Params = {
     return message;
   },
 
-  fromJSON(_: any): Params {
-    return {};
+  fromJSON(object: any): Params {
+    return {
+      defaultMintCeiling: isSet(object.defaultMintCeiling) ? globalThis.String(object.defaultMintCeiling) : "",
+      mintCeilings: globalThis.Array.isArray(object?.mintCeilings)
+        ? object.mintCeilings.map((e: any) => MintCeiling.fromJSON(e))
+        : [],
+    };
   },
 
-  toJSON(_: Params): unknown {
+  toJSON(message: Params): unknown {
     const obj: any = {};
+    if (message.defaultMintCeiling !== "") {
+      obj.defaultMintCeiling = message.defaultMintCeiling;
+    }
+    if (message.mintCeilings?.length) {
+      obj.mintCeilings = message.mintCeilings.map((e) => MintCeiling.toJSON(e));
+    }
     return obj;
   },
 
   create(base?: DeepPartial<Params>): Params {
     return Params.fromPartial(base ?? {});
   },
-  fromPartial(_: DeepPartial<Params>): Params {
+  fromPartial(object: DeepPartial<Params>): Params {
     const message = createBaseParams();
+    message.defaultMintCeiling = object.defaultMintCeiling ?? "";
+    message.mintCeilings = object.mintCeilings?.map((e) => MintCeiling.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseMintCeiling(): MintCeiling {
+  return { denom: "", ceiling: "" };
+}
+
+export const MintCeiling = {
+  encode(message: MintCeiling, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.denom !== "") {
+      writer.uint32(10).string(message.denom);
+    }
+    if (message.ceiling !== "") {
+      writer.uint32(18).string(message.ceiling);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MintCeiling {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMintCeiling();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.ceiling = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MintCeiling {
+    return {
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      ceiling: isSet(object.ceiling) ? globalThis.String(object.ceiling) : "",
+    };
+  },
+
+  toJSON(message: MintCeiling): unknown {
+    const obj: any = {};
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.ceiling !== "") {
+      obj.ceiling = message.ceiling;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MintCeiling>): MintCeiling {
+    return MintCeiling.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MintCeiling>): MintCeiling {
+    const message = createBaseMintCeiling();
+    message.denom = object.denom ?? "";
+    message.ceiling = object.ceiling ?? "";
     return message;
   },
 };
@@ -63,3 +202,7 @@ export type DeepPartial<T> = T extends Builtin ? T
   : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
+
+function isSet(value: any): boolean {
+  return value !== null && value !== undefined;
+}

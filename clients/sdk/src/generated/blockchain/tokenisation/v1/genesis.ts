@@ -8,10 +8,14 @@
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { Params } from "./params.ts";
-import { Asset, Collection, Position, SaleReport, Vault } from "./tokenisation.ts";
+import { Asset, Collection, Covenant, PeriodRate, Position, SaleReport, Vault } from "./tokenisation.ts";
 
 export const protobufPackage = "blockchain.tokenisation.v1";
 
+/**
+ * GenesisState is the module's state at a chain's first block: its
+ * parameters, its collections, and every vehicle with its vault and holders.
+ */
 export interface GenesisState {
   params: Params | undefined;
   collections: Collection[];
@@ -25,6 +29,26 @@ export interface GenesisState {
    * InitGenesis wrote nothing, and the export stops round-tripping.
    */
   nextAssetId: string;
+  /**
+   * The filings, and their counter. Digests only, so this costs a genesis file
+   * 32 bytes and a title per filing -- and losing them would lose the proof
+   * that anything was ever published.
+   */
+  covenants: Covenant[];
+  /**
+   * Exported explicitly rather than derived from the highest id present. A
+   * counter derived that way reissues an id the moment the highest-numbered
+   * filing is removed, and two filings under one id is a register
+   * contradicting itself.
+   */
+  nextCovenantId: string;
+  /**
+   * The per-period rates. Exported rather than derived: a rate is what a
+   * holder who has not settled since that period is still owed at, and it
+   * cannot be recomputed from anything else in the file once the period has
+   * closed.
+   */
+  periodRates: PeriodRate[];
 }
 
 function createBaseGenesisState(): GenesisState {
@@ -36,6 +60,9 @@ function createBaseGenesisState(): GenesisState {
     positions: [],
     saleReports: [],
     nextAssetId: "0",
+    covenants: [],
+    nextCovenantId: "0",
+    periodRates: [],
   };
 }
 
@@ -61,6 +88,15 @@ export const GenesisState = {
     }
     if (message.nextAssetId !== "0") {
       writer.uint32(56).uint64(message.nextAssetId);
+    }
+    for (const v of message.covenants) {
+      Covenant.encode(v!, writer.uint32(66).fork()).ldelim();
+    }
+    if (message.nextCovenantId !== "0") {
+      writer.uint32(72).uint64(message.nextCovenantId);
+    }
+    for (const v of message.periodRates) {
+      PeriodRate.encode(v!, writer.uint32(82).fork()).ldelim();
     }
     return writer;
   },
@@ -121,6 +157,27 @@ export const GenesisState = {
 
           message.nextAssetId = longToString(reader.uint64() as Long);
           continue;
+        case 8:
+          if (tag !== 66) {
+            break;
+          }
+
+          message.covenants.push(Covenant.decode(reader, reader.uint32()));
+          continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.nextCovenantId = longToString(reader.uint64() as Long);
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.periodRates.push(PeriodRate.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -145,6 +202,13 @@ export const GenesisState = {
         ? object.saleReports.map((e: any) => SaleReport.fromJSON(e))
         : [],
       nextAssetId: isSet(object.nextAssetId) ? globalThis.String(object.nextAssetId) : "0",
+      covenants: globalThis.Array.isArray(object?.covenants)
+        ? object.covenants.map((e: any) => Covenant.fromJSON(e))
+        : [],
+      nextCovenantId: isSet(object.nextCovenantId) ? globalThis.String(object.nextCovenantId) : "0",
+      periodRates: globalThis.Array.isArray(object?.periodRates)
+        ? object.periodRates.map((e: any) => PeriodRate.fromJSON(e))
+        : [],
     };
   },
 
@@ -171,6 +235,15 @@ export const GenesisState = {
     if (message.nextAssetId !== "0") {
       obj.nextAssetId = message.nextAssetId;
     }
+    if (message.covenants?.length) {
+      obj.covenants = message.covenants.map((e) => Covenant.toJSON(e));
+    }
+    if (message.nextCovenantId !== "0") {
+      obj.nextCovenantId = message.nextCovenantId;
+    }
+    if (message.periodRates?.length) {
+      obj.periodRates = message.periodRates.map((e) => PeriodRate.toJSON(e));
+    }
     return obj;
   },
 
@@ -188,6 +261,9 @@ export const GenesisState = {
     message.positions = object.positions?.map((e) => Position.fromPartial(e)) || [];
     message.saleReports = object.saleReports?.map((e) => SaleReport.fromPartial(e)) || [];
     message.nextAssetId = object.nextAssetId ?? "0";
+    message.covenants = object.covenants?.map((e) => Covenant.fromPartial(e)) || [];
+    message.nextCovenantId = object.nextCovenantId ?? "0";
+    message.periodRates = object.periodRates?.map((e) => PeriodRate.fromPartial(e)) || [];
     return message;
   },
 };

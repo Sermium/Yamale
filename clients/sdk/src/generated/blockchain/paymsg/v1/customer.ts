@@ -20,10 +20,27 @@ export const protobufPackage = "blockchain.paymsg.v1";
 export interface Customer {
   customer: string;
   participant: string;
+  /**
+   * confirmed is the account's own signature on the relationship.
+   *
+   * Registration is signed by the participant alone, and one participant per
+   * customer means the first to claim an account owns it: no second
+   * institution may claim it, and only the claiming one could release it. The
+   * comment defending that said it prevented impersonation, and it does prevent
+   * the SECOND participant impersonating — it did nothing about the first. An
+   * approved institution could attach itself to any account on the chain, be
+   * named as the instructing participant on that account's payments, and lock
+   * it out of banking anywhere else.
+   *
+   * So a claim is now only a claim. The account confirms it with
+   * MsgConfirmParticipant, and assertInstructedBy — the check that makes a
+   * PaymentRecord mean anything — requires the confirmation, not the claim.
+   */
+  confirmed: boolean;
 }
 
 function createBaseCustomer(): Customer {
-  return { customer: "", participant: "" };
+  return { customer: "", participant: "", confirmed: false };
 }
 
 export const Customer = {
@@ -33,6 +50,9 @@ export const Customer = {
     }
     if (message.participant !== "") {
       writer.uint32(18).string(message.participant);
+    }
+    if (message.confirmed !== false) {
+      writer.uint32(24).bool(message.confirmed);
     }
     return writer;
   },
@@ -58,6 +78,13 @@ export const Customer = {
 
           message.participant = reader.string();
           continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.confirmed = reader.bool();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -71,6 +98,7 @@ export const Customer = {
     return {
       customer: isSet(object.customer) ? globalThis.String(object.customer) : "",
       participant: isSet(object.participant) ? globalThis.String(object.participant) : "",
+      confirmed: isSet(object.confirmed) ? globalThis.Boolean(object.confirmed) : false,
     };
   },
 
@@ -82,6 +110,9 @@ export const Customer = {
     if (message.participant !== "") {
       obj.participant = message.participant;
     }
+    if (message.confirmed !== false) {
+      obj.confirmed = message.confirmed;
+    }
     return obj;
   },
 
@@ -92,6 +123,7 @@ export const Customer = {
     const message = createBaseCustomer();
     message.customer = object.customer ?? "";
     message.participant = object.participant ?? "";
+    message.confirmed = object.confirmed ?? false;
     return message;
   },
 };

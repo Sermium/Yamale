@@ -232,6 +232,10 @@ export interface MsgOpenEscrow {
   metadataHash: Uint8Array;
 }
 
+/**
+ * MsgOpenEscrowResponse carries the lock id, which every later message about
+ * this escrow addresses it by.
+ */
 export interface MsgOpenEscrowResponse {
   lockId: string;
 }
@@ -247,6 +251,10 @@ export interface MsgReleaseEscrow {
   lockId: string;
 }
 
+/**
+ * MsgReleaseEscrowResponse is empty: the outcome is the payment, and the
+ * amount was fixed when the escrow was opened.
+ */
 export interface MsgReleaseEscrowResponse {
 }
 
@@ -263,6 +271,10 @@ export interface MsgDisputeEscrow {
   reason: string;
 }
 
+/**
+ * MsgDisputeEscrowResponse is empty. The effect is the freeze, which the
+ * lock query reports.
+ */
 export interface MsgDisputeEscrowResponse {
 }
 
@@ -283,6 +295,10 @@ export interface MsgResolveEscrow {
   payBeneficiary: boolean;
 }
 
+/**
+ * MsgResolveEscrowResponse is empty: which way it went is in the message
+ * that decided it, and the balances say the rest.
+ */
 export interface MsgResolveEscrowResponse {
 }
 
@@ -2752,8 +2768,22 @@ export interface Msg {
   RevokeLock(request: MsgRevokeLock): Promise<MsgRevokeLockResponse>;
   /** --- conditional locks (escrow) ---------------------------------------- */
   OpenEscrow(request: MsgOpenEscrow): Promise<MsgOpenEscrowResponse>;
+  /**
+   * ReleaseEscrow pays the beneficiary. Only the depositor may, and only while
+   * no dispute is open — a buyer must not be able to defuse a seller's
+   * complaint by paying.
+   */
   ReleaseEscrow(request: MsgReleaseEscrow): Promise<MsgReleaseEscrowResponse>;
+  /**
+   * DisputeEscrow freezes the lock and refers it to its named moderator. Either
+   * party may, which is what removes the need for a deadline.
+   */
   DisputeEscrow(request: MsgDisputeEscrow): Promise<MsgDisputeEscrowResponse>;
+  /**
+   * ResolveEscrow is the moderator deciding an open case, and governance
+   * deciding one whose moderator has gone. Their only power, and only on a case
+   * somebody opened.
+   */
   ResolveEscrow(request: MsgResolveEscrow): Promise<MsgResolveEscrowResponse>;
   /** AssignRole grants an address a role over a treasury. */
   AssignRole(request: MsgAssignRole): Promise<MsgAssignRoleResponse>;

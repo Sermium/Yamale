@@ -87,9 +87,17 @@ export function lockTypeToJSON(object: LockType): string {
 
 /** DisputeState tracks a conditional lock that somebody has escalated. */
 export const DisputeState = {
+  /**
+   * DISPUTE_STATE_NONE - Quiet. Nobody has escalated, and the lock behaves as an ordinary
+   * conditional one: the depositor may release it and nobody else may touch it.
+   */
   DISPUTE_STATE_NONE: 0,
   /** DISPUTE_STATE_OPEN - Frozen. Neither release nor refund happens until the moderator decides. */
   DISPUTE_STATE_OPEN: 1,
+  /**
+   * DISPUTE_STATE_RESOLVED - Decided. The moderator has settled it and the funds have moved; the state
+   * is kept rather than cleared so that a settled case stays on the record.
+   */
   DISPUTE_STATE_RESOLVED: 2,
   UNRECOGNIZED: -1,
 } as const;

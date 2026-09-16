@@ -52,6 +52,28 @@ export interface Params {
    * currency, never a default that arrives with a new denom.
    */
   denomPolicies: DenomPolicy[];
+  /**
+   * max_hold_cycles bounds how long a slice that will not settle may sit held
+   * with its participants' collateral locked.
+   *
+   * A slice that fails settlement is written to HeldSlice and retried unchanged
+   * at every subsequent cycle boundary. Refusing to recompute, reassign or
+   * cancel obligations institutions were already told they owed is correct, and
+   * it is what prevents unwinding risk. What was missing is a bound: with no
+   * timeout and no escalation, a state exists in which participant funds are
+   * locked in a module account indefinitely and no message can release them.
+   *
+   * Reaching this bound is not expected. Settlement moves no coins, and every
+   * debit is covered by reserve checked when the obligation was submitted, so a
+   * hold means state this module did not build itself — an imported genesis, a
+   * migration, a bug in the cap. This field exists so that if that ever
+   * happens somebody is told, rather than left to discover it from a support
+   * call about locked collateral.
+   *
+   * Zero disables the bound and restores the previous behaviour of retrying
+   * forever in silence.
+   */
+  maxHoldCycles: string;
 }
 
 /** DenomPolicy is the netting rule for one currency. */
@@ -73,10 +95,35 @@ export interface DenomPolicy {
    * direction.
    */
   grossThreshold: string;
+  /**
+   * aggregate_gross_threshold is the total value one participant may put into
+   * the netting window for this currency in a single cycle before further
+   * obligations settle gross regardless of their individual size.
+   *
+   * # Why a per-obligation threshold is not enough
+   *
+   * gross_threshold above looks at one obligation at a time, so a participant
+   * with a large payment to make submits a series of obligations each one unit
+   * below it and converts an immediate, fully funded transfer into deferred
+   * exposure inside the window. This is transaction structuring, it is the
+   * first thing a supervisor will test for, and it defeats the entire purpose
+   * of the per-obligation threshold: high-value flows are put outside the
+   * deferred window precisely so that a settlement disruption cannot reach
+   * them.
+   *
+   * It was never a solvency hole. The net debit cap still binds, so the sender
+   * must hold reserve covering its aggregate position either way. What
+   * structuring defeats is systemic-risk containment, which is a different and
+   * less visible property than solvency.
+   *
+   * Zero or unset disables the aggregate check, which is the behaviour every
+   * chain configured before this field existed already had.
+   */
+  aggregateGrossThreshold: string;
 }
 
 function createBaseParams(): Params {
-  return { cycleBlocks: "0", denomPolicies: [] };
+  return { cycleBlocks: "0", denomPolicies: [], maxHoldCycles: "0" };
 }
 
 export const Params = {
@@ -86,6 +133,9 @@ export const Params = {
     }
     for (const v of message.denomPolicies) {
       DenomPolicy.encode(v!, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.maxHoldCycles !== "0") {
+      writer.uint32(24).uint64(message.maxHoldCycles);
     }
     return writer;
   },
@@ -111,6 +161,13 @@ export const Params = {
 
           message.denomPolicies.push(DenomPolicy.decode(reader, reader.uint32()));
           continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.maxHoldCycles = longToString(reader.uint64() as Long);
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -126,6 +183,7 @@ export const Params = {
       denomPolicies: globalThis.Array.isArray(object?.denomPolicies)
         ? object.denomPolicies.map((e: any) => DenomPolicy.fromJSON(e))
         : [],
+      maxHoldCycles: isSet(object.maxHoldCycles) ? globalThis.String(object.maxHoldCycles) : "0",
     };
   },
 
@@ -137,6 +195,9 @@ export const Params = {
     if (message.denomPolicies?.length) {
       obj.denomPolicies = message.denomPolicies.map((e) => DenomPolicy.toJSON(e));
     }
+    if (message.maxHoldCycles !== "0") {
+      obj.maxHoldCycles = message.maxHoldCycles;
+    }
     return obj;
   },
 
@@ -147,12 +208,13 @@ export const Params = {
     const message = createBaseParams();
     message.cycleBlocks = object.cycleBlocks ?? "0";
     message.denomPolicies = object.denomPolicies?.map((e) => DenomPolicy.fromPartial(e)) || [];
+    message.maxHoldCycles = object.maxHoldCycles ?? "0";
     return message;
   },
 };
 
 function createBaseDenomPolicy(): DenomPolicy {
-  return { denom: "", grossThreshold: "" };
+  return { denom: "", grossThreshold: "", aggregateGrossThreshold: "" };
 }
 
 export const DenomPolicy = {
@@ -162,6 +224,9 @@ export const DenomPolicy = {
     }
     if (message.grossThreshold !== "") {
       writer.uint32(18).string(message.grossThreshold);
+    }
+    if (message.aggregateGrossThreshold !== "") {
+      writer.uint32(26).string(message.aggregateGrossThreshold);
     }
     return writer;
   },
@@ -187,6 +252,13 @@ export const DenomPolicy = {
 
           message.grossThreshold = reader.string();
           continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.aggregateGrossThreshold = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -200,6 +272,9 @@ export const DenomPolicy = {
     return {
       denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
       grossThreshold: isSet(object.grossThreshold) ? globalThis.String(object.grossThreshold) : "",
+      aggregateGrossThreshold: isSet(object.aggregateGrossThreshold)
+        ? globalThis.String(object.aggregateGrossThreshold)
+        : "",
     };
   },
 
@@ -211,6 +286,9 @@ export const DenomPolicy = {
     if (message.grossThreshold !== "") {
       obj.grossThreshold = message.grossThreshold;
     }
+    if (message.aggregateGrossThreshold !== "") {
+      obj.aggregateGrossThreshold = message.aggregateGrossThreshold;
+    }
     return obj;
   },
 
@@ -221,6 +299,7 @@ export const DenomPolicy = {
     const message = createBaseDenomPolicy();
     message.denom = object.denom ?? "";
     message.grossThreshold = object.grossThreshold ?? "";
+    message.aggregateGrossThreshold = object.aggregateGrossThreshold ?? "";
     return message;
   },
 };

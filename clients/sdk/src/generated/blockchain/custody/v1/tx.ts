@@ -7,6 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.custody.v1";
@@ -75,6 +76,37 @@ export interface MsgReportReserve {
 
 /** MsgReportReserveResponse is empty. */
 export interface MsgReportReserveResponse {
+}
+
+/**
+ * MsgWithdrawFees pays out the fees this module has earned.
+ *
+ * credit mints the full deposit and forwards the net, deliberately: the claim
+ * outstanding has to equal the reserve held, or the solvency comparison is
+ * wrong by the fee on every deposit ever made. The consequence is that the
+ * module account accumulates the fee as claim tokens, and it has no key. Fee
+ * revenue was therefore real, growing, and unrecoverable — the module was
+ * charging for a service and burying the proceeds.
+ *
+ * Governance only, and it pays out claim tokens rather than reserve. Whoever
+ * receives them redeems like anybody else, through the delay and the
+ * attestation threshold, which is the point: the custodian's own revenue leaves
+ * by the same door as everybody else's money.
+ */
+export interface MsgWithdrawFees {
+  authority: string;
+  denom: string;
+  recipient: string;
+  /** Empty or zero withdraws everything the module holds in that denomination. */
+  amount: string;
+}
+
+/**
+ * MsgWithdrawFeesResponse reports what was actually paid, which is what the
+ * module held rather than what was asked for when the request said "all".
+ */
+export interface MsgWithdrawFeesResponse {
+  paid: Coin | undefined;
 }
 
 /** MsgRequestRedemption burns the claim and queues the payout. */
@@ -746,6 +778,167 @@ export const MsgReportReserveResponse = {
   },
 };
 
+function createBaseMsgWithdrawFees(): MsgWithdrawFees {
+  return { authority: "", denom: "", recipient: "", amount: "" };
+}
+
+export const MsgWithdrawFees = {
+  encode(message: MsgWithdrawFees, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.denom !== "") {
+      writer.uint32(18).string(message.denom);
+    }
+    if (message.recipient !== "") {
+      writer.uint32(26).string(message.recipient);
+    }
+    if (message.amount !== "") {
+      writer.uint32(34).string(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawFees {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawFees();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.recipient = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.amount = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgWithdrawFees {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      recipient: isSet(object.recipient) ? globalThis.String(object.recipient) : "",
+      amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
+    };
+  },
+
+  toJSON(message: MsgWithdrawFees): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.recipient !== "") {
+      obj.recipient = message.recipient;
+    }
+    if (message.amount !== "") {
+      obj.amount = message.amount;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawFees>): MsgWithdrawFees {
+    return MsgWithdrawFees.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgWithdrawFees>): MsgWithdrawFees {
+    const message = createBaseMsgWithdrawFees();
+    message.authority = object.authority ?? "";
+    message.denom = object.denom ?? "";
+    message.recipient = object.recipient ?? "";
+    message.amount = object.amount ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgWithdrawFeesResponse(): MsgWithdrawFeesResponse {
+  return { paid: undefined };
+}
+
+export const MsgWithdrawFeesResponse = {
+  encode(message: MsgWithdrawFeesResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.paid !== undefined) {
+      Coin.encode(message.paid, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawFeesResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawFeesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.paid = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgWithdrawFeesResponse {
+    return { paid: isSet(object.paid) ? Coin.fromJSON(object.paid) : undefined };
+  },
+
+  toJSON(message: MsgWithdrawFeesResponse): unknown {
+    const obj: any = {};
+    if (message.paid !== undefined) {
+      obj.paid = Coin.toJSON(message.paid);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawFeesResponse>): MsgWithdrawFeesResponse {
+    return MsgWithdrawFeesResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgWithdrawFeesResponse>): MsgWithdrawFeesResponse {
+    const message = createBaseMsgWithdrawFeesResponse();
+    message.paid = (object.paid !== undefined && object.paid !== null) ? Coin.fromPartial(object.paid) : undefined;
+    return message;
+  },
+};
+
 function createBaseMsgRequestRedemption(): MsgRequestRedemption {
   return { redeemer: "", denom: "", amount: "", destination: "" };
 }
@@ -1185,6 +1378,11 @@ export interface Msg {
   AttestDeposit(request: MsgAttestDeposit): Promise<MsgAttestDepositResponse>;
   /** ReportReserve states what the custodian holds against an asset. */
   ReportReserve(request: MsgReportReserve): Promise<MsgReportReserveResponse>;
+  /**
+   * WithdrawFees pays out the fees this module has earned, which otherwise
+   * accumulate as claim tokens in an account with no key.
+   */
+  WithdrawFees(request: MsgWithdrawFees): Promise<MsgWithdrawFeesResponse>;
   /** RequestRedemption burns a claim and queues the payout. */
   RequestRedemption(request: MsgRequestRedemption): Promise<MsgRequestRedemptionResponse>;
   /** SettleRedemption records that the payout was made. */
@@ -1204,6 +1402,7 @@ export class MsgClientImpl implements Msg {
     this.SetAttestor = this.SetAttestor.bind(this);
     this.AttestDeposit = this.AttestDeposit.bind(this);
     this.ReportReserve = this.ReportReserve.bind(this);
+    this.WithdrawFees = this.WithdrawFees.bind(this);
     this.RequestRedemption = this.RequestRedemption.bind(this);
     this.SettleRedemption = this.SettleRedemption.bind(this);
     this.UpdateParams = this.UpdateParams.bind(this);
@@ -1230,6 +1429,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgReportReserve.encode(request).finish();
     const promise = this.rpc.request(this.service, "ReportReserve", data);
     return promise.then((data) => MsgReportReserveResponse.decode(_m0.Reader.create(data)));
+  }
+
+  WithdrawFees(request: MsgWithdrawFees): Promise<MsgWithdrawFeesResponse> {
+    const data = MsgWithdrawFees.encode(request).finish();
+    const promise = this.rpc.request(this.service, "WithdrawFees", data);
+    return promise.then((data) => MsgWithdrawFeesResponse.decode(_m0.Reader.create(data)));
   }
 
   RequestRedemption(request: MsgRequestRedemption): Promise<MsgRequestRedemptionResponse> {

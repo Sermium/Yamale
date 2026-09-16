@@ -7,7 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
-import { Asset, Deposit, Redemption, Reserve } from "./custody.ts";
+import { Asset, Deposit, Redemption, ReserveReport } from "./custody.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.custody.v1";
@@ -19,7 +19,7 @@ export interface GenesisState {
   attestors: string[];
   deposits: Deposit[];
   redemptions: Redemption[];
-  reserves: Reserve[];
+  reserveReports: ReserveReport[];
   /**
    * next_deposit and next_redemption carry the sequences, so an exported chain
    * resumes numbering rather than reissuing ids that already exist.
@@ -35,7 +35,7 @@ function createBaseGenesisState(): GenesisState {
     attestors: [],
     deposits: [],
     redemptions: [],
-    reserves: [],
+    reserveReports: [],
     nextDeposit: "0",
     nextRedemption: "0",
   };
@@ -58,8 +58,8 @@ export const GenesisState = {
     for (const v of message.redemptions) {
       Redemption.encode(v!, writer.uint32(42).fork()).ldelim();
     }
-    for (const v of message.reserves) {
-      Reserve.encode(v!, writer.uint32(50).fork()).ldelim();
+    for (const v of message.reserveReports) {
+      ReserveReport.encode(v!, writer.uint32(74).fork()).ldelim();
     }
     if (message.nextDeposit !== "0") {
       writer.uint32(56).uint64(message.nextDeposit);
@@ -112,12 +112,12 @@ export const GenesisState = {
 
           message.redemptions.push(Redemption.decode(reader, reader.uint32()));
           continue;
-        case 6:
-          if (tag !== 50) {
+        case 9:
+          if (tag !== 74) {
             break;
           }
 
-          message.reserves.push(Reserve.decode(reader, reader.uint32()));
+          message.reserveReports.push(ReserveReport.decode(reader, reader.uint32()));
           continue;
         case 7:
           if (tag !== 56) {
@@ -153,7 +153,9 @@ export const GenesisState = {
       redemptions: globalThis.Array.isArray(object?.redemptions)
         ? object.redemptions.map((e: any) => Redemption.fromJSON(e))
         : [],
-      reserves: globalThis.Array.isArray(object?.reserves) ? object.reserves.map((e: any) => Reserve.fromJSON(e)) : [],
+      reserveReports: globalThis.Array.isArray(object?.reserveReports)
+        ? object.reserveReports.map((e: any) => ReserveReport.fromJSON(e))
+        : [],
       nextDeposit: isSet(object.nextDeposit) ? globalThis.String(object.nextDeposit) : "0",
       nextRedemption: isSet(object.nextRedemption) ? globalThis.String(object.nextRedemption) : "0",
     };
@@ -176,8 +178,8 @@ export const GenesisState = {
     if (message.redemptions?.length) {
       obj.redemptions = message.redemptions.map((e) => Redemption.toJSON(e));
     }
-    if (message.reserves?.length) {
-      obj.reserves = message.reserves.map((e) => Reserve.toJSON(e));
+    if (message.reserveReports?.length) {
+      obj.reserveReports = message.reserveReports.map((e) => ReserveReport.toJSON(e));
     }
     if (message.nextDeposit !== "0") {
       obj.nextDeposit = message.nextDeposit;
@@ -200,7 +202,7 @@ export const GenesisState = {
     message.attestors = object.attestors?.map((e) => e) || [];
     message.deposits = object.deposits?.map((e) => Deposit.fromPartial(e)) || [];
     message.redemptions = object.redemptions?.map((e) => Redemption.fromPartial(e)) || [];
-    message.reserves = object.reserves?.map((e) => Reserve.fromPartial(e)) || [];
+    message.reserveReports = object.reserveReports?.map((e) => ReserveReport.fromPartial(e)) || [];
     message.nextDeposit = object.nextDeposit ?? "0";
     message.nextRedemption = object.nextRedemption ?? "0";
     return message;

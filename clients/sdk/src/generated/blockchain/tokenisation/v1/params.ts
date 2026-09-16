@@ -10,6 +10,11 @@ import _m0 from "protobufjs/minimal.js";
 
 export const protobufPackage = "blockchain.tokenisation.v1";
 
+/**
+ * Params are the module-wide settings. The rules that differ per offering —
+ * how a sale is verified, how long its challenge window runs — live on the
+ * collection instead, so that two offerings need not share them.
+ */
 export interface Params {
   /**
    * Floor and ceiling on what a collection may set as its challenge window.

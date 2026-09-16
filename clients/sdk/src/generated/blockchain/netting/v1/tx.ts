@@ -118,6 +118,53 @@ export interface MsgSubmitObligationResponse {
   mode: SettlementMode;
 }
 
+/**
+ * MsgAbandonHeldSlice releases the collateral locked behind a slice that cannot
+ * settle, and gives up on settling it.
+ *
+ * # Why this exists and why it is deliberately ugly
+ *
+ * A held slice locks its participants' reserve indefinitely. That is the right
+ * behaviour for a slice that might yet settle and an unacceptable one for a
+ * slice that never will, and nothing else in this module can tell the
+ * difference — which is why this is governance's decision and not a keeper's.
+ *
+ * # What it does NOT do
+ *
+ * It does not touch the obligations. Not one is edited, cancelled, reassigned
+ * or recomputed, and that restraint is the whole reason this message is safe to
+ * have. The institutions in the slice were told what they owed each other; that
+ * record stands, and abandoning the on-chain settlement of it does not make the
+ * debt go away. It moves the debt off this ledger and into whatever agreement
+ * the participants have between them, which is exactly what a central bank does
+ * when a settlement system cannot complete a cycle.
+ *
+ * Stated plainly for whoever proposes one: this releases collateral from
+ * debtors who still owe money to creditors who have not been paid. It should be
+ * the end of a documented failure investigation, not a way to clear a stuck
+ * screen.
+ */
+export interface MsgAbandonHeldSlice {
+  authority: string;
+  cycleId: string;
+  denom: string;
+  /**
+   * reason is recorded on the event and is required. A release of somebody
+   * else's collateral with no stated grounds is not one anybody can argue with
+   * afterwards.
+   */
+  reason: string;
+}
+
+/** MsgAbandonHeldSliceResponse names what the release returned and to whom. */
+export interface MsgAbandonHeldSliceResponse {
+  /**
+   * released is what went back to each debtor, so the proposal's effect is
+   * legible in the response rather than only in the state it changed.
+   */
+  released: string[];
+}
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -679,6 +726,169 @@ export const MsgSubmitObligationResponse = {
   },
 };
 
+function createBaseMsgAbandonHeldSlice(): MsgAbandonHeldSlice {
+  return { authority: "", cycleId: "0", denom: "", reason: "" };
+}
+
+export const MsgAbandonHeldSlice = {
+  encode(message: MsgAbandonHeldSlice, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.cycleId !== "0") {
+      writer.uint32(16).uint64(message.cycleId);
+    }
+    if (message.denom !== "") {
+      writer.uint32(26).string(message.denom);
+    }
+    if (message.reason !== "") {
+      writer.uint32(34).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAbandonHeldSlice {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAbandonHeldSlice();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.cycleId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.denom = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.reason = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAbandonHeldSlice {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      cycleId: isSet(object.cycleId) ? globalThis.String(object.cycleId) : "0",
+      denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+    };
+  },
+
+  toJSON(message: MsgAbandonHeldSlice): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.cycleId !== "0") {
+      obj.cycleId = message.cycleId;
+    }
+    if (message.denom !== "") {
+      obj.denom = message.denom;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAbandonHeldSlice>): MsgAbandonHeldSlice {
+    return MsgAbandonHeldSlice.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAbandonHeldSlice>): MsgAbandonHeldSlice {
+    const message = createBaseMsgAbandonHeldSlice();
+    message.authority = object.authority ?? "";
+    message.cycleId = object.cycleId ?? "0";
+    message.denom = object.denom ?? "";
+    message.reason = object.reason ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgAbandonHeldSliceResponse(): MsgAbandonHeldSliceResponse {
+  return { released: [] };
+}
+
+export const MsgAbandonHeldSliceResponse = {
+  encode(message: MsgAbandonHeldSliceResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.released) {
+      writer.uint32(10).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAbandonHeldSliceResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAbandonHeldSliceResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.released.push(reader.string());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAbandonHeldSliceResponse {
+    return {
+      released: globalThis.Array.isArray(object?.released) ? object.released.map((e: any) => globalThis.String(e)) : [],
+    };
+  },
+
+  toJSON(message: MsgAbandonHeldSliceResponse): unknown {
+    const obj: any = {};
+    if (message.released?.length) {
+      obj.released = message.released;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAbandonHeldSliceResponse>): MsgAbandonHeldSliceResponse {
+    return MsgAbandonHeldSliceResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAbandonHeldSliceResponse>): MsgAbandonHeldSliceResponse {
+    const message = createBaseMsgAbandonHeldSliceResponse();
+    message.released = object.released?.map((e) => e) || [];
+    return message;
+  },
+};
+
 /**
  * Msg defines the Msg service.
  *
@@ -701,6 +911,8 @@ export interface Msg {
   WithdrawReserve(request: MsgWithdrawReserve): Promise<MsgWithdrawReserveResponse>;
   /** SubmitObligation records what one participant owes another. */
   SubmitObligation(request: MsgSubmitObligation): Promise<MsgSubmitObligationResponse>;
+  /** Governance only, and the last resort for a slice that will never settle. */
+  AbandonHeldSlice(request: MsgAbandonHeldSlice): Promise<MsgAbandonHeldSliceResponse>;
 }
 
 export const MsgServiceName = "blockchain.netting.v1.Msg";
@@ -714,6 +926,7 @@ export class MsgClientImpl implements Msg {
     this.PostReserve = this.PostReserve.bind(this);
     this.WithdrawReserve = this.WithdrawReserve.bind(this);
     this.SubmitObligation = this.SubmitObligation.bind(this);
+    this.AbandonHeldSlice = this.AbandonHeldSlice.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -737,6 +950,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgSubmitObligation.encode(request).finish();
     const promise = this.rpc.request(this.service, "SubmitObligation", data);
     return promise.then((data) => MsgSubmitObligationResponse.decode(_m0.Reader.create(data)));
+  }
+
+  AbandonHeldSlice(request: MsgAbandonHeldSlice): Promise<MsgAbandonHeldSliceResponse> {
+    const data = MsgAbandonHeldSlice.encode(request).finish();
+    const promise = this.rpc.request(this.service, "AbandonHeldSlice", data);
+    return promise.then((data) => MsgAbandonHeldSliceResponse.decode(_m0.Reader.create(data)));
   }
 }
 
