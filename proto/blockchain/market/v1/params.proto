@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package blockchain.market.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/market/types";
+
+// Params are the limits the market imposes on everybody, as opposed to the
+// terms a seller chooses for one order.
+//
+// There are only three, and the shortness of the list is deliberate. A market
+// that governance can retune order by order is a market whose prices are a
+// policy instrument, and the whole claim of this module is that a share's price
+// is whatever two holders agreed it was.
+message Params {
+  option (amino.name) = "blockchain/x/market/Params";
+  option (gogoproto.equal) = true;
+
+  // The most resting orders one incoming order may consume before the rest of
+  // it is left to rest.
+  //
+  // This is the only thing standing between an order book and a transaction
+  // that walks it. A cross is the one place in this module where the work done
+  // is chosen by the person paying for it: an order priced through the whole
+  // book matches every level, and on a book with ten thousand resting asks
+  // that is ten thousand bank sends, ten thousand settlements of the send
+  // restriction, and a block that does not finish.
+  //
+  // Bounding it rather than metering it, because gas is not a safety limit —
+  // it is a price, and a well-funded participant can pay it. What a bound
+  // gives is a ceiling on the work per transaction that does not depend on
+  // anybody's willingness to pay for the damage.
+  //
+  // The remainder is NOT dropped when the bound is reached. It rests at the
+  // taker's own price, where the next transaction crosses it — so a large
+  // order is filled over several blocks rather than refused or silently
+  // truncated. Truncating would be the worst of the three: a trader who asked
+  // to buy a million and got two hundred thousand with no error has been told
+  // their order succeeded.
+  uint32 max_fills_per_order = 1;
+
+  // The shortest and longest an auction may run, in seconds.
+  //
+  // A floor because an auction that closes in the same block it opened is not
+  // an auction, it is a sale to whoever was watching the mempool. A ceiling
+  // because the seller's shares are escrowed for the whole of it: an auction
+  // open for a year is a year in which the seller cannot sell, cannot be paid
+  // a distribution on tokens they no longer hold, and cannot withdraw once
+  // anybody has bid.
+  int64 min_auction_period = 2;
+  int64 max_auction_period = 3;
+}

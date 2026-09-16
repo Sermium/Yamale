@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package blockchain.market.v1;
+
+import "blockchain/market/v1/market.proto";
+import "blockchain/market/v1/params.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/market/types";
+
+// Query is the read side of the secondary market.
+//
+// Public and unauthenticated, like every other market: a price nobody can see
+// is not a price, and the reason a holder of an illiquid private share cannot
+// tell what it is worth is precisely that the trades happened somewhere they
+// could not look.
+//
+// What is deliberately absent is a "every order this address has" query. The
+// book is public by denomination, which is what a market needs; an index of
+// positions keyed by person is a targeting list, and it would be one built over
+// exactly the holders — family offices, diaspora investors — who have the most
+// to lose from it.
+service Query {
+  // Params returns the market-wide limits.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/params";
+  }
+
+  // Listing returns one fixed-price offer.
+  rpc Listing(QueryListingRequest) returns (QueryListingResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/listing/{id}";
+  }
+
+  // Listings returns the fixed-price offers over one share denomination.
+  rpc Listings(QueryListingsRequest) returns (QueryListingsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/listings/{denom}";
+  }
+
+  // Auction returns one auction, including its standing bid.
+  rpc Auction(QueryAuctionRequest) returns (QueryAuctionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/auction/{id}";
+  }
+
+  // Auctions returns the auctions over one share denomination.
+  rpc Auctions(QueryAuctionsRequest) returns (QueryAuctionsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/auctions/{denom}";
+  }
+
+  // Order returns one book order.
+  rpc Order(QueryOrderRequest) returns (QueryOrderResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/order/{id}";
+  }
+
+  // Book returns the resting bids and asks over one share denomination, best
+  // price first on each side.
+  rpc Book(QueryBookRequest) returns (QueryBookResponse) {
+    option (google.api.http).get = "/yamale/blockchain/market/v1/book/{denom}";
+  }
+}
+
+// QueryParamsRequest is empty.
+message QueryParamsRequest {}
+// QueryParamsResponse carries the market-wide limits.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryListingRequest names one listing.
+message QueryListingRequest {
+  uint64 id = 1;
+}
+// QueryListingResponse carries it.
+message QueryListingResponse {
+  Listing listing = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryListingsRequest names a share denomination.
+message QueryListingsRequest {
+  string denom = 1;
+
+  // Only the ones that can still be filled. The default is everything, because
+  // a filled listing is the record of a price somebody paid — which is the
+  // scarcest information about an illiquid share there is.
+  bool live_only = 2;
+}
+// QueryListingsResponse carries them.
+message QueryListingsResponse {
+  repeated Listing listings = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAuctionRequest names one auction.
+message QueryAuctionRequest {
+  uint64 id = 1;
+}
+// QueryAuctionResponse carries it.
+message QueryAuctionResponse {
+  Auction auction = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAuctionsRequest names a share denomination.
+message QueryAuctionsRequest {
+  string denom = 1;
+  bool open_only = 2;
+}
+// QueryAuctionsResponse carries them.
+message QueryAuctionsResponse {
+  repeated Auction auctions = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryOrderRequest names one order.
+message QueryOrderRequest {
+  uint64 id = 1;
+}
+// QueryOrderResponse carries it.
+message QueryOrderResponse {
+  Order order = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryBookRequest names a share denomination and how deep to read.
+message QueryBookRequest {
+  string denom = 1;
+
+  // How many resting orders to return per side. Bounded by the module whatever
+  // is asked for, and defaulted when zero — a book query is the one read whose
+  // cost grows with how successful the market has been, and a node serving it
+  // over a public endpoint should not be able to be asked for all of it.
+  uint32 depth = 2;
+}
+// QueryBookResponse carries both sides, best price first.
+message QueryBookResponse {
+  // Highest price first.
+  repeated Order bids = 1 [(gogoproto.nullable) = false];
+  // Lowest price first.
+  repeated Order asks = 2 [(gogoproto.nullable) = false];
+
+  // The denomination prices on this book are quoted in, which a client
+  // otherwise has to learn from x/tokenisation to render a single number.
+  // Empty when the denomination names no vehicle this chain knows.
+  string settlement_denom = 3;
+}

@@ -115,6 +115,7 @@ type App struct {
 	custodyKeepers
 	tokenisationKeepers
 	syndicateKeepers
+	marketKeepers
 	herdKeepers
 
 	// simulation manager
@@ -234,6 +235,7 @@ func New(
 		app.custodyDepinjectOutputs(),
 		app.tokenisationDepinjectOutputs(),
 		app.syndicateDepinjectOutputs(),
+		app.marketDepinjectOutputs(),
 		app.herdDepinjectOutputs(),
 	)...)
 
@@ -263,6 +265,13 @@ func New(
 	// or a treasury spend, and the platform would be asserting to a regulator
 	// something the chain does not enforce.
 	app.registerSyndicateSendRestriction()
+
+	// And the market's escrow account is declared to x/tokenisation as one that
+	// cost basis does not flow through, because a marketplace fill knows the
+	// price and writes it directly. Omitting this leaves every figure the
+	// register reports about what a holding cost quietly wrong — see
+	// profile_market_on.go for both halves of how.
+	app.registerMarketEscrow()
 
 	// And the AMM is told which denoms it must not pool, by every module that
 	// has any. Composed rather than assigned: the setter replaces, so two

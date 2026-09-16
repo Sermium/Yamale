@@ -2374,6 +2374,230 @@
         ]
       }
     },
+    "/yamale/blockchain/market/v1/auction/{id}": {
+      "get": {
+        "operationId": "Query_Auction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAuctionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/auctions/{denom}": {
+      "get": {
+        "operationId": "Query_Auctions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryAuctionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "open_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/book/{denom}": {
+      "get": {
+        "operationId": "Query_Book",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryBookResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/listing/{id}": {
+      "get": {
+        "operationId": "Query_Listing",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/listings/{denom}": {
+      "get": {
+        "operationId": "Query_Listings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "denom",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "live_only",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/order/{id}": {
+      "get": {
+        "operationId": "Query_Order",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryOrderResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/market/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/netting/v1/cycle/current": {
       "get": {
         "operationId": "Query_CurrentCycle",
@@ -4149,6 +4373,43 @@
         ]
       }
     },
+    "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/position/{holder}": {
+      "get": {
+        "operationId": "Query_Position",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryPositionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "holder",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/tokenisation/v1/collections": {
       "get": {
         "operationId": "Query_Collections",
@@ -5380,6 +5641,16 @@
         }
       }
     },
+    "AuctionState": {
+      "type": "string",
+      "enum": [
+        "AUCTION_STATE_UNSPECIFIED",
+        "AUCTION_STATE_OPEN",
+        "AUCTION_STATE_SETTLED",
+        "AUCTION_STATE_CANCELLED"
+      ],
+      "default": "AUCTION_STATE_UNSPECIFIED"
+    },
     "AuditorEntitlement": {
       "type": "object",
       "properties": {
@@ -6425,6 +6696,16 @@
         }
       }
     },
+    "OrderState": {
+      "type": "string",
+      "enum": [
+        "ORDER_STATE_UNSPECIFIED",
+        "ORDER_STATE_OPEN",
+        "ORDER_STATE_FILLED",
+        "ORDER_STATE_CANCELLED"
+      ],
+      "default": "ORDER_STATE_UNSPECIFIED"
+    },
     "PageRequest": {
       "type": "object",
       "properties": {
@@ -6963,6 +7244,26 @@
         }
       }
     },
+    "QueryAuctionResponse": {
+      "type": "object",
+      "properties": {
+        "auction": {
+          "$ref": "#/definitions/v1.Auction"
+        }
+      }
+    },
+    "QueryAuctionsResponse": {
+      "type": "object",
+      "properties": {
+        "auctions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Auction"
+          }
+        }
+      }
+    },
     "QueryAuditorsResponse": {
       "type": "object",
       "properties": {
@@ -6987,6 +7288,28 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryBookResponse": {
+      "type": "object",
+      "properties": {
+        "bids": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Order"
+          }
+        },
+        "asks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Order"
+          }
+        },
+        "settlement_denom": {
+          "type": "string"
         }
       }
     },
@@ -7597,6 +7920,14 @@
         }
       }
     },
+    "QueryListingResponse": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "$ref": "#/definitions/v1.Listing"
+        }
+      }
+    },
     "QueryListingsResponse": {
       "type": "object",
       "properties": {
@@ -7681,6 +8012,14 @@
         },
         "pagination": {
           "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryOrderResponse": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/v1.Order"
         }
       }
     },
@@ -7817,12 +8156,17 @@
     "QueryPositionResponse": {
       "type": "object",
       "properties": {
-        "entries": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/PositionEntry"
-          }
+        "position": {
+          "$ref": "#/definitions/v1.Position"
+        },
+        "found": {
+          "type": "boolean"
+        },
+        "owed": {
+          "type": "string"
+        },
+        "pending_token_seconds": {
+          "type": "string"
         }
       }
     },
@@ -8302,6 +8646,15 @@
       ],
       "default": "SEX_UNSPECIFIED"
     },
+    "Side": {
+      "type": "string",
+      "enum": [
+        "SIDE_UNSPECIFIED",
+        "SIDE_BID",
+        "SIDE_ASK"
+      ],
+      "default": "SIDE_UNSPECIFIED"
+    },
     "Species": {
       "type": "string",
       "enum": [
@@ -8742,6 +9095,52 @@
         }
       }
     },
+    "v1.Auction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "seller": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "reserve": {
+          "$ref": "#/definitions/Coin"
+        },
+        "closes_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "best_bidder": {
+          "type": "string"
+        },
+        "best_bid": {
+          "$ref": "#/definitions/Coin"
+        },
+        "state": {
+          "$ref": "#/definitions/AuctionState"
+        },
+        "opened_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "settled_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Cycle": {
       "type": "object",
       "properties": {
@@ -9129,6 +9528,87 @@
         }
       }
     },
+    "v1.Listing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "seller": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "price": {
+          "$ref": "#/definitions/Coin"
+        },
+        "state": {
+          "$ref": "#/definitions/ListingState"
+        },
+        "listed_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "filled_by": {
+          "type": "string"
+        },
+        "filled_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v1.Order": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "trader": {
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/definitions/Side"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "remaining": {
+          "type": "string"
+        },
+        "unit_price": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "settlement_denom": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/OrderState"
+        },
+        "placed_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1.Params": {
       "type": "object",
       "properties": {
@@ -9206,6 +9686,41 @@
             "type": "object",
             "$ref": "#/definitions/Freeze"
           }
+        }
+      }
+    },
+    "v1.Position": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "holder": {
+          "type": "string"
+        },
+        "last_index": {
+          "type": "string"
+        },
+        "accrued": {
+          "type": "string"
+        },
+        "cost_basis": {
+          "type": "string"
+        },
+        "cost_qty": {
+          "type": "string"
+        },
+        "token_seconds": {
+          "type": "string"
+        },
+        "token_seconds_period": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "last_touch": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

@@ -129,6 +129,12 @@ func (k Keeper) CarryBasis(
 		return nil
 	}
 
+	// Cost stands still when either side is an escrow. See Keeper.escrowAccounts
+	// for why, and for what writes the buyer's cost instead.
+	if k.IsEscrow(from) || k.IsEscrow(to) {
+		return nil
+	}
+
 	fromKey := collections.Join(assetID, from.String())
 	fromPos, err := k.Positions.Get(ctx, fromKey)
 	if err != nil {
@@ -147,19 +153,148 @@ func (k Keeper) CarryBasis(
 	}
 	carried := basis.Mul(covered).Quo(qty)
 
+	// The RECIPIENT is resolved before the sender is debited, and the order is
+	// the whole of the correctness here.
+	//
+	// Written the other way round — debit, then look for somewhere to credit —
+	// a recipient with no position makes this return having taken cost off the
+	// sender and given it to nobody. The sender's reported return then rises,
+	// permanently, because they are shown as having paid less for what they
+	// still hold. Inside the send restriction the recipient is always settled
+	// first so the position exists, which is exactly why the defect survived:
+	// it is unreachable by the one path anybody tests, and waiting for the
+	// second caller.
+	toKey := collections.Join(assetID, to.String())
+	toPos, err := k.Positions.Get(ctx, toKey)
+	if err != nil {
+		return nil // nowhere to carry it to, so nothing moves
+	}
+
 	fromPos.CostBasis = basis.Sub(carried)
 	fromPos.CostQty = qty.Sub(covered)
 	if err := k.Positions.Set(ctx, fromKey, fromPos); err != nil {
 		return err
 	}
 
-	toKey := collections.Join(assetID, to.String())
-	toPos, err := k.Positions.Get(ctx, toKey)
-	if err != nil {
-		return nil // the recipient is settled by the restriction; nothing to hold basis yet
-	}
 	toBasis, toQty := basisOf(toPos)
 	toPos.CostBasis = toBasis.Add(carried)
 	toPos.CostQty = toQty.Add(covered)
 	return k.Positions.Set(ctx, toKey, toPos)
+}
+
+/* ========================================================================== */
+/*  What a trade says a holding cost                                          */
+/* ========================================================================== */
+
+// RecordPurchase writes what a buyer paid for shares a marketplace has just
+// delivered them.
+//
+// # Why a fill is allowed to write cost when a transfer is not
+//
+// Because nobody has to be believed. A subscription records a figure the party
+// that took the money asserts; a plain transfer names no figure at all, which is
+// why CarryBasis can only move the sender's own cost along. A fill is the one
+// event where the price IS the transaction: the money moved, the chain saw it
+// move, and the number written here is the number the buyer actually parted
+// with. It is the second of the two events Position.cost_basis exists for, and
+// the only one that needs no trusted party.
+//
+// # Additive, like a subscription
+//
+// A buyer who bought twice at two prices carries the weighted average of the
+// two, which is what an average cost is. Nothing here overwrites: a fill adds
+// to what a holding already cost, so buying more of something never erases what
+// the earlier shares cost.
+//
+// # Why the escrow must be basis-neutral for this to be right
+//
+// This ADDS, so it is only correct if the transfer that delivered the shares
+// carried no cost in with them. It did not, because a marketplace escrow is
+// registered with RegisterEscrow and CarryBasis stands still across one. Were
+// that registration ever dropped, a buyer would be credited the escrow's pooled
+// cost AND the price they paid, and their reported return would fall by roughly
+// the amount of somebody else's.
+func (k Keeper) RecordPurchase(
+	ctx context.Context, assetID uint64, buyer sdk.AccAddress, quantity, paid math.Int,
+) error {
+	if quantity.IsNil() || !quantity.IsPositive() {
+		return types.ErrInvalidSubscription.Wrap(
+			"a purchase must cover a positive number of shares")
+	}
+	if paid.IsNil() || paid.IsNegative() {
+		return types.ErrInvalidSubscription.Wrap("the amount paid cannot be negative")
+	}
+
+	key := collections.Join(assetID, buyer.String())
+	pos, err := k.Positions.Get(ctx, key)
+	if err != nil {
+		// The delivery settled the buyer through the send restriction, so this
+		// should not happen. If it does, the position is created against the
+		// balance they now hold rather than the transaction being refused: the
+		// shares have already moved and the money has already been paid, and a
+		// failure here would unwind a trade that was in every other respect
+		// complete, to protect a figure that is only ever reporting.
+		asset, err := k.Assets.Get(ctx, assetID)
+		if err != nil {
+			return err
+		}
+		balance := k.bankKeeper.GetBalance(
+			sdk.UnwrapSDKContext(ctx), buyer, asset.FractionDenom).Amount
+		if err := k.Settle(ctx, assetID, buyer, balance); err != nil {
+			return err
+		}
+		pos, err = k.Positions.Get(ctx, key)
+		if err != nil {
+			return err
+		}
+	}
+
+	basis, qty := basisOf(pos)
+	pos.CostBasis = basis.Add(paid)
+	pos.CostQty = qty.Add(quantity)
+	return k.Positions.Set(ctx, key, pos)
+}
+
+// ReleaseBasis consumes a seller's recorded cost for shares they have sold.
+//
+// The counterpart to RecordPurchase, and it is not optional. A seller whose
+// cost stayed behind after the shares left would be carrying the cost of ten
+// thousand shares against the two thousand they still hold — which reports a
+// catastrophic loss on a position that has not moved, and reports it to the
+// person least able to tell it is wrong.
+//
+// Proportional and truncated, in the same direction as CarryBasis: the fraction
+// stays with the seller. Rounding the other way would let a sequence of small
+// sales release more cost than was ever recorded, and cost that can be
+// manufactured is a reported return that can be manufactured with it.
+func (k Keeper) ReleaseBasis(
+	ctx context.Context, assetID uint64, seller sdk.AccAddress, quantity math.Int,
+) error {
+	if quantity.IsNil() || !quantity.IsPositive() {
+		return nil
+	}
+
+	key := collections.Join(assetID, seller.String())
+	pos, err := k.Positions.Get(ctx, key)
+	if err != nil {
+		return nil // no position, so no cost was ever recorded to release
+	}
+	basis, qty := basisOf(pos)
+	if !qty.IsPositive() || !basis.IsPositive() {
+		return nil
+	}
+
+	// A seller may sell more shares than their basis covers — part subscribed at
+	// a recorded price, part received as a plain transfer from somebody who had
+	// none. Only the covered part is released, and the uncovered part is exactly
+	// what the interface reports as not covered rather than as free.
+	covered := quantity
+	if covered.GT(qty) {
+		covered = qty
+	}
+	released := basis.Mul(covered).Quo(qty)
+
+	pos.CostBasis = basis.Sub(released)
+	pos.CostQty = qty.Sub(covered)
+	return k.Positions.Set(ctx, key, pos)
 }

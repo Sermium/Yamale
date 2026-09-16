@@ -122,7 +122,8 @@ var (
 		// its account holds — an invariant a supervisor can check from outside
 		// without trusting the module's own books at all.
 		{Account: nettingmoduletypes.ModuleName},
-	}, custodyModuleAccPerms, tokenisationModuleAccPerms, syndicateModuleAccPerms)
+	}, custodyModuleAccPerms, tokenisationModuleAccPerms, syndicateModuleAccPerms,
+		marketModuleAccPerms)
 
 	// blocked account addresses
 	// blockAccAddrs are the module accounts that must never be the recipient of
@@ -150,6 +151,7 @@ var (
 		treasurymoduletypes.ModuleName,
 		nettingmoduletypes.ModuleName,
 	}, custodyBlockedAccounts, tokenisationBlockedAccounts, syndicateBlockedAccounts,
+		marketBlockedAccounts,
 		ammBlockedAccounts, []string{
 			stablecoinmoduletypes.ModuleName,
 			paymsgmoduletypes.ModuleName,
@@ -292,6 +294,12 @@ var (
 			custodyInitGenesis,
 			tokenisationInitGenesis,
 			syndicateInitGenesis,
+			// After x/tokenisation, which is where the shares it trades and the
+			// cost basis it writes both live. Its own import rebuilds a book from
+			// the orders it restores, and an order over a vehicle that had not
+			// been restored yet would rest against a denomination the register
+			// could not resolve.
+			marketInitGenesis,
 			landInitGenesis,
 			herdInitGenesis,
 		),
@@ -430,6 +438,7 @@ var (
 		}, {
 			Name:   selfcustodymoduletypes.ModuleName,
 			Config: appconfig.WrapAny(&selfcustodymoduletypes.Module{}),
-		}}, custodyModuleConfigs, tokenisationModuleConfigs, syndicateModuleConfigs),
+		}}, custodyModuleConfigs, tokenisationModuleConfigs, syndicateModuleConfigs,
+		marketModuleConfigs),
 	})
 )

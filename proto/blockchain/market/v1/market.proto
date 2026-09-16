@@ -1,0 +1,309 @@
+syntax = "proto3";
+
+package blockchain.market.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/market/types";
+
+// The secondary market for tokenised shares.
+//
+// # What this module is for
+//
+// x/tokenisation issues a fractional claim over a vehicle and pays its income
+// to whoever holds the token at the time. What it has no notion of is a PRICE.
+// A share moves by ordinary bank send, a send carries no consideration, and so
+// the register knows exactly what everybody holds and nothing whatever about
+// what any of it was worth. An investor asking the only question that matters
+// to them — what is my stake worth, and what did it return — is asking
+// something the chain cannot answer, because the events that would have
+// answered it were never recorded as trades.
+//
+// This module is where a trade is a trade. Every fill here names a price, and
+// naming it is what lets the register write the buyer's cost basis from the
+// transaction rather than from somebody's assertion afterwards. That is the
+// second of the two events x/tokenisation's Position permits to write a cost,
+// and it is the one that needs no trusted party at all: the price is in the
+// trade.
+//
+// # Why three mechanisms and not one
+//
+// Because the three answer different questions, and a market that offers only
+// one of them forces every seller to pretend their question was the one it
+// answers.
+//
+//   - A FIXED PRICE listing answers "I will take this much." It is the sale
+//     between two people who have already agreed, and it needs no price
+//     discovery because the discovery happened over a telephone.
+//
+//   - An AUCTION answers "what is this worth?" It is what a seller reaches for
+//     when the share is illiquid enough that there is no price to point at —
+//     which, for a closed-end vehicle over a single building or a single
+//     plantation, is the ordinary case rather than the exotic one.
+//
+//   - An ORDER BOOK answers "what is it worth right now?" It only works once
+//     there are enough holders on both sides for resting interest to be
+//     continuous, and for most vehicles on this chain that will never be true.
+//     It is here for the ones where it becomes true, and a book with two orders
+//     in it is not a failure of the book, it is an accurate picture of the
+//     interest.
+//
+// # What every mechanism has in common
+//
+// The tokens, or the money, are in the module account for as long as the offer
+// stands. An order that rests against assets the trader still controls is not
+// an order, it is an intention — and the first counterparty to accept it finds
+// out which by being unable to collect.
+//
+// And every delivery goes through the bank. That is not a stylistic preference:
+// x/tokenisation's send restriction settles both sides of a share transfer
+// BEFORE the balances move, and a fill that moved tokens by any other route
+// would credit the seller's holding period to the buyer.
+
+// Side is which way a resting order points.
+enum Side {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  SIDE_UNSPECIFIED = 0;
+
+  // Buying. The money is escrowed, at the trader's own limit price.
+  SIDE_BID = 1;
+
+  // Selling. The shares are escrowed.
+  SIDE_ASK = 2;
+}
+
+// ListingState is where a fixed-price offer has got to.
+enum ListingState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored on a listing that exists. A listing is created LIVE.
+  LISTING_STATE_UNSPECIFIED = 0;
+
+  // Offered, shares escrowed, fillable by the first eligible buyer.
+  LISTING_STATE_LIVE = 1;
+
+  // Bought. Both legs moved in the one message.
+  LISTING_STATE_FILLED = 2;
+
+  // Withdrawn by the seller, shares returned.
+  LISTING_STATE_CANCELLED = 3;
+}
+
+// AuctionState is where an auction has got to.
+enum AuctionState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  AUCTION_STATE_UNSPECIFIED = 0;
+
+  // Running. Shares escrowed; the best bid's money escrowed with them.
+  AUCTION_STATE_OPEN = 1;
+
+  // Closed out. Either the winner has their shares and the seller their money,
+  // or nobody bid and the shares went back.
+  AUCTION_STATE_SETTLED = 2;
+
+  // Withdrawn before anybody bid. After the first bid a seller cannot
+  // withdraw — see Auction.best_bidder.
+  AUCTION_STATE_CANCELLED = 3;
+}
+
+// OrderState is where a book order has got to.
+enum OrderState {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  ORDER_STATE_UNSPECIFIED = 0;
+
+  // Resting with something still to fill. Only an OPEN order is in the book
+  // index, which is what makes the index a list of what can actually be
+  // crossed rather than a history.
+  ORDER_STATE_OPEN = 1;
+
+  // Nothing left to fill. Kept rather than deleted, because an order is the
+  // only record of a price somebody agreed to.
+  ORDER_STATE_FILLED = 2;
+
+  // Withdrawn, with whatever had not filled returned.
+  ORDER_STATE_CANCELLED = 3;
+}
+
+// Listing is a holder offering a fixed quantity for a fixed total.
+message Listing {
+  uint64 id = 1;
+
+  // The vehicle, resolved from the denomination once at listing time.
+  //
+  // Stored rather than re-derived because the fill has to write the buyer's
+  // cost basis against a vehicle, and a lookup that can fail is a lookup that
+  // can fail halfway through a settlement.
+  uint64 asset_id = 2;
+
+  // The share denomination being sold: tok/<asset>/<SYMBOL>.
+  string denom = 3;
+
+  string seller = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string quantity = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The TOTAL asked, not a price per share.
+  //
+  // Total because that is what the seller is actually deciding. A fixed-price
+  // listing is an offer to sell a specific parcel for a specific sum, and
+  // expressing it per-share would force the seller to solve a rounding problem
+  // they did not ask to have: a quantity that does not divide the sum leaves a
+  // remainder that has to go somewhere, and every place it could go is a
+  // fraction of a cent the seller did not agree to.
+  //
+  // Its denomination is the vehicle's income denomination, and that is checked
+  // rather than assumed. The cost basis this fill writes is carried in that
+  // denomination, so a listing priced in anything else would record a cost in
+  // one currency against a return in another.
+  cosmos.base.v1beta1.Coin price = 6 [(gogoproto.nullable) = false];
+
+  ListingState state = 7;
+
+  int64 listed_at = 8;
+
+  // Who took it, and when. Empty until filled.
+  string filled_by = 9 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  int64 filled_at = 10;
+}
+
+// Auction is a holder offering a quantity to the best bid by a deadline.
+message Auction {
+  uint64 id = 1;
+  uint64 asset_id = 2;
+  string denom = 3;
+  string seller = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string quantity = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // The least the seller will accept, as a total. A bid below it is refused
+  // outright rather than recorded and ignored, so a bidder is never left
+  // believing they are in an auction they cannot win.
+  //
+  // May be zero, which is a seller saying they will take whatever it fetches.
+  // Zero is stored explicitly and never left unset: an unset Coin decodes with
+  // a nil amount, and nil is not zero — it panics on the first comparison.
+  cosmos.base.v1beta1.Coin reserve = 6 [(gogoproto.nullable) = false];
+
+  // When bidding stops. Settlement is a separate message anybody may send
+  // afterwards; see the module's AppModule for why there is no sweeper.
+  int64 closes_at = 7;
+
+  // The best bid, and the ONLY bid whose money the module holds.
+  //
+  // # Why one bid and not a list
+  //
+  // The obvious design keeps every bid escrowed and refunds the losers when the
+  // auction settles. That makes settlement O(bids) — an unbounded loop inside a
+  // handler, in a module where the number of iterations is chosen by whoever
+  // wanted the loop to be long. An auction with fifty thousand one-unit bids in
+  // it is not a hypothetical attack, it is the cheapest one available.
+  //
+  // So a losing bid is refunded the moment it loses, in the transaction of the
+  // bid that beat it, paid for by the bidder who caused the work. At any moment
+  // the module holds exactly one bidder's money per auction, settlement moves
+  // exactly two things, and there is no loop anywhere in the mechanism.
+  //
+  // The cost of this is that bids must strictly improve — there is no second
+  // place, and a bidder who is outbid is out rather than queued. For an
+  // illiquid share sold by deadline that is the right trade: the seller wanted
+  // the best price by a date, and a queue of losing bids serves nobody but a
+  // bidder hoping the winner defaults, which escrow has already made
+  // impossible.
+  string best_bidder = 8 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // Zero, in the settlement denomination, until somebody bids. Explicitly zero
+  // for the same reason as the reserve.
+  cosmos.base.v1beta1.Coin best_bid = 9 [(gogoproto.nullable) = false];
+
+  AuctionState state = 10;
+
+  int64 opened_at = 11;
+  int64 settled_at = 12;
+}
+
+// Order is resting interest in the book at a price its trader chose.
+message Order {
+  uint64 id = 1;
+  uint64 asset_id = 2;
+  string denom = 3;
+  string trader = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  Side side = 5;
+
+  // What was asked for, and what is left. Both kept: the original is the record
+  // of what somebody intended, the remainder is what can still be crossed, and
+  // an order partially filled at several prices cannot reconstruct either from
+  // the other.
+  string quantity = 6 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string remaining = 7 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Settlement units per ONE share, and an integer rather than a decimal.
+  //
+  // # Why per-share here and a total on a listing
+  //
+  // Because a book order is partially fillable and a listing is not. A fill of
+  // part of an order has to price that part, which needs a rate; a listing is
+  // taken whole, so it can name a sum.
+  //
+  // # Why uint64 and not math.Int
+  //
+  // The book is indexed BY this number, and "the best price on this side" has
+  // to be the first key in a range scan rather than a sort of every resting
+  // order. That needs a fixed-width, order-preserving key, which is what a
+  // uint64 gives and an arbitrary-precision integer does not. The ceiling it
+  // imposes is about eighteen quintillion settlement units for one share; a
+  // price that exceeded it would be a mistyped order rather than a trade.
+  uint64 unit_price = 8;
+
+  // The vehicle's income denomination, copied onto the order so that a cross
+  // never has to re-derive it for two orders and hope they agree.
+  string settlement_denom = 9;
+
+  OrderState state = 10;
+
+  int64 placed_at = 11;
+}
+
+// Fill is one trade: who, how much, at what price.
+//
+// Emitted as an event rather than stored. The chain already holds the two
+// orders and the balances; what a fill adds is the pairing, which an indexer
+// wants and consensus does not — storing every fill for ever would grow the
+// state by the one thing that is pure history.
+message Fill {
+  uint64 asset_id = 1;
+  string denom = 2;
+  string buyer = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string seller = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  string quantity = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // What the buyer paid in total, which is also what was written to their cost
+  // basis.
+  cosmos.base.v1beta1.Coin paid = 6 [(gogoproto.nullable) = false];
+}

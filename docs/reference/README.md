@@ -22,13 +22,14 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/enforcement](enforcement.md) |  | 9 | 10 |
 | [x/herd](herd.md) |  | 17 | 13 |
 | [x/land](land.md) |  | 13 | 10 |
+| [x/market](market.md) | The secondary market in tokenised shares: fixed-price listings, auctions for shares with no price to point at, and an order book where there are enough holders for one — every fill recording what it cost. | 10 | 7 |
 | [x/netting](netting.md) | The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross. | 5 | 6 |
 | [x/oracle](oracle.md) |  | 7 | 9 |
 | [x/paymsg](paymsg.md) | ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry. | 7 | 7 |
 | [x/selfcustody](selfcustody.md) |  | 4 | 4 |
 | [x/stablecoin](stablecoin.md) | Governance-approved issuers for fiat-referenced currencies, with minting and redemption restricted to the approved issuer of each denom. | 6 | 5 |
 | [x/syndicate](syndicate.md) |  | 14 | 10 |
-| [x/tokenisation](tokenisation.md) |  | 19 | 7 |
+| [x/tokenisation](tokenisation.md) |  | 19 | 8 |
 | [x/treasury](treasury.md) | Programmable custody: shared funds with roles, spending policies, time locks and vesting schedules, where committed funds cannot be spent by anyone. | 16 | 12 |
 | [x/validatorgov](validatorgov.md) | Restricts the validator set to candidates that governance has admitted, enforced before a create-validator transaction is accepted. | 9 | 11 |
 

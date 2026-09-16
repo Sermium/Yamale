@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package blockchain.market.v1;
+
+import "blockchain/market/v1/market.proto";
+import "blockchain/market/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/market/types";
+
+// GenesisState is the whole market at a height.
+//
+// What is here and what is not follows one rule: a record is exported when it
+// cannot be recomputed, and derived when it can. The listings, auctions and
+// orders are exported because each of them corresponds to real property sitting
+// in the module account — escrowed shares, or escrowed money — and an import
+// that lost one would leave the bank holding a balance no record claims. That
+// is not a missing feature, it is a fund nobody can withdraw and which the next
+// person to look at the module account will read as a surplus.
+//
+// The book index and the by-denom indexes are NOT here. They are pure functions
+// of the orders and are rebuilt on import, because exporting them would export
+// the same fact twice and invite the two copies to disagree — at which point
+// the book would quote a price against an order that is no longer open.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  repeated Listing listings = 2 [(gogoproto.nullable) = false];
+  repeated Auction auctions = 3 [(gogoproto.nullable) = false];
+  repeated Order orders = 4 [(gogoproto.nullable) = false];
+
+  // The counters, exported explicitly rather than derived from the highest id
+  // present.
+  //
+  // Deriving them is the mistake that looks like a simplification. A market
+  // prunes nothing, so the highest id present is usually the highest ever
+  // issued — usually, and not on the one file that matters: export a chain
+  // whose newest order was cancelled and then removed by a later migration,
+  // and the counter comes back lower than it was. The next order reuses an
+  // identifier that a filled order already holds, and the two trades share a
+  // name for ever.
+  uint64 next_listing_id = 5;
+  uint64 next_auction_id = 6;
+  uint64 next_order_id = 7;
+}

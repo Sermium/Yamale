@@ -72,6 +72,31 @@ type Keeper struct {
 
 	NextAssetID    collections.Sequence
 	NextCovenantID collections.Sequence
+
+	// escrowAccounts are accounts that hold shares on somebody else's behalf.
+	//
+	// Cost stands still when shares cross one of these, and that is a rule about
+	// meaning rather than an optimisation. A marketplace escrow is not a holder:
+	// shares arrive in it from many sellers and leave it to many buyers, so the
+	// proportional carry that is right between two people would hand a buyer a
+	// slice of a pooled average of every seller's cost — a figure belonging to
+	// nobody, computed from trades the buyer had no part in.
+	//
+	// The worse half is the round trip. Without this, a holder who listed shares
+	// and then withdrew the listing would get the shares back with their cost
+	// basis spent in the escrow account — a loss the chain manufactured out of an
+	// offer nobody took, and one they could only see by noticing their reported
+	// return had risen for no reason.
+	//
+	// What replaces the carry is not nothing: a marketplace fill knows the price,
+	// so it writes the buyer's cost from the trade and releases the seller's
+	// against it. See RecordPurchase and ReleaseBasis.
+	//
+	// A map rather than a slice field because this keeper is held and copied BY
+	// VALUE everywhere in the app, so a registration made after construction has
+	// to reach copies that already exist. A map header is shared between copies;
+	// a slice appended to after the fact is not.
+	escrowAccounts map[string]struct{}
 }
 
 func NewKeeper(
@@ -114,6 +139,11 @@ func NewKeeper(
 
 		NextAssetID:    collections.NewSequence(sb, types.NextAssetIDKey, "next_asset_id"),
 		NextCovenantID: collections.NewSequence(sb, types.NextCovenantIDKey, "next_covenant_id"),
+
+		// Allocated here and never reassigned, so every copy of this keeper shares
+		// one map and a registration made during app wiring is visible to all of
+		// them.
+		escrowAccounts: map[string]struct{}{},
 	}
 
 	schema, err := sb.Build()
@@ -125,6 +155,67 @@ func NewKeeper(
 }
 
 func (k Keeper) GetAuthority() []byte { return k.authority }
+
+// RegisterEscrow marks an account as holding shares on somebody else's behalf.
+//
+// Called during app wiring, by the profile that links the module owning the
+// account, so that the registration happens identically on every node before a
+// block is ever processed. It is deliberately NOT a message: which accounts are
+// escrows is a property of which modules are compiled in, and a chain where
+// that could be changed by a transaction would have a governance vote able to
+// silently redirect where cost basis flows.
+func (k Keeper) RegisterEscrow(addr sdk.AccAddress) {
+	k.escrowAccounts[addr.String()] = struct{}{}
+}
+
+// IsEscrow reports whether cost should stand still when shares cross an
+// account.
+//
+// Exported because the registration is done by app wiring rather than by a
+// message, which makes it the kind of fact that is true until somebody removes
+// one line and nothing fails. The consequence of that line going missing is not
+// a crash: it is a chain that trades correctly and reports every holder’s cost
+// wrong, so there has to be a way to assert it from outside.
+func (k Keeper) IsEscrow(addr sdk.AccAddress) bool {
+	_, ok := k.escrowAccounts[addr.String()]
+	return ok
+}
+
+// ShareAsset resolves a fraction denomination to what a market needs to know.
+//
+// Three facts, together rather than as three lookups, because a caller that
+// took them separately could act on a vehicle that stopped trading between the
+// second and the third — and the caller here is a marketplace whose next step
+// is to move somebody's money.
+//
+// The settlement denomination is the vault's, and it is the one a trade in
+// these shares must be priced in. Cost basis is carried in it, so a fill priced
+// in anything else would record what a holding cost in one currency against
+// what it returned in another, and the subtraction that produces a return would
+// be meaningless while still producing a number.
+func (k Keeper) ShareAsset(
+	ctx context.Context, denom string,
+) (assetID uint64, settlementDenom string, tradable bool, err error) {
+	assetID, err = k.ByDenom.Get(ctx, denom)
+	if err != nil {
+		return 0, "", false, types.ErrAssetNotFound.Wrapf(
+			"%q is not a fraction denomination issued by this module", denom)
+	}
+	asset, err := k.Assets.Get(ctx, assetID)
+	if err != nil {
+		return 0, "", false, err
+	}
+	vault, err := k.Vaults.Get(ctx, assetID)
+	if err != nil {
+		return 0, "", false, err
+	}
+
+	// The same two statuses the send restriction halts on. Reported here so a
+	// market can refuse an order with a reason of its own rather than letting a
+	// bank send fail somewhere in the middle of a settlement.
+	tradable = asset.Status != types.STATUS_REALISED && asset.Status != types.STATUS_CLOSED
+	return assetID, vault.Denom, tradable, nil
+}
 
 // AccrueIncome raises an asset's index by a gross income figure.
 //
