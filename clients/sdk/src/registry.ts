@@ -22,6 +22,7 @@ import * as constitution from './generated/blockchain/constitution/v1/tx.ts';
 import * as enforcement from './generated/blockchain/enforcement/v1/tx.ts';
 import * as alias from './generated/blockchain/alias/v1/tx.ts';
 import * as feegrant from './generated/cosmos/feegrant/v1beta1/tx.ts';
+import * as market from './generated/blockchain/market/v1/tx.ts';
 import * as netting from './generated/blockchain/netting/v1/tx.ts';
 import * as oracle from './generated/blockchain/oracle/v1/tx.ts';
 import * as paymsg from './generated/blockchain/paymsg/v1/tx.ts';
@@ -171,6 +172,24 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.tokenisation.v1.MsgResolveDispute', tokenisation.MsgResolveDispute],
   ['/blockchain.tokenisation.v1.MsgClaim', tokenisation.MsgClaim],
   ['/blockchain.tokenisation.v1.MsgRedeem', tokenisation.MsgRedeem],
+
+  // The secondary market. Registered for the same reason the tokenisation
+  // messages above were: without it, the only people who could sell a
+  // shareholding are people with the CLI installed.
+  //
+  // That gap matters more here than almost anywhere else on this chain. The
+  // whole complaint about owning a share of a private vehicle is that there is
+  // no way out of it, and a market reachable only from a terminal is not a way
+  // out for the holders who have that complaint.
+  ['/blockchain.market.v1.MsgList', market.MsgList],
+  ['/blockchain.market.v1.MsgBuy', market.MsgBuy],
+  ['/blockchain.market.v1.MsgCancelListing', market.MsgCancelListing],
+  ['/blockchain.market.v1.MsgOpenAuction', market.MsgOpenAuction],
+  ['/blockchain.market.v1.MsgBid', market.MsgBid],
+  ['/blockchain.market.v1.MsgSettleAuction', market.MsgSettleAuction],
+  ['/blockchain.market.v1.MsgCancelAuction', market.MsgCancelAuction],
+  ['/blockchain.market.v1.MsgPlaceOrder', market.MsgPlaceOrder],
+  ['/blockchain.market.v1.MsgCancelOrder', market.MsgCancelOrder],
 ];
 
 /**
