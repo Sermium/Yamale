@@ -357,3 +357,192 @@ span.ident__value { color: var(--text-muted); }
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
+
+/* ==========================================================================
+   Information design: the KPI band, folders, and concentration.
+
+   Added 2026-09-16. Every page in this explorer was one scrolling column of
+   cards, and every figure on it was set at 1.25rem against a 0.78rem label —
+   a ratio at which a number does not read as a number. The staking page put
+   "174,375 YML" and "securing the chain" at effectively the same weight.
+
+   Every colour below is a shared token, and every one of them is defined in
+   the un-stamped :root of clients/shared/yamale.css rather than only inside a
+   media query. A colour declared only under prefers-color-scheme is undefined
+   in the default state, which is the state most readers are in; that has
+   shipped on this product before.
+   ========================================================================== */
+
+.kpiband {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.kpi {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* The tone rides on one edge rather than tinting the whole tile. A tinted
+     tile competes with the figure it is supposed to be qualifying. */
+  border-inline-start: 3px solid var(--rule);
+  min-width: 0;
+}
+.kpi--ok { border-inline-start-color: var(--ok); }
+.kpi--warn { border-inline-start-color: var(--warn); }
+.kpi--bad { border-inline-start-color: var(--bad); }
+.kpi--mute { border-inline-start-color: var(--text-faint); }
+
+.kpi__label {
+  margin: 0;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.kpi__value {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--step-3);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  /* A figure NEVER breaks across two lines. `overflow-wrap: anywhere` would
+     render 100,000,000 as "100,000,0" above "00" — a number split across two
+     lines is not a smaller number, it is a different one.
+
+     But `nowrap` alone clips "174,375 YML" to "174,375 Y", which reads as a
+     different unit rather than as a truncated one. So the number itself never
+     splits and the unit is allowed to drop to its own line. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.kpi__unit {
+  margin-inline-start: 0.3em;
+  font-size: var(--step-0);
+  font-weight: 450;
+  color: var(--text-muted);
+}
+
+.kpi__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--step--1);
+  line-height: 1.35;
+  color: var(--text-muted);
+  /* Three lines is a paragraph, and a paragraph under every tile makes the
+     band taller than the content it introduces. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* A warned figure says so in a word as well as in the edge colour: the glyph
+   and the full-strength text survive a monochrome screenshot and a reader who
+   cannot separate the hues. */
+.kpi--warn .kpi__hint,
+.kpi--bad .kpi__hint { color: var(--text); }
+.kpi--warn .kpi__hint::before { content: '\25B2\00A0'; color: var(--warn); }
+.kpi--bad .kpi__hint::before { content: '\25A0\00A0'; color: var(--bad); }
+
+/* ------------------------------------------------------------------ folders */
+
+.folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-4);
+}
+
+.folder {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--text-muted);
+  cursor: pointer;
+  /* The open folder sits ON the rule rather than above it, so what is below
+     reads as the inside of the folder rather than as a separate box. */
+  margin-bottom: -1px;
+}
+.folder:hover { color: var(--text); }
+.folder--on {
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.folder__count {
+  margin-inline-start: 0.45em;
+  color: var(--text-faint);
+}
+.folder--on .folder__count { color: var(--text-muted); }
+
+/* ------------------------------------------------------------ concentration */
+
+/* The ring beside the table, not above it: the question "how much is one
+   operator" is answered by the picture and audited in the rows, and a reader
+   should be able to do both without scrolling between them. */
+.concentration {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) 1fr;
+  gap: var(--sp-5);
+  align-items: center;
+}
+@media (max-width: 44rem) { .concentration { grid-template-columns: 1fr; } }
+
+.donut { width: 100%; height: auto; max-width: 14rem; }
+.donut__track { stroke: var(--surface-2); }
+
+.swatch {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  margin-inline-end: 0.5em;
+  flex: 0 0 auto;
+}
+
+/* The share column is the one being compared down the page, so it is tabular
+   and end-aligned. Everything else in these tables is prose. */
+.grid td.share,
+.grid th.share { text-align: end; font-variant-numeric: tabular-nums; }
+
+/* A figure inside a table cell is subject to the same rule as one in a KPI
+   tile: it never breaks. Table layout is the one place where a long unit and a
+   narrow column conspire to wrap a number. */
+.grid .y-num { white-space: nowrap; }
+
+/* A chip on its own line under the name it qualifies, rather than trailing it.
+   "over one third — can stall a block alone" is a sentence, and a sentence
+   appended to a validator's name makes the name unfindable by eye. */
+.grid .y-chip { margin-top: var(--sp-1); }
+
+/* ------------------------------------------------------------ stake control */
+
+/* Was six inline style properties on the input and a magic `minWidth: 190` on
+   the wrapper, which is how a control ends up not following the theme: an
+   inline `background: var(--bg)` looks token-driven and still cannot be
+   restyled by anything. */
+.stakebox { min-inline-size: 11rem; }
+.stakebox__entry { gap: var(--sp-1); }
+.stakebox__input {
+  inline-size: 5.75rem;
+  padding: var(--sp-1) var(--sp-2);
+  font: inherit;
+  font-size: var(--step--1);
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}

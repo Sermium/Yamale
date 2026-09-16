@@ -99,6 +99,41 @@ export async function probeRest(): Promise<{ ok: boolean; stalledAt: number | nu
 }
 
 /**
+ * How many transactions the chain has accepted, ever.
+ *
+ * The node reports this as `total` on any tx search, and `searchTransactions`
+ * in the SDK throws it away — it maps the responses and returns the array. This
+ * reads it with a limit of one, so the answer costs a single row rather than a
+ * page of transactions nobody renders.
+ *
+ * Kept here rather than added to the SDK's client on purpose: that file is
+ * shared by six surfaces and is being edited on several branches at once, and
+ * one page's KPI does not justify a signature change there.
+ *
+ * Returns null rather than 0 when the read fails. Those are opposite claims —
+ * "this chain has never been used" against "we could not ask" — and a counter
+ * that reports zero for both is the defect this whole pass is about.
+ */
+export async function totalTransactions(): Promise<number | null> {
+  try {
+    const params = new URLSearchParams({
+      query: 'tx.height>0',
+      'pagination.limit': '1',
+      order_by: 'ORDER_BY_DESC',
+    });
+    const response = await fetch(`${REST_URL}/cosmos/tx/v1beta1/txs?${params}`);
+    if (!response.ok) return null;
+    const body = await response.json();
+    // Newer SDKs put it in `total`; some builds only fill `pagination.total`.
+    const raw = body?.total ?? body?.pagination?.total;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Which explorer somebody is looking at.
  *
  * `simple` answers "did the money move, and where is mine?" — it shows

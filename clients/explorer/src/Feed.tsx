@@ -83,14 +83,51 @@ export function FeedList({
   entries,
   stopped,
   expert,
+  filteredOut = 0,
+  onShowAll,
 }: {
   entries: FeedEntry[];
   stopped?: boolean;
   expert?: boolean;
+  /**
+   * How many rows this view is hiding. Non-zero means the list is empty
+   * because of the filter, not because the chain has done nothing.
+   */
+  filteredOut?: number;
+  /** Opens the unfiltered folder, when there is one to open. */
+  onShowAll?: () => void;
 }) {
   const registry = useDenomRegistry();
 
   if (entries.length === 0) {
+    // Three different facts, three different sentences.
+    //
+    // This one shipped wrong. On the live chain every message in the window is
+    // an oracle price submission, so the everyday filter emptied the list and
+    // the page said "Nothing has happened yet" about a chain that had accepted
+    // eleven thousand transactions. The reader is not being told an absence;
+    // they are being told what this view leaves out, and how to see it.
+    if (filteredOut > 0) {
+      return (
+        <Empty
+          title={t('xp.feed.routineOnlyTitle')}
+          hint={
+            <>
+              {t('xp.feed.routineOnlyBody', { count: String(filteredOut) })}
+              {onShowAll ? (
+                <>
+                  {' '}
+                  <button type="button" className="linkbutton" onClick={onShowAll}>
+                    {t('xp.feed.showAll')}
+                  </button>
+                </>
+              ) : null}
+            </>
+          }
+        />
+      );
+    }
+
     return (
       <Empty
         title={t('xp.feed.emptyTitle')}
