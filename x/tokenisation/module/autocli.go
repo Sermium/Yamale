@@ -58,6 +58,23 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
 				},
 				{
+					RpcMethod: "Position",
+					Use:       "position [asset-id] [holder]",
+					Short:     "One holder's whole record: what they hold, what it cost, what is accruing",
+					Long: "Everything about one position, where `entitlement` answers only what\n" +
+						"could be withdrawn now.\n\n" +
+						"cost_qty of zero means the cost was never RECORDED -- not that the\n" +
+						"tokens were free. A return computed against zero is infinite, which is\n" +
+						"the most flattering and most wrong figure this module could produce.\n\n" +
+						"pending_token_seconds is time held in the current, undeclared period.\n" +
+						"It is not money and must not be shown as any: the rate is unknown until\n" +
+						"the period closes.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "asset_id"},
+						{ProtoField: "holder"},
+					},
+				},
+				{
 					RpcMethod: "Covenants",
 					Use:       "covenants [asset-id]",
 					Short:     "What the operator has published against this tokenisation",

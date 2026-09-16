@@ -1,6 +1,7 @@
 syntax = "proto3";
 package blockchain.tokenisation.v1;
 
+import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
@@ -39,6 +40,20 @@ service Query {
   // its balance last moved.
   rpc Entitlement(QueryEntitlementRequest) returns (QueryEntitlementResponse) {
     option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}";
+  }
+
+  // Position returns one holder's whole record against a tokenisation.
+  //
+  // Entitlement answers only "what could they withdraw now", as a single Coin.
+  // Everything else a holder needs to see about their own position -- what it
+  // cost, how much of it that cost covers, and the time accruing in the
+  // current period -- had no query at all, so the console was reading it out of
+  // the raw store at /store/tokenisation/key and decoding the key layout by
+  // hand. That works and it couples a browser to internal storage: a change to
+  // a key prefix, which is an implementation detail nobody would announce,
+  // silently breaks every reader.
+  rpc Position(QueryPositionRequest) returns (QueryPositionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/position/{holder}";
   }
 
   // Covenants lists what has been published against one tokenisation.
@@ -114,4 +129,41 @@ message QueryCovenantsRequest {
 // vehicle's life happened in.
 message QueryCovenantsResponse {
   repeated Covenant covenants = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryPositionRequest asks for one holder's record against one tokenisation.
+message QueryPositionRequest {
+  uint64 asset_id = 1;
+  string holder = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// QueryPositionResponse carries the record, plus the two figures that are
+// derived rather than stored.
+message QueryPositionResponse {
+  // Absent when this account has never held a share in this tokenisation.
+  // An absence, not a failure: most accounts hold most things not at all.
+  Position position = 1 [(gogoproto.nullable) = false];
+  bool found = 2;
+
+  // What could be withdrawn right now, settled and unsettled together. The
+  // same figure Entitlement returns, carried here so a screen showing a whole
+  // position does not need two round trips that could disagree.
+  string owed = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // Token-seconds accrued in the CURRENT, undeclared period, brought up to the
+  // block being queried.
+  //
+  // Not money, and deliberately not converted to any. The rate is unknown
+  // until the period closes, so a figure in a currency would be a forecast
+  // standing beside a settled amount in the same units -- and a reader cannot
+  // tell those apart once both are money.
+  string pending_token_seconds = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
 }

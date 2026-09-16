@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"context"
+	"cosmossdk.io/collections"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -113,4 +115,76 @@ func (q queryServer) Covenants(
 		return nil, err
 	}
 	return &types.QueryCovenantsResponse{Covenants: covenants}, nil
+}
+
+// Position returns one holder's whole record against a tokenisation.
+//
+// Entitlement answers only "what could they withdraw now". Everything else a
+// holder needs about their own position -- what it cost, how much of it that
+// cost covers, and the time accruing in the current period -- had no query,
+// so a browser was reading it out of the raw store and decoding the key layout
+// by hand. That couples an interface to an implementation detail nobody would
+// think to announce when changing.
+//
+// `found` is its own field rather than a nil check. Most accounts hold most
+// tokenisations not at all, and that is an ANSWER: a caller that could not tell
+// it from a failed read would show "you own nothing" when the chain had not
+// spoken.
+func (q queryServer) Position(
+	ctx context.Context, req *types.QueryPositionRequest,
+) (*types.QueryPositionResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+	holder, err := q.k.addressCodec.StringToBytes(req.Holder)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "that is not an address")
+	}
+
+	empty := types.Position{
+		AssetId:      req.AssetId,
+		Holder:       req.Holder,
+		LastIndex:    math.LegacyZeroDec(),
+		Accrued:      math.ZeroInt(),
+		CostBasis:    math.ZeroInt(),
+		CostQty:      math.ZeroInt(),
+		TokenSeconds: math.ZeroInt(),
+	}
+
+	pos, err := q.k.Positions.Get(ctx, collections.Join(req.AssetId, req.Holder))
+	if err != nil {
+		return &types.QueryPositionResponse{
+			Position: empty, Found: false,
+			Owed: math.ZeroInt(), PendingTokenSeconds: math.ZeroInt(),
+		}, nil
+	}
+
+	// Normalised on the way out. A position written before these fields existed
+	// carries nil, and math.Int marshals a nil as an empty string that the
+	// client side then fails to parse -- so the query would break for exactly
+	// the holders the migration exists to protect.
+	pos.Accrued = zeroIfNil(pos.Accrued)
+	pos.CostBasis = zeroIfNil(pos.CostBasis)
+	pos.CostQty = zeroIfNil(pos.CostQty)
+	pos.TokenSeconds = zeroIfNil(pos.TokenSeconds)
+
+	owed, err := q.k.Entitlement(ctx, req.AssetId, holder)
+	if err != nil {
+		return nil, err
+	}
+
+	pending := math.ZeroInt()
+	if asset, err := q.k.Assets.Get(ctx, req.AssetId); err == nil && asset.FractionDenom != "" {
+		balance := q.k.bankKeeper.GetBalance(
+			sdk.UnwrapSDKContext(ctx), holder, asset.FractionDenom).Amount
+		pending, err = q.k.PendingTokenSeconds(
+			ctx, req.AssetId, holder, balance, blockSeconds(ctx))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &types.QueryPositionResponse{
+		Position: pos, Found: true, Owed: owed, PendingTokenSeconds: pending,
+	}, nil
 }
