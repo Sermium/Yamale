@@ -13,9 +13,17 @@
 # node has stopped advancing, and it stopped at the scheduled height.
 set -euo pipefail
 
+# The name of the upgrade being crossed, which is where the OLD binary is kept.
+#
+# This was hardcoded to `.pre-documents` from the run it was written for. Left
+# that way, the second upgrade's backup overwrites the first's — so the rollback
+# path for the run you are on destroys the rollback path for the run before it,
+# silently, at the moment a rollback is most likely to be wanted. Taken from the
+# scheduled plan below when not given, so it cannot be stale again.
+UPGRADE=${1:-}
+
 BIN=/opt/yamale/bin/blockchaind
 NEXT=$BIN.next
-KEEP=$BIN.pre-documents
 SERVICE=yamale-devnet
 HOME_DIR=/opt/yamale/node
 NODE=http://127.0.0.1:26657
@@ -31,8 +39,24 @@ plan_height() {
     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("plan",{}).get("height",""))' 2>/dev/null
 }
 
+plan_name() {
+  "$BIN" query upgrade plan --home "$HOME_DIR" --node "$NODE" -o json 2>/dev/null     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("plan",{}).get("name",""))' 2>/dev/null
+}
+
 PLAN=$(plan_height)
 [ -n "$PLAN" ] || { echo "no upgrade plan is scheduled — nothing to cross"; exit 1; }
+
+# The chain's own word for which upgrade this is, so the kept binary is named
+# after the thing it is the rollback from.
+[ -n "$UPGRADE" ] || UPGRADE=$(plan_name)
+[ -n "$UPGRADE" ] || { echo "the plan has no name; pass one as the first argument"; exit 1; }
+KEEP=$BIN.pre-$UPGRADE
+
+if [ -e "$KEEP" ]; then
+  echo "$KEEP already exists — a previous run of this upgrade kept a binary there."
+  echo "Move it aside before running again; overwriting it destroys the rollback."
+  exit 1
+fi
 
 A=$(height); sleep 8; B=$(height)
 if [ -z "$A" ] || [ "$A" != "$B" ]; then
@@ -44,7 +68,7 @@ if [ "$A" != "$PLAN" ]; then
   exit 1
 fi
 
-echo "== halted at $A, plan $PLAN, swapping =="
+echo "== halted at $A, plan $PLAN ($UPGRADE), swapping =="
 sudo systemctl stop "$SERVICE"
 sudo cp -f "$BIN" "$KEEP"
 sudo mv "$NEXT" "$BIN"
@@ -55,5 +79,5 @@ sudo systemctl start "$SERVICE"
 echo "  old binary kept at $KEEP"
 sleep 15
 sudo journalctl -u "$SERVICE" --no-pager -n 300 2>/dev/null \
-  | grep -E 'applying upgrade|deal documents arrived|UPGRADE|panic|ERR' | tail -6 || true
+  | grep -E 'applying upgrade|arrived|nothing to do|UPGRADE|panic|ERR' | tail -8 || true
 echo "  height now: $(height)"
