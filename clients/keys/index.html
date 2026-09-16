@@ -6,6 +6,13 @@
 <title>Threshold accounts — Yamale</title>
 <meta name="description" content="A consumer key that exists in three shares and nowhere else, so the operator cannot move a customer's money.">
 <link rel="icon" href="/favicon.ico">
+<!-- The typefaces the shared stylesheet names. Without this the page asked for
+     IBM Plex and Archivo and never fetched them, so it rendered in whatever face
+     the reader's operating system happened to install — which looks identical to
+     a font host that is blocked, and is why it went unnoticed. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/yamale.css">
 <style>
 /* Local to this page.
@@ -194,13 +201,6 @@ ul.note li { margin-bottom: var(--sp-3); }
 
 footer { padding: var(--sp-6) 0 var(--sp-7); color: var(--text-muted); font-size: var(--step--1); }
 footer a { color: inherit; }
-
-/* `.y-data .num` zeroes the trailing padding, which is right for a numeric
-   column that is LAST and wrong for any other. Restored for a .num that is not.
-   A finding about clients/shared/yamale.css, not about this file. */
-.y-data td.num:not(:last-child), .y-data th.num:not(:last-child) {
-  padding-inline-end: var(--sp-5);
-}
 </style>
 </head>
 <body>
@@ -218,6 +218,23 @@ footer a { color: inherit; }
   </div>
 </header>
 
+<!-- NO FOLDERS HERE, and that is a decision rather than an omission.
+
+     The shared system offers .y-folders, and the consoles use them because a
+     console holds several jobs that are done independently: an officer wants
+     the register OR the placement, not both, and a long scroll makes finding
+     either mean scrolling past the other.
+
+     This page is not that. It is one argument in six steps — the claim, the
+     mechanism, the protocol running in front of you, what that produced on the
+     public chain, what taking your key costs you, and what is not built. Each
+     section is the evidence for the one before it, and the whole point is that
+     a reader arrives at the last one having seen the first five. Folders would
+     put the proof behind a click and let somebody read the claim without it,
+     which is the opposite of what this page is for.
+
+     The KPI band stays: it is the four figures the argument rests on, and a
+     reader who came back to check one of them should not have to scroll for it. -->
 <div class="hero">
   <div class="wrap">
     <p class="eyebrow">Threshold accounts</p>
