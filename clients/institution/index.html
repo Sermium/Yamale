@@ -1,16 +1,22 @@
 <!--
   Institution — the console that consumes a placement request.
 
-  One screen, and the work it does is refusal. A holder pastes the request the
-  wallet printed; this page checks it against the chain and either prints the
-  command that records where the account belongs, or says which rule stops it
-  and why that rule exists.
+  The work this page does is refusal. A holder pastes the request the wallet
+  printed; this page checks it against the chain and either prints the command
+  that records where the account belongs, or says which rule stops it and why
+  that rule exists.
 
   Refusing here rather than at the node is the whole point. The chain's own
   refusal arrives as a code, after a signature, without the sentence explaining
   which of four rules was broken — and one of the four (a country already
   recorded) is a refusal an institution should never have reached, because
   correcting a jurisdiction is a foundation administrator's act and not theirs.
+
+  Laid out as a module rather than as a scroll: the figures an onboarding
+  officer decides on sit at the top, and the three things this console holds —
+  the placement itself, the register it is checked against, and the rules that
+  stop it — are folders rather than one column. That is the shared information
+  design from clients/shared/yamale.css, not an invention of this page.
 
   Read-only. This console holds no key and composes no transaction: recording a
   jurisdiction is signed by the participant's own group, so what this page
@@ -26,8 +32,7 @@
 <title>Yamale · Institution</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   /* ==========================================================================
      THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
@@ -35,7 +40,13 @@
 
      Inlined rather than linked for the reason the other consoles inline it: one
      file, no build step, and no second request standing between the reader and
-     a page that has to say whether a raise is still open.
+     a page that has to say whether a recording will be refused.
+
+     The declarations below are that file's, in that file's order, and
+     theme.test.js beside this one is what makes that a fact rather than a claim
+     in a comment — which is what it was, while this copy sat 183 lines behind.
+     Only the long reasoning comments are left behind; they stay in the
+     canonical file so there is one place to read them.
 
      The three-state theming is the part that must not be improvised. `:root`
      carries the complete light palette; the dark blocks redefine TOKENS ONLY,
@@ -57,6 +68,7 @@
     --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
     --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
     --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
 
     --sp-1: 0.25rem;
     --sp-2: 0.5rem;
@@ -65,8 +77,10 @@
     --sp-5: 1.5rem;
     --sp-6: 2rem;
     --sp-7: 3rem;
+    --sp-8: 4.5rem;
 
     --radius: 5px;
+    --radius-lg: 8px;
     --measure: 68ch;
 
     --navy: #12253f;
@@ -84,32 +98,35 @@
     --rule: #d3dae6;
 
     --text: var(--ink);
-    --text-muted: var(--slate);
+    --text-muted: #526178;
     --text-faint: #8798af;
     --accent: var(--navy);
     --accent-ink: #ffffff;
     --focus: #1f6feb;
 
-    --ok: #0d7a4a;
+    --ok: #0c6d42;
     --warn: #a8791b;
-    --bad: #b02a25;
+    --bad: #ac2924;
     --wash-ok: rgba(13, 122, 74, .10);
     --wash-warn: rgba(168, 121, 27, .12);
     --wash-bad: rgba(176, 42, 37, .10);
     --wash-mute: rgba(92, 110, 136, .10);
     --wash-brass: rgba(168, 123, 60, .12);
 
+    /* Brass and amber as *type* do not clear 4.5:1 in the light palette:
+       measured 3.77:1 for a brass link on white, 3.31:1 and 3.38:1 for the
+       two chips on their own washes. Darkened along the same hue, and only
+       where the colour carries words. Dark already passes, measured. */
+    --brass-ink: #78582b;
+    --warn-ink: #795814;
+
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
-
-    /* Measured, not guessed — the finding is recorded in clients/markets. In
-       light, --brass and --warn fail 4.5:1 wherever they carry small text; both
-       are fine as a border, a bar or a rule. These two exist for text and
-       resolve to the palette colour in dark, where the palette already passes. */
-    --brass-text: #825d22;
-    --warn-text: #80590f;
   }
 
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
       --bg: var(--ink);
@@ -135,12 +152,11 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
+      --brass-ink: #c79d5e;
+      --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
-
-      --brass-text: var(--brass);
-      --warn-text: var(--warn);
     }
   }
 
@@ -168,12 +184,11 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: #c79d5e;
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
-
-    --brass-text: var(--brass);
-    --warn-text: var(--warn);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -197,14 +212,72 @@
     text-wrap: balance;
     margin: 0;
   }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
   p { margin: 0; max-width: var(--measure); }
 
-  code, kbd, samp, pre, .mono, .addr, .num {
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
     font-family: var(--font-mono);
     font-feature-settings: 'zero' 1;
   }
-  .num, .tabular { font-variant-numeric: tabular-nums; }
-  .addr { word-break: break-all; font-size: 0.88em; }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Tabular digits align a column only if the column is aligned. `.y-num` gave
+     the digits equal width and left every cell ragged against a left edge, so a
+     cap and the amount remaining under it could not be compared down the page —
+     which is the only reason to put figures in a column at all.
+     Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+     consoles, and right-aligning a number inside a sentence would be wrong. */
+  td.y-num, th.y-num { text-align: end; }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass-ink);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
+
+  .y-scroll { overflow-x: auto; }
 
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--focus);
@@ -221,8 +294,167 @@
     }
   }
 
-  /* ======================================================== the console shell */
+  /* --- INFORMATION DESIGN, from the same canonical file ------------------
+     The reasoning lives in clients/shared/yamale.css; these are its
+     declarations, in its order. Three patterns: a figure that reads as a
+     figure, folders instead of one scrolling column, and a table of numbers
+     aligned on its units. */
 
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines: 100,000,000 rendered as "100,000,0"
+       above "00" is not a smaller number, it is a different one. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  /* Numbers right, words left.
+     `padding-inline-end: 0` used to be unconditional here, which is right only
+     for a LAST column: three numeric columns in the governance table are not
+     last, and an id ran straight into the title beside it ("20A supply ceiling
+     for the dollar"). The trailing padding is dropped only where there is
+     nothing after it. */
+  .y-data .num, .y-data th.num { text-align: end; }
+  .y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  .y-scrollx { overflow-x: auto; }
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
+  /* ==========================================================================
+     THE CONSOLE'S OWN RULES.
+
+     Everything above is the shared system; everything below belongs to this
+     console alone and is written in the tokens above. No colour is defined
+     here — a value that is not a token is a value the next surface gets
+     slightly wrong.
+     ========================================================================== */
+
+  /* The shared reset zeroes paragraph margins, which is right for prose laid
+     out with `gap`. This console is a card stack with paragraphs in normal
+     flow, so the rhythm is restored here rather than by putting a margin on
+     every paragraph in a template literal. */
+  p { margin: 0 0 var(--sp-3); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--brass-ink); }
+  a:hover { color: var(--text); }
+
+  /* --- chrome ------------------------------------------------------------ */
   header {
     display: flex; align-items: center; gap: var(--sp-3);
     padding: var(--sp-4) var(--sp-5);
@@ -235,25 +467,16 @@
     font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
     padding: var(--sp-1) var(--sp-2); border-radius: var(--radius);
     border: 1px solid var(--rule); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 0.4rem;
   }
   .home:hover { color: var(--text); border-color: var(--brass); }
-  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
-  nav a {
-    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
-    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
-  }
-  nav a:hover { color: var(--text); background: var(--surface-2); }
-  nav a[aria-current] {
-    color: var(--text); background: var(--surface-2); font-weight: 600;
-    box-shadow: inset 0 0 0 1px var(--border);
-  }
+  .home img { border-radius: 5px; display: block; flex: none; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
 
   h2 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
-  h3 { font-size: var(--step-2); letter-spacing: -0.01em; margin: var(--sp-6) 0 var(--sp-3); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; margin: var(--sp-5) 0 var(--sp-3); }
+  section > h3:first-child { margin-top: 0; }
   h4 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
-
-  a { color: var(--accent); }
 
   .card {
     background: var(--surface); border: 1px solid var(--border);
@@ -265,29 +488,27 @@
   .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
   .card--mute { border-inline-start: 3px solid var(--text-faint); }
 
-  .grid { display: grid; gap: var(--sp-3);
-          grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
   .row { display: flex; justify-content: space-between; gap: var(--sp-4);
          align-items: baseline; flex-wrap: wrap; }
 
   .muted { color: var(--text-muted); font-size: var(--step--1); }
   .small { font-size: var(--step--1); }
-  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
-          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
   .label {
     font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
-    text-transform: uppercase; color: var(--text-muted);
+    text-transform: uppercase; color: var(--text-muted); margin: 0 0 var(--sp-1);
   }
   .eyebrow {
     font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
+    text-transform: uppercase; color: var(--brass-ink); margin: 0 0 var(--sp-2);
   }
+  /* A short identifier — never an address, which is forty characters and would
+     be set at display size by this rule. The figure is kept on one line for the
+     reason the shared file spells out on `.y-kpi__value`. */
   .stat {
     font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
     line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-    margin-top: var(--sp-1);
+    margin: 0; word-break: keep-all; overflow-wrap: normal;
   }
-  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
   .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
 
   .pill {
@@ -297,10 +518,10 @@
     white-space: nowrap;
   }
   .p-ok { background: var(--wash-ok); color: var(--ok); }
-  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-ink); }
   .p-bad { background: var(--wash-bad); color: var(--bad); }
   .p-mute { background: var(--wash-mute); color: var(--text-muted); }
-  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   code { font-size: 0.86em; overflow-wrap: break-word; }
   pre {
@@ -319,9 +540,8 @@
   .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
   .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
   .err strong, .badbox strong { color: var(--bad); }
-  .warnbox strong { color: var(--warn-text); }
+  .warnbox strong { color: var(--warn-ink); }
   .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
-  .notebox p + p, .warnbox p + p, .err p + p { margin-top: var(--sp-2); }
 
   button { font: inherit; }
   .btn {
@@ -332,17 +552,9 @@
   }
   .btn:hover { border-color: var(--brass); background: var(--surface-2); }
   .btn:disabled { opacity: .55; cursor: default; }
-  .copy {
-    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
-    text-transform: uppercase; font-weight: 500;
-    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
-    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
-  }
-  .copy:hover { border-color: var(--brass); color: var(--text); }
+  .btn--go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn--go:hover { background: var(--accent); border-color: var(--brass); }
 
-  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
-          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
-          margin: var(--sp-4) 0 var(--sp-1); }
   input {
     font-family: var(--font-mono); font-size: var(--step-0);
     padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
@@ -356,141 +568,122 @@
   summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
   summary:hover { color: var(--text); }
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
-           border-bottom: 1px solid var(--border); font-size: var(--step--1);
-           vertical-align: baseline; font-variant-numeric: tabular-nums; }
-  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
-       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
-       white-space: nowrap; }
-  tr:last-child td { border-bottom: 0; }
-  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
-  /* Wide content scrolls inside its own box. The page body never scrolls
-     sideways — a horizontal scrollbar on the document is how a table takes the
-     whole layout with it. */
-  .scroll { overflow-x: auto; }
-
-  dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
-       gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
-  dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
-       text-transform: uppercase; color: var(--text-muted); }
-  dd { margin: 0; min-width: 0; word-break: break-word; }
-
-  /* ============================================================== the book bar
-
-     Not decoration, and not one number. A raise has TWO thresholds and an
-     investor is asking about the second: the target is what the allocation
-     holds, and the minimum is whether the deal happens at all. A single fill
-     bar answers the first and buries the second, so the minimum is drawn on the
-     bar as a marked threshold and the fill is coloured by which side of it the
-     book has reached.
-
-     Colour is never alone. The percentage, the shortfall and the state pill all
-     say the same thing in words. */
-  .book { display: flex; flex-direction: column; gap: var(--sp-2); }
-  .book__bar {
-    position: relative; height: 12px; border-radius: 3px;
-    background: var(--surface-3); border: 1px solid var(--border); overflow: hidden;
-  }
-  .book__fill { height: 100%; display: block; }
-  .book--under .book__fill { background: var(--warn); }
-  .book--viable .book__fill { background: var(--ok); }
-  .book--failed .book__fill { background: var(--bad); }
-  .book--closed .book__fill { background: var(--accent); }
-  /* The minimum threshold. A 2px rule rather than a colour change, because it
-     has to be visible on top of the fill AND on top of the empty track. */
-  .book__min {
-    position: absolute; top: -1px; bottom: -1px; width: 2px;
-    background: var(--text); opacity: .55;
-  }
-  .book__scale {
-    display: flex; justify-content: space-between; gap: var(--sp-3);
-    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* =========================================================== the fee ladder
-
-     Basis points are what a deal is written in; money is what a person decides
-     on. Each rung shows both, and the rungs are read top to bottom as the money
-     actually moves: committed → fee → to the company. */
-  /* The papers. A document is a row rather than a card because the list is
-     scanned for one line — "which of these binds me" — and cards make
-     scanning eight of them a scroll. */
-  .papers { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
-  .paper {
-    display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
-    background: var(--surface-2); border-radius: var(--radius);
-    border: 1px solid var(--border); border-inline-start: 3px solid var(--border);
-  }
-  .paper--binding { border-inline-start-color: var(--brass); }
-  .paper--stale { opacity: 0.72; }
-  .paper__head { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
-  .paper__title { font-weight: 600; }
-  .digest {
-    font-family: var(--font-mono); font-size: var(--step--1);
-    overflow-wrap: anywhere; color: var(--text-muted);
-  }
-
-  .ladder { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
-  .rung {
-    display: grid; grid-template-columns: 1fr auto; gap: var(--sp-3);
-    align-items: baseline; padding: var(--sp-2) var(--sp-3);
-    background: var(--surface-2); border-radius: var(--radius);
-    border-inline-start: 3px solid var(--border);
-    font-variant-numeric: tabular-nums;
-  }
-  .rung--out { border-inline-start-color: var(--brass); color: var(--text-muted); }
-  .rung--net { border-inline-start-color: var(--ok); font-weight: 600; }
-  .rung__what { font-size: var(--step--1); }
-  .rung__amt { font-family: var(--font-mono); font-size: var(--step-0); }
-
-  .dealhead { display: flex; justify-content: space-between; gap: var(--sp-4);
-              align-items: flex-start; flex-wrap: wrap; }
-  .deals-list .card { cursor: pointer; }
-  .deals-list .card:hover { border-color: var(--brass); }
-  .deals-list a.title { text-decoration: none; color: inherit; }
-  .deals-list a.title:hover { text-decoration: underline; }
-
   footer { border-top: 1px solid var(--border); margin-top: var(--sp-7);
            padding: var(--sp-5); color: var(--text-muted); font-size: var(--step--1); }
   footer p { max-width: var(--measure); }
-  footer p + p { margin-top: var(--sp-3); }
 
-  /* ==========================================================================
-     LOCAL TO THIS CONSOLE.
+  /* --- the paste box ------------------------------------------------------
 
      The shared system styles `input` and not `textarea`, because no console
-     before this one asked anybody to paste a document. Without these two rules
-     the paste box renders in the browser's default 13px monospace on a white
-     field, which in dark mode is a white rectangle in the middle of the page.
-     ========================================================================== */
+     before this one asked anybody to paste a document. Without these rules the
+     paste box renders in the browser's default 13px monospace on a white
+     field, which in dark mode is a white rectangle in the middle of the page. */
   .field { display: block; margin: var(--sp-4) 0; }
   .field > span {
     display: block; margin-bottom: var(--sp-2);
-    font-family: var(--font-display); font-size: var(--step--1);
-    letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+    font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
   }
   textarea {
     width: 100%; box-sizing: border-box;
     font-family: var(--font-mono); font-size: var(--step--1); line-height: 1.5;
-    padding: var(--sp-3); border-radius: var(--radius-1);
-    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    padding: var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
     resize: vertical;
   }
   textarea:hover { border-color: var(--text-faint); }
+  textarea::placeholder { color: var(--text-faint); }
+
+  /* --- the folders' contents ---------------------------------------------- */
+
+  /* A panel is the inside of the open folder, so it carries no border of its
+     own: the folder strip above it already drew the only edge there is. */
+  [role='tabpanel'][hidden] { display: none; }
+
+  /* Two columns where there is room, one where there is not: the paste box and
+     the note beside it explaining what a placement request is. Collapses well
+     before a phone, because a 44rem paste box and a paragraph do not both fit
+     in a tablet's width either. */
+  .work { display: grid; gap: var(--sp-5); grid-template-columns: 1fr; }
+  @media (min-width: 62rem) { .work { grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); } }
+  .work__aside { align-self: start; }
 </style>
 
 <header>
   <!-- The way back. Every console on this site routed within itself and none of
        them offered a route out; on a phone, in front of a customer, that is
        where a demonstration stops. -->
-  <a class="home" href="/" title="Back to Yamale" style="display:inline-flex;align-items:center;gap:.4rem"><img src="/mark.svg" alt="" width="20" height="20" style="border-radius:5px;display:block;flex:none" onerror="this.style.display='none'">← Yamale</a>
+  <a class="home" href="/" title="Back to Yamale"><img src="/mark.svg" alt="" width="20" height="20" onerror="this.style.display='none'">← Yamale</a>
   <h1>Institution</h1>
 </header>
 
 <div class="wrap">
-  <main id="view"><p class="spin">…</p></main>
+  <p class="eyebrow">Onboarding</p>
+  <h2>Record where an account belongs</h2>
+  <p class="muted">The holder cannot record it themselves. You performed the checks, so you are the
+    only party that knows the answer — and the chain enforces that by accepting this recording only
+    from an approved participant. This page holds no key and signs nothing: it checks the request
+    against the chain and prints the command your own group signs.</p>
+
+  <!-- The figures an onboarding officer decides on, before the prose explaining
+       them. All four are real: two are read from the chain at load, two are
+       counted by this page as you work. Nothing here is a placeholder — a
+       register that did not answer says so in words. -->
+  <div class="y-kpis" id="kpis"></div>
+
+  <div class="y-folders" role="tablist" aria-label="Sections">
+    <button class="y-folder" role="tab" id="tab-place" aria-controls="panel-place" aria-selected="true">Placement</button>
+    <button class="y-folder" role="tab" id="tab-register" aria-controls="panel-register" aria-selected="false">Approved participants<span class="y-folder__count" id="count-register"></span></button>
+    <button class="y-folder" role="tab" id="tab-rules" aria-controls="panel-rules" aria-selected="false">What stops a recording<span class="y-folder__count" id="count-rules"></span></button>
+  </div>
+
+  <section id="panel-place" role="tabpanel" aria-labelledby="tab-place">
+    <div class="work">
+      <div>
+        <form id="take">
+          <label class="field"><span>Paste the placement request</span>
+            <textarea id="req" rows="12" spellcheck="false"
+              placeholder="PLACEMENT REQUEST&#10;account: yml1…&#10;country: SN&#10;onboarded by: …"></textarea></label>
+          <p><button class="btn btn--go" type="submit">Check it against the chain</button></p>
+        </form>
+      </div>
+      <aside class="work__aside">
+        <div class="card card--mute">
+          <h4>What you are pasting</h4>
+          <p class="small">The wallet prints a placement request when a holder asks to be onboarded.
+            It names the account, the country, and the institution the holder says onboarded them.
+            It is a document, not a transaction: it carries no signature and moves nothing.</p>
+          <p class="small">Four things can stop the recording, and this page checks all four before
+            anything is signed. They are listed under <strong>What stops a recording</strong>.</p>
+        </div>
+      </aside>
+    </div>
+    <!-- Outside the two-column grid on purpose: the verdict is the answer, and it
+         carries a table and a command line. Confined to the form's column it
+         needed a horizontal scrollbar of its own at 1600px, which is the width
+         where there was most room to spare. -->
+    <div id="verdict"></div>
+  </section>
+
+  <section id="panel-register" role="tabpanel" aria-labelledby="tab-register" hidden>
+    <h3>The register this recording is checked against</h3>
+    <p class="muted">Read from the chain. Only an institution on this list may record where an
+      account belongs, and the name in the request has to match one of these exactly.</p>
+    <div id="register"><p class="spin">Asking the chain…</p></div>
+  </section>
+
+  <section id="panel-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+    <h3>What stops a recording</h3>
+    <p class="muted">These are the refusals this page applies before the chain does. The chain
+      applies them too — but it answers with a code, after a signature, and without the sentence
+      saying which one was broken.</p>
+    <div class="y-scrollx"><table class="y-data" id="rules"></table></div>
+    <div class="notebox">
+      <p><strong>One more thing is a warning rather than a refusal.</strong> A request that names no
+        institution at all is still recordable, because the chain does not require the document to
+        name you. It is worth reading twice: check the request is yours to act on before you sign.</p>
+    </div>
+  </section>
 </div>
 
 <footer>
@@ -506,7 +699,7 @@
 
 <script type="module">
 import { accountExists, jurisdiction, participants, userId } from './chain.js';
-import { judge, parseRequest } from './placement.js';
+import { FOUNDATION_MARKER, judge, parseRequest } from './placement.js';
 
 // Everything below interpolates chain-supplied and paste-supplied strings into
 // innerHTML. An institution name is whatever an approved participant registered
@@ -515,21 +708,175 @@ import { judge, parseRequest } from './placement.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const view = document.getElementById('view');
+/* ------------------------------------------------------------- the folders */
 
-view.innerHTML = `
-  <h2>Record where an account belongs</h2>
-  <p class="muted">The holder cannot record it themselves. You performed the checks, so you are the
-    only party that knows the answer — and the chain enforces that by accepting this recording only
-    from an approved participant.</p>
-  <p class="muted">This page holds no key and signs nothing. It checks the request against the chain
-    and prints the command your own group signs.</p>
-  <form id="take">
-    <label class="field"><span>Paste the placement request</span>
-      <textarea id="req" rows="12" spellcheck="false"></textarea></label>
-    <p><button class="btn" type="submit">Check it</button></p>
-  </form>
-  <div id="verdict"></div>`;
+const TABS = ['place', 'register', 'rules'];
+const tab = (n) => document.getElementById(`tab-${n}`);
+const panel = (n) => document.getElementById(`panel-${n}`);
+
+function open(name) {
+  for (const n of TABS) {
+    const on = n === name;
+    tab(n).setAttribute('aria-selected', String(on));
+    tab(n).tabIndex = on ? 0 : -1;
+    panel(n).hidden = !on;
+  }
+}
+TABS.forEach((n, i) => {
+  tab(n).tabIndex = i === 0 ? 0 : -1;
+  tab(n).addEventListener('click', () => open(n));
+  tab(n).addEventListener('keydown', (e) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = TABS[(i + step + TABS.length) % TABS.length];
+    open(next);
+    tab(next).focus();
+  });
+});
+
+/* ------------------------------------------------- the figures at the top */
+
+// Two are read from the chain, two are counted here. A figure this page cannot
+// get says so in words: a dash where a number belongs reads as a number.
+let checked = 0;
+let cleared = 0;
+let register = null;   // the approved participants, once read
+let registerError = ''; // …or why they could not be
+
+const kpi = ({ tone = '', label, value, unit = '', hint }) => `
+  <div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+    <p class="y-kpi__label">${esc(label)}</p>
+    <p class="y-kpi__value">${esc(value)}${unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+    <p class="y-kpi__hint">${esc(hint)}</p>
+  </div>`;
+
+function renderKpis() {
+  const codes = register ? new Set(register.map((p) => p.code).filter(Boolean)) : null;
+  document.getElementById('kpis').innerHTML = [
+    register
+      ? kpi({
+        label: 'Approved participants',
+        value: register.length,
+        hint: 'Institutions the chain will accept a recording from. Yours must be one of them.',
+      })
+      : kpi({
+        tone: 'mute',
+        label: 'Approved participants',
+        value: registerError ? 'Unavailable' : '…',
+        hint: registerError || 'Asking the chain.',
+      }),
+    codes
+      ? kpi({
+        label: 'Jurisdictions covered',
+        value: codes.size,
+        hint: 'Distinct country codes held by those participants. A country with none has nobody '
+          + 'who can onboard into it.',
+      })
+      : kpi({
+        tone: 'mute',
+        label: 'Jurisdictions covered',
+        value: registerError ? 'Unavailable' : '…',
+        hint: registerError || 'Asking the chain.',
+      }),
+    kpi({
+      tone: 'mute',
+      label: 'Checked here',
+      value: checked,
+      hint: 'Requests this page has put to the chain since you opened it. Counted here, not on '
+        + 'the chain — nothing you do on this page is recorded anywhere.',
+    }),
+    kpi({
+      tone: cleared > 0 ? 'ok' : 'mute',
+      label: 'Cleared to record',
+      value: cleared,
+      unit: checked ? `of ${checked}` : '',
+      hint: 'Checks that nothing on the chain refused. The rest are under “What stops a '
+        + 'recording”, with the reason.',
+    }),
+  ].join('');
+}
+renderKpis();
+
+/* -------------------------------------------------- what stops a recording */
+
+// Generated from one array so the count on the folder cannot disagree with the
+// rows under it. Each row is a refusal implemented in placement.js.
+const RULES = [
+  {
+    refusal: 'The chain has never seen this account',
+    means: 'It holds no balance and has signed nothing, so there is nothing yet to place.',
+    lifted: 'The holder, by receiving anything at all',
+  },
+  {
+    refusal: `The country is ${FOUNDATION_MARKER}`,
+    means: `${FOUNDATION_MARKER} is the marker a foundation administrator carries. It is derived `
+      + 'from the role and never recorded, so it cannot be handed to an ordinary account.',
+    lifted: 'Nobody — the chain refuses it outright',
+  },
+  {
+    refusal: 'A country is already recorded',
+    means: 'Changing it is a correction. A participant able to rewrite a country it had already '
+      + 'recorded could move a customer out from under an authority mid-investigation.',
+    lifted: 'A foundation administrator',
+  },
+  {
+    refusal: 'The named institution is not approved',
+    means: 'Only an approved participant may record where an account belongs, so the recording '
+      + 'would be refused at the node.',
+    lifted: 'The foundation, by approving that participant',
+  },
+];
+
+document.getElementById('rules').innerHTML = `
+  <thead><tr><th class="num">#</th><th>Refusal</th><th>Why it exists</th><th>Who lifts it</th></tr></thead>
+  <tbody>${RULES.map((r, i) => `
+    <tr>
+      <td class="num y-num">${i + 1}</td>
+      <td><strong>${esc(r.refusal)}</strong></td>
+      <td>${esc(r.means)}</td>
+      <td class="muted">${esc(r.lifted)}</td>
+    </tr>`).join('')}</tbody>
+  <caption>Applied here before anything is signed, and again by the chain afterwards.</caption>`;
+document.getElementById('count-rules').textContent = RULES.length;
+
+/* -------------------------------------------------- the register, from the chain */
+
+participants().then((rows) => {
+  register = rows;
+  document.getElementById('count-register').textContent = rows.length;
+  document.getElementById('register').innerHTML = rows.length === 0
+    ? '<p class="empty">The chain holds no approved participants yet, so no recording can be '
+      + 'made by anybody.</p>'
+    : `<div class="y-scrollx"><table class="y-data">
+        <thead><tr><th class="num">#</th><th>Institution</th><th>Code</th><th>Account</th></tr></thead>
+        <tbody>${rows.map((p, i) => `
+          <tr>
+            <td class="num y-num">${i + 1}</td>
+            <td><strong>${esc(p.name || '(unnamed)')}</strong></td>
+            <td><span class="pill p-brass">${esc(p.code || '—')}</span></td>
+            <td class="y-addr">${esc(p.participant)}</td>
+          </tr>`).join('')}</tbody>
+        <caption>Read from the chain's approved-participant register.</caption>
+      </table></div>`;
+}).catch((err) => {
+  // The chain's own sentence, not a second one wrapped around it: chain.js
+  // already says 'the register did not answer (503)', and prefixing that with
+  // 'The register did not answer:' printed it twice.
+  registerError = err.message.charAt(0).toUpperCase() + err.message.slice(1) + '.';
+  document.getElementById('count-register').textContent = '';
+  document.getElementById('register').innerHTML = `<div class="err"><p><strong>This page could not read the
+    register.</strong> <code>${esc(err.message)}</code></p><p>Without it this page cannot tell you
+    whether the institution named in a request is approved, so treat any verdict below as
+    incomplete.</p></div>`;
+}).finally(renderKpis);
+
+/* -------------------------------------------------------------- the check */
+
+const facts = (rows) => `<div class="y-scrollx"><table class="y-data">
+  <thead><tr><th>What the chain was asked</th><th>What it answered</th></tr></thead>
+  <tbody>${rows.map(([q, a]) => `<tr><td>${q}</td><td>${a}</td></tr>`).join('')}</tbody>
+</table></div>`;
 
 document.getElementById('take').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -558,31 +905,52 @@ document.getElementById('take').addEventListener('submit', async (e) => {
     ]);
     const v = judge(parsed, { exists, jurisdiction: j, participants: ps });
 
+    checked += 1;
+    if (v.ok) cleared += 1;
+    renderKpis();
+
     out.innerHTML = `
-      <div class="card">
-        <p class="label">Account</p><p class="stat addr">${esc(parsed.address)}</p>
-        <p class="muted">to be recorded in <strong>${esc(parsed.country)}</strong>,
-          onboarded by ${esc(parsed.institution || '(not named)')}</p>
+      <h3>${v.ok ? 'Nothing on the chain refuses this' : 'This recording would be refused'}</h3>
+      <div class="card ${v.ok ? 'card--ok' : 'card--bad'}">
+        <div class="row">
+          <div>
+            <p class="label">Account</p>
+            <p class="y-addr y-mono">${esc(parsed.address)}</p>
+          </div>
+          <p><span class="pill ${v.ok ? 'p-ok' : 'p-bad'}">${v.ok ? 'clear' : 'refused'}</span></p>
+        </div>
+        <p class="muted">To be recorded in <strong>${esc(parsed.country)}</strong>, onboarded by
+          ${esc(parsed.institution || '(not named)')}.</p>
       </div>
+
+      ${facts([
+        ['Has the chain ever seen this account?',
+          exists ? '<span class="pill p-ok">yes</span>' : '<span class="pill p-bad">no</span>'],
+        ['Is a country already recorded against it?',
+          j ? `<span class="pill p-bad">${esc(j.country)}</span> recorded by
+               <span class="y-addr y-mono">${esc(j.recorded_by)}</span>`
+            : '<span class="pill p-mute">none</span> — free to place'],
+        ['Does it hold an identifier today?',
+          id ? `<span class="y-mono">${esc(id)}</span>` : '<span class="pill p-mute">none</span>'],
+        ['Is the named institution approved?',
+          parsed.institution
+            ? (ps.some((p) => p.name.trim().toLowerCase() === parsed.institution.trim().toLowerCase())
+              ? '<span class="pill p-ok">yes</span>' : '<span class="pill p-bad">no</span>')
+            : '<span class="pill p-warn">not named</span>'],
+      ])}
+
       ${v.blocking.map((b) => `<div class="badbox"><p>${esc(b)}</p></div>`).join('')}
       ${v.warnings.map((w) => `<div class="warnbox"><p>${esc(w)}</p></div>`).join('')}
       ${v.ok ? `
         <div class="card card--ok">
-          <p>Nothing on the chain refuses this. Your group signs:</p>
+          <h4>Your group signs</h4>
           <pre>blockchaind tx alias set-jurisdiction ${esc(parsed.address)} ${esc(parsed.country)} \\
   --from &lt;your key&gt; --chain-id yamale-devnet-2 --fees 500uyml --yes</pre>
           <p class="muted">Afterwards the account can claim its user ID, and it will carry the
             ${esc(parsed.country)} prefix.</p>
-        </div>` : ''}
-      <div class="card">
-        <p class="label">Identifier today</p>
-        <p class="stat">${esc(id ?? '—')}</p>
-        <p class="muted">${id
-          ? 'This is what payments to this account are addressed to, and its prefix is the country '
-            + 'already recorded against it.'
-          : 'An account with no recorded country holds no identifier, and nobody can address a '
-            + 'payment to it.'}</p>
-      </div>`;
+        </div>` : `
+        <p class="muted">No command is printed, because signing one would spend a fee to be
+          refused. The numbered rule above says who can lift it.</p>`}`;
   } catch (err) {
     out.innerHTML = `<div class="err"><p><strong>The chain did not answer.</strong>
       <code>${esc(err.message)}</code></p></div>`;
