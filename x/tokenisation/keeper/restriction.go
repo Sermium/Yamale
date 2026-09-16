@@ -50,12 +50,29 @@ func (k Keeper) SendRestrictionFn(ctx context.Context, from, to sdk.AccAddress, 
 		// that gets taken within a block, so trading stops and the only path
 		// left is redemption.
 		//
-		// The module account is exempt because redemption itself moves tokens
-		// to the module to be burned, and a rule that blocked that would strand
-		// every holder in the asset.
+		// This module's own account is exempt because redemption itself moves
+		// tokens to the module to be burned, and a rule that blocked that would
+		// strand every holder in the asset.
+		//
+		// Registered escrows are exempt for the same reason, one step removed,
+		// and it took a marketplace to find it. An escrow is holding somebody
+		// else's shares on their behalf: a seller with an offer standing when the
+		// vehicle is realised owns those shares exactly as much as a seller who
+		// never made an offer. Without this, withdrawing the offer is refused —
+		// permanently, because the status never goes back — and the shares are
+		// stranded in a module account with no key, which is the same
+		// confiscation the exemption above exists to prevent.
+		//
+		// It does not reopen trading in a halted asset. What may move through an
+		// escrow is decided by the module that owns it, and every path that would
+		// hand a halted vehicle's shares to a NEW holder checks the status for
+		// itself first; the paths left open here are the ones that give property
+		// back to the person it already belonged to.
 		if asset.Status == types.STATUS_REALISED || asset.Status == types.STATUS_CLOSED {
 			moduleAddr := k.ModuleAddress()
-			if !to.Equals(moduleAddr) && !from.Equals(moduleAddr) {
+			exempt := to.Equals(moduleAddr) || from.Equals(moduleAddr) ||
+				k.IsEscrow(from) || k.IsEscrow(to)
+			if !exempt {
 				return to, types.ErrTradingHalted
 			}
 		}
