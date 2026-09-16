@@ -33,15 +33,17 @@
      THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
      THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
 
-     Inlined rather than linked for the reason the other consoles inline it: one
-     file, no build step, and no second request standing between the reader and
-     a page that has to say whether a raise is still open.
+     Inlined rather than linked because this console is deliberately one file
+     with no build step: it gets opened when something is wrong, often on a bad
+     connection, and a page that needs a second request before it can say
+     whether a proposal has been carried out is a page that will render as
+     unstyled text at the moment it matters.
 
-     The three-state theming is the part that must not be improvised. `:root`
-     carries the complete light palette; the dark blocks redefine TOKENS ONLY,
-     never a component rule — a colour whose sole definition sits inside a media
-     query or a [data-theme] block renders one theme's text on the other theme's
-     ground in the un-stamped state, and that bug has shipped here before.
+     The declarations below are byte-identical to that file, in the same order,
+     so a change there is a mechanical paste into all four consoles —
+     clients/foundation, clients/governance, clients/land, clients/validator —
+     rather than a hunt. Only the long reasoning comments are left behind; they
+     stay in the canonical file so there is one place to read them.
      ========================================================================== */
 
   :root {
@@ -57,6 +59,7 @@
     --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
     --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
     --step-5: clamp(2.1rem, 4.6vw, 3rem);
+    --step-6: clamp(2.5rem, 6vw, 3.9rem);
 
     --sp-1: 0.25rem;
     --sp-2: 0.5rem;
@@ -65,8 +68,10 @@
     --sp-5: 1.5rem;
     --sp-6: 2rem;
     --sp-7: 3rem;
+    --sp-8: 4.5rem;
 
     --radius: 5px;
+    --radius-lg: 8px;
     --measure: 68ch;
 
     --navy: #12253f;
@@ -84,32 +89,35 @@
     --rule: #d3dae6;
 
     --text: var(--ink);
-    --text-muted: var(--slate);
+    --text-muted: #526178;
     --text-faint: #8798af;
     --accent: var(--navy);
     --accent-ink: #ffffff;
     --focus: #1f6feb;
 
-    --ok: #0d7a4a;
+    --ok: #0c6d42;
     --warn: #a8791b;
-    --bad: #b02a25;
+    --bad: #ac2924;
     --wash-ok: rgba(13, 122, 74, .10);
     --wash-warn: rgba(168, 121, 27, .12);
     --wash-bad: rgba(176, 42, 37, .10);
     --wash-mute: rgba(92, 110, 136, .10);
     --wash-brass: rgba(168, 123, 60, .12);
 
+    /* Brass and amber as *type* do not clear 4.5:1 in the light palette:
+       measured 3.77:1 for a brass link on white, 3.31:1 and 3.38:1 for the
+       two chips on their own washes. Darkened along the same hue, and only
+       where the colour carries words. Dark already passes, measured. */
+    --brass-ink: #78582b;
+    --warn-ink: #795814;
+
     --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
     --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
-
-    /* Measured, not guessed — the finding is recorded in clients/markets. In
-       light, --brass and --warn fail 4.5:1 wherever they carry small text; both
-       are fine as a border, a bar or a rule. These two exist for text and
-       resolve to the palette colour in dark, where the palette already passes. */
-    --brass-text: #825d22;
-    --warn-text: #80590f;
   }
 
+  /* Only tokens are redefined for dark — never a component rule, because a
+     colour whose sole definition sits inside a media query never applies in the
+     un-stamped state. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
       --bg: var(--ink);
@@ -135,12 +143,11 @@
       --wash-bad: rgba(239, 138, 133, .13);
       --wash-mute: rgba(143, 164, 196, .12);
       --wash-brass: rgba(196, 152, 86, .16);
+      --brass-ink: #c79d5e;
+      --warn-ink: var(--warn);
 
       --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
       --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
-
-      --brass-text: var(--brass);
-      --warn-text: var(--warn);
     }
   }
 
@@ -168,12 +175,11 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: #c79d5e;
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
-
-    --brass-text: var(--brass);
-    --warn-text: var(--warn);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -197,14 +203,72 @@
     text-wrap: balance;
     margin: 0;
   }
+
+  h1 { font-size: var(--step-6); }
+  h2 { font-size: var(--step-4); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; }
+  h4 { font-size: var(--step-1); letter-spacing: 0; }
+
   p { margin: 0; max-width: var(--measure); }
 
-  code, kbd, samp, pre, .mono, .addr, .num {
+  code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
     font-family: var(--font-mono);
     font-feature-settings: 'zero' 1;
   }
-  .num, .tabular { font-variant-numeric: tabular-nums; }
-  .addr { word-break: break-all; font-size: 0.88em; }
+  .y-num, .y-tabular, td.y-num, th.y-num {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Tabular digits align a column only if the column is aligned. `.y-num` gave
+     the digits equal width and left every cell ragged against a left edge, so a
+     cap and the amount remaining under it could not be compared down the page —
+     which is the only reason to put figures in a column at all.
+     Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+     consoles, and right-aligning a number inside a sentence would be wrong. */
+  td.y-num, th.y-num { text-align: end; }
+  .y-addr { word-break: break-all; font-size: 0.88em; }
+
+  .y-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass-ink);
+  }
+
+  .y-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
+  .y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
+  .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
+  .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
+  .y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
+
+  .y-scroll { overflow-x: auto; }
 
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--focus);
@@ -221,7 +285,161 @@
     }
   }
 
+  /* --- INFORMATION DESIGN, from the same canonical file ------------------
+     The reasoning lives in clients/shared/yamale.css; these are its
+     declarations, in its order. Three patterns: a figure that reads as a
+     figure, folders instead of one scrolling column, and a table of numbers
+     aligned on its units. */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines: 100,000,000 rendered as "100,000,0"
+       above "00" is not a smaller number, it is a different one. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  /* Numbers right, words left.
+     `padding-inline-end: 0` used to be unconditional here, which is right only
+     for a LAST column: three numeric columns in the governance table are not
+     last, and an id ran straight into the title beside it ("20A supply ceiling
+     for the dollar"). The trailing padding is dropped only where there is
+     nothing after it. */
+  .y-data .num, .y-data th.num { text-align: end; }
+  .y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  .y-scrollx { overflow-x: auto; }
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
   /* ======================================================== the console shell */
+
+  /* This console's own short name for a figure. The canonical file spells the
+     data classes `.y-num` and `.y-addr`; `.num` is kept here because the shared
+     `.y-data` rules are themselves written against `.num` — numbers inside a
+     data table are aligned by that class and nothing else — so the table markup
+     and the inline markup would otherwise use two names for one idea. Only the
+     face is set here; the alignment and the tabular figures come from the
+     shared file. */
+  code, kbd, samp, pre, .num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
 
   header {
     display: flex; align-items: center; gap: var(--sp-3);
@@ -265,8 +483,9 @@
   .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
   .card--mute { border-inline-start: 3px solid var(--text-faint); }
 
-  .grid { display: grid; gap: var(--sp-3);
-          grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  /* `.grid` used to sit here — an auto-fit grid of cards, which is what the
+     shared `.y-kpis` band is. Every place that used it now uses the band, so
+     the second definition has gone rather than staying as an alternative. */
   .row { display: flex; justify-content: space-between; gap: var(--sp-4);
          align-items: baseline; flex-wrap: wrap; }
 
@@ -274,20 +493,13 @@
   .small { font-size: var(--step--1); }
   .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
           line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
-  .label {
-    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
-    text-transform: uppercase; color: var(--text-muted);
-  }
-  .eyebrow {
-    font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
-  }
-  .stat {
-    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
-    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-    margin-top: var(--sp-1);
-  }
-  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  /* `.label`, `.eyebrow` and `.stat` used to be defined here, character for
+     character the same decisions the shared file makes as `.y-label`,
+     `.y-eyebrow` and the KPI band. Two names for one decision is how the next
+     person fixes the wrong one, so the markup now uses the shared names and
+     only the one thing the shared file leaves open — the space under an eyebrow
+     that `p { margin: 0 }` removes — is set here. */
+  p.y-eyebrow { margin: 0 0 var(--sp-2); }
   .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
 
   .pill {
@@ -297,10 +509,10 @@
     white-space: nowrap;
   }
   .p-ok { background: var(--wash-ok); color: var(--ok); }
-  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-ink); }
   .p-bad { background: var(--wash-bad); color: var(--bad); }
   .p-mute { background: var(--wash-mute); color: var(--text-muted); }
-  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-ink); }
 
   code { font-size: 0.86em; overflow-wrap: break-word; }
   pre {
@@ -319,7 +531,7 @@
   .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
   .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
   .err strong, .badbox strong { color: var(--bad); }
-  .warnbox strong { color: var(--warn-text); }
+  .warnbox strong { color: var(--warn-ink); }
   .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
   .notebox p + p, .warnbox p + p, .err p + p { margin-top: var(--sp-2); }
 
@@ -356,19 +568,19 @@
   summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
   summary:hover { color: var(--text); }
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
-           border-bottom: 1px solid var(--border); font-size: var(--step--1);
-           vertical-align: baseline; font-variant-numeric: tabular-nums; }
-  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
-       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
-       white-space: nowrap; }
-  tr:last-child td { border-bottom: 0; }
-  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
-  /* Wide content scrolls inside its own box. The page body never scrolls
-     sideways — a horizontal scrollbar on the document is how a table takes the
-     whole layout with it. */
-  .scroll { overflow-x: auto; }
+  /* Every table on this page is a `.y-data`, which is the shared file's. The
+     generic `table / th / td / td.num` block that used to sit here said the
+     same things in a second voice — and said one of them differently, which is
+     the part that mattered: `tr:last-child td { border-bottom: 0 }` stripped
+     the rule off the bottom row, so a table ended in mid-air. The shared file
+     keeps that rule and the table now closes; the local override has gone
+     rather than staying as a second opinion.
+
+     A figure in a table cell keeps its digits together; the unit beside it may
+     wrap away onto the next line. `money()` groups digits with U+202F, a narrow
+     NO-BREAK space, so the digits themselves cannot come apart — this only
+     stops the symbol dragging the last group with it. */
+  .y-data td.num { white-space: nowrap; }
 
   dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
        gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
@@ -445,6 +657,31 @@
   .rung__what { font-size: var(--step--1); }
   .rung__amt { font-family: var(--font-mono); font-size: var(--step-0); }
 
+  /* ====================================================== folders and areas
+
+     A deal is a document with sections, not one scrolling column. Its terms,
+     its book, what it has returned, its papers and its market are areas a
+     reader chooses between — and the choice is in the URL, because a folder is
+     a place and somebody sending a colleague to the cap table should be able to
+     send them to the cap table.
+
+     Links rather than buttons for that reason. The shared `.y-folder` is
+     written for a <button>, which is inline-block and carries no underline; an
+     anchor is neither. */
+  a.y-folder { display: inline-block; text-decoration: none; }
+  .area[hidden] { display: none; }
+  .area > h3:first-child, .area > h4:first-child { margin-top: 0; }
+  .area > p:first-child { margin-bottom: var(--sp-4); }
+
+  /* A KPI whose value is a word rather than a figure — a currency, a state, a
+     window. The shared band sizes its value for digits, and a word set at that
+     size wraps out of its tile. */
+  .y-kpi__value--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+
+  /* The deal's identity line, above the band. */
+  .dealtitle { display: flex; gap: var(--sp-3); align-items: baseline; flex-wrap: wrap;
+               margin-top: var(--sp-1); }
+
   .dealhead { display: flex; justify-content: space-between; gap: var(--sp-4);
               align-items: flex-start; flex-wrap: wrap; }
   .deals-list .card { cursor: pointer; }
@@ -472,7 +709,7 @@
        module graph and leaves the static markup rendering — indistinguishable
        from a platform with no deals. A height cannot appear unless the code
        ran, so if it is missing, nothing below it is true either. -->
-  <span class="label" id="clock">reading…</span>
+  <span class="y-label" id="clock">reading…</span>
   <button class="copy" id="theme" type="button">theme</button>
 </header>
 
@@ -518,11 +755,100 @@ const banner = document.getElementById('banner');
 let chainNow = Math.floor(Date.now() / 1000);
 
 const addr = (a) =>
-  `<span class="addr" title="${esc(a)}">${esc(shortAddr(a))}</span>`;
+  `<span class="y-addr" title="${esc(a)}">${esc(shortAddr(a))}</span>`;
 
 /* ========================================================================== */
 /*  Components                                                                */
 /* ========================================================================== */
+
+/**
+ * One figure, in the shared system's own vocabulary.
+ *
+ * `value` carries the DIGITS and `unit` the symbol beside them, separately and
+ * on purpose. `money()` returns "1 234.56 YML" as one string, and a KPI tile is
+ * narrow: set as one run of text it wraps wherever the browser likes, and the
+ * place it likes on a phone is between the last digit group and the symbol on a
+ * good day and inside the digits on a bad one. Split, the digits are one
+ * unbreakable run — `group()` joins them with U+202F, a narrow NO-BREAK space —
+ * and only the symbol can drop to the next line. A number that breaks across
+ * two lines is not a smaller number, it is a different one.
+ *
+ * `hint` is markup rather than text: it carries links and emphasis, and every
+ * caller escapes what it puts there.
+ */
+function kpi({ label, value, unit, hint, tone, words }) {
+  return `
+    <div class="y-kpi${tone ? ` y-kpi--${esc(tone)}` : ''}">
+      <p class="y-kpi__label">${esc(label)}</p>
+      <p class="y-kpi__value${words ? ' y-kpi__value--words' : ''}">${esc(value)}${
+        unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+      ${hint ? `<p class="y-kpi__hint">${hint}</p>` : ''}
+    </div>`;
+}
+
+/** The band those figures sit in, before the prose explaining them. */
+const kpiBand = (tiles) => `<div class="y-kpis">${tiles.filter(Boolean).join('')}</div>`;
+
+/**
+ * The folder tabs for one deal.
+ *
+ * Anchors, so a folder is linkable: `#/deal/7/papers` opens the papers. The
+ * route knows that only the last segment changed and swaps the panel rather
+ * than re-reading the chain, so moving between folders costs nothing.
+ */
+function folderTabs(id, active, tabs) {
+  return `
+    <div class="y-folders" role="tablist" aria-label="Areas of this deal">
+      ${tabs.map((t) => `
+        <a class="y-folder${t.id === active ? ' y-folder--on' : ''}" role="tab"
+           aria-selected="${t.id === active}" href="#/deal/${esc(id)}/${esc(t.id)}"
+           >${esc(t.label)}${t.counted
+             ? '<span class="y-folder__count" hidden></span>' : ''}</a>`).join('')}
+    </div>`;
+}
+
+/** One folder's contents. Rendered with the rest and shown by the route. */
+const area = (id, active, html) =>
+  `<section class="area" data-area="${esc(id)}" role="tabpanel"${
+    id === active ? '' : ' hidden'}>${html}</section>`;
+
+/**
+ * Concentration, drawn.
+ *
+ * A book is opened to answer one question — how much of this is one cheque —
+ * and a list of twelve percentages answers it slowly. Everything past the
+ * largest few is one "the rest" arc rather than a hundred hairlines, because a
+ * hundred investors is the SUCCESS case for a syndicate and a chart that became
+ * unreadable there would fail exactly when the argument was won.
+ *
+ * Stroked arcs on one circle: no library, no canvas, and it takes its colours
+ * from the theme's tokens like everything else, so it is correct in both.
+ */
+function ring(slices) {
+  const r = 100;
+  const hole = 0.62;
+  const width = r * 2 * (1 - hole);
+  const rad = r - width / 2;
+  const circumference = 2 * Math.PI * rad;
+
+  let offset = 0;
+  const arcs = slices.map((s) => {
+    const len = Math.max(0, s.fraction) * circumference;
+    const el = `<circle cx="100" cy="100" r="${rad}" fill="none" stroke-width="${width}"
+      stroke="${esc(s.tone)}" stroke-dasharray="${len} ${circumference - len}"
+      stroke-dashoffset="${-offset}" transform="rotate(-90 100 100)"></circle>`;
+    offset += len;
+    return el;
+  }).join('');
+
+  return `
+    <svg class="y-ring" viewBox="0 0 200 200" role="img"
+         aria-label="${esc(slices.map((s) => `${s.label} ${(s.fraction * 100).toFixed(1)} percent`).join(', '))}">
+      <circle cx="100" cy="100" r="${rad}" fill="none" stroke-width="${width}"
+              class="y-ring__track"></circle>
+      ${arcs}
+    </svg>`;
+}
 
 /**
  * The book, drawn.
@@ -701,7 +1027,7 @@ function paper(d) {
       </div>
       ${d.what ? `<p class="small muted">${esc(d.what)}</p>` : ''}
       ${d.stale ? `
-        <p class="small" style="color:var(--warn-text)"><strong>Replaced by document
+        <p class="small" style="color:var(--warn-ink)"><strong>Replaced by document
           ${esc(d.superseded_by)}.</strong> It is kept because what was agreed at a date is
           usually the question, but it is not what governs today.</p>` : ''}
       ${d.amends ? `
@@ -729,8 +1055,10 @@ async function showPapers(d) {
   if (!el) return;
   try {
     const list = papers(await documents(d.id));
+    setFolderCount('papers', list.length);
     if (list.length === 0) {
       el.innerHTML = `
+        <h4>No papers</h4>
         <div class="notebox">
           <p><strong>No papers are attached to this deal.</strong> That is what the chain says,
             not an error and not a claim that none exist — an operator who has not attached
@@ -742,6 +1070,7 @@ async function showPapers(d) {
     }
     const binding = list.filter((x) => x.binding).length;
     el.innerHTML = `
+      <h4>The papers</h4>
       <p class="muted">${esc(list.length)} document${list.length === 1 ? '' : 's'} on the record,
         ${esc(binding)} of which ${binding === 1 ? 'creates an obligation' : 'create obligations'}
         on the people in this deal. The chain holds the <strong>digest</strong> of each and never
@@ -820,13 +1149,50 @@ async function renderDeals() {
     : d.state === 'DEAL_STATE_CLOSED' ? 1 : 2);
   list.sort((a, b) => rank(a) - rank(b) || Number(b.id) - Number(a.id));
 
-  const live = list.filter((d) => d.state === 'DEAL_STATE_OPEN').length;
+  const count = (...states) => list.filter((d) => states.includes(d.state)).length;
+  const live = count('DEAL_STATE_OPEN');
+  const funded = count('DEAL_STATE_CLOSED', 'DEAL_STATE_REALISED');
+  const covered = list.filter((d) => d.state === 'DEAL_STATE_OPEN' && book(d).viable).length;
+  const returning = list.filter((d) => returnToDate(d).any).length;
 
+  // Counts only. Every other figure on this platform is money, and money in
+  // four settlement currencies does not add up — a band showing "total raised"
+  // would have to pick one denomination and pretend, which is the one thing
+  // this console will not do.
   view.innerHTML = `
     <h2>Syndications</h2>
-    <p class="muted" style="margin-bottom:var(--sp-5)">${esc(list.length)} deal${list.length > 1 ? 's' : ''}
-      on the platform, ${esc(live)} still taking commitments. A raise that misses its minimum
-      refunds everybody in full, fees included.</p>
+    <p class="muted">A raise that misses its minimum refunds everybody in full, fees included.
+      Deals still taking commitments come first.</p>
+
+    ${kpiBand([
+      kpi({
+        label: 'Deals',
+        value: String(list.length),
+        hint: 'Every deal this platform has ever opened, in any state.',
+      }),
+      kpi({
+        label: 'Still raising',
+        value: String(live),
+        tone: live ? 'ok' : 'mute',
+        hint: live
+          ? `${esc(String(covered))} of them ${covered === 1 ? 'has' : 'have'} covered the minimum,
+             so ${covered === 1 ? 'it can' : 'they can'} close.`
+          : 'Nothing is taking commitments today.',
+      }),
+      kpi({
+        label: 'Funded',
+        value: String(funded),
+        hint: 'Closed above the minimum, tokens in issue.',
+      }),
+      kpi({
+        label: 'Have distributed',
+        value: String(returning),
+        tone: returning ? 'ok' : 'mute',
+        hint: returning
+          ? 'Money has come back to holders on these.'
+          : 'No distribution has been paid on any deal yet.',
+      }),
+    ])}
 
     <div class="deals-list">
       ${list.map((d) => {
@@ -838,7 +1204,7 @@ async function renderDeals() {
         <article class="card card--${esc(s.tone)}">
           <div class="dealhead">
             <div style="min-width:min(100%,18rem)">
-              <p class="eyebrow">${esc(d.reference)}</p>
+              <p class="y-eyebrow">${esc(d.reference)}</p>
               <h4><a class="title" href="#/deal/${esc(d.id)}">${esc(d.company || 'Unnamed company')}</a></h4>
               <p class="muted">${d.partner ? `with ${esc(d.partner)} · ` : ''}${statePill(d)}
                 ${d.state === 'DEAL_STATE_OPEN'
@@ -862,102 +1228,221 @@ async function renderDeals() {
     </div>`;
 }
 
-/** One deal, in full. */
-async function renderDeal(id) {
-  const d = await deal(id);
-  if (!d) {
-    view.innerHTML = `
-      <h2>Deal ${esc(id)}</h2>
-      <div class="badbox">
-        <p><strong>No such deal.</strong> The chain answered and knows no deal
-          <code>${esc(id)}</code>. This is an absence, not a failure.</p>
-      </div>
-      <p><a class="btn" href="#/deals">← All deals</a></p>`;
-    return;
+/**
+ * The figures a reader decides on, before the prose explaining them.
+ *
+ * Which figures those are depends on what the deal is doing. An open raise is
+ * decided on by room, window and minimum; a funded one by what reached the
+ * company and what has come back; an aborted one by nothing at all, and saying
+ * so is the honest band. A single fixed set of tiles would have to print a
+ * dash in half of them, and a dash in a figure's place reads as a figure.
+ */
+function dealKpis(d) {
+  const b = book(d);
+  const den = d.settlement_denom;
+  const t = until(d.closes_at, chainNow);
+  const r = returnToDate(d);
+  const f = entryFees(d);
+  const sym = denomInfo(den).symbol;
+  const open = d.state === 'DEAL_STATE_OPEN';
+  const funded = d.state === 'DEAL_STATE_CLOSED' || d.state === 'DEAL_STATE_REALISED';
+  const realised = d.state === 'DEAL_STATE_REALISED';
+  const aborted = d.state === 'DEAL_STATE_ABORTED';
+
+  const tiles = [kpi({
+    label: open ? 'Raised so far' : 'Subscribed',
+    value: amount(b.raised, den),
+    unit: sym,
+    tone: aborted ? 'mute' : b.viable ? 'ok' : 'warn',
+    hint: aborted
+      ? 'Refunded in full, fees included — no service was delivered.'
+      : `${esc(b.filledPct.toFixed(1))}% of the ${esc(money(b.target, den))} allocation.`,
+  })];
+
+  if (!funded) {
+    tiles.push(kpi({
+      label: aborted ? 'The minimum it missed' : 'Minimum to close',
+      value: amount(b.minimum, den),
+      unit: sym,
+      tone: aborted ? 'mute' : b.viable ? 'ok' : 'warn',
+      hint: aborted
+        ? 'The window ran out below it, so the chain would not let the deal close.'
+        : b.viable
+          ? 'Covered, so the deal can close. Below it the chain refuses.'
+          : `${esc(money(b.shortfall, den))} short. Everybody is refunded in full if the window `
+            + 'runs out here.',
+    }));
   }
 
+  if (open) {
+    // Room and the smallest cheque are the figures somebody sizing a cheque
+    // needs, and they are shown only while a cheque can still be written. Past
+    // the window the chain takes no further commitment, so "room for 2.60 YML"
+    // would be an invitation to do something that would be refused.
+    if (standing(d, chainNow).can.includes('commit')) {
+      tiles.push(kpi({
+        label: 'Room left',
+        value: amount(b.room, den),
+        unit: sym,
+        tone: b.full ? 'mute' : undefined,
+        hint: b.full
+          ? 'The allocation is full. A further commitment is refused.'
+          : 'A commitment above that is refused, not truncated.',
+      }));
+    }
+    tiles.push(kpi({
+      label: 'Window',
+      value: t.past ? `Ran out ${t.text} ago` : `${t.text} left`,
+      words: true,
+      tone: t.past ? 'warn' : undefined,
+      hint: `${t.past ? 'Closed' : 'Closes'} ${esc(day(d.closes_at))}.`,
+    }));
+    if (standing(d, chainNow).can.includes('commit')) {
+      tiles.push(kpi({
+        label: 'Smallest cheque',
+        value: amount(d.minimum_ticket, den),
+        unit: sym,
+        hint: 'Measured on the total held, not on each top-up.',
+      }));
+    }
+  }
+
+  if (aborted) {
+    tiles.push(kpi({
+      label: 'Window',
+      value: `Ran out ${t.text} ago`,
+      words: true,
+      tone: 'mute',
+      hint: `Closed ${esc(day(d.closes_at))}.`,
+    }));
+  }
+
+  if (funded) {
+    tiles.push(kpi({
+      label: 'Reached the company',
+      value: amount(f.invested, den),
+      unit: sym,
+      hint: `After ${esc(money(f.fee, den))} of entry fee at ${esc(pct(f.bps))}.`,
+    }));
+    tiles.push(r.any
+      ? kpi({
+        label: realised ? 'Returned in total' : 'Returned to date',
+        value: pct(r.bps),
+        tone: 'ok',
+        hint: `${esc(money(r.distributed, den))} paid out against ${esc(money(r.raised, den))} `
+          + `subscribed — ${esc(multiple(r.bps))}.`,
+      })
+      : kpi({
+        // Not a dash. A dash in a figure's place is read as a figure, and what
+        // the chain is saying here is that there has been no distribution —
+        // which is a sentence, not a number.
+        label: 'Returned to date',
+        value: 'Nothing yet',
+        words: true,
+        tone: 'mute',
+        hint: 'The company has been funded and no distribution has been paid.',
+      }));
+    if (d.denom) {
+      tiles.push(kpi({
+        label: 'Tokens in issue',
+        value: amount(d.supply, d.denom),
+        // Kept short: the band clamps a hint at three lines, and a sentence
+        // that is cut off mid-clause reads as a page that ran out of room
+        // rather than as a fact. The whole of the reasoning is in the book.
+        hint: `<code>${esc(d.denom)}</code>, one per smallest unit raised.`,
+      }));
+    }
+  }
+
+  return tiles;
+}
+
+/**
+ * The terms, as a table rather than as a paragraph.
+ *
+ * Every figure is in one column, right-aligned on its units, so the minimum can
+ * be compared against the allocation by eye — which is the only reason to put
+ * figures in a column at all.
+ */
+function termsArea(d) {
   const b = book(d);
-  const s = standing(d, chainNow);
-  const t = until(d.closes_at, chainNow);
   const den = d.settlement_denom;
+  const f = entryFees(d);
+  const info = denomInfo(den);
+  const t = until(d.closes_at, chainNow);
+  const pctOfTarget = (v) => (b.target > 0n
+    ? `${(Number((v * 10000n) / b.target) / 100).toFixed(1)}% of the allocation`
+    : '');
+
+  const row = (term, figure, note) => `
+    <tr><td>${term}</td><td class="num">${esc(figure)}</td>
+      <td class="muted">${note}</td></tr>`;
+
+  return `
+    <h4>What this deal is written on</h4>
+    <div class="y-scrollx">
+      <table class="y-data">
+        <thead><tr><th>Term</th><th class="num">Figure</th><th>What it does</th></tr></thead>
+        <tbody>
+          ${row('Allocation', money(b.target, den),
+            'The whole of what this deal will take.')}
+          ${row('Minimum to close', money(b.minimum, den),
+            `${esc(pctOfTarget(b.minimum))}. Below it the chain refuses to close the deal at all.`)}
+          ${row(d.state === 'DEAL_STATE_OPEN' ? 'Raised so far' : 'Subscribed',
+            money(b.raised, den),
+            `${esc(pctOfTarget(b.raised))}.`)}
+          ${row('Smallest cheque', money(d.minimum_ticket, den),
+            'Measured on the total an investor holds, not on each top-up.')}
+          ${row('Sourcing fee', pct(f.sourcingBps),
+            'Off the raise, taken once at the close.')}
+          ${row('Syndication fee', pct(f.syndicationBps),
+            'Off the raise, taken once at the close.')}
+          ${row('Management fee', pct(d.fees.management_bps),
+            'Off each distribution as it is paid — never off committed capital.')}
+        </tbody>
+        <caption>Every figure read from the deal record on chain. The two entry fees are
+          charged together at the close; the ladder below turns them into money.</caption>
+      </table>
+    </div>
+
+    <h4 style="margin-top:var(--sp-6)">The record</h4>
+    <dl>
+      <dt>Reference</dt><dd><code>${esc(d.reference)}</code></dd>
+      <dt>Company</dt><dd>${esc(d.company || 'Unnamed')}</dd>
+      ${d.partner ? `<dt>Partner</dt><dd>${esc(d.partner)}</dd>` : ''}
+      <dt>Operator</dt><dd>${addr(d.operator)}</dd>
+      <dt>Settles in</dt><dd>${esc(info.symbol)}${info.name ? ` — ${esc(info.name)}` : ''}
+        <span class="muted">(<code>${esc(den)}</code>)</span></dd>
+      <dt>Window</dt><dd>${esc(day(d.closes_at))}
+        <span class="muted">${esc(d.state === 'DEAL_STATE_OPEN' ? t.phrase : '')}</span></dd>
+      ${d.closed_at !== '0' ? `<dt>Closed</dt><dd>${esc(day(d.closed_at))}</dd>` : ''}
+      ${d.denom ? `<dt>Token</dt><dd><code>${esc(d.denom)}</code></dd>` : ''}
+    </dl>
+
+    <div class="card" style="margin-top:var(--sp-5)">${feeLadder(d)}</div>`;
+}
+
+/** The secondary market on one deal: whether it can move, and what is offered. */
+function marketArea(d) {
   const tr = transferable(d);
-  const r = returnToDate(d);
-
-  view.innerHTML = `
-    <p class="muted" style="margin-bottom:var(--sp-3)"><a href="#/deals">← All deals</a></p>
-    <p class="eyebrow">${esc(d.reference)}</p>
-    <h2>${esc(d.company || 'Unnamed company')}</h2>
-    <p class="muted">${d.partner ? `Syndicated alongside <strong>${esc(d.partner)}</strong>. ` : ''}
-      Operated by ${addr(d.operator)}.</p>
-
-    <div class="card card--${esc(s.tone)}" style="margin-top:var(--sp-5)">
-      <div class="row">
-        <div>${statePill(d)}</div>
-        <div class="small muted">${d.state === 'DEAL_STATE_OPEN'
-          ? `Window ${esc(t.past ? 'ran out' : 'closes')} ${esc(t.phrase)} · ${esc(day(d.closes_at))}`
-          : d.closed_at !== '0' ? `Closed ${esc(day(d.closed_at))}` : ''}</div>
-      </div>
-      <p style="margin-top:var(--sp-3)">${esc(s.what)}</p>
-      <div style="margin-top:var(--sp-4)">${bookBar(d)}</div>
-      ${!b.viable && d.state === 'DEAL_STATE_OPEN' ? `
-        <p class="small" style="margin-top:var(--sp-2);color:var(--warn-text)">
-          <strong>${esc(money(b.shortfall, den))} short of the minimum.</strong>
-          Below it, the chain refuses to close this deal at all.</p>` : ''}
-      ${b.viable && !b.full && d.state === 'DEAL_STATE_OPEN' ? `
-        <p class="small" style="margin-top:var(--sp-2)">
-          Room for ${esc(money(b.room, den))} more. A commitment above that is refused,
-          not truncated.</p>` : ''}
-    </div>
-
-    <div class="grid" style="margin-top:var(--sp-4)">
-      <div class="card">
-        <p class="label">Allocation</p>
-        <p class="stat">${esc(money(b.target, den))}</p>
-        <p class="muted">minimum ${esc(money(b.minimum, den))}</p>
-      </div>
-      <div class="card">
-        <p class="label">Smallest cheque</p>
-        <p class="stat">${esc(money(d.minimum_ticket, den))}</p>
-        <p class="muted">applies to the total held, not to each top-up</p>
-      </div>
-      <div class="card">
-        <p class="label">Settles in</p>
-        <p class="stat stat--words">${esc(denomInfo(den).symbol)}</p>
-        <p class="muted">${esc(denomInfo(den).name || den)}</p>
-      </div>
-      <div class="card${r.any ? ' card--ok' : ''}">
-        <p class="label">Returned to date</p>
-        <p class="stat">${r.any ? esc(pct(r.bps)) : '—'}</p>
-        <p class="muted">${r.any
-          ? `${esc(money(r.distributed, den))} paid out against ${esc(money(r.raised, den))}
-             subscribed, a multiple of ${esc(multiple(r.bps))}`
-          : d.denom ? 'nothing has been distributed yet'
-          : 'no token issued yet, so nothing can have been distributed'}</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:var(--sp-4)">${feeLadder(d)}</div>
-
-    <h3>The return</h3>
-    ${returnPanel(d)}
-
-    <h3>The papers</h3>
-    <div id="papers"><p class="spin">Reading documents…</p></div>
-
-    <h3>The book</h3>
-    <div id="bookpanel"><p class="spin">Reading commitments…</p></div>
-
-    <h3>Secondary market</h3>
+  return `
+    <h4>Whether this token can move at all</h4>
     <div class="card ${tr.ok ? '' : 'card--mute'}">
       <p>${esc(tr.why)}</p>
     </div>
-    <div id="listings"><p class="spin">Reading listings…</p></div>
+    <div id="listings"><p class="spin">Reading listings…</p></div>`;
+}
 
-    <h3>What can be done, and who signs it</h3>
+/** What can be done on this deal, and whose signature the chain checks. */
+function commandsArea(d) {
+  const s = standing(d, chainNow);
+  const den = d.settlement_denom;
+  return `
+    <h4>What can be done, and who signs it</h4>
+    <p class="muted">This console holds no key. Each command below names the account whose
+      signature the chain checks, read from <code>cosmos.msg.v1.signer</code> in
+      <code>tx.proto</code>.</p>
     <div class="card">
-      <p class="muted">This console holds no key. Each command below names the account whose
-        signature the chain checks, read from <code>cosmos.msg.v1.signer</code> in
-        <code>tx.proto</code>.</p>
       ${s.can.includes('commit') ? command(
         'Commit to this deal', 'the investor',
         'The money moves now, into the module\'s escrow — a commitment that is only a promise lets a deal close on paper and fail to fund. You may withdraw it in full at any time while the deal is open.',
@@ -993,10 +1478,178 @@ sha256sum -b term-sheet.pdf | cut -d' ' -f1 \
   --from <member-key> --chain-id yamale-devnet-2`)}
       ${s.can.length === 0 ? '<p class="muted">The deal itself is settled; only documents can still be added.</p>' : ''}
     </div>`;
+}
+
+/**
+ * The folders of one deal, in the order the questions get asked.
+ *
+ * `terms` first because it is what the deal IS; the book, then what it has
+ * returned, then the papers, then the market it trades on, then the commands.
+ */
+const DEAL_FOLDERS = [
+  ['terms', 'Terms'],
+  ['book', 'The book'],
+  ['returns', 'Returns'],
+  ['papers', 'Papers'],
+  ['market', 'Market'],
+  ['commands', 'Actions'],
+];
+
+/**
+ * Fill in a folder tab's count once the chain has answered for it.
+ *
+ * Hidden until then rather than showing a zero. The book, the papers and the
+ * listings each take their own query; a tab reading "Papers 0" while that query
+ * is still in flight is the page asserting an absence nobody has told it about,
+ * and on a slow connection it is the state a reader sees for longest.
+ */
+function setFolderCount(id, n) {
+  const el = document.querySelector(`.y-folder[href$="/${id}"] .y-folder__count`);
+  if (!el) return;
+  el.textContent = String(n);
+  el.hidden = false;
+}
+
+/** Show one folder and hide the rest, without going back to the chain. */
+function showFolder(name) {
+  const active = DEAL_FOLDERS.some(([id]) => id === name) ? name : 'terms';
+  for (const el of document.querySelectorAll('.area[data-area]')) {
+    el.hidden = el.dataset.area !== active;
+  }
+  for (const el of document.querySelectorAll('.y-folder')) {
+    const on = el.getAttribute('href').endsWith(`/${active}`);
+    el.classList.toggle('y-folder--on', on);
+    el.setAttribute('aria-selected', String(on));
+  }
+  return active;
+}
+
+/** One deal, in full. */
+async function renderDeal(id, folder) {
+  const d = await deal(id);
+  if (!d) {
+    view.innerHTML = `
+      <h2>Deal ${esc(id)}</h2>
+      <div class="badbox">
+        <p><strong>No such deal.</strong> The chain answered and knows no deal
+          <code>${esc(id)}</code>. This is an absence, not a failure.</p>
+      </div>
+      <p><a class="btn" href="#/deals">← All deals</a></p>`;
+    return;
+  }
+
+  const b = book(d);
+  const s = standing(d, chainNow);
+  const t = until(d.closes_at, chainNow);
+  const den = d.settlement_denom;
+  const active = DEAL_FOLDERS.some(([f]) => f === folder) ? folder : 'terms';
+
+  // Three of the folders hold a list the chain has to be asked for separately.
+  // Those carry a count, filled in by setFolderCount when the answer arrives;
+  // the other three are the deal itself and have nothing to count.
+  const counted = new Set(['book', 'papers', 'market']);
+  const tabs = DEAL_FOLDERS.map(([fid, label]) => ({
+    id: fid, label, counted: counted.has(fid),
+  }));
+
+  view.innerHTML = `
+    <p class="muted" style="margin-bottom:var(--sp-3)"><a href="#/deals">← All deals</a></p>
+    <p class="y-eyebrow">${esc(d.reference)}</p>
+    <h2>${esc(d.company || 'Unnamed company')}</h2>
+    <div class="dealtitle">
+      ${statePill(d)}
+      <span class="muted">${d.partner
+        ? `Syndicated alongside <strong>${esc(d.partner)}</strong> · ` : ''}Operated by
+        ${addr(d.operator)}</span>
+    </div>
+
+    ${kpiBand(dealKpis(d))}
+
+    <div class="card card--${esc(s.tone)}">
+      <div class="row">
+        <div class="small muted">${d.state === 'DEAL_STATE_OPEN'
+          ? `Window ${esc(t.past ? 'ran out' : 'closes')} ${esc(t.phrase)} · ${esc(day(d.closes_at))}`
+          : d.closed_at !== '0' ? `Closed ${esc(day(d.closed_at))}` : ''}</div>
+      </div>
+      <p>${esc(s.what)}</p>
+      <div style="margin-top:var(--sp-4)">${bookBar(d)}</div>
+      ${!b.viable && d.state === 'DEAL_STATE_OPEN' ? `
+        <p class="small" style="margin-top:var(--sp-3);color:var(--warn-ink)">
+          <strong>${esc(money(b.shortfall, den))} short of the minimum.</strong>
+          Below it, the chain refuses to close this deal at all.</p>` : ''}
+      ${b.viable && !b.full && d.state === 'DEAL_STATE_OPEN' ? `
+        <p class="small" style="margin-top:var(--sp-3)">
+          Room for ${esc(money(b.room, den))} more. A commitment above that is refused,
+          not truncated.</p>` : ''}
+    </div>
+
+    ${folderTabs(d.id, active, tabs)}
+
+    ${area('terms', active, termsArea(d))}
+    ${area('book', active, '<div id="bookpanel"><p class="spin">Reading commitments…</p></div>')}
+    ${area('returns', active, `<h4>What has come back</h4>${returnPanel(d)}`)}
+    ${area('papers', active, '<div id="papers"><p class="spin">Reading documents…</p></div>')}
+    ${area('market', active, marketArea(d))}
+    ${area('commands', active, commandsArea(d))}`;
+
+  shownDeal = String(d.id);
 
   showBook(d);
   showListings(d);
   showPapers(d);
+}
+
+/**
+ * The concentration of a book, as arcs and as a legend.
+ *
+ * The largest few cheques by name and everything after them as one arc. A
+ * syndicate with a hundred members is the case this platform exists for, and a
+ * chart that turned into a hundred hairlines would fail exactly there.
+ *
+ * Every arc is repeated as a row in the legend with its percentage in words, so
+ * the chart is never the only place a fact appears — one man in twelve cannot
+ * separate this page's green from its amber.
+ */
+function concentration(list, raised) {
+  if (raised <= 0n) return '';
+  const TONES = ['var(--accent)', 'var(--brass)', 'var(--ok)', 'var(--warn)', 'var(--bad)'];
+  const top = list.slice(0, TONES.length);
+  const rest = list.slice(TONES.length);
+  const restTotal = rest.reduce((sum, c) => sum + BigInt(c.amount), 0n);
+
+  const frac = (v) => Number((v * 10000n) / raised) / 10000;
+  const slices = top.map((c, i) => ({
+    label: shortAddr(c.investor, 10),
+    fraction: frac(BigInt(c.amount)),
+    tone: TONES[i],
+  }));
+  if (restTotal > 0n) {
+    slices.push({
+      label: `${rest.length} smaller commitment${rest.length === 1 ? '' : 's'}`,
+      fraction: frac(restTotal),
+      tone: 'var(--text-faint)',
+    });
+  }
+
+  return `
+    <div class="y-split">
+      <div>${ring(slices)}</div>
+      <div>
+        <h4>How concentrated the book is</h4>
+        <p class="muted">Who the deal depends on. A raise carried by one cheque is a raise that
+          fails if that one investor changes their mind, and the arithmetic below is the whole of
+          what the chain knows about it.</p>
+        <table class="y-data" style="margin-top:var(--sp-3)">
+          <tbody>
+            ${slices.map((s) => `
+              <tr>
+                <td><span class="y-swatch" style="background:${s.tone}"></span>${esc(s.label)}</td>
+                <td class="num">${esc((s.fraction * 100).toFixed(1))}%</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 /** Who has committed what — public, and the reason belongs on the page. */
@@ -1004,10 +1657,11 @@ async function showBook(d) {
   const el = document.getElementById('bookpanel');
   if (d.state !== 'DEAL_STATE_OPEN') {
     el.innerHTML = `
+      <h4>The book is settled</h4>
       <div class="notebox">
-        <p><strong>The book is settled.</strong> Commitments are consumed at the close: each one
-          becomes an allocation of tokens and the commitment record is removed, so there is
-          nothing left to list.</p>
+        <p><strong>Commitments are consumed at the close.</strong> Each one becomes an allocation
+          of tokens and the commitment record is removed, so there is nothing left to list — the
+          chain does not keep a register of who subscribed.</p>
         <p>${d.denom
           ? `${esc(money(d.supply, d.settlement_denom))} of <code>${esc(d.denom)}</code> is in issue —
              one token per smallest unit raised, so a holder's share is simply their balance over
@@ -1019,22 +1673,29 @@ async function showBook(d) {
 
   try {
     const list = await commitments(d.id);
+    setFolderCount('book', list.length);
     if (!list.length) {
-      el.innerHTML = '<div class="notebox"><p>No commitment yet. The chain answered: '
-        + 'the book is empty, not unreachable.</p></div>';
+      el.innerHTML = `
+        <h4>The book is empty</h4>
+        <div class="notebox">
+          <p>No commitment yet. The chain answered: the book is empty, not unreachable.</p>
+        </div>`;
       return;
     }
     list.sort((a, b) => (BigInt(b.amount) > BigInt(a.amount) ? 1 : -1));
     const raised = book(d).raised;
 
     el.innerHTML = `
+      ${concentration(list, raised)}
+
+      <h4 style="margin-top:var(--sp-6)">Every commitment</h4>
       <p class="muted">${esc(list.length)} commitment${list.length > 1 ? 's' : ''}.
         Public, deliberately: how full the book is, is the single most useful figure to somebody
         deciding whether to join a syndicate, and a platform that hid it would be asking for trust
         it has not earned. What does not exist anywhere in this module is the query that goes the
         other way — from a person to everything they hold.</p>
-      <div class="card scroll">
-        <table>
+      <div class="card y-scrollx">
+        <table class="y-data">
           <thead><tr><th>Investor</th><th class="num">Cheque</th>
             <th class="num">Share if it closes here</th><th class="num">Committed</th></tr></thead>
           <tbody>${list.map((c) => `
@@ -1045,6 +1706,8 @@ async function showBook(d) {
               <td class="num">${esc(day(c.committed_at))}</td>
             </tr>`).join('')}
           </tbody>
+          <caption>Shares are of the book <em>as it stands</em>. Every further commitment moves
+            all of them, and they are final only once the deal closes.</caption>
         </table>
       </div>`;
   } catch (e) {
@@ -1060,13 +1723,17 @@ async function showListings(d) {
 
   try {
     const list = await listings(d.id);
+    setFolderCount('market', list.length);
     if (!list.length) {
-      el.innerHTML = '<div class="notebox"><p>Nothing has been offered on this deal.</p></div>';
+      el.innerHTML = `
+        <h4 style="margin-top:var(--sp-6)">What is offered</h4>
+        <div class="notebox"><p>Nothing has been offered on this deal.</p></div>`;
       return;
     }
     el.innerHTML = `
-      <div class="card scroll">
-        <table>
+      <h4 style="margin-top:var(--sp-6)">What is offered</h4>
+      <div class="card y-scrollx">
+        <table class="y-data">
           <thead><tr><th>Seller</th><th class="num">Quantity</th><th class="num">Price</th>
             <th>Open to</th><th>State</th></tr></thead>
           <tbody>${list.map((l) => {
@@ -1159,8 +1826,8 @@ async function renderHolding(hash) {
 
     el.innerHTML = `
       <div class="card ${status?.onboarded ? 'card--ok' : 'card--warn'}" style="margin-top:var(--sp-5)">
-        <p class="label">Onboarding</p>
-        <p class="stat stat--words">${status?.onboarded ? 'Completed' : 'Not completed'}</p>
+        <p class="y-label">Onboarding</p>
+        <p class="y-kpi__value y-kpi__value--words">${status?.onboarded ? 'Completed' : 'Not completed'}</p>
         <p class="muted">${status?.onboarded
           ? `Recorded by ${esc(shortAddr(status.investor?.onboarded_by ?? '', 14))} on
              ${esc(day(status.investor?.onboarded_at))}, against file reference
@@ -1183,35 +1850,38 @@ async function renderHolding(hash) {
         <div class="card" style="margin-top:var(--sp-3)">
           <div class="row">
             <div>
-              <p class="eyebrow">${esc(d.reference)}</p>
+              <p class="y-eyebrow">${esc(d.reference)}</p>
               <h4><a href="#/deal/${esc(d.id)}">${esc(d.company)}</a></h4>
             </div>
             <div>${statePill(d)}</div>
           </div>
-          <div class="grid" style="margin-top:var(--sp-3)">
-            <div>
-              <p class="label">Holding</p>
-              <p class="stat">${esc(amount(r.balance, d.denom))}</p>
-              <!-- Tokens are minted one per smallest unit of settlement raised,
-                   so a balance maps exactly onto a slice of the raise. Said
-                   that way rather than as "subscribed at", which would be
-                   false for anybody who bought on the secondary market. -->
-              <p class="muted">${esc(pct(r.share_bps))} of the syndicate —
-                ${esc(money(r.balance, den))} of the ${esc(money(d.supply, den))} raised</p>
-            </div>
-            <div>
-              <p class="label">Claimable now</p>
-              <p class="stat">${esc(money(r.claimable.amount, r.claimable.denom || den))}</p>
-              <p class="muted">settled and unsettled together — which is what a statement shows</p>
-            </div>
-            <div>
-              <p class="label">Paid on a holding this size</p>
-              <p class="stat">${esc(money(h.attributed, den))}</p>
-              <p class="muted">the deal has returned ${esc(pct(dr.bps))} of capital
+          ${kpiBand([
+            kpi({
+              label: 'Holding',
+              value: amount(r.balance, d.denom),
+              // Tokens are minted one per smallest unit of settlement raised,
+              // so a balance maps exactly onto a slice of the raise. Said that
+              // way rather than as "subscribed at", which would be false for
+              // anybody who bought on the secondary market.
+              hint: `${esc(pct(r.share_bps))} of the syndicate — ${esc(money(r.balance, den))} of
+                the ${esc(money(d.supply, den))} raised.`,
+            }),
+            kpi({
+              label: 'Claimable now',
+              value: amount(r.claimable.amount, r.claimable.denom || den),
+              unit: denomInfo(r.claimable.denom || den).symbol,
+              tone: BigInt(r.claimable.amount || '0') > 0n ? 'ok' : 'mute',
+              hint: 'Settled and unsettled together — which is what a statement shows.',
+            }),
+            kpi({
+              label: 'Paid on a holding this size',
+              value: amount(h.attributed, den),
+              unit: denomInfo(den).symbol,
+              hint: `The deal has returned ${esc(pct(dr.bps))} of capital
                 (${esc(multiple(dr.bps))}), net of the
-                ${esc(pct(d.fees.management_bps))} management fee</p>
-            </div>
-          </div>
+                ${esc(pct(d.fees.management_bps))} management fee.`,
+            }),
+          ])}
           <!-- The caveat is not optional and not a footnote. The index
                mechanism accrues per position and keeps no register of payments
                per holder — which is exactly what makes a distribution to
@@ -1260,8 +1930,8 @@ async function renderPlatform() {
       no practical recourse.</p>
 
     ${ops.length ? `
-      <div class="card scroll">
-        <table>
+      <div class="card y-scrollx">
+        <table class="y-data">
           <thead><tr><th>Name</th><th>Jurisdiction</th><th>Admitted</th><th>Address</th><th>State</th></tr></thead>
           <tbody>${ops.map((o) => `
             <tr>
@@ -1282,28 +1952,30 @@ async function renderPlatform() {
       <p class="muted">Set by governance rather than by the operator, which is the point of
         putting them on the chain: an operator free to set its own fee ceiling has not agreed
         to one.</p>
-      <div class="grid">
-        <div class="card">
-          <p class="label">Entry fee ceiling</p>
-          <p class="stat">${esc(pct(p.max_entry_fee_bps))}</p>
-          <p class="muted">sourcing and syndication together, off the raise</p>
-        </div>
-        <div class="card">
-          <p class="label">Management fee ceiling</p>
-          <p class="stat">${esc(pct(p.max_management_fee_bps))}</p>
-          <p class="muted">off each distribution, never off committed capital</p>
-        </div>
-        <div class="card">
-          <p class="label">Shortest raise</p>
-          <p class="stat">${esc(until(Number(p.min_open_period), 0).text)}</p>
-          <p class="muted">a window too short is an allocation only insiders can reach</p>
-        </div>
-        <div class="card">
-          <p class="label">Longest raise</p>
-          <p class="stat">${esc(until(Number(p.max_open_period), 0).text)}</p>
-          <p class="muted">the longest anybody's money may sit in escrow</p>
-        </div>
-      </div>` : ''}
+      ${kpiBand([
+        kpi({
+          label: 'Entry fee ceiling',
+          value: pct(p.max_entry_fee_bps),
+          hint: 'Sourcing and syndication together, off the raise.',
+        }),
+        kpi({
+          label: 'Management fee ceiling',
+          value: pct(p.max_management_fee_bps),
+          hint: 'Off each distribution, never off committed capital.',
+        }),
+        kpi({
+          label: 'Shortest raise',
+          value: until(Number(p.min_open_period), 0).text,
+          words: true,
+          hint: 'A window too short is an allocation only insiders can reach.',
+        }),
+        kpi({
+          label: 'Longest raise',
+          value: until(Number(p.max_open_period), 0).text,
+          words: true,
+          hint: 'The longest anybody’s money may sit in escrow.',
+        }),
+      ])}` : ''}
 
     <h3>What is deliberately absent</h3>
     <div class="notebox">
@@ -1388,14 +2060,35 @@ function setBanner(e) {
     </div>`;
 }
 
+/**
+ * The deal currently on screen, so that opening a folder does not re-read the
+ * chain.
+ *
+ * A folder is a place inside a deal rather than a different page: only the last
+ * segment of the hash changes. Re-running renderDeal for that would throw away
+ * three answers the chain has already given — the book, the papers and the
+ * listings — and redraw the identical deal around them, which on a phone on one
+ * bar of signal is three round trips to move a tab.
+ */
+let shownDeal = null;
+
 async function route() {
   const hash = location.hash || '#/deals';
   renderNav(hash);
+
+  if (hash.startsWith('#/deal/')) {
+    const [, , id, folder] = hash.split('/');
+    if (id === shownDeal) { showFolder(folder || 'terms'); return; }
+  }
+
   setBanner(null);
+  shownDeal = null;
   view.innerHTML = '<p class="spin">Reading the chain…</p>';
   try {
-    if (hash.startsWith('#/deal/')) await renderDeal(hash.split('/')[2]);
-    else if (hash.startsWith('#/holding')) await renderHolding(hash);
+    if (hash.startsWith('#/deal/')) {
+      const [, , id, folder] = hash.split('/');
+      await renderDeal(id, folder || 'terms');
+    } else if (hash.startsWith('#/holding')) await renderHolding(hash);
     else if (hash.startsWith('#/find')) await renderFind(hash);
     else if (hash.startsWith('#/platform')) await renderPlatform();
     else await renderDeals();
@@ -1424,7 +2117,7 @@ async function tick() {
     chainNow = h.now || chainNow;
     el.textContent = `height ${h.height.toLocaleString('en')} · ${h.at.toISOString().slice(11, 19)}Z`
       + (h.catchingUp ? ' · node catching up' : '');
-    el.style.color = h.catchingUp ? 'var(--warn-text)' : '';
+    el.style.color = h.catchingUp ? 'var(--warn-ink)' : '';
     el.title = h.catchingUp
       ? 'This node is replaying history. Every answer below is correct for a height that may be '
         + 'hours old, which on an open raise is the difference between room and none.'
