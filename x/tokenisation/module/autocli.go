@@ -58,6 +58,21 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
 				},
 				{
+					RpcMethod: "DividendReserve",
+					Use:       "dividend-reserve [asset-id]",
+					Short:     "What this vehicle owes its dividend token, and what it has set aside to pay it",
+					Long: "What this vehicle owes its dividend token, and what it has set aside.\n\n" +
+						"`outstanding` is dividend tokens issued and not yet cashed; `reserve` is\n" +
+						"the currency held against them. They are read from different places — the\n" +
+						"supply from x/bank, the reserve from this module's own per-vehicle ledger —\n" +
+						"so comparing them is a real check rather than a number agreeing with\n" +
+						"itself. They should be equal. If reserve is the smaller, somebody's\n" +
+						"exchange will fail, and that is worth knowing before it is yours.\n\n" +
+						"`unreserved` is the rest of the vault: what a future distribution can be\n" +
+						"paid from, and what redemption pays out of.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
+				},
+				{
 					RpcMethod: "Covenants",
 					Use:       "covenants [asset-id]",
 					Short:     "What the operator has published against this tokenisation",
@@ -388,12 +403,37 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{
 					RpcMethod: "Claim",
 					Use:       "claim [asset-id]",
-					Short:     "Take the income owed to you from an asset's vault, without giving up your shares",
+					Short:     "Take the income owed to you as dividend tokens, without giving up your shares",
 					Long: "Take the income owed to you from an asset's vault.\n\n" +
 						"--from must hold the fraction tokens. This pays out what has accrued and\n" +
 						"leaves the shares where they are, so it can be called as often as the vault\n" +
-						"is funded. Check the amount first with `query tokenisation entitlement`.",
+						"is funded. Check the amount first with `query tokenisation entitlement`.\n\n" +
+						"What arrives is a DIVIDEND TOKEN — div/<asset-id>/<SYMBOL> — not the\n" +
+						"currency itself. The currency is set aside for it at the same moment, one\n" +
+						"for one, and `tx tokenisation exchange-dividend` swaps it back whenever you\n" +
+						"want it. Two steps rather than one because the token can be held by, or\n" +
+						"handed to, an account that is not permitted to receive the currency — and\n" +
+						"because a dividend declared and not yet cashed is then a figure anybody\n" +
+						"can read, rather than one buried in this module's ledger.",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "asset_id"}},
+				},
+				{
+					RpcMethod: "ExchangeDividend",
+					Use:       "exchange-dividend [asset-id] [amount]",
+					Short:     "Swap dividend tokens for the currency behind them, one for one",
+					Long: "Swap dividend tokens for the currency behind them, one for one.\n\n" +
+						"--from must hold the div/<asset-id>/<SYMBOL> tokens; it need not be the\n" +
+						"account that claimed them, because they are transferable.\n\n" +
+						"There is nothing to wait for and nobody to ask. The currency was taken out\n" +
+						"of the vehicle's spendable balance when the tokens were minted and reserved\n" +
+						"under their name, so this works in every status — including after the asset\n" +
+						"has been sold and after it has closed, when the shares themselves can no\n" +
+						"longer move at all.\n\n" +
+						"Check the backing first with `query tokenisation dividend-reserve`.",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "asset_id"},
+						{ProtoField: "amount"},
+					},
 				},
 				{
 					RpcMethod: "Redeem",

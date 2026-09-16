@@ -4081,6 +4081,37 @@
         ]
       }
     },
+    "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/dividend-reserve": {
+      "get": {
+        "operationId": "Query_DividendReserve",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryDividendReserveResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}": {
       "get": {
         "operationId": "Query_Entitlement",
@@ -4165,6 +4196,43 @@
           },
           {
             "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/tokenisation/v1/covenants/{asset_id}": {
+      "get": {
+        "operationId": "Query_Covenants",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryCovenantsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "current_only",
             "in": "query",
             "required": false,
             "type": "boolean"
@@ -5583,6 +5651,73 @@
         }
       }
     },
+    "Covenant": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "kind": {
+          "$ref": "#/definitions/CovenantKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "format": "byte"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "int64"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "int64"
+        },
+        "acts_by": {
+          "type": "string",
+          "format": "int64"
+        },
+        "published_by": {
+          "type": "string"
+        },
+        "published_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "supersedes": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "superseded_by": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "CovenantKind": {
+      "type": "string",
+      "enum": [
+        "COVENANT_KIND_UNSPECIFIED",
+        "COVENANT_KIND_FINANCIAL_STATEMENTS",
+        "COVENANT_KIND_STRUCTURE_CHANGE",
+        "COVENANT_KIND_DIVIDEND_NOTICE",
+        "COVENANT_KIND_GENERAL_ASSEMBLY",
+        "COVENANT_KIND_RESOLUTION",
+        "COVENANT_KIND_INDEPENDENT_REPORT",
+        "COVENANT_KIND_MATERIAL_EVENT"
+      ],
+      "default": "COVENANT_KIND_UNSPECIFIED"
+    },
     "CycleStatus": {
       "type": "string",
       "enum": [
@@ -6980,6 +7115,18 @@
         }
       }
     },
+    "QueryCovenantsResponse": {
+      "type": "object",
+      "properties": {
+        "covenants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Covenant"
+          }
+        }
+      }
+    },
     "QueryCurrentCycleResponse": {
       "type": "object",
       "properties": {
@@ -7046,6 +7193,23 @@
         },
         "disclosure": {
           "$ref": "#/definitions/v1.Disclosure"
+        }
+      }
+    },
+    "QueryDividendReserveResponse": {
+      "type": "object",
+      "properties": {
+        "dividend_denom": {
+          "type": "string"
+        },
+        "outstanding": {
+          "$ref": "#/definitions/Coin"
+        },
+        "reserve": {
+          "$ref": "#/definitions/Coin"
+        },
+        "unreserved": {
+          "$ref": "#/definitions/Coin"
         }
       }
     },
@@ -8088,6 +8252,26 @@
         }
       }
     },
+    "Sector": {
+      "type": "string",
+      "enum": [
+        "SECTOR_UNSPECIFIED",
+        "SECTOR_AGRICULTURE",
+        "SECTOR_EXTRACTION",
+        "SECTOR_MANUFACTURING",
+        "SECTOR_UTILITIES",
+        "SECTOR_CONSTRUCTION",
+        "SECTOR_TRADE",
+        "SECTOR_TRANSPORT",
+        "SECTOR_HOSPITALITY",
+        "SECTOR_TECHNOLOGY",
+        "SECTOR_FINANCIAL",
+        "SECTOR_REAL_ESTATE",
+        "SECTOR_SERVICES",
+        "SECTOR_PUBLIC_AND_SOCIAL"
+      ],
+      "default": "SECTOR_UNSPECIFIED"
+    },
     "SeizureDelayTier": {
       "type": "object",
       "properties": {
@@ -8252,7 +8436,22 @@
         "denom": {
           "type": "string"
         },
+        "period_index": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "int64"
+        },
         "held": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "dividend_reserve": {
           "type": "array",
           "items": {
             "type": "object",
@@ -8537,6 +8736,9 @@
         "parcel_id": {
           "type": "string",
           "format": "uint64"
+        },
+        "sector": {
+          "$ref": "#/definitions/Sector"
         }
       }
     },

@@ -117,3 +117,22 @@ var (
 	ErrCovenantSuperseded = sdkerrors.Register(ModuleName, 41,
 		"that filing has already been corrected; correct the current version instead")
 )
+
+// The dividend token and the exchange behind it.
+var (
+	// A vehicle with no shareholding has no dividend denomination either.
+	// Refused rather than defaulted, because the default would be "div//" —
+	// one denomination shared by every unfractionalised vehicle on the chain,
+	// whose holders would then be cashing against each other's reserves.
+	ErrNoDividendDenom = sdkerrors.Register(ModuleName, 42,
+		"that asset has no shareholding, so it has no dividend token")
+
+	// The one refusal the exchange is allowed to make, and it should be
+	// unreachable: every dividend token in existence was minted against stable
+	// moved into the reserve in the same write. Reaching this means the supply
+	// and the reserve have come apart, so it fails the transaction rather than
+	// paying out of whatever the module account happens to hold — which would
+	// be a different vehicle's money.
+	ErrReserveUnfunded = sdkerrors.Register(ModuleName, 43,
+		"this vehicle's dividend reserve cannot cover that, and the reserve of another vehicle is not available to it")
+)

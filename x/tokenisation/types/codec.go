@@ -24,6 +24,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgResolveDispute{}, "blockchain/x/tokenisation/MsgResolveDispute", nil)
 	cdc.RegisterConcrete(&MsgClaim{}, "blockchain/x/tokenisation/MsgClaim", nil)
 	cdc.RegisterConcrete(&MsgRedeem{}, "blockchain/x/tokenisation/MsgRedeem", nil)
+	cdc.RegisterConcrete(&MsgExchangeDividend{}, "blockchain/x/tokenisation/MsgExchangeDividend", nil)
 }
 
 func RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
@@ -44,6 +45,7 @@ func RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 		&MsgResolveDispute{},
 		&MsgClaim{},
 		&MsgRedeem{},
+		&MsgExchangeDividend{},
 	)
 	msgservice.RegisterMsgServiceDesc(reg, &_Msg_serviceDesc)
 }

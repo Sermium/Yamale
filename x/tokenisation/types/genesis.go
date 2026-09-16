@@ -1,5 +1,7 @@
 package types
 
+import sdk "github.com/cosmos/cosmos-sdk/types"
+
 func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		Params: DefaultParams(),
@@ -35,6 +37,26 @@ func (gs GenesisState) Validate() error {
 			overParcel[a.ParcelId] += uint64(a.HolderShareBps)
 			if overParcel[a.ParcelId] > 10_000 {
 				return ErrShareCeilingExceeded
+			}
+		}
+	}
+	// Every amount on a vault, checked before the chain is running.
+	//
+	// A Coin whose amount field is simply absent from the file decodes with a
+	// nil math.Int, and math.Int's zero value panics on arithmetic rather than
+	// erroring. So `{"denom": "uusd"}` in a hand-edited genesis is not a bad
+	// number, it is a validator that halts on the first transfer touching that
+	// vehicle — and it halts in InitGenesis's successors rather than here,
+	// where nobody is looking. Three fields rather than one because
+	// dividend_reserve arrived last and would otherwise be the only one
+	// unguarded, which is how the next person learns this the hard way.
+	for _, v := range gs.Vaults {
+		for _, set := range [][]sdk.Coin{v.Held, v.Funded, v.DividendReserve} {
+			for _, c := range set {
+				if c.Amount.IsNil() {
+					return ErrInvalidAmount.Wrapf(
+						"vault for asset %d carries %q with no amount", v.AssetId, c.Denom)
+				}
 			}
 		}
 	}

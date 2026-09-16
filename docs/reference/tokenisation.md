@@ -32,6 +32,28 @@ Signed by the `holder` field.
 
 MsgClaim withdraws accrued income without giving up the shareholding.
 
+It pays a DIVIDEND TOKEN -- div/<asset_id>/<SYMBOL>, one per vehicle -- rather than the stable itself, and the stable it stands for is moved out of the vehicle's spendable ledger into its dividend reserve in the same write. MsgExchangeDividend converts it back, 1:1, whenever the holder can take it.
+
+#### Why a token at all, rather than just paying the stable
+
+Three things it buys, and one it deliberately does not.
+
+1. A holder who cannot receive the stable can still be PAID. A stable on this chain may carry its own send restriction -- a KYC gate, a sanctions list, a licence the holder does not have where they live. Paying such a holder directly either fails the whole claim, which leaves them accruing forever against a vehicle that has done nothing wrong, or succeeds into an account that cannot move the money on. The dividend token is issued by this module and gated by nothing, so the entitlement always lands; cashing it is a separate act that can happen later, elsewhere, or through an assignee who is permitted to hold the stable.
+
+2. The claim becomes AUDITABLE SEPARATELY FROM THE SETTLEMENT. "Declared and not yet cashed", per vehicle, used to be a figure that existed only spread across every holder's accrued balance and could not be read without walking the whole holder set. As a token supply it is one query, it is public, and anybody can check it against the reserve without trusting this module's own accounting.
+
+3. It separates WHEN a holder is credited from WHEN they are paid, which is what an operating business does anyway. A holder can claim on the record date and cash months later, without the chain holding an unattributed balance in the meantime.
+
+And the thing it deliberately does NOT buy: credit. A dividend token is never issued against a declaration that has not been funded. It is fully backed at the instant it is minted or it is not minted -- see Vault.dividend_reserve. The tempting version of this feature is a token a vehicle can issue when it has DECLARED but not yet funded, so holders hold something in the meantime. That version is refused here: a token mintable against an unfunded declaration is a claim the chain cannot honour, and the first holder to reach the exchange would be paid out of a neighbouring vehicle's reserve. What a vehicle publishes before the money arrives is a COVENANT_KIND_DIVIDEND_NOTICE -- a filing, which is honest about being an announcement.
+
+#### Transferable, deliberately
+
+The dividend token is an ordinary bank denomination and this module places no restriction on it. If it could not move it would be a ledger row with extra steps -- Position.accrued already is one -- and reason 1 above would collapse with it: a holder who cannot hold the stable has to be able to ASSIGN the claim to somebody who can.
+
+The consequence, stated rather than hidden: a dividend token can be sold, and it can be sold below par by somebody who needs the money before they can reach the exchange. The chain neither prevents that nor could -- it is the same freedom that makes the token useful. What it does guarantee is that the discount is never justified by the backing: par is available from the reserve, in every status, to whoever holds the token.
+
+Unlike the fraction token it is NOT halted at realisation and is not offered to the AMM's restricted-denom classifier. The fraction token halts because at realisation it becomes a claim on a fixed pot that a pool would still quote a stale price for. A dividend token is a claim on a fixed pot at a fixed 1:1 rate from the moment it exists and never changes, so there is no stale price for anybody to take.
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `holder` | string |  |
@@ -71,6 +93,28 @@ Permissionless.
 | `challenger` | string |  |
 | `asset_id` | uint64 |  |
 | `reason` | string |  |
+
+### MsgExchangeDividend
+
+`/blockchain.tokenisation.v1.MsgExchangeDividend`
+
+Signed by the `holder` field.
+
+MsgExchangeDividend cashes a dividend token for the stable behind it, 1:1.
+
+#### Permissionless, and refusable on nothing but the arithmetic
+
+Whoever holds the token exchanges it. There is no role, no admin, no pause and no status check, because by the time a dividend token exists the chain has already taken the stable out of the vehicle's spendable ledger and set it aside under this token's name. Refusing to honour it afterwards would be the chain defaulting on a payment it has already reserved the money for.
+
+That is also why it stays open at STATUS_REALISED and at STATUS_CLOSED, when the fraction token can no longer move at all. Trading halts because a share in a sold vehicle is a claim on a fixed pot a market would misprice; a dividend token is a debt that crystallised before the sale and has nothing to do with what the vehicle fetched. A holder who claimed in March and had not got round to exchanging by the time the warehouse sold in September is paid in full in October, out of money that was never available to redemption.
+
+The exchange is NOT routed through x/treasury. See the keeper for why.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `holder` | string | Whoever holds the tokens -- not necessarily the shareholder who claimed them, because the dividend token is transferable on purpose. |
+| `asset_id` | uint64 |  |
+| `amount` | string | How many to cash. Named explicitly rather than inferred from the balance, so a holder cashing part of a position does not have to move the rest out of the way first. |
 
 ### MsgFinaliseSale
 
@@ -418,6 +462,27 @@ Response:
 | --- | --- | --- |
 | `covenants` | repeated Covenant |  |
 
+### DividendReserve
+
+`GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}/dividend-reserve`
+
+DividendReserve is the backing check, exposed so it does not have to be taken on trust.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `asset_id` | uint64 |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `dividend_denom` | string | The denomination claims against this vehicle are paid in. Empty for a vehicle that has not been fractionalised, which is not the same as one whose dividend token has zero supply. |
+| `outstanding` | Coin | Dividend tokens issued and not yet cashed: what the vehicle still owes. |
+| `reserve` | Coin | Stable set aside to pay them. Equal to outstanding in amount whenever the module is behaving; a difference is a bug, and a difference in the wrong direction is an exchange that will run dry. |
+| `unreserved` | Coin | What the vehicle still holds that is NOT promised to anybody: the pool a future distribution can be credited against, and the pool redemption pays out of. Returned beside the other two because the useful question about a vault is which of its money is already spoken for. |
+
 ### Entitlement
 
 `GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}/entitlement/{holder}`
@@ -586,7 +651,8 @@ Vault holds what is owed to shareholders and the running index that says how muc
 | `denom` | string | The denomination income arrives in. |
 | `period_index` | uint64 | How many distributions this vault has made. A PERIOD is the span between two distributions, and it is what pro-rata temporis apportions. Zero means none yet: everything since period_start is the first period. |
 | `period_start` | int64 | When the current period began: the last distribution, or the moment the vault started accruing. For a vehicle that existed before pro-rata temporis, this is the UPGRADE HEIGHT's time and not issuance. The chain has no record of when balances moved before that, so token-seconds for the past cannot be reconstructed, and assuming everyone held from issuance would credit a buyer from last week with a year of accrual. The discontinuity is real and is the honest option; see docs/superpowers/specs. |
-| `held` | repeated Coin | What the module account actually holds on this vehicle's behalf. One module account serves every vehicle, so a balance is not an ownership record: without this ledger a vehicle that funded nothing pays its holders out of a different vehicle's vault, and the bank keeper has no way to object. Every credit is a transfer in, every debit is a payout, and no payout is made that this does not cover. |
+| `held` | repeated Coin | What the module account actually holds on this vehicle's behalf and has not yet promised to anybody. One module account serves every vehicle, so a balance is not an ownership record: without this ledger a vehicle that funded nothing pays its holders out of a different vehicle's vault, and the bank keeper has no way to object. Every credit is a transfer in, every debit is a payout, and no payout is made that this does not cover. A dividend claimed leaves here and lands in `dividend_reserve`. It has to leave: money still counted here is money the next distribution can be credited against, and crediting a distribution against stable already owed to a dividend token is how the exchange runs dry. |
+| `dividend_reserve` | repeated Coin | The stable set aside to honour dividend tokens already issued against this vehicle, and nothing else. #### Why this is a separate field rather than a subtraction A dividend token the chain can mint beyond what the vehicle holds is a promise the chain cannot keep. The guarantee is kept by construction: the ONLY path that mints a dividend token is a claim, and a claim moves exactly its own amount from `held` into here in the same write. So for every vehicle, at every height, supply(div/<asset>/<SYMBOL>) == dividend_reserve.AmountOf(denom) and the exchange, which burns and pays 1:1 out of this figure alone, cannot run dry against a correctly-funded vehicle. Held as a count rather than derived from the token supply because the supply is bank state and this is the ledger that has to refuse a payout BEFORE the bank keeper is asked — the same reason `held` exists beside the module account balance. #### Why it is per vehicle For exactly the reason `held` is. One module account holds every vehicle's money, so an exchange that checked only the module balance would let vehicle A's dividend token be cashed out of vehicle B's reserve, and the bank keeper would have no way to notice. #### It survives realisation, and is never swept Redemption pays out of `held`, which by construction excludes this. So a holder who claimed and never exchanged is still paid after the vehicle is sold, after it is CLOSED, and after the last fraction token is burned. No rule reclaims it, because the only rule that could — "after N seconds, give it to somebody else" — has no correct somebody else: the money is already owed to a named token, and the chain has no basis for deciding its holder has stopped wanting it. |
 
 ## Value types
 
@@ -701,6 +767,8 @@ Every way a transaction to this module can be rejected.
 | 4 | `ErrNoAuthority` | this collection has no minting authority |
 | 40 | `ErrCovenantNotFound` | no such filing |
 | 41 | `ErrCovenantSuperseded` | that filing has already been corrected; correct the current version instead |
+| 42 | `ErrNoDividendDenom` | that asset has no shareholding, so it has no dividend token |
+| 43 | `ErrReserveUnfunded` | this vehicle's dividend reserve cannot cover that, and the reserve of another vehicle is not available to it |
 | 5 | `ErrNotAuthority` | this account is not the collection's minting authority |
 | 6 | `ErrAssetNotFound` | no such asset |
 | 7 | `ErrNotOwner` | this account does not hold title to that asset |
