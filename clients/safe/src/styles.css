@@ -558,3 +558,174 @@ code {
 .field-note { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); font-size: var(--step--1); }
 .field-note--bad { color: var(--bad); }
 .field-note--warn { color: var(--warn-ink); }
+
+/* ==========================================================================
+   Information design: the KPI band and folders.
+
+   Added 2026-09-16. This console already led with available-over-committed and
+   already had tabs, which is more than most of the surfaces got. What it did
+   not have was a figure set at the size of a figure — `.figure` is step-2
+   against a 0.7rem label — and it had no answer above the fold to "how much of
+   what this chain holds is already promised away".
+
+   Every colour below is a shared token from clients/shared/yamale.css, and
+   every one of them is defined in the un-stamped :root rather than only inside
+   a media query. A colour declared only under prefers-color-scheme does not
+   apply in the default state, which is the state most readers are in; this
+   file used to do exactly that with --accent.
+   ========================================================================== */
+
+.kpiband {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.kpi {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  /* The tone rides on one edge rather than tinting the tile, so it cannot
+     compete with the figure it is qualifying. */
+  border-inline-start: 3px solid var(--rule);
+  min-width: 0;
+}
+.kpi--ok { border-inline-start-color: var(--ok); }
+.kpi--warn { border-inline-start-color: var(--warn); }
+.kpi--bad { border-inline-start-color: var(--bad); }
+.kpi--mute { border-inline-start-color: var(--text-faint); }
+/* This console's own tone. A committed balance is not a warning and not an
+   error: it is money under the chain's custody. Brass, the same colour the
+   custody figure uses for the held side, so the tile and the diagram are
+   visibly describing one thing. */
+.kpi--lock { border-inline-start-color: var(--brass); }
+
+.kpi__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.kpi__value {
+  margin: var(--sp-1) 0 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--step-3);
+  font-weight: 500;
+  line-height: 1.15;
+  /* A figure NEVER breaks across two lines. `overflow-wrap: anywhere` would
+     render 900,000,000 as "900,000,0" above "00", and a number split across
+     two lines is not a smaller number, it is a different one. `nowrap` alone
+     clips "500 NGN" to "500 N", which reads as a different unit rather than a
+     truncated one — so the digits never split and the unit may drop. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.kpi--lock .kpi__value { color: var(--brass-ink); }
+.kpi__unit {
+  margin-inline-start: 0.3em;
+  font-size: var(--step-0);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.kpi__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--step--1);
+  line-height: 1.35;
+  color: var(--text-muted);
+  /* Three lines is a paragraph, and a paragraph under every tile makes the
+     band taller than the content it introduces. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* A finding says so in a word as well as in the edge colour, so it survives a
+   monochrome screenshot and a reader who cannot separate the hues. */
+.kpi--warn .kpi__hint,
+.kpi--bad .kpi__hint { color: var(--text); }
+.kpi--warn .kpi__hint::before { content: '\25B2\00A0'; color: var(--warn); }
+.kpi--bad .kpi__hint::before { content: '\25A0\00A0'; color: var(--bad); }
+
+/* One line per currency, for a figure that must not produce a cross-currency
+   total. */
+.kpi__stack { display: flex; flex-direction: column; gap: 0.1em; }
+.kpi__stack > span + span { font-size: var(--step-1); color: var(--text-muted); }
+
+/* ------------------------------------------------------------------ folders */
+
+.folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--rule);
+  margin: var(--sp-5) 0 var(--sp-4);
+  overflow-x: auto;
+}
+
+.folder {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  /* The open folder sits ON the rule rather than above it, so what is below
+     reads as the inside of the folder rather than as a separate box. */
+  margin-bottom: -1px;
+}
+.folder:hover { color: var(--text); }
+.folder--on {
+  background: var(--panel);
+  border-color: var(--rule);
+  border-bottom: 1px solid var(--panel);
+  color: var(--text);
+  font-weight: 600;
+}
+.folder__count {
+  margin-inline-start: 0.45em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.folder--on .folder__count { color: var(--text-muted); }
+
+/* The split bar inside a table cell needs a width to be a proportion of. Left
+   to shrink-to-fit it collapses to the width of nothing. */
+.splitcell { min-inline-size: 8rem; width: 34%; }
+.splitcell .split { margin: 0; }
+
+/* A figure in a table cell is under the same rule as one in a tile: it never
+   breaks. Table layout is where a narrow column and a long unit conspire. */
+.table .num { white-space: nowrap; }
+
+/* The two parties to a case, labelled rather than run into one sentence. The
+   accused is the subject; the opener is provenance, and the labels are what
+   let a reader tell which is which without parsing a clause. */
+.case-parties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  margin: var(--sp-3) 0;
+}
+.case-parties dt {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+.case-parties dd { margin: 0; }

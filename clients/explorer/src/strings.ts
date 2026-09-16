@@ -121,6 +121,57 @@ export const en = {
   'xp.search.jailed': 'Jailed',
   'xp.search.signing': 'Signing',
   'xp.search.idNeverRepointed': 'An identifier is issued when an account is placed in a country, and is never repointed once issued.',
+
+  // --- information design ---------------------------------------------------
+  // The front page's figures, its folders, and the three different ways of
+  // having nothing to show. See Home.tsx: a feed that is empty because the
+  // chain is new and a feed that is empty because everything in the window was
+  // housekeeping are not the same fact, and the page shipped saying the first
+  // one while the second was true.
+  'xp.kpi.transactions': 'Transactions',
+  'xp.kpi.transactionsHint': 'accepted since genesis, as the node counts them',
+  'xp.kpi.outcomes': 'Outcomes',
+  'xp.kpi.outcomesHint': 'money moved, or a decision took effect',
+  'xp.kpi.routine': 'Routine',
+  'xp.kpi.routineHint': 'oracle prices and parameter housekeeping',
+  'xp.kpi.parties': 'Accounts involved',
+  'xp.kpi.partiesHint': 'distinct parties named in this window',
+  'xp.kpi.window': 'of the last {count} read',
+  'xp.kpi.unread': 'the node did not answer',
+  'xp.fold.everyday': 'Everyday',
+  'xp.fold.everything': 'Everything',
+  'xp.fold.blocks': 'Blocks',
+  'xp.feed.routineOnlyTitle': 'Only housekeeping in this window',
+  'xp.feed.routineOnlyBody':
+    'The chain accepted {count} messages here and every one of them was routine — oracle price submissions and parameter reads. No money moved. They are under Everything.',
+
+  // --- staking --------------------------------------------------------------
+  'xp.stake.lede':
+    'Locking tokens with a validator secures the network and earns a share of new issuance and transaction fees.',
+  'xp.stake.noticeTitle': 'Your tokens are not available while staked.',
+  'xp.stake.noticeBody':
+    'Withdrawing takes {delay} from the moment you ask, and they earn nothing during that time. If a validator misbehaves, part of what you staked with them can be lost.',
+  'xp.stake.securing': 'in the bonded set',
+  'xp.stake.delay': 'Withdrawal delay',
+  'xp.stake.afterAsking': 'after you ask to unstake',
+  'xp.stake.largest': 'Largest validator',
+  'xp.stake.largestHint': '{name} holds this much of the bonded stake',
+  'xp.stake.concentration': 'Who holds the chain',
+  'xp.stake.concLede':
+    'A block needs two thirds of the voting power to commit. One holder above a third can stop that on their own; one holder above two thirds can do it on their own.',
+  'xp.stake.overThird': 'over one third — can stall a block alone',
+  'xp.stake.overTwoThirds': 'over two thirds — can commit a block alone',
+  'xp.stake.cumulative': 'Running total',
+  'xp.stake.others': 'Everyone else',
+  'xp.stake.ofRewards': 'of your rewards',
+  'xp.stake.unnamed': 'unnamed',
+  'xp.stake.noneTitle': 'No bonded validators',
+  'xp.stake.noneBody': 'The chain reports nobody in the bonded set, so nothing is securing it.',
+  'xp.stake.enterAmount': 'Enter an amount.',
+  'xp.stake.action': 'Stake',
+  'xp.stake.amountFor': 'Amount of YML to stake with {name}',
+  'xp.stake.consequence':
+    '{amount} stops being available to you. Getting it back takes {delay} from the moment you ask, and it earns nothing during that time. If this validator misbehaves, part of it can be lost.',
 };
 
 export const fr: typeof en = {
@@ -210,6 +261,52 @@ export const fr: typeof en = {
   'xp.search.jailed': 'Exclu',
   'xp.search.signing': 'Signe',
   'xp.search.idNeverRepointed': "Un identifiant est délivré lorsqu'un compte est rattaché à un pays, et il n'est jamais réattribué ensuite.",
+
+  // --- information design ---------------------------------------------------
+  'xp.kpi.transactions': 'Transactions',
+  'xp.kpi.transactionsHint': 'acceptées depuis la genèse, selon le décompte du nœud',
+  'xp.kpi.outcomes': 'Effets',
+  'xp.kpi.outcomesHint': "de l'argent a circulé, ou une décision a pris effet",
+  'xp.kpi.routine': 'Administration',
+  'xp.kpi.routineHint': "cours de l'oracle et gestion des paramètres",
+  'xp.kpi.parties': 'Comptes concernés',
+  'xp.kpi.partiesHint': 'parties distinctes nommées dans cette fenêtre',
+  'xp.kpi.window': 'sur les {count} dernières lues',
+  'xp.kpi.unread': "le nœud n'a pas répondu",
+  'xp.fold.everyday': 'Courant',
+  'xp.fold.everything': 'Tout',
+  'xp.fold.blocks': 'Blocs',
+  'xp.feed.routineOnlyTitle': "Rien que de l'administration dans cette fenêtre",
+  'xp.feed.routineOnlyBody':
+    "La chaîne a accepté ici {count} messages, et tous relevaient de l'administration — soumissions de cours par l'oracle et lectures de paramètres. Aucun argent n'a circulé. Ils figurent sous Tout.",
+
+  // --- staking --------------------------------------------------------------
+  'xp.stake.lede':
+    "Bloquer des jetons auprès d'un validateur sécurise le réseau et rapporte une part des nouvelles émissions et des frais de transaction.",
+  'xp.stake.noticeTitle': 'Vos jetons ne sont pas disponibles tant qu’ils sont misés.',
+  'xp.stake.noticeBody':
+    "Le retrait prend {delay} à compter de votre demande, et les jetons ne rapportent rien pendant ce délai. Si un validateur se comporte mal, une partie de ce que vous avez misé chez lui peut être perdue.",
+  'xp.stake.securing': "dans l'ensemble actif",
+  'xp.stake.delay': 'Délai de retrait',
+  'xp.stake.afterAsking': 'à compter de votre demande',
+  'xp.stake.largest': 'Plus gros validateur',
+  'xp.stake.largestHint': '{name} détient cette part de la mise active',
+  'xp.stake.concentration': 'Qui tient la chaîne',
+  'xp.stake.concLede':
+    "Un bloc exige les deux tiers du pouvoir de vote pour être validé. Un seul détenteur au-dessus du tiers peut l'empêcher à lui seul ; un seul détenteur au-dessus des deux tiers peut le valider à lui seul.",
+  'xp.stake.overThird': 'plus du tiers — peut bloquer un bloc à lui seul',
+  'xp.stake.overTwoThirds': 'plus des deux tiers — peut valider un bloc à lui seul',
+  'xp.stake.cumulative': 'Cumul',
+  'xp.stake.others': 'Tous les autres',
+  'xp.stake.ofRewards': 'de vos récompenses',
+  'xp.stake.unnamed': 'sans nom',
+  'xp.stake.noneTitle': 'Aucun validateur actif',
+  'xp.stake.noneBody': "La chaîne ne déclare personne dans l'ensemble actif : rien ne la sécurise.",
+  'xp.stake.enterAmount': 'Saisissez un montant.',
+  'xp.stake.action': 'Miser',
+  'xp.stake.amountFor': 'Montant de YML à miser auprès de {name}',
+  'xp.stake.consequence':
+    "{amount} cessent d'être disponibles pour vous. Les récupérer prend {delay} à compter de votre demande, et ils ne rapportent rien pendant ce délai. Si ce validateur se comporte mal, une partie peut être perdue.",
 };
 
 export const ar: typeof en = {
@@ -299,6 +396,52 @@ export const ar: typeof en = {
   'xp.search.jailed': 'موقوف',
   'xp.search.signing': 'يوقّع',
   'xp.search.idNeverRepointed': 'يُصدر المعرّف عند تسجيل الحساب في بلد، ولا يُعاد توجيهه بعد إصداره أبدًا.',
+
+  // --- information design ---------------------------------------------------
+  'xp.kpi.transactions': 'المعاملات',
+  'xp.kpi.transactionsHint': 'المقبولة منذ التكوين، بحسب عدّ العقدة',
+  'xp.kpi.outcomes': 'النتائج',
+  'xp.kpi.outcomesHint': 'تحرّكت أموال، أو نفذ قرار',
+  'xp.kpi.routine': 'إدارة داخلية',
+  'xp.kpi.routineHint': 'أسعار المُوَجِّه وضبط المعاملات الداخلية',
+  'xp.kpi.parties': 'الحسابات المعنيّة',
+  'xp.kpi.partiesHint': 'أطراف متمايزة وردت في هذه النافذة',
+  'xp.kpi.window': 'من آخر {count} قُرئت',
+  'xp.kpi.unread': 'لم تستجب العقدة',
+  'xp.fold.everyday': 'اليومي',
+  'xp.fold.everything': 'كل شيء',
+  'xp.fold.blocks': 'الكتل',
+  'xp.feed.routineOnlyTitle': 'لا شيء سوى الإدارة الداخلية في هذه النافذة',
+  'xp.feed.routineOnlyBody':
+    'قبلت السلسلة هنا {count} رسالة، وكانت كلها إدارية — إرسال أسعار من المُوَجِّه وقراءات معاملات. لم تتحرّك أي أموال. تجدها تحت «كل شيء».',
+
+  // --- staking --------------------------------------------------------------
+  'xp.stake.lede':
+    'حجز الرموز لدى مُثبِّت يؤمّن الشبكة ويدرّ حصّة من الإصدار الجديد ومن رسوم المعاملات.',
+  'xp.stake.noticeTitle': 'رموزك غير متاحة ما دامت محجوزة.',
+  'xp.stake.noticeBody':
+    'يستغرق السحب {delay} من لحظة الطلب، ولا تدرّ شيئاً خلال تلك المدة. وإذا أساء المُثبِّت التصرّف فقد يضيع جزء ممّا حجزته لديه.',
+  'xp.stake.securing': 'ضمن المجموعة النشطة',
+  'xp.stake.delay': 'مهلة السحب',
+  'xp.stake.afterAsking': 'من لحظة طلب السحب',
+  'xp.stake.largest': 'أكبر مُثبِّت',
+  'xp.stake.largestHint': 'يملك {name} هذه الحصّة من الحجز النشط',
+  'xp.stake.concentration': 'من يمسك السلسلة',
+  'xp.stake.concLede':
+    'تحتاج الكتلة إلى ثلثي قوة التصويت كي تُعتمد. ومن يملك أكثر من الثلث يستطيع تعطيل ذلك وحده؛ ومن يملك أكثر من الثلثين يستطيع اعتمادها وحده.',
+  'xp.stake.overThird': 'أكثر من الثلث — يعطّل كتلة وحده',
+  'xp.stake.overTwoThirds': 'أكثر من الثلثين — يعتمد كتلة وحده',
+  'xp.stake.cumulative': 'التراكم',
+  'xp.stake.others': 'الباقون جميعاً',
+  'xp.stake.ofRewards': 'من مكافآتك',
+  'xp.stake.unnamed': 'بلا اسم',
+  'xp.stake.noneTitle': 'لا مُثبِّتين نشطين',
+  'xp.stake.noneBody': 'لا تعلن السلسلة عن أحد في المجموعة النشطة، فلا شيء يؤمّنها.',
+  'xp.stake.enterAmount': 'أدخل مبلغاً.',
+  'xp.stake.action': 'احجز',
+  'xp.stake.amountFor': 'مبلغ YML للحجز لدى {name}',
+  'xp.stake.consequence':
+    'يتوقّف {amount} عن كونه متاحاً لك. واستعادته تستغرق {delay} من لحظة الطلب، ولا يدرّ شيئاً خلال تلك المدة. وإذا أساء هذا المُثبِّت التصرّف فقد يضيع جزء منه.',
 };
 
 export const pt: typeof en = {
@@ -388,6 +531,52 @@ export const pt: typeof en = {
   'xp.search.jailed': 'Excluído',
   'xp.search.signing': 'A assinar',
   'xp.search.idNeverRepointed': 'Um identificador é emitido quando uma conta é registada num país, e nunca é reatribuído depois disso.',
+
+  // --- information design ---------------------------------------------------
+  'xp.kpi.transactions': 'Transações',
+  'xp.kpi.transactionsHint': 'aceites desde a génese, conforme a contagem do nó',
+  'xp.kpi.outcomes': 'Efeitos',
+  'xp.kpi.outcomesHint': 'houve movimento de dinheiro, ou uma decisão produziu efeito',
+  'xp.kpi.routine': 'Administração',
+  'xp.kpi.routineHint': 'cotações do oráculo e gestão de parâmetros',
+  'xp.kpi.parties': 'Contas envolvidas',
+  'xp.kpi.partiesHint': 'partes distintas nomeadas nesta janela',
+  'xp.kpi.window': 'das últimas {count} lidas',
+  'xp.kpi.unread': 'o nó não respondeu',
+  'xp.fold.everyday': 'Corrente',
+  'xp.fold.everything': 'Tudo',
+  'xp.fold.blocks': 'Blocos',
+  'xp.feed.routineOnlyTitle': 'Só administração nesta janela',
+  'xp.feed.routineOnlyBody':
+    'A cadeia aceitou aqui {count} mensagens e todas eram de administração — envios de cotações pelo oráculo e leituras de parâmetros. Não houve movimento de dinheiro. Estão em Tudo.',
+
+  // --- staking --------------------------------------------------------------
+  'xp.stake.lede':
+    'Bloquear fichas junto de um validador protege a rede e rende uma parte da nova emissão e das taxas de transação.',
+  'xp.stake.noticeTitle': 'As suas fichas não estão disponíveis enquanto estiverem em garantia.',
+  'xp.stake.noticeBody':
+    'O levantamento demora {delay} a contar do momento em que o pede, e nada rendem durante esse período. Se um validador se comportar mal, parte do que lhe entregou pode perder-se.',
+  'xp.stake.securing': 'no conjunto ativo',
+  'xp.stake.delay': 'Prazo de levantamento',
+  'xp.stake.afterAsking': 'a contar do seu pedido',
+  'xp.stake.largest': 'Maior validador',
+  'xp.stake.largestHint': '{name} detém esta parte da garantia ativa',
+  'xp.stake.concentration': 'Quem segura a cadeia',
+  'xp.stake.concLede':
+    'Um bloco precisa de dois terços do poder de voto para ser aprovado. Um único detentor acima de um terço pode impedi-lo sozinho; um único detentor acima de dois terços pode aprová-lo sozinho.',
+  'xp.stake.overThird': 'acima de um terço — bloqueia um bloco sozinho',
+  'xp.stake.overTwoThirds': 'acima de dois terços — aprova um bloco sozinho',
+  'xp.stake.cumulative': 'Acumulado',
+  'xp.stake.others': 'Todos os restantes',
+  'xp.stake.ofRewards': 'das suas recompensas',
+  'xp.stake.unnamed': 'sem nome',
+  'xp.stake.noneTitle': 'Nenhum validador ativo',
+  'xp.stake.noneBody': 'A cadeia não declara ninguém no conjunto ativo, por isso nada a protege.',
+  'xp.stake.enterAmount': 'Indique um montante.',
+  'xp.stake.action': 'Bloquear',
+  'xp.stake.amountFor': 'Montante de YML a bloquear junto de {name}',
+  'xp.stake.consequence':
+    '{amount} deixam de estar disponíveis para si. Recuperá-los demora {delay} a contar do momento em que o pede, e nada rendem durante esse período. Se este validador se comportar mal, parte pode perder-se.',
 };
 
 export const sw: typeof en = {
@@ -477,6 +666,52 @@ export const sw: typeof en = {
   'xp.search.jailed': 'Amefungiwa',
   'xp.search.signing': 'Anatia sahihi',
   'xp.search.idNeverRepointed': 'Kitambulisho hutolewa akaunti inapoandikishwa katika nchi, na hakielekezwi tena baada ya kutolewa.',
+
+  // --- information design ---------------------------------------------------
+  'xp.kpi.transactions': 'Miamala',
+  'xp.kpi.transactionsHint': 'iliyokubaliwa tangu mwanzo, kwa hesabu ya nodi',
+  'xp.kpi.outcomes': 'Matokeo',
+  'xp.kpi.outcomesHint': 'pesa zilihama, au uamuzi ukatekelezwa',
+  'xp.kpi.routine': 'Utawala',
+  'xp.kpi.routineHint': 'bei za orakli na usimamizi wa vigezo',
+  'xp.kpi.parties': 'Akaunti zilizohusika',
+  'xp.kpi.partiesHint': 'pande tofauti zilizotajwa katika dirisha hili',
+  'xp.kpi.window': 'kati ya {count} za mwisho zilizosomwa',
+  'xp.kpi.unread': 'nodi haikujibu',
+  'xp.fold.everyday': 'Ya kawaida',
+  'xp.fold.everything': 'Yote',
+  'xp.fold.blocks': 'Vizuizi',
+  'xp.feed.routineOnlyTitle': 'Utawala tu katika dirisha hili',
+  'xp.feed.routineOnlyBody':
+    'Mnyororo ulikubali hapa ujumbe {count} na wote ulikuwa wa utawala — mawasilisho ya bei kutoka orakli na usomaji wa vigezo. Hakuna pesa zilizohama. Zipo chini ya Yote.',
+
+  // --- staking --------------------------------------------------------------
+  'xp.stake.lede':
+    'Kufunga sarafu kwa mthibitishaji hulinda mtandao na huleta sehemu ya utoaji mpya na ada za miamala.',
+  'xp.stake.noticeTitle': 'Sarafu zako hazipatikani zikiwa zimefungwa.',
+  'xp.stake.noticeBody':
+    'Kuzitoa huchukua {delay} tangu unapoomba, na hazileti chochote katika kipindi hicho. Mthibitishaji akikosea, sehemu ya ulichofunga kwake inaweza kupotea.',
+  'xp.stake.securing': 'katika kundi linalofanya kazi',
+  'xp.stake.delay': 'Muda wa kutoa',
+  'xp.stake.afterAsking': 'tangu unapoomba kutoa',
+  'xp.stake.largest': 'Mthibitishaji mkubwa zaidi',
+  'xp.stake.largestHint': '{name} ana sehemu hii ya kilichofungwa',
+  'xp.stake.concentration': 'Nani anashikilia mnyororo',
+  'xp.stake.concLede':
+    'Kizuizi kinahitaji theluthi mbili za nguvu ya kupiga kura ili kuidhinishwa. Mmiliki mmoja aliye juu ya theluthi moja anaweza kukizuia peke yake; mmiliki mmoja aliye juu ya theluthi mbili anaweza kukiidhinisha peke yake.',
+  'xp.stake.overThird': 'zaidi ya theluthi moja — anazuia kizuizi peke yake',
+  'xp.stake.overTwoThirds': 'zaidi ya theluthi mbili — anaidhinisha kizuizi peke yake',
+  'xp.stake.cumulative': 'Jumla inayoongezeka',
+  'xp.stake.others': 'Wengine wote',
+  'xp.stake.ofRewards': 'ya zawadi zako',
+  'xp.stake.unnamed': 'bila jina',
+  'xp.stake.noneTitle': 'Hakuna wathibitishaji hai',
+  'xp.stake.noneBody': 'Mnyororo hautaji mtu yeyote katika kundi linalofanya kazi, hivyo hakuna kinachoulinda.',
+  'xp.stake.enterAmount': 'Weka kiasi.',
+  'xp.stake.action': 'Funga',
+  'xp.stake.amountFor': 'Kiasi cha YML cha kufunga kwa {name}',
+  'xp.stake.consequence':
+    '{amount} zinaacha kupatikana kwako. Kuzirudisha huchukua {delay} tangu unapoomba, na hazileti chochote katika kipindi hicho. Mthibitishaji huyu akikosea, sehemu yake inaweza kupotea.',
 };
 
 export const CATALOGUES: Record<string, typeof en> = { en, fr, ar, pt, sw };

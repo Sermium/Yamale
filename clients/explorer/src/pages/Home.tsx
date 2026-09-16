@@ -3,30 +3,52 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { displayName, formatNumber, t, timeAgo, type Transaction } from '@yamale/chain';
 
-import { client, useViewMode } from '../chain.ts';
-import { buildFeed, everydayFeed } from '../feed.ts';
+import { client, totalTransactions, useViewMode } from '../chain.ts';
+import { buildFeed, everydayFeed, type FeedEntry } from '../feed.ts';
 import { FeedList, useDenomRegistry } from '../Feed.tsx';
 import { Card, ErrorState, Loading } from '../components.tsx';
 import { Hash } from '../Identifier.tsx';
+import { Kpi, KpiBand, Folders } from '../ui.tsx';
+
+/** How many transactions the front page reads in one poll. */
+const WINDOW = 40;
+
+type Folder = 'everyday' | 'all' | 'blocks';
 
 /**
  * The front page.
  *
- * Liveness is no longer here — it is the strip above every route, which is where
- * "is the chain healthy" belongs. What is left is the other question this
- * audience opens an explorer to answer: what happened, and to whose money.
+ * Liveness is not here — it is the strip above every route, which is where "is
+ * the chain healthy" belongs. What is left is the other question this audience
+ * opens an explorer to answer: what happened, and to whose money.
  *
- * One feed, not two. The old page showed a different card in each view mode with
- * different copy and a different filter, which meant the simple and detailed
- * explorers could disagree about what had happened. There is now one list, and
- * the mode decides how much of it is shown and how much of each row is
- * unfolded — so a link shared from one lands somebody on the same events in the
- * other, which is the hand-off where an explorer earns its keep.
+ * Three things changed in the 2026-09-16 pass.
+ *
+ * **A band of figures, above the feed.** The page opened with a heading, a
+ * sentence and forty rows, and stated no quantity at all. A reader could not
+ * learn how much this chain has ever done without counting rows.
+ *
+ * **Folders instead of a mode-gated column.** Recent blocks used to render
+ * below the feed and only in expert mode, so reading them meant flipping a
+ * global preference and scrolling past everything else. They are a peer of the
+ * activity list, so they are a folder, and the choice is local to this page.
+ *
+ * **An empty feed now says which kind of empty it is.** This is the defect that
+ * mattered. On the live chain the last hundred messages are all oracle price
+ * submissions, so the everyday filter removed all of them and the page rendered
+ * "Nothing has happened yet" — directly underneath its own control offering to
+ * show the hundred things that had happened. An absence, a filter and a failed
+ * read are three different facts and this page was rendering two of them as the
+ * third.
  */
 export function HomePage() {
   const { mode } = useViewMode();
   const expert = mode === 'expert';
-  const [showRoutine, setShowRoutine] = useState(false);
+
+  // Expert readers want every message by default; everyone else wants the
+  // everyday view. The folder is still theirs to change afterwards — this only
+  // decides where they land.
+  const [folder, setFolder] = useState<Folder>(() => (expert ? 'all' : 'everyday'));
 
   const registry = useDenomRegistry();
 
@@ -41,13 +63,25 @@ export function HomePage() {
 
   const activity = useQuery({
     queryKey: ['recentActivity', names.data],
-    queryFn: () => client.searchTransactions('tx.height>0', 40, { names: names.data }),
+    queryFn: () => client.searchTransactions('tx.height>0', WINDOW, { names: names.data }),
   });
 
+  // The chain's own count, which is not derivable from the window above. Slow
+  // to change relative to a poll, and it is a separate request, so it refreshes
+  // on its own schedule rather than with the feed.
+  const total = useQuery({
+    queryKey: ['totalTransactions'],
+    queryFn: () => totalTransactions(),
+    refetchInterval: 30_000,
+  });
+
+  // Blocks are no longer expert-only, so they load whenever their folder is
+  // open. Gated on the folder rather than fetched always: an unopened folder
+  // should not poll a node that may be somebody's laptop.
   const blocks = useQuery({
     queryKey: ['recentBlocks'],
     queryFn: () => client.recentBlocks(12),
-    enabled: expert,
+    enabled: folder === 'blocks',
   });
 
   // Every account named in the window, so the sentences can use the chain's own
@@ -87,43 +121,67 @@ export function HomePage() {
   );
 
   // The everyday view drops housekeeping and collapses a finished procedure to
-  // its outcome. The detailed view keeps every message, in order.
-  const rows = expert || showRoutine ? feed : everydayFeed(feed);
-  const hidden = feed.length - rows.length;
+  // its outcome. The "all" folder keeps every message, in order.
+  const everyday = useMemo(() => everydayFeed(feed), [feed]);
+  const routine = feed.length - everyday.length;
+  const rows = folder === 'everyday' ? everyday : feed;
+
+  const read = activity.isSuccess;
 
   return (
     <>
       <h1>{t('xp.feed.title')}</h1>
       <p className="lede">{expert ? t('xp.feed.ledeExpert') : t('xp.feed.ledeSimple')}</p>
 
-      {/* No card title: it would repeat the h1 immediately above it. The header
-          carries only the control. */}
-      <Card
-        actions={
-          hidden > 0 || showRoutine ? (
-            <button
-              type="button"
-              className="linkbutton"
-              onClick={() => setShowRoutine((s) => !s)}
-              aria-pressed={showRoutine}
-            >
-              {showRoutine ? t('xp.feed.showEveryday') : `${t('xp.feed.showAll')} (${hidden})`}
-            </button>
-          ) : null
-        }
-        flush
-      >
-        {activity.isPending ? (
-          <Loading label={t('xp.feed.loadingActivity')} />
-        ) : activity.isError ? (
-          <ErrorState error={activity.error} what="recent activity" />
-        ) : (
-          <FeedList entries={rows} expert={expert} />
-        )}
-      </Card>
+      {/* The figures before the list, at a size that says they are figures.
+          Each one names where it came from, because they do not share a
+          provenance: the first is the node's own count over all history, and
+          the other three are derived from a window of forty transactions. A
+          band that presented both in one voice would be claiming a precision
+          the chain has not been asked for. */}
+      <KpiBand>
+        <Kpi
+          label={t('xp.kpi.transactions')}
+          // null is "we could not ask", and it must not render as a number.
+          value={total.data === null || total.data === undefined ? '—' : formatNumber(total.data)}
+          hint={total.data === null ? t('xp.kpi.unread') : t('xp.kpi.transactionsHint')}
+          tone={total.data === null ? 'bad' : undefined}
+        />
+        <Kpi
+          label={t('xp.kpi.outcomes')}
+          value={read ? formatNumber(everyday.length) : '—'}
+          hint={read ? t('xp.kpi.outcomesHint') : t('xp.kpi.unread')}
+          tone={!read && activity.isError ? 'bad' : undefined}
+        />
+        <Kpi
+          label={t('xp.kpi.routine')}
+          value={read ? formatNumber(routine) : '—'}
+          hint={read ? t('xp.kpi.routineHint') : t('xp.kpi.unread')}
+          tone={!read && activity.isError ? 'bad' : undefined}
+        />
+        <Kpi
+          label={t('xp.kpi.parties')}
+          value={read ? formatNumber(parties.length) : '—'}
+          hint={read ? t('xp.kpi.window', { count: String(feed.length) }) : t('xp.kpi.unread')}
+          tone={!read && activity.isError ? 'bad' : undefined}
+        />
+      </KpiBand>
 
-      {expert ? (
-        <Card title={t('xp.feed.blocks')} flush>
+      <Folders
+        label={t('xp.feed.title')}
+        active={folder}
+        onSelect={(id) => setFolder(id as Folder)}
+        tabs={[
+          // Counts only once the read succeeded. A "0" on a folder while the
+          // node is not answering is a claim, and it is the wrong one.
+          { id: 'everyday', label: t('xp.fold.everyday'), count: read ? everyday.length : null },
+          { id: 'all', label: t('xp.fold.everything'), count: read ? feed.length : null },
+          { id: 'blocks', label: t('xp.fold.blocks'), count: blocks.data?.length ?? null },
+        ]}
+      />
+
+      {folder === 'blocks' ? (
+        <Card flush>
           {blocks.isPending ? (
             <Loading label={t('xp.feed.loadingBlocks')} />
           ) : blocks.isError ? (
@@ -165,7 +223,24 @@ export function HomePage() {
             </div>
           )}
         </Card>
-      ) : null}
+      ) : (
+        <Card flush>
+          {activity.isPending ? (
+            <Loading label={t('xp.feed.loadingActivity')} />
+          ) : activity.isError ? (
+            <ErrorState error={activity.error} what="recent activity" />
+          ) : (
+            <FeedList
+              entries={rows}
+              expert={expert}
+              // The difference between "nothing has ever happened" and "a
+              // hundred things happened and this folder hides all of them".
+              filteredOut={folder === 'everyday' ? routine : 0}
+              onShowAll={() => setFolder('all')}
+            />
+          )}
+        </Card>
+      )}
     </>
   );
 }
@@ -187,3 +262,7 @@ function addressesIn(transactions: Transaction[]): string[] {
   }
   return [...found].sort();
 }
+
+// Re-exported for the tests, which assert on the shape the page derives rather
+// than on the JSX.
+export type { FeedEntry };

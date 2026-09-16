@@ -34,6 +34,8 @@ import {
   type Coin,
   type DenomInfo,
 } from '../../sdk/src/denom.ts';
+import { formatDuration } from '../../sdk/src/format.ts';
+import { getLocale } from '../../sdk/src/i18n.ts';
 
 export type DenomRegistry = Record<string, DenomInfo>;
 
@@ -170,6 +172,46 @@ export function shareOf(part: string, whole: string, digits = 8): number | null 
 
   const scale = 10n ** BigInt(digits);
   return Number((numerator * scale) / denominator) / Number(scale);
+}
+
+/**
+ * A duration, in the reader's own language.
+ *
+ * The SDK's `formatDuration` builds its string in English and pluralises it
+ * with an `s` — `${count} ${unit}${count === 1 ? '' : 's'}` — so the staking
+ * page rendered "Le retrait prend 21 days à compter de votre demande" to a
+ * French reader, and would render worse than that in Arabic, where the plural
+ * has six categories and the digits are not necessarily these ones.
+ *
+ * `Intl.NumberFormat` with a unit style knows all of that already. It is used
+ * here rather than fixed in the SDK because that function is shared by six
+ * surfaces and edited on several branches at once; the underlying gap is
+ * reported rather than patched from inside one console.
+ *
+ * Falls back to the SDK's English if the runtime has no unit formatting, which
+ * is a real possibility on the older Android WebViews this product reaches.
+ */
+export function localDuration(seconds: number): string {
+  const [value, unit] = unitise(seconds);
+  try {
+    return new Intl.NumberFormat(getLocale(), {
+      style: 'unit',
+      unit,
+      unitDisplay: 'long',
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return formatDuration(seconds);
+  }
+}
+
+/** The largest whole unit a duration is comfortably expressed in. */
+function unitise(seconds: number): [number, 'second' | 'minute' | 'hour' | 'day' | 'year'] {
+  if (seconds < 60) return [seconds, 'second'];
+  if (seconds < 3600) return [Math.round(seconds / 60), 'minute'];
+  if (seconds < 86_400) return [Math.round(seconds / 3600), 'hour'];
+  if (seconds < 31_536_000) return [Math.round(seconds / 86_400), 'day'];
+  return [Math.round(seconds / 31_536_000), 'year'];
 }
 
 /**

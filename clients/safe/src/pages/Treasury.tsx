@@ -25,7 +25,22 @@ import {
 import { client } from '../chain.ts';
 import { Address } from '../Address.tsx';
 import { DenomRow, Split } from '../Custody.tsx';
+import { Folders, Kpi, KpiBand, Stack } from '../ui.tsx';
 import { Unknown } from '../Unknown.tsx';
+
+/**
+ * One line per currency, for a KPI that must never produce a cross-currency
+ * total.
+ *
+ * `formatCoins` joins them into a sentence — "500 NGN, 350 XOF et 300 YML" —
+ * which is right in a paragraph and wrong in a figure: it wraps, so a KPI
+ * carrying three currencies would break a number across two lines, which is
+ * the one thing a figure may not do. Stacked, each line is whole.
+ */
+function coinLines(coins: { denom: string; amount: string }[]) {
+  if (coins.length === 0) return [EMPTY_AMOUNT];
+  return coins.map((c) => formatAmount(c.amount, c.denom));
+}
 
 type Tab = 'assets' | 'spend' | 'limits' | 'members' | 'commitments';
 
@@ -116,28 +131,91 @@ export function TreasuryPage({ id }: { id: string }) {
         </div>
       )}
 
-      <nav className="tabs" role="tablist">
-        {(
-          [
-            ['assets', tr('safe.assets')],
-            ['spend', tr('safe.paySomeone')],
-            ['limits', tr('safe.limits')],
-            ['members', tr('safe.members')],
-            ['commitments', tr('safe.commitments')],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            className={tab === key ? 'tab tab--on' : 'tab'}
-            onClick={() => setTab(key)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      {/* The two numbers a treasurer opened this page for, before the folders.
+          They were previously inside the Assets tab, at the same size as the
+          labels beside them, so the page opened with a breadcrumb, a title, an
+          address and a row of tabs — and stated no quantity until somebody had
+          chosen a folder.
+
+          Available and committed are stacked per currency rather than totalled.
+          A figure adding nairas to francs is an invented exchange rate, and
+          this is the screen where a payment gets proposed. */}
+      <KpiBand>
+        <Kpi
+          label={tr('sd.tre.kpiAvailable')}
+          value={
+            balances.isError ? (
+              '—'
+            ) : balances.isPending ? (
+              '…'
+            ) : (
+              <Stack lines={coinLines(spendable(list))} />
+            )
+          }
+          hint={balances.isError ? tr('safe.balancesUnknown') : tr('sd.tre.kpiAvailableHint')}
+          tone={balances.isError ? 'bad' : undefined}
+        />
+        <Kpi
+          label={tr('sd.tre.kpiCommitted')}
+          value={
+            balances.isError ? (
+              '—'
+            ) : balances.isPending ? (
+              '…'
+            ) : (
+              <Stack lines={coinLines(committed(list))} />
+            )
+          }
+          hint={
+            balances.isError
+              ? tr('safe.balancesUnknown')
+              : committed(list).length === 0
+                ? tr('sd.tre.nothingCommitted')
+                : tr('sd.tre.kpiCommittedHint')
+          }
+          tone={balances.isError ? 'bad' : 'lock'}
+        />
+        <Kpi
+          label={tr('sd.tre.kpiSigners')}
+          // A role list that did not load is not a treasury with no signers.
+          value={roles.isSuccess ? (roles.data ?? []).length : '—'}
+          hint={roles.isSuccess ? tr('sd.tre.kpiSignersHint') : tr('sd.kpi.unread')}
+          tone={roles.isError ? 'bad' : undefined}
+        />
+        <Kpi
+          label={tr('sd.tre.kpiCommitments')}
+          value={locks.isSuccess ? (locks.data ?? []).length : '—'}
+          hint={locks.isSuccess ? tr('sd.tre.kpiCommitmentsHint') : tr('sd.kpi.unread')}
+          tone={locks.isError ? 'bad' : 'lock'}
+        />
+      </KpiBand>
+
+      {/* Counts on the folders. "Commitments" tells a reader nothing about
+          whether opening it is worth a click; "Commitments 3" does — and on
+          this console an empty folder is itself the answer to the question
+          somebody opened it with. A count is withheld until the read succeeds,
+          because a 0 on a folder while the node is silent is a claim, and it is
+          the wrong one. */}
+      <Folders
+        label={t.name || tr('safe.treasuryN', { id })}
+        active={tab}
+        onSelect={(next) => setTab(next as Tab)}
+        tabs={[
+          { id: 'assets', label: tr('safe.assets'), count: balances.isSuccess ? list.length : null },
+          { id: 'spend', label: tr('safe.paySomeone') },
+          { id: 'limits', label: tr('safe.limits') },
+          {
+            id: 'members',
+            label: tr('safe.members'),
+            count: roles.isSuccess ? (roles.data ?? []).length : null,
+          },
+          {
+            id: 'commitments',
+            label: tr('safe.commitments'),
+            count: locks.isSuccess ? (locks.data ?? []).length : null,
+          },
+        ]}
+      />
 
       {tab === 'assets' && (
         <Assets

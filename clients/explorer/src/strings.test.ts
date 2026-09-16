@@ -42,6 +42,10 @@ test('nothing was left in English by copy-paste', () => {
     'xp.status.ofSupply',
     'xp.feed.request',
     'xp.feed.inBlock',
+    // "Transactions" is the French word for transactions. Translating it to
+    // something else to satisfy this test would ship a worse French label than
+    // the correct one.
+    'xp.kpi.transactions',
   ]);
 
   for (const [locale, catalogue] of Object.entries(CATALOGUES)) {

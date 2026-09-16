@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { describeCase, requiredPower, t } from '@yamale/chain';
+import { describeCase, formatNumber, requiredPower, t } from '@yamale/chain';
 
 import { client } from '../chain.ts';
 import { Address } from '../Address.tsx';
+import { Kpi, KpiBand } from '../ui.tsx';
 
 /**
  * The operations console: what a validator or the founders' group has to act on.
@@ -28,36 +29,56 @@ export function OperationsPage() {
   });
 
   const open = (cases.data ?? []).filter((c) => c.status === 'voting');
+  const seizures = open.filter((c) => c.action === 'seize').length;
+  const read = cases.isSuccess;
 
   return (
     <>
       <h1>{t('safe.operations')}</h1>
-      <p className="lede">
-        What is waiting on a decision, and the exact messages that make one. Nothing here signs
-        anything — copy the payload into your signing setup or an x/group proposal.
-      </p>
+      <p className="lede">{t('sd.ops.lede')}</p>
 
-      <h2 className="section">Waiting on a vote</h2>
+      {/* The count before the list, because "is anything waiting on me" is the
+          question this page is opened with and it used to be answerable only by
+          scrolling to the bottom of however many cards there were. A seizure is
+          split out from a freeze: one stops money for a day and the other takes
+          it permanently, and a single count of "cases" hides that difference. */}
+      <KpiBand>
+        <Kpi
+          label={t('sd.kpi.openCases')}
+          // Not zero when the node is silent: "nothing is waiting" and "we could
+          // not ask" are opposite instructions to a signer.
+          value={read ? open.length : '—'}
+          hint={read ? t('sd.kpi.openCasesHint') : t('sd.kpi.unread')}
+          tone={cases.isError ? 'bad' : open.length > 0 ? 'warn' : undefined}
+        />
+        <Kpi
+          label={t('sd.kpi.seizures')}
+          value={read ? seizures : '—'}
+          hint={read ? t('sd.kpi.seizuresHint') : t('sd.kpi.unread')}
+          tone={cases.isError ? 'bad' : seizures > 0 ? 'bad' : undefined}
+        />
+      </KpiBand>
+
+      <h2 className="section">{t('sd.ops.waiting')}</h2>
       {cases.isPending ? (
         <section className="card" aria-busy="true">
           <div className="skeleton"><i /><i /></div>
-          <p className="small muted" role="status">Reading cases…</p>
+          <p className="small muted" role="status">{t('sd.ops.reading')}…</p>
         </section>
       ) : cases.isError ? (
         <section className="card">
           <h2>{t('safe.cannotReach')}</h2>
-          <p className="muted">
-            The node did not answer, so this page cannot say whether anything is waiting on a
-            decision. Treat that as unknown rather than as nothing.
-          </p>
+          <p className="muted">{t('sd.ops.unknownBody')}</p>
           <p>
-            <button type="button" className="chip" onClick={() => cases.refetch()}>Try again</button>
+            <button type="button" className="chip" onClick={() => cases.refetch()}>
+              {t('sd.ops.retry')}
+            </button>
           </p>
         </section>
       ) : open.length === 0 ? (
         <section className="empty">
-          <h2>Nothing waiting</h2>
-          <p>No open enforcement cases. No account is frozen pending a decision.</p>
+          <h2>{t('sd.ops.nothingTitle')}</h2>
+          <p>{t('sd.ops.nothingBody')}</p>
         </section>
       ) : (
         open.map((c) => {
@@ -67,15 +88,35 @@ export function OperationsPage() {
               <div className="case-head">
                 <span className="badge badge-voting">{t('safe.beingVotedOn')}</span>
                 <span className="case-action">
-                  {c.action === 'seize' ? 'Freeze and seize' : 'Freeze only'}
+                  {c.action === 'seize' ? t('sd.ops.seizeAction') : t('sd.ops.freezeOnly')}
                 </span>
-                {c.emergency && <span className="badge badge-emergency">Founders' emergency</span>}
-                <span className="case-id">Case {c.id}</span>
+                {c.emergency && (
+                  <span className="badge badge-emergency">{t('sd.ops.emergency')}</span>
+                )}
+                <span className="case-id">{t('sd.ops.caseN', { id: c.id })}</span>
               </div>
 
-              <p className="case-target">
-                Against <Address address={c.target} />, opened by <Address address={c.opener} />
-              </p>
+              {/* Labelled rows rather than "Against X, opened by Y" assembled
+                  from three fragments around two components. A sentence built
+                  that way cannot be reordered by a translator, and the word
+                  order is not the same in French or in Arabic. It also puts
+                  the accused and the accuser at the same weight inside one
+                  sentence, when the first is the subject of the case and the
+                  second is provenance. The full sentence is still what a
+                  screen reader is given. */}
+              <dl className="case-parties">
+                <span className="visually-hidden">
+                  {t('sd.ops.against', { target: c.target, opener: c.opener })}
+                </span>
+                <div aria-hidden="true">
+                  <dt>{t('sd.ops.target')}</dt>
+                  <dd><Address address={c.target} /></dd>
+                </div>
+                <div aria-hidden="true">
+                  <dt>{t('sd.ops.openedBy')}</dt>
+                  <dd><Address address={c.opener} /></dd>
+                </div>
+              </dl>
               <blockquote className="case-reason">{c.reason}</blockquote>
               <p className="case-meaning">{describeCase(c)}</p>
               {/* Progress as a bar as well as a pair of figures. Whether a
@@ -91,15 +132,26 @@ export function OperationsPage() {
               <div
                 className="tally"
                 role="img"
-                aria-label={`${c.yesPower.toLocaleString()} of the ${needed.toLocaleString()} voting power needed`}
+                aria-label={t('sd.ops.tallyAlt', {
+                  yes: formatNumber(c.yesPower),
+                  needed: formatNumber(needed),
+                })}
               >
                 <i style={{ inlineSize: `${share(c.yesPower, needed)}%` }} />
               </div>
-              <p className="small muted">
-                <span className="y-num">{c.yesPower.toLocaleString()}</span> of the{' '}
-                <span className="y-num">{needed.toLocaleString()}</span> voting power it needs ·{' '}
-                <span className="y-num">{c.noPower.toLocaleString()}</span> against · voting ends at
-                block {c.votingEndsAtHeight.toLocaleString()}
+              {/* One sentence from the catalogue rather than five fragments
+                  around four <span>s. The fragment form pinned the English word
+                  order into the JSX, so no translation of it could ever be
+                  right — and the figures inside it were formatted with
+                  toLocaleString against the browser's locale rather than the
+                  one the reader chose in this app. */}
+              <p className="small muted y-num">
+                {t('sd.ops.tally', {
+                  yes: formatNumber(c.yesPower),
+                  needed: formatNumber(needed),
+                  no: formatNumber(c.noPower),
+                  height: formatNumber(c.votingEndsAtHeight),
+                })}
               </p>
 
               <VoteBuilder caseId={c.id} />
@@ -108,7 +160,15 @@ export function OperationsPage() {
         })
       )}
 
-      <h2 className="section">Start something</h2>
+      {/* Below this line the copy is deliberately still English.
+          ActionBuilder's content is a proto payload, its field names, and the
+          `blockchaind tx …` command that carries it — all of which are English
+          identifiers a validator types verbatim. Translating the prose around
+          them while the nouns it refers to stay in English produces a sentence
+          that names nothing on the screen. The reader-facing part of this page
+          above is translated; the operator's payload builder is a CLI surface
+          and stays in the CLI's language. */}
+      <h2 className="section">{t('sd.ops.start')}</h2>
       <ActionBuilder />
     </>
   );
