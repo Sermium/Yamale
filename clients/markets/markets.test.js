@@ -31,6 +31,7 @@ import {
   impactVerdict,
   mintability,
   isOwnAccount,
+  rateFigure,
   ratio,
   reporting,
   resolveDenom,
@@ -543,6 +544,41 @@ test('the approve-issuer proposal names the gov account as authority, not the pr
   assert.notEqual(parsed.messages[0].authority, 'proposer');
   assert.match(parsed.summary, /1104/);
   assert.match(submit, /gov submit-proposal/);
+});
+
+test('a rate is cut to places a person can read, never rounded, and says when it was cut', () => {
+  // x/oracle stores an SDK decimal, so every live rate on this chain arrives
+  // with eighteen places. Printing that at figure size in a column is the
+  // storage format presented as the headline.
+  const kwanza = rateFigure('0.001076604864160851');
+  assert.equal(kwanza.shown, '0.0010766');
+  assert.equal(kwanza.exact, '0.001076604864160851');
+  // Cut, not rounded: the next digit is a 4 either way, but the guarantee is
+  // that the printed rate is never ABOVE the one the chain holds — a rate
+  // rounded up quotes a price nobody will get.
+  assert.ok(Number(kwanza.shown) <= Number(kwanza.exact));
+
+  const franc = rateFigure('0.000334027441242811');
+  assert.equal(franc.shown, '0.000334027');
+  assert.ok(Number(franc.shown) <= Number('0.000334027441242811'));
+
+  // Significant digits, not decimal places: a currency worth a tenth of a cent
+  // must not print as 0.00, and one worth more than a unit must not print to
+  // eight places it does not need.
+  assert.equal(rateFigure('1.221074276727179164').shown, '1.22107');
+
+  // Nothing cut, nothing claimed. A rate of exactly one is shown to two places
+  // for the column, and is NOT marked as truncated.
+  assert.equal(rateFigure('1.000000000000000000').shown, '1.00');
+  assert.equal(rateFigure('1.000000000000000000').exact, null);
+  assert.equal(rateFigure('15.75').exact, null);
+
+  // The digits left of the point are never touched: cutting those would change
+  // the magnitude rather than the precision.
+  assert.equal(rateFigure('1234567.891011121314').shown, '1234567.89');
+
+  // Not a decimal: passed through rather than mangled into one.
+  assert.deepEqual(rateFigure('unset'), { shown: 'unset', exact: null });
 });
 
 test('the chain constants are in one place', () => {

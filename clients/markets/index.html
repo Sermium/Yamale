@@ -471,10 +471,13 @@
     font-size: var(--step-4); font-weight: 600; line-height: 1.2;
   }
   .leg input:hover { border: 0; }
+  /* A figure never breaks across two lines: `break-all` here split 30,000.00
+     into "30,000." above "00", and a number cut in half is not a smaller number,
+     it is a different one. If it does not fit, the box scrolls. */
   .leg__out {
     font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     font-size: var(--step-4); font-weight: 600; line-height: 1.2;
-    color: var(--text-muted); word-break: break-all;
+    color: var(--text-muted); white-space: nowrap; overflow-x: auto; overflow-y: hidden;
   }
   .leg__denom { font-family: var(--font-mono); font-size: var(--step-0); color: var(--text); white-space: nowrap; }
 
@@ -497,7 +500,11 @@
   .worst__figure {
     font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
     letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15;
-    word-break: break-all;
+    /* Same rule as .leg__out above: the promise in this box is the one figure
+       on the screen that must not be misread, so it scrolls rather than wraps.
+       Both axes are named: `overflow-x: auto` alone computes overflow-y to auto
+       too, and puts a vertical scrollbar widget inside the figure. */
+    white-space: nowrap; overflow-x: auto; overflow-y: hidden;
   }
   .quoteline { display: flex; justify-content: space-between; gap: var(--sp-4);
                padding: var(--sp-2) 0; border-bottom: 1px solid var(--border);
@@ -530,6 +537,157 @@
 
   .legend { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 
+  /* ==========================================================================
+     INFORMATION DESIGN — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE, exactly as for the token block at the top
+     of this file. Only the patterns this console actually draws are carried
+     over; a rule with nothing to style is a rule the next reader has to check.
+     ========================================================================== */
+
+  /* The figures a reader came for, before the prose explaining them. */
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines. A number split in two is not a
+       smaller number, it is a different one. The unit may drop; the digits may
+       not. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Data tables that can actually be read: numbers right, words left. */
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  /* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+  .y-scrollx { overflow-x: auto; }
+
+  /* ---------------------------------------------------- local to this console
+
+     Two rules the shared system has no opinion about, because only a page that
+     prices things needs them.
+
+     ONE. An expired rate is not a small number — it is not a number. x/oracle's
+     rule is that a value too old to trust is not a value, so the figure is
+     struck and named rather than printed plainly in the same column as a live
+     one, where a reader scanning the column would take it for a price. The
+     strike is a shape; the word beside it is what carries the fact.
+
+     TWO. The routes of this console ARE its folders. Rather than invent a
+     second level of navigation under them, the header nav is drawn with the
+     shared folder pattern, so choosing a route reads as opening an area of one
+     document rather than as leaving for another page. The count beside each is
+     omitted rather than zeroed when the read behind it failed: an absence and a
+     zero are different facts and a zero is a claim. */
+  /* A rate is a figure: it never wraps, and it is set a step above the prose
+     around it so the column reads as a column of prices. */
+  .rate { font-size: var(--step-1); white-space: nowrap; }
+
+  /* `.y-data .num` in the shared block zeroes the trailing padding, which is
+     right for a numeric column that is LAST and wrong for any other: a .num
+     column followed by another column ends up with no gap at all, and on the
+     rates table an eighteen-place rate ran straight into "Life left" with the
+     two headers touching. Restored for a .num that is not last. This is a
+     finding about clients/shared/yamale.css, not about this file. */
+  .y-data td.num:not(:last-child), .y-data th.num:not(:last-child) {
+    padding-inline-end: var(--sp-5);
+  }
+
+  .stale { color: var(--text-muted); }
+  .stale s { text-decoration-thickness: 1px; }
+  .stale__word { display: block; font-size: var(--step--1); color: var(--bad); font-weight: 600; }
+
+  nav.y-folders {
+    margin-inline-start: auto;
+    margin-bottom: 0;
+    border-bottom: 0;
+    gap: var(--sp-1);
+  }
+  nav.y-folders a {
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin-bottom: calc(-1 * var(--sp-4) - 1px);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  nav.y-folders a:hover { color: var(--text); background: var(--surface-2); }
+  nav.y-folders a[aria-current] {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: none;
+  }
+  .y-folder__count {
+    margin-inline-start: 0.45em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-faint);
+  }
+
   #banner:not(:empty) { margin-bottom: var(--sp-4); }
 
   @media (max-width: 560px) {
@@ -545,7 +703,10 @@
        src="/mark.svg" alt="" width="26" height="26" style="border-radius:6px;display:block"
        onerror="this.style.display='none'"></a>
   <h1><a href="#/rates">Markets</a></h1>
-  <nav id="nav"></nav>
+  <!-- The routes of this console ARE its areas, so they are drawn with the
+       shared folder pattern rather than as a row of links: choosing one reads
+       as opening a part of one document. -->
+  <nav class="y-folders" id="nav"></nav>
   <!-- The honest signal that this is a live chain rather than a screenshot of
        one, which is the difference that decides whether a price on this page
        means anything at all. -->
@@ -569,8 +730,9 @@
 import {
   CHAIN, ERRORS, EMPTY_AMOUNT, MESSAGES, SIGNERS,
   agreement, approveIssuerProposal, formatAmount, freshness, groupDigits,
-  impactVerdict, isOwnAccount, mintability, ratio, reporting, resolveDenom, span,
-  submitRatesCommand, swapCommand, swapQuote, toBaseUnitsOf, truncatedFrom,
+  impactVerdict, isOwnAccount, mintability, rateFigure, ratio, reporting,
+  resolveDenom, span, submitRatesCommand, swapCommand, swapQuote, toBaseUnitsOf,
+  truncatedFrom,
 } from './markets.js';
 
 // ---------------------------------------------------------------------------
@@ -673,8 +835,8 @@ const nameOf = (denom) => resolveDenom(denom).name;
  */
 let truncSeen = false;
 
-function amount(base, denom) {
-  const shown = formatAmount(base, denom);
+function amount(base, denom, { withSymbol = true } = {}) {
+  const shown = formatAmount(base, denom, { withSymbol });
   const exact = truncatedFrom(base, denom);
   if (!exact) return `<span class="y-num">${esc(shown)}</span>`;
   truncSeen = true;
@@ -846,11 +1008,57 @@ const ROUTES = [
   ['#/currencies', 'Currencies'],
 ];
 
+/**
+ * How many things are in each area, drawn beside its name.
+ *
+ * Filled in after the first read rather than at first paint, and left EMPTY
+ * where the read failed — a count of 0 beside "Pools" is a claim that the chain
+ * has no pools, which is a different fact from this page not having managed to
+ * ask. The three queries behind it are the ones the routes themselves use and
+ * are cached, so stamping the counts costs nothing a visitor was not going to
+ * pay on their first click anyway.
+ */
+const folderCounts = new Map();
+
+async function countFolders() {
+  const put = async (route, fn) => {
+    try { folderCounts.set(route, await fn()); } catch { /* leave it absent */ }
+  };
+  await Promise.all([
+    put('#/rates', async () => (await rates()).length),
+    put('#/valuers', async () => (await appraisers()).length),
+    put('#/pools', async () => (await pools()).length),
+    put('#/currencies', async () => (await applications()).length),
+  ]);
+  renderNav(location.hash || '#/rates');
+}
+
 function renderNav(hash) {
   document.getElementById('nav').innerHTML = ROUTES.map(([h, label]) => {
     const on = hash.startsWith(h);
-    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${label}</a>`;
+    const n = folderCounts.get(h);
+    const count = n === undefined ? '' : ` <span class="y-folder__count">${n}</span>`;
+    return `<a href="${h}"${on ? ' aria-current="page"' : ''}>${label}${count}</a>`;
   }).join('');
+}
+
+/**
+ * A band of figures, the shared pattern.
+ *
+ * Every tile takes its value as already-escaped HTML, because most of them are
+ * amounts that carry their own truncation mark. A tile with a null value prints
+ * the en dash rather than a zero: this page draws several bands before the
+ * chain has answered, and an unread figure and a figure of nothing must never
+ * render alike.
+ */
+function kpis(tiles) {
+  return `<div class="y-kpis">${tiles.map((t) => `
+    <div class="y-kpi${t.tone ? ` y-kpi--${t.tone}` : ''}">
+      <p class="y-kpi__label">${esc(t.label)}</p>
+      <p class="y-kpi__value">${t.value === null || t.value === undefined ? EMPTY_AMOUNT : t.value}${
+        t.unit ? `<span class="y-kpi__unit">${esc(t.unit)}</span>` : ''}</p>
+      ${t.hint ? `<p class="y-kpi__hint">${t.hint}</p>` : ''}
+    </div>`).join('')}</div>`;
 }
 
 function setBanner(e) {
@@ -923,6 +1131,9 @@ async function renderRates() {
     vals.map(async (v) => ({ v, feeder: await feederOf(v.operator_address).catch(() => null) })),
   );
 
+  const dead = list.length - usable.length;
+  const feedingNow = ms.filter((m) => Number(m.windows) > 0 && Number(m.misses) < Number(m.windows)).length;
+
   view.innerHTML = `
     <p class="eyebrow">x/oracle · exchange rates</p>
     <h2>What a currency is worth, and for how much longer</h2>
@@ -932,14 +1143,33 @@ async function renderRates() {
       ${esc(span(maxAge))} a rate must be treated as unknown, and a transaction that depends on it stops
       rather than proceeding on the last number anybody happened to report.</p>
 
+    ${kpis([
+      { label: 'Usable now', value: String(usable.length),
+        tone: usable.length === 0 ? 'bad' : 'ok',
+        hint: `of ${accepted.length} currencies validators are allowed to report. These are the only ` +
+          'prices anything on this chain may act on.' },
+      { label: 'Expired', value: String(dead),
+        tone: dead === 0 ? 'mute' : 'warn',
+        hint: dead === 0
+          ? 'Nothing has aged out. An expired rate is still returned by the module — hiding it would leave a ' +
+            'caller unable to tell “no feed” from “feed stopped”.'
+          : 'Still returned by the module, and not a price. Shown struck through below.' },
+      { label: 'Rate expires after', value: esc(span(maxAge)),
+        hint: 'Set by <code>max_rate_age_seconds</code>, which is a chain parameter rather than a setting ' +
+          'in this page.' },
+      { label: 'Validators reporting', value: `${feedingNow}<span class="y-kpi__unit">of ${vals.length}</span>`,
+        tone: feedingNow === 0 ? 'bad' : feedingNow < 2 ? 'warn' : 'ok',
+        hint: 'A median drawn from one feeder is one opinion. Two is the minimum this chain is configured for.' },
+    ])}
+
     ${list.length === 0 ? emptyRatesHtml(p, ms, vals) : ratesTableHtml(list, now, maxAge, p)}
 
     <h3>Reporting</h3>
     <p class="muted">x/oracle records a validator's absences rather than slashing for them, deliberately: on a
       permissioned network an automatic slash mostly punishes the operator whose machine rebooted. That makes this
       counter the only signal there is.</p>
-    <div class="card scroll">
-      <table>
+    <div class="card y-scrollx">
+      <table class="y-data">
         <thead><tr><th>Validator</th><th>Votes through</th><th class="num">Rounds</th><th>Record</th></tr></thead>
         <tbody>
           ${feeders.map(({ v, feeder }) => {
@@ -1058,8 +1288,8 @@ function ratesTableHtml(list, now, maxAge, p) {
     ${dead > 0 ? `<div class="warnbox"><p><strong>${dead} of ${rows.length} rates have expired.</strong>
       They are shown because “no feed” and “feed stopped” are different facts, and because a consumer needs to see
       which. Nothing may act on them.</p></div>` : ''}
-    <div class="card scroll">
-      <table>
+    <div class="card y-scrollx">
+      <table class="y-data">
         <thead><tr>
           <th>Currency</th><th class="num">Rate</th><th>Life left</th><th>Agreement</th><th class="num">At height</th>
         </tr></thead>
@@ -1067,10 +1297,25 @@ function ratesTableHtml(list, now, maxAge, p) {
           ${rows.map((r) => {
             const f = freshness(r.updated_at, now, maxAge);
             const ag = agreement(r.voting_power_bps, p.vote_threshold_bps);
+            // An expired rate is NOT rendered as a number. The module's own rule
+            // is that a value too old to trust is not a value, and a figure
+            // printed plainly in a column of live prices is read as one however
+            // carefully the row beside it is worded. So it is struck, greyed,
+            // and labelled — three signals, none of them colour alone.
+            const fig = rateFigure(r.rate);
+            const mark = fig.exact
+              ? `<abbr class="trunc" title="Exactly ${esc(fig.exact)} ${esc(p.quote_symbol)} per ` +
+                `${esc(symbolOf(r.denom))}. x/oracle holds a rate to eighteen places; the figure shown is cut ` +
+                `short of it — never rounded up.">…</abbr>`
+              : '';
+            const rateCell = f.state === 'expired'
+              ? `<span class="stale"><s class="y-num rate">${esc(fig.shown)}</s>${mark}
+                   <span class="stale__word">not a price</span></span>`
+              : `<span class="y-num rate">${esc(fig.shown)}${mark}</span>`;
             return `<tr>
               <td><strong>${esc(symbolOf(r.denom))}</strong>
                 <div class="muted">${esc(nameOf(r.denom))}</div></td>
-              <td class="num"><span class="y-num" style="font-size:var(--step-1)">${esc(r.rate)}</span>
+              <td class="num">${rateCell}
                 <div class="muted">${esc(p.quote_symbol)} per ${esc(symbolOf(r.denom))}</div></td>
               <td>${freshnessHtml(f, { maxAge, live: { updatedAt: r.updated_at } })}</td>
               <td><span class="pill p-${ag.level}">${esc(ag.text)}</span></td>
@@ -1120,8 +1365,8 @@ async function renderValuers() {
         )}
         ${signerHtml(MESSAGES.approveAppraiser, SIGNERS[MESSAGES.approveAppraiser])}
       </div>` : `
-      <div class="card scroll">
-        <table>
+      <div class="card y-scrollx">
+        <table class="y-data">
           <thead><tr><th>Valuer</th><th>Credentials</th><th>May value</th><th>Status</th></tr></thead>
           <tbody>
             ${list.map((a) => {
@@ -1188,19 +1433,55 @@ async function renderPools() {
     return;
   }
 
+  const denoms = new Set(list.flatMap((p) => [p.denom_a, p.denom_b]));
+  const fees = new Set(list.map((p) => String(p.swap_fee_bps)));
+  const feeLabel = fees.size === 1
+    ? `${(Number([...fees][0]) / 100).toFixed(2).replace(/\.?0+$/, '')}%`
+    : 'varies';
+
   view.innerHTML = `
     <p class="eyebrow">x/amm · liquidity pools</p>
     <h2>${list.length} pool${list.length === 1 ? '' : 's'}</h2>
     <p class="muted">Each pool holds exactly two currencies and prices a trade against the constant product of its
       reserves. The fee is not taken out of the pool — the whole input joins the reserve while only the
       post-fee part is used to price the trade, so the fee stays as liquidity and accrues to whoever deposited it.</p>
+
+    ${kpis([
+      { label: 'Pools', value: String(list.length),
+        hint: 'Each one is a market of exactly two currencies. There is no routing between them here: a trade ' +
+          'is against one pool.' },
+      { label: 'Currencies traded', value: String(denoms.size),
+        hint: `Out of every denom on the chain. A currency with no pool cannot be traded on this module at all.` },
+      { label: 'Swap fee', value: feeLabel,
+        hint: 'Retained in the pool, for its depositors — it is not a platform fee and nothing here takes a cut.' },
+      // Deliberately NOT a "total value locked" tile. Totalling two reserves in
+      // one unit needs a price for both, and the only prices on this chain are
+      // oracle rates that carry an age — so a headline TVL would be this page's
+      // own arithmetic, would silently fold in whatever rates had expired, and
+      // would be read as a figure the chain holds. It does not hold one.
+      { label: 'Total value locked', value: null, tone: 'mute',
+        hint: 'Not shown. The chain holds reserves, not a total: adding two currencies together needs a rate ' +
+          'for each, and a rate that has expired is not a rate. A single figure here would be this page\'s ' +
+          'arithmetic wearing the chain\'s authority.' },
+    ])}
+
     ${list.map(poolCardHtml).join('')}
+
+    <h3>What a depositor earns</h3>
+    <div class="card">
+      <p class="muted small">Every swap leaves its fee in the pool, so a depositor's share grows with the volume
+        traded against it. <strong>No yield figure is shown here, and the omission is deliberate.</strong> The
+        chain records the reserves as they are now; it does not record what they were, so fees earned cannot be
+        read off it — and a yield quoted from volume alone ignores impermanent loss, which on a pair that moves is
+        routinely larger than the fees. A headline that says “12% APY” while the depositor is down against simply
+        having held both currencies is not an optimistic figure, it is a wrong one.</p>
+    </div>
 
     <h3>Shares</h3>
     <div class="card">
       <p class="muted small">A depositor holds their share of a pool as a denom of its own, minted by the module.
         These are ordinary balances: they can be held, and they are what <code>exit-pool</code> burns.</p>
-      <div class="scroll"><table>
+      <div class="y-scrollx"><table class="y-data">
         <thead><tr><th>Pool</th><th>Share denom</th><th class="num">Shares issued</th></tr></thead>
         <tbody>${list.map((p) => `<tr>
           <td>#${esc(p.id)}</td>
@@ -1258,6 +1539,9 @@ function poolCardHtml(p) {
 
 const swapState = { poolId: null, flipped: false, input: '', slippageBps: 50 };
 
+/** Which pair the legs on screen were built for. See drawSwap. */
+let drawnLegsKey = null;
+
 async function renderSwap(hash) {
   const list = await pools();
   if (list.length === 0) { location.hash = '#/pools'; return; }
@@ -1270,6 +1554,8 @@ async function renderSwap(hash) {
   view.innerHTML = `
     <p class="eyebrow">x/amm · swap</p>
     <h2>Trade one currency for another</h2>
+    <div id="verdict"></div>
+    <div id="kpis"></div>
     <div class="swap">
       <div>
         <div class="card">
@@ -1281,11 +1567,14 @@ async function renderSwap(hash) {
           </select>
           <div id="legs"></div>
         </div>
-        <div id="verdict"></div>
       </div>
       <div id="detail"></div>
     </div>
     <div id="signing"></div>`;
+
+  // The legs belong to the markup just written, so the next draw must build them
+  // rather than reach for nodes that no longer exist.
+  drawnLegsKey = null;
 
   document.getElementById('pool').addEventListener('change', (e) => {
     swapState.poolId = e.target.value;
@@ -1312,37 +1601,88 @@ async function drawSwap() {
     : null;
 
   // --- the two legs -------------------------------------------------------
-  document.getElementById('legs').innerHTML = `
-    <div class="leg">
-      <div class="leg__head">
-        <span class="label" style="margin:0">You pay</span>
-        <span class="leg__denom">${esc(symbolOf(inDenom))}</span>
-      </div>
-      <input id="amt" inputmode="decimal" autocomplete="off" placeholder="0"
-             value="${esc(swapState.input)}" aria-label="Amount to pay in ${esc(symbolOf(inDenom))}">
-      <div class="muted small">Pool holds ${amount(reserveIn, inDenom)}</div>
-    </div>
-    <div class="flip"><button type="button" id="flip" title="Trade the other way"
-      aria-label="Trade the other way">⇅</button></div>
-    <div class="leg">
-      <div class="leg__head">
-        <span class="label" style="margin:0">You receive</span>
-        <span class="leg__denom">${esc(symbolOf(outDenom))}</span>
-      </div>
-      <div class="leg__out">${q && !q.empty
-        ? esc(formatAmount(q.amountOut, outDenom, { withSymbol: false }))
-        : EMPTY_AMOUNT}</div>
-      <div class="muted small">${q && !q.empty
-        ? 'if nothing moves before your transaction lands. '
-        : ''}Pool holds ${amount(reserveOut, outDenom)}</div>
-    </div>`;
+  //
+  // Rebuilt ONLY when the pair changes. Rewriting this block on every keystroke
+  // destroyed the <input> that fired the event, so the field kept the first
+  // character a reader typed and dropped every one after it — a swap console
+  // nobody could enter an amount into. While the pair holds, only the output
+  // side is redrawn.
+  const legsKey = `${swapState.poolId}:${swapState.flipped}`;
+  const out = () => (q && !q.empty
+    ? esc(formatAmount(q.amountOut, outDenom, { withSymbol: false }))
+    : EMPTY_AMOUNT);
+  const outNote = () => `${q && !q.empty
+    ? 'if nothing moves before your transaction lands. '
+    : ''}Pool holds ${amount(reserveOut, outDenom)}`;
 
-  const amt = document.getElementById('amt');
-  amt.addEventListener('input', (e) => { swapState.input = e.target.value; drawSwap(); });
-  document.getElementById('flip').addEventListener('click', () => {
-    swapState.flipped = !swapState.flipped;
-    drawSwap();
-  });
+  if (drawnLegsKey !== legsKey) {
+    document.getElementById('legs').innerHTML = `
+      <div class="leg">
+        <div class="leg__head">
+          <span class="label" style="margin:0">You pay</span>
+          <span class="leg__denom">${esc(symbolOf(inDenom))}</span>
+        </div>
+        <input id="amt" inputmode="decimal" autocomplete="off" placeholder="0"
+               value="${esc(swapState.input)}" aria-label="Amount to pay in ${esc(symbolOf(inDenom))}">
+        <div class="muted small">Pool holds ${amount(reserveIn, inDenom)}</div>
+      </div>
+      <div class="flip"><button type="button" id="flip" title="Trade the other way"
+        aria-label="Trade the other way">⇅</button></div>
+      <div class="leg">
+        <div class="leg__head">
+          <span class="label" style="margin:0">You receive</span>
+          <span class="leg__denom">${esc(symbolOf(outDenom))}</span>
+        </div>
+        <div class="leg__out" id="out">${out()}</div>
+        <div class="muted small" id="outnote">${outNote()}</div>
+      </div>`;
+    drawnLegsKey = legsKey;
+
+    document.getElementById('amt').addEventListener('input', (e) => {
+      swapState.input = e.target.value;
+      drawSwap();
+    });
+    document.getElementById('flip').addEventListener('click', () => {
+      swapState.flipped = !swapState.flipped;
+      drawSwap();
+    });
+  } else {
+    document.getElementById('out').innerHTML = out();
+    document.getElementById('outnote').innerHTML = outNote();
+  }
+
+  // --- the five figures a trader came for, before the prose --------------
+  //
+  // Amount in, amount out, price impact, minimum received, fee. These are the
+  // whole of "what will I get, and what could go wrong", and they used to be
+  // six rows of a list set at the same size as their labels — so the number
+  // that decides whether to trade was indistinguishable from the pool id.
+  //
+  // Drawn even before an amount is typed, with the en dash in every figure.
+  // The shape of the answer is part of the question, and a band that appeared
+  // only once it had numbers would leave a reader unsure what they were about
+  // to be told.
+  const impactTone = q && !q.empty ? impactVerdict(q.impactBps).level : undefined;
+  document.getElementById('kpis').innerHTML = kpis([
+    { label: 'You pay', value: q && !q.empty ? amount(q.amountIn, inDenom, { withSymbol: false }) : null,
+      unit: symbolOf(inDenom),
+      hint: 'All of it joins the reserve.' },
+    { label: 'You receive', value: q && !q.empty ? amount(q.amountOut, outDenom, { withSymbol: false }) : null,
+      unit: symbolOf(outDenom),
+      hint: 'A quote, not a promise.' },
+    { label: 'Price impact', value: q && !q.empty ? `${esc((q.impactBps / 100).toFixed(2))}%` : null,
+      tone: impactTone === 'ok' ? 'ok' : impactTone,
+      hint: 'How far your own trade moves the curve.' },
+    { label: 'Minimum received', value: q && !q.empty ? amount(q.minReceived, outDenom, { withSymbol: false }) : null,
+      // Green only while the trade is a good one. A reassuring tile beside a
+      // warning that the price moved 18% against the trader is two signals
+      // arguing, and the reader resolves that by believing the friendlier one.
+      unit: symbolOf(outDenom), tone: impactTone === 'ok' ? 'ok' : undefined,
+      hint: 'The only promise here, and what goes in the transaction.' },
+    { label: 'Pool fee', value: q && !q.empty ? amount(q.feeAmount, inDenom, { withSymbol: false }) : null,
+      unit: symbolOf(inDenom),
+      hint: 'Stays in the pool, for its depositors.' },
+  ]);
 
   // --- the warning, before anything to sign -------------------------------
   const verdict = q && !q.empty ? impactVerdict(q.impactBps) : null;
@@ -1377,7 +1717,6 @@ async function drawSwap() {
     return;
   }
 
-  const impactPct = (q.impactBps / 100).toFixed(2);
   const costPct = (q.costBps / 100).toFixed(2);
   // The rate the trader actually gets, in display units on both sides:
   //   out/10^eOut ÷ in/10^eIn  =  out × 10^eIn ÷ (in × 10^eOut)
@@ -1400,16 +1739,16 @@ async function drawSwap() {
           (<code>ErrSlippage</code>, code 1107), you keep your ${esc(symbolOf(inDenom))}, and you pay only the
           transaction fee.</p>
       </div>
+      <!-- What the band above does not say. Repeating the five figures here
+           would have made the band decoration rather than the answer. -->
       <div style="margin-top:var(--sp-3)">
-        <div class="quoteline"><span>Quoted output</span><span>${amount(q.amountOut, outDenom)}</span></div>
         <div class="quoteline"><span>Rate you get</span>
           <span>1 ${esc(symbolOf(inDenom))} = ${esc(effective ?? EMPTY_AMOUNT)} ${esc(symbolOf(outDenom))}</span></div>
-        <div class="quoteline"><span>Price impact <span class="muted">— how far your own trade moves the curve</span></span>
-          <span class="${q.impactBps >= 300 ? 'pill p-warn' : ''}">${esc(impactPct)}%</span></div>
-        <div class="quoteline"><span>Pool fee <span class="muted">— stays in the pool, for its depositors</span></span>
-          <span>${amount(q.feeAmount, inDenom)}</span></div>
-        <div class="quoteline"><span>Total cost against the pre-trade price</span><span>${esc(costPct)}%</span></div>
+        <div class="quoteline"><span>Total cost against the pre-trade price
+          <span class="muted">— impact and fee together</span></span><span>${esc(costPct)}%</span></div>
         <div class="quoteline"><span>Slippage allowed</span><span>${(swapState.slippageBps / 100).toFixed(2)}%</span></div>
+        <div class="quoteline"><span>Pool reserves after</span>
+          <span>${amount(q.newReserveIn, inDenom)} · ${amount(q.newReserveOut, outDenom)}</span></div>
       </div>
       ${slippageHtml()}
       <details>
@@ -1503,26 +1842,22 @@ async function renderCurrencies() {
       passed and a named account may mint it. Registration succeeds on its own — it returns code 0 — and changes
       nothing about whether the currency can be minted.</p>
 
-    <div class="grid">
-      <div class="card card--ok">
-        <span class="label">Mintable today</span>
-        <div class="stat">${mintable.length}</div>
-        <p class="muted small">by ${issuers.size} approved issuer${issuers.size === 1 ? '' : 's'}</p>
-      </div>
-      <div class="card ${blocked.length ? 'card--warn' : ''}">
-        <span class="label">Registered, not mintable</span>
-        <div class="stat">${blocked.length}</div>
-        <p class="muted small">${blocked.length
-          ? 'a mint on any of these fails with code 1104'
-          : 'nothing is waiting on a proposal'}</p>
-      </div>
-      <div class="card">
-        <span class="label">In circulation</span>
-        <div class="stat stat--words">${mintable.filter((r) => (sup.get(r.app.denom) || '0') !== '0').length}
-          <span class="muted" style="font-size:var(--step-0)">of ${mintable.length} have supply</span></div>
-        <p class="muted small">approval permits minting; it does not perform one</p>
-      </div>
-    </div>
+    ${kpis([
+      { label: 'Mintable today', value: String(mintable.length), tone: 'ok',
+        hint: `By ${issuers.size} approved issuer${issuers.size === 1 ? '' : 's'}. A governance proposal ` +
+          'carrying <code>MsgApproveIssuer</code> has passed for each of these.' },
+      { label: 'Registered, not mintable', value: String(blocked.length),
+        tone: blocked.length ? 'warn' : 'mute',
+        hint: blocked.length
+          ? 'A mint on any of these fails with code 1104, whose message names the sender — so it reads as ' +
+            '“wrong key” when it means “no proposal has passed”.'
+          : 'Nothing is waiting on a proposal.' },
+      { label: 'In circulation',
+        value: `${mintable.filter((r) => (sup.get(r.app.denom) || '0') !== '0').length}` +
+          `<span class="y-kpi__unit">of ${mintable.length}</span>`,
+        hint: 'Approval permits minting; it does not perform one. A currency that may be minted and has not ' +
+          'been is the ordinary state of a new issuer.' },
+    ])}
 
     ${blocked.length ? `
       <h3>Waiting on governance</h3>
@@ -1547,8 +1882,8 @@ async function renderCurrencies() {
       </div>`}
 
     <h3>Approved</h3>
-    <div class="card scroll">
-      <table>
+    <div class="card y-scrollx">
+      <table class="y-data">
         <thead><tr>
           <th>Currency</th><th>Denom</th><th>Registered</th><th>Approved</th>
           <th class="num">In circulation</th><th>Issuer</th>
@@ -1637,6 +1972,9 @@ themeBtn.addEventListener('click', () => {
 
 addEventListener('hashchange', route);
 route();
+// The folder counts are read once, after the first route has been drawn, so
+// that a slow count never stands between a reader and the page.
+countFolders();
 tick();
 setInterval(tick, 6000);
 </script>
