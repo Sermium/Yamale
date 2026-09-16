@@ -1,0 +1,11 @@
+{
+  "name": "@yamale/institution",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The institution console: take a placement request, check it against the chain, and print the command that records where an account belongs.",
+  "scripts": {
+    "test": "node --test placement.test.js",
+    "serve": "node serve.mjs"
+  }
+}
