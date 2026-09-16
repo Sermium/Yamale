@@ -289,6 +289,161 @@
   }
 
   /* ==========================================================================
+     INFORMATION DESIGN — copied from clients/shared/yamale.css, same as the block
+     above. The reasoning for each pattern is in that file; what is here is the
+     declarations, byte-identical and in the same order.
+     ========================================================================== */
+
+  /* --- The figures a reader came for, before the prose explaining them ----- */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+       and rendered 100,000,000 as "100,000,0" above "00" — a number split in two
+       is not a smaller number, it is a different one. The unit may drop; the
+       digits may not. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  /* Where a figure's limit goes. Some are exact and some are not, and a band
+     that spoke about all of them in one voice would claim a precision the chain
+     does not have. Clamped, because a paragraph under every tile makes the band
+     taller than the content it introduces. */
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* --- Folders, because one scrolling column is not a document ------------- */
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    /* The open folder sits ON the rule rather than above it, so the area below
+       reads as the inside of the folder rather than as a separate box. */
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  /* --- Data tables that can actually be read ------------------------------ */
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  /* Numbers right, words left. A column of figures that is not aligned on its
+     units cannot be compared down the page, which is the only reason to put
+     figures in a column. */
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  /* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+  .y-scrollx { overflow-x: auto; }
+
+  /* --- A proportion, drawn ------------------------------------------------- */
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
+  /* ==========================================================================
      THIS CONSOLE.
 
      Everything below is scoped to this page and kept OUT of the shared file.
@@ -327,7 +482,28 @@
 
      This defect is in clients/shared/yamale.css and therefore in the four
      sibling consoles too. It is NOT fixed there from here — a shared palette
-     change belongs in its own change against all of them. */
+     change belongs in its own change against all of them.
+
+     A comment terminator used to sit at the end of the line above, closing
+     this comment sixteen lines early. (It cannot be quoted here: the two
+     characters end a CSS comment wherever they appear, including inside what
+     looks like a quotation — which is how this happened in the first place,
+     and how it happened a second time while the paragraph you are reading was
+     being written.)
+
+     Everything down to the real terminator was then CSS
+     source rather than prose, and the parser's error recovery swallowed tokens
+     until the next block — which was the `:root` immediately below, the one
+     that defines the four ink tokens this whole comment is about. So in the
+     LIGHT theme --brass-ink, --warn-ink, --mute-ink and --ok-ink were
+     undefined and every `color: var(--brass-ink)` fell back to the inherited
+     colour: the measured contrast fix documented here was the one thing on the
+     page that was not applied. Confirmed in the browser before removing it —
+     getPropertyValue('--brass-ink') returned "" in light mode and the dark
+     value in dark mode, because the two dark blocks are separate rules and
+     survived. A comment that silently deletes the rule it describes is worth a
+     paragraph of its own.
+
      The same measurement caught two more of the same shape, so all three are
      corrected together:
 
@@ -688,6 +864,41 @@
 
   [hidden] { display: none !important; }
 
+  /* --- local additions to the shared information-design block --------------
+     Kept here and labelled rather than pushed into clients/shared/yamale.css,
+     because neither has a second consumer yet.
+
+     A KPI whose honest answer is a phrase — "none", "not read", "nothing" —
+     set at the size of a seizure total makes an ordinary week look like an
+     event, and on this page "not read" set large would shout the one thing
+     that is not a measurement at all.
+
+     The blind-spots table is three columns of sentences rather than figures,
+     so its cells need a top baseline and a measure. Left alone they inherit
+     the shared baseline alignment, which puts three paragraphs of different
+     lengths on one invisible line and makes the row impossible to read
+     across. */
+  .y-kpi__value--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+
+  /* MEASURED DEFECT IN THE SHARED SYSTEM, found while checking these tables at
+     1600px. `.y-num` gives a figure tabular digits and nothing else — it does
+     not align it. So every numeric column on this page was ragged against a
+     left edge: the cap column and the remaining column in the rolling-cap table
+     could not be compared down the page, which is the only reason to put
+     figures in a column.
+
+     Fixed here rather than in clients/shared/yamale.css for the same reason as
+     the brass defect at the top of this file: `.y-num` is also used on inline
+     spans in four consoles, and putting a text-align on all of them is not a
+     change to make from one page. Scoped to table cells, which is where
+     alignment is the whole point. The shared `.y-data` block already does this
+     with its own `.num`; this is the same rule for the tables that predate
+     it. */
+  table td.y-num, table th.y-num { text-align: end; }
+
+  .y-data td { vertical-align: top; }
+  .y-data td.small, .y-data td .small { max-width: 32rem; }
+
   @media (max-width: 640px) {
     .wrap { padding-left: var(--sp-4); padding-right: var(--sp-4); }
     .top__in { padding-left: var(--sp-4); padding-right: var(--sp-4); }
@@ -839,7 +1050,116 @@ const state = {
   secondsPerBlock: 0,
   reads: {},
   tab: 'enf',
+  // Which folder is open in each mechanism. Held here rather than read off the
+  // DOM because both panels are re-rendered wholesale every thirty seconds, and
+  // a folder that sprang back to the default each half minute would move the
+  // page under a supervisor mid-sentence.
+  folder: { enf: 'asymmetry', net: 'window' },
 };
+
+// ---------------------------------------------------------------------------
+// The figures.
+//
+// A band of numbers at the top of each mechanism, above the argument that
+// explains them. Every tile is one chain read, and the three states this whole
+// console exists to keep apart are kept apart in the band as well: a query that
+// failed, a query that answered with nothing, and an answer that is no longer
+// fresh are three different tiles. A band that printed 0 for all three would be
+// the exact failure the rest of the page is built to prevent.
+// ---------------------------------------------------------------------------
+
+/**
+ * One tile.
+ *
+ * `value` carries the digits and nothing else; `unit` is separate and set
+ * small, so a narrow column drops the unit rather than splitting the number.
+ * `words` is for a tile whose honest answer is not a figure — "none", "not
+ * read" — which must not be set at the size of a seizure total.
+ */
+function kpi({ label, value, unit, hint, tone, words }) {
+  return `<div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+      <p class="y-kpi__label">${esc(label)}</p>
+      <p class="y-kpi__value${words ? ' y-kpi__value--words' : ''}">${value}${
+        unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+      ${hint ? `<p class="y-kpi__hint">${hint}</p>` : ''}
+    </div>`;
+}
+
+/**
+ * A tile whose figure comes from one read, with that read's state in it.
+ *
+ * `figure(read.value)` is only ever called on a read that succeeded. A failed
+ * read never reaches it: the tile says "not read", takes the bad edge, and
+ * names what could not be answered — because on this page the difference
+ * between "no account is frozen" and "the freeze register did not answer" is
+ * the difference between a supervisor being informed and being misled.
+ */
+function kpiRead(read, { label, figure, missing }) {
+  if (!read || !read.ok) {
+    return kpi({
+      label, tone: 'bad', value: 'not read', words: true,
+      hint: `${esc(missing)} This tile is the absence of an answer, not a count of nothing.`,
+    });
+  }
+  const f = figure(read.value);
+  return kpi({
+    label,
+    tone: read.stale ? 'warn' : f.tone,
+    value: f.value, unit: f.unit, words: f.words,
+    hint: read.stale
+      ? `<strong>Read at height ${esc(String(read.at))}, and not since.</strong> ${f.hint}`
+      : f.hint,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Folders.
+//
+// Each mechanism was one column of six sections, so reading what the chain
+// refuses meant scrolling past every case it has ever opened. These are areas a
+// supervisor chooses between; the panes are all rendered and only hidden, so
+// switching costs nothing and never re-reads the chain.
+// ---------------------------------------------------------------------------
+
+function folders(group, panes) {
+  const open = panes.some((p) => p.id === state.folder[group]) ? state.folder[group] : panes[0].id;
+  state.folder[group] = open;
+  return `<div class="y-folders" role="tablist" aria-label="Areas">
+      ${panes.map((p) => `<button type="button" role="tab" class="y-folder${
+        p.id === open ? ' y-folder--on' : ''}" aria-selected="${p.id === open}"
+        data-folder-group="${esc(group)}" data-folder="${esc(p.id)}"
+        >${esc(p.label)}${p.count === undefined || p.count === null ? ''
+          : ` <span class="y-folder__count">${esc(String(p.count))}</span>`}</button>`).join('')}
+    </div>
+    ${panes.map((p) => `<div data-folder-group="${esc(group)}" data-folder="${esc(p.id)}"
+      role="tabpanel"${p.id === open ? '' : ' hidden'}>${p.html}</div>`).join('')}`;
+}
+
+function applyFolder(group) {
+  for (const el of document.querySelectorAll(`[data-folder-group="${group}"]`)) {
+    const on = el.dataset.folder === state.folder[group];
+    if (el.getAttribute('role') === 'tab') {
+      el.setAttribute('aria-selected', String(on));
+      el.classList.toggle('y-folder--on', on);
+    } else {
+      el.hidden = !on;
+    }
+  }
+}
+
+// Delegated, and installed once: both panels are replaced every thirty seconds,
+// and a handler bound to a button that has since been thrown away is a folder
+// that stops opening after the first refresh.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-folder-group][role="tab"]');
+  if (!btn) return;
+  const group = btn.dataset.folderGroup;
+  state.folder[group] = btn.dataset.folder;
+  try { localStorage.setItem(`yamale.oversight.folder.${group}`, btn.dataset.folder); } catch {
+    /* private window */
+  }
+  applyFolder(group);
+});
 
 /**
  * The measured block interval.
@@ -1218,7 +1538,9 @@ function officesHtml(params) {
       <table>
         <thead><tr><th class="y-num">From</th><th class="y-num">Waits</th><th></th></tr></thead>
         <tbody>
-          <tr><td class="mono">any amount</td>
+          <!-- y-num so it sits under the figures in its own column: this row
+               is the column's zero, not a label beside it. -->
+          <tr><td class="y-num mono">any amount</td>
             <td class="y-num mono">${esc(String(params.seizure_delay_blocks))} blocks</td>
             <td class="small muted">${esc(O.blocksAsDuration(params.seizure_delay_blocks, state.secondsPerBlock) || '')}</td></tr>
           ${(params.seizure_delay_tiers || []).map((t) => `<tr>
@@ -1247,6 +1569,105 @@ function refusalsHtml(module) {
       </div>
       ${r.pinNote ? `<p class="small" style="margin-top:var(--sp-1)">${esc(r.pinNote)}</p>` : ''}
     </div>`).join('');
+}
+
+/**
+ * What this console cannot show, and which kind of "cannot" it is.
+ *
+ * The most dangerous thing a supervisory screen can do is let an absence pass
+ * for an answer. Three of those absences are visible elsewhere on this page as
+ * footnotes under the panel that happens to be affected, which is where a
+ * reader finds them only if they were already looking. They are facts about
+ * what this console can and cannot know, so they are stated together, as a
+ * structure, in a folder of their own.
+ *
+ * Each row says what is not visible, why it is not, and — the part that makes
+ * it useful rather than an apology — where it can be got instead. "Nowhere"
+ * is an acceptable answer and is given as one.
+ *
+ * Every entry here is checked against the module source, not against the
+ * documentation. An invented limit is as misleading as a hidden one.
+ */
+const BLIND_SPOTS = {
+  enforcement: [
+    {
+      what: 'A freeze that has already been lifted.',
+      why: 'The freeze register holds live freezes only: `unfreeze` removes the record, both '
+        + 'when a provisional freeze lapses in the end blocker and when a case is withdrawn or '
+        + 'rejected. An account frozen for a week and released leaves no row in it.',
+      where: 'The case that froze it stays in the case register, and the freeze itself is in the '
+        + 'block events for the height it was imposed and the height it was lifted.',
+      cite: 'x/enforcement/keeper/keeper.go — unfreeze()',
+    },
+    {
+      what: 'What became of seized funds after they arrived.',
+      why: 'x/enforcement records what it took and where it sent it. It has no record of what '
+        + 'the recovery destination did next, because that is not its business — the destination '
+        + 'is a 3-of-5 custody account and paying restitution out of it is its own decision, with '
+        + 'its own signatures.',
+      where: 'The foundation console, which reads that account and rebuilds its payment history '
+        + 'from the transaction log.',
+      cite: 'x/enforcement/keeper/execute.go',
+    },
+    {
+      what: 'Whether the bar drawn on the bonded total above is the bar a past case faced.',
+      why: 'It is not. A case is measured against the power bonded at the moment it opened, and '
+        + 'carries that total in its own record. The chart above is what a case opened right now '
+        + 'would face, computed from the validator set as it is at this height.',
+      where: 'Each case card states its own denominator, which is the one the chain applied.',
+      cite: 'x/enforcement/keeper/msg_server_case.go',
+    },
+  ],
+  netting: [
+    {
+      what: 'The list of participants.',
+      why: 'x/netting\'s query service has no call that enumerates them. Every query it offers '
+        + 'about a participant takes one as an argument, so this console can answer about an '
+        + 'address you name and cannot produce the set.',
+      where: 'Nowhere, over this interface. The approvals are held by the module that grants '
+        + 'them, not by x/netting.',
+      cite: 'proto/blockchain/netting/v1/query.proto',
+    },
+    {
+      what: 'Whether an address is an approved participant at all.',
+      why: 'The position query answers about balances. An address with no collateral posted and '
+        + 'an address that was never approved produce the same empty answer, and nothing in the '
+        + 'response distinguishes them.',
+      where: 'Nowhere, over this interface — which is why the lookup on this page says so in '
+        + 'place of an answer rather than reporting "no position".',
+      cite: 'proto/blockchain/netting/v1/query.proto — Position',
+    },
+    {
+      what: 'Why a held slice is still held.',
+      why: 'The reason recorded is the one from the first failure. A retry that fails again does '
+        + 'not overwrite it, so the text describes why the slice was held originally and not why '
+        + 'it is held now.',
+      where: 'The events emitted at each retry, at the cycle boundaries since.',
+      cite: 'x/netting/keeper',
+    },
+  ],
+};
+
+function blindSpotsHtml(module) {
+  const rows = BLIND_SPOTS[module] ?? [];
+  return `<div class="card">
+    <p class="lede">These are absences, not empty results.</p>
+    <p class="small muted">Everything else on this page is something the chain answered. Each of
+      the following is something it does not hold, or does not distinguish, or does not publish
+      over this interface — and a screen that let any of them render as "nothing to show" would
+      have told a supervisor the opposite of the truth.</p>
+    <div class="y-scroll" style="margin-top:var(--sp-4)">
+      <table class="y-data">
+        <thead><tr><th>Not visible here</th><th>Why</th><th>Where it can be got</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr>
+          <td><strong>${esc(r.what)}</strong>
+            <p class="small muted mono" style="margin-top:var(--sp-1)">${esc(r.cite)}</p></td>
+          <td class="small">${esc(r.why)}</td>
+          <td class="small">${esc(r.where)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
 }
 
 function signingHtml(module) {
@@ -1399,60 +1820,140 @@ function nettingHtml(reads) {
           reassigned or cancelled, and there is no path that gives up on it.</p>
       </div>`;
 
+  // The obligations that have actually entered the open window, summed across
+  // currencies. Counted rather than assumed: an outcome list with entries and
+  // an outcome list without them are the difference between a window that is
+  // holding money and one that is not, and the banner above does not say which.
+  const obligations = (cy.outcomes || [])
+    .reduce((n, o) => n + Number(o.obligation_count || 0), 0);
+
+  const band = `<div class="y-kpis">
+    ${kpi({
+      label: 'Current cycle', tone: Number(cy.status) === 3 ? 'bad' : 'mute',
+      value: `#${esc(String(cy.id))}`, unit: O.cycleStatusName(cy.status),
+      hint: `opened at height ${esc(String(cy.opened_at_height))}. ${cycle.value.closes_at_height
+        ? `Closes at height ${esc(String(cycle.value.closes_at_height))}.`
+        : 'Netting is off, so the query reports no closing height rather than computing one.'}`,
+    })}
+    ${kpi({
+      label: 'Cycle length', tone: params.cycle_blocks ? 'ok' : 'warn',
+      value: params.cycle_blocks ? esc(String(params.cycle_blocks)) : 'off',
+      unit: params.cycle_blocks ? 'blocks' : '', words: !params.cycle_blocks,
+      hint: params.cycle_blocks
+        ? `${estimate(params.cycle_blocks)} between closes`
+        : 'cycle_blocks is zero, so the end blocker returns before it closes anything and every '
+          + 'payment settles gross out of the sender\'s own balance',
+    })}
+    ${kpi({
+      label: 'Currencies netted', tone: (params.denom_policies || []).length ? 'ok' : 'mute',
+      value: (params.denom_policies || []).length || 'none',
+      words: !(params.denom_policies || []).length,
+      hint: (params.denom_policies || []).length
+        ? 'each with its own threshold, above which a payment settles gross instead'
+        : 'no policy means gross, and the chain will not infer one',
+    })}
+    ${kpi({
+      label: 'Obligations in this window', tone: obligations ? 'warn' : 'mute',
+      value: obligations || 'none', words: !obligations,
+      hint: obligations
+        ? 'submitted for netting into the open cycle and not yet settled'
+        : 'the cycle record holds no per-currency outcome, so nothing has been submitted into it',
+    })}
+    ${kpiRead(slices, {
+      label: 'Held slices',
+      missing: 'HeldSlices did not answer, so this console cannot say whether a currency\'s '
+        + 'positions have failed to settle.',
+      figure: (v) => {
+        const n = (v.held || []).length;
+        return {
+          value: n || 'none', words: !n, tone: n ? 'bad' : 'ok',
+          hint: n
+            ? 'retried unchanged at every cycle boundary; nothing gives up on one'
+            : 'an empty held set, which is what a healthy chain shows',
+        };
+      },
+    })}
+  </div>`;
+
   return `
     <section class="block">
       <p class="y-eyebrow">The settlement window</p>
       <h2>Where the cycle stands</h2>
-      ${staleNote(netParams)}${staleNote(cycle)}${banner}
-      ${gap}
+      ${staleNote(netParams)}${staleNote(cycle)}
     </section>
+    ${band}
+    ${folders('net', [
+      {
+        // Not "Where the cycle stands" — that is the heading above the band and
+        // a folder repeating it reads as the same thing twice.
+        id: 'window', label: 'The window now',
+        html: `<section class="block">${banner}${gap}</section>`,
+      },
+      {
+        id: 'cycle', label: 'The current cycle',
+        html: `<section class="block"><h2>The current cycle</h2>${cycleCard}</section>`,
+      },
+      {
+        id: 'tiers', label: 'Tiers',
+        count: (params.denom_policies || []).length,
+        html: `<section class="block">
+          <h2>Tiers</h2>
+          <p class="lede">Two tiers, and the sender never picks. A payment at or above the
+            threshold for its currency settles gross, immediately, out of the sender's own balance.
+            Below it, the payment joins the cycle and settles net against everything else at the
+            close.</p>
+          ${policies}
+        </section>`,
+      },
+      {
+        id: 'collateral', label: 'Collateral and exposure',
+        html: `<section class="block">
+          <h2>Collateral and exposure</h2>
+          <p class="lede">Collateral is posted before anything can be owed, and what a participant
+            may owe is bounded by what they have posted. The cap is on the net position rather than
+            on the individual payment.</p>
+          <div class="card">
+            <form class="lookup" id="pos-form">
+              <input id="pos-input" type="text" spellcheck="false"
+                placeholder="A participant address, to read their posted collateral and exposure"
+                aria-label="Participant address">
+              <button class="btn" type="submit">Read position</button>
+            </form>
+            <div id="pos-out"><p class="small muted">Nothing is read until an address is given.
+              There is no participant directory in this module's query service, so this console
+              cannot list them — it can only answer about one you name. That limit, and the two
+              others like it, are set out under “Limits of this view”.</p></div>
+          </div>
+        </section>`,
+      },
+      {
+        id: 'held', label: 'The day a window does not clear',
+        count: slices.ok ? (slices.value.held || []).length : '?',
+        html: `<section class="block">
+          <h2>The day a window does not clear</h2>
+          ${staleNote(slices)}${heldCard}
+        </section>`,
+      },
+      {
+        id: 'limits', label: 'Limits of this view',
+        count: (BLIND_SPOTS.netting || []).length,
+        html: `<section class="block">
+          <h2>What the chain refuses</h2>
+          ${refusalsHtml('netting')}
+        </section>
 
-    <section class="block">
-      <h2>The current cycle</h2>
-      ${cycleCard}
-    </section>
+        <section class="block">
+          <h2>What this console cannot show you</h2>
+          ${blindSpotsHtml('netting')}
+        </section>
 
-    <section class="block">
-      <h2>Tiers</h2>
-      <p class="lede">Two tiers, and the sender never picks. A payment at or above the threshold for
-        its currency settles gross, immediately, out of the sender's own balance. Below it, the
-        payment joins the cycle and settles net against everything else at the close.</p>
-      ${policies}
-    </section>
-
-    <section class="block">
-      <h2>Collateral and exposure</h2>
-      <p class="lede">Collateral is posted before anything can be owed, and what a participant may owe
-        is bounded by what they have posted. The cap is on the net position rather than on the
-        individual payment.</p>
-      <div class="card">
-        <form class="lookup" id="pos-form">
-          <input id="pos-input" type="text" spellcheck="false"
-            placeholder="A participant address, to read their posted collateral and exposure"
-            aria-label="Participant address">
-          <button class="btn" type="submit">Read position</button>
-        </form>
-        <div id="pos-out"><p class="small muted">Nothing is read until an address is given. There is
-          no participant directory in this module's query service, so this console cannot list them —
-          it can only answer about one you name.</p></div>
-      </div>
-    </section>
-
-    <section class="block">
-      <h2>The day a window does not clear</h2>
-      ${staleNote(slices)}${heldCard}
-    </section>
-
-    <section class="block">
-      <h2>What the chain refuses</h2>
-      ${refusalsHtml('netting')}
-    </section>
-
-    <section class="block">
-      <h2>Who may sign what</h2>
-      <p class="lede">This console reads and never writes.</p>
-      ${signingHtml('netting')}
-    </section>`;
+        <section class="block">
+          <h2>Who may sign what</h2>
+          <p class="lede">This console reads and never writes.</p>
+          ${signingHtml('netting')}
+        </section>`,
+      },
+    ])}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1536,6 +2037,103 @@ async function lookupPosition(participant) {
 // Rendering.
 // ---------------------------------------------------------------------------
 
+/**
+ * The state of the two registers, as figures, above the argument.
+ *
+ * Five reads, five tiles, and each tile carries the state of its own read. The
+ * seizure count is the one that matters most and the one most easily
+ * misreported: "0 of 3 this window" and "the window query did not answer" are
+ * opposite facts about whether anybody could take anything today.
+ */
+function enforcementBand(r, params) {
+  return `<div class="y-kpis">
+    ${kpiRead(r.freezes, {
+      label: 'Accounts frozen now',
+      missing: 'ListFreeze did not answer, so this console cannot say whether any account is '
+        + 'stopped from moving its own money.',
+      figure: (v) => {
+        const n = (v.freeze || []).length;
+        return {
+          value: n || 'none', words: !n, tone: n ? 'warn' : 'ok',
+          hint: n
+            ? 'each stopped from sending and still able to receive; a freeze never takes anything'
+            : 'the register answered and holds no freeze order',
+        };
+      },
+    })}
+    ${kpiRead(r.open, {
+      label: 'Cases open',
+      missing: 'OpenCases did not answer, so this console cannot say whether anybody\'s funds are '
+        + 'being voted on.',
+      figure: (v) => {
+        const n = (v.case || []).length;
+        return {
+          value: n || 'none', words: !n, tone: n ? 'bad' : 'ok',
+          hint: n ? 'being voted on right now' : 'nobody\'s funds are being voted on',
+        };
+      },
+    })}
+    ${kpiRead(r.window, {
+      label: 'Seizures this window',
+      missing: 'SeizureWindow did not answer, so this console cannot say how much headroom the '
+        + 'rolling cap has left — which is the figure that decides whether a seizure could be '
+        + 'carried out at all today.',
+      figure: (v) => {
+        const h = O.windowHeadroom(v);
+        return {
+          value: String(h.count), unit: `of ${h.maxCount}`,
+          tone: h.countExhausted ? 'bad' : 'ok',
+          hint: `in the last ${esc(String(params.seizure_window_blocks))} blocks
+            ${estimate(params.seizure_window_blocks)}, rolling. ${h.countExhausted
+              ? 'Exhausted: a seizure decided now waits for the window to move.'
+              : 'The count cap binds every currency, including one issued after the parameters '
+                + 'were last set.'}`,
+        };
+      },
+    })}
+    ${kpiRead(r.recovered, {
+      label: 'Cases ever opened',
+      missing: 'Recovered did not answer, so this console cannot say whether the machinery has '
+        + 'ever been used.',
+      figure: (v) => {
+        const opened = Number(v.cases_opened);
+        return {
+          value: opened || 'none', words: !opened, tone: 'mute',
+          hint: opened
+            ? `since genesis, of which ${esc(String(v.cases_passed))} passed`
+            : 'the machinery below has never been exercised on this network, which is worth '
+              + 'knowing when reading the parameters as a promise',
+        };
+      },
+    })}
+    ${kpiRead(r.recovered, {
+      label: 'Taken since genesis',
+      missing: 'Recovered did not answer, so this console cannot say whether anything has ever '
+        + 'been seized.',
+      figure: (v) => {
+        const coins = v.total || [];
+        if (!coins.length) {
+          return {
+            value: 'nothing', words: true, tone: 'ok',
+            hint: 'the recovery total is empty: no seizure has ever moved anything on this chain',
+          };
+        }
+        if (coins.length === 1) {
+          return {
+            value: esc(O.amount({ amount: coins[0].amount })), unit: coins[0].denom, tone: 'bad',
+            hint: 'all of it sent to the recovery destination, which is the only address the '
+              + 'module can pay',
+          };
+        }
+        return {
+          value: String(coins.length), unit: 'currencies', tone: 'bad',
+          hint: esc(coins.map((c) => O.amount(c)).join(', ')),
+        };
+      },
+    })}
+  </div>`;
+}
+
 function renderEnforcement() {
   const r = state.reads;
   if (!r.enfParams.ok) {
@@ -1549,60 +2147,91 @@ function renderEnforcement() {
   const params = r.enfParams.value.params;
 
   $('view-enf').innerHTML = `
-    ${asymmetryHtml(params)}
+    ${enforcementBand(r, params)}
+    ${folders('enf', [
+      {
+        id: 'asymmetry', label: 'The asymmetry',
+        html: asymmetryHtml(params),
+      },
+      {
+        id: 'frozen', label: 'Frozen now',
+        count: r.freezes.ok ? (r.freezes.value.freeze || []).length : '?',
+        html: `<section class="block">
+          <h2>What is frozen right now</h2>
+          <p class="lede">A freeze stops an account sending. It does not stop it receiving, and it
+            never takes anything.</p>
+          ${staleNote(r.freezes)}${freezesHtml(r.freezes, params)}
+          <div class="card" style="margin-top:var(--sp-3)">
+            <form class="lookup" id="frz-form">
+              <input id="frz-input" type="text" spellcheck="false"
+                placeholder="Check any account address" aria-label="Account address">
+              <button class="btn" type="submit">Check</button>
+            </form>
+            <div id="frz-out"><p class="small muted">Anyone can check any account, without a key
+              and without an account. The register of who has been stopped from moving their own
+              money is not a thing this chain keeps private.</p></div>
+          </div>
+        </section>`,
+      },
+      {
+        id: 'cases', label: 'Cases',
+        count: r.open.ok ? (r.open.value.case || []).length : '?',
+        html: `<section class="block">
+          <h2>Cases, and where each stands</h2>
+          <p class="lede">Opening a case freezes the target immediately. Whether anything is taken
+            is decided by the validators afterwards, against the bar in each card.</p>
+          ${staleNote(r.open)}${casesHtml(r.open, r.held, r.cases, r.recovered, params)}
+        </section>`,
+      },
+      {
+        id: 'cap', label: 'The rolling cap',
+        html: `<section class="block">
+          <h2>The rolling cap</h2>
+          <p class="lede">The limit that makes mass expropriation arithmetically impossible rather
+            than merely unpopular.</p>
+          ${staleNote(r.window)}${windowHtml(r.window, params)}
+        </section>`,
+      },
+      {
+        id: 'offices', label: 'Offices and parameters',
+        html: `<section class="block">
+          <h2>The offices, and the parameters that bind them</h2>
+          ${staleNote(r.enfParams)}${officesHtml(params)}
+        </section>`,
+      },
+      {
+        // The refusals are the product of this console, so they get a folder
+        // with a name that says what a reader will find in it rather than one
+        // that sounds like an appendix. Three different kinds of "you will not
+        // see that here" live in it, and they are three separate areas inside
+        // it because they are not the same claim: the chain refuses to do a
+        // thing, the chain does not publish a thing, and this console will not
+        // sign a thing.
+        id: 'limits', label: 'Limits of this view',
+        count: (BLIND_SPOTS.enforcement || []).length,
+        html: `<section class="block">
+          <h2>What the chain refuses</h2>
+          <p class="lede">Each of these is enforced somewhere specific, and the badge says how
+            strongly. A rule pinned to x/constitution cannot be moved by a governance proposal; a
+            module rule can be changed by a binary upgrade, and a parameter by a vote. Flattening
+            those into “the chain refuses” would overstate the weakest of them.</p>
+          ${refusalsHtml('enforcement')}
+        </section>
 
-    <section class="block">
-      <h2>What is frozen right now</h2>
-      <p class="lede">A freeze stops an account sending. It does not stop it receiving, and it never
-        takes anything.</p>
-      ${staleNote(r.freezes)}${freezesHtml(r.freezes, params)}
-      <div class="card" style="margin-top:var(--sp-3)">
-        <form class="lookup" id="frz-form">
-          <input id="frz-input" type="text" spellcheck="false"
-            placeholder="Check any account address" aria-label="Account address">
-          <button class="btn" type="submit">Check</button>
-        </form>
-        <div id="frz-out"><p class="small muted">Anyone can check any account, without a key and
-          without an account. The register of who has been stopped from moving their own money is
-          not a thing this chain keeps private.</p></div>
-      </div>
-    </section>
+        <section class="block">
+          <h2>What this console cannot show you</h2>
+          ${blindSpotsHtml('enforcement')}
+        </section>
 
-    <section class="block">
-      <h2>Cases, and where each stands</h2>
-      <p class="lede">Opening a case freezes the target immediately. Whether anything is taken is
-        decided by the validators afterwards, against the bar below.</p>
-      ${staleNote(r.open)}${casesHtml(r.open, r.held, r.cases, r.recovered, params)}
-    </section>
-
-    <section class="block">
-      <h2>The rolling cap</h2>
-      <p class="lede">The limit that makes mass expropriation arithmetically impossible rather than
-        merely unpopular.</p>
-      ${staleNote(r.window)}${windowHtml(r.window, params)}
-    </section>
-
-    <section class="block">
-      <h2>The offices, and the parameters that bind them</h2>
-      ${staleNote(r.enfParams)}${officesHtml(params)}
-    </section>
-
-    <section class="block">
-      <h2>What the chain refuses</h2>
-      <p class="lede">Each of these is enforced somewhere specific, and the badge says how strongly.
-        A rule pinned to x/constitution cannot be moved by a governance proposal; a module rule can be
-        changed by a binary upgrade, and a parameter by a vote. Flattening those into “the chain
-        refuses” would overstate the weakest of them.</p>
-      ${refusalsHtml('enforcement')}
-    </section>
-
-    <section class="block">
-      <h2>Who may sign what</h2>
-      <p class="lede">This console reads and never writes. Every authority here is a validator's
-        operator key or an x/group policy account, and a button in a web page collapses an office's
-        procedure into a click nobody can audit afterwards.</p>
-      ${signingHtml('enforcement')}
-    </section>`;
+        <section class="block">
+          <h2>Who may sign what</h2>
+          <p class="lede">This console reads and never writes. Every authority here is a
+            validator's operator key or an x/group policy account, and a button in a web page
+            collapses an office's procedure into a click nobody can audit afterwards.</p>
+          ${signingHtml('enforcement')}
+        </section>`,
+      },
+    ])}`;
 
   const f = $('frz-form');
   if (f) f.addEventListener('submit', (e) => {
@@ -1633,6 +2262,19 @@ function showTab(which) {
 
 $('tab-enf').addEventListener('click', () => showTab('enf'));
 $('tab-net').addEventListener('click', () => showTab('net'));
+
+// The folder each mechanism was left on, restored before the first render so a
+// supervisor who reloads the page lands where they were rather than back at the
+// argument they have already read. Guarded like every other storage access on
+// this page: a private window throws rather than returning null.
+(() => {
+  for (const group of ['enf', 'net']) {
+    try {
+      const saved = localStorage.getItem(`yamale.oversight.folder.${group}`);
+      if (saved) state.folder[group] = saved;
+    } catch { /* private window */ }
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Theme. Three states: the explicit choice in either direction, and the
