@@ -197,3 +197,64 @@ export function placementRequest(args: {
 
   return { address, country, institution, document, command };
 }
+
+/**
+ * What a foundation administrator needs instead of a placement request.
+ *
+ * Not a country, and not a participant’s command. Such an account holds NO
+ * jurisdiction record at all: `Keeper.CountryOf` finds none, falls through to
+ * `hasFoundationGrant`, and answers `ZZ` — derived from the grant, never
+ * stored. `MsgSetJurisdiction` refuses `ZZ` outright, precisely so the marker
+ * cannot be handed to an ordinary account.
+ *
+ * So the honest output is the governance path. Once the role is granted the
+ * ordinary identifier claim works and issues a `ZZ`-prefixed ID; until then
+ * there is nothing the holder or any institution can do, because chain-wide
+ * scope may be granted by governance and by nobody else.
+ *
+ * The command is a proposal and not `tx alias grant-role`, because no such CLI
+ * command exists: `x/alias/module/autocli.go` skips `GrantRole` on purpose. A
+ * chain-wide grant is refused from every signer but the governance module
+ * account, so a `--from` could only ever name a key the chain rejects. Printing
+ * a command that cannot exist sends somebody to a shell to be told nothing
+ * useful; printing the proposal sends them to the only route there is.
+ */
+export function foundationPlacement(args: {
+  address: string;
+  chainId?: string;
+  bin?: string;
+}): { address: string; marker: string; document: string; command: string } {
+  const address = (args.address ?? '').trim();
+  const bin = args.bin ?? 'blockchaind';
+  const chainId = args.chainId ?? '';
+
+  const document = [
+    'FOUNDATION ADMINISTRATOR PLACEMENT',
+    '',
+    `account: ${address}`,
+    `marker:  ${FOUNDATION_COUNTRY}`,
+    chainId ? `chain:   ${chainId}` : '',
+    '',
+    'This account is not placed in a country and must not be. The marker',
+    `${FOUNDATION_COUNTRY} is derived from holding ROLE_FOUNDATION_ADMINISTRATOR and is never`,
+    'recorded; the chain refuses to record it as a jurisdiction.',
+    '',
+    'No institution can do this. The role is chain-wide, and a chain-wide scope',
+    'may be granted by governance and by nobody else. Once the grant passes,',
+    'this account can claim its identifier in the ordinary way and it will carry',
+    `the ${FOUNDATION_COUNTRY} prefix.`,
+  ].filter((line) => line !== '').join('\n');
+
+  const command = [
+    '# The chain offers no CLI command for this grant. It is a governance proposal.',
+    `ceremony administrators propose --dossier <appointment>.json \\`,
+    '  --chain-wide-grants chain-wide-grants.json --gov-account gov-account.json \\',
+    '  --deposit 1000000uyml',
+    '',
+    `${bin} tx gov submit-proposal appoint-<name>-proposal.json \\`,
+    `  --from <a governance proposer>${chainId ? ` --chain-id ${chainId}` : ''} \\`,
+    '  --gas 600000 --fees 20000uyml',
+  ].join('\n');
+
+  return { address, marker: FOUNDATION_COUNTRY, document, command };
+}
