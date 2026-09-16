@@ -14,11 +14,12 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fractionDenomParts, t } from '@yamale/chain';
+import { formatAmount, fractionDenomParts, t } from '@yamale/chain';
 
-import { entitlement, supplyOf, vehicle as fetchVehicle } from './chain.ts';
+import { entitlement, position as fetchPosition, supplyOf, vehicle as fetchVehicle } from './chain.ts';
 import { useBalances } from './data.ts';
 import { addressOf, type Account } from './address.ts';
+import { costOf, int, returnOn, type Cost, type ReturnView } from './position.ts';
 import { Amount, Chip, Empty, Loading, Percent, Unreachable, Kpi, KpiBand} from './ui.tsx';
 import {
   bpsToPercent,
@@ -48,6 +49,12 @@ interface Row {
   funded: string;
   /** The denomination that vault pays in. */
   incomeDenom: string;
+  /** What this holding cost, split into the covered and uncovered parts. */
+  cost: Cost;
+  /** What the covered part has returned. Null figures carry their own reason. */
+  ret: ReturnView;
+  /** Set when the position could not be read, so "not recorded" is not implied. */
+  costUnknown: boolean;
 }
 
 function useHoldingRows(address: string): { loading: boolean; rows: Row[] } {
@@ -69,14 +76,20 @@ function useHoldingRows(address: string): { loading: boolean; rows: Row[] } {
 
     setLoading(true);
     Promise.all(shares.map(async ({ coin, parts }) => {
-      const [record, supply, owed] = await Promise.all([
+      const [record, supply, owed, position] = await Promise.all([
         fetchVehicle(parts.assetId),
         supplyOf(coin.denom),
         entitlement(parts.assetId, address),
+        fetchPosition(parts.assetId, address),
       ]);
 
       const desc = descriptorOf(record.ok ? record.value.asset.uri : '');
       const vault = record.ok ? record.value.vault : null;
+
+      const cost = costOf(position.ok ? position.value : null, coin.amount);
+      // owed is passed as null when the query failed, so a network error reads
+      // as "not known" rather than as a return of zero.
+      const ret = returnOn(cost, owed.ok ? owed.value.amount : null, coin.amount);
 
       return {
         assetId: parts.assetId,
@@ -97,6 +110,9 @@ function useHoldingRows(address: string): { loading: boolean; rows: Row[] } {
         // holder they are owed nothing because a query timed out is the truth
         // about the network and a lie about their money.
         owedUnknown: !owed.ok && owed.reason === 'unreachable',
+        cost,
+        ret,
+        costUnknown: !position.ok,
       } satisfies Row;
     })).then((out) => {
       if (!live) return;
@@ -170,6 +186,45 @@ export function Holdings({ account }: { account: Account }) {
     .map(([denom, amount]) => ({ denom, amount: amount.toString() }))
     .sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
 
+  // Invested and returned, PER CURRENCY and over the COVERED part only.
+  //
+  // Per currency for the reason the claimable subtotal is: a portfolio spanning
+  // two currencies has no single total, and one would be a figure true of
+  // nothing. Over the covered part only because the whole rule of this feature
+  // is that a known cost is never averaged with an unknown one -- a holding
+  // whose basis covers half its tokens contributes that half's cost and that
+  // half's income, and its other half contributes to neither.
+  //
+  // A row whose position could not be read contributes nothing and is counted
+  // in `costUnread` instead, so a timed-out query cannot quietly deflate the
+  // denominator and inflate the portfolio's return.
+  const investedByDenom = new Map<string, bigint>();
+  const returnedByDenom = new Map<string, bigint>();
+  let noCostRecorded = 0;
+  let costUnread = 0;
+  for (const r of rows) {
+    if (r.costUnknown) { costUnread++; continue; }
+    if (r.cost.state === 'none') { noCostRecorded++; continue; }
+    const denom = r.owed?.denom || r.incomeDenom;
+    if (!denom) continue;
+    investedByDenom.set(denom, (investedByDenom.get(denom) ?? 0n) + int(r.cost.basis));
+    returnedByDenom.set(denom, (returnedByDenom.get(denom) ?? 0n) + int(r.ret.income));
+  }
+  const invested = [...investedByDenom.entries()]
+    .map(([denom, amount]) => ({ denom, amount: amount.toString() }))
+    .sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1));
+
+  // One percentage per currency. A ratio taken across currencies would divide
+  // francs by dollars, which is not a smaller number than the right one -- it
+  // is not a number at all.
+  const returns = [...investedByDenom.entries()]
+    .filter(([, basis]) => basis > 0n)
+    .map(([denom, basis]) => ({
+      denom,
+      percent: Number(((returnedByDenom.get(denom) ?? 0n) * 1_000_000n) / basis) / 1_000_000 * 100,
+    }))
+    .sort((x, y) => y.percent - x.percent);
+
   // Concentration of the investor's OWN portfolio: the largest single position
   // as a share of everything they hold, measured in the income each throws off
   // rather than in token counts, which are not comparable across tokenisations.
@@ -191,13 +246,19 @@ export function Holdings({ account }: { account: Account }) {
         <p className="page__lede">{t('rwa.holdLede')}</p>
       </header>
 
-      {/* The portfolio, before the table of it.
-          Every figure is read from the chain. There is deliberately no RETURN
-          percentage: a return needs a cost, the chain records what an account
-          holds and never what it paid, and a percentage computed against an
-          assumed entry price would be the one number on this page that nobody
-          could check. What is shown instead is what the vaults have paid and
-          what this account can take out of them, which are facts. */}
+      {/* The portfolio, before the table of it. Every figure is read from the
+          chain.
+
+          A RETURN now appears here, and until today it could not: the chain
+          recorded what an account held and never what it paid, so any
+          percentage would have been computed against an assumed entry price.
+          x/tokenisation's Position carries `cost_basis` and `cost_qty`, so the
+          denominator is now a fact somebody stated on the chain rather than one
+          this page invented.
+
+          What is still NOT shown is a yield or a valuation. Nothing on this
+          chain knows what a token is worth until a sale is reported, so a
+          portfolio "value" would be the one invented number on the page. */}
       {rows.length > 0 && (
         <KpiBand>
           <Kpi
@@ -216,6 +277,33 @@ export function Holdings({ account }: { account: Account }) {
                 </span>}
             tone={claimable.some((c) => BigInt(c.amount) > 0n) ? 'ok' : undefined}
             hint={anyUnknown ? t('rwa.pfClaimablePartial') : t('rwa.pfClaimableHint')}
+          />
+          <Kpi
+            label={t('rwa.pfInvested')}
+            value={invested.length === 0
+              ? t('rwa.cost.notRecordedShort')
+              : <span className="kpi__stack">
+                  {invested.map((c) => (
+                    <span key={c.denom}><Amount amount={c.amount} denom={c.denom} /></span>
+                  ))}
+                </span>}
+            hint={noCostRecorded > 0
+              ? t('rwa.pfInvestedPartial', { n: noCostRecorded })
+              : t('rwa.pfInvestedHint')}
+          />
+          <Kpi
+            label={t('rwa.pfReturn')}
+            value={returns.length === 0
+              ? '—'
+              : <span className="kpi__stack">
+                  {returns.map((r) => (
+                    <span key={r.denom}><Percent value={r.percent} places={2} /></span>
+                  ))}
+                </span>}
+            tone={returns.some((r) => r.percent > 0) ? 'ok' : undefined}
+            hint={costUnread > 0
+              ? t('rwa.pfReturnUnread', { n: costUnread })
+              : t('rwa.pfReturnHint')}
           />
           <Kpi
             label={t('rwa.pfAttributed')}
@@ -253,6 +341,8 @@ export function Holdings({ account }: { account: Account }) {
                 <th scope="col" className="num">{t('rwa.ofShares')}</th>
                 <th scope="col" className="num">{t('rwa.ofAsset')}</th>
                 <th scope="col" className="num">{t('rwa.claimableNow')}</th>
+                <th scope="col" className="num">{t('rwa.cost.paidShort')}</th>
+                <th scope="col" className="num">{t('rwa.cost.returnShort')}</th>
               </tr>
             </thead>
             <tbody>
@@ -282,6 +372,36 @@ export function Holdings({ account }: { account: Account }) {
                       {r.owedUnknown
                         ? <span className="muted">{t('rwa.owedUnknown')}</span>
                         : <Amount amount={r.owed?.amount ?? null} denom={r.owed?.denom ?? ''} />}
+                    </td>
+                    {/* Cost and return, side by side and never merged into one
+                        "profit" column. A holding with no recorded cost says so
+                        in the cost cell and shows nothing in the return cell —
+                        a dash in both would read as a return of zero on a cost
+                        of zero, which is the one reading that must not happen. */}
+                    <td className="num">
+                      {r.costUnknown
+                        ? <span className="muted">{t('rwa.cost.unreadableShort')}</span>
+                        : r.cost.state === 'none'
+                          ? <span className="muted">{t('rwa.cost.notRecordedShort')}</span>
+                          : (
+                            <>
+                              <Amount amount={r.cost.basis} denom={r.incomeDenom} />
+                              {r.cost.state === 'partial' && (
+                                <span className="holdings__aside">
+                                  {t('rwa.cost.partialShort', {
+                                    tokens: formatAmount(r.cost.uncovered, r.denom),
+                                  })}
+                                </span>
+                              )}
+                            </>
+                          )}
+                    </td>
+                    <td className="num">
+                      {r.ret.percent === null
+                        ? <span className="muted">
+                            {r.ret.whyKey ? t(r.ret.whyKey) : t('rwa.cost.notRecordedShort')}
+                          </span>
+                        : <Percent value={r.ret.percent} places={2} />}
                     </td>
                   </tr>
                 );

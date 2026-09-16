@@ -16,6 +16,8 @@ import {
   truncateAddress,
 } from '@yamale/chain';
 
+import { shortDigest } from './covenant.ts';
+
 /* --------------------------------------------------------------- amounts */
 
 /**
@@ -106,6 +108,91 @@ export function Address({ value, label }: { value: string; label?: string }) {
         {open ? t('app.hide') : t('app.reveal')}
       </button>
     </span>
+  );
+}
+
+/**
+ * A copy button that says it worked.
+ *
+ * Split out of `Address` because a digest and a shell command need the same
+ * behaviour and the same fallback: `navigator.clipboard` is refused on insecure
+ * origins and inside several in-app browsers, which this demo is read in.
+ */
+export function CopyButton({ value, label, className = '' }: {
+  value: string;
+  label: ReactNode;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = value;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      el.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <button type="button" className={`copybtn ${className}`} onClick={copy}
+            aria-label={`${t('app.copy')}: ${value}`}>
+      {copied ? t('rwa.copied') : label}
+      <span className="copybtn__ico" aria-hidden="true">{copied ? '✓' : '⧉'}</span>
+    </button>
+  );
+}
+
+/**
+ * A SHA-256 digest: short on the line, whole within reach, and checkable.
+ *
+ * Three things, and each is there because leaving it out breaks the proof:
+ *
+ *   - The SHORT form is a label. Sixty-four hex characters set in a table cell
+ *     is a wall nobody reads, so what is shown is both ends of it.
+ *   - The WHOLE digest is one click away and copyable. A truncated digest
+ *     cannot be compared against anything — it is decoration that looks like
+ *     evidence, which is worse than showing none.
+ *   - The COMMAND is what turns the digest into a check somebody actually
+ *     performs. `sha256sum --check` exits non-zero and says so in words when the
+ *     file is not the filing; a bare `sha256sum` prints a hash and leaves a
+ *     human eye to compare 64 characters, which is the step everybody skips.
+ *
+ * The digest is the one thing on this page that proves anything at all: it says
+ * a document with these contents existed at this block and was published by the
+ * party that controls the collection. It proves nothing about whether the
+ * accounts are true — see the panel's own note.
+ */
+export function Digest({ hex, command }: { hex: string; command: string }) {
+  if (!hex) return <span className="amount--empty">{EMPTY_AMOUNT}</span>;
+
+  return (
+    <div className="digest">
+      <div className="digest__line">
+        <CopyButton value={hex} label={<span className="y-mono">{shortDigest(hex)}</span>}
+                    className="copybtn--mono" />
+      </div>
+      <details className="digest__more">
+        <summary className="digest__summary">{t('rwa.cov.verifyHow')}</summary>
+        <div className="digest__body">
+          <p className="digest__label y-label">{t('rwa.cov.digestFull')}</p>
+          {/* Breaking is correct HERE and only here: this is a hash, not a
+              figure, and every character has to be visible to be compared. */}
+          <p className="digest__full y-mono">{hex}</p>
+
+          <p className="digest__label y-label">{t('rwa.cov.verifyCmd')}</p>
+          <pre className="digest__cmd y-mono">{command}</pre>
+          <CopyButton value={command} label={t('rwa.cov.copyCmd')} />
+          <p className="digest__note">{t('rwa.cov.verifyNote')}</p>
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -318,7 +405,7 @@ export function KpiBand({ children }: { children: ReactNode }) {
  * again with extra clicks.
  */
 export function Folders({ tabs, active, onSelect }: {
-  tabs: { id: string; label: string; count?: number | null }[];
+  tabs: { id: string; label: string; count?: number | null; flag?: boolean }[];
   active: string;
   onSelect: (id: string) => void;
 }) {
@@ -337,6 +424,17 @@ export function Folders({ tabs, active, onSelect }: {
           {tab.count !== null && tab.count !== undefined
             ? <span className="folder__count">{tab.count}</span>
             : null}
+          {/*
+            A folder holding something with a deadline says so on its tab. A
+            reader who never opens it is exactly the reader who misses the
+            assembly, and the label alone gives them no reason to.
+
+            The dot carries a text alternative rather than colour alone, which
+            is the same rule Chip follows.
+          */}
+          {tab.flag ? (
+            <span className="folder__flag" role="img" aria-label={t('rwa.cov.tabFlag')}>●</span>
+          ) : null}
         </button>
       ))}
     </div>

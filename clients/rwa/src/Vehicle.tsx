@@ -25,11 +25,28 @@ import { formatAmount, t, useLocale, resolveDenom,} from '@yamale/chain';
 import { ClaimDialog, DisputeDialog, RedeemDialog } from './Act.tsx';
 import { GradeChip } from './Vehicles.tsx';
 import { addressOf, canSign, type Account } from './address.ts';
-import { useCollections, useHolders, useHolding, useLand, useVehicle } from './data.ts';
+import {
+  chainNow, useCollections, useCovenants, useHead, useHolders, useHolding, useLand, useVehicle,
+  type Load,
+} from './data.ts';
 import { formatDate, formatDuration } from './duration.ts';
+import {
+  covenantTone,
+  deadlineOf,
+  hasPeriod,
+  isSuperseded,
+  kindKey,
+  obligationKey,
+  openDeadlines,
+  orderCovenants,
+  verifyCommand,
+  type Covenant,
+} from './covenant.ts';
+import { costOf, pendingAccrual, returnOn } from './position.ts';
 import {
   Address,
   Amount,
+  Digest,
   Donut,
   Folders,
   Kpi,
@@ -52,6 +69,7 @@ import {
   bpsToPercent,
   descriptorOf,
   dilutionProtected,
+  isRealId,
   parcelStatusKey,
   parcelTone,
   protectionOf,
@@ -434,6 +452,354 @@ function CapTable({ cap, supply, sponsor, denom }: {
   );
 }
 
+/* ------------------------------------------------------ what it cost me */
+
+/**
+ * What this holding cost and what it has returned on that cost.
+ *
+ * The three refusals here are the content. A holding with no recorded basis
+ * says so and shows no percentage; a holding recorded at a price of nothing
+ * says THAT, which is a different fact; and a partly covered holding reports
+ * its return on the covered part with the uncovered part stated beside it,
+ * never folded in.
+ *
+ * The return is also named for what it is. MsgClaim zeroes `accrued` and keeps
+ * no running total of what an account has withdrawn, so income already taken is
+ * not on the chain and this figure is a FLOOR for anybody who has ever claimed.
+ * Calling it "return" flat would be a lie in the direction that looks like
+ * modesty.
+ */
+function CostBlock({ cost, ret, unknown, incomeDenom, shareDenom }: {
+  cost: ReturnType<typeof costOf>;
+  ret: ReturnType<typeof returnOn>;
+  unknown: boolean;
+  incomeDenom: string;
+  shareDenom: string;
+}) {
+  if (unknown) {
+    // Not the same as "no cost recorded". Saying the chain has forgotten what
+    // somebody paid, when it simply was not asked, sends them looking for a
+    // fault that is not there.
+    return (
+      <div className="cost">
+        <h4 className="panel__sub">{t('rwa.cost.title')}</h4>
+        <Note tone="warn">{t('rwa.cost.unreadable')}</Note>
+      </div>
+    );
+  }
+
+  if (cost.state === 'none') {
+    return (
+      <div className="cost">
+        <h4 className="panel__sub">{t('rwa.cost.title')}</h4>
+        <Note tone="mute" title={t('rwa.cost.notRecordedTitle')}>
+          {t('rwa.cost.notRecordedBody')}
+        </Note>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cost">
+      <h4 className="panel__sub">{t('rwa.cost.title')}</h4>
+      <Fields>
+        <Field label={t('rwa.cost.paid')}>
+          <Amount amount={cost.basis} denom={incomeDenom} />
+        </Field>
+        <Field label={t('rwa.cost.forTokens')}>
+          <Amount amount={cost.covered} denom={shareDenom} />
+        </Field>
+        <Field label={t('rwa.cost.income')}>
+          {ret.income === null
+            ? <span className="muted">{ret.whyKey ? t(ret.whyKey) : '—'}</span>
+            : <Amount amount={ret.income} denom={incomeDenom} />}
+        </Field>
+        <Field label={t('rwa.cost.return')}>
+          {ret.percent === null
+            ? <span className="muted">{ret.whyKey ? t(ret.whyKey) : '—'}</span>
+            : (
+              <>
+                <Percent value={ret.percent} places={2} />
+                <span className="field__aside">{t('rwa.cost.returnFloor')}</span>
+              </>
+            )}
+        </Field>
+      </Fields>
+
+      {/*
+        The uncovered part, stated rather than averaged away. Nine million
+        tokens of which five were subscribed and four arrived as a plain
+        transfer is the ORDINARY case, and an interface that divided the known
+        cost across all nine would report a price nobody paid.
+      */}
+      {cost.state === 'partial' && (
+        <Note tone="warn" title={t('rwa.cost.partialTitle')}>
+          {t('rwa.cost.partialBody', { tokens: formatAmount(cost.uncovered, shareDenom) })}
+        </Note>
+      )}
+
+      {cost.zeroCost && (
+        <Note tone="mute" title={t('rwa.cost.zeroTitle')}>{t('rwa.cost.zeroBody')}</Note>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------- what is accruing right now */
+
+/**
+ * Income accruing in the current period, which is not money yet.
+ *
+ * Shown in its own units and never converted. The keeper's comment is the
+ * specification and it is worth repeating where somebody might be tempted:
+ * "An interface that converted them at the last period's rate would be
+ * publishing a forecast beside a settled figure in the same units, and a reader
+ * cannot tell those apart once they are both in dollars."
+ *
+ * So there are two figures and neither is a currency: how long this balance has
+ * been accruing in the open period, which is the one a person has intuitions
+ * about, and the exact token-seconds behind it, which is the quantity the
+ * keeper will actually divide the distribution over.
+ */
+function AccrualBlock({ pending, now, incomeDenom }: {
+  pending: ReturnType<typeof pendingAccrual>;
+  now: Date;
+  incomeDenom: string;
+}) {
+  const locale = useLocale();
+  const seconds = BigInt(pending.tokenSeconds);
+
+  return (
+    <div className="accrual">
+      <h4 className="panel__sub">{t('rwa.accrual.title')}</h4>
+
+      <p className="accrual__period">
+        <span className="accrual__periodName">
+          {pending.first
+            ? t('rwa.accrual.firstPeriod')
+            : t('rwa.accrual.period', { n: pending.periodIndex })}
+        </span>
+        {pending.periodStart > 0 && (
+          <span className="accrual__periodSince">
+            {t('rwa.accrual.since', {
+              when: formatDate(new Date(pending.periodStart * 1000), locale),
+            })}
+          </span>
+        )}
+      </p>
+
+      {seconds <= 0n ? (
+        <p className="muted">{t('rwa.accrual.none')}</p>
+      ) : (
+        <Fields>
+          <Field label={t('rwa.accrual.timeHeld')}>
+            <span className="y-num">
+              {pending.heldSeconds === null
+                ? '—'
+                : formatDuration(pending.heldSeconds, locale)}
+            </span>
+          </Field>
+          <Field label={t('rwa.accrual.tokenSeconds')}>
+            {/*
+              A raw integer with its own unit attached, deliberately NOT run
+              through Amount: Amount resolves a denom and applies an exponent,
+              and a token-second is neither a token nor a currency. Rendering it
+              through the money formatter is how it would silently acquire a
+              currency symbol.
+            */}
+            <span className="y-num y-mono accrual__figure">
+              {seconds.toLocaleString(locale)}
+            </span>
+            <span className="field__aside">{t('rwa.accrual.tokenSecondsUnit')}</span>
+          </Field>
+        </Fields>
+      )}
+
+      <Note tone="mute" title={t('rwa.accrual.notMoneyTitle')}>
+        {t('rwa.accrual.notMoneyBody', { denom: resolveDenom(incomeDenom).symbol })}
+      </Note>
+
+      {/* The clock this was measured against. A pending figure is an integral
+          up to "now", so which "now" was used is part of the figure. */}
+      <p className="accrual__at y-mono">
+        {t('rwa.accrual.measuredAt', { when: formatDate(now, locale) })}
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------- what has been published */
+
+/**
+ * One filing.
+ *
+ * The layout carries the distinction the whole panel exists for. A filing that
+ * asks something of the reader leads with a DATE and a countdown, set as a
+ * block they cannot scroll past; one that asks nothing leads with what it is
+ * and what period it covers. They are not the same shape, because they are not
+ * the same kind of fact — "an assembly notice is something a holder can MISS;
+ * accounts are something they read".
+ *
+ * A superseded filing keeps every one of its fields and loses its emphasis. It
+ * is never hidden: a dispute is usually about what was said at a date, and a
+ * register that showed only the current version could not answer that.
+ */
+function CovenantCard({ covenant, now }: { covenant: Covenant; now: Date }) {
+  const locale = useLocale();
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+  const deadline = deadlineOf(covenant, nowSeconds);
+  const superseded = isSuperseded(covenant);
+  const tone = covenantTone(covenant, deadline);
+
+  return (
+    <article className={`filing${superseded ? ' filing--superseded' : ''}`}>
+      <header className="filing__head">
+        <Chip tone={tone}>{t(kindKey(covenant.kind))}</Chip>
+        <h4 className="filing__title">{covenant.title}</h4>
+        {superseded && (
+          <Chip tone="mute">
+            {t('rwa.cov.supersededBy', { id: covenant.supersededBy })}
+          </Chip>
+        )}
+      </header>
+
+      {/*
+        The deadline, when there is one. Set as its own block above everything
+        else on the card rather than as one more label/value row, because a row
+        reading "Acts by: 4 October" among six other rows is exactly as easy to
+        skip as the row above it — which is the failure the chain added the
+        field to prevent.
+      */}
+      {deadline.state !== 'none' && (
+        <div className={`filing__deadline filing__deadline--${superseded ? 'mute' : deadline.state}`}>
+          <span className="y-label">{t(obligationKey(deadline.state))}</span>
+          <span className="filing__by">{formatDate(new Date(deadline.at * 1000), locale)}</span>
+          <span className="filing__left">
+            {deadline.state === 'open'
+              ? t('rwa.cov.timeLeft', { time: formatDuration(deadline.remainingSeconds, locale) })
+              : t('rwa.cov.deadlineGone')}
+          </span>
+          {superseded && <span className="filing__left">{t('rwa.cov.deadlineCorrected')}</span>}
+        </div>
+      )}
+
+      <Fields>
+        {hasPeriod(covenant) ? (
+          <Field label={t('rwa.cov.period')}>
+            {t('rwa.cov.periodSpan', {
+              from: formatDate(new Date(covenant.periodStart * 1000), locale),
+              to: formatDate(new Date(covenant.periodEnd * 1000), locale),
+            })}
+          </Field>
+        ) : (
+          <Field label={t('rwa.cov.period')}>
+            <span className="muted">{t('rwa.cov.aMoment')}</span>
+          </Field>
+        )}
+        <Field label={t('rwa.cov.publishedBy')}><Address value={covenant.publishedBy} /></Field>
+        <Field label={t('rwa.cov.publishedAt')}>
+          {formatDate(new Date(covenant.publishedAt * 1000), locale)}
+        </Field>
+        {isRealId(covenant.supersedes) && (
+          <Field label={t('rwa.cov.corrects')}>
+            <span className="y-mono">#{covenant.supersedes}</span>
+          </Field>
+        )}
+        <Field label={t('rwa.cov.digest')} wide>
+          <Digest hex={covenant.digest} command={verifyCommand(covenant.digest, covenant.uri)} />
+        </Field>
+        <Field label={t('rwa.cov.where')} wide>
+          {covenant.uri
+            ? <span className="y-mono filing__uri">{covenant.uri}</span>
+            : <span className="muted">{t('rwa.cov.noUri')}</span>}
+        </Field>
+      </Fields>
+    </article>
+  );
+}
+
+/**
+ * The register of undertakings.
+ *
+ * Lives in the Documents folder beside the asset's manifest digest, which is
+ * the thing it replaces in practice: the manifest is one string fixed at mint,
+ * and "an operating business publishes for as long as it exists".
+ *
+ * The three outcomes of the read stay distinct. "Nothing has been filed" is an
+ * accusation against an operator, and printing it because a node did not answer
+ * would make that accusation against one who may have filed everything.
+ */
+function CovenantsPanel({ load, now }: { load: Load<Covenant[]>; now: Date }) {
+  const locale = useLocale();
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+
+  if (load.loading) {
+    return <Panel title={t('rwa.cov.title')}><Loading what={t('rwa.reading')} /></Panel>;
+  }
+
+  if (!load.outcome.ok) {
+    return (
+      <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.cov.title')}>
+        {/*
+          A refusal and a timeout need different sentences. The Covenants query
+          did not exist before this upgrade, so a node running the older binary
+          answers "unknown query path" — which is the chain saying it cannot
+          answer, not the network failing to carry the question, and a reader
+          owed an explanation deserves the right one.
+        */}
+        <Note tone="warn" title={t('rwa.cov.unreadableTitle')}>
+          {load.outcome.reason === 'unreachable'
+            ? t('rwa.cov.unreadableNetwork')
+            : t('rwa.cov.unreadableModule')}
+        </Note>
+      </Panel>
+    );
+  }
+
+  const all = load.outcome.value;
+  if (all.length === 0) {
+    return (
+      <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.cov.title')}>
+        <p className="panel__lede">{t('rwa.cov.empty')}</p>
+        <Note tone="mute">{t('rwa.cov.emptyWhy')}</Note>
+      </Panel>
+    );
+  }
+
+  const ordered = orderCovenants(all, nowSeconds);
+  const open = openDeadlines(all, nowSeconds);
+
+  return (
+    <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.cov.title')}>
+      <p className="panel__lede">{t('rwa.cov.lede')}</p>
+
+      {/*
+        The banner exists because a holder who opens this folder at all is
+        usually looking for the accounts, and the thing that can cost them
+        something is the item they were not looking for.
+      */}
+      {open.length > 0 && (
+        <Note tone="warn" title={t('rwa.cov.actionTitle')}>
+          {t('rwa.cov.actionBody', {
+            title: open[0]!.title,
+            // The banner is the one line most likely to be read, so it says how
+            // long rather than a date somebody has to subtract from.
+            when: formatDuration(deadlineOf(open[0]!, nowSeconds).remainingSeconds, locale),
+          })}
+        </Note>
+      )}
+
+      <div className="filings">
+        {ordered.map((c) => <CovenantCard key={c.id} covenant={c} now={now} />)}
+      </div>
+
+      <Note tone="mute" title={t('rwa.cov.whatItProvesTitle')}>
+        {t('rwa.cov.whatItProves')}
+      </Note>
+    </Panel>
+  );
+}
+
 /* ------------------------------------------------------------------- page */
 
 export function Vehicle({ assetId, account }: { assetId: string; account: Account }) {
@@ -454,6 +820,14 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
   const land = useLand(parcelId, Math.floor(Date.now() / 1000));
   const [holding, reloadHolding] = useHolding(assetId, fractionDenom, addressOf(account));
   const cap = useHolders(fractionDenom);
+  const [covenants] = useCovenants(assetId);
+
+  // Every deadline on this page is decided by a keeper against BlockTime(), so
+  // the countdown beside one has to run on the same clock. A reader whose
+  // laptop is four minutes fast must not be told an assembly has closed when
+  // the chain still accepts it.
+  const head = useHead();
+  const now = chainNow(head).at;
 
   if (record.loading) return <div className="page"><Loading what={t('rwa.reading')} /></div>;
 
@@ -511,6 +885,31 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
 
   const acts = state
     ? actionsFor(a, state, held?.balance ?? '0', held?.owed?.amount ?? '0', canSign(account))
+    : null;
+
+  // What the holding cost, and what it has returned on that cost.
+  //
+  // `owed` is passed as null when the entitlement query FAILED, so the return
+  // reports "not known" rather than a return of zero. A zero here would be the
+  // most damaging possible rounding of a network error: it tells somebody their
+  // investment has earned nothing.
+  const cost = costOf(held?.position ?? null, held?.balance ?? '0');
+  const ret = returnOn(
+    cost,
+    held?.owedUnknown ? null : (held?.owed?.amount ?? null),
+    held?.balance ?? '0',
+  );
+
+  // Token-seconds accruing in the open period. Measured against the chain's
+  // clock, because that is the clock the keeper will integrate against when the
+  // period closes.
+  const pending = vault
+    ? pendingAccrual(
+      held?.position ?? null,
+      vault,
+      held?.balance ?? '0',
+      Math.floor(now.getTime() / 1000),
+    )
     : null;
 
   return (
@@ -603,7 +1002,18 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             label: t('rwa.tabHolders'),
             count: cap.loading || !cap.outcome.ok ? null : cap.outcome.value.rows.length,
           },
-          { id: 'documents', label: t('rwa.tabDocuments') },
+          {
+            id: 'documents',
+            label: t('rwa.tabDocuments'),
+            // The count is the number of FILINGS, and a live deadline shows as
+            // a mark beside it: a reader who never opens this folder should
+            // still be able to tell that something in it has a clock on it.
+            count: covenants.loading || !covenants.outcome.ok
+              ? null
+              : covenants.outcome.value.length,
+            flag: !covenants.loading && covenants.outcome.ok
+              && openDeadlines(covenants.outcome.value, Math.floor(now.getTime() / 1000)).length > 0,
+          },
           { id: 'distributions', label: t('rwa.tabDistributions') },
         ]}
       />
@@ -614,6 +1024,12 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             <CapTable cap={cap} supply={held?.supply ?? null} sponsor={a.owner}
                       denom={a.fractionDenom} />
           )}
+
+          {/* The register of undertakings comes FIRST in this folder, above the
+              mint-time manifest. The manifest is one string fixed when title
+              was created; the covenants are what the operator has published
+              since, and they are what a holder opened this folder to find. */}
+          {folder === 'documents' && <CovenantsPanel load={covenants} now={now} />}
 
           {folder === 'documents' && (
             <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.docsTitle')}>
@@ -760,13 +1176,42 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                     <Amount amount={fundedTotal} denom={vault.denom} />{' '}
                     <Symbol denom={vault.denom} />
                   </Field>
-                  {/* `held` -- what the module still holds against this
-                      tokenisation, being what has been funded but not yet
-                      claimed -- is on the chain's Vault and is dropped by this
-                      console's mapper. Worth adding, and deliberately not added
-                      here: it widens the wire mapping, and the two figures
-                      below are the ones a holder checks their own entitlement
-                      against. */}
+                  {/* What the module still holds against THIS tokenisation:
+                      funded and not yet claimed. One module account serves
+                      every vehicle, so this ledger rather than a bank balance
+                      is the only thing that says what belongs to whom -- and
+                      the gap between it and what was funded is what holders
+                      have already taken out. */}
+                  <Field label={t('rwa.vaultHeld')}>
+                    {vault.held.length > 0
+                      ? vault.held.map((c) => (
+                        <span key={c.denom} className="mine__coin">
+                          <Amount amount={c.amount} denom={c.denom} />
+                        </span>
+                      ))
+                      : <span className="muted">{t('rwa.vaultHoldsNothing')}</span>}
+                  </Field>
+                  {/* The period is what pro-rata temporis apportions, so the
+                      open one is the span every holder's token-seconds are
+                      being counted over right now. */}
+                  <Field label={t('rwa.vaultPeriod')}>
+                    <span className="y-num">
+                      {vault.periodIndex === '0'
+                        ? t('rwa.accrual.firstPeriod')
+                        : t('rwa.accrual.period', { n: vault.periodIndex })}
+                    </span>
+                  </Field>
+                  <Field label={t('rwa.vaultPeriodStart')}>
+                    {vault.periodStart > 0
+                      ? formatDate(new Date(vault.periodStart * 1000), locale)
+                      : <span className="muted">—</span>}
+                    {/* Not "held since". For a vehicle that predates pro-rata
+                        temporis this is the UPGRADE HEIGHT's time, because the
+                        chain has no record of when balances moved before it.
+                        Presenting it as issuance would be wrong by the whole
+                        life of the vehicle. */}
+                    <span className="field__aside">{t('rwa.vaultPeriodStartNote')}</span>
+                  </Field>
                   <Field label={t('rwa.vaultPerToken')} wide>
                     {/* The index is carried at 1e18 and the denomination has its
                         own exponent, so a per-token figure is the index divided
@@ -826,6 +1271,24 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                       : <span className="muted">{t('rwa.nothingPaidIn')}</span>}
                   </Field>
                 </Fields>
+
+                {/* What it cost, and what that cost has returned. Beneath the
+                    balance rather than above it: the balance is the fact, the
+                    return is the judgement about it. */}
+                <CostBlock
+                  cost={cost}
+                  ret={ret}
+                  unknown={held?.positionUnknown ?? false}
+                  incomeDenom={held?.owed?.denom ?? vault?.denom ?? ''}
+                  shareDenom={a.fractionDenom}
+                />
+
+                {/* Only where there is a vault to accrue against. Without one
+                    there is no period, and a panel about an open period on a
+                    vehicle that has never distributed would be inventing one. */}
+                {vault && pending && (
+                  <AccrualBlock pending={pending} now={now} incomeDenom={vault.denom} />
+                )}
 
                 <p className="mine__note">{t('rwa.entitlementWhy')}</p>
 
