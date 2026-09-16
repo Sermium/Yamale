@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The syndication console: how full a book is, whether the deal will happen at all, what the fees take in money rather than basis points, and what one holder is owed right now.",
   "scripts": {
-    "test": "node --test proto.test.js syndicate.test.js",
+    "test": "node --test proto.test.js syndicate.test.js theme.test.js",
     "serve": "node serve.mjs"
   }
 }
