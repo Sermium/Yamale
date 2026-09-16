@@ -516,6 +516,130 @@
   }
   .y-id__copy:hover { border-color: var(--brass); color: var(--text); }
 
+  /* ==========================================================================
+     INFORMATION DESIGN — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE, exactly as for the token block at the top
+     of this file. Only the patterns this console draws are carried over.
+     ========================================================================== */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines. A voting power of 51,945 split over
+       two lines is not a smaller number, it is a different one — and this is
+       the page where somebody reads that figure to decide whether to get up at
+       three in the morning. The unit may drop; the digits may not. */
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+  .y-scrollx { overflow-x: auto; }
+
+  /* `.y-data .num` zeroes the trailing padding, which is right for a numeric
+     column that is LAST and wrong for any other — a .num followed by another
+     column ends up with no gap at all. Restored for a .num that is not last.
+     A finding about clients/shared/yamale.css, not about this file. */
+  .y-data td.num:not(:last-child), .y-data th.num:not(:last-child) {
+    padding-inline-end: var(--sp-5);
+  }
+
+  /* The table lives inside a padded card, and `.y-data`'s first column has no
+     leading padding by design — so the card supplies it rather than the cell. */
+  .y-data__card { padding: var(--sp-2) var(--sp-4); }
+
   /* --- a phone ---------------------------------------------------------- */
   /* The verdict has to arrive before the chrome. */
   @media (max-width: 560px) {
@@ -585,16 +709,29 @@
   <div id="error"></div>
   <div id="verdict"></div>
 
-  <div class="grid" id="stats"></div>
+  <div id="stats"></div>
   <!-- Caveats about the figures go under the figures, not above the verdict. An
        operator opening this page at three in the morning must not have to read
        past a note about denom metadata to find out whether the chain is up. -->
   <div id="caveat"></div>
 
   <h2>The validator set</h2>
+  <!-- Folders rather than one table, because the three groups answer different
+       questions and an operator opens this page holding exactly one of them.
+       "Who could halt this" is the signing set; "what do I act on" is whatever
+       is failing; "why is the count wrong" is the register. Mixed into one list
+       they are a table somebody has to filter by eye. -->
+  <div class="y-folders" id="folders" role="tablist"></div>
   <div id="vals"><p class="spin">Reading the validator set…</p></div>
 
   <p class="muted" id="foot"></p>
+
+  <!-- The other half of the question this page is opened with. "Is the chain all
+       right" has an answer at the top; "what happens if I am wrong" had none at
+       all, and it is the one an operator needs before deciding whether a reboot
+       can wait until morning. Every figure here is a chain parameter. -->
+  <h2>What a missed block costs</h2>
+  <div id="cost"></div>
 </div>
 
 <script>
@@ -732,7 +869,7 @@ document.addEventListener('click', async (e) => {
 // it gets the prominence — and every state is a word as well as a colour.
 // ---------------------------------------------------------------------------
 
-function health(v, signing) {
+function health(v, signing, allowed) {
   if (v.jailed) return { cls: 'bad', word: 'jailed', why: 'removed from the set by the chain' };
   if (v.status !== 'BOND_STATUS_BONDED') {
     return { cls: 'warn', word: 'not bonded', why: 'in the register, not in the set' };
@@ -740,9 +877,56 @@ function health(v, signing) {
   if (!signing) return { cls: 'ok', word: 'signing', why: 'bonded; misses not attributable' };
   const missed = Number(signing.missed_blocks_counter ?? 0);
   if (signing.tombstoned) return { cls: 'bad', word: 'tombstoned', why: 'permanently removed' };
-  if (missed > 100) return { cls: 'bad', word: 'missing blocks', why: `${missed} missed` };
-  if (missed > 0) return { cls: 'warn', word: 'some misses', why: `${missed} missed` };
-  return { cls: 'ok', word: 'signing', why: 'no missed blocks recorded' };
+
+  // Judged against the chain's own allowance, not against a number this page
+  // picked. The threshold here used to be a literal 100, which on this chain is
+  // unreachable: x/slashing counts misses inside a window of 100 blocks and
+  // jails at 51, so the "missing blocks" state could never be entered and a
+  // validator three blocks from being jailed rendered as "some misses".
+  if (allowed === null) {
+    if (missed > 0) return { cls: 'warn', word: 'some misses', why: `${missed} missed in the current window` };
+    return { cls: 'ok', word: 'signing', why: 'no missed blocks in the current window' };
+  }
+  if (missed > allowed) {
+    return { cls: 'bad', word: 'about to be jailed', why: `${missed} missed, past the ${allowed} allowed` };
+  }
+  if (missed * 2 >= allowed) {
+    return { cls: 'bad', word: 'missing blocks', why: `${missed} missed, over half the ${allowed} allowed` };
+  }
+  if (missed > 0) {
+    return { cls: 'warn', word: 'some misses', why: `${missed} missed, ${allowed - missed} left before jail` };
+  }
+  return { cls: 'ok', word: 'signing', why: `no misses; ${allowed} would be allowed` };
+}
+
+/**
+ * How many blocks a validator may miss before the chain jails it.
+ *
+ * x/slashing keeps a sliding window of `signed_blocks_window` blocks and jails
+ * when the misses inside it pass `window − round(min_signed_per_window ×
+ * window)`. Both are chain parameters; the subtraction is this page's, and the
+ * panel that shows it says so — it is the one figure here that is derived
+ * rather than read, and the parameters it is derived from are printed beside it
+ * so anybody can check the arithmetic.
+ *
+ * Returns null when the parameters could not be read. An allowance this page
+ * guessed would be worse than none: an operator would act on it.
+ */
+function missAllowance(params) {
+  const window = Number(params?.signed_blocks_window);
+  const minSigned = Number(params?.min_signed_per_window);
+  if (!Number.isFinite(window) || !Number.isFinite(minSigned) || window <= 0) return null;
+  return Math.max(0, window - Math.round(minSigned * window));
+}
+
+/** "600s" as something an operator reads. */
+function duration(text) {
+  const seconds = Number(String(text ?? '').replace(/s$/, ''));
+  if (!Number.isFinite(seconds)) return String(text ?? '—');
+  if (seconds < 90) return `${seconds} seconds`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)} minutes`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)} hours`;
+  return `${Math.round(seconds / 86400)} days`;
 }
 
 /**
@@ -792,6 +976,66 @@ function verdict({ stopped, sinceLastBlock, bonded, validators, marginBase, expo
 
 // ---------------------------------------------------------------------------
 
+/**
+ * A band of figures, the shared pattern.
+ *
+ * Values arrive as already-escaped HTML because several of them carry their own
+ * unit markup. A value of null prints the en dash: this page redraws itself
+ * every ten seconds and an unread figure must never render as a zero, which on
+ * a page about voting power would read as "the chain has none".
+ */
+function kpis(tiles) {
+  return `<div class="y-kpis">${tiles.map((t) => `
+    <div class="y-kpi${t.tone ? ` y-kpi--${t.tone}` : ''}">
+      <p class="y-kpi__label">${esc(t.label)}</p>
+      <p class="y-kpi__value">${t.value === null || t.value === undefined ? '—' : t.value}${
+        t.unit ? `<span class="y-kpi__unit">${esc(t.unit)}</span>` : ''}</p>
+      ${t.hint ? `<p class="y-kpi__hint">${t.hint}</p>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+/**
+ * The three areas of the validator set, and what an empty one means.
+ *
+ * Each empty state is written out because the three are opposite facts: no
+ * validator signing is a halted chain, nothing failing is the good day, and an
+ * empty register is a node following a chain that never finished its genesis.
+ * A single "nothing here" would have said all three at once.
+ */
+const FOLDERS = [
+  { id: 'signing', label: 'Signing',
+    caption: 'Bonded and producing. Sorted by power, because the question this answers is who could halt the chain.',
+    empty: 'No validator is signing.',
+    emptyWhy: 'Every bonded validator is failing, or none is bonded. The chain is not committing blocks and '
+      + 'will not start on its own.' },
+  { id: 'failing', label: 'Needs attention',
+    caption: 'Still bonded, so their power still counts toward the two thirds a block needs — which is why '
+      + 'this is worth acting on before the chain notices and jails them.',
+    empty: 'Nothing is failing.',
+    emptyWhy: 'Every bonded validator is signing as it should. This is the folder to watch: a validator arriving '
+      + 'here is still in the set and still counted, and has not been punished yet.' },
+  { id: 'out', label: 'Not in the set',
+    caption: 'Jailed or unbonded. In the register and contributing nothing — their stake is not counted toward '
+      + 'the two thirds, so a chain can halt while this list is long.',
+    empty: 'Every validator in the register is in the set.',
+    emptyWhy: 'Nothing has been jailed and nothing is unbonding.' },
+];
+
+let openFolder = 'signing';
+/** Whether a person chose the open folder, or this page did. See load(). */
+let folderChosen = false;
+
+// One listener, installed once: this page redraws itself every ten seconds and
+// a listener wired per render would stack up one per redraw for as long as the
+// tab is open — which on an operations console is overnight.
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest?.('[data-folder]');
+  if (!tab) return;
+  openFolder = tab.dataset.folder;
+  folderChosen = true;
+  load();
+});
+
 let lastHeight = null;
 let lastHeightAt = null;
 
@@ -800,7 +1044,7 @@ async function load() {
     // The staking denom and its exponent, so nothing on this page is divided by
     // a number this page invented. Read once per refresh and cheap; a chain that
     // renames its bond denom mid-flight is a chain this page should follow.
-    const [vals, infos, status, stakingParams, metadata, consensus] = await Promise.all([
+    const [vals, infos, status, stakingParams, metadata, consensus, slashing] = await Promise.all([
       get(`${REST}/cosmos/staking/v1beta1/validators?pagination.limit=200`),
       maybe(get(`${REST}/cosmos/slashing/v1beta1/signing_infos?pagination.limit=200`), null),
       maybe(get(`${RPC}/status`), null),
@@ -808,6 +1052,10 @@ async function load() {
       maybe(get(`${REST}/cosmos/bank/v1beta1/denoms_metadata?pagination.limit=200`), null),
       // The join between the two modules. See consensusIndex below.
       maybe(get(`${REST}/cosmos/base/tendermint/v1beta1/validatorsets/latest?pagination.limit=200`), null),
+      // What being wrong costs. Optional, like the rest: a page that refused to
+      // say whether the chain was up because it could not read a slash fraction
+      // would be useless at exactly the hour it is opened.
+      maybe(get(`${REST}/cosmos/slashing/v1beta1/params`), null),
     ]);
 
     document.getElementById('error').innerHTML = '';
@@ -873,8 +1121,11 @@ async function load() {
     const quorum = (total * 2n + 2n) / 3n;
     const margin = total > quorum ? total - quorum : 0n;
 
+    const slash = slashing?.params ?? null;
+    const allowed = missAllowance(slash);
+
     const failing = bonded.filter((v) => {
-      const st = health(v, signingOf(v));
+      const st = health(v, signingOf(v), allowed);
       return st.cls !== 'ok';
     });
 
@@ -890,37 +1141,36 @@ async function load() {
         <p class="small">${esc(v.body)}</p>
       </div>`;
 
-    document.getElementById('stats').innerHTML = `
-      <div class="card">
-        <div class="label">Height</div>
-        <div class="stat">${groupDigits(height || 0)}</div>
-        <div class="muted small">last block ${esc(sinceLastBlock)}</div>
-      </div>
-      <div class="card">
-        <div class="label">Validators signing</div>
-        <div class="stat">${bonded.length - failing.length} of ${bonded.length}</div>
-        <div class="muted small">${validators.length - bonded.length} more in the register,
-          jailed or unbonded</div>
-      </div>
-      <div class="card">
-        <div class="label">Voting power</div>
-        <div class="stat">${wholeUnits(total.toString(), exponent)}
-          <span class="label" style="font-size:.72rem">${esc(symbol)}</span></div>
-        <div class="muted small">${wholeUnits(quorum.toString(), exponent)} ${esc(symbol)}
-          of it has to be signing for a block to commit</div>
-      </div>
-      <div class="card${margin === 0n ? ' card--bad' : ''}">
-        <div class="label">Margin above two thirds</div>
-        <div class="stat">${wholeUnits(margin.toString(), exponent)}
-          <span class="label" style="font-size:.72rem">${esc(symbol)}</span></div>
-        <div class="muted small">${
-          bonded.length < 2
-            ? 'a single validator, so there is no margin: any outage halts the chain'
-            : 'power that can go offline before blocks stop'
-        }</div>
-      </div>`;
+    // The four figures, as figures. These were label/value pairs set at the
+    // same size as their labels, so the margin above two thirds — the number
+    // that decides whether an operator can reboot a node — read exactly like
+    // the caption under it.
+    //
+    // Every one of them carries what it means rather than what it is: a height
+    // is only interesting beside when the last block landed, and a voting power
+    // is only interesting beside the two thirds it has to clear.
+    document.getElementById('stats').innerHTML = kpis([
+      { label: 'Height', value: groupDigits(height || 0),
+        tone: stopped ? 'bad' : undefined,
+        hint: `Last block ${esc(sinceLastBlock)}.` },
+      { label: 'Validators signing',
+        value: `${bonded.length - failing.length}<span class="y-kpi__unit">of ${bonded.length}</span>`,
+        tone: failing.length ? 'warn' : bonded.length < 2 ? 'warn' : 'ok',
+        hint: `${validators.length - bonded.length} more in the register, jailed or unbonded — ` +
+          'their power counts for nothing.' },
+      { label: 'Voting power', value: wholeUnits(total.toString(), exponent), unit: symbol,
+        hint: `${wholeUnits(quorum.toString(), exponent)} ${esc(symbol)} of it has to be signing ` +
+          'for a block to commit.' },
+      { label: 'Margin above two thirds', value: wholeUnits(margin.toString(), exponent), unit: symbol,
+        tone: margin === 0n ? 'bad' : bonded.length < 2 ? 'warn' : 'ok',
+        hint: bonded.length < 2
+          ? 'A single validator, so there is no margin at all: any outage halts the chain.'
+          : 'Power that can go offline before blocks stop. Not the number of validators — one large ' +
+            'operator going down can halt a chain that has ten small ones.' },
+    ]);
 
     if (!validators.length) {
+      document.getElementById('folders').innerHTML = '';
       document.getElementById('vals').innerHTML = `<div class="card">
         <p class="lede">The register holds no validators.</p>
         <p class="muted small">This is the staking module answering, not a failed call — so either
@@ -933,11 +1183,23 @@ async function load() {
 
     // Sorted by power, because the question the table answers is "who could
     // halt this", and that is the top of the list.
-    const rows = [...validators]
-      .sort((a, b) => (BigInt(b.tokens || 0) > BigInt(a.tokens || 0) ? 1 : -1))
+    const sorted = [...validators]
+      .sort((a, b) => (BigInt(b.tokens || 0) > BigInt(a.tokens || 0) ? 1 : -1));
+
+    const groups = {
+      signing: sorted.filter((v) => bonded.includes(v) && !failing.includes(v)),
+      failing: sorted.filter((v) => failing.includes(v)),
+      out: sorted.filter((v) => !bonded.includes(v)),
+    };
+    // Whatever needs acting on is opened first. An operator who came here
+    // because something is wrong should not have to choose a folder to see it.
+    if (!FOLDERS.some((f) => f.id === openFolder)) openFolder = 'signing';
+    if (groups.failing.length && !folderChosen) openFolder = 'failing';
+
+    const rowsOf = (list) => list
       .map((v) => {
         const info = signingOf(v);
-        const st = health(v, info);
+        const st = health(v, info, allowed);
         const power = BigInt(v.tokens || '0');
         const share = total > 0n ? Number((power * 10000n) / total) / 100 : 0;
         return `<tr>
@@ -962,20 +1224,61 @@ async function load() {
       </tr>`;
       }).join('');
 
+    document.getElementById('folders').innerHTML = FOLDERS.map((f) => `
+      <button type="button" role="tab" data-folder="${f.id}"
+              aria-selected="${f.id === openFolder}"
+              class="y-folder${f.id === openFolder ? ' y-folder--on' : ''}">${esc(f.label)}<span
+              class="y-folder__count">${groups[f.id].length}</span></button>`).join('');
+
+    const open = groups[openFolder];
     // The table is wide, so it scrolls inside its own box. A horizontal
     // scrollbar on the document is how one table takes a whole layout with it.
-    document.getElementById('vals').innerHTML = `<div class="card y-scroll" style="padding:0">
-      <table>
+    document.getElementById('vals').innerHTML = open.length === 0
+      ? `<div class="card"><p class="lede">${esc(FOLDERS.find((f) => f.id === openFolder).empty)}</p>
+           <p class="muted small">${esc(FOLDERS.find((f) => f.id === openFolder).emptyWhy)}</p></div>`
+      : `<div class="card y-data__card y-scrollx">
+      <table class="y-data">
         <thead><tr>
           <th>Validator</th><th>State</th><th class="num">Power</th>
           <th class="num">Share</th><th class="num">Missed</th><th class="num">Commission</th>
-        </tr></thead><tbody>${rows}</tbody>
+        </tr></thead><tbody>${rowsOf(open)}</tbody>
+        <caption>${esc(FOLDERS.find((f) => f.id === openFolder).caption)}</caption>
       </table></div>`;
 
+    document.getElementById('cost').innerHTML = slash
+      ? kpis([
+          { label: 'Window', value: groupDigits(slash.signed_blocks_window), unit: 'blocks',
+            hint: 'Misses are counted inside a sliding window of this many blocks, not since genesis. '
+              + 'The counter falls as well as rises.' },
+          { label: 'Must sign',
+            value: `${(Number(slash.min_signed_per_window) * 100).toFixed(0)}%`,
+            hint: `Of the window. Below it the validator is jailed.` },
+          { label: 'Misses allowed', value: allowed === null ? null : groupDigits(allowed),
+            unit: 'blocks', tone: 'warn',
+            hint: 'Derived, not read: the window less the part that must be signed. It is the number the '
+              + '“missed” column below should be compared against.' },
+          { label: 'Jailed for', value: esc(duration(slash.downtime_jail_duration)),
+            tone: 'bad',
+            hint: `Plus ${(Number(slash.slash_fraction_downtime) * 100).toFixed(2)}% of the stake, taken. `
+              + `Double-signing takes ${(Number(slash.slash_fraction_double_sign) * 100).toFixed(2)}% and is `
+              + 'permanent — a tombstoned key can never validate again, on any amount of stake.' },
+        ])
+      : `<p class="warnbox">The slashing parameters could not be read, so nothing here says what a missed
+           block costs on this chain. The figures are not assumed: an allowance this page invented is one an
+           operator would act on.</p>`;
+
     document.getElementById('foot').innerHTML = attributable
-      ? 'Missed-block counts are cumulative since each validator joined, and are attributed by '
-        + 'joining x/slashing to x/staking through the consensus public key rather than by '
-        + 'position in two lists.'
+      // NOT cumulative. x/slashing keeps a bit array of the last
+      // `signed_blocks_window` blocks and the counter tracks misses inside it,
+      // falling again as the window moves on and resetting to zero on unjail.
+      // Describing it as a lifetime total made a healthy validator with a bad
+      // afternoon behind it look permanently damaged, and made a validator three
+      // blocks from being jailed look like it had barely started.
+      ? `Missed-block counts are misses inside the current window${
+          slash ? ` of ${esc(groupDigits(slash.signed_blocks_window))} blocks` : ''}, not a lifetime total —
+          the counter falls as the window moves on, and resets when a validator is unjailed. They are attributed
+          by joining x/slashing to x/staking through the consensus public key rather than by position in two
+          lists.`
       : '<span class="warnbox" style="display:block">Missed-block counts are blank because the '
         + 'join between x/slashing and x/staking could not be made — one of the two endpoints did '
         + 'not answer. A guessed alignment would attribute one operator\'s failures to another, '
