@@ -227,6 +227,13 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
 .y-num, .y-tabular, td.y-num, th.y-num {
   font-variant-numeric: tabular-nums;
 }
+/* Tabular digits align a column only if the column is aligned. `.y-num` gave
+   the digits equal width and left every cell ragged against a left edge, so a
+   cap and the amount remaining under it could not be compared down the page —
+   which is the only reason to put figures in a column at all.
+   Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+   consoles, and right-aligning a number inside a sentence would be wrong. */
+td.y-num, th.y-num { text-align: end; }
 .y-addr { word-break: break-all; font-size: 0.88em; }
 
 /* --------------------------------------------------------------- utilities */
@@ -425,7 +432,14 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
 /* Numbers right, words left. A column of figures that is not aligned on its
    units cannot be compared down the page, which is the only reason to put
    figures in a column. */
-.y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+/* Numbers right, words left.
+   `padding-inline-end: 0` used to be unconditional here, which is right only
+   for a LAST column: three numeric columns in the governance table are not
+   last, and an id ran straight into the title beside it ("20A supply ceiling
+   for the dollar"). The trailing padding is dropped only where there is
+   nothing after it. */
+.y-data .num, .y-data th.num { text-align: end; }
+.y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
 .y-data tbody tr:hover { background: var(--surface-2); }
 .y-data__self td { font-weight: 600; }
 .y-data caption {
