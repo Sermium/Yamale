@@ -10,12 +10,14 @@
 // broken protocol.
 
 import {
+  NotHeld,
   Unreachable,
   balances,
   demonstrate,
   digestOf,
   disclosureCount,
   disclosureTerms,
+  earliestBlock,
   height,
   loadProtocol,
   refuseWithOneShare,
@@ -199,13 +201,18 @@ function cell(text, className) {
 async function loadEvidence() {
   const body = document.getElementById('chain');
   const account = document.getElementById('account');
+  const caption = document.getElementById('chain-caption');
   try {
     const at = await height();
+    // Asked for alongside the height, because it is what decides whether a
+    // "not found" here is a missing transaction or a missing block.
+    const earliest = await earliestBlock().catch(() => null);
     const rows = await Promise.all(PAYMENTS.map((p) => transaction(p.hash).then(
       (tx) => ({ ...p, ...tx }),
       (err) => ({ ...p, error: err }),
     )));
     body.innerHTML = '';
+    let notHeld = 0;
     for (const row of rows) {
       const tr = document.createElement('tr');
       const hash = document.createElement('td');
@@ -213,15 +220,35 @@ async function loadEvidence() {
       hash.textContent = `${row.hash.slice(0, 16)}…`;
       tr.append(hash);
       if (row.error) {
-        const td = cell('could not read this transaction', 'gone');
-        td.colSpan = 3;
-        tr.append(td);
+        // Three facts, three renderings. "This node no longer holds the block"
+        // and "this node did not answer" were one sentence, and a reader taking
+        // the first for the second concludes the chain is broken — on the page
+        // whose entire argument is that its claims can be checked.
+        const held = row.error instanceof NotHeld;
+        if (held) notHeld += 1;
+        tr.append(cell('—', 'num gone'));
+        tr.append(cell(`${row.signers} — ${row.note}`));
+        tr.append(cell(
+          held ? 'outside this node\'s history' : 'the chain did not answer',
+          'gone',
+        ));
       } else {
         tr.append(cell(row.height.toLocaleString(), 'num'));
         tr.append(cell(`${row.signers} — ${row.note}`));
         tr.append(cell(row.code === 0 ? 'accepted' : `refused, code ${row.code}`));
       }
       body.append(tr);
+    }
+
+    if (caption) {
+      caption.textContent = notHeld === 0
+        ? 'Read by hash from the public node, which returns the delivered code as well as the height — a hash '
+          + 'on its own says a transaction landed in a block, not that it succeeded.'
+        : `${notHeld === rows.length ? 'Neither payment is' : 'One payment is'} readable here, and that is a `
+          + `property of the node rather than of the transaction. The public node was state-synced${
+            earliest ? `, so the oldest block it holds is ${earliest.toLocaleString()}` : ''} — it keeps no `
+          + 'index of anything earlier, and answers "not found" for a transaction it never downloaded. The '
+          + 'account below is still readable, because a balance is current state rather than history.';
     }
 
     let holding = '';
@@ -280,6 +307,15 @@ async function loadDisclosureTerms() {
         ' downloads folder would be a target list, ordered by how easy each one is to rob.';
     } catch { rate = ''; }
 
+    const tile = document.getElementById('kpi-wait');
+    if (tile) {
+      tile.querySelector('.y-kpi__value').innerHTML =
+        `${hours}<span class="y-kpi__unit">hours</span>`;
+      tile.querySelector('.y-kpi__hint').textContent =
+        `Between asking for your key and confirming, and the request lapses after ${days} days. A chain `
+        + 'parameter, not a setting in the platform\'s software.';
+    }
+
     el.innerHTML = `
       <p><strong>In force on this chain, at block ${at(terms.height)}:</strong>
         a wait of <strong>${hours} hours</strong> between asking and confirming, and a
@@ -293,6 +329,14 @@ async function loadDisclosureTerms() {
         during the wait, the terms have changed and the holder is sent back to read
         them.${rate}</p>`;
   } catch (err) {
+    // The tile keeps its en dash. An unread figure and a figure of nothing are
+    // different facts, and "0 hours" here would say a key leaves on request.
+    const tile = document.getElementById('kpi-wait');
+    if (tile) {
+      tile.querySelector('.y-kpi__hint').textContent = err instanceof Unreachable
+        ? 'Not read — the chain did not answer. The wait is enforced by consensus rather than by this page.'
+        : 'Not read. This deployment may have no key-disclosure pathway at all.';
+    }
     el.textContent = err instanceof Unreachable
       ? 'The chain is not answering, so the terms are not shown. They are enforced by '
         + 'consensus rather than by this page, and a stale copy of them would be worth '

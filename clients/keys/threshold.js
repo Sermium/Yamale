@@ -27,6 +27,24 @@
 const RPC = '/api/rpc';
 const TIMEOUT_MS = 15000;
 
+/**
+ * The chain answered, and the answer is that it does not have this.
+ *
+ * Distinct from Unreachable on purpose. The public node this page reads is
+ * state-synced, so it holds no block before its snapshot and no index of the
+ * transactions in them — asking for a hash older than that is answered "not
+ * found", correctly, by a node that is working perfectly. Collapsing the two
+ * into one error made a node doing exactly what it was configured to do look
+ * like a node that was down, on the page whose entire job is to show that a
+ * claim can be checked.
+ */
+export class NotHeld extends Error {
+  constructor(what) {
+    super(`the chain does not hold ${what}`);
+    this.name = 'NotHeld';
+  }
+}
+
 /** A call that did not answer, named — so a caller can tell "no" from "unknown". */
 export class Unreachable extends Error {
   constructor(what, cause) {
@@ -44,12 +62,23 @@ async function rpc(path) {
       signal: controller.signal,
       headers: { accept: 'application/json' },
     });
+    // The body is read BEFORE the status is judged, because Tendermint answers
+    // "this transaction is not in my index" with an HTTP 500 carrying a
+    // JSON-RPC error — so a guard on res.ok alone turns the node's clearest
+    // possible answer into "the node did not answer". That is the whole
+    // difference this page has to be able to draw.
+    let body = null;
+    try { body = await res.json(); } catch { /* not json; the status decides */ }
+
+    if (body?.error) {
+      const detail = String(body.error.data || body.error.message || '');
+      if (/not found/i.test(detail)) throw new NotHeld(detail.replace(/^tx\s*/, 'transaction '));
+      throw new Unreachable(`${path}: ${body.error.message || 'error'}`);
+    }
     if (!res.ok) throw new Unreachable(`${path} returned ${res.status}`);
-    const body = await res.json();
-    if (body.error) throw new Unreachable(`${path}: ${body.error.message || 'error'}`);
     return body.result;
   } catch (err) {
-    if (err instanceof Unreachable) throw err;
+    if (err instanceof Unreachable || err instanceof NotHeld) throw err;
     throw new Unreachable(path, err);
   } finally {
     clearTimeout(timer);
@@ -78,6 +107,21 @@ export async function transaction(hash) {
 export async function height() {
   const status = await rpc('status');
   return Number(status.sync_info.latest_block_height);
+}
+
+/**
+ * The oldest block this node still holds.
+ *
+ * A state-synced node starts from a snapshot and keeps nothing before it, so
+ * everything earlier — including the index that answers a query by transaction
+ * hash — is simply not there. That is a deployment decision rather than a
+ * fault, and it is the whole explanation for a transaction this page knows
+ * happened coming back "not found". Reported so the page can say so instead of
+ * leaving a reader to conclude the claim was never true.
+ */
+export async function earliestBlock() {
+  const status = await rpc('status');
+  return Number(status.sync_info.earliest_block_height);
 }
 
 // --------------------------------------------------------------- protobuf
