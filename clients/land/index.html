@@ -286,6 +286,141 @@
     }
   }
 
+  /* --- INFORMATION DESIGN, from the same canonical file ------------------
+     The reasoning lives in clients/shared/yamale.css; these are its
+     declarations, in its order. Three patterns: a figure that reads as a
+     figure, folders instead of one scrolling column, and a table of numbers
+     aligned on its units. */
+
+  .y-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--sp-3);
+    margin: var(--sp-4) 0 var(--sp-5);
+  }
+
+  .y-kpi {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    border-inline-start: 3px solid var(--rule);
+  }
+  .y-kpi--ok   { border-inline-start-color: var(--ok); }
+  .y-kpi--warn { border-inline-start-color: var(--warn); }
+  .y-kpi--bad  { border-inline-start-color: var(--bad); }
+  .y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+  .y-kpi__label {
+    margin: 0;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .y-kpi__value {
+    margin: var(--sp-1) 0 0;
+    font-size: var(--step-2);
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    /* A figure NEVER breaks across lines: 100,000,000 rendered as "100,000,0"
+       above "00" is not a smaller number, it is a different one. */
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+  .y-kpi__hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .y-folders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--sp-4);
+  }
+  .y-folder {
+    appearance: none;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: var(--sp-2) var(--sp-4);
+    font: inherit;
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+  }
+  .y-folder:hover { color: var(--text); }
+  .y-folder[aria-selected='true'], .y-folder--on {
+    background: var(--surface);
+    border-color: var(--rule);
+    border-bottom: 1px solid var(--surface);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+  .y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .y-data th {
+    text-align: start;
+    font-size: var(--step--1);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .y-data td {
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: baseline;
+  }
+  .y-data .num, .y-data th.num { text-align: end; padding-inline-end: 0; }
+  .y-data tbody tr:hover { background: var(--surface-2); }
+  .y-data__self td { font-weight: 600; }
+  .y-data caption {
+    caption-side: bottom;
+    text-align: start;
+    padding-top: var(--sp-2);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+
+  .y-scrollx { overflow-x: auto; }
+
+  .y-ring { width: 100%; height: auto; max-width: 15rem; }
+  .y-ring__track { stroke: var(--surface-2); }
+
+  .y-split {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+  }
+  @media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+  .y-swatch {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border-radius: 2px;
+    margin-inline-end: 0.5em;
+    vertical-align: baseline;
+  }
+
   /* ==========================================================================
      THE CONSOLE CHROME — shared by the four operator consoles, and by nothing
      else: clients/foundation, clients/governance, clients/land,
@@ -718,14 +853,21 @@
 
 <script type="module">
 import {
-  ACTIONS, ACTION_NAMES, CHAIN, MESSAGES, actionsBy, admissionCommand,
+  ACTIONS, ACTION_NAMES, CHAIN, actionsBy, admissionCommand,
   admissionProposal, explainRefusal, groupPreamble, landTx, officeProposal,
   officeTx, personalMessage, proposalMetadata, roleGrantProposal,
 } from './registrar.js';
+// `txsOf` is deliberately no longer imported. Both panels that used it — the
+// roll on the front page and the list of authorisations — reported "none" on a
+// state-synced node whose transaction index does not reach back to when the
+// records were written, and a page that says "the log answered, this is
+// genuinely none" about a register holding four titles is worse than a page
+// that says nothing. Both read state now. chain.js keeps the function: it is
+// the right tool for a question state cannot answer, and this was not one.
 import {
   CallFailed, WalletRefused, aliasOf, addressOfAlias, blockTime, connectWallet,
   canAct, govAuthority, govMinDeposit, head, idFromResponse, landOrNull,
-  landQuery, signAndSend, txsOf,
+  landQuery, signAndSend,
 } from './chain.js';
 import { GROUP_SUBMIT_PROPOSAL, any } from './proto.js';
 
@@ -904,11 +1046,23 @@ const dateTimeOf = (unix) => new Date(Number(unix) * 1000)
 
 /** Durations in the words a clerk uses, not in seconds. */
 function span(seconds) {
+  const { value, unit } = spanParts(seconds);
+  return `${value} ${unit}`;
+}
+
+/**
+ * The same duration, with the number and the word kept apart.
+ *
+ * A KPI tile forbids a break inside a figure, and it cannot forbid one between
+ * a figure and a word it was handed as a single string. Separating them lets
+ * the unit wrap while the digits cannot.
+ */
+function spanParts(seconds) {
   const s = Math.abs(Math.round(seconds));
-  if (s >= 172800) return `${Math.round(s / 86400)} days`;
-  if (s >= 7200) return `${Math.round(s / 3600)} hours`;
-  if (s >= 120) return `${Math.round(s / 60)} minutes`;
-  return `${s} seconds`;
+  if (s >= 172800) return { value: String(Math.round(s / 86400)), unit: 'days' };
+  if (s >= 7200) return { value: String(Math.round(s / 3600)), unit: 'hours' };
+  if (s >= 120) return { value: String(Math.round(s / 60)), unit: 'minutes' };
+  return { value: String(s), unit: 'seconds' };
 }
 
 const live = (list) => (list || []).filter((x) => !x.released && !x.lifted);
@@ -922,6 +1076,85 @@ const KIND = {
 };
 const kindLabel = (k) => KIND[k] || String(k || '').replace(/[_-]/g, ' ')
   .replace(/^./, (c) => c.toUpperCase()) || 'Entry';
+
+// ---------------------------------------------------------------------------
+// The roll: the titles this register actually holds.
+//
+// THIS READS STATE, AND THAT IS THE POINT. The front page previously assembled
+// its list from the chain's transaction log, and on this deployment that log
+// answered 200 with zero rows — so the register reported "no parcel has been
+// registered on this chain yet" while holding four titles, one of them
+// disputed. An absence and a gap in an index are opposite facts and the page
+// stated the wrong one with total confidence.
+//
+// The log is empty for a legitimate reason: this node was state-synced, so it
+// holds no block before its snapshot height and the parcels were registered
+// long before it. Nothing is wrong with the chain, and nothing would ever have
+// made that visible, because a false "the register is empty" renders perfectly.
+//
+// x/land publishes no "every parcel" query, deliberately — a public list of who
+// owns what is a targeting list. So a roll has to be assembled by asking for
+// identifiers one at a time, which is what this does. It is a demonstration
+// convenience and is labelled as one on screen: the list is bounded, it starts
+// at 1, and it stops at a run of misses rather than claiming to be complete.
+//
+// Four probes at a time, stopped after ten consecutive misses: the same
+// measured shape as clients/livestock, where the edge's 600r/m RPC limit turned
+// forty parallel probes into 503s and a page that read "unreadable". The keeper
+// issues identifiers in sequence and never reuses one, so a run this long is
+// the end of the register rather than a hole in it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Four reads at a time, because the edge answers 503 past ten a second.
+ *
+ * Measured on this deployment: the authorisations screen walked the roll and
+ * then asked all four parcels for their authorisation with one Promise.all, and
+ * every one of those four came back 503. The screen said so honestly — "the
+ * register did not answer for this parcel" — which is the right sentence and a
+ * useless page. The limit is the RPC zone's 600 requests a minute, and it is
+ * shared with the roll that has just finished running.
+ *
+ * Strictly sequential is not the alternative: one probe costs about 800ms
+ * through the proxy, so twenty in a row is sixteen seconds of a page that reads
+ * as hung. Four at a time is roughly five a second, half the ceiling.
+ */
+async function inBatches(items, fn, size = 4) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(...await Promise.all(items.slice(i, i + size).map(fn)));
+  }
+  return out;
+}
+
+async function registerRoll({ from = 1, limit = 48 } = {}) {
+  const BATCH = 4;
+  const STOP_AFTER_MISSES = 10;
+
+  const found = [];
+  let misses = 0;
+  // A read that FAILED is not a read that missed. One is "no parcel with that
+  // number"; the other is "the register did not answer", and counting the
+  // second as the first is how a page ends a roll early and calls it complete.
+  let unreadable = null;
+
+  for (let id = from; id < from + limit && misses < STOP_AFTER_MISSES; id += BATCH) {
+    const ids = [];
+    for (let n = 0; n < BATCH && id + n < from + limit; n += 1) ids.push(id + n);
+
+    const batch = await Promise.all(ids.map((i) => landOrNull('Parcel', String(i))
+      .then((r) => (r ? r.parcel : null))
+      .catch((e) => { unreadable = unreadable || e; return undefined; })));
+
+    for (const p of batch) {
+      if (p === undefined) continue;        // failed — says nothing either way
+      if (p === null) { misses += 1; continue; }
+      misses = 0;
+      found.push(p);
+    }
+  }
+  return { parcels: found, unreadable, scanned: limit, complete: misses >= STOP_AFTER_MISSES };
+}
 
 // ---------------------------------------------------------------------------
 // The verdict.
@@ -992,6 +1225,51 @@ const statusPill = (s) => {
                 disputed: 'p-bad', frozen: 'p-bad' }[t] || 'p-mute';
   return `<span class="pill ${cls}">${t}</span>`;
 };
+
+// ---------------------------------------------------------------------------
+// Information design: the figures first, and folders instead of a column.
+//
+// The patterns are clients/shared/yamale.css's; these are the two functions
+// that emit them, so the markup cannot drift between the six screens that use
+// it. Every figure printed through `kpi` is read from the register. There is no
+// path here for a number that was estimated, and that is deliberate — the whole
+// argument of this platform is that its figures are checkable, so a figure that
+// needed a price, an area or a forecast the chain does not hold is not shown at
+// all. What is missing is said in words instead.
+//
+// `value` is inserted as markup so a figure can carry a chip or an em dash;
+// every caller escapes what it puts there.
+// ---------------------------------------------------------------------------
+
+function kpi({ label, value, unit, hint, tone }) {
+  return `<div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+    <p class="y-kpi__label">${esc(label)}</p>
+    <p class="y-kpi__value">${value}${unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+    ${hint ? `<p class="y-kpi__hint">${esc(hint)}</p>` : ''}
+  </div>`;
+}
+const kpis = (tiles) => `<div class="y-kpis">${tiles.filter(Boolean).join('')}</div>`;
+
+/**
+ * Tabs rather than an accordion, and the choice is in the URL.
+ *
+ * A parcel's record is four different documents — what it is, what is charged
+ * against it, what has happened to it, and what may be done to it next — and
+ * stacking them meant a buyer scrolled past a mortgage to reach the history.
+ * They are peers and a reader wants one at a time; an accordion invites all of
+ * them open, which is the column again with extra clicks.
+ *
+ * The open folder lives in the hash so a clerk can send somebody a link to the
+ * claims against a title rather than to the title and an instruction to scroll.
+ */
+function folders(tabs, active, hashFor) {
+  return `<div class="y-folders" role="tablist">${tabs.filter(Boolean).map((t) => `
+    <a class="y-folder${t.id === active ? ' y-folder--on' : ''}" role="tab"
+       aria-selected="${t.id === active}" href="${esc(hashFor(t.id))}"
+       style="text-decoration:none">${esc(t.label)}${
+      t.count === null || t.count === undefined ? ''
+        : `<span class="y-folder__count">${esc(t.count)}</span>`}</a>`).join('')}</div>`;
+}
 
 // ---------------------------------------------------------------------------
 // Where a transfer has got to.
@@ -1644,7 +1922,7 @@ async function screenSearch(query) {
   await blockingNotice(document.getElementById('blocking'));
 
   if (query) await runSearch(query);
-  else await recentlyRegistered();
+  else await registerOverview();
 }
 
 /**
@@ -1746,61 +2024,170 @@ async function runSearch(q) {
     + (failures.length ? `<p class="err small">Some lookups did not complete: ${failures.map(esc).join('; ')}</p>` : '');
 }
 
-async function recentlyRegistered() {
+/**
+ * The state of the register, in figures, and then the roll itself.
+ *
+ * What this replaced was a panel headed "Recently registered" that read the
+ * chain's transaction log and, on this deployment, printed "No parcel has been
+ * registered on this chain yet" over a register holding four titles — one of
+ * them disputed, one carrying a mortgage, two with fractionalisation
+ * authorised. See registerRoll for why the log is empty and why nothing would
+ * ever have made that visible.
+ *
+ * Every figure below is counted from records the register returned. There are
+ * three obvious numbers a page like this is expected to carry and none of them
+ * is here:
+ *
+ *   The area under title. `geometry_hash` is a hash of a survey, not a polygon.
+ *   The chain cannot add up hectares and neither can this page.
+ *
+ *   The value of the land registered. Nothing on this chain prices land. A
+ *   transfer carries a price its parties declared, which is one sale's number
+ *   and is not a valuation of anything, least of all of the titles that have
+ *   never been sold.
+ *
+ *   Registrations per month. The register holds the block a title was first
+ *   registered at; this node was state-synced and cannot date blocks below its
+ *   snapshot, so a rate computed from what it can date would be a rate over the
+ *   part of the history that happens to survive on this machine.
+ *
+ * Each of those would have been the most quoted figure on the page and the only
+ * invented one on it.
+ */
+async function registerOverview() {
   const el = document.getElementById('recent');
-  el.innerHTML = '<h2>Recently registered</h2><p class="spin">Reading the transaction log…</p>';
-  let rows;
+  el.innerHTML = '<h2>The register</h2><p class="spin">Reading the register…</p>';
+
+  let roll, pending;
   try {
-    rows = await txsOf(MESSAGES.register, 12);
+    // `pending` degrades to null rather than to []. A read that failed and a
+    // register with nothing under way must not produce the same tile.
+    [roll, pending] = await Promise.all([
+      registerRoll(),
+      landQuery('PendingTransfers').then((d) => d.transfers || []).catch(() => null),
+    ]);
   } catch (e) {
-    el.innerHTML = `<h2>Recently registered</h2>
-      <div class="card"><p class="muted small">The register cannot be listed — there is no
-      "every parcel" query, deliberately, because a public list of who owns what is a
-      targeting list. This panel is instead reconstructed from the chain's transaction
-      log, and that log is not being served here.</p>
-      <p class="err small" style="margin-top:.5rem"><code>${esc(e.message)}</code>
-      ${e.status === 401 ? '<br>A 401 here is the operator\'s basic-auth gate on transaction search, which is a deliberate configuration rather than a fault. Search above still works without it.' : ''}</p>
-      </div>`;
+    el.innerHTML = `<h2>The register</h2>
+      <div class="card"><p class="err small" style="margin:0"><strong>The register did not
+        answer.</strong> <code>${esc(e.message)}</code><br>Nothing is shown rather than an
+        empty list: "no title is registered" and "this page could not ask" are opposite
+        facts about somebody's land.</p></div>`;
     return;
   }
-  const ok = rows.filter((r) => r.code === 0);
-  if (!ok.length) {
-    // Deliberately terse. When the register is empty because no office has been
-    // admitted, `blockingNotice` above has already said so at length, and
-    // repeating it here would make the page read as two complaints about the
-    // same thing.
-    el.innerHTML = `<h2>Recently registered</h2>
-      <div class="card"><p class="muted small" style="margin:0">No parcel has been registered
-        on this chain yet. The transaction log answered — the register is empty, not
-        unreachable.</p></div>`;
+
+  const ps = roll.parcels;
+  const claimed = ps.filter((p) => live(p.encumbrances).length).length;
+  const limited = ps.filter((p) => live(p.restrictions).length).length;
+  const stopped = ps.filter((p) => p.status === 'STATUS_FROZEN' || p.status === 'STATUS_DISPUTED').length;
+
+  // Drawn even when the roll is empty. A band of zeroes over "the register
+  // answered and holds nothing" is a different page from a band that is absent
+  // because the read failed, and a reader must be able to tell them apart
+  // without knowing which code path ran.
+  // FIVE TILES, AND THAT IS A MEASUREMENT RATHER THAN A PREFERENCE. The shared
+  // band is `auto-fit, minmax(11rem, 1fr)`, and the console chrome caps its
+  // content at 1032px: five tiles fill the row exactly and a sixth wraps alone
+  // underneath, which reads as a figure that did not fit rather than as a band.
+  // Anything that would have been a sixth belongs on the screen it is about —
+  // the count of admitted offices is the first thing on "Registry offices".
+  const band = kpis([
+    kpi({ label: 'Titles on the roll', value: String(ps.length),
+          hint: roll.complete
+            ? `Read one by one from the register, numbers 1 to ${roll.scanned}.`
+            : `The first ${roll.scanned} numbers; there may be more.`,
+          tone: ps.length ? undefined : 'mute' }),
+    kpi({ label: 'Under a live claim', value: String(claimed),
+          tone: claimed ? 'warn' : undefined,
+          hint: 'A mortgage, lien or right of way not yet released. A buyer inherits it.' }),
+    kpi({ label: 'Under a limit', value: String(limited),
+          hint: 'A use restricted, a ceiling on foreign ownership, a heritage listing.' }),
+    kpi({ label: 'Frozen or disputed', value: String(stopped),
+          tone: stopped ? 'bad' : 'ok',
+          hint: 'The register will not let these move until an office or a court says so.' }),
+    kpi({ label: 'Transfers under way', value: pending === null ? '—' : String(pending.length),
+          tone: pending === null ? 'mute' : undefined,
+          hint: pending === null
+            ? 'The register did not answer this one. It is not a count of zero.'
+            : 'Open to objection by anybody. That is what the challenge window is for.' }),
+  ]);
+
+  if (!ps.length) {
+    el.innerHTML = `<h2>The register</h2>${band}
+      <div class="card"><p class="muted small" style="margin:0">${roll.unreadable
+        ? `Some of the register could not be read — <code>${esc(roll.unreadable.message)}</code> —
+           so this is not a statement that it is empty.`
+        : 'The register answered, and holds no title. It is empty, not unreachable.'}</p></div>`;
     return;
   }
-  const items = await Promise.all(ok.slice(0, 10).map(async (r) => {
-    const when = dateOf(await blockTime(r.height));
-    return `<li class="is-ok">
-      <div class="tl__when">${esc(when || `block ${r.height}`)}</div>
-      <div class="tl__what">${esc(r.msg.cadastral_ref)}</div>
-      <div class="muted small">First registration by ${esc(officeLabel(r.msg.creator))},
-        to ${esc(await personLabel(r.msg.holder))}</div>
-    </li>`;
-  }));
-  el.innerHTML = `<h2>Recently registered</h2>
+
+  // Batched, not Promise.all: each row resolves the holder's user ID, which is
+  // another read, and firing them all at the tail of the roll is what the
+  // edge's rate limit answers with 503.
+  const rows = await inBatches(ps, async (p) => {
+    const claims = live(p.encumbrances);
+    const limits = live(p.restrictions);
+    return `<tr>
+      <td><a class="y-mono" href="#/parcel/${esc(p.id)}">${esc(p.cadastral_ref)}</a></td>
+      <td>${statusPill(p.status)}</td>
+      <td>${esc(await personLabel(p.holder))}</td>
+      <td>${esc(officeLabel(p.authority))}</td>
+      <td class="num">${claims.length
+        ? `<span class="y-chip y-chip--warn">${claims.length}</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${limits.length
+        ? `<span class="y-chip y-chip--mute">${limits.length}</span>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${esc(p.deeds.length || '—')}</td>
+      <td class="num y-mono">${esc(p.id)}</td>
+    </tr>`;
+  });
+
+  // The table scrolls inside its own box. Eight columns do not fit a phone and
+  // a page that scrolls sideways as a whole loses its masthead and its search
+  // box at the same time.
+  el.innerHTML = `<h2>The register</h2>${band}
     <div class="card">
-      <ul class="tl">${items.join('')}</ul>
-      <p class="muted small" style="margin-top:.6rem">Reconstructed from the chain's
-        transaction log, not from the register itself: there is no "list every parcel"
-        query, because a public list of who owns what is a targeting list.</p>
-      <p class="muted small" style="margin-top:.4rem"><strong>Refused registrations are not in
-        this list</strong>, and cannot be. A message the chain rejects — a second title over
-        ground already titled, a cadastral reference already in use — never emits the event the
-        transaction log is indexed by, so the refusal is in the block but not in the search index.
-        The count above is registrations that <em>succeeded</em>, not attempts.</p>
+      <div class="y-scrollx">
+        <table class="y-data">
+          <thead><tr>
+            <th>Cadastral reference</th><th>Status</th><th>Held by</th><th>Registry office</th>
+            <th class="num">Claims</th><th class="num">Limits</th><th class="num">Deeds</th>
+            <th class="num">No.</th>
+          </tr></thead>
+          <tbody>${rows.join('')}</tbody>
+          <caption>Read title by title from the register itself, because x/land publishes no
+            "every parcel" query — a public list of who owns what is a targeting list. This roll
+            is a demonstration convenience and is bounded: it asks for numbers 1
+            to ${esc(roll.scanned)} and stops at a long run of gaps.${roll.unreadable
+              ? ` Some of those reads failed (<code>${esc(roll.unreadable.message)}</code>),
+                  so a title may be missing from this list and present in the register.` : ''}
+            <strong>Refused registrations are not here and cannot be</strong> — a second title
+            over ground already titled is never written, so it has no record to list.</caption>
+        </table>
+      </div>
     </div>`;
 }
 
 // --- 2. A parcel's full record --------------------------------------------
 
-async function screenParcel(id) {
+/**
+ * One title, in four folders behind the one answer a reader came for.
+ *
+ * The verdict stays at the top and stays whole: somebody standing in front of a
+ * seller reads that sentence and nothing else, and burying it behind a tab
+ * would be the single worst change that could be made to this page.
+ *
+ * Everything under it used to be one column — the record, then the claims, then
+ * the limits, then twelve composable actions, then the whole chain of title —
+ * so reading the history meant scrolling past nine forms a citizen cannot send.
+ * They are four different documents about the same land and a reader wants one
+ * at a time.
+ *
+ * The figures between the verdict and the folders are counted from this
+ * parcel's own record. There is no market value here and there is no area:
+ * `geometry_hash` is a hash of a survey and not a polygon, and nothing on this
+ * chain prices land. A page that printed either would be printing the one
+ * number on it that nobody could check.
+ */
+async function screenParcel(id, folder = 'record') {
   view.innerHTML = '<p class="spin">Reading the title…</p>';
   // Refused before the call rather than after it. The register has no parcel 0
   // and never will — the keeper steps past it, see the note in runSearch — so
@@ -1832,20 +2219,92 @@ async function screenParcel(id) {
   const holder = await personLabel(p.holder);
   const registeredOn = dateOf(await blockTime(p.registered_at));
 
+  const claimsLive = live(p.encumbrances);
+  const limitsLive = live(p.restrictions);
+  const openT = transfers.filter((t) => t.completed_at === '0' && !t.objected_by);
+  const objected = transfers.filter((t) => t.objected_by);
+  const auth = await fractionalisationAuthority(p.id).catch(() => undefined);
+
+  // The fractionalisation tile is the one figure here that is not a count, and
+  // it is a ceiling the chain enforces rather than a share anybody holds. An
+  // authorisation that has been withdrawn or has expired still answers this
+  // query, so `live` is read rather than inferred from the presence of a
+  // record — a page that treated "there is an authorisation" as "shares may be
+  // sold" would be advertising a mint the chain refuses.
+  const fracValue = auth === undefined ? '—'
+    : auth === null ? 'None'
+    : auth.live ? `${esc(Number(auth.authorisation.max_share_bps) / 100)}%`
+    : 'Not live';
+
+  // Five, for the reason set out in registerOverview: a sixth wraps onto a row
+  // of its own and stops reading as part of the band. Objections are folded
+  // into the transfers tile rather than dropped — an objection is a fact about
+  // a transfer, and a tile reading "0" beside it on most titles would spend a
+  // fifth of the band saying nothing.
+  const band = kpis([
+    kpi({ label: 'Claims against it', value: String(claimsLive.length),
+          tone: claimsLive.length ? 'warn' : 'ok',
+          hint: claimsLive.length
+            ? 'A mortgage, lien or right of way not released. A buyer takes the land with it.'
+            : 'No mortgage, no lien, no right of way. The register was asked and answered.' }),
+    kpi({ label: 'Limits in force', value: String(limitsLive.length),
+          tone: limitsLive.length ? 'mute' : undefined,
+          hint: 'What may be done with the land. Not a defect in the title — a fact about the ground.' }),
+    kpi({ label: 'Transfers on record', value: String(transfers.length),
+          tone: objected.length ? 'bad' : openT.length ? 'warn' : undefined,
+          hint: objected.length
+            ? `${objected.length} objected to. An objection stays on the record whether it was upheld or set aside.`
+            : openT.length
+              ? `${openT.length} still under way. The land may not be the seller’s for much longer.`
+              : 'Completed and cancelled alike. Nothing here is ever deleted.' }),
+    kpi({ label: 'Deeds filed', value: String((p.deeds || []).length),
+          hint: 'Grants, sales, successions, court orders. The papers the registry holds, by hash.' }),
+    kpi({ label: 'May be fractionalised', value: fracValue,
+          tone: auth === undefined ? 'mute' : auth && auth.live ? 'warn' : undefined,
+          hint: auth === undefined
+            ? 'The register did not answer this one. It is not an answer of "no".'
+            : auth === null
+              ? 'No office has authorised shares in this land to be sold.'
+              : auth.live
+                ? 'The ceiling an office set on how much of this land may be sold as shares.'
+                : 'An authorisation exists and is withdrawn or expired. The chain refuses a mint against it.' }),
+  ]);
+
+  const TABS = [
+    { id: 'record', label: 'The record' },
+    { id: 'claims', label: 'Claims and limits',
+      count: claimsLive.length + limitsLive.length || null },
+    { id: 'history', label: 'Chain of title', count: transfers.length || null },
+    { id: 'acts', label: 'Acting on this title' },
+  ];
+  const open = TABS.some((t) => t.id === folder) ? folder : 'record';
+
   view.innerHTML = `
     ${verdictHtml(v)}
     <div id="why-frozen"></div>
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="label">Cadastral reference</div>
-          <!-- The reference off somebody's paper file, in mono: it is compared
-               character by character against a document, which is not something
-               a proportional face lets a reader do. -->
-          <div class="stat y-mono" style="font-size:var(--step-2)">${esc(p.cadastral_ref)}</div>
-        </div>
-        ${statusPill(p.status)}
+    <div class="row" style="align-items:flex-start;margin-top:var(--sp-4)">
+      <div>
+        <div class="label">Cadastral reference</div>
+        <!-- The reference off somebody's paper file, in mono: it is compared
+             character by character against a document, which is not something
+             a proportional face lets a reader do. It is also this title's NAME —
+             the number the register files it under is an implementation detail
+             and reads as one, so it is the small print beside it. -->
+        <div class="stat y-mono" style="font-size:var(--step-3)">${esc(p.cadastral_ref)}</div>
+        <p class="muted small" style="margin:.15rem 0 0">Parcel ${esc(p.id)} ·
+          ${esc(officeLabel(p.authority))}${
+            officeWhere(p.authority) ? ` — ${esc(officeWhere(p.authority))}` : ''}</p>
       </div>
+      ${statusPill(p.status)}
+    </div>
+    ${band}
+    ${folders(TABS, open, (t) => (t === 'record' ? `#/parcel/${p.id}` : `#/parcel/${p.id}/${t}`))}
+    <div id="folder"></div>`;
+
+  const el = document.getElementById('folder');
+
+  if (open === 'record') {
+    el.innerHTML = `<div class="card">
       <dl>
         <dt>Held by</dt><dd>${esc(holder)}</dd>
         <dt>Registry office</dt><dd>${esc(officeLabel(p.authority))}${
@@ -1865,60 +2324,64 @@ async function screenParcel(id) {
           proves which survey this title refers to, and the registry serves the document.
           This hash is also the uniqueness constraint: a second title over it is refused.</p>
       </details>
-    </div>
+    </div>`;
+  }
 
-    <h2>Claims against this land</h2>
-    <div id="claims"></div>
+  if (open === 'claims') {
+    const encs = p.encumbrances || [];
+    const rs = p.restrictions || [];
+    el.innerHTML = `
+      <h2 style="margin-top:0">Claims against this land</h2>
+      ${encs.length ? (await Promise.all(encs.map(async (c, i) => `
+        <div class="claim ${c.released ? 'claim--gone' : ''}">
+          <div class="row">
+            <strong>${esc(kindLabel(c.kind))}</strong>
+            <span class="pill ${c.released ? 'p-mute' : 'p-warn'}">${c.released ? 'released' : 'live'}</span>
+          </div>
+          <p class="small" style="margin:.25rem 0 0">${esc(c.detail || 'No detail recorded.')}</p>
+          <p class="muted small" style="margin:.2rem 0 0">In favour of ${esc(await personLabel(c.holder))}
+            · recorded ${esc(dateOf(await blockTime(c.recorded_at)) || `in block ${c.recorded_at}`)}
+            · entry ${i}</p>
+        </div>`))).join('')
+        : `<div class="card"><p class="muted small" style="margin:0">Nothing is charged against this land.
+            No mortgage, no lien, no right of way — the register was asked and answered.</p></div>`}
 
-    <h2>Limits on what may be done with it</h2>
-    <div id="limits"></div>
+      <h2>Limits on what may be done with it</h2>
+      ${rs.length ? (await Promise.all(rs.map(async (r, i) => `
+        <div class="claim ${r.lifted ? 'claim--gone' : 'claim--stop'}">
+          <div class="row">
+            <strong>${esc(kindLabel(r.kind))}${r.value ? ` — ${esc(r.value)}` : ''}</strong>
+            <span class="pill ${r.lifted ? 'p-mute' : 'p-bad'}">${r.lifted ? 'lifted' : 'in force'}</span>
+          </div>
+          <p class="small" style="margin:.25rem 0 0">${esc(r.detail || 'No detail recorded.')}</p>
+          <p class="muted small" style="margin:.2rem 0 0">Imposed by ${esc(officeLabel(r.imposed_by))}
+            · ${esc(dateOf(await blockTime(r.imposed_at)) || `block ${r.imposed_at}`)} · entry ${i}</p>
+        </div>`))).join('')
+        : `<div class="card"><p class="muted small" style="margin:0">No restriction is recorded.
+            The land may be used and dealt with under the ordinary law.</p></div>`}`;
+  }
 
-    <h2>Acting on this title</h2>
-    <div id="parcel-acts"><p class="spin">Working out what can be done…</p></div>
+  if (open === 'history') {
+    el.innerHTML = `<h2 style="margin-top:0">Chain of title</h2>
+      <p class="muted small" style="margin:0 0 .5rem">Every deed, every claim, and every transfer
+        with the offices that signed it. This is the receipt a dispossessed owner does not
+        currently get, and it is why nothing here is ever deleted — a released mortgage stays
+        on the record, marked released.</p>
+      <div id="history"><p class="spin">Assembling the history…</p></div>`;
+    document.getElementById('history').innerHTML = await historyHtml(p, transfers, prm);
+  }
 
-    <h2>Chain of title</h2>
-    <p class="muted small" style="margin:0 0 .5rem">Every deed, every claim, and every transfer
-      with the offices that signed it. This is the receipt a dispossessed owner does not
-      currently get, and it is why nothing here is ever deleted — a released mortgage stays
-      on the record, marked released.</p>
-    <div id="history"><p class="spin">Assembling the history…</p></div>`;
+  if (open === 'acts') {
+    el.innerHTML = `<h2 style="margin-top:0">Acting on this title</h2>
+      <div id="parcel-acts"><p class="spin">Working out what can be done…</p></div>`;
+    await parcelActions(p, transfers, prm);
+  }
 
-  // Claims -----------------------------------------------------------------
-  const claimsEl = document.getElementById('claims');
-  const encs = p.encumbrances || [];
-  claimsEl.innerHTML = encs.length ? (await Promise.all(encs.map(async (c, i) => `
-      <div class="claim ${c.released ? 'claim--gone' : ''}">
-        <div class="row">
-          <strong>${esc(kindLabel(c.kind))}</strong>
-          <span class="pill ${c.released ? 'p-mute' : 'p-warn'}">${c.released ? 'released' : 'live'}</span>
-        </div>
-        <p class="small" style="margin:.25rem 0 0">${esc(c.detail || 'No detail recorded.')}</p>
-        <p class="muted small" style="margin:.2rem 0 0">In favour of ${esc(await personLabel(c.holder))}
-          · recorded ${esc(dateOf(await blockTime(c.recorded_at)) || `in block ${c.recorded_at}`)}
-          · entry ${i}</p>
-      </div>`))).join('')
-    : `<div class="card"><p class="muted small" style="margin:0">Nothing is charged against this land.
-        No mortgage, no lien, no right of way — the register was asked and answered.</p></div>`;
-
-  // Limits -----------------------------------------------------------------
-  const limitsEl = document.getElementById('limits');
-  const rs = p.restrictions || [];
-  limitsEl.innerHTML = rs.length ? (await Promise.all(rs.map(async (r, i) => `
-      <div class="claim ${r.lifted ? 'claim--gone' : 'claim--stop'}">
-        <div class="row">
-          <strong>${esc(kindLabel(r.kind))}${r.value ? ` — ${esc(r.value)}` : ''}</strong>
-          <span class="pill ${r.lifted ? 'p-mute' : 'p-bad'}">${r.lifted ? 'lifted' : 'in force'}</span>
-        </div>
-        <p class="small" style="margin:.25rem 0 0">${esc(r.detail || 'No detail recorded.')}</p>
-        <p class="muted small" style="margin:.2rem 0 0">Imposed by ${esc(officeLabel(r.imposed_by))}
-          · ${esc(dateOf(await blockTime(r.imposed_at)) || `block ${r.imposed_at}`)} · entry ${i}</p>
-      </div>`))).join('')
-    : `<div class="card"><p class="muted small" style="margin:0">No restriction is recorded.
-        The land may be used and dealt with under the ordinary law.</p></div>`;
-
-  document.getElementById('history').innerHTML = await historyHtml(p, transfers, prm);
+  // Outside the folders on purpose. Why a title was frozen is not one of four
+  // things a reader chooses between — it is the answer to the only question
+  // they have, and hiding it behind a tab would be the same defect as burying
+  // the verdict.
   if (p.status === 'STATUS_FROZEN') await whyFrozen(p);
-  await parcelActions(p, transfers, prm);
 }
 
 /**
@@ -2574,16 +3037,48 @@ async function screenPending() {
     return;
   }
   const ts = data.transfers || [];
+
+  // The band is drawn before the empty check, so "no transfer is under way"
+  // arrives as a register that answered zero rather than as a screen with
+  // nothing on it. Those two look identical without it.
+  //
+  // What is deliberately not a figure here is money. Each transfer carries a
+  // declared price, in whatever units its parties typed, and there is no
+  // evidence on the chain that any of it was ever paid — so a "total value
+  // under transfer" would be the sum of several unverified strings in
+  // possibly different currencies, presented as the headline of a register
+  // whose entire claim is that its figures are checkable.
+  const stages = await Promise.all(ts.map(async (t) => {
+    const pr = await landOrNull('Parcel', t.parcel_id).catch(() => null);
+    return { t, p: pr?.parcel, st: stage(t, pr?.parcel, prm) };
+  }));
+  const at = (key) => stages.filter((s) => s.st.key === key).length;
+  const band = kpis([
+    kpi({ label: 'Under way', value: String(ts.length),
+          tone: ts.length ? undefined : 'ok',
+          hint: 'Transfers the register has not completed and nobody has objected to.' }),
+    kpi({ label: 'Awaiting attestation', value: String(at('attest')),
+          tone: at('attest') ? 'warn' : undefined,
+          hint: `Offices other than the parcel’s own must attest. ${esc(prm.attestation_quorum)} are required.` }),
+    kpi({ label: 'Open to objection', value: String(at('window')),
+          tone: at('window') ? 'warn' : undefined,
+          hint: `The challenge window is ${esc(span(Number(prm.challenge_window)))}. Anybody may object, and this list is what makes that possible.` }),
+    kpi({ label: 'Ready to complete', value: String(at('complete')),
+          hint: 'Attested, unobjected, and past the window. One message away from changing hands.' }),
+  ]);
+
   if (!ts.length) {
-    el.innerHTML = `<div class="card"><p class="muted small" style="margin:0">No transfer is under
+    el.innerHTML = `${band}<div class="card"><p class="muted small" style="margin:0">No transfer is under
       way. The register answered — this is an empty list, not a failed call.</p></div>`;
     return;
   }
-  const cards = await Promise.all(ts.map(async (t) => {
-    const pr = await landOrNull('Parcel', t.parcel_id);
-    const p = pr?.parcel;
-    const st = stage(t, p, prm);
-    return `<a class="card hit verdict verdict--${st.tone}" href="#/transfer/${t.id}">
+  // Cards rather than rows, deliberately, and this is the one list on the
+  // console that stays cards. Each of these is a decision somebody has to make
+  // about a specific piece of land within a stated window, and the sentence
+  // saying what it is waiting for is the content — a row eight columns wide
+  // would compress that sentence into a status word and lose it.
+  const cards = await Promise.all(stages.map(async ({ t, p, st }) => `
+    <a class="card hit verdict verdict--${st.tone}" href="#/transfer/${t.id}">
       <div class="row">
         <span class="ref">${p ? esc(p.cadastral_ref) : `parcel ${esc(t.parcel_id)}`}</span>
         <span class="pill p-${st.tone === 'ok' ? 'ok' : st.tone === 'bad' ? 'bad' : 'warn'}">${
@@ -2596,9 +3091,8 @@ async function screenPending() {
       <p class="muted small" style="margin:.3rem 0 0">
         ${esc(await personLabel(t.from))} → ${esc(await personLabel(t.to))}${
           t.price ? ` · declared price ${esc(t.price)}` : ''} · transfer ${esc(t.id)}</p>
-    </a>`;
-  }));
-  el.innerHTML = cards.join('');
+    </a>`));
+  el.innerHTML = band + cards.join('');
 }
 
 // --- 4b. Register a parcel ------------------------------------------------
@@ -2805,43 +3299,56 @@ async function screenAuthorisations() {
     }
   };
 
+  // WHICH PARCELS TO ASK ABOUT NOW COMES FROM THE REGISTER, NOT THE LOG.
+  //
+  // This list was assembled from transaction search, and on this deployment
+  // that search answers 200 with nothing — the node was state-synced and holds
+  // no block from when the authorisations were granted. So the screen read "No
+  // office has authorised fractionalisation over any parcel. The transaction
+  // log answered — this is genuinely none, not a failed call" over a register
+  // holding two live authorisations. It was not only wrong, it insisted.
+  //
+  // The roll asks the register for the parcels themselves and then asks each
+  // one for its authorisation, which is a state read end to end and cannot go
+  // quietly empty the same way.
   const el = document.getElementById('auths');
-  let rows;
-  try {
-    rows = (await txsOf(MESSAGES.fractionalise, 50)).filter((r) => r.code === 0);
-  } catch (e) {
-    el.innerHTML = `<div class="card">
-      <h3>The list cannot be assembled here</h3>
-      <p class="err small"><code>${esc(e.message)}</code></p>
-      <p class="muted small">${e.status === 401
-        ? "A 401 is the operator's basic-auth gate on transaction search — a deliberate configuration, not a fault."
-        : 'The transaction log did not answer.'}</p>
-      ${discoveryNote()}</div>`;
-    return;
-  }
-  if (!rows.length) {
-    el.innerHTML = `<div class="card">
-      <p class="muted small" style="margin:0">No office has authorised fractionalisation over any
-        parcel. The transaction log answered — this is genuinely none, not a failed call.</p>
+  const roll = await registerRoll();
+
+  const found = await inBatches(roll.parcels, async (p) => {
+    try { return { p, res: await fractionalisationAuthority(p.id) }; }
+    catch (e) { return { p, err: e }; }
+  });
+  const withAuth = found.filter((f) => f.res || f.err);
+
+  const granted = withAuth.filter((f) => f.res);
+  const liveN = granted.filter((f) => f.res.live).length;
+  const band = kpis([
+    kpi({ label: 'Titles asked', value: String(roll.parcels.length),
+          hint: `Numbers 1 to ${roll.scanned}, read one by one. There is no "every parcel" query.` }),
+    kpi({ label: 'Authorisations held', value: String(granted.length),
+          hint: 'One per parcel: granting again replaces the terms rather than adding to them.' }),
+    kpi({ label: 'Live now', value: String(liveN),
+          tone: liveN ? 'warn' : undefined,
+          hint: 'Live is the keeper’s answer, not this page’s arithmetic. It folds in the chain’s clock, the withdrawal, and any restriction forbidding fractionalisation.' }),
+  ]);
+
+  if (!withAuth.length) {
+    el.innerHTML = `${band}<div class="card">
+      <p class="muted small" style="margin:0">${roll.parcels.length
+        ? `The register holds ${roll.parcels.length} title${roll.parcels.length === 1 ? '' : 's'}
+           and an authorisation over none of them. It answered for each — this is none, not a
+           failed call.`
+        : 'There is no title on the roll to authorise anything over.'}</p>
       ${discoveryNote()}</div>`;
     return;
   }
 
-  // The log is used to learn *which* parcels to ask about and for nothing else.
-  // One entry per parcel, because the register holds one authorisation per
-  // parcel: granting again replaces the terms rather than accumulating them.
-  const ids = [...new Set(rows.map((r) => String(r.msg.parcel_id)))].filter((id) => id !== '0');
-
-  const cards = await Promise.all(ids.map(async (id) => {
-    try {
-      return await authorisationCard(id, await fractionalisationAuthority(id));
-    } catch (e) {
-      return `<div class="card"><strong>parcel ${esc(id)}</strong>
+  const cards = await Promise.all(withAuth.map(async ({ p, res, err }) => (err
+    ? `<div class="card"><strong>${esc(p.cadastral_ref)}</strong>
         <p class="err small" style="margin:.3rem 0 0">The register did not answer for this parcel.
-          <code>${esc(e.message)}</code></p></div>`;
-    }
-  }));
-  el.innerHTML = cards.join('') + discoveryNote();
+          <code>${esc(err.message)}</code></p></div>`
+    : authorisationCard(p.id, res, p))));
+  el.innerHTML = band + cards.join('') + discoveryNote();
 }
 
 /**
@@ -2856,9 +3363,12 @@ async function screenAuthorisations() {
  * show as live a permission x/tokenisation would refuse to issue against. The
  * chain and the console must not disagree about what live means.
  */
-async function authorisationCard(parcelId, res) {
-  const pr = await landOrNull('Parcel', parcelId);
-  const p = pr?.parcel;
+async function authorisationCard(parcelId, res, known = null) {
+  // `known` is the parcel when the caller already holds it. The list screen
+  // walks the register before it gets here, so re-asking for every parcel it
+  // has just read doubles the reads for nothing — and doubling reads is what
+  // put this screen over the edge's rate limit and made it 503.
+  const p = known || (await landOrNull('Parcel', parcelId))?.parcel;
   const title = p
     ? `<a href="#/parcel/${p.id}">${esc(p.cadastral_ref)}</a>`
     : `parcel ${esc(parcelId)}`;
@@ -2914,12 +3424,13 @@ async function authorisationCard(parcelId, res) {
 const discoveryNote = () => `<div class="card" style="border-inline-start:3px solid var(--warn)">
   <h3>What this list can and cannot show</h3>
   <p class="muted small" style="margin:.1rem 0">Every fact above — the right, the ceiling, the
-    expiry, and whether the permission is live — is read from the register. Only the question of
-    <em>which parcels to ask about</em> comes from the chain's transaction log, because x/land
-    publishes no list of authorisations any more than it publishes a list of owners.</p>
-  <p class="muted small" style="margin:.4rem 0 0">So this list can be short where the log has been
-    pruned or is gated, and it is never wrong about a parcel it does show. To check one parcel,
-    ask for it by number above — that path does not touch the log at all.</p>
+    expiry, and whether the permission is live — is read from the register, and so is the question
+    of <em>which parcels to ask about</em>: x/land publishes no list of authorisations any more
+    than it publishes a list of owners, so each title is asked for by number and then asked
+    whether it carries one.</p>
+  <p class="muted small" style="margin:.4rem 0 0">That scan is bounded, so this list can be short
+    on a register with more titles than it walked — and it is never wrong about a parcel it does
+    show. To check one parcel with certainty, ask for it by number above.</p>
 </div>`;
 
 // --- 6. Offices ------------------------------------------------------------
@@ -2944,8 +3455,39 @@ async function screenOffices() {
   // "active" while it holds no role grant is the exact misreport this screen
   // exists to prevent.
   const standing = await Promise.all(list.map(standingOf));
+
+  // The three counts an operator opens this screen for, and the third is the
+  // one that has repeatedly been wrong in the field: an office can be listed,
+  // marked active, and refused by every message it sends, because admission
+  // takes two acts in two modules. "Admitted" and "able to act" are separate
+  // tiles for that reason — collapsing them into one figure is exactly the
+  // mistake this screen exists to stop somebody making.
+  const able = standing.filter((s) => s === true).length;
+  const unknown = standing.filter((s) => s === null).length;
+  const band = kpis([
+    kpi({ label: 'Offices admitted', value: String(list.filter((o) => o.active).length),
+          hint: 'Admitted by the chain’s governance, never by each other.' }),
+    kpi({ label: 'Able to act', value: String(able),
+          tone: able ? undefined : 'bad',
+          hint: unknown
+            ? `${unknown} could not be checked and are not counted here either way.`
+            : 'Holding the role grant in x/alias as well as a place in this register. Without it every message is refused.' }),
+    kpi({ label: 'Attestations per transfer', value: esc(prm.attestation_quorum),
+          tone: able > quorum ? 'ok' : 'warn',
+          hint: able > quorum
+            ? 'Enough offices can act to attest a transfer whose own office is excluded.'
+            : `Attesting needs ${quorum} offices other than the parcel’s own, so ${quorum + 1} able offices at minimum. No transfer can complete until then.` }),
+    // Split into a figure and its unit rather than printed as one string:
+    // .y-kpi__value forbids a break inside the digits, and "7 days" as a single
+    // run could still wrap between the 7 and the word at a narrow column width.
+    // The unit is allowed to drop to the next line; the number is not.
+    kpi({ label: 'Challenge window', ...spanParts(Number(prm.challenge_window)),
+          hint: 'From the moment quorum is reached, during which anybody may object.' }),
+  ]);
+
   el.innerHTML = `
     <div id="blocking"></div>
+    ${band}
     <div class="grid">${list.map((o, i) => `
       <div class="card${standing[i] === false ? ' card--warn' : ''}">
         <strong style="display:block">${esc(o.name || 'unnamed office')}</strong>
@@ -3433,7 +3975,13 @@ async function route() {
   const [path, qs] = hash.split('?');
   const q = new URLSearchParams(qs || '').get('q');
   try {
-    if (path.startsWith('#/parcel/')) return await screenParcel(path.slice(9));
+    // #/parcel/7 and #/parcel/7/claims. The open folder is in the hash so a
+    // clerk can send somebody a link to the claims against a title rather than
+    // a link to the title and an instruction to scroll.
+    if (path.startsWith('#/parcel/')) {
+      const [id, folder] = path.slice(9).split('/');
+      return await screenParcel(id, folder || 'record');
+    }
     if (path.startsWith('#/transfer/')) return await screenTransfer(path.slice(11));
     if (path === '#/pending') return await screenPending();
     if (path === '#/authorisations') return await screenAuthorisations();
