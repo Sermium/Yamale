@@ -89,4 +89,24 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The other half of tokenisation-prorata. x/tokenisation is not linked
+		// into a settlement build, so there is nothing to migrate — but the
+		// upgrade must EXIST under this name, which is the whole point of the
+		// entry: a name the binary does not know panics the node at the halt
+		// height and it stays down until somebody installs one that does.
+		Name: "tokenisation-prorata",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"pro rata temporis: nothing to do",
+				"absent", "x/tokenisation is not linked into a settlement build, so there are "+
+					"no vaults to apportion",
+			)
+			return vm, nil
+		},
+	},
 }

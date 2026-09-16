@@ -193,4 +193,59 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// Tokenisation: pro-rata temporis, cost basis, covenants, sector.
+		//
+		// NO STORE UPGRADE. Every new collection — period rates, covenants —
+		// lives under x/tokenisation's EXISTING store key, so nothing new is
+		// mounted. What makes this a halt is the state shape and the message
+		// set: an old binary cannot decode MsgPublishCovenant, and it would
+		// compute a different entitlement for the same position.
+		//
+		// The migration is the reason this handler is long. It is not field
+		// initialisation: a position carrying unsettled income at the halt
+		// height would simply stop being owed it, because nothing after this
+		// upgrade reads the index delta that produced it. See
+		// MigrateToProRata.
+		Name: "tokenisation-prorata",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			vaults, positions, settled, err := app.TokenisationKeeper.MigrateToProRata(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("migrating tokenisation to pro-rata temporis: %w", err)
+			}
+
+			// Refused rather than reported. A position left with an unset
+			// amount panics every validator on its first transfer, and a halt
+			// height is the only place where stopping is cheaper than
+			// discovering it in a block.
+			if err := app.TokenisationKeeper.AssertProRataReady(ctx); err != nil {
+				return nil, fmt.Errorf("the pro-rata migration left the module unsafe: %w", err)
+			}
+
+			ctx.Logger().Info(
+				"tokenisation moved to pro rata temporis",
+				"vaults", vaults,
+				"positions", positions,
+				"settled_at_the_old_rule", settled.String(),
+				"what_changed", "a distribution is now apportioned by the time each holder "+
+					"actually held, not by who was on the register when it was declared; a "+
+					"mid-period sale splits it between seller and buyer",
+				"the_discontinuity", "the first period of every existing vehicle starts at THIS "+
+					"height rather than at issuance. The chain holds no record of when balances "+
+					"moved before now, so token-seconds for the past cannot be reconstructed, and "+
+					"assuming everyone held from issuance would credit last week's buyer with a "+
+					"year of accrual",
+				"also", "positions now carry what they cost, so a return can be computed against "+
+					"something rather than assumed; a tokenisation carries a sector; and an "+
+					"operator can publish covenants against it — accounts, structure changes, "+
+					"dividend notices, assembly notices — as digests, never as documents",
+			)
+			return vm, nil
+		},
+	},
 }
