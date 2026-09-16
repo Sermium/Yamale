@@ -514,6 +514,30 @@ Response:
 | --- | --- | --- |
 | `params` | Params |  |
 
+### Position
+
+`GET /yamale/blockchain/tokenisation/v1/assets/{asset_id}/position/{holder}`
+
+Position returns one holder's whole record against a tokenisation.
+
+Entitlement answers only "what could they withdraw now", as a single Coin. Everything else a holder needs to see about their own position -- what it cost, how much of it that cost covers, and the time accruing in the current period -- had no query at all, so the console was reading it out of the raw store at /store/tokenisation/key and decoding the key layout by hand. That works and it couples a browser to internal storage: a change to a key prefix, which is an implementation detail nobody would announce, silently breaks every reader.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `asset_id` | uint64 |  |
+| `holder` | string |  |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `position` | Position | Absent when this account has never held a share in this tokenisation. An absence, not a failure: most accounts hold most things not at all. |
+| `found` | bool |  |
+| `owed` | string | What could be withdrawn right now, settled and unsettled together. The same figure Entitlement returns, carried here so a screen showing a whole position does not need two round trips that could disagree. |
+| `pending_token_seconds` | string | Token-seconds accrued in the CURRENT, undeclared period, brought up to the block being queried. Not money, and deliberately not converted to any. The rate is unknown until the period closes, so a figure in a currency would be a forecast standing beside a settled amount in the same units -- and a reader cannot tell those apart once both are money. |
+
 ## State
 
 ### Asset
