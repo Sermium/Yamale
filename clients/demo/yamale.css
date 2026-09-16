@@ -84,20 +84,30 @@
   --rule: #d3dae6;
 
   --text: var(--ink);
-  --text-muted: var(--slate);
+  --text-muted: #526178;
   --text-faint: #8798af;
   --accent: var(--navy);
   --accent-ink: #ffffff;
   --focus: #1f6feb;
 
-  --ok: #0d7a4a;
+  --ok: #0c6d42;
   --warn: #a8791b;
-  --bad: #b02a25;
+  --bad: #ac2924;
   --wash-ok: rgba(13, 122, 74, .10);
   --wash-warn: rgba(168, 121, 27, .12);
   --wash-bad: rgba(176, 42, 37, .10);
   --wash-mute: rgba(92, 110, 136, .10);
   --wash-brass: rgba(168, 123, 60, .12);
+
+  /* Brass and amber are brand colours before they are type, and as type neither
+     clears 4.5:1 in the light palette. Measured in a browser at 1600px:
+     3.77:1 for a brass link on white, 3.31:1 for a brass chip on its own wash,
+     3.38:1 for an amber chip on its own. Darkened along the same hue rather
+     than replaced, and used only where the colour carries words — a border or a
+     rule at 3.3:1 is doing a different job and reads correctly there. The dark
+     palette needs no equivalent: both already pass, also measured. */
+  --brass-ink: #78582b;
+  --warn-ink: #795814;
 
   /* Elevation the palette previously had none of: every panel was a 1px
      border on flat white, which is why the surfaces read as wireframes. */
@@ -134,6 +144,8 @@
     --wash-bad: rgba(239, 138, 133, .13);
     --wash-mute: rgba(143, 164, 196, .12);
     --wash-brass: rgba(196, 152, 86, .16);
+    --brass-ink: #c79d5e;
+    --warn-ink: var(--warn);
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
     --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -164,6 +176,8 @@
   --wash-bad: rgba(239, 138, 133, .13);
   --wash-mute: rgba(143, 164, 196, .12);
   --wash-brass: rgba(196, 152, 86, .16);
+  --brass-ink: #c79d5e;
+  --warn-ink: var(--warn);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
@@ -213,6 +227,13 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
 .y-num, .y-tabular, td.y-num, th.y-num {
   font-variant-numeric: tabular-nums;
 }
+/* Tabular digits align a column only if the column is aligned. `.y-num` gave
+   the digits equal width and left every cell ragged against a left edge, so a
+   cap and the amount remaining under it could not be compared down the page —
+   which is the only reason to put figures in a column at all.
+   Scoped to table cells on purpose: `.y-num` is also on inline spans in four
+   consoles, and right-aligning a number inside a sentence would be wrong. */
+td.y-num, th.y-num { text-align: end; }
 .y-addr { word-break: break-all; font-size: 0.88em; }
 
 /* --------------------------------------------------------------- utilities */
@@ -222,7 +243,7 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
   font-size: var(--step--1);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brass);
+  color: var(--brass-ink);
 }
 
 .y-label {
@@ -255,10 +276,10 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
   white-space: nowrap;
 }
 .y-chip--ok { background: var(--wash-ok); color: var(--ok); }
-.y-chip--warn { background: var(--wash-warn); color: var(--warn); }
+.y-chip--warn { background: var(--wash-warn); color: var(--warn-ink); }
 .y-chip--bad { background: var(--wash-bad); color: var(--bad); }
 .y-chip--mute { background: var(--wash-mute); color: var(--text-muted); }
-.y-chip--brass { background: var(--wash-brass); color: var(--brass); }
+.y-chip--brass { background: var(--wash-brass); color: var(--brass-ink); }
 
 /* Wide content scrolls inside its own box. The page body never scrolls
    sideways — a horizontal scrollbar on the document is how a table takes a
@@ -279,4 +300,173 @@ code, kbd, samp, pre, .y-mono, .y-addr, .y-num {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ==========================================================================
+   INFORMATION DESIGN
+   Added 2026-09-16, after the owner's verdict on the consoles: "this is just
+   not looking good".
+
+   The diagnosis was the same on every surface. Figures were set at the same
+   size as their labels, so nothing read as a figure; everything lived in one
+   scrolling column, so finding anything meant scrolling past everything; and
+   data surfaces had no information design at all — a table of numbers with no
+   alignment, no emphasis and no shape.
+
+   These are the three patterns that fix it, defined ONCE here so eleven
+   consoles do not invent eleven versions. Every colour is an existing token:
+   this block adds layout and hierarchy, never a palette.
+   ========================================================================== */
+
+/* --- The figures a reader came for, before the prose explaining them ----- */
+
+.y-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.y-kpi {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  border-inline-start: 3px solid var(--rule);
+}
+.y-kpi--ok   { border-inline-start-color: var(--ok); }
+.y-kpi--warn { border-inline-start-color: var(--warn); }
+.y-kpi--bad  { border-inline-start-color: var(--bad); }
+.y-kpi--mute { border-inline-start-color: var(--text-faint); }
+
+.y-kpi__label {
+  margin: 0;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.y-kpi__value {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--step-2);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+     and rendered 100,000,000 as "100,000,0" above "00" — a number split in two
+     is not a smaller number, it is a different one. The unit may drop; the
+     digits may not. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.y-kpi__unit { margin-inline-start: 0.3em; font-size: var(--step-0); color: var(--text-muted); }
+
+/* Where a figure's limit goes. Some are exact and some are not, and a band
+   that spoke about all of them in one voice would claim a precision the chain
+   does not have. Clamped, because a paragraph under every tile makes the band
+   taller than the content it introduces. */
+.y-kpi__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Folders, because one scrolling column is not a document ------------- */
+
+.y-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--sp-4);
+}
+.y-folder {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  cursor: pointer;
+  /* The open folder sits ON the rule rather than above it, so the area below
+     reads as the inside of the folder rather than as a separate box. */
+  margin-bottom: -1px;
+}
+.y-folder:hover { color: var(--text); }
+.y-folder[aria-selected='true'], .y-folder--on {
+  background: var(--surface);
+  border-color: var(--rule);
+  border-bottom: 1px solid var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.y-folder__count { margin-inline-start: 0.45em; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+
+/* --- Data tables that can actually be read ------------------------------ */
+
+.y-data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.y-data th {
+  text-align: start;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.y-data td {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+/* Numbers right, words left.
+   `padding-inline-end: 0` used to be unconditional here, which is right only
+   for a LAST column: three numeric columns in the governance table are not
+   last, and an id ran straight into the title beside it ("20A supply ceiling
+   for the dollar"). The trailing padding is dropped only where there is
+   nothing after it. */
+.y-data .num, .y-data th.num { text-align: end; }
+.y-data td.num:last-child, .y-data th.num:last-child { padding-inline-end: 0; }
+.y-data tbody tr:hover { background: var(--surface-2); }
+.y-data__self td { font-weight: 600; }
+.y-data caption {
+  caption-side: bottom;
+  text-align: start;
+  padding-top: var(--sp-2);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+
+/* Wide content scrolls INSIDE its own box; the page never scrolls sideways. */
+.y-scrollx { overflow-x: auto; }
+
+/* --- A proportion, drawn ------------------------------------------------- */
+
+.y-ring { width: 100%; height: auto; max-width: 15rem; }
+.y-ring__track { stroke: var(--surface-2); }
+
+.y-split {
+  display: grid;
+  grid-template-columns: minmax(9rem, 15rem) 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+@media (max-width: 40rem) { .y-split { grid-template-columns: 1fr; } }
+
+.y-swatch {
+  display: inline-block;
+  width: 0.7em; height: 0.7em;
+  border-radius: 2px;
+  margin-inline-end: 0.5em;
+  vertical-align: baseline;
 }
