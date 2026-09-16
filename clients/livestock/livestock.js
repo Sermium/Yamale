@@ -205,6 +205,53 @@ export async function herdByRef(reference) {
 }
 
 /**
+ * Les troupeaux inscrits, balayés par numéro.
+ *
+ * La page en avait besoin et ne l'avait pas : l'onglet « Un troupeau »
+ * demandait `SN-RF-H-000147`, écrit en dur, et ne montrait donc qu'un seul
+ * troupeau quoi qu'il arrive. Le deuxième — soixante bovins à Dahra Djolof,
+ * inscrit depuis, et de l'espèce sur laquelle repose tout l'argument du
+ * collatéral — était invisible, et la page n'avait aucun moyen de le dire.
+ *
+ * Même forme que `roll` et pour les mêmes raisons mesurées : x/herd ne publie
+ * aucune requête « tous les troupeaux », la bordure accepte 600 requêtes par
+ * minute, et une sonde coûte environ 800 ms depuis un navigateur. Quatre à la
+ * fois, arrêt sur une série d'absences.
+ *
+ * Une lecture qui ÉCHOUE n'est pas une lecture qui ne trouve rien. La première
+ * ne dit rien dans un sens ni dans l'autre ; compter l'une pour l'autre est
+ * la façon dont un balayage s'arrête tôt et se déclare complet.
+ */
+export async function herdRoll({ from = 1, limit = 16, jurisdiction = JURISDICTION } = {}) {
+  const admitted = new Set((await offices(jurisdiction)).map((o) => o.address));
+  const BATCH = 4;
+  const STOP_AFTER_MISSES = 6;
+
+  const found = [];
+  let misses = 0;
+  let unreadable = null;
+
+  for (let id = from; id < from + limit && misses < STOP_AFTER_MISSES; id += BATCH) {
+    const ids = [];
+    for (let n = 0; n < BATCH && id + n < from + limit; n += 1) ids.push(id + n);
+
+    const batch = await Promise.all(ids.map((i) => herdById(String(i))
+      .catch((e) => { unreadable = unreadable || e; return undefined; })));
+
+    for (const h of batch) {
+      if (h === undefined) continue;
+      if (!h) { misses += 1; continue; }
+      misses = 0;
+      // Filtré sur les offices admis, comme `roll` : une inscription faite par
+      // une adresse qui n'est pas un office de la juridiction n'est pas une
+      // inscription au registre national.
+      if (admitted.has(h.authority)) found.push(h);
+    }
+  }
+  return { herds: found, unreadable, scanned: limit, complete: misses >= STOP_AFTER_MISSES };
+}
+
+/**
  * Ce qu'un lecteur de terrain rend, quel qu'il soit.
  *
  * Un agent en brousse ne sait pas — et n'a pas à savoir — si ce qu'il tient

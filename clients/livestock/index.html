@@ -1,5 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Registre du cheptel</title>
 <!--
   Le registre national du cheptel — démonstrateur.
+
+  LA DÉCLARATION DE TYPE EN TÊTE N'EST PAS DE LA PROPRETÉ, et le commentaire
+  est passé SOUS le jeu de caractères pour la même raison. Sans doctype, le
+  document était rendu en mode « quirks » — document.compatMode valait
+  BackCompat — et le mode quirks applique la vieille règle qui empêche un
+  tableau d'hériter la couleur du corps de page. Toutes les cellules de tous les
+  tableaux de cette console étaient donc calculées en NOIR PUR, y compris sur le
+  fond sombre où elles devenaient illisibles : mesuré à rgb(0,0,0) sur #1E1A13.
+  Le registre des inscriptions, la santé d'un troupeau, la provenance d'un
+  animal — tout ce que cette page est faite pour montrer — se rendait
+  parfaitement et ne se lisait pas.
+
+  Et `<meta charset>` doit tomber dans les 1024 premiers octets, sans quoi le
+  navigateur devine l'encodage. Ce commentaire, placé avant lui, l'en chassait :
+  une page entièrement en français, pleine d'accents, dont l'encodage ne tenait
+  qu'à l'en-tête HTTP du serveur qui la sert. `lang="fr"` va avec, pour qu'un
+  lecteur d'écran ne la prononce pas en anglais.
 
   Ce que la page montre, elle le lit sur la chaîne. Rien n'est simulé côté
   client : si le registre est vide, la page le dit et n'invente pas un animal
@@ -22,11 +44,11 @@
   document a une identité propre — celle du certificat papier, parchemin et
   rubriques en terre de Sienne — et l'aligner sur la charte des consoles
   institutionnelles ferait perdre précisément ce qui le rend reconnaissable
-  pour un éleveur.
+  pour un éleveur. Les MOTIFS de conception de l'information, eux, sont bien
+  ceux du fichier partagé : voir le bloc de liaison en bas de la feuille de
+  style, où les noms de jetons de yamale.css sont reliés à cette palette-ci.
 -->
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yamale · Registre du cheptel</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600&family=Karla:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -55,6 +77,12 @@
   --shadow:0 1px 3px rgba(0,0,0,.45);
 }
 *{box-sizing:border-box}
+/* La couleur est posée explicitement sur les tableaux, en plus de la
+   déclaration de type en tête de fichier. Les deux corrigent la même chose et
+   c'est voulu : le mode quirks calculait toutes les cellules en noir pur, ce
+   qui rendait chaque tableau illisible en thème sombre, et une règle qui ne
+   dépend pas du mode de rendu est une régression de moins à craindre. */
+table,th,td,caption{color:var(--ink)}
 body{margin:0;background:var(--paper);color:var(--ink);
   font-family:Karla,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.6;
   -webkit-font-smoothing:antialiased}
@@ -175,6 +203,116 @@ footer a{color:var(--acacia)}
 .warn{color:#a8322b}
 :focus-visible{outline:2px solid var(--acacia);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* =========================================================================
+   INFORMATION DESIGN — les motifs partagés, reliés à la palette de ce
+   document.
+
+   Les règles .y-* qui suivent sont celles de clients/shared/yamale.css, dans
+   leur ordre, sans une valeur de couleur inventée. Ce qui est LOCAL, c'est le
+   bloc de liaison ci-dessous, et il est local pour la raison écrite en tête de
+   ce fichier : cette page a une identité propre — le parchemin du certificat
+   papier — et charger la charte des consoles institutionnelles lui ferait
+   perdre exactement ce qui la rend reconnaissable pour un éleveur.
+
+   Les motifs partagés nomment --surface, --rule, --text-muted ; ce document
+   nomme --panel, --rule, --ink-soft. Les relier plutôt que de réécrire les
+   règles veut dire qu'une correction apportée au fichier canonique se recopie
+   ici sans traduction. L'échelle typographique et l'échelle d'espacement
+   viennent elles aussi de ce fichier : ce ne sont pas des valeurs choisies ici.
+
+   Les rayons valent 0. Tout dans ce document est à angle vif — les champs, les
+   boutons, le certificat — et un coin arrondi au milieu serait le seul.
+   ========================================================================= */
+
+:root{
+  --sp-1:.25rem; --sp-2:.5rem; --sp-3:.75rem; --sp-4:1rem; --sp-5:1.5rem;
+  --step--1:.8125rem; --step-0:.9375rem; --step-2:1.25rem;
+  --radius:0;
+  --surface:var(--panel); --surface-2:var(--paper);
+  --text:var(--ink); --text-muted:var(--ink-soft); --text-faint:var(--ink-faint);
+  --ok:var(--acacia); --warn:var(--gold); --bad:var(--alarm);
+}
+
+.y-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));
+  gap:var(--sp-3);margin:var(--sp-4) 0 var(--sp-5)}
+.y-kpi{padding:var(--sp-3) var(--sp-4);background:var(--surface);
+  border:1px solid var(--rule);border-radius:var(--radius);
+  border-inline-start:3px solid var(--rule);box-shadow:var(--shadow)}
+.y-kpi--ok{border-inline-start-color:var(--ok)}
+.y-kpi--warn{border-inline-start-color:var(--warn)}
+.y-kpi--bad{border-inline-start-color:var(--bad)}
+.y-kpi--mute{border-inline-start-color:var(--text-faint)}
+.y-kpi__label{margin:0;font-size:var(--step--1);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-muted)}
+/* Un chiffre ne se coupe JAMAIS sur deux lignes. `overflow-wrap:anywhere` a
+   déjà écrit 100,000,0 au-dessus de 00 : un nombre coupé en deux n'est pas un
+   nombre plus petit, c'est un autre nombre. L'unité peut passer à la ligne ;
+   les chiffres, non. */
+.y-kpi__value{margin:var(--sp-1) 0 0;font-size:var(--step-2);line-height:1.15;
+  font-variant-numeric:tabular-nums;white-space:normal;word-break:keep-all;
+  overflow-wrap:normal}
+.y-kpi__unit{margin-inline-start:.3em;font-size:var(--step-0);color:var(--text-muted)}
+.y-kpi__hint{margin:var(--sp-2) 0 0;font-size:var(--step--1);color:var(--text-muted);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+.y-folders{display:flex;flex-wrap:wrap;gap:var(--sp-1);
+  border-bottom:1px solid var(--rule);margin-bottom:var(--sp-4)}
+.y-folder{appearance:none;background:none;border:1px solid transparent;
+  border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;
+  padding:var(--sp-2) var(--sp-4);font:inherit;font-size:var(--step--1);
+  color:var(--text-muted);cursor:pointer;margin-bottom:-1px;text-decoration:none}
+.y-folder:hover{color:var(--text)}
+.y-folder[aria-selected="true"],.y-folder--on{background:var(--surface);
+  border-color:var(--rule);border-bottom:1px solid var(--surface);
+  color:var(--text);font-weight:600}
+.y-folder__count{margin-inline-start:.45em;font-variant-numeric:tabular-nums;
+  color:var(--text-faint)}
+
+/* Les chiffres à droite, les mots à gauche. Une colonne de nombres qui n'est
+   pas alignée sur ses unités ne se compare pas, et c'est la seule raison de
+   mettre des nombres en colonne. */
+.y-data{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:0}
+.y-data th{text-align:start;font-size:var(--step--1);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-muted);font-weight:600;
+  padding:var(--sp-2) var(--sp-3) var(--sp-2) 0;border-bottom:1px solid var(--rule);
+  white-space:nowrap;background:none;font-family:inherit}
+.y-data td{padding:var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom:1px solid var(--rule);vertical-align:baseline;font-size:var(--step-0)}
+.y-data .num,.y-data th.num{text-align:end;padding-inline-end:0}
+.y-data tbody tr:hover{background:var(--surface-2)}
+.y-data caption{caption-side:bottom;text-align:start;padding-top:var(--sp-2);
+  font-size:var(--step--1);color:var(--text-muted)}
+
+/* Le contenu large défile DANS sa propre boîte ; la page ne défile jamais
+   latéralement. */
+.y-scrollx{overflow-x:auto}
+
+.y-ring{width:100%;height:auto;max-width:15rem}
+.y-ring__track{stroke:var(--surface-2)}
+.y-split{display:grid;grid-template-columns:minmax(9rem,15rem) 1fr;
+  gap:var(--sp-5);align-items:start}
+@media (max-width:40rem){.y-split{grid-template-columns:1fr}}
+.y-swatch{display:inline-block;width:.7em;height:.7em;border-radius:2px;
+  margin-inline-end:.5em;vertical-align:baseline}
+
+/* LOCAL, et le système partagé ne l'a pas : une ligne qui porte encore sa
+   suite. La provenance d'un animal met l'opposition et son motif sur une
+   deuxième ligne en pleine largeur, parce qu'une opposition fait deux phrases
+   et que cette colonne fait la moitié d'une page. Sans cette règle, le filet
+   passe entre les deux et une cession contestée se lit comme deux cessions.
+   Ajouté ici plutôt qu'au fichier canonique tant qu'une seule console en a
+   besoin. */
+.y-data__open td{border-bottom:0}
+
+/* LOCAL, et celui-ci est une lacune du système partagé. `.num` met
+   `padding-inline-end:0`, ce qui est juste pour la DERNIÈRE colonne — un
+   nombre affleure alors le bord du tableau — et faux pour toute autre : deux
+   colonnes de chiffres voisines se retrouvent collées, « 1 » et « 320898 » se
+   lisant comme un seul nombre. Un nombre qui touche son voisin n'est pas un
+   nombre mal espacé, c'est un autre nombre. La marge est rendue à toute
+   colonne chiffrée qui n'est pas la dernière. */
+.y-data .num:not(:last-child){padding-inline-end:var(--sp-3)}
 </style>
 
 <div class="wrap">
@@ -237,7 +375,7 @@ footer a{color:var(--acacia)}
 import {
   lookup, certificate, evidenceLevel, pedigree, pedigreeCoverage, missingParent,
   offices, params, roll, chainHead, provenance, hasParent, sexLabel, speciesLabel,
-  herdById, herdByRef, animalsOf, healthOf,
+  herdById, herdRoll, animalsOf, healthOf,
 } from './livestock.js';
 import { PEDIGREE_DEPTH, JURISDICTION } from './registrar.js';
 
@@ -249,6 +387,75 @@ const rollEl = document.getElementById('roll');
 
 /** Une adresse, abrégée mais copiable en entier. */
 const addr = (a) => `<span class="mono" title="${esc(a)}">${esc(String(a).slice(0, 14))}…</span>`;
+
+/* ------------------------------------------------- conception de l'information
+ *
+ * Les motifs viennent de clients/shared/yamale.css ; ce sont les deux fonctions
+ * qui les émettent, pour que le balisage ne dérive pas entre les trois vues.
+ *
+ * TOUT CHIFFRE IMPRIMÉ ICI EST LU SUR LA CHAÎNE. Il n'y a pas de chemin pour un
+ * nombre estimé et c'est délibéré : l'argument de cette plateforme est que ses
+ * chiffres sont vérifiables. Le chiffre qu'une page de registre du cheptel est
+ * censée porter — la valeur du troupeau — n'y est donc pas. La chaîne ne
+ * connaît le prix d'aucun animal. Une cession déclare un prix, en toutes
+ * lettres et dans l'unité que ses parties ont tapée, sans preuve qu'il ait été
+ * payé ; en additionner quelques-uns et appeler cela la valeur d'un cheptel
+ * serait la seule invention de la page, et la plus citée.
+ *
+ * CINQ TUILES PAR BANDEAU, et c'est une mesure et non un goût. Le bandeau
+ * partagé est `auto-fit, minmax(11rem, 1fr)` et cette page limite son contenu à
+ * environ 1016 px : cinq tuiles remplissent la ligne, une sixième passe seule
+ * en dessous et cesse de se lire comme un bandeau.
+ */
+
+function kpi({ label, value, unit, hint, tone }) {
+  return `<div class="y-kpi${tone ? ` y-kpi--${tone}` : ''}">
+    <p class="y-kpi__label">${esc(label)}</p>
+    <p class="y-kpi__value">${value}${unit ? `<span class="y-kpi__unit">${esc(unit)}</span>` : ''}</p>
+    ${hint ? `<p class="y-kpi__hint">${esc(hint)}</p>` : ''}
+  </div>`;
+}
+const kpis = (tiles) => `<div class="y-kpis">${tiles.filter(Boolean).join('')}</div>`;
+
+/**
+ * Des dossiers, parce qu'une colonne qui défile n'est pas un document.
+ *
+ * Le certificat, le niveau de preuve, la généalogie, ce que la chaîne en dit et
+ * la provenance étaient empilés : pour atteindre la provenance — les cessions,
+ * les oppositions, la décision de l'office — il fallait passer devant tout le
+ * reste. Ce sont quatre documents différents sur la même bête et un lecteur en
+ * veut un à la fois.
+ *
+ * Des onglets plutôt qu'un accordéon : ce sont des pairs, et un accordéon
+ * invite à tout ouvrir, ce qui est la colonne avec des clics en plus.
+ */
+function folders(tabs, active, hashFor) {
+  return `<div class="y-folders" role="tablist">${tabs.filter(Boolean).map((t) => `
+    <a class="y-folder${t.id === active ? ' y-folder--on' : ''}" role="tab"
+       aria-selected="${t.id === active}" href="${esc(hashFor(t.id))}">${esc(t.label)}${
+      t.count === null || t.count === undefined ? ''
+        : `<span class="y-folder__count">${esc(t.count)}</span>`}</a>`).join('')}</div>`;
+}
+
+/**
+ * Une proportion, dessinée, avec son dénominateur écrit à côté.
+ *
+ * L'anneau répond avant qu'on ait lu quoi que ce soit à la question qu'on se
+ * pose devant une campagne : quelle part du troupeau a été atteinte. Le nombre
+ * reste le contenu — l'anneau est ce qui le rend lisible d'un coup d'œil, et un
+ * anneau sans son nombre à côté serait une décoration.
+ */
+function ring(part, whole) {
+  const frac = whole > 0 ? Math.max(0, Math.min(1, part / whole)) : 0;
+  const r = 78;
+  const c = 2 * Math.PI * r;
+  return `<svg class="y-ring" viewBox="0 0 200 200" role="img"
+     aria-label="${esc(part)} sur ${esc(whole)}">
+    <circle class="y-ring__track" cx="100" cy="100" r="${r}" fill="none" stroke-width="44"/>
+    <circle cx="100" cy="100" r="${r}" fill="none" stroke-width="44" stroke="var(--acacia)"
+      stroke-dasharray="${frac * c} ${c - frac * c}" transform="rotate(-90 100 100)"/>
+  </svg>`;
+}
 
 /**
  * L'en-tête d'état : ce que la page a lu, et à quel bloc.
@@ -282,6 +489,15 @@ async function showHead() {
   }
 }
 
+/**
+ * Quel dossier est ouvert à droite du certificat.
+ *
+ * En mémoire plutôt que dans l'adresse : la fiche elle-même n'est pas une
+ * route — elle est le résultat d'une recherche — et mettre le dossier dans le
+ * hash produirait un lien qui rouvre la page sans la bête.
+ */
+let animalFolder = 'genealogie';
+
 /** Le certificat, la preuve, la généalogie et la provenance d'un animal. */
 async function render(animal) {
   // Le troupeau est lu d'abord, pour l'espèce. Une lecture de plus, et elle ne
@@ -291,7 +507,23 @@ async function render(animal) {
   const c = certificate(animal, herd);
   const ev = evidenceLevel(animal);
 
+  // LE BANDEAU EST DESSINÉ AVANT SES LECTURES, avec « … » là où elles n'ont pas
+  // encore répondu. Trois états, et la page en distingue trois : « … » veut dire
+  // qu'on lit encore, « — » que la lecture a échoué, et un chiffre est un
+  // chiffre. Faire attendre le bandeau donnerait une fiche vide là où
+  // l'essentiel — le certificat et le niveau de preuve — est déjà connu.
+  const lvl = { LEVEL_HERD: 1, LEVEL_INDIVIDUAL: 2, LEVEL_CERTIFIED: 3 }[animal.level] || 0;
+
   out.innerHTML = `
+    <div class="y-kpis" id="animal-kpis">
+      ${kpi({ label: 'Niveau de preuve', value: String(lvl || '—'), unit: lvl ? 'sur 3' : undefined,
+              tone: lvl === 3 ? 'ok' : lvl === 0 ? 'bad' : 'warn',
+              hint: ev.label })}
+      ${kpi({ label: 'Ascendants inscrits', value: '…', hint: 'Remontée en cours.' })}
+      ${kpi({ label: 'Générations remontées', value: '…', hint: 'Remontée en cours.' })}
+      ${kpi({ label: 'Cessions enregistrées', value: '…', hint: 'Lecture en cours.' })}
+      ${kpi({ label: 'Oppositions', value: '…', hint: 'Lecture en cours.' })}
+    </div>
     <div class="split">
       <figure class="cert" style="margin:0">
         <h2>Certificat de naissance</h2>
@@ -321,18 +553,29 @@ async function render(animal) {
       </figure>
 
       <div>
+        <!-- Le niveau de preuve reste AU-DESSUS des dossiers et entier. C'est
+             la seule phrase que lit un acheteur debout dans un marché, et la
+             mettre derrière un onglet serait le pire changement possible sur
+             cette page. -->
         <div class="evid">
           <div class="lab">Niveau de preuve</div>
           <span class="badge ${esc(ev.level)}">${esc(ev.label)}</span>
           <p>${esc(ev.why)}</p>
         </div>
 
-        <div class="ped" id="ped">
+        <div id="animal-folders" style="margin-top:16px"></div>
+
+        <div class="ped" id="ped" ${animalFolder === 'genealogie' ? '' : 'hidden'}>
           <div class="lab">Généalogie</div>
           <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">remontée en cours…</p>
         </div>
 
-        <div class="proof">
+        <div class="proof" id="prov" ${animalFolder === 'provenance' ? '' : 'hidden'}>
+          <div class="lab">Provenance</div>
+          <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">lecture…</p>
+        </div>
+
+        <div class="proof" id="chainsays" ${animalFolder === 'chaine' ? '' : 'hidden'}>
           <div class="lab">Ce que la chaîne en dit</div>
           <dl>
             <dt>Inscription</dt><dd>n° ${esc(animal.id)}</dd>
@@ -343,14 +586,14 @@ async function render(animal) {
             <dt>ADN</dt><dd>${c.adn ? esc(c.adn.slice(0, 18)) + '…' : 'aucun profil'}</dd>
             <dt>Bloc</dt><dd>${esc(animal.registered_at)}</dd>
           </dl>
-        </div>
-
-        <div class="proof" id="prov" style="margin-top:14px">
-          <div class="lab">Provenance</div>
-          <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">lecture…</p>
+          <p class="hint" style="margin:10px 0 0">Les empreintes et les adresses sont des
+            références, pas du contenu : elles sont ici, où l'on vérifie, et non en tête de la
+            fiche, où l'on lit.</p>
         </div>
       </div>
     </div>`;
+
+  drawAnimalFolders();
 
   // La généalogie et la provenance sont chargées après le premier rendu : le
   // certificat est déjà connu, et le faire attendre donnerait une page blanche
@@ -359,12 +602,71 @@ async function render(animal) {
   showProvenance(animal);
 }
 
+const ANIMAL_TABS = [
+  { id: 'genealogie', label: 'Généalogie', panel: 'ped' },
+  { id: 'provenance', label: 'Provenance', panel: 'prov' },
+  { id: 'chaine', label: 'Ce que la chaîne en dit', panel: 'chainsays' },
+];
+
+/**
+ * Les dossiers de la fiche, redessinés sans relire la chaîne.
+ *
+ * Changer d'onglet ne doit pas refaire une remontée de lignée : elle a déjà été
+ * payée, elle coûte plusieurs requêtes, et la bordure répond 503 à qui en
+ * demande trop. Les trois panneaux restent donc dans le document et seul leur
+ * `hidden` bouge.
+ */
+function drawAnimalFolders() {
+  const el = document.getElementById('animal-folders');
+  if (!el) return;
+  el.innerHTML = `<div class="y-folders" role="tablist">${ANIMAL_TABS.map((t) => `
+    <button type="button" role="tab" class="y-folder${t.id === animalFolder ? ' y-folder--on' : ''}"
+      aria-selected="${t.id === animalFolder}" data-folder="${t.id}">${esc(t.label)}</button>`)
+    .join('')}</div>`;
+  el.querySelectorAll('[data-folder]').forEach((b) => {
+    b.addEventListener('click', () => {
+      animalFolder = b.dataset.folder;
+      for (const t of ANIMAL_TABS) {
+        const panel = document.getElementById(t.panel);
+        if (panel) panel.hidden = t.id !== animalFolder;
+      }
+      drawAnimalFolders();
+    });
+  });
+}
+
+/** Met à jour une tuile du bandeau une fois sa lecture revenue. */
+function setKpi(index, value, hint, tone) {
+  const band = document.getElementById('animal-kpis');
+  const tile = band?.children[index];
+  if (!tile) return;
+  tile.className = `y-kpi${tone ? ` y-kpi--${tone}` : ''}`;
+  tile.querySelector('.y-kpi__value').textContent = value;
+  const h = tile.querySelector('.y-kpi__hint');
+  if (h) h.textContent = hint;
+}
+
 /** La lignée, remontée par la chaîne et mise en forme ici. */
 async function showPedigree(animal) {
   const el = document.getElementById('ped');
   try {
     const ped = await pedigree(animal, PEDIGREE_DEPTH);
     const cov = pedigreeCoverage(ped.tree, ped.known);
+
+    // Le nombre d'ascendants inscrits, et la profondeur réellement atteinte.
+    // `generation` est écrit par la chaîne sur chaque nœud : la profondeur est
+    // donc lue et non recomptée par cette page.
+    const gens = ped.nodes.reduce((m, n) => Math.max(m, Number(n.generation || 0)), 0);
+    setKpi(1, String(cov.held),
+      cov.cited === 0
+        ? 'Aucun ascendant déclaré. C’est le cas normal d’un animal fondateur.'
+        : `sur ${cov.cited} cité${cov.cited > 1 ? 's' : ''} au registre. Un ascendant cité et non inscrit est une information, pas une erreur.`,
+      cov.cited === 0 ? 'mute' : cov.held === cov.cited ? 'ok' : undefined);
+    setKpi(2, String(gens),
+      ped.truncated
+        ? `Remontée interrompue à ${PEDIGREE_DEPTH} générations. « Nous avons cessé de chercher » n’est pas « plus d’ascendants ».`
+        : 'La lignée entière que le registre tient, sans troncature.',
+      ped.truncated ? 'warn' : undefined);
 
     // Le certificat papier imprime des NOMS. Afficher « Père n° 8 » là où il
     // écrit « Atomique » rend la fiche moins lisible que celle qu'elle
@@ -392,6 +694,11 @@ async function showPedigree(animal) {
           : ''}
       </p>`;
   } catch (e) {
+    // « — », jamais « 0 ». Une lignée qu'on n'a pas pu lire et une lignée sans
+    // ascendant inscrit sont deux faits opposés sur une bête qu'on est en train
+    // d'acheter.
+    setKpi(1, '—', 'La remontée a échoué. Ce n’est pas un décompte de zéro.', 'mute');
+    setKpi(2, '—', 'La remontée a échoué. Ce n’est pas un décompte de zéro.', 'mute');
     el.innerHTML = `<div class="lab">Généalogie</div><p style="margin:0;font-size:13.5px">
        remontée impossible : ${esc(e.message)}</p>`;
   }
@@ -441,37 +748,84 @@ function branch(node, rel, ped) {
  * doit voir, même écartée ensuite : le registre conserve l'opposition ET la
  * décision qui l'a tranchée, avec le nom de l'office qui l'a prise.
  */
+const ETAT_FR = {
+  TRANSFER_STATE_PROPOSED: 'proposée',
+  TRANSFER_STATE_ACCEPTED: 'acceptée par l’acheteur',
+  TRANSFER_STATE_ATTESTED: 'attestée, délai de contestation en cours',
+  TRANSFER_STATE_OBJECTED: 'contestée',
+  TRANSFER_STATE_COMPLETED: 'réalisée',
+  TRANSFER_STATE_CANCELLED: 'annulée',
+};
+
 async function showProvenance(animal) {
   const el = document.getElementById('prov');
   try {
     const ts = await provenance(animal.id);
+    const objections = ts.filter((t) => t.objected_by);
+    setKpi(3, String(ts.length),
+      ts.length
+        ? 'Toutes, y compris celles qui ont été annulées ou contestées. Le registre n’efface rien.'
+        : 'L’animal est chez son premier détenteur inscrit.',
+      ts.length ? undefined : 'mute');
+    setKpi(4, String(objections.length),
+      objections.length
+        ? 'Une opposition reste au registre, qu’elle ait été retenue ou écartée, avec la décision de l’office.'
+        : 'Aucune vente de cet animal n’a été contestée.',
+      objections.length ? 'bad' : 'ok');
+
     if (!ts.length) {
       el.innerHTML = `<div class="lab">Provenance</div>
         <p style="margin:0;font-size:13.5px;color:var(--ink-faint)">
-        Aucune cession supervisée. L’animal est chez son premier détenteur inscrit.</p>`;
+        Aucune cession supervisée. L’animal est chez son premier détenteur inscrit.
+        Le registre a répondu : c’est une absence, pas une panne.</p>`;
       return;
     }
-    el.innerHTML = `<div class="lab">Provenance</div><dl>${ts.map((t) => {
-      const etat = {
-        TRANSFER_STATE_PROPOSED: 'proposée',
-        TRANSFER_STATE_ACCEPTED: 'acceptée par l’acheteur',
-        TRANSFER_STATE_ATTESTED: 'attestée, délai de contestation en cours',
-        TRANSFER_STATE_OBJECTED: 'contestée',
-        TRANSFER_STATE_COMPLETED: 'réalisée',
-        TRANSFER_STATE_CANCELLED: 'annulée',
-      }[t.state] || t.state;
-      const objection = t.objected_by
-        ? `<br><span class="absent">opposition de ${esc(t.objected_by.slice(0, 12))}…${
-            t.objection_reason ? ` : « ${esc(t.objection_reason)} »` : ''}${
-            t.resolved_by
-              ? ` — ${t.objection_upheld ? 'retenue' : 'écartée'} par l’office${
-                  t.resolution_reason ? ` : « ${esc(t.resolution_reason)} »` : ''}`
-              : ' — non encore tranchée'}</span>`
-        : '';
-      return `<dt>n° ${esc(t.id)}</dt><dd>${esc(etat)}, ${
-        esc(t.attestations.length)} attestation${t.attestations.length > 1 ? 's' : ''}${objection}</dd>`;
-    }).join('')}</dl>`;
+    // Un tableau plutôt qu'une liste de définitions : les attestations et les
+    // prix se comparent d'une cession à l'autre, et une colonne de nombres qui
+    // n'est pas alignée sur ses unités ne se compare pas.
+    //
+    // TROIS COLONNES, ET L'OPPOSITION SUR SA PROPRE LIGNE. Cette colonne fait
+    // environ 460 px — c'est la moitié d'une page qui garde le certificat à
+    // gauche — et une opposition tient deux phrases. En cellule, elle écrasait
+    // l'état sur 250 px et collait les deux en-têtes chiffrés l'un à l'autre.
+    // Une ligne en pleine largeur lui laisse la mesure d'un paragraphe et rend
+    // aux chiffres la place de s'aligner.
+    el.innerHTML = `<div class="lab">Provenance</div>
+      <div class="y-scrollx"><table class="y-data" style="min-width:280px">
+        <!-- Le numéro de cession n'est PAS une colonne chiffrée. C'est un
+             identifiant : on ne le compare pas de haut en bas, on le lit, et
+             aligné à droite contre un état il finit collé au mot d'à côté. -->
+        <thead><tr><th>N°</th><th>État</th>
+          <th class="num">Attest.</th></tr></thead>
+        <tbody>${ts.map((t) => {
+          const detail = [];
+          if (t.price) detail.push(`prix déclaré : <span class="mono">${esc(t.price)}</span>`);
+          if (t.objected_by) {
+            detail.push(`<span class="absent">opposition de ${
+              esc(t.objected_by.slice(0, 12))}…${
+              t.objection_reason ? ` : « ${esc(t.objection_reason)} »` : ''}${
+              t.resolved_by
+                ? ` — ${t.objection_upheld ? 'retenue' : 'écartée'} par l’office${
+                    t.resolution_reason ? ` : « ${esc(t.resolution_reason)} »` : ''}`
+                : ' — non encore tranchée'}</span>`);
+          }
+          // `y-data__open` supprime le filet sous la ligne qui porte encore sa
+          // suite : sans lui, une cession et son opposition se lisent comme
+          // deux cessions.
+          return `<tr${detail.length ? ' class="y-data__open"' : ''}>
+            <td class="mono">${esc(t.id)}</td>
+            <td>${esc(ETAT_FR[t.state] || t.state)}</td>
+            <td class="num">${esc(t.attestations.length)}</td></tr>
+            ${detail.length ? `<tr><td></td><td colspan="2" style="padding-top:0;font-size:13px">
+              ${detail.join('<br>')}</td></tr>` : ''}`;
+        }).join('')}</tbody>
+        <caption>Le prix est celui que les parties ont DÉCLARÉ, dans l’unité qu’elles ont
+          tapée. La chaîne ne déplace pas l’argent et ne l’a pas vu passer : c’est une pièce
+          au dossier, jamais une preuve de paiement, et rien ici n’en fait une somme.</caption>
+      </table></div>`;
   } catch (e) {
+    setKpi(3, '—', 'La lecture a échoué. Ce n’est pas un décompte de zéro.', 'mute');
+    setKpi(4, '—', 'La lecture a échoué. Ce n’est pas un décompte de zéro.', 'mute');
     el.innerHTML = `<div class="lab">Provenance</div>
       <p style="margin:0;font-size:13.5px">lecture impossible : ${esc(e.message)}</p>`;
   }
@@ -503,23 +857,55 @@ async function showRoll() {
         animal. La chaîne a répondu : le registre est vide, il n'est pas injoignable.</p></div>`;
       return;
     }
-    rollEl.innerHTML = `<h3>Inscriptions</h3>
-      ${p ? `<p class="hint">Règles en vigueur : ${esc(p.attestation_quorum)} attestations
-        indépendantes par cession, ${esc(Math.round(Number(p.challenge_window) / 86400))} jours
-        de contestation, ${esc(p.min_birth_interval_days)} jours minimum entre deux mises bas
-        d’une même mère.</p>` : ''}
-      <div class="tablewrap"><table>
-      <thead><tr><th>IDN</th><th>Nom</th><th>Sexe</th><th>Preuve</th><th>Propriétaire</th><th>Bloc</th></tr></thead>
+    // Les troupeaux sont lus pour le bandeau, et l'échec de cette lecture ne
+    // fait pas tomber la liste : la tuile porte « — » et dit qu'elle n'a pas pu
+    // demander, ce qui n'est pas « aucun troupeau ».
+    const hr = await herdRoll().catch(() => null);
+    const certifies = animals.filter((a) => a.level === 'LEVEL_CERTIFIED').length;
+    const pucees = animals.filter((a) => Boolean(a.tag)).length;
+
+    const band = kpis([
+      kpi({ label: 'Animaux inscrits', value: String(animals.length),
+            hint: `Lus un par un, numéros 1 à 40 : x/herd ne publie aucune requête « tous les animaux ».` }),
+      kpi({ label: 'Filiation vérifiée', value: String(certifies),
+            tone: certifies ? 'ok' : 'mute',
+            hint: 'Niveau 3 : c’est le consensus qui a accepté l’ascendance, pas cette page.' }),
+      kpi({ label: 'Porteurs d’une puce', value: String(pucees),
+            hint: 'Le transpondeur est ce qui rattache la fiche à la bête au quotidien.' }),
+      kpi({ label: 'Troupeaux inscrits', value: hr ? String(hr.herds.length) : '—',
+            tone: hr ? undefined : 'mute',
+            hint: hr
+              ? 'Un troupeau est d’une espèce ; un éleveur qui en tient deux tient deux troupeaux.'
+              : 'Le registre n’a pas répondu sur ce point. Ce n’est pas un décompte de zéro.' }),
+      kpi({ label: 'Attestations par cession', value: esc(p ? p.attestation_quorum : '—'),
+            tone: p ? undefined : 'mute',
+            hint: p
+              ? `Indépendantes. Délai de contestation : ${Math.round(Number(p.challenge_window) / 86400)} jours.`
+              : 'Les règles en vigueur n’ont pas pu être lues.' }),
+    ]);
+
+    rollEl.innerHTML = `<h3>Inscriptions</h3>${band}
+      <div class="tablewrap y-scrollx"><table class="y-data" style="min-width:600px">
+      <thead><tr><th>IDN</th><th>Nom</th><th>Sexe</th><th>Née le</th><th>Preuve</th>
+        <th>Propriétaire</th><th class="num">Troupeau</th><th class="num">Bloc</th></tr></thead>
       <tbody>${animals.map((a) => {
         const c = certificate(a); const ev = evidenceLevel(a);
         return `<tr data-q="${esc(c.idn)}">
           <td class="mono">${esc(c.idn)}</td>
           <td>${esc(c.nom)}</td>
           <td>${esc(c.sexe)}</td>
+          <td class="mono">${esc(c.naissance)}</td>
           <td><span class="badge ${esc(ev.level)}" style="margin:0;font-size:10px;padding:2px 6px">${esc(ev.label)}</span></td>
           <td class="mono">${esc(a.holder.slice(0, 12))}…</td>
-          <td class="mono">${esc(a.registered_at)}</td></tr>`;
-      }).join('')}</tbody></table></div>`;
+          <td class="num mono">${esc(a.herd_id)}</td>
+          <td class="num mono">${esc(a.registered_at)}</td></tr>`;
+      }).join('')}</tbody>
+      <caption>${p ? `Règles en vigueur : ${esc(p.attestation_quorum)} attestations indépendantes
+        par cession, ${esc(Math.round(Number(p.challenge_window) / 86400))} jours de contestation,
+        ${esc(p.min_birth_interval_days)} jours minimum entre deux mises bas d’une même mère. ` : ''}Aucun
+        prix ne figure ici : la chaîne n’en connaît aucun, et un registre qui chiffrerait un
+        cheptel qu’il n’a jamais vu vendre inventerait le seul nombre de la page.</caption>
+      </table></div>`;
     rollEl.querySelectorAll('tbody tr').forEach((tr) => {
       tr.addEventListener('click', () => {
         document.getElementById('q').value = tr.dataset.q;
@@ -575,7 +961,7 @@ document.getElementById('clear').addEventListener('click', () => {
  */
 const VIEWS = [
   ['#/', 'Vérifier un animal', ['searchbar', 'searchhint', 'out', 'roll']],
-  ['#/troupeau', 'Un troupeau', ['herd']],
+  ['#/troupeau', 'Les troupeaux', ['herd']],
   ['#/offices', 'Les offices', ['offices']],
 ];
 
@@ -599,49 +985,149 @@ function route() {
       if (el) el.hidden = !shown.has(id);
     }
   }
-  if (current[0] === '#/troupeau') showHerd();
+  // Le troupeau ouvert est dans l'adresse, pour qu'un agent puisse envoyer le
+  // lien d'un troupeau plutôt que le lien de la page et une consigne de
+  // chercher. `#/troupeau` seul ouvre le premier.
+  if (current[0] === '#/troupeau') showHerd(hash.split('/')[2]);
   if (current[0] === '#/offices') showOffices();
 }
 
-/** Un troupeau : ses animaux et ce pour quoi il a été traité. */
-async function showHerd() {
+/**
+ * Les troupeaux inscrits, et l'un d'eux en détail.
+ *
+ * CETTE VUE NE MONTRAIT QU'UN SEUL TROUPEAU, ÉCRIT EN DUR. Elle demandait
+ * `SN-RF-H-000147` et rien d'autre, si bien que le deuxième troupeau du
+ * registre — soixante bovins à Dahra Djolof, exactement l'espèce sur laquelle
+ * repose l'argument du collatéral — n'apparaissait nulle part, et la page
+ * n'avait aucun moyen de signaler qu'elle ne le montrait pas. Les troupeaux
+ * sont maintenant balayés (voir herdRoll) et se choisissent en dossiers.
+ *
+ * LA COUVERTURE EST PAR CAMPAGNE, JAMAIS EN SOMME. La version précédente
+ * additionnait les `treated` de toutes les campagnes et écrivait « 38 animaux
+ * traités sur 40 déclarés ». Sur un troupeau vacciné deux fois, cette somme
+ * dépasse l'effectif et annonce une couverture de 150 % — et l'addition est
+ * exactement l'erreur que la phrase d'à côté dénonce : mille doses livrées ne
+ * disent rien. Une campagne a une couverture ; une pile de campagnes n'en a
+ * pas.
+ */
+async function showHerd(want) {
   const el = document.getElementById('herd');
-  el.innerHTML = '<h3>Un troupeau</h3><p class="hint">lecture…</p>';
+  el.innerHTML = '<h3>Les troupeaux</h3><p class="hint">lecture…</p>';
   try {
-    const h = await herdByRef('SN-RF-H-000147');
-    if (!h) {
-      el.innerHTML = `<h3>Un troupeau</h3>
-        <div class="note"><div class="h">Aucun troupeau inscrit</div>
-        <p>Le registre a répondu et ne connaît pas encore de troupeau sous cette
-        référence. C'est une absence, pas une panne.</p></div>`;
+    const hr = await herdRoll();
+    if (!hr.herds.length) {
+      el.innerHTML = `<h3>Les troupeaux</h3>
+        <div class="note ${hr.unreadable ? 'bad' : ''}">
+        <div class="h">${hr.unreadable ? 'Lecture incomplète' : 'Aucun troupeau inscrit'}</div>
+        <p>${hr.unreadable
+          ? `Une partie du registre n'a pas répondu — <code>${esc(hr.unreadable.message)}</code> —
+             donc ceci n'affirme pas qu'il est vide.`
+          : `Le registre a répondu et ne tient encore aucun troupeau inscrit par un office de la
+             juridiction. C'est une absence, pas une panne.`}</p></div>`;
       return;
     }
-    const [animals, health] = await Promise.all([animalsOf(h.id), healthOf(h.id)]);
-    const treated = health.reduce((n, e) => n + Number(e.treated || 0), 0);
 
-    el.innerHTML = `<h3>Troupeau ${esc(h.reference)}</h3>
-      <div class="tablewrap"><table>
-        <tbody>
-          <tr><td>Localité</td><td>${esc(h.locality || '—')}</td></tr>
-          <tr><td>Espèce</td><td>${esc(speciesLabel(h.species))}</td></tr>
-          <tr><td>Taille déclarée</td><td>${esc(h.declared_size)}</td></tr>
-          <tr><td>Inscrits individuellement</td><td>${esc(animals.length)}</td></tr>
-          <tr><td>Détenteur</td><td class="mono">${esc(h.keeper)}</td></tr>
-        </tbody></table></div>
+    const h = hr.herds.find((x) => String(x.id) === String(want)) || hr.herds[0];
+    const [animals, health] = await Promise.all([animalsOf(h.id), healthOf(h.id)]);
+
+    const declared = Number(h.declared_size || 0);
+    // La campagne la plus récente : c'est celle dont la couverture décrit
+    // l'état sanitaire actuel du troupeau. Les précédentes restent au tableau.
+    const last = health.length
+      ? health.reduce((a, b) => (Number(b.recorded_at) > Number(a.recorded_at) ? b : a))
+      : null;
+    const pct = (n) => (declared > 0 ? Math.round((Number(n) / declared) * 100) : null);
+
+    const band = kpis([
+      kpi({ label: 'Effectif déclaré', value: String(declared || '—'),
+            unit: declared ? 'têtes' : undefined,
+            tone: declared ? undefined : 'mute',
+            hint: 'Déclaré par le détenteur à l’inscription, et non compté par la chaîne.' }),
+      kpi({ label: 'Inscrits individuellement', value: String(animals.length),
+            tone: animals.length ? undefined : 'mute',
+            hint: 'Chacun a sa fiche, son IDN et son ascendance. Le reste du troupeau est couvert au niveau 1.' }),
+      kpi({ label: 'Dernière campagne',
+            value: last && pct(last.treated) !== null ? String(pct(last.treated)) : '—',
+            unit: last && pct(last.treated) !== null ? '%' : undefined,
+            tone: !last ? 'mute' : pct(last.treated) >= 80 ? 'ok' : 'warn',
+            hint: last
+              ? `${last.treated} traités sur ${declared} déclarés, contre ${last.disease}.`
+              : 'Aucune campagne enregistrée pour ce troupeau.' }),
+      kpi({ label: 'Campagnes enregistrées', value: String(health.length),
+            hint: 'Chacune avec son lot, son agent et son bloc. Une campagne a une couverture ; leur somme n’en a pas.' }),
+      kpi({ label: 'Espèce', value: esc(speciesLabel(h.species)),
+            hint: 'Portée par le troupeau et non par l’animal : un éleveur qui tient deux espèces tient deux troupeaux.' }),
+    ]);
+
+    // Chaque troupeau est un dossier. Avec deux troupeaux cela ressemble à un
+    // détail ; avec un registre national c'est la seule façon d'en atteindre un.
+    const tabs = folders(
+      hr.herds.map((x) => ({ id: String(x.id), label: x.reference || `n° ${x.id}` })),
+      String(h.id),
+      (id) => `#/troupeau/${id}`,
+    );
+
+    el.innerHTML = `<h3>Les troupeaux</h3>
+      ${tabs}
+      <p class="hint" style="margin:0 0 4px">${esc(h.locality || 'localité non inscrite')} ·
+        détenu par ${addr(h.keeper)} · inscrit par ${esc(
+          (await offices()).find((o) => o.address === h.authority)?.name || 'un office')}
+        au bloc ${esc(h.registered_at)}</p>
+      ${band}
 
       <h3 style="margin-top:26px">Santé</h3>
-      ${health.length ? `<div class="tablewrap"><table>
-        <thead><tr><th>Maladie</th><th>Lot</th><th>Traités</th><th>Bloc</th></tr></thead>
-        <tbody>${health.map((e) => `<tr>
-          <td>${esc(e.disease)}</td><td class="mono">${esc(e.batch || '—')}</td>
-          <td>${esc(e.treated)}</td><td class="mono">${esc(e.recorded_at)}</td></tr>`).join('')}
-        </tbody></table></div>
-        <p class="hint">${esc(treated)} animaux traités sur ${esc(h.declared_size)} déclarés.
-        C'est une COUVERTURE, et c'est la différence qui intéresse un bailleur :
-        mille doses livrées ne disent rien, mille troupeaux traités disent tout.</p>`
-        : '<p class="hint">Aucune campagne enregistrée pour ce troupeau.</p>'}`;
+      ${health.length ? `<div class="y-split">
+        <div>
+          ${ring(Number(last.treated), declared)}
+          <p class="hint" style="margin:8px 0 0"><strong>${esc(last.treated)}</strong> traités sur
+            <strong>${esc(declared)}</strong> déclarés lors de la campagne
+            ${esc(last.disease)}. C'est une COUVERTURE, et c'est la différence qui intéresse un
+            bailleur : mille doses livrées ne disent rien, mille troupeaux traités disent tout.</p>
+        </div>
+        <div class="y-scrollx"><table class="y-data" style="min-width:420px">
+          <thead><tr><th>Maladie</th><th>Lot</th><th class="num">Traités</th>
+            <th class="num">Couverture</th><th class="num">Bloc</th></tr></thead>
+          <tbody>${health.map((e) => `<tr>
+            <td>${esc(e.disease)}</td><td class="mono">${esc(e.batch || '—')}</td>
+            <td class="num">${esc(e.treated)}</td>
+            <td class="num">${pct(e.treated) === null ? '—' : `${esc(pct(e.treated))} %`}</td>
+            <td class="num mono">${esc(e.recorded_at)}</td></tr>`).join('')}
+          </tbody>
+          <caption>Une ligne par campagne, et la couverture est calculée par campagne.
+            Les additionner donnerait des taux au-dessus de cent pour cent dès qu'un troupeau est
+            vacciné deux fois, et un animal traité deux fois n'est pas deux animaux couverts.</caption>
+        </table></div>
+      </div>`
+        : `<p class="hint">Aucune campagne n'est enregistrée pour ce troupeau. Le registre a
+           répondu : c'est une absence, pas une panne.</p>`}
+
+      <h3 style="margin-top:26px">Inscrits individuellement</h3>
+      ${animals.length ? `<div class="tablewrap y-scrollx"><table class="y-data" style="min-width:520px">
+        <thead><tr><th>IDN</th><th>Nom</th><th>Sexe</th><th>Née le</th><th>Preuve</th>
+          <th class="num">N°</th></tr></thead>
+        <tbody>${animals.map((a) => {
+          const c = certificate(a); const ev = evidenceLevel(a);
+          return `<tr data-q="${esc(c.idn)}">
+            <td class="mono">${esc(c.idn)}</td><td>${esc(c.nom)}</td><td>${esc(c.sexe)}</td>
+            <td class="mono">${esc(c.naissance)}</td>
+            <td><span class="badge ${esc(ev.level)}" style="margin:0;font-size:10px;padding:2px 6px">${
+              esc(ev.label)}</span></td>
+            <td class="num mono">${esc(a.id)}</td></tr>`;
+        }).join('')}</tbody>
+        <caption>Le reste de l'effectif déclaré est couvert au niveau du troupeau et n'a pas de
+          fiche propre. C'est le niveau qui peut couvrir un cheptel national.</caption>
+      </table></div>`
+        : `<p class="hint">Aucun animal de ce troupeau n'est inscrit individuellement.</p>`}`;
+
+    el.querySelectorAll('tbody tr[data-q]').forEach((tr) => {
+      tr.addEventListener('click', () => {
+        document.getElementById('q').value = tr.dataset.q;
+        location.hash = '#/';
+        search();
+      });
+    });
   } catch (e) {
-    el.innerHTML = `<h3>Un troupeau</h3>
+    el.innerHTML = `<h3>Les troupeaux</h3>
       <div class="note bad"><div class="h">Lecture impossible</div><p>${esc(e.message)}</p></div>`;
   }
 }
@@ -652,32 +1138,59 @@ async function showOffices() {
   el.innerHTML = '<h3>Les offices</h3><p class="hint">lecture…</p>';
   try {
     const [os, p] = await Promise.all([offices(), params().catch(() => null)]);
+    const actifs = os.filter((o) => o.active).length;
+
+    // Les règles en vigueur sont des CHIFFRES avant d'être un tableau : ce sont
+    // elles qui décident si une cession peut aboutir et si une filiation peut
+    // être refusée, et elles étaient présentées comme un inventaire, à la même
+    // taille que leurs propres intitulés.
+    const band = p ? kpis([
+      kpi({ label: 'Offices admis', value: String(actifs),
+            tone: actifs ? undefined : 'bad',
+            hint: 'Admis par la gouvernance de la chaîne, jamais entre eux.' }),
+      kpi({ label: 'Attestations par cession', value: esc(p.attestation_quorum),
+            hint: p.same_authority_attestation
+              ? 'L’office de l’animal peut attester sa propre cession : la règle d’indépendance est désactivée.'
+              : 'Indépendantes : l’office qui tient l’animal ne peut pas attester sa cession.' }),
+      kpi({ label: 'Délai de contestation',
+            value: String(Math.round(Number(p.challenge_window) / 86400)), unit: 'jours',
+            hint: 'À compter du quorum. Pendant ce délai, quiconque peut s’opposer.' }),
+      kpi({ label: 'Entre deux mises bas',
+            value: esc(p.min_birth_interval_days), unit: 'jours',
+            hint: 'En deçà, la chaîne refuse la filiation. Elle ne prouve rien ; elle écarte ce qui ne peut pas être vrai.' }),
+      kpi({ label: 'ADN pour une certification',
+            value: p.require_dna_for_certified ? 'exigé' : 'non exigé',
+            tone: p.require_dna_for_certified ? 'ok' : 'warn',
+            hint: 'Le niveau 3 est le seul qui affirme une filiation vérifiée.' }),
+    ]) : '';
+
     el.innerHTML = `<h3>Les offices admis</h3>
+      ${band}
       <p class="hint">Les offices sont admis par la gouvernance de la chaîne, jamais
       entre eux — c'est ce qui empêche une bergerie de se déclarer registre. Chacun
       est un compte de groupe, donc chacune de ses décisions requiert déjà plusieurs
       signatures à l'intérieur de l'office.</p>
-      ${os.length ? `<div class="tablewrap"><table>
-        <thead><tr><th>Nom</th><th>Juridiction</th><th>Adresse</th></tr></thead>
+      ${os.length ? `<div class="tablewrap y-scrollx"><table class="y-data" style="min-width:480px">
+        <thead><tr><th>Nom</th><th>Juridiction</th><th>Admis</th><th>Adresse</th></tr></thead>
         <tbody>${os.map((o) => `<tr><td>${esc(o.name)}</td>
           <td>${esc(o.jurisdiction)}</td>
+          <td>${o.active ? 'oui' : 'non'}</td>
           <td class="mono">${esc(o.address.slice(0, 18))}…</td></tr>`).join('')}
-        </tbody></table></div>`
+        </tbody>
+        <caption>Deux offices distincts, et la distinction compte : l'un inscrit, l'autre
+          accrédite les attestateurs et n'inscrit rien.</caption>
+        </table></div>`
         : `<div class="note bad"><div class="h">Aucun office admis</div>
-           <p>Tant qu'aucun office n'est admis, aucune inscription n'est possible.</p></div>`}
+           <p>Tant qu'aucun office n'est admis, aucune inscription n'est possible. Le registre
+           a répondu : c'est une absence, pas une panne.</p></div>`}
 
-      ${p ? `<h3 style="margin-top:26px">Les règles en vigueur</h3>
-      <div class="tablewrap"><table><tbody>
-        <tr><td>Attestations par cession</td><td>${esc(p.attestation_quorum)}</td></tr>
-        <tr><td>Délai de contestation</td><td>${
-          esc(Math.round(Number(p.challenge_window) / 86400))} jours</td></tr>
-        <tr><td>Intervalle minimal entre deux mises bas</td><td>${
-          esc(p.min_birth_interval_days)} jours</td></tr>
-        <tr><td>ADN exigé pour une certification</td><td>${
-          p.require_dna_for_certified ? 'oui' : 'non'}</td></tr>
-      </tbody></table></div>
-      <p class="hint">Aucune de ces règles ne prouve une filiation — seul un
-      laboratoire le fait. Chacune refuse une filiation qui ne peut pas être vraie.</p>` : ''}`;
+      ${p ? `<p class="hint" style="margin-top:18px">Aucune de ces règles ne prouve une
+      filiation — seul un laboratoire le fait. Chacune refuse une filiation qui ne peut pas
+      être vraie, et un registre qui refuse l'impossible vaut mieux qu'un registre qui
+      enregistre tout.</p>`
+        : `<div class="note bad" style="margin-top:18px"><div class="h">Règles illisibles</div>
+           <p>Les paramètres en vigueur n'ont pas pu être lus. Ce n'est pas qu'il n'y en a
+           pas.</p></div>`}`;
   } catch (e) {
     el.innerHTML = `<h3>Les offices</h3>
       <div class="note bad"><div class="h">Lecture impossible</div><p>${esc(e.message)}</p></div>`;
