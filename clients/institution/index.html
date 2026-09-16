@@ -1,0 +1,591 @@
+<!--
+  Institution — the console that consumes a placement request.
+
+  One screen, and the work it does is refusal. A holder pastes the request the
+  wallet printed; this page checks it against the chain and either prints the
+  command that records where the account belongs, or says which rule stops it
+  and why that rule exists.
+
+  Refusing here rather than at the node is the whole point. The chain's own
+  refusal arrives as a code, after a signature, without the sentence explaining
+  which of four rules was broken — and one of the four (a country already
+  recorded) is a refusal an institution should never have reached, because
+  correcting a jurisdiction is a foundation administrator's act and not theirs.
+
+  Read-only. This console holds no key and composes no transaction: recording a
+  jurisdiction is signed by the participant's own group, so what this page
+  produces is the command, visible in full before anything is signed. Same rule
+  as the land, markets, syndicate, governance and foundation consoles.
+
+  One file, no build step, no dependencies. Every read goes over REST rather
+  than ABCI — see chain.js for the measurement that decided it, which is the
+  opposite of what the other consoles found and is not a mistake.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yamale · Institution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* ==========================================================================
+     THE SHARED VISUAL SYSTEM — copied from clients/shared/yamale.css.
+     THE CANONICAL COPY LIVES THERE. Do not evolve this block on its own.
+
+     Inlined rather than linked for the reason the other consoles inline it: one
+     file, no build step, and no second request standing between the reader and
+     a page that has to say whether a raise is still open.
+
+     The three-state theming is the part that must not be improvised. `:root`
+     carries the complete light palette; the dark blocks redefine TOKENS ONLY,
+     never a component rule — a colour whose sole definition sits inside a media
+     query or a [data-theme] block renders one theme's text on the other theme's
+     ground in the un-stamped state, and that bug has shipped here before.
+     ========================================================================== */
+
+  :root {
+    --font-display: Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --step--1: 0.8125rem;
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.25rem;
+    --step-3: clamp(1.4rem, 2.2vw, 1.6rem);
+    --step-4: clamp(1.75rem, 3.2vw, 2.15rem);
+    --step-5: clamp(2.1rem, 4.6vw, 3rem);
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+
+    --radius: 5px;
+    --measure: 68ch;
+
+    --navy: #12253f;
+    --ink: #0b1523;
+    --brass: #a87b3c;
+    --paper: #f6f7f9;
+    --mist: #e3e7ee;
+    --slate: #5c6e88;
+
+    --bg: var(--paper);
+    --surface: #ffffff;
+    --surface-2: #f1f4f8;
+    --surface-3: #e9eef5;
+    --border: var(--mist);
+    --rule: #d3dae6;
+
+    --text: var(--ink);
+    --text-muted: var(--slate);
+    --text-faint: #8798af;
+    --accent: var(--navy);
+    --accent-ink: #ffffff;
+    --focus: #1f6feb;
+
+    --ok: #0d7a4a;
+    --warn: #a8791b;
+    --bad: #b02a25;
+    --wash-ok: rgba(13, 122, 74, .10);
+    --wash-warn: rgba(168, 121, 27, .12);
+    --wash-bad: rgba(176, 42, 37, .10);
+    --wash-mute: rgba(92, 110, 136, .10);
+    --wash-brass: rgba(168, 123, 60, .12);
+
+    --shadow-1: 0 1px 2px rgba(11, 21, 35, .06), 0 1px 1px rgba(11, 21, 35, .04);
+    --shadow-2: 0 2px 6px rgba(11, 21, 35, .07), 0 8px 24px rgba(11, 21, 35, .05);
+
+    /* Measured, not guessed — the finding is recorded in clients/markets. In
+       light, --brass and --warn fail 4.5:1 wherever they carry small text; both
+       are fine as a border, a bar or a rule. These two exist for text and
+       resolve to the palette colour in dark, where the palette already passes. */
+    --brass-text: #825d22;
+    --warn-text: #80590f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: var(--ink);
+      --surface: #101f34;
+      --surface-2: #162943;
+      --surface-3: #1d3352;
+      --border: #24405f;
+      --rule: #2c4a6b;
+
+      --text: #e8eef7;
+      --text-muted: #8fa4c4;
+      --text-faint: #6b83a6;
+      --accent: #4d8fd6;
+      --accent-ink: #08111d;
+      --brass: #c49856;
+      --focus: #6ea8ff;
+
+      --ok: #6fbfa5;
+      --warn: #d2a65e;
+      --bad: #ef8a85;
+      --wash-ok: rgba(111, 191, 165, .12);
+      --wash-warn: rgba(210, 166, 94, .14);
+      --wash-bad: rgba(239, 138, 133, .13);
+      --wash-mute: rgba(143, 164, 196, .12);
+      --wash-brass: rgba(196, 152, 86, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+      --brass-text: var(--brass);
+      --warn-text: var(--warn);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: var(--ink);
+    --surface: #101f34;
+    --surface-2: #162943;
+    --surface-3: #1d3352;
+    --border: #24405f;
+    --rule: #2c4a6b;
+
+    --text: #e8eef7;
+    --text-muted: #8fa4c4;
+    --text-faint: #6b83a6;
+    --accent: #4d8fd6;
+    --accent-ink: #08111d;
+    --brass: #c49856;
+    --focus: #6ea8ff;
+
+    --ok: #6fbfa5;
+    --warn: #d2a65e;
+    --bad: #ef8a85;
+    --wash-ok: rgba(111, 191, 165, .12);
+    --wash-warn: rgba(210, 166, 94, .14);
+    --wash-bad: rgba(239, 138, 133, .13);
+    --wash-mute: rgba(143, 164, 196, .12);
+    --wash-brass: rgba(196, 152, 86, .16);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .3);
+
+    --brass-text: var(--brass);
+    --warn-text: var(--warn);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  p { margin: 0; max-width: var(--measure); }
+
+  code, kbd, samp, pre, .mono, .addr, .num {
+    font-family: var(--font-mono);
+    font-feature-settings: 'zero' 1;
+  }
+  .num, .tabular { font-variant-numeric: tabular-nums; }
+  .addr { word-break: break-all; font-size: 0.88em; }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ======================================================== the console shell */
+
+  header {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: var(--step-1); letter-spacing: -0.01em; font-weight: 600; }
+  header h1 a { color: inherit; text-decoration: none; }
+  .home {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-2); border-radius: var(--radius);
+    border: 1px solid var(--rule); white-space: nowrap;
+  }
+  .home:hover { color: var(--text); border-color: var(--brass); }
+  nav { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-inline-start: auto; }
+  nav a {
+    font-size: var(--step--1); color: var(--text-muted); text-decoration: none;
+    padding: var(--sp-1) var(--sp-3); border-radius: var(--radius);
+  }
+  nav a:hover { color: var(--text); background: var(--surface-2); }
+  nav a[aria-current] {
+    color: var(--text); background: var(--surface-2); font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: var(--sp-5); }
+
+  h2 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
+  h3 { font-size: var(--step-2); letter-spacing: -0.01em; margin: var(--sp-6) 0 var(--sp-3); }
+  h4 { font-size: var(--step-1); letter-spacing: 0; margin: 0 0 var(--sp-2); }
+
+  a { color: var(--accent); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-1);
+    padding: var(--sp-4); margin-bottom: var(--sp-3);
+  }
+  .card--ok { border-inline-start: 3px solid var(--ok); }
+  .card--warn { border-inline-start: 3px solid var(--warn); }
+  .card--bad { border-inline-start: 3px solid var(--bad); box-shadow: var(--shadow-2); }
+  .card--mute { border-inline-start: 3px solid var(--text-faint); }
+
+  .grid { display: grid; gap: var(--sp-3);
+          grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  .row { display: flex; justify-content: space-between; gap: var(--sp-4);
+         align-items: baseline; flex-wrap: wrap; }
+
+  .muted { color: var(--text-muted); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .lede { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600;
+          line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 var(--sp-2); }
+  .label {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--brass-text); margin: 0 0 var(--sp-2);
+  }
+  .stat {
+    font-family: var(--font-display); font-size: var(--step-3); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    margin-top: var(--sp-1);
+  }
+  .stat--words { font-size: var(--step-1); letter-spacing: -0.01em; }
+  .empty, .spin { color: var(--text-muted); font-size: var(--step--1); padding: var(--sp-3) 0; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.2rem 0.45rem; border-radius: 3px;
+    white-space: nowrap;
+  }
+  .p-ok { background: var(--wash-ok); color: var(--ok); }
+  .p-warn { background: var(--wash-warn); color: var(--warn-text); }
+  .p-bad { background: var(--wash-bad); color: var(--bad); }
+  .p-mute { background: var(--wash-mute); color: var(--text-muted); }
+  .p-brass { background: var(--wash-brass); color: var(--brass-text); }
+
+  code { font-size: 0.86em; overflow-wrap: break-word; }
+  pre {
+    font-size: var(--step--1); background: var(--surface-2); color: var(--text);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; white-space: pre;
+    margin: var(--sp-2) 0; line-height: 1.5; tab-size: 2; max-width: none;
+  }
+
+  .err, .badbox, .warnbox, .notebox {
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+    font-size: var(--step--1); margin: var(--sp-3) 0;
+    border: 1px solid var(--border); border-inline-start-width: 3px;
+  }
+  .err, .badbox { background: var(--wash-bad); border-color: var(--bad); color: var(--text); }
+  .warnbox { background: var(--wash-warn); border-color: var(--warn); color: var(--text); }
+  .notebox { background: var(--surface-2); border-color: var(--rule); color: var(--text); }
+  .err strong, .badbox strong { color: var(--bad); }
+  .warnbox strong { color: var(--warn-text); }
+  .err p, .badbox p, .warnbox p, .notebox p { max-width: none; }
+  .notebox p + p, .warnbox p + p, .err p + p { margin-top: var(--sp-2); }
+
+  button { font: inherit; }
+  .btn {
+    font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+    padding: var(--sp-2) var(--sp-4); border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    text-decoration: none; display: inline-block;
+  }
+  .btn:hover { border-color: var(--brass); background: var(--surface-2); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .copy {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 0.2rem var(--sp-2); border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--text-muted); border: 1px solid var(--rule);
+  }
+  .copy:hover { border-color: var(--brass); color: var(--text); }
+
+  label { display: block; font-family: var(--font-mono); font-size: 0.7rem;
+          letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+          margin: var(--sp-4) 0 var(--sp-1); }
+  input {
+    font-family: var(--font-mono); font-size: var(--step-0);
+    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--surface); color: var(--text);
+    width: 100%; max-width: 44rem;
+  }
+  input:hover { border-color: var(--text-faint); }
+  input::placeholder { color: var(--text-faint); }
+
+  details { margin-top: var(--sp-3); }
+  summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+  summary:hover { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: var(--sp-2) var(--sp-3); text-align: start;
+           border-bottom: 1px solid var(--border); font-size: var(--step--1);
+           vertical-align: baseline; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); font-weight: 500;
+       white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+  /* Wide content scrolls inside its own box. The page body never scrolls
+     sideways — a horizontal scrollbar on the document is how a table takes the
+     whole layout with it. */
+  .scroll { overflow-x: auto; }
+
+  dl { margin: var(--sp-2) 0 0; display: grid; grid-template-columns: max-content 1fr;
+       gap: var(--sp-1) var(--sp-4); font-size: var(--step-0); align-items: baseline; }
+  dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em;
+       text-transform: uppercase; color: var(--text-muted); }
+  dd { margin: 0; min-width: 0; word-break: break-word; }
+
+  /* ============================================================== the book bar
+
+     Not decoration, and not one number. A raise has TWO thresholds and an
+     investor is asking about the second: the target is what the allocation
+     holds, and the minimum is whether the deal happens at all. A single fill
+     bar answers the first and buries the second, so the minimum is drawn on the
+     bar as a marked threshold and the fill is coloured by which side of it the
+     book has reached.
+
+     Colour is never alone. The percentage, the shortfall and the state pill all
+     say the same thing in words. */
+  .book { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .book__bar {
+    position: relative; height: 12px; border-radius: 3px;
+    background: var(--surface-3); border: 1px solid var(--border); overflow: hidden;
+  }
+  .book__fill { height: 100%; display: block; }
+  .book--under .book__fill { background: var(--warn); }
+  .book--viable .book__fill { background: var(--ok); }
+  .book--failed .book__fill { background: var(--bad); }
+  .book--closed .book__fill { background: var(--accent); }
+  /* The minimum threshold. A 2px rule rather than a colour change, because it
+     has to be visible on top of the fill AND on top of the empty track. */
+  .book__min {
+    position: absolute; top: -1px; bottom: -1px; width: 2px;
+    background: var(--text); opacity: .55;
+  }
+  .book__scale {
+    display: flex; justify-content: space-between; gap: var(--sp-3);
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* =========================================================== the fee ladder
+
+     Basis points are what a deal is written in; money is what a person decides
+     on. Each rung shows both, and the rungs are read top to bottom as the money
+     actually moves: committed → fee → to the company. */
+  /* The papers. A document is a row rather than a card because the list is
+     scanned for one line — "which of these binds me" — and cards make
+     scanning eight of them a scroll. */
+  .papers { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .paper {
+    display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2); border-radius: var(--radius);
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--border);
+  }
+  .paper--binding { border-inline-start-color: var(--brass); }
+  .paper--stale { opacity: 0.72; }
+  .paper__head { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
+  .paper__title { font-weight: 600; }
+  .digest {
+    font-family: var(--font-mono); font-size: var(--step--1);
+    overflow-wrap: anywhere; color: var(--text-muted);
+  }
+
+  .ladder { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); }
+  .rung {
+    display: grid; grid-template-columns: 1fr auto; gap: var(--sp-3);
+    align-items: baseline; padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2); border-radius: var(--radius);
+    border-inline-start: 3px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .rung--out { border-inline-start-color: var(--brass); color: var(--text-muted); }
+  .rung--net { border-inline-start-color: var(--ok); font-weight: 600; }
+  .rung__what { font-size: var(--step--1); }
+  .rung__amt { font-family: var(--font-mono); font-size: var(--step-0); }
+
+  .dealhead { display: flex; justify-content: space-between; gap: var(--sp-4);
+              align-items: flex-start; flex-wrap: wrap; }
+  .deals-list .card { cursor: pointer; }
+  .deals-list .card:hover { border-color: var(--brass); }
+  .deals-list a.title { text-decoration: none; color: inherit; }
+  .deals-list a.title:hover { text-decoration: underline; }
+
+  footer { border-top: 1px solid var(--border); margin-top: var(--sp-7);
+           padding: var(--sp-5); color: var(--text-muted); font-size: var(--step--1); }
+  footer p { max-width: var(--measure); }
+  footer p + p { margin-top: var(--sp-3); }
+
+  /* ==========================================================================
+     LOCAL TO THIS CONSOLE.
+
+     The shared system styles `input` and not `textarea`, because no console
+     before this one asked anybody to paste a document. Without these two rules
+     the paste box renders in the browser's default 13px monospace on a white
+     field, which in dark mode is a white rectangle in the middle of the page.
+     ========================================================================== */
+  .field { display: block; margin: var(--sp-4) 0; }
+  .field > span {
+    display: block; margin-bottom: var(--sp-2);
+    font-family: var(--font-display); font-size: var(--step--1);
+    letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+  }
+  textarea {
+    width: 100%; box-sizing: border-box;
+    font-family: var(--font-mono); font-size: var(--step--1); line-height: 1.5;
+    padding: var(--sp-3); border-radius: var(--radius-1);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    resize: vertical;
+  }
+  textarea:hover { border-color: var(--text-faint); }
+</style>
+
+<header>
+  <!-- The way back. Every console on this site routed within itself and none of
+       them offered a route out; on a phone, in front of a customer, that is
+       where a demonstration stops. -->
+  <a class="home" href="/" title="Back to Yamale" style="display:inline-flex;align-items:center;gap:.4rem"><img src="/mark.svg" alt="" width="20" height="20" style="border-radius:5px;display:block;flex:none" onerror="this.style.display='none'">← Yamale</a>
+  <h1>Institution</h1>
+</header>
+
+<div class="wrap">
+  <main id="view"><p class="spin">…</p></main>
+</div>
+
+<footer>
+  <p><strong>Read-only, on purpose.</strong> Recording where an account belongs is signed by your
+    own group's key. This page holds none, composes no transaction, and sends nothing: it checks
+    the request against the chain and prints the command, so what would be signed is visible
+    before anything asks for a signature.</p>
+  <p><strong>Why you and not the holder.</strong> The first recording of a country is accepted only
+    from the approved participant that onboarded the account, because that is the party that
+    performed the checks and therefore the only one that knows the answer. An account free to name
+    its own perimeter would name the one with no authority watching it.</p>
+</footer>
+
+<script type="module">
+import { accountExists, jurisdiction, participants, userId } from './chain.js';
+import { judge, parseRequest } from './placement.js';
+
+// Everything below interpolates chain-supplied and paste-supplied strings into
+// innerHTML. An institution name is whatever an approved participant registered
+// and a pasted request is whatever somebody sent the reader, so neither is
+// trusted markup.
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const view = document.getElementById('view');
+
+view.innerHTML = `
+  <h2>Record where an account belongs</h2>
+  <p class="muted">The holder cannot record it themselves. You performed the checks, so you are the
+    only party that knows the answer — and the chain enforces that by accepting this recording only
+    from an approved participant.</p>
+  <p class="muted">This page holds no key and signs nothing. It checks the request against the chain
+    and prints the command your own group signs.</p>
+  <form id="take">
+    <label class="field"><span>Paste the placement request</span>
+      <textarea id="req" rows="12" spellcheck="false"></textarea></label>
+    <p><button class="btn" type="submit">Check it</button></p>
+  </form>
+  <div id="verdict"></div>`;
+
+document.getElementById('take').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = document.getElementById('verdict');
+  out.innerHTML = '<p class="spin">Asking the chain…</p>';
+
+  const parsed = parseRequest(document.getElementById('req').value);
+  if (parsed.problem) {
+    out.innerHTML = `<div class="badbox"><p>${esc(parsed.problem)}</p></div>`;
+    return;
+  }
+
+  try {
+    // None of these four is caught individually, and the jurisdiction read is
+    // the reason. chain.js already returns null for the genuine answer "nobody
+    // has placed this account", so a throw from it means the read FAILED — and
+    // null is precisely the value that removes the "already recorded elsewhere"
+    // refusal. Swallowing it would print a set-jurisdiction command for an
+    // account that already carries a country, which is the one act this console
+    // exists to stop.
+    const [exists, j, ps, id] = await Promise.all([
+      accountExists(parsed.address),
+      jurisdiction(parsed.address),
+      participants(),
+      userId(parsed.address),
+    ]);
+    const v = judge(parsed, { exists, jurisdiction: j, participants: ps });
+
+    out.innerHTML = `
+      <div class="card">
+        <p class="label">Account</p><p class="stat addr">${esc(parsed.address)}</p>
+        <p class="muted">to be recorded in <strong>${esc(parsed.country)}</strong>,
+          onboarded by ${esc(parsed.institution || '(not named)')}</p>
+      </div>
+      ${v.blocking.map((b) => `<div class="badbox"><p>${esc(b)}</p></div>`).join('')}
+      ${v.warnings.map((w) => `<div class="warnbox"><p>${esc(w)}</p></div>`).join('')}
+      ${v.ok ? `
+        <div class="card card--ok">
+          <p>Nothing on the chain refuses this. Your group signs:</p>
+          <pre>blockchaind tx alias set-jurisdiction ${esc(parsed.address)} ${esc(parsed.country)} \\
+  --from &lt;your key&gt; --chain-id yamale-devnet-2 --fees 500uyml --yes</pre>
+          <p class="muted">Afterwards the account can claim its user ID, and it will carry the
+            ${esc(parsed.country)} prefix.</p>
+        </div>` : ''}
+      <div class="card">
+        <p class="label">Identifier today</p>
+        <p class="stat">${esc(id ?? '—')}</p>
+        <p class="muted">${id
+          ? 'This is what payments to this account are addressed to, and its prefix is the country '
+            + 'already recorded against it.'
+          : 'An account with no recorded country holds no identifier, and nobody can address a '
+            + 'payment to it.'}</p>
+      </div>`;
+  } catch (err) {
+    out.innerHTML = `<div class="err"><p><strong>The chain did not answer.</strong>
+      <code>${esc(err.message)}</code></p></div>`;
+  }
+});
+</script>

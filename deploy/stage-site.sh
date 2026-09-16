@@ -54,7 +54,7 @@ done
 # configurable forwarder on the public host, which is not what it was written to
 # be. The exclusion named the .js spelling only, and three consoles have since
 # been written with the .mjs one.
-for console in keys demo markets oversight land livestock syndicate governance foundation validator; do
+for console in keys demo markets oversight land livestock syndicate institution governance foundation validator; do
   [ -d "$clients/$console" ] || continue
   mkdir -p "$staging/$console"
   ( cd "$clients/$console"

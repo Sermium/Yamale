@@ -5,6 +5,7 @@ import { getLocale, setLocale } from './i18n.ts';
 import {
   countryName,
   countryProblem,
+  foundationPlacement,
   placementRequest,
   placementVerdict,
 } from './placement.ts';
@@ -129,4 +130,34 @@ test('a request with no address is refused', () => {
 test('an unnamed institution leaves a visible blank rather than a plausible one', () => {
   const r = placementRequest({ address: ADDR, country: 'GH' }) as { document: string };
   assert.match(r.document, /\(name the institution\)/);
+});
+
+test('a foundation administrator is told the role is the placement', () => {
+  const r = foundationPlacement({ address: 'yml1abc', chainId: 'yamale-devnet-2' });
+
+  // ZZ is DERIVED from the grant and never recorded. Keeper.CountryOf falls
+  // through to hasFoundationGrant and answers ZZ; MsgSetJurisdiction refuses ZZ
+  // outright so the marker cannot be handed to an ordinary account.
+  assert.equal(r.marker, 'ZZ');
+  assert.ok(!/set-jurisdiction/.test(r.command),
+    'a participant command here would be refused by the chain and is the wrong ask');
+
+  // Not `tx alias grant-role` either, which does not exist: x/alias/module/autocli.go
+  // skips GrantRole deliberately, because the chain-wide scope is refused from every
+  // signer but the governance module account and a --from could only ever name a key
+  // that is refused. Printing a command that cannot exist is worse than printing none.
+  assert.ok(!/tx alias grant-role/.test(r.command),
+    'autocli skips GrantRole; there is no such CLI command to run');
+  assert.ok(/submit-proposal/.test(r.command),
+    'the chain-wide grant arrives as a governance proposal and by no other route');
+  assert.ok(/governance/i.test(r.document));
+});
+
+test('the administrator document does not claim the account gets no user ID', () => {
+  // The ordinary placement copy says exactly that, and for this account it is
+  // false: once the grant exists, CountryOf answers ZZ and an identifier issues
+  // with a ZZ prefix.
+  const r = foundationPlacement({ address: 'yml1abc' });
+  assert.ok(!/no user ID/i.test(r.document));
+  assert.ok(/ZZ/.test(r.document));
 });

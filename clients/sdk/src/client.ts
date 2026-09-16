@@ -823,6 +823,26 @@ export class ChainClient {
   }
 
   /**
+   * The institutions that may record where an account belongs.
+   *
+   * Read over REST rather than abci_query: measured 2026-09-15, this prefix
+   * answers 200 on the deployment's proxy while several other modules' do not.
+   *
+   * An empty list is the honest live answer on devnet-2 and must reach the
+   * caller as an empty array. A caller that cannot tell "nobody is approved"
+   * from "the read failed" will render one as the other.
+   */
+  async approvedParticipants(): Promise<{ participant: string; code: string; name: string }[]> {
+    const data = await this.get<any>(this.rest, '/yamale/blockchain/paymsg/v1/approved_participant');
+    const rows = data?.approved_participant ?? [];
+    return rows.map((r: any) => ({
+      participant: r.participant ?? '',
+      code: r.code ?? '',
+      name: r.name ?? '',
+    }));
+  }
+
+  /**
    * Resolve a user ID to an address. The transfer app's hot path.
    *
    * Normalised and check-tested here rather than at each call site. Callers

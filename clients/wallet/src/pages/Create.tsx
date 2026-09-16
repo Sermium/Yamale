@@ -1,8 +1,15 @@
-import { countryName, countryProblem, placementRequest, t } from '@yamale/chain';
-import { useState } from 'react';
+import {
+  countryName,
+  countryProblem,
+  foundationPlacement,
+  placementRequest,
+  t,
+} from '@yamale/chain';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 
+import { client } from '../chain.ts';
 import { createVault } from '../vault.ts';
 
 /**
@@ -30,6 +37,34 @@ export function CreatePage() {
   const [country, setCountry] = useState('');
   const [institution, setInstitution] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
+  // Which of the two placements this account needs. No default guessing: a
+  // foundation administrator asked for a country would be sent to an
+  // institution that cannot act, and the refusal arrives days later.
+  const [placing, setPlacing] = useState<'institution' | 'foundation'>('institution');
+  // null means 'not asked yet', which is NOT the same as []. An empty register
+  // is a fact worth a sentence; a pending read is a spinner. Collapsing the two
+  // renders the live state of devnet-2 as a loading failure.
+  const [participants, setParticipants] = useState<
+    { participant: string; code: string; name: string }[] | null
+  >(null);
+
+  // Loaded when the placement step is reached rather than on mount, because
+  // the step does not exist until the phrase is written down and there is no
+  // address to place before then.
+  useEffect(() => {
+    if (!written || !address) return;
+    let cancelled = false;
+    void client
+      .approvedParticipants()
+      .then((rows) => !cancelled && setParticipants(rows))
+      // A failed read degrades to the empty-register sentence rather than to a
+      // spinner that never stops. Both say "you cannot pick one here", and only
+      // one of them stops.
+      .catch(() => !cancelled && setParticipants([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [written, address]);
 
   async function generate() {
     setBusy(true);
@@ -196,55 +231,123 @@ export function CreatePage() {
           <p className="lede">{t('placement.lede')}</p>
           <p className="notice">{t('placement.cannotSelf')}</p>
 
-          {/* Two letters, so the field is two letters wide. A full-width input
-              for a two-character value tells somebody to type a sentence, and
-              the mono face at display size makes the pair legible enough to
-              read back down a telephone — which is exactly what happens next. */}
-          <div className="placement__country">
-            <label className="field">
-              <span>{t('placement.country')}</span>
+          {/* The fork comes before the country field, because for one of the two
+              answers the country field must not be shown at all. A foundation
+              administrator has NO jurisdiction record: Keeper.CountryOf falls
+              through to the role grant and derives ZZ, and MsgSetJurisdiction
+              refuses ZZ outright. Asking them for a country asks for a value the
+              chain would refuse to record. */}
+          <fieldset className="field">
+            <legend>{t('placement.who')}</legend>
+            <label>
               <input
-                value={country}
-                onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="SN"
-                autoCapitalize="characters"
-                autoComplete="off"
-                inputMode="text"
-                size={4}
-                aria-describedby="placement-country-help"
-              />
+                type="radio"
+                name="placing"
+                checked={placing === 'institution'}
+                onChange={() => setPlacing('institution')}
+              />{' '}
+              {t('placement.byInstitution')}
             </label>
-            {/* The name in the reader's own language, beside the code the chain
-                stores. Somebody choosing their country needs the name; somebody
-                confirming it to their institution needs the two letters. */}
-            {country.length === 2 && !countryProblem(country) && (
-              <p className="placement__name" id="placement-country-help">
-                {countryName(country)} <span className="y-mono">{country}</span>
-              </p>
-            )}
-          </div>
-          {country !== '' && countryProblem(country) !== null && (
-            <p className="notice notice--bad" id="placement-country-help">
-              {countryProblem(country)}
-            </p>
+            <label>
+              <input
+                type="radio"
+                name="placing"
+                checked={placing === 'foundation'}
+                onChange={() => setPlacing('foundation')}
+              />{' '}
+              {t('placement.byFoundation')}
+            </label>
+          </fieldset>
+
+          {placing === 'institution' && (
+            <>
+              {/* Two letters, so the field is two letters wide. A full-width input
+                  for a two-character value tells somebody to type a sentence, and
+                  the mono face at display size makes the pair legible enough to
+                  read back down a telephone — which is exactly what happens next. */}
+              <div className="placement__country">
+                <label className="field">
+                  <span>{t('placement.country')}</span>
+                  <input
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
+                    placeholder="SN"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    inputMode="text"
+                    size={4}
+                    aria-describedby="placement-country-help"
+                  />
+                </label>
+                {/* The name in the reader's own language, beside the code the chain
+                    stores. Somebody choosing their country needs the name; somebody
+                    confirming it to their institution needs the two letters. */}
+                {country.length === 2 && !countryProblem(country) && (
+                  <p className="placement__name" id="placement-country-help">
+                    {countryName(country)} <span className="y-mono">{country}</span>
+                  </p>
+                )}
+              </div>
+              {country !== '' && countryProblem(country) !== null && (
+                <p className="notice notice--bad" id="placement-country-help">
+                  {countryProblem(country)}
+                </p>
+              )}
+
+              <label className="field">
+                <span>{t('placement.institution')}</span>
+                {/* A select and not free text. MsgSetJurisdiction accepts the first
+                    recording only from an approved participant, so a name typed into
+                    a box is a name the chain will never honour — the field invited an
+                    answer that cannot be acted on. */}
+                {participants === null ? (
+                  <p className="muted">Reading the register…</p>
+                ) : participants.length === 0 ? (
+                  <p className="notice">
+                    No institution on this chain can onboard an account yet. The register of
+                    approved participants is empty, so there is nobody to hand this request to.
+                    That is what the chain says, not a fault in this page.
+                  </p>
+                ) : (
+                  <select value={institution} onChange={(e) => setInstitution(e.target.value)}>
+                    <option value="">—</option>
+                    {participants.map((p) => (
+                      <option key={p.participant} value={p.name}>
+                        {p.name} ({p.code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+
+              <PlacementRequest
+                address={address}
+                country={country}
+                institution={institution}
+                copied={copied}
+                onCopy={setCopied}
+              />
+            </>
           )}
 
-          <label className="field">
-            <span>{t('placement.institution')}</span>
-            <input
-              value={institution}
-              onChange={(e) => setInstitution(e.target.value)}
-              autoComplete="off"
-            />
-          </label>
-
-          <PlacementRequest
-            address={address}
-            country={country}
-            institution={institution}
-            copied={copied}
-            onCopy={setCopied}
-          />
+          {placing === 'foundation' &&
+            (() => {
+              const f = foundationPlacement({
+                address,
+                chainId: import.meta.env.VITE_CHAIN_ID ?? 'yamale-devnet-2',
+              });
+              return (
+                <>
+                  <p className="notice">
+                    This account is not placed in a country and must not be. The marker{' '}
+                    <span className="y-mono">{f.marker}</span> is derived from holding the role and
+                    is never recorded — the chain refuses to record it as a jurisdiction.
+                  </p>
+                  <pre>{f.document}</pre>
+                  <pre className="handoff__cmd">{f.command}</pre>
+                </>
+              );
+            })()}
         </section>
       )}
 
