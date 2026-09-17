@@ -73,11 +73,56 @@ sudo systemctl stop "$SERVICE"
 sudo cp -f "$BIN" "$KEEP"
 sudo mv "$NEXT" "$BIN"
 sudo chmod +x "$BIN"
-"$BIN" version >/dev/null || { echo "the new binary does not run; restoring"; sudo cp -f "$KEEP" "$BIN"; exit 1; }
+# `version` proves the binary EXECUTES. It does not prove it can START.
+#
+# That distinction cost eight minutes of crashloop on 2026-09-17. The binary
+# staged for tokenisation-prorata also linked x/market, whose store key the app
+# mounts unconditionally and which that upgrade does not add. `version` exited 0
+# and this script reported success; `start` then panicked on every restart with
+#
+#   version of store market mismatch root store's version; expected 376099 got 0
+#
+# and systemd restarted it seventeen times before anybody read a log. The rule
+# the panic is teaching is worth stating plainly, because it is not obvious and
+# nothing else in the repository enforces it:
+#
+#   THE BINARY YOU CROSS AN UPGRADE WITH MUST NOT LINK A MODULE WHOSE STORE A
+#   LATER UPGRADE ADDS. You cannot stage ahead of the plan you are crossing.
+#
+# So the check below is now the one that matters — does the node come up and
+# leave the halt height — and the rollback is automatic, because a node that
+# cannot start is a node nobody can do anything else with anyway.
+"$BIN" version >/dev/null 2>&1 || {
+  echo "the new binary does not execute at all; restoring"
+  sudo cp -f "$KEEP" "$BIN"; exit 1
+}
+
 sudo systemctl start "$SERVICE"
+echo "  started; waiting for it to leave $PLAN"
+
+advanced=0
+for _ in $(seq 1 12); do
+  sleep 5
+  h=$(height)
+  if [ -n "$h" ] && [ "$h" -gt "$PLAN" ] 2>/dev/null; then advanced=1; break; fi
+done
+
+if [ "$advanced" != 1 ]; then
+  echo
+  echo "!! the node did not advance past $PLAN within 60s. What it said:"
+  sudo journalctl -u "$SERVICE" --no-pager -n 200 2>/dev/null \
+    | grep -iE 'panic:|mismatch|failed to load|CONSENSUS FAILURE' | tail -4
+  echo
+  echo "!! rolling back to $KEEP. The chain stays halted at $PLAN, which is the"
+  echo "   state it was in before this ran -- nothing is lost, and a binary that"
+  echo "   cannot start is strictly worse than one that was never installed."
+  sudo systemctl stop "$SERVICE"
+  sudo cp -f "$KEEP" "$BIN"
+  sudo systemctl start "$SERVICE"
+  exit 1
+fi
 
 echo "  old binary kept at $KEEP"
-sleep 15
 sudo journalctl -u "$SERVICE" --no-pager -n 300 2>/dev/null \
   | grep -E 'applying upgrade|arrived|nothing to do|UPGRADE|panic|ERR' | tail -8 || true
-echo "  height now: $(height)"
+echo "  height now: $(height) -- past the plan at $PLAN"

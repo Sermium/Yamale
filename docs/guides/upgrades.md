@@ -36,6 +36,31 @@ the proposal's `info` field along with the commit they were built from. An
 upgrade whose binary is staged after the vote passes is an upgrade racing a
 deadline it set itself.
 
+### The binary must not be ahead of the upgrade it is crossing
+
+Build from the tree that carries the upgrade you are proposing **and nothing
+later**. A module linked into the app mounts its store key unconditionally, and
+the store loader at a halt height only adds the keys named by the PENDING plan's
+`StoreUpgrades`. So a binary that also links the next upgrade's module cannot
+start at all:
+
+```
+panic: failed to load latest version: version of store market mismatch
+root store's version; expected 376099 got 0; new stores should be added
+using StoreUpgrades
+```
+
+This happened on 2026-09-17. The binary staged for `tokenisation-prorata` was
+built from `main`, which by then had merged `x/market`. `version` exited 0, so
+every pre-flight check passed; `start` panicked on every restart and systemd
+looped it seventeen times. The fix was to rebuild from the commit before the
+market merge, which is one command and twenty minutes of downtime that need not
+have happened.
+
+There is no test for this — the invariant is about which commit you build, not
+about the code — so it lives here and in `swap-upgrade-binary.sh`, which now
+rolls back automatically when the node fails to leave the halt height.
+
 ## 2. Propose the height
 
 ```bash
