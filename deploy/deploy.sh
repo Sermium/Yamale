@@ -114,6 +114,39 @@ if [ "$verify_only" = 0 ]; then
     $host 'sudo nginx -t 2>&1 | tail -1 && sudo systemctl reload nginx' </dev/null
   done
 
+  echo "==> the systemd units the hosts actually run"
+  # nginx snippets are copied above; the units were not, and a unit only the
+  # repository has is a fix nobody is running.
+  #
+  # yamale-rpcgate.service carried PartOf=yamale-devnet.service, which
+  # propagates stop and restart but NEVER start — so restarting the node stopped
+  # the gate and left it stopped, and /api/rpc/ answered 502 until somebody
+  # noticed. That was diagnosed and fixed in the repository on 2026-09-10. The
+  # corrected unit was never installed, so it happened again on 2026-09-17,
+  # during the tokenisation-prorata swap, and took every console that reads the
+  # chain over RPC down with it.
+  #
+  # Compared rather than copied: installing a unit implies a daemon-reload and a
+  # restart of a service that sits in front of the public RPC, and this script
+  # should not do that as a side effect of shipping a stylesheet.
+  # deploy/install-rpcgate.sh is the thing that installs it, and it verifies the
+  # gate before pointing nginx at it.
+  for host in pi vm; do
+    want=$(sha256sum < "$ROOT/deploy/systemd/yamale-rpcgate.service" | cut -d' ' -f1)
+    got=$($host 'sudo sha256sum /etc/systemd/system/yamale-rpcgate.service 2>/dev/null | cut -d" " -f1' </dev/null)
+    if [ "$want" = "$got" ]; then
+      printf '    ok   %-3s runs the yamale-rpcgate unit in this repository
+' "$host"
+    else
+      printf '    !!   %-3s yamale-rpcgate.service differs from the repository
+' "$host"
+      printf '         run: deploy/install-rpcgate.sh %s
+' "$host"
+      $host 'grep -c "^PartOf=yamale-devnet.service" /etc/systemd/system/yamale-rpcgate.service 2>/dev/null' </dev/null         | grep -q '^0$' || printf '         it still carries PartOf=, so the next node restart takes /api/rpc down.
+'
+    fi
+  done
+
   echo "==> the site, to both hosts"
   # Through this machine rather than host-to-host: neither host holds a key for
   # the other, and giving one that key to save a hop widens the blast radius of
