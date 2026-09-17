@@ -45,9 +45,15 @@
 // and the password KDF both belong to the application, and a crypto module that
 // reached for localStorage would be one nobody could test.
 //
-// It does not do key generation. That is three parties and minutes of safe
-// primes; it needs the custodian's pre-parameter pool and a session that
-// survives a page reload, and it is the next piece rather than this one.
+// It DOES now do key generation, which this build once did not. The cost is
+// stated rather than hidden: the safe primes behind this device's Paillier key
+// take minutes, they are generated here because a device share generated
+// anywhere else was known anywhere else, and the API is asynchronous so a page
+// can say so instead of appearing to hang.
+//
+// What it still does not do is survive a page reload mid-keygen. A session is
+// process state; closing the tab half way through loses it and the enrolment
+// starts again. That is a real limitation and it is the caller's to explain.
 package main
 
 import (
@@ -79,6 +85,16 @@ func main() {
 		"signature": js.FuncOf(signature),
 		"publicKey": js.FuncOf(publicKey),
 		"close":     js.FuncOf(closeSession),
+
+		// Key generation. Asynchronous on purpose: the safe primes behind this
+		// device's key take minutes, and a synchronous call would freeze the
+		// page with no way to tell a slow phone from a hung one.
+		"startKeygen":    js.FuncOf(startKeygen),
+		"keygenReady":    js.FuncOf(keygenReady),
+		"keygenHandle":   js.FuncOf(keygenHandle),
+		"keygenOutbound": js.FuncOf(keygenOutbound),
+		"keygenShare":    js.FuncOf(keygenShare),
+		"keygenClose":    js.FuncOf(keygenClose),
 	}))
 	// A wasm main that returns exits the module, taking the exported functions
 	// with it, so it blocks forever on purpose.
@@ -259,4 +275,220 @@ func encode(out []mpc.Outbound) string {
 
 func fail(msg string) any {
 	return map[string]any{"error": msg}
+}
+
+/* ========================================================================== */
+/*  Key generation                                                            */
+/* ========================================================================== */
+//
+// The half this build deliberately did without, and the reason a browser could
+// sign for an account but not create one: without it the device share has to be
+// generated somewhere else, and a share generated somewhere else was known to
+// somewhere else. "The operator cannot move your money" stops being true of
+// that account forever.
+//
+// # What it costs, stated rather than discovered
+//
+// `startKeygen` generates this device's Paillier safe primes, and that takes
+// MINUTES rather than milliseconds — on a phone, potentially several. There is
+// no way around it that keeps the property: the custodian keeps a pool of
+// pre-parameters precisely because it can, and the device cannot take from that
+// pool without the custodian having known the primes behind the device's key.
+//
+// So it is asynchronous, and it reports progress. `startKeygen` returns
+// immediately with a session whose state is `generating`; the caller polls
+// `keygenReady` until it turns `ready`, which is the point at which there are
+// messages to carry.
+//
+// # THIS MUST RUN IN A WEB WORKER
+//
+// Not a recommendation. Go's wasm runtime is single-threaded and its scheduler
+// is cooperative, and the prime search does not yield — so the goroutine
+// `startKeygen` spawns takes the one thread and does not give it back. Measured
+// on the main thread, the tab stopped answering script entirely: not slow,
+// frozen, with even a page-text read timing out.
+//
+// The asynchronous shape above is still right, because it is what lets a worker
+// report progress to the page. But the page must not be the thing running it.
+// An earlier version of this comment said the work was "broken up enough that
+// the page keeps responding". It is not, and saying so cost a frozen tab to
+// find out.
+
+var (
+	kmu     sync.Mutex
+	keygens = map[string]*keygenSession{}
+	kseq    int
+)
+
+// keygenSession is a party that may not exist yet.
+//
+// The party is nil while the primes are being generated, because
+// NewKeygenParty does not return until they are. Holding the state here rather
+// than blocking is what lets the page stay answerable.
+type keygenSession struct {
+	role    string
+	party   *mpc.KeygenParty
+	err     error
+	started bool
+}
+
+// startKeygen begins this device's half of creating an account.
+//
+// Returns at once, and then the goroutine it spawns holds this runtime's only
+// thread until the primes are found. In a Web Worker that is harmless and is
+// the intended arrangement. On a page's main thread it freezes the tab — see
+// the note above the session state, which was written after measuring exactly
+// that.
+func startKeygen(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("startKeygen needs a role")
+	}
+	role := strings.TrimSpace(args[0].String())
+
+	sess := &keygenSession{role: role}
+
+	kmu.Lock()
+	kseq++
+	id := fmt.Sprintf("k%d", kseq)
+	keygens[id] = sess
+	kmu.Unlock()
+
+	go func() {
+		// nil pre-parameters: generated here, on this device, which is the
+		// whole point. See the note above on why the custodian's pool is not
+		// available to us.
+		party, err := mpc.NewKeygenParty(role, nil)
+		kmu.Lock()
+		sess.party, sess.err, sess.started = party, err, true
+		kmu.Unlock()
+	}()
+
+	return map[string]any{"session": id, "state": "generating"}
+}
+
+// keygenReady says whether the primes are done, without blocking on them.
+func keygenReady(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("keygenReady needs a session")
+	}
+	kmu.Lock()
+	sess, ok := keygens[args[0].String()]
+	kmu.Unlock()
+	if !ok {
+		return fail("no such session")
+	}
+
+	kmu.Lock()
+	defer kmu.Unlock()
+	switch {
+	case sess.err != nil:
+		return fail(sess.err.Error())
+	case !sess.started:
+		return map[string]any{"state": "generating"}
+	default:
+		out, err := sess.party.Outbound()
+		if err != nil {
+			return fail(err.Error())
+		}
+		return map[string]any{"state": "ready", "outbound": encode(out)}
+	}
+}
+
+// keygenHandle feeds one message from a service in and returns what this device
+// wants to send back.
+func keygenHandle(this js.Value, args []js.Value) any {
+	if len(args) < 2 {
+		return fail("keygenHandle needs a session and a message")
+	}
+	party, err := keygenParty(args[0].String())
+	if err != nil {
+		return fail(err.Error())
+	}
+
+	var in mpc.Outbound
+	if err := json.Unmarshal([]byte(args[1].String()), &in); err != nil {
+		return fail(fmt.Sprintf("the message does not decode: %v", err))
+	}
+	if err := party.Handle(in); err != nil {
+		return fail(err.Error())
+	}
+	out, err := party.Outbound()
+	if err != nil {
+		return fail(err.Error())
+	}
+	return map[string]any{"outbound": encode(out)}
+}
+
+// keygenOutbound drains anything this party has produced since it was last
+// asked, without feeding anything in.
+func keygenOutbound(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("keygenOutbound needs a session")
+	}
+	party, err := keygenParty(args[0].String())
+	if err != nil {
+		return fail(err.Error())
+	}
+	out, err := party.Outbound()
+	if err != nil {
+		return fail(err.Error())
+	}
+	return map[string]any{"outbound": encode(out)}
+}
+
+// keygenShare returns this device's share, once there is one.
+//
+// THE ONLY COPY. Neither service has it and neither can reconstruct it. Sealing
+// it under the user's password and storing it is the caller's job, for the same
+// reason this module does not touch localStorage — and an application that gets
+// this value and then loses it has destroyed the account's device half, which
+// only the recovery service can stand in for.
+func keygenShare(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("keygenShare needs a session")
+	}
+	party, err := keygenParty(args[0].String())
+	if err != nil {
+		return fail(err.Error())
+	}
+	share, ok := party.Share()
+	if !ok {
+		if e := party.Err(); e != nil {
+			return fail(e.Error())
+		}
+		return map[string]any{"pending": true}
+	}
+	encoded, err := json.Marshal(share)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return map[string]any{"share": string(encoded)}
+}
+
+// keygenClose forgets a session. A half-finished keygen left in the map is a
+// Paillier private key the page can no longer reach and has not released.
+func keygenClose(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("keygenClose needs a session")
+	}
+	kmu.Lock()
+	delete(keygens, args[0].String())
+	kmu.Unlock()
+	return map[string]any{"closed": true}
+}
+
+func keygenParty(id string) (*mpc.KeygenParty, error) {
+	kmu.Lock()
+	defer kmu.Unlock()
+	sess, ok := keygens[id]
+	if !ok {
+		return nil, fmt.Errorf("no such session")
+	}
+	if sess.err != nil {
+		return nil, sess.err
+	}
+	if !sess.started {
+		return nil, fmt.Errorf("this device is still generating its parameters")
+	}
+	return sess.party, nil
 }
