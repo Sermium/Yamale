@@ -18,6 +18,32 @@ import {
   QueryDenomOwnersRequest,
   QueryDenomOwnersResponse,
 } from '../../sdk/src/generated/cosmos/bank/v1beta1/query.ts';
+import type {
+  Auction,
+  Book,
+  Listing,
+  MarketParams,
+  Order,
+} from './market.ts';
+import {
+  QueryAuctionsRequest,
+  QueryAuctionsResponse,
+  QueryBookRequest,
+  QueryBookResponse,
+  QueryListingsRequest,
+  QueryListingsResponse,
+  QueryParamsRequest as QueryMarketParamsRequest,
+  QueryParamsResponse as QueryMarketParamsResponse,
+} from '../../sdk/src/generated/blockchain/market/v1/query.ts';
+import {
+  auctionStateToJSON,
+  listingStateToJSON,
+  orderStateToJSON,
+  sideToJSON,
+  type Auction as WireAuction,
+  type Listing as WireListing,
+  type Order as WireOrder,
+} from '../../sdk/src/generated/blockchain/market/v1/market.ts';
 import {
   QueryAssetRequest,
   QueryAssetResponse,
@@ -200,6 +226,16 @@ const Q = {
    * layout and why depending on it is defensible.
    */
   store: '/store/tokenisation/key',
+
+  // The secondary market. Every one of these is a read a prospective buyer
+  // makes BEFORE they have an account, which is the whole reason they go over
+  // ABCI with the rest: somebody deciding whether a shareholding is worth
+  // owning should not have to identify themselves to find out what it trades
+  // at.
+  marketParams: '/blockchain.market.v1.Query/Params',
+  listings: '/blockchain.market.v1.Query/Listings',
+  auctions: '/blockchain.market.v1.Query/Auctions',
+  book: '/blockchain.market.v1.Query/Book',
 } as const;
 
 export async function collections(): Promise<Outcome<Collection[]>> {
@@ -588,4 +624,237 @@ export function disputeSale(
     { challenger, assetId, reason },
     300_000,
   );
+}
+
+/* ========================================================================== */
+/*  The secondary market                                                      */
+/* ========================================================================== */
+//
+// Reads first, then the things a holder can ask the chain to do with a
+// shareholding they own. That list is deliberately shorter than what the module
+// offers: this app composes no MsgUpdateParams and never will, because an
+// investor does not set the depth of the book.
+
+function toListing(l: WireListing): Listing {
+  return {
+    id: l.id, assetId: l.assetId, denom: l.denom, seller: l.seller,
+    quantity: l.quantity,
+    price: { denom: l.price?.denom ?? '', amount: l.price?.amount ?? '0' },
+    state: listingStateToJSON(l.state) as Listing['state'],
+    listedAt: Number(l.listedAt ?? '0'),
+    filledBy: l.filledBy ?? '',
+    filledAt: Number(l.filledAt ?? '0'),
+  };
+}
+
+function toAuction(a: WireAuction): Auction {
+  return {
+    id: a.id, assetId: a.assetId, denom: a.denom, seller: a.seller,
+    quantity: a.quantity,
+    reserve: { denom: a.reserve?.denom ?? '', amount: a.reserve?.amount ?? '0' },
+    closesAt: Number(a.closesAt ?? '0'),
+    bestBidder: a.bestBidder ?? '',
+    bestBid: { denom: a.bestBid?.denom ?? '', amount: a.bestBid?.amount ?? '0' },
+    state: auctionStateToJSON(a.state) as Auction['state'],
+    openedAt: Number(a.openedAt ?? '0'),
+    settledAt: Number(a.settledAt ?? '0'),
+  };
+}
+
+function toOrder(o: WireOrder): Order {
+  return {
+    id: o.id, assetId: o.assetId, denom: o.denom, trader: o.trader,
+    side: sideToJSON(o.side) as Order['side'],
+    quantity: o.quantity, remaining: o.remaining,
+    // Normalised to a string here rather than at every call site: a uint64
+    // arrives as a number on some decoder paths and a string on others, and a
+    // price that is sometimes a number is a price that is sometimes NaN.
+    unitPrice: String(o.unitPrice ?? '0'),
+    settlementDenom: o.settlementDenom ?? '',
+    state: orderStateToJSON(o.state) as Order['state'],
+    placedAt: Number(o.placedAt ?? '0'),
+  };
+}
+
+/** How deep one order may sweep, and how long an auction may run. */
+export async function marketParams(): Promise<Outcome<MarketParams>> {
+  const request = QueryMarketParamsRequest.encode({}).finish();
+  const raw = await query(Q.marketParams, request);
+  return decoded(raw, (b) => {
+    const p = QueryMarketParamsResponse.decode(b).params;
+    return {
+      maxFillsPerOrder: Number(p?.maxFillsPerOrder ?? 0),
+      minAuctionPeriod: Number(p?.minAuctionPeriod ?? '0'),
+      maxAuctionPeriod: Number(p?.maxAuctionPeriod ?? '0'),
+    } satisfies MarketParams;
+  });
+}
+
+/**
+ * Every fixed-price offer over a share.
+ *
+ * `liveOnly` is false by default, and that is the useful direction: the filled
+ * ones are the only record this chain keeps of what a shareholding has actually
+ * fetched. A page showing only what is for sale would be hiding the price
+ * history behind a flag.
+ */
+export async function listings(denom: string, liveOnly = false): Promise<Outcome<Listing[]>> {
+  const request = QueryListingsRequest.encode({ denom, liveOnly }).finish();
+  const raw = await query(Q.listings, request);
+  return decoded(raw, (b) => QueryListingsResponse.decode(b).listings.map(toListing));
+}
+
+export async function auctions(denom: string, openOnly = false): Promise<Outcome<Auction[]>> {
+  const request = QueryAuctionsRequest.encode({ denom, openOnly }).finish();
+  const raw = await query(Q.auctions, request);
+  return decoded(raw, (b) => QueryAuctionsResponse.decode(b).auctions.map(toAuction));
+}
+
+/** What is bid and offered right now, best price first on each side. */
+export async function book(denom: string, depth = 20): Promise<Outcome<Book>> {
+  const request = QueryBookRequest.encode({ denom, depth }).finish();
+  const raw = await query(Q.book, request);
+  return decoded(raw, (b) => {
+    const r = QueryBookResponse.decode(b);
+    return {
+      bids: r.bids.map(toOrder),
+      asks: r.asks.map(toOrder),
+      settlementDenom: r.settlementDenom ?? '',
+    } satisfies Book;
+  });
+}
+
+/* --------------------------------------------------------- and the doing */
+
+/**
+ * Offer a parcel at a fixed total.
+ *
+ * The shares leave the seller HERE, not at fill. That is the module's decision
+ * and it is the right one — a listing backed by shares the seller still holds
+ * can be listed twice or transferred away, and the first buyer to pay discovers
+ * there is nothing to deliver — but it means the screen calling this has to
+ * have said so first. After this the parcel is gone from the holding until the
+ * listing is taken or withdrawn.
+ */
+export function listParcel(
+  offline: OfflineSigner,
+  seller: string,
+  denom: string,
+  quantity: string,
+  price: Coin,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgList',
+    { seller, denom, quantity, price }, 350_000);
+}
+
+/** Take a listing whole. There is no partial fill; that is what the book is for. */
+export function buyListing(
+  offline: OfflineSigner,
+  buyer: string,
+  listingId: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgBuy', { buyer, listingId }, 350_000);
+}
+
+export function cancelListing(
+  offline: OfflineSigner,
+  seller: string,
+  listingId: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgCancelListing',
+    { seller, listingId }, 250_000);
+}
+
+/**
+ * Offer a parcel to the best bid received by a deadline.
+ *
+ * `closesAt` is an ABSOLUTE time in seconds, never a duration, and the caller
+ * computes it from a clock rather than passing a span: a duration measured from
+ * whenever the transaction is included means a seller signing "one week" during
+ * congestion gets an auction closing at a moment they did not choose, with
+ * their shares escrowed for the difference. See market.ts `auctionWindow`.
+ */
+export function openAuction(
+  offline: OfflineSigner,
+  seller: string,
+  denom: string,
+  quantity: string,
+  reserve: Coin,
+  closesAt: number,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgOpenAuction',
+    { seller, denom, quantity, reserve, closesAt: String(closesAt) }, 350_000);
+}
+
+/**
+ * Beat the standing bid.
+ *
+ * The money leaves the bidder in this block and the previous best bid is
+ * refunded in the same message. A screen calling this has to have said that the
+ * amount is committed until somebody outbids them or the auction settles.
+ */
+export function bid(
+  offline: OfflineSigner,
+  bidder: string,
+  auctionId: string,
+  amount: Coin,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgBid', { bidder, auctionId, amount }, 350_000);
+}
+
+/**
+ * Close out an auction past its deadline.
+ *
+ * Offered to everybody, including the winner and a passer-by, because the
+ * module allows it deliberately: needing the seller's signature would let a
+ * seller who disliked the result strand the winner's capital by doing nothing.
+ */
+export function settleAuction(
+  offline: OfflineSigner,
+  settler: string,
+  auctionId: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgSettleAuction',
+    { settler, auctionId }, 400_000);
+}
+
+export function cancelAuction(
+  offline: OfflineSigner,
+  seller: string,
+  auctionId: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgCancelAuction',
+    { seller, auctionId }, 250_000);
+}
+
+/**
+ * Cross what can be crossed and rest the remainder.
+ *
+ * `unitPrice` is settlement base units per one share, and it is a LIMIT: a bid
+ * will not pay more, an ask will not take less. Callers must have produced it
+ * with market.ts `unitPriceFromDisplay` — the factor between a typed price and
+ * this field is the settlement denom's exponent, and passing a typed number
+ * straight through is the most expensive mistake available on this surface.
+ *
+ * The gas allowance carries the fill loop, which is bounded by the chain's own
+ * max_fills_per_order rather than by anything this app decides.
+ */
+export function placeOrder(
+  offline: OfflineSigner,
+  trader: string,
+  denom: string,
+  side: 'SIDE_BID' | 'SIDE_ASK',
+  quantity: string,
+  unitPrice: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgPlaceOrder',
+    { trader, denom, side: side === 'SIDE_BID' ? 1 : 2, quantity, unitPrice }, 600_000);
+}
+
+export function cancelOrder(
+  offline: OfflineSigner,
+  trader: string,
+  orderId: string,
+): Promise<Signed> {
+  return submit(offline, '/blockchain.market.v1.MsgCancelOrder', { trader, orderId }, 250_000);
 }

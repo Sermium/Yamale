@@ -22,15 +22,16 @@ import { useState } from 'react';
 import { formatAmount, resolveDenom, t } from '@yamale/chain';
 
 import { claim as sendClaim, disputeSale, redeem as sendRedeem, type Signed } from './chain.ts';
-import { messagePlan, type Draft } from './message.ts';
+import { messagePlan, type Draft, type Plan } from './message.ts';
 import { Amount, Note } from './ui.tsx';
 import type { Account } from './address.ts';
 import { redeemPayout } from './vehicle.ts';
 
 /* ------------------------------------------------------- the message table */
 
-function PlanTable({ draft }: { draft: Draft }) {
-  const plan = messagePlan(draft);
+// Takes a Plan rather than a Draft, so the market's messages get the same
+// table from marketPlan() without this component knowing they exist.
+export function PlanTable({ plan }: { plan: Plan }) {
 
   return (
     <div className="plan">
@@ -62,9 +63,9 @@ function PlanTable({ draft }: { draft: Draft }) {
 
 /* --------------------------------------------------------------- the frame */
 
-type Phase = { at: 'form' } | { at: 'signing' } | { at: 'done'; result: Signed };
+export type Phase = { at: 'form' } | { at: 'signing' } | { at: 'done'; result: Signed };
 
-function Outcome({ result, onClose }: { result: Signed; onClose: () => void }) {
+export function Outcome({ result, onClose }: { result: Signed; onClose: () => void }) {
   if (result.ok) {
     return (
       <>
@@ -94,7 +95,7 @@ function Outcome({ result, onClose }: { result: Signed; onClose: () => void }) {
   );
 }
 
-function Dialog({ title, lede, tone, children, onClose }: {
+export function Dialog({ title, lede, tone, children, onClose }: {
   title: string;
   lede: string;
   tone: 'ok' | 'warn' | 'bad';
@@ -148,7 +149,7 @@ export function ClaimDialog({ account, assetId, owed, owedDenom, onClose, onDone
 
       <Note tone="ok">{t('rwa.claimKeeps')}</Note>
 
-      <PlanTable draft={draft} />
+      <PlanTable plan={messagePlan(draft)} />
 
       {phase.at === 'done' ? (
         <Outcome result={phase.result} onClose={onClose} />
@@ -249,7 +250,7 @@ export function RedeemDialog({ account, assetId, balance, shareDenom, accrued, p
         <Note tone="bad">{t('rwa.redeemTooMuch')}</Note>
       )}
 
-      <PlanTable draft={draft} />
+      <PlanTable plan={messagePlan(draft)} />
 
       {phase.at === 'done' ? (
         <Outcome result={phase.result} onClose={onClose} />
@@ -328,7 +329,7 @@ export function DisputeDialog({ account, assetId, bond, bondDenom, price, onClos
         <span className="field2__hint">{t('rwa.disputeReasonHint')}</span>
       </label>
 
-      <PlanTable draft={draft} />
+      <PlanTable plan={messagePlan(draft)} />
 
       {phase.at === 'done' ? (
         <Outcome result={phase.result} onClose={onClose} />

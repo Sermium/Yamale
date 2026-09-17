@@ -42,6 +42,7 @@ import {
   verifyCommand,
   type Covenant,
 } from './covenant.ts';
+import { Market } from './Market.tsx';
 import { costOf, pendingAccrual, returnOn } from './position.ts';
 import {
   Address,
@@ -1015,11 +1016,20 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
               && openDeadlines(covenants.outcome.value, Math.floor(now.getTime() / 1000)).length > 0,
           },
           { id: 'distributions', label: t('rwa.tabDistributions') },
+          // Last, deliberately: somebody arrives to understand the
+          // vehicle and leaves to trade it. A market tab first would put
+          // a price in front of the terms that decide whether it is one.
+          { id: 'market', label: t('mkt.tab') },
         ]}
       />
 
       <div className="split">
         <div className="split__main">
+          {folder === 'market' && (
+            <Market assetId={a.id} denom={a.fractionDenom}
+                    account={account} balance={held?.balance ?? '0'} />
+          )}
+
           {folder === 'holders' && (
             <CapTable cap={cap} supply={held?.supply ?? null} sponsor={a.owner}
                       denom={a.fractionDenom} />

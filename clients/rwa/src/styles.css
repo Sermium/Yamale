@@ -1043,3 +1043,93 @@ body {
   vertical-align: bottom;
 }
 .accrual__at { margin: var(--sp-2) 0 0; font-size: var(--step--1); color: var(--text-muted); }
+
+/* --------------------------------------------------------- the market */
+
+/* Only what the shared system does not already carry. The spread band is a
+   `.y-kpis`, the tables are `.y-data`, the panels are `.y-panel`: the market is
+   not a different product and should not look like one. */
+
+.mkt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-block-start: var(--sp-3);
+}
+
+/* Buy and sell side by side, and the chosen one held down. A radio group would
+   be more semantic; these are buttons because the choice changes which figures
+   the preview below is about, and a radio that silently rewrites a forecast
+   reads as a glitch. aria-pressed carries the state for anybody not seeing it. */
+.mkt__sides { display: flex; gap: var(--sp-2); margin-block-end: var(--sp-3); }
+.mkt__sides .btn { flex: 1; }
+.btn--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+}
+
+/* Two sides of the book, side by side where there is room and stacked where
+   there is not. Never squeezed: a price column that wraps is a price nobody can
+   compare down the page, which is the only reason to put prices in a column. */
+.mkt__book {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  margin-block-start: var(--sp-3);
+}
+.mkt__side { min-inline-size: 0; }
+.mkt__side h4 { margin: 0 0 var(--sp-2); }
+
+/* The depth cue. A tint rather than a bar, because a bar sized by quantity on a
+   book with two orders reads as a chart of something and there is nothing to
+   chart yet. */
+.mkt__level--bid td:first-child { border-inline-start: 2px solid var(--ok); padding-inline-start: var(--sp-2); }
+.mkt__level--ask td:first-child { border-inline-start: 2px solid var(--bad); padding-inline-start: var(--sp-2); }
+
+.mkt__count { color: var(--text-muted); font-size: var(--step--1); }
+
+.mkt__auction {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-3);
+  margin-block-start: var(--sp-3);
+  background: var(--surface-2);
+}
+.mkt__auctionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-block-end: var(--sp-3);
+  flex-wrap: wrap;
+}
+.mkt__parcel { font-size: var(--step-2); font-weight: 600; }
+
+.mkt__preview {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-3);
+  margin-block: var(--sp-3);
+  background: var(--surface-2);
+}
+.mkt__preview .fields { margin-block-start: var(--sp-2); }
+
+.mkt__mine { margin-block-start: var(--sp-4); }
+.mkt__orderList { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.mkt__orderList li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* A number never breaks across two lines. `overflow-wrap: anywhere` has already
+   printed 100,000,0 above 00 in this repository twice; a broken number is not a
+   smaller number, it is a different one. The unit may wrap. The digits may not. */
+.mkt__spread .y-kpi__value,
+.mkt__parcel {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
