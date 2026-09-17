@@ -176,6 +176,20 @@ without error and changes nothing is a migration you have not tested.
 * **`{}` from `q upgrade plan`** while the proposal was still open, mistaken for
   a failed submission. It only populates once the proposal passes.
 
+## Worked examples
+
+Each of these is one upgrade run end to end on devnet-2, written up afterwards
+with what went wrong rather than only what was intended.
+
+* [The three commercial modules](upgrade-devnet-2-modules.md) — the general
+  shape, and the profile split explained once.
+* [Deal documents](upgrade-devnet-2-syndicate-documents.md) — an upgrade that
+  adds no store and migrates nothing, and why it halts the chain anyway.
+* [Pro rata temporis, and the market](upgrade-devnet-2-prorata-and-market.md) —
+  two runs back to back, a migration that had to settle at the old rule first,
+  and a staged binary that was one module ahead of its own upgrade and could not
+  start at all.
+
 ## Related
 
 * [Run a local chain](local-devnet.md) — rehearse an upgrade here first. The
