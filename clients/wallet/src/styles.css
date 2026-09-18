@@ -1,12 +1,23 @@
 /* Yamale Wallet.
  *
- * Two things kept apart on purpose: watching an address, which is harmless, and
- * holding a key, which is not. The stylesheet follows that split — the phrase
- * and the approval screen are the two places given real weight, because they
- * are the two places where a misread costs money.
+ * A phone on a desk. The shell — the desk, the frame, the notch, the app bar,
+ * the tab bar, the cards and the rows — is `.y-*` and comes from
+ * clients/shared/yamale.css, which is where Yamale Pay's shape was extracted
+ * to. Nothing here re-implements any of it, and nothing here is a renamed copy
+ * of Pay's own class names.
  *
- * Colour, type and space all come from yamale.css now. This file used to carry
- * its own copy of the palette plus a dark block written as a bare
+ * What this file carries is the two things a shared mobile shell cannot know
+ * about:
+ *
+ *   1. A **wallet's** components — the balance hero, the figure that cannot
+ *      break, the words of a recovery phrase, the review before a signature.
+ *   2. The **approval window** at /connect, which is not a phone. It is a
+ *      window another application opened at a size it chose, and its classes
+ *      (.sign__*, .ledger__*, .rev__*, .track__*, .prov__*) are unchanged —
+ *      they were already the most carefully built thing in this client.
+ *
+ * Colour, type and space come from yamale.css. This file used to carry its own
+ * palette plus a dark block written as a bare
  * `@media (prefers-color-scheme: dark) { :root { … } }`, which has no escape
  * hatch: a reader who chose light explicitly still got the dark accent.
  */
@@ -31,11 +42,16 @@
    * somebody whether they can undo what they are about to sign, which is not a
    * place to be a tenth of a ratio short.
    *
-   * Declared on a bare :root first, then overridden in both dark forms. A
+   * Declared on a bare :root FIRST, then overridden in both dark forms. A
    * colour whose only definition lives inside a prefers-color-scheme block
-   * never applies in the default un-stamped state — which is most readers. */
+   * never applies in the default un-stamped state — which is most readers, and
+   * which is the bug that has shipped from this repository once already. */
   --brass-ink: #8a5f22;
   --warn-ink: #7d580f;
+
+  /* The accent's own tint, so a filled control and its tinted sibling belong to
+     the same colour rather than to the neutral wash. */
+  --wal-accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
 
   /* Form controls, scrollbars and the native select popup follow the theme.
      Without it a dark page gets a white dropdown. */
@@ -53,340 +69,537 @@
   --warn-ink: var(--warn);
 }
 
-.wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--sp-5); }
+/* ========================================================================== */
+/*  THE FRAME                                                                 */
+/* ========================================================================== */
 
-.masthead { border-bottom: 1px solid var(--border); background: var(--surface); }
-.masthead__inner {
-  display: flex; align-items: center; gap: var(--sp-6);
-  min-height: 3.5rem; flex-wrap: wrap; padding: var(--sp-2) 0;
-}
-
-.brand {
+/* The bar above the desk. `.y-stage__bar` already positions it and colours its
+   ink against the navy; these are the two links inside it. */
+.wal-brand {
   display: inline-flex; align-items: center; gap: var(--sp-2);
-  font-family: var(--font-display); font-weight: 600; font-size: var(--step-1);
-  letter-spacing: -0.01em; text-decoration: none; color: var(--text);
+  color: inherit; text-decoration: none; font-size: var(--step-0);
 }
-.brand span { color: var(--brass); }
-.brand__mark { width: 1.4rem; height: 1.4rem; flex: none; border-radius: 5px; color: var(--accent); }
+.wal-brand svg { border-radius: 5px; }
+.wal-stageLink {
+  color: inherit; text-decoration: none; font-size: var(--step-0); opacity: 0.75;
+  border-bottom: 1px solid rgba(232, 238, 247, 0.35); padding-bottom: 1px;
+}
+.wal-stageLink:hover { opacity: 1; }
 
-.nav { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-5); }
-.nav a {
-  color: var(--text-muted); text-decoration: none;
-  font-size: var(--step-0); white-space: nowrap; padding: var(--sp-1) 0;
+.wal-appbarWho { min-inline-size: 0; }
+.y-appbar__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The padlock. Red is reserved for the control that throws work away, and
+   locking does not — it drops a key that the password brings back. */
+.wal-lockBtn {
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
 }
-.nav a:hover { color: var(--text); }
-.nav a.active, .nav a[aria-current='page'] {
-  color: var(--text); box-shadow: inset 0 -2px 0 var(--brass);
+.wal-lockBtn:hover { color: var(--text); border-color: var(--text-muted); }
+
+/* The approval window is not a phone. See the header comment. */
+.wal-window {
+  max-width: 36rem; margin: 0 auto;
+  padding: var(--sp-5) var(--sp-4) var(--sp-7);
 }
 
-main.wrap { padding-top: var(--sp-6); padding-bottom: var(--sp-7); }
+/* ========================================================================== */
+/*  A FIGURE THAT CANNOT BREAK                                                */
+/* ========================================================================== */
 
-h1 { font-size: var(--step-4); margin: 0 0 var(--sp-2); }
-h2 { font-size: var(--step-2); margin: 0 0 var(--sp-3); }
-
-.lede { color: var(--text-muted); max-width: var(--measure); margin: 0 0 var(--sp-5); }
-.muted, .small.muted { color: var(--text-muted); }
-.small { font-size: var(--step--1); }
-.crumb { font-size: var(--step--1); color: var(--text-muted); margin: 0 0 var(--sp-2); }
-.crumb a { color: var(--text-muted); }
-.page-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.row { display: flex; align-items: baseline; gap: var(--sp-3); justify-content: space-between; }
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-1);
-  padding: var(--sp-4) var(--sp-5);
-  margin-bottom: var(--sp-5);
-}
-.card--link { display: block; text-decoration: none; color: inherit; }
-.card--link:hover { border-color: var(--accent); box-shadow: var(--shadow-2); }
-.card__head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.card__foot { margin: var(--sp-4) 0 0; }
-.grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); }
-
-.figures { display: flex; gap: var(--sp-6); margin: var(--sp-4) 0 var(--sp-2); flex-wrap: wrap; }
-.figures dt {
-  font-family: var(--font-mono); font-size: 0.7rem;
-  letter-spacing: 0.11em; text-transform: uppercase;
-  color: var(--text-muted); margin-bottom: var(--sp-1);
-}
-.figures dd { margin: 0; }
-.figure {
-  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: var(--step-2); font-weight: 500;
-}
-.figure--muted { color: var(--text-muted); }
-
-.tabs {
-  display: flex; gap: var(--sp-1); margin: var(--sp-5) 0 var(--sp-4);
-  border-bottom: 1px solid var(--rule); overflow-x: auto;
-}
-.tab {
-  background: none; border: 0; border-bottom: 2px solid transparent;
-  padding: var(--sp-2) var(--sp-3); font: inherit; font-size: var(--step-0);
-  color: var(--text-muted); cursor: pointer; white-space: nowrap;
-}
-.tab--on { color: var(--text); border-bottom-color: var(--brass); }
-
-.table { width: 100%; border-collapse: collapse; }
-.table th {
-  text-align: start; font-family: var(--font-mono); font-size: 0.7rem;
-  text-transform: uppercase; letter-spacing: 0.11em;
-  color: var(--text-muted); font-weight: 500;
-  padding: 0 var(--sp-3) var(--sp-2) 0; white-space: nowrap;
-}
-.table td { padding: var(--sp-2) var(--sp-3) var(--sp-2) 0; border-top: 1px solid var(--rule); }
-.table .num {
-  text-align: end; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+/*
+ * A number never breaks across two lines.
+ *
+ * `overflow-wrap: anywhere` has printed `100,000,0` above `00` in this
+ * repository twice, and that is not a typographic blemish — it is a balance
+ * misread by a factor of a hundred. Every property that could break a figure is
+ * turned off here explicitly rather than left to inherit, because the thing
+ * that broke it last time was inherited from a container three levels up.
+ *
+ * The size that keeps it on one line is chosen in ui.tsx from the figure's own
+ * length; the arithmetic is written out there.
+ */
+.wal-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-break: strict;
+  hyphens: none;
 }
-.table .strong { font-weight: 500; }
-.row--off { opacity: 0.55; text-decoration: line-through; }
+/* A figure the interface does not have. Words, never a zero and never a dash —
+   a dash on a balance line reads as a zero with a flourish. */
+.wal-figure--none {
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: normal;
+}
+.wal-amount {
+  display: inline-flex; align-items: baseline; gap: 0.35em;
+  flex-wrap: wrap; /* the SYMBOL may wrap to the next line; the figure may not */
+}
+.wal-amount__sym {
+  font-family: var(--font-mono); font-size: 0.78em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.wal-amount--row .wal-figure { font-size: var(--step-1); }
+/* Anything else that must not be split down the middle. */
+.wal-nobreak { white-space: nowrap; word-break: keep-all; overflow-wrap: normal; }
 
-.field { display: block; margin-bottom: var(--sp-4); }
-.field span {
-  display: block; font-family: var(--font-mono); font-size: 0.7rem;
-  letter-spacing: 0.11em; text-transform: uppercase;
-  color: var(--text-muted); margin-bottom: var(--sp-1);
-}
-.field input, .field select {
-  width: 100%; padding: var(--sp-2) var(--sp-3); font: inherit;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface-2); color: var(--text);
-}
-.field input:focus, .field select:focus { border-color: var(--accent); }
-.field-row { display: grid; gap: var(--sp-4); grid-template-columns: 2fr 1fr; }
-@media (max-width: 30rem) { .field-row { grid-template-columns: 1fr; } }
+/* ========================================================================== */
+/*  SCREENS                                                                   */
+/* ========================================================================== */
 
-/* A notice carries its state in a border and a word as well as in a wash.
-   Colour alone would leave a colour-blind reader unable to tell a confirmation
-   from a refusal, and this app's refusals are about money. */
-.notice {
-  padding: var(--sp-3) var(--sp-4); border-radius: var(--radius);
+.wal-lede { color: var(--text-muted); margin: calc(var(--sp-3) * -1) 0 var(--sp-4); }
+.wal-muted { color: var(--text-muted); }
+.wal-small { font-size: var(--step--1); }
+.wal-row__strong { font-weight: 600; margin: 0 0 var(--sp-1); }
+.wal-cardTitle { font-size: var(--step-1); font-family: var(--font-display); margin: 0 0 var(--sp-2); }
+.wal-bullets { margin: 0; padding-inline-start: 1.1rem; display: grid; gap: var(--sp-2); }
+.wal-bullets li { font-size: var(--step-0); }
+
+/* The screen stacks. `gap` rather than margins, so a screen that drops a
+   section does not leave a hole where it was. */
+.y-screen { display: flex; flex-direction: column; gap: var(--sp-3); }
+.y-screen > * { flex: 0 0 auto; }
+.y-screen__title { margin-block: 0 var(--sp-1); }
+.y-screen__sub { margin-block: var(--sp-3) 0; }
+
+.wal-back {
+  align-self: start;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  font: inherit; font-size: var(--step--1);
+  background: none; border: 0; padding: var(--sp-1) 0;
+  color: var(--text-muted); cursor: pointer;
+}
+.wal-back:hover { color: var(--text); }
+/* The chevron points at the inline start, which in Arabic is the other side. */
+.wal-back svg { transform: scaleX(1); }
+[dir='rtl'] .wal-back svg, [dir='rtl'] .y-row__chev { transform: scaleX(-1); }
+
+.wal-whoTitle { font-size: var(--step-2); font-weight: 500; }
+
+/* --- the balance hero ---------------------------------------------------- */
+
+/* The largest thing on the glass, because "how much do I have" is the first
+   question and everything else on the screen defers to it. */
+.wal-hero {
+  background: var(--accent); color: var(--accent-ink);
+  border-radius: 18px; padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  box-shadow: var(--shadow-2);
+  display: grid; gap: 0.1rem;
+  min-inline-size: 0;
+}
+.wal-hero__label {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; opacity: 0.8;
+}
+.wal-hero .wal-figure { line-height: 1.1; }
+.wal-hero__sym { font-size: var(--step--1); opacity: 0.85; font-family: var(--font-mono); }
+/* A hero with no figure in it yet. Still the hero — moving the layout once the
+   number arrives is how a reader loses their place. */
+.wal-hero--waiting { background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); box-shadow: none; }
+.wal-hero__waiting { font-size: var(--step-1); color: var(--text-muted); font-style: italic; }
+
+.wal-list { margin: 0; }
+
+/*
+ * A missing piece of the shared shell, patched here rather than there.
+ *
+ * `.y-row` is a <button>, whose content model is phrasing content — so its
+ * title and subtitle have to be spans, and the shared stylesheet styles both
+ * without giving either a display. Inline, they run together: "Create an
+ * accountA new account, with a recovery phrase…" on one line. Reported rather
+ * than fixed in clients/shared/yamale.css, which other work is in.
+ */
+.y-row__main, .y-row__title, .y-row__sub { display: block; }
+.y-row__end { display: flex; justify-content: flex-end; }
+.wal-idBig {
+  font-size: var(--step-2); font-weight: 500; margin: var(--sp-1) 0 var(--sp-2);
+  overflow-wrap: break-word; /* an identifier is not a quantity */
+}
+
+/* --- the review before a signature --------------------------------------- */
+
+/*
+ * What leaves, and what arrives, side by side and above the button.
+ *
+ * The order is the argument: a screen that leads with the recipient and
+ * mentions the money underneath is confirming an address rather than a payment.
+ */
+.wal-ledger {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+}
+.wal-ledger__side {
+  display: grid; gap: var(--sp-1); min-inline-size: 0;
+  padding-inline-start: var(--sp-3);
+  border-inline-start: 3px solid var(--ok);
+}
+.wal-ledger__side:first-child { border-inline-start-color: var(--bad); }
+.wal-ledger__fig .wal-figure { font-size: var(--step-2); }
+.wal-ledger__fig--out .wal-figure { color: var(--bad); }
+@media (max-width: 360px) {
+  /* Two columns of mono figures stop fitting before the frame does. */
+  .wal-ledger { grid-template-columns: 1fr; }
+}
+
+.wal-addrFull {
+  display: block; background: var(--surface-2);
+  padding: var(--sp-2); border-radius: var(--radius); margin-top: var(--sp-1);
+}
+
+/* The exact message the chain will receive. A person approving a payment is
+   entitled to the message, not a paraphrase of it — the house pattern from
+   clients/rwa/src/Act.tsx. Behind a disclosure because it is for the reader who
+   wants it, not a wall in front of the reader who does not. */
+.wal-plan > summary {
+  cursor: pointer; font-size: var(--step--1); color: var(--text-muted);
+  padding: var(--sp-2) 0;
+}
+.wal-plan > summary:hover { color: var(--text); }
+.wal-plan__type { font-size: 0.7rem; color: var(--text-muted); margin: 0 0 var(--sp-2); }
+.wal-plan__rows { display: grid; gap: var(--sp-2); margin: 0; }
+.wal-plan__rows > div { display: grid; gap: 0.1rem; }
+.wal-plan__rows dt {
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.wal-plan__rows dd { margin: 0; font-size: var(--step--1); }
+
+/* --- the outcome --------------------------------------------------------- */
+
+.wal-done { display: grid; gap: var(--sp-3); justify-items: center; text-align: center; padding-top: var(--sp-6); }
+.wal-done__tick {
+  width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.4rem;
+  background: var(--ok); color: #fff;
+}
+.wal-done__title { font-family: var(--font-display); font-size: var(--step-3); margin: 0; }
+
+/* ========================================================================== */
+/*  CONTROLS                                                                  */
+/* ========================================================================== */
+
+.wal-form { display: grid; gap: var(--sp-3); }
+.wal-field { display: grid; gap: var(--sp-1); }
+.wal-field__label {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.wal-field__hint { font-size: var(--step--1); color: var(--text-muted); }
+
+.wal-input {
+  font: inherit; width: 100%;
+  padding: var(--sp-3); border-radius: 11px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.wal-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--accent); }
+.wal-input--area { resize: vertical; min-height: 5.5rem; }
+/* Two letters, so the field is two letters wide. A full-width input for a
+   two-character value tells somebody to type a sentence. */
+.wal-input--short {
+  inline-size: 6rem; text-align: center; text-transform: uppercase;
+  font-size: var(--step-2); letter-spacing: 0.14em;
+}
+/* An amount is data. In mono with tabular figures a payer can see at a glance
+   that they typed one digit too many, which in a proportional face they cannot. */
+.wal-input--num { font-variant-numeric: tabular-nums; font-size: var(--step-2); }
+
+.wal-btn {
+  font: inherit; font-weight: 600; width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 0; border-radius: 11px;
+  background: var(--accent); color: var(--accent-ink);
+  cursor: pointer;
+}
+/* A disabled primary has to stop looking like a button that works. Opacity
+   alone was not enough against the dark palette's accent, which is a light blue:
+   at 0.5 it still read as a live control, and a live-looking control that does
+   nothing teaches people the app is broken. So the fill goes too. */
+.wal-btn:disabled {
+  background: var(--surface-2); color: var(--text-faint);
+  box-shadow: inset 0 0 0 1px var(--rule);
+  cursor: default;
+}
+.wal-btn--ghost {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border); font-weight: 500;
+}
+/* The button that spends money. Brass, because on this surface brass marks the
+   row that is about money — and distinct from the navy of every ordinary
+   "continue" so the two are not one reflex. */
+.wal-btn--commit { background: var(--brass); color: #fff; }
+.wal-btn--danger { background: var(--bad); color: #fff; }
+
+.wal-chips { display: flex; gap: var(--sp-2); padding-bottom: var(--sp-1); }
+.wal-chip {
+  font: inherit; font-size: var(--step--1); white-space: nowrap;
+  padding: var(--sp-2) var(--sp-3); border-radius: 999px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer;
+}
+.wal-chip:hover { color: var(--text); border-color: var(--text-muted); }
+.wal-chip:disabled { opacity: 0.45; cursor: default; }
+.wal-chip--on {
+  background: var(--wal-accent-soft); border-color: var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+
+.wal-link {
+  background: none; border: 0; font: inherit; color: var(--accent);
+  cursor: pointer; padding: 0; text-decoration: underline;
+}
+
+/* Equal widths so no option looks like the recommended one. */
+.wal-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); margin-top: var(--sp-1); }
+.wal-seg__btn {
+  font: inherit; font-size: var(--step--1);
+  padding: var(--sp-2) var(--sp-1); border-radius: 10px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer;
+}
+.wal-seg__btn--on {
+  background: var(--wal-accent-soft); border-color: var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+
+.wal-check { display: flex; gap: var(--sp-3); align-items: flex-start; font-size: var(--step-0); }
+.wal-check input { margin-top: 0.3rem; flex: 0 0 auto; }
+
+/* A notice carries its state in a border and in words as well as in a wash.
+   Colour alone would leave a colour-blind holder unable to tell "this is your
+   balance" from "this could not be read". */
+.wal-note {
+  font-size: var(--step-0); padding: var(--sp-3);
+  border-radius: 9px; margin: 0;
   border-inline-start: 3px solid var(--warn);
   background: var(--wash-warn); color: var(--text);
-  font-size: var(--step-0); margin: var(--sp-4) 0;
+}
+.wal-note--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+.wal-note--ok { border-inline-start-color: var(--ok); background: var(--wash-ok); }
+.wal-note--plain { border-inline-start-color: var(--text-faint); background: var(--wash-mute); }
+.wal-note p { margin: var(--sp-2) 0 0; }
+
+.wal-raw { margin-top: var(--sp-2); }
+.wal-raw > summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
+.wal-raw__pre {
+  margin: var(--sp-2) 0 0; padding: var(--sp-2);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 0.72rem; white-space: pre-wrap; word-break: break-word;
+}
+
+.wal-fact { display: grid; gap: 0.1rem; }
+/* A block, not an inline span. As a label above a value it has to own its own
+   line — inline it printed "ADDRESSyml1jwrq6z…" with no break at all. */
+.wal-fact__label {
+  display: block;
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+
+/* ========================================================================== */
+/*  THE PHRASE                                                                */
+/* ========================================================================== */
+
+/* Numbered, because a phrase transcribed out of order recovers nothing and
+   people do transcribe out of order. Two columns: on a 390px screen three put
+   the longer words into two lines each, and a word broken across lines is a
+   word somebody copies wrong. */
+.wal-words {
+  list-style: none; margin: 0; padding: var(--sp-3);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1) var(--sp-3);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+  font-family: var(--font-mono); font-size: var(--step-0); line-height: 1.8;
+}
+.wal-words li { display: flex; align-items: baseline; gap: var(--sp-2); min-inline-size: 0; }
+.wal-words__n {
+  flex: 0 0 1.4rem; text-align: end;
+  font-size: 0.7rem; color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+.wal-words__w { overflow-wrap: break-word; min-inline-size: 0; }
+
+.wal-attach__soon { margin-top: var(--sp-3); }
+
+/* The handoff: prose somebody reads, and a line somebody pastes. The document
+   wraps; the command does not, because a soft wrap in the middle of a bech32
+   address is how a copy-paste goes wrong. */
+.wal-handoff { display: grid; gap: var(--sp-2); }
+.wal-handoff__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.wal-pre {
+  margin: 0; padding: var(--sp-3);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 0.74rem; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+}
+.wal-pre--cmd { white-space: pre; word-break: normal; overflow-x: auto; }
+
+.wal-group > summary {
+  cursor: pointer; font-family: var(--font-display); font-size: var(--step-1);
+  padding: var(--sp-2) 0;
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2);
+}
+.wal-group__count {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.wal-faucetOpen { margin-top: var(--sp-3); }
+.wal-faucetRow { display: grid; gap: var(--sp-2); }
+.wal-faucetRow .y-card__head { align-items: center; }
+
+.wal-lockState { font-size: var(--step--1); color: var(--text-muted); margin: var(--sp-2) 0; }
+.wal-lockState--open { color: var(--warn-ink); }
+
+.wal-danger > summary {
+  cursor: pointer; font-size: var(--step--1); color: var(--bad);
+  padding: var(--sp-2) 0; list-style: none;
+}
+.wal-danger > summary::-webkit-details-marker { display: none; }
+.wal-danger > summary::before { content: '▸ '; }
+.wal-danger[open] > summary::before { content: '▾ '; }
+.wal-danger > * + * { margin-top: var(--sp-3); }
+
+.wal-keysNote { margin-top: auto; padding-top: var(--sp-5); }
+.wal-youHold { margin: 0; }
+
+/* ========================================================================== */
+/*  ARABIC                                                                    */
+/* ========================================================================== */
+
+/*
+ * Letter-spacing and uppercase are Latin devices, and on Arabic they are worse
+ * than useless: Arabic is a joined script, so tracking pulls the letters of a
+ * word apart at their connections and `text-transform: uppercase` has nothing
+ * to act on. Seen on the account screen at 375px — the reveal control rendered
+ * as اظهــــر with its joins stretched.
+ *
+ * Mirroring is handled everywhere else by logical properties; this is the one
+ * thing a logical property cannot express.
+ */
+[dir='rtl'] .addr__reveal,
+[dir='rtl'] .wal-field__label,
+[dir='rtl'] .wal-fact__label,
+[dir='rtl'] .wal-hero__label,
+[dir='rtl'] .y-appbar__eyebrow,
+[dir='rtl'] .wal-plan__rows dt,
+[dir='rtl'] .rev__word,
+[dir='rtl'] .ledger dt,
+[dir='rtl'] .sign__title,
+[dir='rtl'] .sign__details dt,
+[dir='rtl'] .eyebrow,
+[dir='rtl'] .field span {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* ========================================================================== */
+/*  AN IDENTIFIER ON SCREEN                                                   */
+/* ========================================================================== */
+
+/* The name is the target; the copy glyph rides inside it so the whole thing is
+   one tap. `show` sits outside that target deliberately — revealing and copying
+   are different intents, and merging them means every copy reflows its row. */
+.addr { display: inline-flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.addr__copy {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font: inherit; color: inherit; text-align: start;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  border-bottom: 1px dotted var(--border);
+  min-inline-size: 0;
+}
+.addr__copy:hover { border-bottom-color: var(--accent); }
+.addr__label { min-inline-size: 0; overflow-wrap: break-word; }
+.addr__icon { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
+.addr__copy:hover .addr__icon { color: var(--accent); }
+/* --text-muted, not --text-faint. Faint measures 2.67:1 on the light surface,
+   which is fine for a decorative rule and not fine for the control somebody
+   uses to read back the address they are about to pay. */
+.addr__reveal {
+  font: inherit; font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--text-muted); text-decoration: underline;
+}
+.addr__reveal:hover { color: var(--text); }
+.addr__full {
+  flex-basis: 100%; background: var(--surface-2);
+  padding: var(--sp-1) var(--sp-2); border-radius: 3px;
+}
+
+/* ========================================================================== */
+/*  THE APPROVAL WINDOW  (/connect)                                           */
+/* ========================================================================== */
+/*
+ * The highest-stakes screen in the product, and the one surface here that is
+ * NOT a phone: an application opened it at a size it chose. What a signer needs,
+ * in this order, is what this does to *their* account, whether it can be undone,
+ * who asked, and then the messages and raw bytes for anybody auditing. The
+ * hierarchy below is that order — the ledger is the loudest thing on the page
+ * and the type URLs are the quietest. Unchanged from the version this client
+ * shipped; only its surroundings moved.
+ */
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-1);
+  padding: var(--sp-4); margin: 0 0 var(--sp-4);
+}
+.card__head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+}
+.muted, .small.muted { color: var(--text-muted); }
+.small { font-size: var(--step--1); }
+.notice {
+  font-size: var(--step-0); padding: var(--sp-3);
+  border-radius: 9px; margin: var(--sp-3) 0 0;
+  border-inline-start: 3px solid var(--warn);
+  background: var(--wash-warn); color: var(--text);
 }
 .notice--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
 .notice--ok { border-inline-start-color: var(--ok); background: var(--wash-ok); }
-/* The one next action, on its own line. Buried at the end of a paragraph of
-   explanation it is the part people miss. */
 .error__next { margin: var(--sp-2) 0 0; font-weight: 500; }
-
-.badge {
-  display: inline-flex; align-items: center; gap: var(--sp-1);
-  font-family: var(--font-mono); font-size: 0.68rem;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 0.2rem 0.45rem; border-radius: 3px; white-space: nowrap;
-  background: var(--wash-mute); color: var(--text-muted);
-}
-.badge-paused { background: var(--wash-warn); color: var(--warn-ink); }
-
 .payload { margin-top: var(--sp-4); }
 .payload summary { cursor: pointer; font-size: var(--step--1); color: var(--text-muted); }
 .payload summary:hover { color: var(--text); }
 .payload pre, .payload__pre {
-  overflow-x: auto; background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: var(--sp-3); font-size: var(--step--1); line-height: 1.55;
-  margin: var(--sp-3) 0 0;
+  margin: var(--sp-2) 0 0; padding: var(--sp-3);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 0.72rem; white-space: pre-wrap; word-break: break-word;
 }
-pre { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: var(--sp-3); font-size: var(--step--1); }
-
-.foot { border-top: 1px solid var(--rule); padding-top: var(--sp-4); margin-top: var(--sp-6); }
-.foot p { color: var(--text-muted); font-size: var(--step--1); max-width: var(--measure); }
-
 code { font-size: 0.88em; background: var(--surface-3); padding: 0.1rem 0.3rem; border-radius: 3px; }
-.address { font-family: var(--font-mono); font-size: 0.88em; word-break: break-all; }
-h1.address { font-weight: 400; font-size: var(--step-2); background: none; padding: 0; }
-
-/* Buttons. Named rather than `.card button`, which used to catch the tabs and
-   the disclosure toggles too. */
-.watch button,
-.card > button,
-.card > p > button,
-.actions__row > button,
-.button {
-  font: inherit; font-weight: 500;
-  padding: var(--sp-2) var(--sp-5); border-radius: var(--radius);
-  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
-  cursor: pointer; text-decoration: none; display: inline-block;
-}
-.card > button:disabled, .actions__row > button:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.claim-all { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; margin: 0 0 var(--sp-5); }
-.claim-all button {
-  font: inherit; font-weight: 600; font-size: var(--step-1);
-  padding: var(--sp-3) var(--sp-5); border-radius: var(--radius);
-  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
-  cursor: pointer; width: 100%;
-}
-.claim-all button:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.plain { padding-inline-start: 1.1rem; margin: 0 0 var(--sp-4); }
-.plain li { margin-bottom: var(--sp-1); }
-.steps { margin: var(--sp-2) 0 var(--sp-3); padding-inline-start: 1.2rem; line-height: 1.7; }
-
-/* The recovery phrase — the most dangerous thing this app puts on screen, so
-   it gets room, a border and the mono face that makes a transcription
-   checkable word by word. */
-.phrase { background: var(--surface-2); }
-.words { list-style: none; padding: 0; margin: 0; columns: 3; column-gap: var(--sp-5); }
-@media (max-width: 40rem) { .words { columns: 2; } }
-.words li {
-  break-inside: avoid; padding: var(--sp-1) 0;
-  font-family: var(--font-mono); font-size: var(--step-1);
-}
-.words__n {
-  display: inline-block; width: 1.9rem; color: var(--text-faint);
-  font-size: var(--step--1); font-variant-numeric: tabular-nums;
-}
-.words__w { margin-inline-start: 0.15rem; }
-.confirm { display: flex; gap: var(--sp-3); align-items: flex-start; margin-bottom: var(--sp-4); }
-.confirm input { margin-top: 0.25rem; }
-.denom { padding-inline-end: var(--sp-5); }
-
-/* The connected account, pushed to the far end of the masthead. */
-.acct { position: relative; margin-inline-start: auto; }
-.acct-connect {
-  margin-inline-start: auto; font-size: var(--step-0);
-  padding: var(--sp-2) var(--sp-4); border-radius: var(--radius);
-  border: 1px solid var(--accent); color: var(--accent); text-decoration: none;
-}
-.acct__button {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  font: inherit; font-size: var(--step-0);
-  padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
-  cursor: pointer; max-width: 15rem;
-}
-.acct__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acct__dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ok); flex: none; }
-.acct__panel {
-  position: absolute; inset-inline-end: 0; top: calc(100% + var(--sp-2)); z-index: 20;
-  width: min(24rem, 90vw);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  padding: var(--sp-4); box-shadow: var(--shadow-2);
-}
-.acct__tier { margin: 0 0 var(--sp-3); font-size: var(--step--1); color: var(--text-muted); }
-.acct__row { margin: 0 0 var(--sp-3); display: flex; flex-direction: column; gap: 0.15rem; }
-.acct__row code { font-size: var(--step--1); word-break: break-all; }
-.acct__label {
-  font-family: var(--font-mono); font-size: 0.7rem;
+.field { display: block; margin-bottom: var(--sp-4); }
+.field span {
+  display: block; font-family: var(--font-mono); font-size: 0.7rem;
   letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: var(--sp-1);
 }
-.acct__links { margin: var(--sp-4) 0 0; font-size: var(--step--1); }
-.acct-anon { display: flex; align-items: center; gap: var(--sp-3); }
-.acct__lang { margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--rule); }
-.acct__lang .lang { width: 100%; }
-
-/* Removing an account lives behind a disclosure, not beside Disconnect.
-   A destructive action next to an everyday one gets pressed by accident. */
-.acct__danger { margin-top: var(--sp-4); }
-.acct__danger > summary {
-  cursor: pointer; font-size: var(--step--1); color: var(--text-muted); list-style: none;
+.field input, .field select {
+  font: inherit; width: 100%; padding: var(--sp-3);
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface); color: var(--text);
 }
-.acct__danger > summary::-webkit-details-marker { display: none; }
-.acct__danger > summary::before { content: '▸ '; }
-.acct__danger[open] > summary::before { content: '▾ '; }
-
-.linkish {
-  background: none; border: 0; padding: 0; font: inherit; font-size: var(--step-0);
-  color: var(--accent); cursor: pointer; text-decoration: underline;
+.actions__row { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
+.actions__row > button {
+  font: inherit; font-weight: 600; padding: var(--sp-3) var(--sp-4);
+  border: 0; border-radius: 11px; background: var(--accent); color: var(--accent-ink);
+  cursor: pointer;
 }
-
-/* Language picker. A native <select> on purpose, so endonyms render in whatever
-   the device actually has rather than a webfont we would ship for twenty
-   scripts. */
-.lang {
-  font: inherit; font-size: var(--step--1); color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: var(--sp-1) var(--sp-2); cursor: pointer; max-width: 9rem;
-}
-.lang option { background: var(--surface); color: var(--text); }
-.lang:hover { color: var(--text); border-color: var(--text-muted); }
-
-.eyebrow {
-  font-family: var(--font-mono); font-size: var(--step--1);
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass-ink);
-}
-
-/* --- faucet, grouped by region ------------------------------------------ */
-.claim-group { margin: var(--sp-6) 0 0; }
-.claim-group__title {
-  display: flex; align-items: center; gap: var(--sp-2);
-  font-size: var(--step-1); margin: 0 0 var(--sp-3);
-}
-/* The count earns its place: it says how far the section runs before you
-   scroll into it. */
-.claim-group__count {
-  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500;
-  letter-spacing: 0.06em;
-  padding: 0.1rem 0.4rem; border-radius: 999px;
-  background: var(--wash-brass); color: var(--brass-ink);
-}
-
-/* --- folders within a page (send: direct / escrow / demand) -------------- */
-.folders {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: var(--sp-1); margin: 0 0 var(--sp-5);
-  padding: var(--sp-1); border-radius: var(--radius-lg);
-  background: var(--surface-3);
-}
-.folders__tab {
-  font: inherit; font-size: var(--step-0); font-weight: 500;
-  padding: var(--sp-2) var(--sp-1);
-  background: transparent; color: var(--text-muted);
-  border: 0; border-radius: var(--radius); cursor: pointer;
-}
-.folders__tab:hover { color: var(--text); }
-/* The selected folder lifts onto the panel, so it reads as the sheet in front
-   rather than a button that happens to be lighter. */
-.folders__tab--on {
-  background: var(--surface); color: var(--text); box-shadow: var(--shadow-1);
-}
-
-.actions__row { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+.actions__row > button:disabled { opacity: 0.45; cursor: not-allowed; }
 .chip {
-  font: inherit; font-size: var(--step-0);
-  padding: var(--sp-2) var(--sp-4); border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface-2);
+  font: inherit; font-size: var(--step--1);
+  padding: var(--sp-2) var(--sp-3); border-radius: 999px;
+  border: 1px solid var(--border); background: transparent;
   color: var(--text-muted); cursor: pointer;
 }
 .chip:hover { color: var(--text); border-color: var(--text-muted); }
-.chip--on { border-color: var(--accent); color: var(--text); background: var(--surface); font-weight: 500; }
-.ghost {
-  font: inherit; padding: var(--sp-2) var(--sp-4);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: transparent; color: var(--text); cursor: pointer;
-}
-
-.amount-field input {
-  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: var(--step-2);
-}
-.field-note { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); font-size: var(--step--1); }
-.field-note--bad { color: var(--bad); }
-.field-note--warn { color: var(--warn-ink); }
-
-.empty {
-  border: 1px dashed var(--border); border-radius: var(--radius);
-  padding: var(--sp-6) var(--sp-5); text-align: center; background: var(--surface-2);
-}
-.empty h2 { margin-bottom: var(--sp-2); }
-.empty p { margin: 0 auto; color: var(--text-muted); max-width: 44ch; }
-
-/* --- the approval screen ---------------------------------------------------
- *
- * The highest-stakes screen in the product. What a signer needs, in this
- * order, is: what this does to *their* account, whether it can be undone, who
- * asked, and then the messages and raw bytes for anybody auditing. The
- * hierarchy below is that order — the ledger is the loudest thing on the page
- * and the type URLs are the quietest. */
 
 /* Who asked, and as whom. A strip rather than a card: it has to sit on the same
    screenful as the amount, and a full card for one line pushes the figure below
@@ -425,6 +638,9 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
   display: block;
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
   font-size: var(--step-3); line-height: 1.15; font-weight: 500;
+  /* Same rule as .wal-figure: the one number on this screen that decides
+     whether somebody signs must not be split down the middle. */
+  white-space: nowrap; word-break: keep-all; overflow-wrap: normal;
 }
 .ledger__term { margin: var(--sp-4) 0 0; font-size: var(--step--1); max-width: var(--measure); }
 .ledger__grants { margin: var(--sp-4) 0 0; padding-inline-start: 1.1rem; font-size: var(--step--1); }
@@ -497,47 +713,10 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
   .track__step--live .track__dot { animation: none; }
 }
 
-/* --- an identifier on screen -----------------------------------------------
- *
- * The name is the target; the copy glyph rides inside it so the whole thing is
- * one tap. `show` sits outside that target deliberately — revealing and copying
- * are different intents, and merging them means every copy reflows its row. */
-.addr { display: inline-flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.addr__copy {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  font: inherit; color: inherit; text-align: start;
-  background: none; border: 0; padding: 0; cursor: pointer;
-  border-bottom: 1px dotted var(--border);
-}
-.addr__copy:hover { border-bottom-color: var(--accent); }
-.addr__icon { color: var(--text-muted); display: inline-flex; flex: 0 0 auto; }
-.addr__copy:hover .addr__icon { color: var(--accent); }
-/* The account's own heading. The identifier inside it is a button, so the
-   heading's weight has to come off it or the copy target reads as a link
-   somebody has already visited. */
-.account__who { font-size: var(--step-2); font-weight: 500; margin-bottom: var(--sp-5); }
-.account__who .addr__copy { font-family: var(--font-mono); }
-
-/* --text-muted, not --text-faint. Faint measures 2.67:1 on the light surface,
-   which is fine for a decorative rule and not fine for the control somebody
-   uses to read back the address they are about to pay. Measured on the
-   deployed build. */
-.addr__reveal {
-  font: inherit; font-family: var(--font-mono); font-size: 0.68rem;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  background: none; border: 0; padding: 0; cursor: pointer;
-  color: var(--text-muted); text-decoration: underline;
-}
-.addr__reveal:hover { color: var(--text); }
-.addr__full {
-  flex-basis: 100%; background: var(--surface-2);
-  padding: var(--sp-1) var(--sp-2); border-radius: 3px;
-}
-
-/* The one sentence, as the page's own heading. Set at step-3 rather than the
-   step-4 an h1 otherwise takes: this is a whole sentence rather than a label,
+/* The one sentence, as the window's own heading. Set at step-3 rather than the
+   step-6 an h1 otherwise takes: this is a whole sentence rather than a label,
    and at display size a two-line sentence pushes the ledger under it off the
-   first screenful of a phone — which is where the figure has to be. */
+   first screenful — which is where the figure has to be. */
 .sign__headline {
   font-size: var(--step-3); font-family: var(--font-display);
   font-weight: 600; letter-spacing: -0.01em; line-height: 1.25;
@@ -551,9 +730,7 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
 }
 /* A message that could not be decoded is not a quieter row, it is a louder
    one. The old screen listed the unknown alongside the known in the same grey. */
-.sign__row--bad {
-  border-inline-start-color: var(--bad); background: var(--wash-bad);
-}
+.sign__row--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
 .sign__title {
   font-family: var(--font-mono); font-size: 0.68rem;
   letter-spacing: 0.11em; text-transform: uppercase; color: var(--text-muted);
@@ -566,6 +743,7 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
   font-size: var(--step-3); line-height: 1.1;
   margin: 0 0 var(--sp-2);
+  white-space: nowrap; word-break: keep-all; overflow-wrap: normal;
 }
 .sign__details {
   display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-4);
@@ -583,47 +761,3 @@ h1.address { font-weight: 400; font-size: var(--step-2); background: none; paddi
   font-size: var(--step--1); color: var(--text-muted);
 }
 .sign__who { margin-top: var(--sp-4); }
-
-/* --- the country an account belongs to ------------------------------------
- *
- * The step that makes a new account payable at all, and the one a key
- * generator cannot perform. It was unstyled: two inputs and two <pre> blocks
- * with no relationship between them, on the screen where somebody has just
- * been handed 24 words and is least able to absorb a new idea. */
-.placement__country { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
-.placement__country .field { max-width: 7rem; margin-bottom: 0; }
-.placement__country input {
-  font-family: var(--font-mono); font-size: var(--step-2);
-  letter-spacing: 0.14em; text-align: center; text-transform: uppercase;
-}
-.placement__name { font-size: var(--step-1); }
-.placement__name .y-mono { color: var(--text-muted); }
-
-.handoff { margin: var(--sp-4) 0 0; }
-.handoff__head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--sp-3); margin-bottom: var(--sp-2);
-}
-.handoff pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-/* The command an institution runs is a command, so it does not wrap into
-   prose — it scrolls, and stays copy-pasteable. */
-.handoff pre.handoff__cmd { white-space: pre; word-break: normal; }
-
-/* Waiting. Bars the size of the content that is coming, so the page does not
-   jump when the answer arrives. */
-.skeleton { display: grid; gap: var(--sp-2); }
-.skeleton i {
-  display: block; height: 1rem; border-radius: 3px;
-  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
-  background-size: 200% 100%;
-  animation: y-shimmer 1.4s ease-in-out infinite;
-}
-.skeleton i:nth-child(2) { width: 78%; }
-.skeleton i:nth-child(3) { width: 54%; }
-@keyframes y-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .skeleton i { animation: none; background: var(--surface-2); }
-}

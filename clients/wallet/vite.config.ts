@@ -26,6 +26,20 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/rpc/, ''),
       },
+      /**
+       * The faucet, which the Receive screen posts to.
+       *
+       * It was never proxied here, so the whole test-funds screen 404ed in
+       * development and could only be exercised on the deployed site — which
+       * is the screen a tester needs *first*, before there is anything in the
+       * account to look at. Proxied whole rather than rewritten: nginx serves
+       * it at /api/faucet/ on the real host and the path is the same one.
+       */
+      '/api/faucet': {
+        target: process.env.YAMALE_FAUCET ?? process.env.YAMALE_REST?.replace(/\/api\/rest$/, '')
+          ?? 'http://localhost:8090',
+        changeOrigin: true,
+      },
     },
   },
 });
