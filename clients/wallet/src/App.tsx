@@ -1,184 +1,214 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
-
-import { vaultSummary } from './vault.ts';
-import { AccountBadge } from './AccountBadge.tsx';
-import { t } from '@yamale/chain';
-
-import { AccountPage } from './pages/Account.tsx';
-import { ConnectPage } from './pages/Connect.tsx';
-import { CreatePage } from './pages/Create.tsx';
-import { FaucetPage } from './pages/Faucet.tsx';
-import { ImportPage } from './pages/Import.tsx';
-import { SendPage } from './pages/Send.tsx';
-import { WatchPage } from './pages/Watch.tsx';
-
 /**
- * Yamale Wallet — two things, kept apart on purpose.
+ * Yamale Wallet — a phone on a desk.
  *
- * **Watching** an address needs no key and carries no risk, so it is the
- * default and works from a link. **Creating** one produces a recovery phrase
- * that must never leave the page, so it is a deliberate act on its own screen
- * with its own warnings.
+ * This surface used to be a dashboard: a masthead, a horizontal menu, an
+ * account dropdown, and tables of denoms. That is the right shape for somebody
+ * supervising a registry and the wrong one for somebody checking what they hold
+ * on the way to work — and a wallet is the most obviously phone-shaped thing
+ * there is. So it now wears the shell Yamale Pay was designed as, taken from
+ * `clients/shared/yamale.css` rather than copied from Pay: `.y-stage` is the
+ * desk, `.y-phone` the device, `.y-appbar` and `.y-tabbar` the two fixed bars,
+ * `.y-screen` the one job in between.
  *
- * Blending them — the usual "connect or create" landing page — makes the
- * dangerous action one click away from the harmless one, and puts a phrase on
- * screen for people who came to check a balance.
+ * Five tabs, and the split is by question rather than by feature:
+ *
+ *   Money    what do I have, can it move, who pays the fee
+ *   Send     paying somebody
+ *   Receive  how somebody pays me, and the devnet faucet
+ *   Look up  what does *that* account hold — needs no key and risks nothing
+ *   Account  who this device is, how it is attached, and the settings
+ *
+ * The one screen that is not in the frame is `/connect`. It is a window another
+ * application opens at a size it chose, so drawing a picture of a phone inside
+ * it would be a picture of a device inside a device. It keeps its own layout.
  */
+import { useEffect, useState } from 'react';
+import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { t, useLocale } from '@yamale/chain';
+
+import { ConnectPage } from './pages/Connect.tsx';
+import { Holdings } from './Holdings.tsx';
+import { Attach } from './screens/Attach.tsx';
+import { SendScreen } from './screens/Send.tsx';
+import { ReceiveScreen } from './screens/Receive.tsx';
+import { LookupScreen } from './screens/Lookup.tsx';
+import { AccountScreen } from './screens/Account.tsx';
+import { getUnlocked, lock, vaultSummary } from './vault.ts';
+import { ScreenTitle, TabIcon } from './ui.tsx';
+
 export function App() {
+  // Subscribing here re-renders every screen below when the language changes,
+  // which is what a full reload used to accomplish.
+  useLocale();
+
   return (
-    <div className="app">
-      <header className="masthead">
-        <div className="wrap masthead__inner">
-          {/* Home is the network's site, not this app's front page — "Look up"
-              in the nav already goes there. Built from location.hostname so it
-              is right over LAN, Tailscale or a domain with no rebuild. */}
-          <a href="/" className="brand">
-            <svg className="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2"/></svg>
-            Yamale <span>Wallet</span>
-          </a>
-          <Nav />
-          <AccountBadge />
-        </div>
+    <Routes>
+      {/* The approval window, outside the frame on purpose. */}
+      <Route path="/connect" element={<div className="wal-window"><ConnectPage /></div>} />
+      <Route path="*" element={<Phone />} />
+    </Routes>
+  );
+}
+
+type Tab = 'money' | 'send' | 'receive' | 'lookup' | 'account';
+
+const PATHS: Record<Tab, string> = {
+  money: '/',
+  send: '/send',
+  receive: '/receive',
+  lookup: '/lookup',
+  account: '/account',
+};
+
+function Phone() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // The vault is written by screens inside this same tab, so no storage event
+  // ever fires; re-reading on navigation is what keeps the frame honest about
+  // whether there is an account at all.
+  const [account, setAccount] = useState(() => vaultSummary());
+  useEffect(() => setAccount(vaultSummary()), [location.pathname, location.key]);
+
+  const tab: Tab =
+    location.pathname.startsWith('/send') ? 'send'
+    : location.pathname.startsWith('/receive') ? 'receive'
+    : location.pathname.startsWith('/lookup') || location.pathname.startsWith('/a/') ? 'lookup'
+    : location.pathname.startsWith('/account') || location.pathname.startsWith('/attach') ? 'account'
+    : 'money';
+
+  const refresh = () => setAccount(vaultSummary());
+
+  return (
+    <div className="y-stage">
+      {/* The bar above the desk. Hidden below 430px by the shared stylesheet,
+          where the frame becomes the page and a conceit costs screen height on
+          the screen that has least of it. */}
+      <header className="y-stage__bar">
+        <a className="wal-brand" href="/">
+          <svg viewBox="0 0 64 64" aria-hidden="true" width="22" height="22">
+            <rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F" />
+            <path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2" />
+            <path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2" />
+          </svg>
+          <span>Yamale</span>
+        </a>
+        <span className="y-stage__title">Yamale Wallet</span>
+        <a className="wal-stageLink" href="/">{t('app.backToSite')}</a>
       </header>
 
-      <main className="wrap">
-        <Routes>
-          <Route path="/" element={<WatchPage />} />
-          <Route path="/create" element={<CreatePage />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/send" element={<SendPage />} />
-          <Route path="/faucet" element={<FaucetPage />} />
-          {/* The approval window other applications open. Not in the nav: it is
-              opened by a caller, never navigated to. */}
-          <Route path="/connect" element={<ConnectPage />} />
-          <Route path="/a/:address" element={<AccountRoute />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
+      <div className="y-phone">
+        <div className="y-phone__notch" />
+        <div className="y-phone__screen">
+          <AppBar account={account} onLock={refresh} />
 
-      {/* Kept reachable but out of the main menu: loading a different account
-          replaces the one on this device, so it belongs where somebody goes
-          looking for it rather than where they can hit it by accident. */}
-      <footer className="wrap foot">
-        <p>
-{t('watch.keysNote')}
-        </p>
-        <FooterAccountLinks />
-      </footer>
+          <main className="y-screen">
+            <Routes>
+              <Route path="/" element={
+                account
+                  ? <Money address={account.address} />
+                  : <Attach onAttached={() => { refresh(); navigate('/'); }}
+                            onWatch={() => navigate('/lookup')} />
+              } />
+              <Route path="/attach" element={
+                <Attach onAttached={() => { refresh(); navigate('/'); }}
+                        onWatch={() => navigate('/lookup')} />
+              } />
+              <Route path="/send" element={<SendScreen onGoHome={() => navigate('/')} />} />
+              <Route path="/receive" element={<ReceiveScreen onAttach={() => navigate('/attach')} />} />
+              <Route path="/lookup" element={
+                <LookupScreen address={null} onOpen={(a) => navigate(`/a/${a}`)}
+                              onClose={() => navigate('/lookup')} />
+              } />
+              <Route path="/a/:address" element={<Watched />} />
+              <Route path="/account" element={
+                <AccountScreen onDetached={() => { refresh(); navigate('/'); }}
+                               onAttach={() => navigate('/attach')} />
+              } />
+              <Route path="*" element={
+                <ScreenTitle lede={t('msg.notAnAddress')}>{t('wal.nothingHere')}</ScreenTitle>
+              } />
+            </Routes>
+          </main>
+
+          <nav className="y-tabbar">
+            {([
+              ['money', t('wal.tabMoney'), 'wallet'],
+              ['send', t('action.send'), 'send'],
+              ['receive', t('action.receive'), 'receive'],
+              ['lookup', t('nav.lookUp'), 'search'],
+              ['account', t('wal.tabAccount'), 'person'],
+            ] as const).map(([id, label, icon]) => (
+              <button key={id} type="button"
+                      className={tab === id ? 'y-tab y-tab--on' : 'y-tab'}
+                      aria-current={tab === id ? 'page' : undefined}
+                      onClick={() => navigate(PATHS[id])}>
+                <TabIcon name={icon} />
+                {/* The label shrinks on a 390px screen and must not vanish. An
+                    unlabelled glyph is a guess, and a wrong guess here spends
+                    money. */}
+                <span className="y-tab__label">{label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
     </div>
   );
 }
 
-/**
- * The menu, which changes with whether this device holds an account.
- *
- * Before there is one, the only useful actions are getting one — so Create and
- * Load lead. After there is one, those two become rare (Load *replaces* the
- * account, which is destructive) and the daily actions are seeing your balance
- * and topping it up, so the menu becomes those.
- *
- * Showing all five at once was the previous state: it put a destructive action
- * permanently beside an everyday one, and made "Watch" a second link to the
- * page the wordmark already goes to.
- */
-function Nav() {
-  const [account, setAccount] = useState(() => vaultSummary());
-
-  // The vault is written by another page in this same tab, so a storage event
-  // never fires; re-reading on navigation is what keeps the menu honest.
-  const location = useLocation();
-  useEffect(() => setAccount(vaultSummary()), [location.pathname]);
-
+function AppBar({ account, onLock }: {
+  account: { label: string; address: string } | null;
+  onLock: () => void;
+}) {
+  const unlocked = Boolean(getUnlocked());
   return (
-    <nav className="nav">
-      {account ? (
-        <>
-          <NavLink to="/send">{t('nav.send')}</NavLink>
-          <NavLink to={`/a/${account.address}`}>{t('nav.myAccount')}</NavLink>
-        </>
-      ) : (
-        <>
-          <NavLink to="/create">{t('nav.create')}</NavLink>
-          <NavLink to="/import">{t('nav.load')}</NavLink>
-        </>
-      )}
-      {/* Always present. The faucet is how a tester gets anything to look at,
-          and it is needed *most* before there is an account to fund — hiding it
-          until one exists had it disappear at exactly the wrong moment. */}
-      <NavLink to="/faucet">{t('nav.getFunds')}</NavLink>
-      <NavLink to="/" end>{t('nav.lookUp')}</NavLink>
-    </nav>
+    <header className="y-appbar">
+      {/* Through BASE_URL, not a root-absolute path. The app is served under
+          /wallet/, so "/mark.svg" asks the site's origin and gets its 404 — and
+          a bare "mark.svg" resolves against the current route, which breaks the
+          moment somebody is on /a/<address>. */}
+      <img className="y-appbar__mark" src={`${import.meta.env.BASE_URL}mark.svg`}
+           alt="" width={30} height={30} />
+      <div className="wal-appbarWho">
+        <div className="y-appbar__eyebrow">{t('wal.appEyebrow')}</div>
+        <div className="y-appbar__name">{account ? account.label : t('wal.noAccountShort')}</div>
+      </div>
+      <div className="y-appbar__right">
+        {/* Only shown while a key is actually in memory, because a padlock that
+            is always there says nothing. Locking is the everyday act in a
+            self-custody wallet: there is no session to sign out of — this
+            wallet *is* the key holder — so it drops the key and keeps the
+            account. */}
+        {account && unlocked && (
+          <button type="button" className="wal-lockBtn" onClick={() => { lock(); onLock(); }}
+                  title={t('wal.lockNow')} aria-label={t('wal.lockNow')}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="11" width="16" height="9" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </header>
   );
 }
 
-/**
- * Shown only when an account already exists. With none, these would duplicate
- * the menu and read as nonsense — "another" and "a different one" than what?
- */
-function FooterAccountLinks() {
-  const location = useLocation();
-  const [account, setAccount] = useState(() => vaultSummary());
-  useEffect(() => setAccount(vaultSummary()), [location.pathname]);
-
-  if (!account) return null;
+function Money({ address }: { address: string }) {
   return (
-    <p className="small muted">
-      <NavLink to="/create">Create another account</NavLink> ·{' '}
-      <NavLink to="/import">Load a different one</NavLink>
-    </p>
+    <>
+      <ScreenTitle>{t('wal.tabMoney')}</ScreenTitle>
+      <Holdings address={address} own />
+    </>
   );
 }
 
-function AccountRoute() {
+function Watched() {
   const { address } = useParams();
-  return <AccountPage address={address ?? ''} />;
-}
-
-function NotFound() {
+  const navigate = useNavigate();
   return (
-    <section className="card">
-      <h1>Nothing here</h1>
-      <p className="muted">{t('msg.notAnAddress')}</p>
-    </section>
-  );
-}
-
-/** Shared by the watch box on two screens. */
-export function AddressForm({ onSubmit }: { onSubmit: (address: string) => void }) {
-  const [value, setValue] = useState('');
-  const trimmed = value.trim();
-  // Checked before navigating rather than after: sending somebody to a page
-  // that then says "no such account" wastes a round trip to tell them what the
-  // prefix already said.
-  const looksRight = /^yml1[0-9a-z]{38,}$/.test(trimmed);
-
-  return (
-    <form
-      className="watch"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (looksRight) onSubmit(trimmed);
-      }}
-    >
-      <label className="field">
-        <span>{t('watch.address')}</span>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="yml1…"
-          spellCheck={false}
-          autoComplete="off"
-        />
-      </label>
-      {trimmed !== '' && !looksRight && (
-        <p className="notice notice--bad">
-          Yamale addresses start with <code>yml1</code> and are 39 characters or more.
-        </p>
-      )}
-      <button type="submit" disabled={!looksRight}>
-        {t('watch.show')}
-      </button>
-    </form>
+    <LookupScreen address={address ?? ''} onOpen={(a) => navigate(`/a/${a}`)}
+                  onClose={() => navigate('/lookup')} />
   );
 }

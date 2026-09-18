@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChainSigner, formatUserId, registerAlias } from '@yamale/chain';
+import { ChainSigner, formatUserId, registerAlias, t } from '@yamale/chain';
 
 import { client } from './chain.ts';
 import { getUnlocked, openVault, setUnlocked, touch } from './vault.ts';
@@ -51,7 +51,7 @@ export function ClaimUserId({ address, label }: { address: string; label: string
       const signer = new ChainSigner(wallet, { rpcUrl: RPC, chainId: CHAIN_ID });
       const result = await signer.submit([registerAlias(address)]);
       if (!result.succeeded) {
-        throw new Error(result.error?.message ?? `Rejected with code ${result.code}`);
+        throw new Error(result.error?.message ?? t('wal.rejectedWithCode', { code: String(result.code) }));
       }
 
       // The identifier is assigned by the chain, so it is read back rather than
@@ -61,66 +61,57 @@ export function ClaimUserId({ address, label }: { address: string; label: string
       setAsking(false);
       setPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not claim an ID.');
+      setError(err instanceof Error ? err.message : t('error.unknown'));
     } finally {
       setBusy(false);
     }
   }
 
   if (id === undefined) {
-    return (
-      <p className="acct__row">
-        <span className="acct__label">User ID</span>
-        <span className="small muted">checking…</span>
-      </p>
-    );
+    return <p className="wal-muted wal-small">{t('acct.reading')}</p>;
   }
 
   if (id) {
     return (
-      <p className="acct__row">
-        <span className="acct__label">User ID</span>
-        <code>{formatUserId(id)}</code>
-        <span className="small muted">
-          People can pay you with this instead of your address. The first two letters are the
-          country your account is registered in.
-        </span>
-      </p>
+      <>
+        <p className="wal-idBig y-mono">{formatUserId(id)}</p>
+        <p className="wal-small wal-muted">{t('wal.userIdBody')}</p>
+      </>
+    );
+  }
+
+  if (!asking) {
+    return (
+      <>
+        <p className="wal-muted">{t('wal.noUserIdYet')}</p>
+        <button type="button" className="wal-chip" onClick={() => setAsking(true)}>
+          {t('wal.claimOne')}
+        </button>
+      </>
     );
   }
 
   return (
-    <div className="acct__row">
-      <span className="acct__label">User ID</span>
-      {!asking ? (
-        <>
-          <span className="small muted">None yet.</span>
-          <button type="button" className="acct__minor" onClick={() => setAsking(true)}>
-            Claim one
-          </button>
-        </>
-      ) : (
-        <>
-          <span className="small muted">
-            The chain picks it — there is nothing to choose, which is what stops anyone taking a
-            name that looks like yours. It carries the country your account is registered in, so
-            your bank has to have recorded that first. Costs a small fee and is permanent.
-          </span>
-          {!getUnlocked() && (
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={`Password for ${label}`}
-              autoFocus
-            />
-          )}
-          {error && <span className="notice notice--bad">{error}</span>}
-          <button type="button" onClick={claim} disabled={busy || (!getUnlocked() && !password)}>
-            {busy ? 'Claiming…' : 'Claim my user ID'}
-          </button>
-        </>
+    <>
+      <p className="wal-small wal-muted">{t('wal.claimExplain')}</p>
+      {!getUnlocked() && (
+        <label className="wal-field">
+          <span className="wal-field__label">{t('wal.passwordFor', { label })}</span>
+          <input
+            className="wal-input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            autoFocus
+          />
+        </label>
       )}
-    </div>
+      {error && <div className="wal-note wal-note--bad">{error}</div>}
+      <button type="button" className="wal-btn" onClick={claim}
+              disabled={busy || (!getUnlocked() && !password)}>
+        {busy ? t('wal.claiming') : t('wal.claimMyUserId')}
+      </button>
+    </>
   );
 }
