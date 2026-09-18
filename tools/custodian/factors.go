@@ -14,14 +14,28 @@ import (
 	"time"
 )
 
-// The second factor, demanded at the moment of signing.
+// The second factor, demanded when a RECOVERY is asked for.
 //
-// # Why here and not at sign-in
+// # Where this is used, and where it deliberately is not
 //
-// Gating the LOGIN protects the session; gating the SIGNATURE protects the
-// money. An attacker holding the password and the device share does not need to
-// log in again — they need to sign. So this is checked in handleStart, beside
-// the digest, every time, and never cached against a session's age.
+// It was written to gate signing, on the reasoning that gating the login
+// protects the session while gating the signature protects the money. That
+// reasoning is sound and it is not the architecture this platform chose.
+//
+// The decision (2026-09-18) is that a deal is between a buyer and a seller and
+// the custodian appears only in a recovery. The device signs alone, so there is
+// no second party in an ordinary payment to demand anything — and a factor that
+// nobody is in a position to ask for is not a control, it is a field.
+//
+// What remains, and what this file is for, is RECOVERY: the one moment the
+// services are in the path by design. Recovery already requires two approvers
+// from different teams over 72 hours, and every one of those is somebody other
+// than the account holder. This is the account holder's own half of that — the
+// proof that the person asking for the account back is the person who had it,
+// rather than somebody who learned an email address and a password.
+//
+// Nothing here is wired into the signing path and nothing should be. See
+// docs/scope/decisions-2026-09-18.md.
 //
 // # A ladder, not a setting
 //
@@ -126,20 +140,13 @@ var (
 		"passkey verification is not implemented; this account cannot sign until it is")
 )
 
-// Required says whether this signature needs a factor, and which.
+// Required says which factor an account must answer with.
 //
-// `value` is the transaction's own value as READ FROM THE PREIMAGE, not as
-// asserted by the caller — see preimage.go. A value the service could not
-// determine is passed as unknown, and unknown demands the factor: the failure
-// direction has to be "ask for more proof", never "assume it was small".
-func Required(value uint64, known bool, threshold uint64, e Enrolled) (bool, FactorKind) {
-	if !known {
-		return true, e.Strongest()
-	}
-	if threshold == 0 || value >= threshold {
-		return true, e.Strongest()
-	}
-	return false, FactorNone
+// A recovery always needs one — there is no threshold and no exemption, because
+// a recovery is by definition somebody asking for an account they cannot
+// currently reach, which is the same sentence an attacker says.
+func Required(e Enrolled) FactorKind {
+	return e.Strongest()
 }
 
 // VerifyFactor checks an offered factor against what the account has enrolled.

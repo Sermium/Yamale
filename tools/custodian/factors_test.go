@@ -4,13 +4,6 @@ import (
 	"crypto/sha256"
 	"testing"
 	"time"
-
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-
-	"cosmossdk.io/math"
 )
 
 // The second factor.
@@ -77,31 +70,16 @@ func TestAPasskeyAccountCannotSignUntilPasskeysAreBuilt(t *testing.T) {
 
 /* --------------------------------------------------------------- the rule */
 
-func TestAnUnknownValueAlwaysDemandsTheFactor(t *testing.T) {
-	// The whole point of reading the preimage: when the service cannot tell
-	// what a transaction moves, it asks for more proof rather than assuming the
-	// amount was small.
-	need, kind := Required(0, false, 1_000_000, Enrolled{})
-	if !need {
-		t.Fatal("an unvaluable transaction must demand a factor")
+func TestARecoveryAlwaysNeedsAFactor(t *testing.T) {
+	// No threshold and no exemption. A recovery is somebody asking for an
+	// account they cannot currently reach, which is the same sentence an
+	// attacker says, so there is no version of it that needs less proof.
+	if got := Required(Enrolled{}); got != FactorEmail {
+		t.Fatalf("an account with nothing enrolled still owes the email floor, got %q", got)
 	}
-	if kind != FactorEmail {
-		t.Fatalf("want the email floor, got %q", kind)
-	}
-}
-
-func TestAThresholdOfZeroDemandsItForEverything(t *testing.T) {
-	if need, _ := Required(1, true, 0, Enrolled{}); !need {
-		t.Fatal("zero means every signature")
-	}
-}
-
-func TestBelowTheThresholdNeedsNothing(t *testing.T) {
-	if need, _ := Required(999_999, true, 1_000_000, Enrolled{}); need {
-		t.Fatal("a small, known payment should not demand a factor")
-	}
-	if need, _ := Required(1_000_000, true, 1_000_000, Enrolled{}); !need {
-		t.Fatal("at the threshold is above it")
+	secret, _ := NewTOTPSecret()
+	if got := Required(Enrolled{TOTPSecret: secret, TOTPConfirmed: true}); got != FactorTOTP {
+		t.Fatalf("want TOTP, got %q", got)
 	}
 }
 
@@ -209,113 +187,6 @@ func TestTheEmailCodeIsNotRecoverableFromItsRecord(t *testing.T) {
 	}
 	if contains(string(pending.Hash), code) {
 		t.Fatal("the code itself must not be in the record")
-	}
-}
-
-/* ------------------------------------------------------------ the preimage */
-
-func signDocFor(t *testing.T, msgs ...sdk.Msg) []byte {
-	t.Helper()
-	body := &txtypes.TxBody{}
-	for _, m := range msgs {
-		any, err := codectypes.NewAnyWithValue(m)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body.Messages = append(body.Messages, any)
-	}
-	bodyBytes, err := body.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	doc := &txtypes.SignDoc{BodyBytes: bodyBytes, ChainId: "yamale-devnet-2"}
-	out, err := doc.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
-
-func TestAPreimageThatDoesNotHashToTheDigestIsRefused(t *testing.T) {
-	// The check that makes everything else here worth doing. Without it the
-	// caller could send an honest-looking preimage and a digest for something
-	// else entirely.
-	preimage := signDocFor(t, banktypes.NewMsgSend(
-		sdk.AccAddress("from________________"), sdk.AccAddress("to__________________"),
-		sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(5)))))
-
-	wrong := sha256.Sum256([]byte("a different transaction"))
-	if _, err := ValueOfPreimage(preimage, wrong[:]); err != ErrPreimageMismatch {
-		t.Fatalf("want ErrPreimageMismatch, got %v", err)
-	}
-}
-
-func TestABankSendIsValuedFromTheBytesRatherThanAsserted(t *testing.T) {
-	preimage := signDocFor(t, banktypes.NewMsgSend(
-		sdk.AccAddress("from________________"), sdk.AccAddress("to__________________"),
-		sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(2_500_000)))))
-	digest := sha256.Sum256(preimage)
-
-	got, err := ValueOfPreimage(preimage, digest[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Known {
-		t.Fatalf("a bank send should be valuable: %s", got.Why)
-	}
-	if got.PerDenom["uyml"] != 2_500_000 {
-		t.Fatalf("want 2500000 uyml, got %d", got.PerDenom["uyml"])
-	}
-	if got.Highest() != 2_500_000 {
-		t.Fatalf("highest should be 2500000, got %d", got.Highest())
-	}
-}
-
-func TestAnUnrecognisedMessageMakesTheWholeTransactionUnvaluable(t *testing.T) {
-	// The attack this closes: hide the payment behind one message this binary
-	// has never heard of, and a service that valued the rest would wave it
-	// through as small.
-	preimage := signDocFor(t,
-		banktypes.NewMsgSend(
-			sdk.AccAddress("from________________"), sdk.AccAddress("to__________________"),
-			sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(1)))),
-		// A governance vote stands in for "a type this file does not list".
-		&banktypes.MsgSetSendEnabled{Authority: "yml1authority"},
-	)
-	digest := sha256.Sum256(preimage)
-
-	got, err := ValueOfPreimage(preimage, digest[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Known {
-		t.Fatal("one unvaluable message must make the whole transaction unvaluable")
-	}
-	if got.Why == "" {
-		t.Fatal("it should name what it could not value")
-	}
-	if need, _ := Required(got.Highest(), got.Known, 1_000_000_000, Enrolled{}); !need {
-		t.Fatal("and that must demand the factor, however small the rest was")
-	}
-}
-
-func TestTheFeeCountsBecauseItLeavesTheAccountToo(t *testing.T) {
-	body := &txtypes.TxBody{}
-	bodyBytes, _ := body.Marshal()
-	authInfo := &txtypes.AuthInfo{Fee: &txtypes.Fee{
-		Amount: sdk.NewCoins(sdk.NewCoin("uyml", math.NewInt(9_000))),
-	}}
-	authBytes, _ := authInfo.Marshal()
-	doc := &txtypes.SignDoc{BodyBytes: bodyBytes, AuthInfoBytes: authBytes}
-	preimage, _ := doc.Marshal()
-	digest := sha256.Sum256(preimage)
-
-	got, err := ValueOfPreimage(preimage, digest[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.PerDenom["uyml"] != 9_000 {
-		t.Fatalf("the fee should be counted, got %d", got.PerDenom["uyml"])
 	}
 }
 
