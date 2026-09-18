@@ -1,28 +1,49 @@
-/* Yamale Vehicles.
+/* Yamale Tokenisation — a phone.
  *
- * Colour, type, spacing, elevation and the semantic states all come from
- * yamale.css. Nothing below redefines a palette — the whole reason that file
- * exists is that five surfaces previously invented five of them.
+ * This surface used to be a dashboard: a wide header, a KPI band, folders in
+ * the middle of the page and six-column tables. That is the right shape for a
+ * registrar at a desk and the wrong one for an investor checking what they own
+ * on the way to work, which is who this app is for.
  *
- * The one rule this file adds to the shared system is a set of *local* tokens
- * for the two-column reading layout, declared at :root in the light state and
- * redefined in both dark states. That last part is the trap: a colour whose
- * only definition sits inside a media query or a [data-theme] block is
- * undefined in the un-stamped default, which is the state most readers are in,
- * and renders one theme's text on the other theme's ground. It has shipped once
- * in this repo already.
+ * The shape now comes from `clients/shared/yamale.css`, THE MOBILE SHELL block:
+ * `.y-stage`, `.y-phone`, `.y-appbar`, `.y-screen`, `.y-tabbar`, `.y-cards`,
+ * `.y-card`, `.y-row`. Nothing here re-invents one of those. What is below is
+ * only what this app needs on top of them, and every one of those additions is
+ * listed in the report so it can be promoted into the shared shell if a second
+ * surface needs it:
+ *
+ *   .segs / .seg      a scrolling segmented control, for a vehicle's sections
+ *   .sheet            a signing sheet that fills the phone rather than floating
+ *   .kpiband / .kpi   a two-up grid of figures, sized for a 338px column
+ *   .level            one price level in the book, with its depth drawn behind
+ *   .hero             the reader's own position, which is not a peer of the
+ *                     vehicle's sections and does not belong in the tab strip
+ *   .panel            a section of a screen: a heading and its content, with no
+ *                     box, because the device is already the box
+ *   .chainline        the block a screen's claims were read at
+ *
+ * Two rules this file is written against, both of which have already shipped
+ * as defects in this repository:
+ *
+ *   1. A FIGURE NEVER BREAKS ACROSS TWO LINES. `overflow-wrap: anywhere` has
+ *      twice printed `100,000,0` above `00`. A number split in two is not a
+ *      smaller number, it is a different one. Everything that can hold money
+ *      carries `word-break: keep-all; overflow-wrap: normal` — `normal` and not
+ *      `nowrap`, so the UNIT may drop to its own line while the digits hold
+ *      together.
+ *   2. A COLOUR IS DEFINED AT :root FIRST. A value whose only definition sits
+ *      inside `@media (prefers-color-scheme: dark)` or a `[data-theme]` block
+ *      is undefined in the un-stamped default state, which is the state most
+ *      readers are in.
+ *
+ * And one rule from shipping in Arabic: no `left`, no `right`, no `margin-left`.
+ * Logical properties throughout, so the phone mirrors rather than breaks.
  */
 
 :root {
-  /* How wide the reading column and the sidebar agree to be. Named so that the
-     header, the pages and the footer cannot disagree about the measure. */
-  --stage: 1180px;
-  --side: 360px;
-
-  /* The two figures on this surface that are not a semantic state: the grade
-     wash behind a protection finding, and the rule under a panel heading. */
+  /* The rule under a panel heading: the one surface here that is not a
+     semantic state. */
   --hair: color-mix(in srgb, var(--rule) 70%, transparent);
-  --sheet-scrim: rgba(11, 21, 35, 0.55);
 
   /* Three ink colours that are darker than the shared tokens in light, and are
    * the shared tokens in dark.
@@ -41,8 +62,7 @@
    * All below AA for text that size, and none of them a failure of this app:
    * they fail on every surface in this repo that uses .y-eyebrow or .y-chip in
    * light mode. Darkened here rather than in yamale.css because changing a
-   * brand colour across every client is not this app's decision to make — the
-   * finding belongs upstream, and this fix is local and reversible.
+   * brand colour across every client is not this app's decision to make.
    *
    * Dark keeps the shared trio, which measures 6.96, 7.4 and 6.6 respectively
    * and needs nothing. */
@@ -55,14 +75,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --sheet-scrim: rgba(2, 6, 12, 0.72);
     --tone-brass: var(--brass);
     --tone-ok: var(--ok);
     --tone-warn: var(--warn);
   }
 }
 :root[data-theme='dark'] {
-  --sheet-scrim: rgba(2, 6, 12, 0.72);
   --tone-brass: var(--brass);
   --tone-ok: var(--ok);
   --tone-warn: var(--warn);
@@ -86,182 +104,410 @@ body {
   position: absolute;
   inset-inline-start: -9999px;
   top: 0;
-  z-index: 50;
+  z-index: 60;
   padding: var(--sp-3) var(--sp-4);
   background: var(--accent);
   color: var(--accent-ink);
 }
 .skip:focus { inset-inline-start: 0; }
 
-/* ------------------------------------------------------------------- bar */
+/* ========================================================================== */
+/*  The desk, the frame, and the two bars                                     */
+/* ========================================================================== */
 
-.bar {
-  border-block-end: 1px solid var(--border);
-  background: var(--surface);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+/* The stage bar's own link, which sits on navy in both themes and therefore
+   takes its colour from the desk rather than from the page ground. */
+.stage__link {
+  opacity: 0.75;
+  border-block-end: 1px solid rgba(232, 238, 247, 0.35);
+  padding-block-end: 1px;
+  font-size: var(--step-0);
 }
-.bar__inner {
-  max-width: var(--stage);
-  margin-inline: auto;
-  padding: var(--sp-3) var(--sp-5);
-  display: flex;
+.stage__link:hover { opacity: 1; }
+.stage__brand { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+/* The phone's own scroll container, and the sheet's containing block. The
+   sheet is a sibling of the screen rather than a child of it, so it fills the
+   frame — a signing dialog on a phone is a screen, not a floating box. */
+.y-phone { isolation: isolate; }
+
+/* A control in the app bar: the back chevron and the theme toggle. Small,
+   quiet, and never the thing the eye lands on first. The language picker is
+   NOT here — it is on the account screen, because a five-language select that
+   is two-thirds of the app bar's width is a control competing with the
+   product's own name on every screen. */
+.appbar__btn {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--step-0);
+  line-height: 1;
+  padding: var(--sp-2);
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
-  gap: var(--sp-5);
-  flex-wrap: wrap;
+  justify-content: center;
+}
+.appbar__btn:hover { color: var(--text); border-color: var(--rule); }
+/* The chevron points the way back, which in Arabic is the other way. */
+.appbar__btn svg { display: block; }
+[dir='rtl'] .appbar__back svg { transform: scaleX(-1); }
+
+/* The app bar's middle column. `min-inline-size: 0` so a long vehicle name
+   truncates instead of pushing the controls off the screen. */
+.appbar__mid { min-inline-size: 0; flex: 1; }
+.appbar__name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.brand {
+/* --- inside a screen ----------------------------------------------------- */
+
+/* A phone does not draw a scrollbar over its content. A 15px trough down the
+   inline end of a 390px screen is a twenty-fifth of the width spent on
+   chrome, and it makes the frame read as a browser window rather than as a
+   device. The content still scrolls; on a touch screen it always did without
+   one. */
+.y-screen, .sheet__body, .raw__body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.y-screen::-webkit-scrollbar,
+.sheet__body::-webkit-scrollbar,
+.raw__body::-webkit-scrollbar { width: 0; height: 0; }
+
+/*
+ * The block the page was read at, on every screen rather than in a footer.
+ *
+ * Every claim this app makes about a tokenisation — that no sale has been
+ * reported, that an authorisation is live, that nothing has been issued — is a
+ * claim about a moment, and a claim shown without the block it was read at is
+ * one nobody can check or date. The old layout put this in a page footer; a
+ * phone has no page footer, so it goes at the end of each screen's content,
+ * where the claims it dates are.
+ */
+.chainline {
+  margin: var(--sp-5) 0 0;
+  padding-block-start: var(--sp-3);
+  border-block-start: 1px solid var(--hair);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--text-faint);
+  /* A block height is a figure. */
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+/* ========================================================================== */
+/*  The segmented control                                                     */
+/* ========================================================================== */
+/*
+ * A vehicle has five sections and the app has three. They are not the same
+ * kind of thing, so they do not share a bar.
+ *
+ * The tab bar at the bottom is the APP: tokenisations, my holdings, my account.
+ * It means the same thing on every screen and it never changes. A vehicle's
+ * sections — what it is, who holds it, what it has published, what it pays,
+ * where it trades — are sub-navigation within one object, they are peers of
+ * each other, and a reader wants exactly one at a time.
+ *
+ * Five in a bar is too many for 358px, so this scrolls, with snap points and a
+ * fade at the inline end that says there is more. A section list of five rows
+ * was the alternative and was rejected: it costs a tap to reach the overview,
+ * which is the section nearly everybody wants first, and it turns one object
+ * into six pages.
+ */
+.segs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: inline mandatory;
+  padding: 0 var(--sp-4) var(--sp-3);
+  margin: 0;
+  /* The fade lives on the container rather than as an overlay element, so it
+     cannot cover a control or intercept a tap. */
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.5rem), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.5rem), transparent 100%);
+}
+[dir='rtl'] .segs {
+  -webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 1.5rem), transparent 100%);
+  mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 1.5rem), transparent 100%);
+}
+.segs::-webkit-scrollbar { display: none; }
+
+.seg {
+  appearance: none;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  font: inherit;
+  font-size: var(--step--1);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--text-muted);
+  padding: var(--sp-2) var(--sp-4);
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--text);
-  text-decoration: none;
-  font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  font-size: var(--step-1);
+  white-space: nowrap;
 }
-.brand__mark {
-  display: grid;
-  place-items: center;
-  inline-size: 34px;
-  block-size: 34px;
-  border-radius: var(--radius);
+.seg:hover { color: var(--text); }
+.seg--on {
   background: var(--accent);
+  border-color: var(--accent);
   color: var(--accent-ink);
+  font-weight: 600;
 }
-
-.bar__nav { display: flex; gap: var(--sp-4); margin-inline-end: auto; }
-.bar__link {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  padding-block: var(--sp-1);
-  border-block-end: 2px solid transparent;
+.seg__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  opacity: 0.8;
 }
-.bar__link:hover { color: var(--text); }
-.bar__link.is-on { color: var(--text); border-block-end-color: var(--brass); }
+/* A section holding something with a deadline says so on its own chip. The
+   reader who never opens it is exactly the reader who misses the assembly, and
+   the label alone gives them no reason to. The dot carries a text alternative
+   rather than colour alone, which is the rule every chip here follows. */
+.seg__flag { color: var(--warn); font-size: 0.6rem; line-height: 1; }
+.seg--on .seg__flag { color: var(--accent-ink); }
 
-.bar__right { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.bar__btn {
-  font: inherit;
-  font-size: var(--step--1);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  padding: 0.28rem var(--sp-2);
-  cursor: pointer;
-}
-.bar__btn:hover { color: var(--text); border-color: var(--rule); }
-.bar__btnLabel { display: none; }
-@media (min-width: 900px) { .bar__btnLabel { display: inline; } }
-
-.bar__lang {
-  font: inherit;
-  font-size: var(--step--1);
+/* The strip sits under the app bar and above the scrolling screen, so it stays
+   put while the section under it moves. */
+.sections {
   background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.28rem var(--sp-2);
+  border-block-end: 1px solid var(--rule);
+  padding-block-start: var(--sp-3);
+  flex: 0 0 auto;
 }
 
-.who { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+/* ========================================================================== */
+/*  Cards, which is what every table on this surface became                   */
+/* ========================================================================== */
 
-.attach {
-  inline-size: min(340px, 90vw);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-3);
-  display: grid;
-  gap: var(--sp-3);
-}
-.attach__lede, .attach__hint, .attach__none { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
-.attach__wallets { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.attach__label { display: block; }
-.attach__row { display: flex; gap: var(--sp-2); }
-.attach__row input { flex: 1; min-inline-size: 0; }
-.attach__problem { color: var(--bad); font-size: var(--step--1); margin: 0; }
+/* A card that is a link. The whole card is the target: a 44px tap area made of
+   one word in the middle of a card is the commonest phone defect there is. */
+.y-card--link { display: block; color: inherit; text-decoration: none; }
+.y-card--link:hover { border-color: var(--accent); }
+.y-card--link:active { background: var(--surface-2); }
 
-/* ------------------------------------------------------------------ page */
-
-.main { min-block-size: 60vh; }
-
-.page {
-  max-width: var(--stage);
-  margin-inline: auto;
-  padding: var(--sp-6) var(--sp-5) var(--sp-8);
-  display: grid;
-  gap: var(--sp-5);
-}
-
-.page__head { display: grid; gap: var(--sp-2); }
-.page__title { font-size: var(--step-5); }
-.page__titleRow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.page__lede { color: var(--text-muted); font-size: var(--step-1); max-width: var(--measure); }
-.page__foot { font-size: var(--step--1); }
-.crumb { color: inherit; text-decoration: none; border-block-end: 1px solid currentColor; }
-
-/* The reading column and the holdings rail. Below the breakpoint they stack,
-   and the rail goes first: on a phone, "what do I own" is the question. */
-.split { display: grid; gap: var(--sp-5); }
-.split__side { display: grid; gap: var(--sp-5); align-content: start; }
-@media (min-width: 1040px) {
-  .split {
-    grid-template-columns: minmax(0, 1fr) var(--side);
-    align-items: start;
-  }
-  .split__side { position: sticky; top: calc(var(--sp-7) + var(--sp-4)); }
-}
-
-/* ----------------------------------------------------------------- panel */
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-  padding: var(--sp-5);
-  display: grid;
-  gap: var(--sp-3);
-  align-content: start;
-}
-.panel__eyebrow { margin: 0; }
-.panel__title { font-size: var(--step-2); }
-.panel__lede { color: var(--text-muted); }
-.panel__sub {
-  font-size: var(--step-0);
+.card__title {
   font-family: var(--font-display);
-  margin-block-start: var(--sp-2);
-  padding-block-end: var(--sp-1);
-  border-block-end: 1px solid var(--hair);
+  font-size: var(--step-1);
+  line-height: 1.2;
+  margin: var(--sp-1) 0 0;
+  /* A name may wrap; it is words. */
+  text-wrap: balance;
 }
-.panel--risk { border-inline-start: 3px solid var(--brass); }
-.panel--sale { border-inline-start: 3px solid var(--warn); }
-.panel--mine { border-inline-start: 3px solid var(--accent); }
+.card__ref {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  /* A uri IS allowed to break anywhere — it is machine text, not a figure. */
+  overflow-wrap: anywhere;
+}
+/*
+ * The two facts at the foot of a card.
+ *
+ * `.y-row` from the shared shell is a row that LEADS SOMEWHERE — it carries a
+ * border, a ground and a hover, because on its own it is a tappable list item.
+ * Inside a card it is not: it is the card's own last line, and leaving the box
+ * on would draw a card inside a card, which is the commonest way a phone layout
+ * turns into a stack of nested rectangles. So the box comes off and a rule goes
+ * on, and the row keeps only its geometry.
+ */
+.card__foot {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3) 0 0;
+  border: 0;
+  border-block-start: 1px solid var(--hair);
+  border-radius: 0;
+  background: none;
+  cursor: inherit;
+  align-items: start;
+}
+.card__foot:hover { background: none; }
+.card__foot .y-row__sub { margin-block-end: 0.1rem; }
 
-/* ---------------------------------------------------------------- fields */
+/*
+ * A section of a screen.
+ *
+ * On the dashboard this was a bordered, shadowed box, and a phone screen made
+ * of six of those is a stack of cards inside cards. Here a section is a heading
+ * and its content: the ONE thing on the screen at a time is already framed by
+ * the device.
+ */
+.panel { display: grid; gap: var(--sp-3); margin-block-end: var(--sp-5); }
+.panel:last-child { margin-block-end: 0; }
+.panel__eyebrow { margin: 0; }
+.panel__title {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  margin: 0;
+}
+.panel__lede { color: var(--text-muted); font-size: var(--step--1); margin: 0; }
+.panel__sub {
+  font-family: var(--font-display);
+  font-size: var(--step-0);
+  margin: var(--sp-2) 0 0;
+}
+.panel p { max-width: none; }
+
+/*
+ * A two-up grid of small figures.
+ *
+ * `.y-kpis` in the shared shell is `minmax(11rem, 1fr)`, which on a 358px
+ * column resolves to one item per row — six of them is a screen and a half of
+ * scrolling before the content starts. Two up, with the figure large and the
+ * label small, is the same information in a third of the height.
+ */
+.kpiband {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+}
+.kpiband--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpiband--three .kpi { padding: var(--sp-2); }
+.kpiband--three .kpi__value { font-size: var(--step-0); }
+.kpiband--three .kpi__hint { -webkit-line-clamp: 2; }
+
+.kpi {
+  min-inline-size: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  border-inline-start: 3px solid var(--rule);
+  /* Tighter across than down, and the reason is measured. The narrowest this
+     tile ever gets is inside the drawn frame above 430px, where the phone is
+     390px INCLUDING a 10px bezel each side: 370 − 32 padding = 338, less an
+     8px gap and halved, is a 165px tile. At 12px inline padding its content
+     box is 137px and the widest figure this app produces — `100,000,000 SRMT`
+     at 15px — measures 139px, so it dropped its unit onto a second line in the
+     frame and not on a bare 390px viewport. Eight gives 144px and it fits in
+     both. */
+  padding: var(--sp-3) var(--sp-2);
+}
+.kpi--ok { border-inline-start-color: var(--ok); }
+.kpi--warn { border-inline-start-color: var(--warn); }
+.kpi--bad { border-inline-start-color: var(--bad); }
+.kpi--mute { border-inline-start-color: var(--text-faint); }
+.kpi--brass { border-inline-start-color: var(--brass); }
+
+.kpi__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.kpi__value {
+  margin: var(--sp-1) 0 0;
+  /* Sized so that the widest figure this app produces — a nine-digit token
+     supply with its symbol — fits a 148px tile on one line. A tile is 174px
+     wide at 390px, and at --step-1 that string measured 163px and dropped its
+     unit onto a second line. The unit dropping is not WRONG (the digits stayed
+     whole, which is the rule), but a band where half the tiles are two lines
+     and half are one reads as broken rather than as dense. */
+  font-size: var(--step-0);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  /* A figure NEVER breaks across lines. `overflow-wrap: anywhere` shipped once
+     and rendered 100,000,000 as "100,000,0" above "00". The unit may drop; the
+     digits may not. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.kpi__unit { margin-inline-start: 0.3em; font-size: var(--step--1); color: var(--text-muted); }
+.kpi__hint {
+  margin: var(--sp-1) 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Several figures stacked in one tile — one per currency, because a portfolio
+   spanning two currencies has no single total. */
+.kpi__stack { display: flex; flex-direction: column; gap: 0.1em; }
+.kpi__stack > span + span { font-size: var(--step--1); color: var(--text-muted); }
+
+/* ========================================================================== */
+/*  The hero: the reader's own position                                       */
+/* ========================================================================== */
+/*
+ * Above the segmented control, not inside it.
+ *
+ * "What I own" is not a peer of "who holds this" and "what it has published".
+ * Those are facts about the vehicle; this is a fact about the reader, and it is
+ * the reason they opened the page. A section for it would have hidden it behind
+ * a tap on every visit, and putting it first inside the overview would have put
+ * the sell decision above the terms that decide whether to sell.
+ */
+.hero {
+  margin: 0 0 var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 14px;
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-4);
+  display: grid;
+  gap: var(--sp-3);
+}
+.hero__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.hero__figure {
+  font-family: var(--font-mono);
+  font-size: var(--step-4);
+  font-weight: 500;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.hero__sub { color: var(--text-muted); font-size: var(--step--1); margin: 0; }
+.hero__acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); }
+.hero__why { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
+
+/* ========================================================================== */
+/*  A row of label and value, which is still most of what this app says       */
+/* ========================================================================== */
 
 .fields { margin: 0; display: grid; gap: var(--sp-3); }
-@media (min-width: 620px) {
-  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .field--wide { grid-column: 1 / -1; }
-}
 .field { margin: 0; display: grid; gap: 0.15rem; min-inline-size: 0; }
 .field__label { margin: 0; }
-.field__value { margin: 0; overflow-wrap: anywhere; }
+.field__value {
+  margin: 0;
+  min-inline-size: 0;
+  /* NOT `anywhere`. This holds money more often than it holds a uri, and the
+     uri elements that need to break say so themselves. */
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.field__value .y-mono { overflow-wrap: anywhere; }
 .field__aside {
   display: block;
   font-size: var(--step--1);
   color: var(--text-muted);
 }
+
+/* One coin of several in a single field — a vault funded in two currencies has
+   two, and they are peers. NOT `.field__aside`, which is the muted footnote
+   type: a second currency set smaller and greyer than the first reads as a
+   remark about it rather than as the other half of the answer. */
+.field__coin { display: block; }
 
 .muted { color: var(--text-muted); margin: 0; }
 .loading { color: var(--text-muted); }
@@ -277,18 +523,28 @@ body {
   text-underline-offset: 2px;
 }
 
+/* A disclosure, which is where "one tap deeper" actually lives on this app. */
+.more { border-block-start: 1px solid var(--hair); padding-block-start: var(--sp-2); }
+.more > summary {
+  cursor: pointer;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+  list-style: none;
+}
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary::after { content: ' ⌄'; }
+.more[open] > summary::after { content: ' ⌃'; }
+.more > summary:hover { color: var(--accent); }
+.more__body { display: grid; gap: var(--sp-3); padding-block-start: var(--sp-3); }
+
 /* ---------------------------------------------------------------- amounts */
 
 .amount {
   font-variant-numeric: tabular-nums;
-  /* A FIGURE NEVER SPLITS.
-     `.field__value` sets `overflow-wrap: anywhere`, which is right for a uri
-     and an address and catastrophic for money: in the narrow side column it
-     rendered a balance as "9,000,000,000,00" above "0 SRMT", which is not a
-     smaller number but a different one. This is the same defect that shipped
-     once in the KPI band, arriving by inheritance instead of by declaration.
+  /* A FIGURE NEVER SPLITS. This rendered a balance as "9,000,000,000,00" above
+     "0 SRMT" once, by inheriting `overflow-wrap: anywhere` from its container.
      The number holds together and the UNIT may drop to its own line, which is
-     why this is `normal` rather than `nowrap` — see .kpi__value. */
+     why this is `normal` rather than `nowrap`. */
   word-break: keep-all;
   overflow-wrap: normal;
 }
@@ -300,7 +556,7 @@ body {
 .addr__face {
   font: inherit;
   font-family: var(--font-mono);
-  font-size: 0.88em;
+  font-size: 0.86em;
   background: none;
   border: 0;
   padding: 0;
@@ -308,7 +564,8 @@ body {
   cursor: pointer;
   display: inline-flex;
   align-items: baseline;
-  gap: 0.3em;
+  gap: var(--sp-1);
+  min-inline-size: 0;
   overflow-wrap: anywhere;
   text-align: start;
 }
@@ -324,17 +581,18 @@ body {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
+  flex: 0 0 auto;
 }
+.addr__reveal:hover { color: var(--accent); }
 
 /* ----------------------------------------------------------------- notes */
 
 .note {
   margin: 0;
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-3);
   border-radius: var(--radius);
   border-inline-start: 3px solid;
   font-size: var(--step-0);
-  max-width: none;
 }
 .note__title { display: block; font-family: var(--font-display); }
 .note--ok { background: var(--wash-ok); border-color: var(--ok); color: var(--text); }
@@ -364,119 +622,48 @@ body {
 .raw { border-block-start: 1px solid var(--hair); padding-block-start: var(--sp-2); }
 .raw__summary {
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--step--1);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
+.raw__summary:hover { color: var(--accent); }
 .raw__body {
   margin-block-start: var(--sp-2);
+  font-size: 0.72rem;
+  max-block-size: 18rem;
+  overflow: auto;
   background: var(--surface-2);
   border-radius: var(--radius);
   padding: var(--sp-3);
-  font-size: var(--step--1);
-  max-block-size: 22rem;
-  overflow: auto;
 }
 .raw__body pre { margin: 0; }
 
 /* ----------------------------------------------------------------- empty */
 
 .empty {
-  border: 1px dashed var(--rule);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  padding: var(--sp-7) var(--sp-5);
   display: grid;
-  justify-items: center;
   gap: var(--sp-3);
+  justify-items: center;
   text-align: center;
+  padding: var(--sp-6) var(--sp-3);
+  border: 1px dashed var(--rule);
+  border-radius: 14px;
+  color: var(--text-muted);
 }
 .empty--bad { border-color: var(--bad); border-style: solid; }
 .empty__mark { color: var(--text-faint); }
-.empty__title { font-size: var(--step-3); }
-.empty__body { display: grid; gap: var(--sp-2); color: var(--text-muted); justify-items: center; }
-.empty__body p { max-width: 54ch; }
-.empty__at { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
-
-/* ------------------------------------------------------------- vehicle grid */
-
-.vgrid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-}
-.vcard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-  transition: box-shadow 120ms ease, border-color 120ms ease;
-}
-.vcard:hover { box-shadow: var(--shadow-2); border-color: var(--rule); }
-.vcard__link {
-  display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-4);
-  color: inherit;
-  text-decoration: none;
-}
-.vcard__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.vcard__head .y-eyebrow { margin: 0; overflow-wrap: anywhere; }
-.vcard__title { font-size: var(--step-2); }
-.vcard__uri {
-  font-size: var(--step--1);
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
-  max-width: none;
-}
-.vcard__stats {
-  margin: var(--sp-2) 0 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-2);
-  border-block-start: 1px solid var(--hair);
-  padding-block-start: var(--sp-3);
-}
-.vcard__stats dd { margin: 0; }
-.vcard__meter { display: grid; gap: var(--sp-1); }
-
-/* ---------------------------------------------------------------- tables */
-
-.table { inline-size: 100%; border-collapse: collapse; font-size: var(--step-0); }
-.table th, .table td {
-  text-align: start;
-  padding: var(--sp-2) var(--sp-3);
-  border-block-end: 1px solid var(--hair);
-  vertical-align: baseline;
-}
-.table thead th {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.table tbody th { font-weight: 600; }
-.table .num { text-align: end; font-variant-numeric: tabular-nums; }
-.holdings__sym { display: block; font-size: var(--step--1); color: var(--text-muted); }
-.holdings__aside { display: block; font-size: var(--step--1); color: var(--text-muted); }
+.empty__title { font-size: var(--step-2); color: var(--text); }
+.empty__body { display: grid; gap: var(--sp-2); }
+.empty__body p { max-width: 42ch; }
+.empty__at { font-size: var(--step--1); margin: 0; }
 
 /* ------------------------------------------------------------------ gate */
 
 .gate {
   display: grid;
   gap: var(--sp-2);
-  padding: var(--sp-4);
+  padding: var(--sp-3);
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border-inline-start: 3px solid;
   justify-items: start;
 }
 .gate--live { background: var(--wash-ok); border-color: var(--ok); }
@@ -485,12 +672,12 @@ body {
   border-color: var(--bad);
 }
 .gate--unreachable { background: var(--wash-warn); border-color: var(--warn); }
-.gate__line { font-size: var(--step-1); margin: 0; }
+.gate__line { font-size: var(--step-0); margin: 0; }
 .gate__consequence { margin: 0; font-weight: 600; }
 
 .taglist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .taglist li { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.taglist__value { font-size: var(--step--1); }
+.taglist__value { font-size: var(--step--1); overflow-wrap: anywhere; }
 .taglist__detail { color: var(--text-muted); font-size: var(--step--1); }
 
 /* ------------------------------------------------------------------ risk */
@@ -499,13 +686,12 @@ body {
 .findings { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .finding { display: grid; grid-template-columns: 10px 1fr; gap: var(--sp-3); align-items: start; }
 .finding__dot {
-  inline-size: 10px;
-  block-size: 10px;
-  border-radius: 2px;
+  inline-size: 9px;
+  block-size: 9px;
   margin-block-start: 0.45em;
+  background: var(--text-faint);
 }
-/* The shape differs per tone as well as the colour, so a monochrome reading
-   still separates them: a square warns, a circle is fine, a diamond is bad. */
+/* Shape as well as colour: a monochrome screenshot still reads. */
 .finding--ok .finding__dot { background: var(--ok); border-radius: 999px; }
 .finding--warn .finding__dot { background: var(--warn); border-radius: 1px; }
 .finding--bad .finding__dot { background: var(--bad); border-radius: 1px; transform: rotate(45deg); }
@@ -513,125 +699,175 @@ body {
 /* ------------------------------------------------------------------ sale */
 
 .sale__figure { display: grid; gap: var(--sp-1); }
-.sale__price { font-size: var(--step-4); font-family: var(--font-mono); font-weight: 500; }
+.sale__price {
+  font-size: var(--step-3);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
 .sale__by { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
 .sale__meters { display: grid; gap: var(--sp-4); }
-@media (min-width: 720px) { .sale__meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sale__meter { display: grid; gap: var(--sp-2); align-content: start; }
 .sale__meterHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .sale__meterHead .y-label { margin: 0; }
-.sale__act { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.sale__act { display: grid; gap: var(--sp-2); }
 .sale__bond { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
-
-/* ------------------------------------------------------------------ mine */
-
-.mine__headline {
-  display: grid;
-  gap: 0.1rem;
-  padding-block-end: var(--sp-3);
-  border-block-end: 1px solid var(--hair);
-}
-.mine__figure {
-  font-family: var(--font-mono);
-  font-size: var(--step-4);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-.mine__sub { font-size: var(--step--1); color: var(--text-muted); }
-.mine__coin { display: block; }
-.mine__note { font-size: var(--step--1); color: var(--text-muted); }
-.mine__acts { display: grid; gap: var(--sp-2); }
-.mine__why { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
 
 /* --------------------------------------------------------------- buttons */
 
 .btn {
   font: inherit;
-  font-weight: 600;
+  font-size: var(--step-0);
   padding: var(--sp-3) var(--sp-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: 10px;
+  border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
   cursor: pointer;
+  text-align: center;
+  /* 44px, which is the smallest thing a thumb hits reliably. */
+  min-block-size: 44px;
+  /* A button that is a link still has to look like a button: an <a> arrives
+     underlined and inline, and `.btn` is applied to both here. */
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
 }
 .btn:hover:not(:disabled) { filter: brightness(1.08); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn--small { padding: 0.35rem var(--sp-3); font-size: var(--step--1); }
+.btn--small { padding: 0.4rem var(--sp-3); font-size: var(--step--1); min-block-size: 36px; }
 .btn--ghost { background: transparent; color: var(--text); border-color: var(--rule); }
 .btn--ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); filter: none; }
-/* Ink from the token, never a literal white.
- *
- * --bad is a dark red in light and a light coral in dark, so a hardcoded #fff
- * measured 2.43:1 on the dark theme's own danger button — the one button on
- * this surface that destroys somebody's shares. --accent-ink flips with the
- * theme and measures 6.6:1 light and 7.8:1 dark against the same grounds. */
 .btn--bad { background: var(--bad); color: var(--accent-ink); border-color: var(--bad); }
 .btn--ghost.btn--bad { background: transparent; color: var(--bad); border-color: var(--bad); }
 .btn--warn { background: var(--warn); color: var(--accent-ink); border-color: var(--warn); }
+.btn--block { inline-size: 100%; }
+.btn--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.btns { display: grid; gap: var(--sp-2); }
+.btns--row { grid-auto-flow: column; grid-auto-columns: 1fr; }
 
-/* ---------------------------------------------------------------- sheets */
-
+/* ========================================================================== */
+/*  The signing sheet                                                         */
+/* ========================================================================== */
+/*
+ * A dialog on a phone is a screen, not a floating box.
+ *
+ * This is rendered through a portal into the phone frame rather than into the
+ * body, so on a desktop it fills the device instead of covering the desk. What
+ * it must NOT do is shorten what it says: the escrow notes, the "this is a
+ * forecast" line and the field-by-field message table are the product, and they
+ * are the reason somebody signs. So the body scrolls and the buttons sit at the
+ * END of it rather than pinned to the bottom — a reader who has not reached the
+ * button has not reached the consequences either, and that is the correct
+ * order.
+ */
 .sheet {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 40;
-  background: var(--sheet-scrim);
-  display: grid;
-  place-items: start center;
-  padding: var(--sp-5) var(--sp-4);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
 }
-.sheet__box {
-  inline-size: min(620px, 100%);
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  /* Clears the notch, exactly as the app bar does. */
+  padding: 2.2rem var(--sp-4) var(--sp-3);
+  border-block-end: 1px solid var(--rule);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-block-start: 4px solid var(--accent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-  padding: var(--sp-5);
-  display: grid;
-  gap: var(--sp-4);
+  border-block-start: 3px solid var(--rule);
+  flex: 0 0 auto;
 }
-.sheet__box--bad { border-block-start-color: var(--bad); }
-.sheet__box--warn { border-block-start-color: var(--warn); }
-.sheet__box--ok { border-block-start-color: var(--ok); }
-.sheet__head { display: flex; align-items: start; justify-content: space-between; gap: var(--sp-3); }
-.sheet__title { font-size: var(--step-3); }
+.sheet--bad .sheet__head { border-block-start-color: var(--bad); }
+.sheet--warn .sheet__head { border-block-start-color: var(--warn); }
+.sheet--ok .sheet__head { border-block-start-color: var(--ok); }
+.sheet__title {
+  font-size: var(--step-2);
+  margin: 0;
+  flex: 1;
+  min-inline-size: 0;
+}
 .sheet__x {
-  font: inherit;
-  font-size: var(--step-3);
-  line-height: 1;
+  appearance: none;
   background: none;
   border: 0;
+  font-size: 1.5rem;
+  line-height: 1;
   color: var(--text-muted);
   cursor: pointer;
+  padding: var(--sp-2);
+  flex: 0 0 auto;
 }
-.sheet__lede { color: var(--text-muted); }
-.sheet__headline { display: grid; gap: var(--sp-1); }
-.sheet__headline--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.sheet__x:hover { color: var(--text); }
+.sheet__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+}
+.sheet__lede { color: var(--text-muted); margin: 0; }
+.sheet__headline {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+/* Two figures side by side: what is destroyed and what is received. They stay
+   side by side at 358px because the comparison IS the content — stacking them
+   would let a reader see the money without the burn. */
+.sheet__headline--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .sheet__figure {
   font-family: var(--font-mono);
-  font-size: var(--step-3);
+  font-size: var(--step-2);
   font-weight: 500;
+  line-height: 1.15;
   display: block;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
+.sheet__headline--pair .sheet__figure { font-size: var(--step-1); }
 .sheet__figure--bad { color: var(--bad); }
 .sheet__figure--warn { color: var(--warn); }
-.sheet__actions { display: flex; gap: var(--sp-3); justify-content: end; flex-wrap: wrap; }
+.sheet__actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-3); }
 
 .field2 { display: grid; gap: var(--sp-1); }
 .field2 input, .field2 textarea {
   font: inherit;
   padding: var(--sp-3);
-  border-radius: var(--radius);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  inline-size: 100%;
+  /* 16px, or iOS zooms the page when the field takes focus. */
+  font-size: 1rem;
+}
+.field2 input:focus, .field2 textarea:focus { border-color: var(--accent); }
+
+.select {
+  font: inherit;
+  font-size: 1rem;
+  padding: var(--sp-3);
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   inline-size: 100%;
 }
-.field2 input:focus, .field2 textarea:focus { border-color: var(--accent); }
+.select option { background: var(--surface); color: var(--text); }
 .field2 input.y-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--step-2); }
 .field2__hint { font-size: var(--step--1); color: var(--text-muted); }
 
@@ -639,13 +875,13 @@ body {
 
 .plan {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 12px;
   background: var(--surface-2);
   padding: var(--sp-3);
   display: grid;
   gap: var(--sp-2);
 }
-.plan__type { font-size: var(--step--1); color: var(--text-muted); margin: 0; overflow-wrap: anywhere; }
+.plan__type { font-size: 0.7rem; color: var(--text-muted); margin: 0; overflow-wrap: anywhere; }
 .plan__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .plan__row {
   display: grid;
@@ -660,8 +896,11 @@ body {
   grid-column: 1;
   font-size: var(--step--1);
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
-.plan__value { grid-column: 1; overflow-wrap: anywhere; }
+/* `anywhere` is right for the uris and addresses this holds and wrong for the
+   money it also holds — `.amount` overrides it, and must keep doing so. */
+.plan__value { grid-column: 1; overflow-wrap: anywhere; min-inline-size: 0; }
 .plan__plain { font-size: 0.9em; }
 .plan__note { display: block; font-size: var(--step--1); color: var(--text-muted); }
 .plan__where {
@@ -671,11 +910,11 @@ body {
   align-items: center;
   gap: var(--sp-1);
   font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 0.18rem 0.4rem;
+  padding: 0.18rem 0.35rem;
   border-radius: 3px;
   border: 1px solid;
 }
@@ -683,269 +922,98 @@ body {
    for a derived consequence, a circle for a field that is literally signed. */
 .plan__where--ledger { color: var(--tone-ok); background: var(--wash-ok); border-color: transparent; }
 .plan__where--derived { color: var(--tone-warn); background: var(--wash-warn); border-color: transparent; }
-.plan__dot { inline-size: 7px; block-size: 7px; background: currentColor; }
+.plan__dot { inline-size: 6px; block-size: 6px; background: currentColor; }
 .plan__where--ledger .plan__dot { border-radius: 999px; }
 
-/* ----------------------------------------------------------------- footer */
+/* ========================================================================== */
+/*  The cap table, which on a phone is a ring and a list                      */
+/* ========================================================================== */
 
-.foot {
-  border-block-start: 1px solid var(--border);
-  background: var(--surface-2);
-  margin-block-start: var(--sp-6);
-}
-.foot__inner {
-  max-width: var(--stage);
-  margin-inline: auto;
-  padding: var(--sp-5);
-  display: grid;
-  gap: var(--sp-1);
-}
-.foot__note { color: var(--text-muted); font-size: var(--step--1); }
-.foot__chain { font-size: var(--step--1); color: var(--text-muted); margin: 0; }
+.captable { display: grid; gap: var(--sp-4); justify-items: center; }
+.donut { inline-size: 100%; block-size: auto; max-inline-size: 11rem; }
+.donut__track { stroke: var(--surface-2); }
 
-/* -------------------------------------------------------------- narrow */
-
-@media (max-width: 560px) {
-  .page { padding-inline: var(--sp-4); }
-  .bar__inner { padding-inline: var(--sp-4); gap: var(--sp-3); }
-  .vcard__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sheet__headline--pair { grid-template-columns: 1fr; }
-  .sheet { padding: var(--sp-3) var(--sp-2); }
-  .sheet__box { padding: var(--sp-4); }
-}
-
-/* ==========================================================================
-   Information design: KPI band, folders, cap-table ring.
-
-   Added 2026-09-15. The tokenisation page opened with label/value pairs set at
-   the same size as their labels, stacked in one scrolling column, with no
-   register of holders and no area for documents. Nothing on it read as a
-   figure and nothing could be linked to.
-
-   Every colour below is a shared token. The one thing this block adds is
-   layout.
-   ========================================================================== */
-
-.kpiband {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+.holder {
+  display: flex;
+  align-items: center;
   gap: var(--sp-3);
-  margin: var(--sp-4) 0 var(--sp-5);
+  padding: var(--sp-2) 0;
+  border-block-end: 1px solid var(--hair);
 }
-
-.kpi {
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  border-inline-start: 3px solid var(--rule);
+.holder:last-child { border-block-end: 0; }
+.holder__swatch {
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
 }
-.kpi--ok { border-inline-start-color: var(--ok); }
-.kpi--warn { border-inline-start-color: var(--warn); }
-.kpi--bad { border-inline-start-color: var(--bad); }
-.kpi--mute { border-inline-start-color: var(--text-faint); }
-
-.kpi__label {
-  margin: 0;
-  font-size: var(--step--1);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.kpi__value {
-  margin: var(--sp-1) 0 0;
-  font-size: var(--step-2);
-  line-height: 1.15;
+.holder__who { flex: 1; min-inline-size: 0; }
+.holder__end {
+  text-align: end;
+  flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
-  /* NEVER break inside a figure. `overflow-wrap: anywhere` shipped here for one
-     deploy and rendered 100,000,000 as "100,000,0" above "00" — a number split
-     across two lines is not a smaller number, it is a different one, and it is
-     worse than the flat layout this band replaced. The tile scrolls instead. */
-  /* The number never splits; the UNIT may drop to its own line. `nowrap` alone
-     clipped "15,000,000 USD" to "15,000,000 U", which reads as a different
-     unit rather than a truncated one. */
-  white-space: normal;
   word-break: keep-all;
   overflow-wrap: normal;
 }
-.kpi__unit {
-  margin-inline-start: 0.3em;
-  font-size: var(--step-0);
-  color: var(--text-muted);
-}
-/* Where a figure's limit goes. Several are exact and one or two are not, and a
-   band that spoke about all of them in one voice would claim a precision the
-   chain does not have. */
-.kpi__hint {
-  margin: var(--sp-2) 0 0;
-  font-size: var(--step--1);
-  color: var(--text-muted);
-  /* Three lines is a paragraph, and a paragraph under every tile makes the band
-     taller than the content it introduces. */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+.holder__share { font-weight: 600; display: block; }
+.holder__tokens { font-size: var(--step--1); color: var(--text-muted); display: block; }
+.holder--self .holder__share { color: var(--accent); }
 
-.folders {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  border-bottom: 1px solid var(--hair);
-  margin-bottom: var(--sp-4);
-}
-.folder {
-  appearance: none;
-  background: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
-  padding: var(--sp-2) var(--sp-4);
-  font: inherit;
-  font-size: var(--step--1);
-  color: var(--text-muted);
-  cursor: pointer;
-  /* The selected folder sits ON the rule rather than above it, so the area
-     below reads as the inside of the folder rather than as a separate box. */
-  margin-bottom: -1px;
-}
-.folder:hover { color: var(--text); }
-.folder--on {
-  background: var(--surface);
-  border-color: var(--hair);
-  border-bottom: 1px solid var(--surface);
-  color: var(--text);
-  font-weight: 600;
-}
-.folder__count {
-  margin-inline-start: 0.45em;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-faint);
-}
+/* ========================================================================== */
+/*  Filings                                                                   */
+/* ========================================================================== */
 
-.captable {
-  display: grid;
-  grid-template-columns: minmax(10rem, 16rem) 1fr;
-  gap: var(--sp-5);
-  align-items: start;
-}
-@media (max-width: 40rem) { .captable { grid-template-columns: 1fr; } }
-
-.donut { width: 100%; height: auto; max-width: 16rem; }
-.donut__track { stroke: var(--surface-2); }
-
-.holders { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.holders th {
-  text-align: start;
-  font-size: var(--step--1);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-weight: 600;
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
-  border-bottom: 1px solid var(--hair);
-}
-.holders td {
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
-  border-bottom: 1px solid var(--hair);
-}
-.holders td:last-child, .holders th:last-child { text-align: end; padding-inline-end: 0; }
-.holders__swatch {
-  display: inline-block;
-  width: 0.7em; height: 0.7em;
-  border-radius: 2px;
-  margin-inline-end: 0.5em;
-}
-/* The sponsor is not just another row: the whole retention promise is about
-   this one line, so it is marked rather than left to be counted. */
-.holders__row--self td { font-weight: 600; }
-
-/* A KPI carrying one line per currency. Usually one; a portfolio spanning two
-   shows two rather than a total that added dollars to francs. */
-.kpi__stack { display: flex; flex-direction: column; gap: 0.1em; }
-.kpi__stack > span + span { font-size: var(--step-0); color: var(--text-muted); }
-
-/* ==========================================================================
-   The register of filings, cost basis, and the open period.
-
-   Added 2026-09-16, for three things that landed on x/tokenisation the same
-   day: Query/Covenants, Position.cost_basis, and the pro-rata-temporis period.
-
-   Every colour is a shared token. What this block adds is layout and one
-   deliberate emphasis: a filing that carries a DEADLINE does not look like a
-   filing that does not, because a register presenting both alike would make the
-   one somebody can miss as easy to overlook as the one they cannot.
-   ========================================================================== */
-
-.filings { display: grid; gap: var(--sp-4); margin-block: var(--sp-4); }
+.filings { display: grid; gap: var(--sp-3); }
 
 .filing {
-  padding: var(--sp-4);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
   background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-4);
+  display: grid;
+  gap: var(--sp-3);
 }
-
-/* Dimmed and labelled, NEVER hidden. A dispute is usually about what was said
-   at a date rather than what is said now, so a corrected filing stays readable
-   — it only stops competing with the version that replaced it. The chip beside
-   the title is what carries the fact; this lowers the volume, and stops short
-   of the opacity that would make body text fail contrast. */
-.filing--superseded { opacity: 0.68; border-style: dashed; }
-
+.filing--superseded { opacity: 0.68; border-style: dashed; box-shadow: none; }
 .filing__head {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
   gap: var(--sp-2);
-  margin-block-end: var(--sp-3);
-}
-.filing__title { margin: 0; font-size: var(--step-1); font-family: var(--font-display); }
-
-/* The deadline, as a block rather than as one more label/value row. A row
-   reading "Acts by: 4 October" among six others is exactly as skippable as the
-   row above it, which is the failure the chain added the field to prevent. */
-.filing__deadline {
-  display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-2) var(--sp-3);
+}
+.filing__title { margin: 0; font-size: var(--step-1); font-family: var(--font-display); flex-basis: 100%; }
+
+/* The deadline is its own block above everything else on the card rather than
+   one more label/value row, because a row reading "Acts by: 4 October" among
+   six others is exactly as easy to skip as the row above it — which is the
+   failure the chain added the field to prevent. */
+.filing__deadline {
+  display: grid;
+  gap: 0.1rem;
   padding: var(--sp-3);
-  margin-block-end: var(--sp-3);
-  border-radius: var(--radius);
-  border-inline-start: 3px solid var(--rule);
-  background: var(--wash-mute);
+  border-radius: 10px;
+  border-inline-start: 3px solid;
 }
 .filing__deadline--open {
   background: var(--wash-warn);
-  border-inline-start-color: var(--warn);
+  border-color: var(--warn);
 }
 .filing__deadline--passed,
 .filing__deadline--mute {
   background: var(--wash-mute);
-  border-inline-start-color: var(--slate);
+  border-color: var(--slate);
 }
-
-/* The date never breaks. A deadline split across two lines is the same defect
-   as a figure split across two lines, and worse: half a date is a different
-   day. The block wraps between its parts instead. */
 .filing__by {
   font-family: var(--font-display);
   font-size: var(--step-1);
-  white-space: nowrap;
 }
-.filing__left { font-size: var(--step--1); color: var(--text-muted); white-space: nowrap; }
-
-/* A uri is machine text of unbounded length, so this is the one place on a
-   filing that may break anywhere: it is a reference, not a figure. */
+.filing__left { font-size: var(--step--1); color: var(--text-muted); }
 .filing__uri { overflow-wrap: anywhere; font-size: var(--step--1); }
 
 /* --- the digest ------------------------------------------------------- */
 
 .digest { display: grid; gap: var(--sp-2); justify-items: start; }
 .digest__line { display: flex; align-items: baseline; gap: var(--sp-2); }
-
 .digest__more { inline-size: 100%; }
 .digest__summary {
   cursor: pointer;
@@ -954,182 +1022,135 @@ body {
 }
 .digest__summary:hover { color: var(--accent); }
 .digest__body {
+  margin-block-start: var(--sp-2);
   display: grid;
   gap: var(--sp-2);
   justify-items: start;
-  margin-block-start: var(--sp-2);
   padding: var(--sp-3);
   background: var(--surface-2);
-  border-radius: var(--radius);
+  border-radius: 10px;
 }
 .digest__label { margin: 0; }
-
-/* Breaking anywhere is CORRECT here and only here. This is a hash, not a
-   figure: every character has to be visible for the comparison to mean
-   anything, and a hash that ran off the edge would be as useless as a
-   truncated one. */
+/* Breaking is correct HERE and only here: this is a hash, not a figure, and
+   every character has to be visible to be compared. */
 .digest__full {
   margin: 0;
-  font-size: var(--step--1);
-  overflow-wrap: anywhere;
+  font-size: 0.7rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .digest__cmd {
   margin: 0;
+  font-size: 0.68rem;
   inline-size: 100%;
-  padding: var(--sp-2);
+  overflow-x: auto;
   background: var(--surface-3);
   border-radius: var(--radius);
-  font-size: var(--step--1);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  padding: var(--sp-2);
 }
 .digest__note { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
 
 .copybtn {
-  appearance: none;
-  background: none;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  padding: 0.2rem var(--sp-2);
   font: inherit;
   font-size: var(--step--1);
-  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 0.25rem var(--sp-2);
+  color: inherit;
   cursor: pointer;
   display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
+  align-items: baseline;
+  gap: var(--sp-2);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
 }
 .copybtn:hover { border-color: var(--accent); color: var(--accent); }
 .copybtn__ico { color: var(--text-muted); }
 .copybtn--mono { font-family: var(--font-mono); }
 
-/* A folder holding something with a deadline says so on its tab, because the
-   reader who never opens it is exactly the reader who misses the assembly. */
-.folder__flag {
-  margin-inline-start: 0.4em;
-  color: var(--warn);
-  font-size: 0.7em;
-  vertical-align: middle;
-}
-
 /* --- cost basis and the open period ----------------------------------- */
 
-.cost, .accrual {
-  margin-block-start: var(--sp-4);
-  padding-block-start: var(--sp-3);
-  border-block-start: 1px solid var(--hair);
-}
-
-.accrual__period {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4em;
-  margin: 0 0 var(--sp-2);
-}
+.cost, .accrual { display: grid; gap: var(--sp-3); }
+.accrual__period { margin: 0; display: grid; gap: 0.1rem; }
 .accrual__periodName { font-family: var(--font-display); }
 .accrual__periodSince { color: var(--text-muted); font-size: var(--step--1); }
-
-/* Token-seconds run to fifteen digits and are NOT money, so they get tabular
-   figures and the same no-break rule as every other figure on this surface.
-   `100,000,0` above `00` shipped once already; a token-second count split the
-   same way would be a different quantity, and one nobody could check against
-   the balance above it. It scrolls instead. */
 .accrual__figure {
-  white-space: nowrap;
-  overflow-x: auto;
-  max-inline-size: 100%;
-  display: inline-block;
-  vertical-align: bottom;
+  /* Token-seconds run long. They may wrap between groups and never inside
+     one — the same rule as every other figure here. */
+  word-break: keep-all;
+  overflow-wrap: normal;
+  font-size: var(--step-0);
 }
-.accrual__at { margin: var(--sp-2) 0 0; font-size: var(--step--1); color: var(--text-muted); }
+.accrual__at { margin: 0; font-size: var(--step--1); color: var(--text-muted); }
 
-/* --------------------------------------------------------- the market */
+/* ========================================================================== */
+/*  The market                                                                */
+/* ========================================================================== */
 
-/* Only what the shared system does not already carry. The spread band is a
-   `.y-kpis`, the tables are `.y-data`, the panels are `.y-panel`: the market is
-   not a different product and should not look like one. */
+.mkt__actions { display: grid; gap: var(--sp-2); }
+.mkt__sides { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); }
 
-.mkt__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin-block-start: var(--sp-3);
-}
-
-/* Buy and sell side by side, and the chosen one held down. A radio group would
-   be more semantic; these are buttons because the choice changes which figures
-   the preview below is about, and a radio that silently rewrites a forecast
-   reads as a glitch. aria-pressed carries the state for anybody not seeing it. */
-.mkt__sides { display: flex; gap: var(--sp-2); margin-block-end: var(--sp-3); }
-.mkt__sides .btn { flex: 1; }
-.btn--on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--paper);
-}
-
-/* Two sides of the book, side by side where there is room and stacked where
-   there is not. Never squeezed: a price column that wraps is a price nobody can
-   compare down the page, which is the only reason to put prices in a column. */
-.mkt__book {
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  margin-block-start: var(--sp-3);
-}
-.mkt__side { min-inline-size: 0; }
-.mkt__side h4 { margin: 0 0 var(--sp-2); }
-
-/* The depth cue. A tint rather than a bar, because a bar sized by quantity on a
-   book with two orders reads as a chart of something and there is nothing to
-   chart yet. */
-.mkt__level--bid td:first-child { border-inline-start: 2px solid var(--ok); padding-inline-start: var(--sp-2); }
-.mkt__level--ask td:first-child { border-inline-start: 2px solid var(--bad); padding-inline-start: var(--sp-2); }
-
-.mkt__count { color: var(--text-muted); font-size: var(--step--1); }
-
-.mkt__auction {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-3);
-  margin-block-start: var(--sp-3);
-  background: var(--surface-2);
-}
-.mkt__auctionHead {
+/*
+ * One price level, with the depth behind it.
+ *
+ * The book was three columns of a table — price, shares, cumulative — which at
+ * 358px is either three cramped columns or a sideways scroll. The cumulative
+ * column is the one a reader converts into a mental bar chart, so it is drawn
+ * as the bar instead and the figure stays in the row's second line.
+ */
+.levels { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.level {
+  position: relative;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-3);
-  margin-block-end: var(--sp-3);
-  flex-wrap: wrap;
-}
-.mkt__parcel { font-size: var(--step-2); font-weight: 600; }
-
-.mkt__preview {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-3);
-  margin-block: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 8px;
+  overflow: hidden;
   background: var(--surface-2);
 }
-.mkt__preview .fields { margin-block-start: var(--sp-2); }
-
-.mkt__mine { margin-block-start: var(--sp-4); }
-.mkt__orderList { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
-.mkt__orderList li {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex-wrap: wrap;
+.level__bar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 0;
 }
-
-/* A number never breaks across two lines. `overflow-wrap: anywhere` has already
-   printed 100,000,0 above 00 in this repository twice; a broken number is not a
-   smaller number, it is a different one. The unit may wrap. The digits may not. */
-.mkt__spread .y-kpi__value,
-.mkt__parcel {
-  white-space: normal;
+.level--bid .level__bar { background: var(--wash-ok); }
+.level--ask .level__bar { background: var(--wash-bad); }
+.level--bid { border-inline-start: 2px solid var(--ok); }
+.level--ask { border-inline-start: 2px solid var(--bad); }
+.level__price, .level__size { position: relative; z-index: 1; }
+.level__price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   word-break: keep-all;
   overflow-wrap: normal;
+}
+.level__size { text-align: end; word-break: keep-all; overflow-wrap: normal; }
+.level__cum { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.mkt__count { color: var(--text-muted); font-size: var(--step--1); }
+
+.mkt__parcel {
+  font-size: var(--step-2);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.mkt__preview {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+/* A phone that is also short — a landscape handset, or a desktop window under
+   700px tall — has no room for a lede. */
+@media (max-height: 640px) {
+  .y-screen__lede { display: none; }
 }

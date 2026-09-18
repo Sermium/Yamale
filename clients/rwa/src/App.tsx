@@ -1,30 +1,55 @@
 /**
- * Yamale Vehicles — the shell.
+ * Yamale Tokenisation — the shell.
  *
- * Three screens, and the order they are in is the order somebody decides in:
- * the vehicles on offer, then one vehicle in detail, then what they already
- * own. Everything on the first two is public and readable without an account,
- * because the moment an investor most needs to check a vehicle is before they
- * have anything invested in it.
+ * A phone on a desk, for the same reason Yamale Pay is one: this is what an
+ * investor holds, not what a registrar runs. The frame comes from the shared
+ * mobile shell in `clients/shared/yamale.css` — `.y-stage`, `.y-phone`,
+ * `.y-appbar`, `.y-screen`, `.y-tabbar` — rather than from a copy of Pay's own
+ * classes, so a fix to the shape reaches every surface wearing it.
+ *
+ * # Three tabs, and why these three
+ *
+ * The app answers three questions and they are the three tabs:
+ *
+ *   TOKENISATIONS  what is on offer — public, readable with no account, because
+ *                  the moment an investor most needs to check a vehicle is
+ *                  before they have anything invested in it.
+ *   MY HOLDINGS    what this address owns, what it cost and what it has earned.
+ *   ACCOUNT        which address is attached, how, and the appearance and
+ *                  language of the app.
+ *
+ * A vehicle is not a fourth tab. It is a thing you open from the first tab, so
+ * it keeps the tab bar (a reader can always leave) and takes over the app bar
+ * with a back chevron and the vehicle's name. Its own five sections live in a
+ * segmented control under the app bar — see `Segments` in ui.tsx for why they
+ * are not in the tab bar.
+ *
+ * # The sheet root
+ *
+ * Every signing dialog portals into `#sheet-root`, which is a child of the
+ * phone frame rather than of the document body. A confirmation that floats over
+ * the whole browser window on a surface shaped like a device reads as a
+ * different application; inside the frame it reads as the screen it is.
  */
 import { useState } from 'react';
-import { HashRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom';
-import { LanguagePicker, t, useLocale } from '@yamale/chain';
+import { HashRouter, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { t, useLocale } from '@yamale/chain';
 
+import { Account as AccountScreen } from './Account.tsx';
 import { useAccount } from './account.ts';
-import { addressOf, canSign, type Account } from './address.ts';
-import { CHAIN_ID } from './chain.ts';
+import { type Account } from './address.ts';
 import { chainNow, useHead } from './data.ts';
 import { Holdings } from './Holdings.tsx';
 import { Vehicle } from './Vehicle.tsx';
 import { Vehicles } from './Vehicles.tsx';
-import { Address, Chip } from './ui.tsx';
+import { descriptorOf } from './vehicle.ts';
+import { useVehicle } from './data.ts';
 
 /* ------------------------------------------------------------------ theme */
 
-type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system';
 
-function savedTheme(): Theme {
+export function savedTheme(): Theme {
   try {
     const v = localStorage.getItem('yamale.rwa.theme');
     if (v === 'light' || v === 'dark') return v;
@@ -32,185 +57,220 @@ function savedTheme(): Theme {
   return 'system';
 }
 
-function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(savedTheme);
+export function applyTheme(next: Theme) {
+  if (next === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', next);
+  try {
+    if (next === 'system') localStorage.removeItem('yamale.rwa.theme');
+    else localStorage.setItem('yamale.rwa.theme', next);
+  } catch { /* private mode */ }
+}
 
-  const apply = (next: Theme) => {
-    setTheme(next);
-    if (next === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', next);
-    try {
-      if (next === 'system') localStorage.removeItem('yamale.rwa.theme');
-      else localStorage.setItem('yamale.rwa.theme', next);
-    } catch { /* private mode */ }
-  };
+/**
+ * The three states cycled from the app bar, in one glyph.
+ *
+ * `system` is a state, not the absence of one: it is the only one that follows
+ * the reader's own preference, and a toggle with two positions would strand
+ * anybody who had ever pressed it.
+ */
+function ThemeButton() {
+  const [theme, setTheme] = useState<Theme>(savedTheme);
 
   const next: Theme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
   const label = theme === 'dark' ? t('rwa.themeDark')
     : theme === 'light' ? t('rwa.themeLight') : t('rwa.themeSystem');
 
   return (
-    <button type="button" className="bar__btn" onClick={() => apply(next)}
-            aria-label={`${t('rwa.theme')}: ${label}`}>
+    <button type="button" className="appbar__btn" aria-label={`${t('rwa.theme')}: ${label}`}
+            onClick={() => { setTheme(next); applyTheme(next); }}>
       <span aria-hidden="true">{theme === 'dark' ? '◐' : theme === 'light' ? '○' : '◑'}</span>
-      <span className="bar__btnLabel">{label}</span>
     </button>
   );
 }
 
-/* ---------------------------------------------------------------- account */
+/* ------------------------------------------------------------- the bottom */
 
-function AccountBar({ api }: { api: ReturnType<typeof useAccount> }) {
-  const [open, setOpen] = useState(false);
-  const [typed, setTyped] = useState('');
-  const { account, wallets, connecting, problemKey } = api;
-
-  if (account.mode !== 'none') {
-    return (
-      <div className="who">
-        <Chip tone={canSign(account) ? 'ok' : 'mute'}>
-          {canSign(account) ? t('rwa.connected') : t('rwa.watching')}
-        </Chip>
-        <Address value={addressOf(account)} />
-        <button type="button" className="bar__btn" onClick={api.forget}>
-          {t('action.disconnect')}
-        </button>
-      </div>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button type="button" className="btn btn--small" onClick={() => setOpen(true)}>
-        {t('rwa.attach')}
-      </button>
-    );
-  }
-
+function TabIcon({ name }: { name: string }) {
+  const paths: Record<string, string> = {
+    // A building with a roof: the asset itself. The same mark the empty state
+    // and the site's own tile use, so the app is recognisable from its icon.
+    vehicles: 'M3 8 10 3l7 5v9H3z M7.5 17v-5h5v5',
+    // A slice taken out of a whole: a shareholding.
+    holdings: 'M10 3a7 7 0 107 7h-7V3z M13 3.6A7 7 0 0116.4 7H13V3.6z',
+    // A person.
+    account: 'M10 10a3 3 0 100-6 3 3 0 000 6zm-6 7v-1c0-2.2 2.7-4 6-4s6 1.8 6 4v1',
+  };
   return (
-    <div className="attach">
-      <p className="attach__lede">{t('rwa.attachLede')}</p>
-
-      {wallets.length > 0 ? (
-        <div className="attach__wallets">
-          {wallets.map((w) => (
-            <button key={w.id} type="button" className="btn btn--small"
-                    disabled={connecting} onClick={() => api.connectWallet(w.id)}>
-              {connecting ? t('rwa.connecting') : `${t('action.connect')} ${w.label}`}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="attach__none">{t('rwa.noWallet')}</p>
-      )}
-
-      <form
-        className="attach__watch"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (api.watch(typed)) { setOpen(false); setTyped(''); }
-        }}
-      >
-        <label className="attach__label" htmlFor="watch-address">{t('rwa.watchLabel')}</label>
-        <div className="attach__row">
-          <input
-            id="watch-address"
-            className="y-mono"
-            value={typed}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="yml1…"
-            onChange={(e) => setTyped(e.target.value)}
-          />
-          <button type="submit" className="btn btn--small btn--ghost">{t('rwa.watchGo')}</button>
-        </div>
-        <p className="attach__hint">{t('rwa.watchHint')}</p>
-      </form>
-
-      {problemKey && <p className="attach__problem" role="alert">{t(problemKey)}</p>}
-    </div>
+    <svg className="y-tab__icon" viewBox="0 0 20 20" aria-hidden="true"
+         fill="none" stroke="currentColor" strokeWidth="1.5"
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d={paths[name] ?? ''} />
+    </svg>
   );
 }
 
-/* ------------------------------------------------------------------- shell */
+/**
+ * Icon and label, never icon alone.
+ *
+ * Three unlabelled glyphs is a guessing game, and on a surface where one of the
+ * tabs leads to a sell button the guess costs money. In a five-language
+ * interface the word does more work than the picture.
+ */
+function TabBar() {
+  const tabs = [
+    { to: '/', end: true, label: t('rwa.navVehicles'), icon: 'vehicles' },
+    { to: '/holdings', end: false, label: t('rwa.navHoldings'), icon: 'holdings' },
+    { to: '/account', end: false, label: t('rwa.tabAccount'), icon: 'account' },
+  ];
+  return (
+    <nav className="y-tabbar" aria-label={t('rwa.navLabel')}>
+      {tabs.map((tab) => (
+        <NavLink key={tab.to} to={tab.to} end={tab.end}
+                 className={({ isActive }) => `y-tab${isActive ? ' y-tab--on' : ''}`}>
+          <TabIcon name={tab.icon} />
+          <span className="y-tab__label">{tab.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
 
+/* --------------------------------------------------------------- the top */
+
+/**
+ * The bar at the top of the screen.
+ *
+ * On a list screen it carries the product's name. On a vehicle it carries a
+ * back chevron and that vehicle's name, because a phone screen with no title
+ * and no way out is how somebody ends up pressing the browser's back button and
+ * losing the app.
+ */
+function AppBar({ back, title, subtitle }: {
+  back?: () => void;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <header className="y-appbar">
+      {back ? (
+        <button type="button" className="appbar__btn appbar__back" onClick={back}
+                aria-label={t('rwa.back')}>
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+               strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 4 6 10l6 6" />
+          </svg>
+        </button>
+      ) : (
+        <img className="y-appbar__mark" src="mark.svg" alt="" width={28} height={28} />
+      )}
+      <div className="appbar__mid">
+        <div className="y-appbar__eyebrow">{subtitle}</div>
+        <div className="y-appbar__name appbar__name">{title}</div>
+      </div>
+      <div className="y-appbar__right">
+        <ThemeButton />
+      </div>
+    </header>
+  );
+}
+
+/* ------------------------------------------------------------------ routes */
+
+/**
+ * One vehicle.
+ *
+ * The app bar's title is read from the same place the page's is — the asset's
+ * uri, which is the only field on it that carries a name. An asset whose uri
+ * names nothing falls back to its number rather than to something invented.
+ */
 function VehicleRoute({ account }: { account: Account }) {
   const { assetId = '' } = useParams();
-  return <Vehicle assetId={assetId} account={account} />;
+  const navigate = useNavigate();
+  const [record] = useVehicle(assetId);
+
+  const asset = record.loading || !record.outcome.ok ? null : record.outcome.value.asset;
+  const name = asset
+    ? (descriptorOf(asset.uri).name ?? t('rwa.vehicleN', { id: asset.id }))
+    : t('rwa.vehicleN', { id: assetId });
+
+  return (
+    <>
+      <AppBar back={() => navigate('/')} title={name}
+              subtitle={asset?.collectionId || t('rwa.eyebrow')} />
+      <Vehicle assetId={assetId} account={account} />
+    </>
+  );
+}
+
+/**
+ * A tab's screen.
+ *
+ * The app bar carries the PRODUCT here, not the screen's own name: the screen
+ * says what it is in its own title, and a bar repeating it two lines above is a
+ * row of pixels spent saying nothing. On a vehicle the bar earns its space —
+ * there it carries the way back and the name of the thing being read.
+ */
+function Screen({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <AppBar title={t('rwa.title')} subtitle={t('rwa.eyebrow')} />
+      {children}
+    </>
+  );
 }
 
 export function App() {
   const api = useAccount();
   const head = useHead();
-  const locale = useLocale();
+  useLocale();
   const now = chainNow(head);
 
   return (
     <HashRouter>
-      <a className="skip" href="#main">{t('rwa.skip')}</a>
+      <div className="y-stage">
+        <a className="skip" href="#main">{t('rwa.skip')}</a>
 
-      <header className="bar">
-        <div className="bar__inner">
-          {/* A plain anchor, not <Link>. A router Link resolves inside the
-              app, so the logo navigated to /rwa/ and never left — which is
-              the opposite of what a logo in a header is for. Every other
-              console sends it to the site root. */}
-          <a href="/" className="brand">
-            <span className="brand__mark" aria-hidden="true">
-              <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor"
-                   strokeWidth="1.8" strokeLinejoin="round">
-                <path d="M5 12 16 5l11 7v15H5z" />
-                <path d="M12 27v-9h8v9" />
-              </svg>
-            </span>
-            <span className="brand__name">{t('rwa.title')}</span>
+        {/* The desk's own bar. Hidden below 430px by the shared shell: on an
+            actual phone the frame becomes the page and a caption above a device
+            that is not being drawn is just a row of text nobody asked for. */}
+        <header className="y-stage__bar">
+          <a className="stage__brand" href="/">
+            <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
+              <rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F" />
+              <path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2" />
+              <path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2" />
+            </svg>
+            <span>Yamale</span>
           </a>
+          <span className="y-stage__title">{t('rwa.title')}</span>
+          <a className="stage__link" href="/">{t('app.backToSite')}</a>
+        </header>
 
-          <nav className="bar__nav" aria-label={t('rwa.navLabel')}>
-            <NavLink to="/" end className={({ isActive }) => `bar__link ${isActive ? 'is-on' : ''}`}>
-              {t('rwa.navVehicles')}
-            </NavLink>
-            <NavLink to="/holdings" className={({ isActive }) => `bar__link ${isActive ? 'is-on' : ''}`}>
-              {t('rwa.navHoldings')}
-            </NavLink>
-          </nav>
-
-          <div className="bar__right">
-            <AccountBar api={api} />
-            <ThemeToggle />
-            <LanguagePicker className="bar__lang" />
+        <div className="y-phone">
+          <div className="y-phone__notch" />
+          <div className="y-phone__screen" id="main" tabIndex={-1}>
+            <Routes>
+              <Route path="/" element={
+                <Screen><Vehicles now={now.at} head={head} /></Screen>
+              } />
+              <Route path="/v/:assetId" element={<VehicleRoute account={api.account} />} />
+              <Route path="/holdings" element={
+                <Screen><Holdings account={api.account} head={head} /></Screen>
+              } />
+              <Route path="/account" element={
+                <Screen><AccountScreen api={api} head={head} /></Screen>
+              } />
+            </Routes>
+            <TabBar />
           </div>
-        </div>
-      </header>
 
-      <main id="main" className="main">
-        <Routes>
-          <Route path="/" element={<Vehicles now={now.at} />} />
-          <Route path="/v/:assetId" element={<VehicleRoute account={api.account} />} />
-          <Route path="/holdings" element={<Holdings account={api.account} />} />
-        </Routes>
-      </main>
-
-      <footer className="foot">
-        <div className="foot__inner">
-          <p className="foot__note">{t('rwa.footNote')}</p>
-          <p className="foot__chain y-mono">
-            {/*
-              The height is not decoration. Every claim this app makes about a
-              vehicle — that no sale has been reported, that an authorisation is
-              live, that nothing has been issued — is a claim about a moment,
-              and a claim shown without the block it was read at is one nobody
-              can check or date.
-            */}
-            {head.known
-              ? `${head.chainId} · ${t('rwa.block')} ${head.height.toLocaleString(locale)}`
-              : t('rwa.chainUnknown')}
-            {head.known && head.catchingUp && ` · ${t('rwa.catchingUp')}`}
-            {head.known && !now.fromChain && ` · ${t('rwa.localClock')}`}
-          </p>
-          <p className="foot__chain y-mono">{CHAIN_ID}</p>
+          {/* Where every signing sheet is portalled to. A child of the frame, so
+              a sheet covers the device rather than the browser. It is empty
+              whenever nothing is being signed, and `:empty` takes it out of the
+              way so it cannot swallow a tap. */}
+          <div id="sheet-root" />
         </div>
-      </footer>
+      </div>
     </HashRouter>
   );
 }

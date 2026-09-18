@@ -14,8 +14,11 @@ import {
   resolveDenom,
   t,
   truncateAddress,
+  useLocale,
 } from '@yamale/chain';
 
+import type { Head } from './abci.ts';
+import { CHAIN_ID } from './chain.ts';
 import { shortDigest } from './covenant.ts';
 
 /* --------------------------------------------------------------- amounts */
@@ -253,6 +256,24 @@ export function Meter({ value, of, tone = 'ok', label }: {
 
 /* ------------------------------------------------------------- structure */
 
+/**
+ * One tap deeper.
+ *
+ * The rule that turned six-column tables into cards was "two or three facts in
+ * the row and the rest one tap deeper". This is where the rest goes. It is a
+ * native `<details>` rather than a state hook because a disclosure that
+ * survives a re-render for free is a disclosure that cannot get out of step
+ * with the row it belongs to.
+ */
+export function Detail({ summary, children }: { summary: ReactNode; children: ReactNode }) {
+  return (
+    <details className="more">
+      <summary>{summary}</summary>
+      <div className="more__body">{children}</div>
+    </details>
+  );
+}
+
 export function Panel({ eyebrow, title, children, className = '' }: {
   eyebrow?: ReactNode;
   title?: ReactNode;
@@ -351,6 +372,38 @@ export function Loading({ what }: { what: string }) {
   return <p className="loading" role="status">{what}</p>;
 }
 
+/**
+ * The block this screen's claims were read at.
+ *
+ * Not decoration and not a footer ornament. Every claim this app makes about a
+ * tokenisation — that no sale has been reported, that an authorisation is live,
+ * that nothing has been issued — is a claim about a moment, and a claim shown
+ * without the block it was read at is one nobody can check or date. The old
+ * desktop layout kept this in a page footer. A phone has no page footer, so it
+ * goes at the end of every screen, where the claims it dates are.
+ */
+export function ChainLine({ head, chainId = false, localClock = false }: {
+  head: Head;
+  chainId?: boolean;
+  /** Print the configured chain id as well — for the account screen. */
+  localClock?: boolean;
+}) {
+  const locale = useLocale();
+  return (
+    <p className="chainline">
+      {head.known
+        ? `${head.chainId} · ${t('rwa.block')} ${head.height.toLocaleString(locale)}`
+        : t('rwa.chainUnknown')}
+      {head.known && head.catchingUp && ` · ${t('rwa.catchingUp')}`}
+      {/* Which clock a countdown on this screen was measured against. The
+          chain's when it is known, the browser's otherwise — and a reader whose
+          laptop is four minutes fast is owed the distinction. */}
+      {localClock && ` · ${t('rwa.localClock')}`}
+      {chainId && <><br />{CHAIN_ID}</>}
+    </p>
+  );
+}
+
 /* ========================================================================== */
 /*  Information design                                                        */
 /* ========================================================================== */
@@ -387,56 +440,72 @@ export function Kpi({ label, value, unit, hint, tone }: {
   );
 }
 
-export function KpiBand({ children }: { children: ReactNode }) {
-  return <div className="kpiband">{children}</div>;
+/**
+ * Two figures across, or three where the figures are short.
+ *
+ * Two is the default because on a 358px column a one-up band of six tiles is a
+ * screen and a half of scrolling before the content starts. Three is for the
+ * market's bid / ask / spread, where each value is a single price and the
+ * comparison between them is the reason they are on screen at all.
+ */
+export function KpiBand({ children, three = false }: { children: ReactNode; three?: boolean }) {
+  return <div className={`kpiband${three ? ' kpiband--three' : ''}`}>{children}</div>;
 }
 
 /**
- * Folders, because one scrolling column is not a document.
+ * The sections of one tokenisation, as a segmented control that scrolls.
  *
- * Everything a tokenisation holds — what it is, its papers, its register of
- * holders, what it has paid — was previously stacked in a single column, so
- * finding the cap table meant scrolling past the risk disclosure. These are
- * areas a reader chooses between, and the choice is in the URL hash so a folder
- * can be linked to.
+ * NOT the bottom tab bar. The tab bar is the app — tokenisations, my holdings,
+ * my account — and it means the same thing on every screen. A vehicle's
+ * sections are sub-navigation inside one object: they are peers of each other,
+ * a reader wants exactly one at a time, and there are five of them. Putting
+ * five more items in a bar that already has three would have made the bar
+ * eight wide on a 390px screen and made "market" look like a place in the app
+ * rather than a thing about this vehicle.
  *
- * Tabs rather than an accordion: the sections are peers and a reader wants one
- * at a time. Accordions invite everything open at once, which is the column
- * again with extra clicks.
+ * Scrolls rather than wraps, because a bar that reflows to two rows moves the
+ * content under it every time the reader changes section. The strip carries a
+ * fade at its inline end so that "there is more" is visible rather than
+ * guessed.
+ *
+ * `role="tablist"` and `aria-selected` are kept from the folders this replaces:
+ * the interaction is the same one, only the shape changed.
  */
-export function Folders({ tabs, active, onSelect }: {
+export function Segments({ tabs, active, onSelect }: {
   tabs: { id: string; label: string; count?: number | null; flag?: boolean }[];
   active: string;
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="folders" role="tablist">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={tab.id === active}
-          className={`folder${tab.id === active ? ' folder--on' : ''}`}
-          onClick={() => onSelect(tab.id)}
-        >
-          {tab.label}
-          {tab.count !== null && tab.count !== undefined
-            ? <span className="folder__count">{tab.count}</span>
-            : null}
-          {/*
-            A folder holding something with a deadline says so on its tab. A
-            reader who never opens it is exactly the reader who misses the
-            assembly, and the label alone gives them no reason to.
+    <div className="sections">
+      <div className="segs" role="tablist" aria-label={t('rwa.sections')}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={tab.id === active}
+            className={`seg${tab.id === active ? ' seg--on' : ''}`}
+            onClick={() => onSelect(tab.id)}
+          >
+            {tab.label}
+            {tab.count !== null && tab.count !== undefined
+              ? <span className="seg__count">{tab.count}</span>
+              : null}
+            {/*
+              A section holding something with a deadline says so on its chip. A
+              reader who never opens it is exactly the reader who misses the
+              assembly, and the label alone gives them no reason to.
 
-            The dot carries a text alternative rather than colour alone, which
-            is the same rule Chip follows.
-          */}
-          {tab.flag ? (
-            <span className="folder__flag" role="img" aria-label={t('rwa.cov.tabFlag')}>●</span>
-          ) : null}
-        </button>
-      ))}
+              The dot carries a text alternative rather than colour alone, which
+              is the same rule Chip follows.
+            */}
+            {tab.flag ? (
+              <span className="seg__flag" role="img" aria-label={t('rwa.cov.tabFlag')}>●</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

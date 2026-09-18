@@ -18,7 +18,8 @@
  * Each shows the exact message the chain will receive, field by field, with the
  * consequences the signed bytes do not mention marked as such.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatAmount, resolveDenom, t } from '@yamale/chain';
 
 import { claim as sendClaim, disputeSale, redeem as sendRedeem, type Signed } from './chain.ts';
@@ -95,6 +96,31 @@ export function Outcome({ result, onClose }: { result: Signed; onClose: () => vo
   );
 }
 
+/**
+ * A signing sheet that fills the phone.
+ *
+ * On a phone a dialog is a SCREEN. It takes the whole frame, it has its own bar
+ * with the action's name and a way out, and the content scrolls under that bar.
+ * A floating box with a scrim was the desktop shape and it does not survive a
+ * 390px viewport: the box ends up almost as wide as the page, with a strip of
+ * dimmed background either side that does nothing but make the box narrower.
+ *
+ * Portalled into `#sheet-root`, which App.tsx puts INSIDE the phone frame. Two
+ * reasons, and the second is the real one:
+ *
+ *   - on a desk the frame is drawn, and a confirmation that covered the whole
+ *     browser window would read as a different application;
+ *   - `.y-phone` is the positioned, overflow-hidden ancestor, so a sheet at
+ *     `inset: 0` is clipped to the device's own rounded corners without this
+ *     component knowing anything about them.
+ *
+ * What is NOT changed is what the sheet says. The escrow notes, the "this is a
+ * forecast" line and the field-by-field message table are the product — they
+ * are the reason somebody signs — and the buttons stay at the END of the
+ * scrolling body rather than pinned to the bottom edge. A reader who has not
+ * reached the button has not reached the consequences either, and that is the
+ * correct order.
+ */
 export function Dialog({ title, lede, tone, children, onClose }: {
   title: string;
   lede: string;
@@ -102,19 +128,33 @@ export function Dialog({ title, lede, tone, children, onClose }: {
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  return (
-    <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-      <div className={`sheet__box sheet__box--${tone}`}>
-        <header className="sheet__head">
-          <h2 className="sheet__title">{title}</h2>
-          <button type="button" className="sheet__x" onClick={onClose}
-                  aria-label={t('action.cancel')}>×</button>
-        </header>
+  // Escape closes it, because on a desk this is still a dialog and a dialog
+  // that can only be dismissed by finding a small glyph is one people leave
+  // open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const sheet = (
+    <div className={`sheet sheet--${tone}`} role="dialog" aria-modal="true" aria-label={title}>
+      <header className="sheet__head">
+        <h2 className="sheet__title">{title}</h2>
+        <button type="button" className="sheet__x" onClick={onClose}
+                aria-label={t('action.cancel')}>×</button>
+      </header>
+      <div className="sheet__body">
         <p className="sheet__lede">{lede}</p>
         {children}
       </div>
     </div>
   );
+
+  // The fallback matters in tests and in any host that renders this component
+  // outside the app shell: a portal to a missing node throws.
+  const root = typeof document === 'undefined' ? null : document.getElementById('sheet-root');
+  return root ? createPortal(sheet, root) : sheet;
 }
 
 /* ---------------------------------------------------------------- claiming */
