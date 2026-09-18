@@ -27,7 +27,7 @@ import { GradeChip } from './Vehicles.tsx';
 import { addressOf, canSign, type Account } from './address.ts';
 import {
   chainNow, useCollections, useCovenants, useHead, useHolders, useHolding, useLand, useVehicle,
-  type Load,
+  type Holding, type Load,
 } from './data.ts';
 import { formatDate, formatDuration } from './duration.ts';
 import {
@@ -47,9 +47,10 @@ import { costOf, pendingAccrual, returnOn } from './position.ts';
 import {
   Address,
   Amount,
+  ChainLine,
+  Detail,
   Digest,
   Donut,
-  Folders,
   Kpi,
   KpiBand,
   Chip,
@@ -62,6 +63,7 @@ import {
   Panel,
   Percent,
   Raw,
+  Segments,
   Symbol,
   Unreachable,
 } from './ui.tsx';
@@ -78,10 +80,12 @@ import {
   shareholding,
   statusKey,
   statusTone,
+  type Asset,
   type Collection,
   type LandGate,
   type SaleState,
   type SaleReport,
+  type Vault,
 } from './vehicle.ts';
 
 /* ------------------------------------------------- the registry's permission */
@@ -410,43 +414,60 @@ function CapTable({ cap, supply, sponsor, denom }: {
     slices.push({ label: t('rwa.holdersOthers'), fraction: restFraction, tone: 'var(--text-faint)' });
   }
 
+  /*
+    The ring, then the register.
+
+    The three-column table became one row per holder: a swatch tying the row to
+    its arc, the account, and — set as the figure rather than as the third
+    column — the share. The token count stays underneath it in small type,
+    because a holder checking concentration is reading percentages and a holder
+    checking their own line is reading tokens, and both of them are here.
+  */
   return (
     <Panel eyebrow={t('rwa.tabHolders')} title={t('rwa.holdersTitle')}>
       <p className="panel__lede">{t('rwa.holdersLede')}</p>
       <div className="captable">
         <Donut slices={slices} />
-        <table className="holders">
-          <thead>
-            <tr>
-              <th>{t('rwa.colHolder')}</th>
-              <th>{t('rwa.colTokens')}</th>
-              <th>{t('rwa.colShare')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r, i) => (
-              <tr key={r.address} className={r.address === sponsor ? 'holders__row--self' : ''}>
-                <td>
-                  <span className="holders__swatch" style={{ background: tone(i) }} />
-                  <Address value={r.address} />
-                  {r.address === sponsor ? <span className="muted"> ({t('rwa.holdersSponsor')})</span> : null}
-                </td>
-                <td><Amount amount={r.amount} denom={denom} /></td>
-                <td><Percent value={fraction(r.amount) * 100} places={2} /></td>
-              </tr>
-            ))}
-            {rest.length > 0 && (
-              <tr>
-                <td>
-                  <span className="holders__swatch" style={{ background: 'var(--text-faint)' }} />
-                  {t('rwa.holdersOthers')} <span className="muted">({rest.length})</span>
-                </td>
-                <td><Amount amount={rest.reduce((n, r) => n + BigInt(r.amount), 0n).toString()} denom={denom} /></td>
-                <td><Percent value={restFraction * 100} places={2} /></td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <div className="holders">
+          {shown.map((r, i) => (
+            <div key={r.address}
+                 className={`holder${r.address === sponsor ? ' holder--self' : ''}`}>
+              <span className="holder__swatch" style={{ background: tone(i) }} aria-hidden="true" />
+              <span className="holder__who">
+                <Address value={r.address} />
+                {r.address === sponsor
+                  ? <span className="muted"> ({t('rwa.holdersSponsor')})</span>
+                  : null}
+              </span>
+              <span className="holder__end">
+                <span className="holder__share">
+                  <Percent value={fraction(r.amount) * 100} places={2} />
+                </span>
+                <span className="holder__tokens">
+                  <Amount amount={r.amount} denom={denom} />
+                </span>
+              </span>
+            </div>
+          ))}
+          {rest.length > 0 && (
+            <div className="holder">
+              <span className="holder__swatch" style={{ background: 'var(--text-faint)' }}
+                    aria-hidden="true" />
+              <span className="holder__who">
+                {t('rwa.holdersOthers')} <span className="muted">({rest.length})</span>
+              </span>
+              <span className="holder__end">
+                <span className="holder__share">
+                  <Percent value={restFraction * 100} places={2} />
+                </span>
+                <span className="holder__tokens">
+                  <Amount amount={rest.reduce((n, r) => n + BigInt(r.amount), 0n).toString()}
+                          denom={denom} />
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
       </div>
       {cap.outcome.value.more && <Note tone="mute">{t('rwa.kpiHoldersMore')}</Note>}
     </Panel>
@@ -801,6 +822,152 @@ function CovenantsPanel({ load, now }: { load: Load<Covenant[]>; now: Date }) {
   );
 }
 
+/* ------------------------------------------------- the reader's own position */
+
+/**
+ * What the reader owns of this vehicle, and what they can do about it.
+ *
+ * Above the segmented control rather than inside it, and the reason is not
+ * layout. The five sections are facts about the VEHICLE — what it is, who holds
+ * it, what it has published, what it pays, where it trades. This is a fact about
+ * the READER, it is the reason they opened the page, and a section for it would
+ * have hidden the one thing they came for behind a tap on every visit.
+ *
+ * It is also why the claim and redeem buttons are here and not at the foot of a
+ * scrolling column. "A screen that asks the reader to scroll past a risk
+ * disclosure to find the sell button is the problem being fixed" — and the
+ * inverse is just as true: a reader who wants to withdraw income should not
+ * have to read the cap table first.
+ *
+ * What the card does NOT do is compress a refusal. The cost basis, the return
+ * and the open period each carry their own reasons for being absent, and those
+ * are the content rather than the packaging — so they sit one tap deeper, in
+ * full, instead of being reduced to a dash.
+ */
+function PositionCard({
+  account, asset, held, vault, share, cost, ret, pending, now, acts, onAct,
+}: {
+  account: Account;
+  asset: Asset;
+  held: Holding | null;
+  vault: Vault | null;
+  share: { ofSupply: number | null; ofAsset: number | null };
+  cost: ReturnType<typeof costOf>;
+  ret: ReturnType<typeof returnOn>;
+  pending: ReturnType<typeof pendingAccrual> | null;
+  now: Date;
+  acts: ReturnType<typeof actionsFor> | null;
+  onAct: (which: 'claim' | 'redeem') => void;
+}) {
+  if (account.mode === 'none') {
+    return (
+      <section className="hero">
+        <p className="y-label">{t('rwa.mineEyebrow')}</p>
+        <p className="hero__sub">{t('rwa.attachToSee')}</p>
+        <Link to="/account" className="btn btn--ghost btn--block">{t('rwa.attach')}</Link>
+      </section>
+    );
+  }
+
+  if (!asset.fractionDenom) {
+    return (
+      <section className="hero">
+        <p className="y-label">{t('rwa.mineEyebrow')}</p>
+        <p className="hero__sub">{t('rwa.notIssued')}</p>
+      </section>
+    );
+  }
+
+  const incomeDenom = held?.owed?.denom ?? vault?.denom ?? '';
+
+  return (
+    <section className="hero">
+      <div className="hero__head">
+        <span className="y-label">{t('rwa.ofAsset')}</span>
+        <Chip tone={canSign(account) ? 'ok' : 'mute'}>
+          {canSign(account) ? t('rwa.connected') : t('rwa.watching')}
+        </Chip>
+      </div>
+      <span className="hero__figure"><Percent value={share.ofAsset} places={3} /></span>
+      <p className="hero__sub">
+        <Amount amount={held?.balance ?? null} denom={asset.fractionDenom} />
+        {' · '}
+        <Percent value={share.ofSupply} places={3} /> {t('rwa.ofShares')}
+      </p>
+
+      <div className="card__foot y-row">
+        <div className="y-row__main">
+          <div className="y-row__sub">{t('rwa.claimableNow')}</div>
+          <div className="y-row__title">
+            {held?.owedUnknown
+              ? <span className="muted">{t('rwa.owedUnknown')}</span>
+              : <Amount amount={held?.owed?.amount ?? null} denom={incomeDenom} />}
+          </div>
+        </div>
+      </div>
+
+      {acts && (
+        <>
+          <div className="hero__acts">
+            <button type="button" className="btn" disabled={!acts.claim.enabled}
+                    onClick={() => onAct('claim')}>
+              {t('rwa.actClaim')}
+            </button>
+            <button type="button" className="btn btn--ghost btn--bad" disabled={!acts.redeem.enabled}
+                    onClick={() => onAct('redeem')}>
+              {t('rwa.actRedeem')}
+            </button>
+          </div>
+          {/* Deduplicated. When neither button is available for the same
+              reason — a watching account cannot sign either of them — the
+              sentence is printed once. Twice reads as two separate problems
+              and sends somebody looking for the second one. */}
+          {[...new Set([
+            !acts.claim.enabled ? acts.claim.whyKey : undefined,
+            !acts.redeem.enabled ? acts.redeem.whyKey : undefined,
+          ].filter((k): k is string => Boolean(k)))].map((key) => (
+            <p key={key} className="hero__why">{t(key)}</p>
+          ))}
+        </>
+      )}
+
+      <Detail summary={t('rwa.detail')}>
+        <Fields>
+          <Field label={t('rwa.vaultPaid')}>
+            {vault && vault.funded.length > 0
+              ? vault.funded.map((c) => (
+                <span key={c.denom} className="field__coin">
+                  <Amount amount={c.amount} denom={c.denom} />
+                </span>
+              ))
+              : <span className="muted">{t('rwa.nothingPaidIn')}</span>}
+          </Field>
+        </Fields>
+
+        {/* What it cost, and what that cost has returned. Beneath the balance
+            rather than above it: the balance is the fact, the return is the
+            judgement about it. */}
+        <CostBlock
+          cost={cost}
+          ret={ret}
+          unknown={held?.positionUnknown ?? false}
+          incomeDenom={incomeDenom}
+          shareDenom={asset.fractionDenom}
+        />
+
+        {/* Only where there is a vault to accrue against. Without one there is
+            no period, and a panel about an open period on a vehicle that has
+            never distributed would be inventing one. */}
+        {vault && pending && (
+          <AccrualBlock pending={pending} now={now} incomeDenom={vault.denom} />
+        )}
+
+        <p className="panel__lede">{t('rwa.entitlementWhy')}</p>
+      </Detail>
+    </section>
+  );
+}
+
 /* ------------------------------------------------------------------- page */
 
 export function Vehicle({ assetId, account }: { assetId: string; account: Account }) {
@@ -808,11 +975,11 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
   const [record, reload] = useVehicle(assetId);
   const [collections] = useCollections();
   const [dialog, setDialog] = useState<'claim' | 'redeem' | 'dispute' | null>(null);
-  // Which folder is open. In state rather than the URL for now: the route is
+  // Which section is open. In state rather than the URL for now: the route is
   // /v/:assetId and adding a second segment would change every link to a
-  // tokenisation that exists. A folder worth linking to gets its own segment
+  // tokenisation that exists. A section worth linking to gets its own segment
   // when the creation surface lands and the routes are revisited anyway.
-  const [folder, setFolder] = useState('overview');
+  const [section, setSection] = useState('overview');
 
   const asset = record.loading || !record.outcome.ok ? null : record.outcome.value.asset;
   const parcelId = asset?.parcelId ?? '0';
@@ -828,21 +995,28 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
   // laptop is four minutes fast must not be told an assembly has closed when
   // the chain still accepts it.
   const head = useHead();
-  const now = chainNow(head).at;
+  const clock = chainNow(head);
+  const now = clock.at;
 
-  if (record.loading) return <div className="page"><Loading what={t('rwa.reading')} /></div>;
+  if (record.loading) {
+    return <main className="y-screen"><Loading what={t('rwa.reading')} /></main>;
+  }
 
   if (!record.outcome.ok) {
     if (record.outcome.reason === 'unreachable') {
-      return <div className="page"><Unreachable detail={record.outcome.detail} onRetry={reload} /></div>;
+      return (
+        <main className="y-screen">
+          <Unreachable detail={record.outcome.detail} onRetry={reload} />
+        </main>
+      );
     }
     return (
-      <div className="page">
+      <main className="y-screen">
         <Empty title={t('rwa.noVehicleTitle')}>
           <p>{t('rwa.noVehicleBody', { id: assetId })}</p>
           <p><Link to="/" className="linkish">{t('rwa.backToList')}</Link></p>
         </Empty>
-      </div>
+      </main>
     );
   }
 
@@ -913,89 +1087,21 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
     )
     : null;
 
+  const deadlineOpen = !covenants.loading && covenants.outcome.ok
+    && openDeadlines(covenants.outcome.value, Math.floor(now.getTime() / 1000)).length > 0;
+
   return (
-    <div className="page page--vehicle">
-      <header className="page__head">
-        <p className="y-eyebrow">
-          <Link to="/" className="crumb">{t('rwa.navVehicles')}</Link>
-          {' / '}
-          {a.collectionId || t('rwa.noCollection')}
-        </p>
-        {/* The name comes out of the uri, which is the only field on the asset
-            that carries one. Falling back to "Tokenisation 4" rather than
-            inventing something: an asset whose uri names nothing has no name,
-            and a page that made one up would label it with a fact the chain
-            does not hold. See descriptorOf. */}
-        <div className="page__titleRow">
-          <h1 className="page__title">
-            {desc.name ?? t('rwa.vehicleN', { id: a.id })}
-          </h1>
-          <Chip tone={statusTone(a.status)}>{t(statusKey(a.status))}</Chip>
-        </div>
-        {/* The raw uri was the page's opening line: machine text, presented as
-            the headline. It is a reference, so it goes where references go. */}
-        <p className="page__lede">
-          {desc.name
-            ? t('rwa.vehicleN', { id: a.id })
-            : (a.uri || t('rwa.noDoc'))}
-        </p>
-      </header>
-
-      {/* The figures a reader came for, before the prose explaining them.
-          Every one is read from the chain.
-
-          What is deliberately absent is a PRICE, and therefore a yield.
-          Nothing on this chain knows what a token was sold for until a sale is
-          reported or a market exists. A headline yield computed from an assumed
-          price would be the most quoted number on this page and the only
-          invented one on it. */}
-      <KpiBand>
-        <Kpi
-          label={t('rwa.kpiIssued')}
-          value={a.fractionDenom
-            ? <Amount amount={held?.supply ?? null} denom={a.fractionDenom} />
-            : t('rwa.kpiNotIssued')}
-          hint={t('rwa.kpiIssuedHint')}
-        />
-        <Kpi
-          label={t('rwa.kpiHolders')}
-          value={cap.loading ? '…' : cap.outcome.ok ? String(cap.outcome.value.rows.length) : '—'}
-          hint={!cap.loading && cap.outcome.ok && cap.outcome.value.more
-            ? t('rwa.kpiHoldersMore')
-            : t('rwa.kpiHoldersHint')}
-        />
-        <Kpi
-          label={t('rwa.kpiLargest')}
-          value={<Percent value={largest} places={1} />}
-          tone={largest !== null && largest >= 50 ? 'warn' : undefined}
-          hint={t('rwa.kpiLargestHint')}
-        />
-        <Kpi
-          label={t('rwa.kpiDistributed')}
-          value={vault
-            ? <Amount amount={fundedTotal} denom={vault.denom} />
-            : '—'}
-          hint={t('rwa.kpiDistributedHint')}
-        />
-        <Kpi
-          label={t('rwa.kpiHolderShare')}
-          value={<Percent value={bpsToPercent(a.holderShareBps)} places={2} />}
-          hint={t('rwa.kpiHolderShareHint')}
-        />
-        <Kpi
-          label={t('rwa.kpiStatus')}
-          value={t(statusKey(a.status))}
-          tone={statusTone(a.status)}
-          hint={t('rwa.kpiStatusHint')}
-        />
-      </KpiBand>
-
-      {/* Folders, because one scrolling column is not a document. Finding the
-          register of holders previously meant scrolling past a risk
-          disclosure. */}
-      <Folders
-        active={folder}
-        onSelect={setFolder}
+    <>
+      {/*
+        The sections, in the order a reader decides in: what it is, who holds
+        it, what it has published, what it pays, and only then where it trades.
+        The market is last deliberately — somebody arrives to understand the
+        vehicle and leaves to trade it, and a market segment first would put a
+        price in front of the terms that decide whether it is one.
+      */}
+      <Segments
+        active={section}
+        onSelect={setSection}
         tabs={[
           { id: 'overview', label: t('rwa.tabOverview') },
           {
@@ -1007,42 +1113,247 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
             id: 'documents',
             label: t('rwa.tabDocuments'),
             // The count is the number of FILINGS, and a live deadline shows as
-            // a mark beside it: a reader who never opens this folder should
+            // a mark beside it: a reader who never opens this section should
             // still be able to tell that something in it has a clock on it.
             count: covenants.loading || !covenants.outcome.ok
               ? null
               : covenants.outcome.value.length,
-            flag: !covenants.loading && covenants.outcome.ok
-              && openDeadlines(covenants.outcome.value, Math.floor(now.getTime() / 1000)).length > 0,
+            flag: deadlineOpen,
           },
           { id: 'distributions', label: t('rwa.tabDistributions') },
-          // Last, deliberately: somebody arrives to understand the
-          // vehicle and leaves to trade it. A market tab first would put
-          // a price in front of the terms that decide whether it is one.
           { id: 'market', label: t('mkt.tab') },
         ]}
       />
 
-      <div className="split">
-        <div className="split__main">
-          {folder === 'market' && (
-            <Market assetId={a.id} denom={a.fractionDenom}
-                    account={account} balance={held?.balance ?? '0'} />
-          )}
+      <main className="y-screen">
+        <div className="y-card__head">
+          <h1 className="y-screen__title" style={{ margin: 0 }}>
+            {desc.name ?? t('rwa.vehicleN', { id: a.id })}
+          </h1>
+          <Chip tone={statusTone(a.status)}>{t(statusKey(a.status))}</Chip>
+        </div>
+        {/* The raw uri was the page's opening line: machine text, presented as
+            the headline. It is a reference, so it goes where references go. */}
+        <p className="card__ref">
+          {desc.name ? t('rwa.vehicleN', { id: a.id }) : (a.uri || t('rwa.noDoc'))}
+        </p>
 
-          {folder === 'holders' && (
-            <CapTable cap={cap} supply={held?.supply ?? null} sponsor={a.owner}
-                      denom={a.fractionDenom} />
-          )}
+        <div style={{ height: 'var(--sp-4)' }} />
 
-          {/* The register of undertakings comes FIRST in this folder, above the
-              mint-time manifest. The manifest is one string fixed when title
-              was created; the covenants are what the operator has published
-              since, and they are what a holder opened this folder to find. */}
-          {folder === 'documents' && <CovenantsPanel load={covenants} now={now} />}
+        <PositionCard
+          account={account}
+          asset={a}
+          held={held}
+          vault={vault}
+          share={share}
+          cost={cost}
+          ret={ret}
+          pending={pending}
+          now={now}
+          acts={acts}
+          onAct={setDialog}
+        />
 
-          {folder === 'documents' && (
-            <Panel eyebrow={t('rwa.tabDocuments')} title={t('rwa.docsTitle')}>
+        {section === 'overview' && (
+          <>
+            {/* The figures a reader came for, before the prose explaining them.
+                Every one is read from the chain.
+
+                What is deliberately absent is a PRICE, and therefore a yield.
+                Nothing on this chain knows what a token was sold for until a
+                sale is reported or a market exists. A headline yield computed
+                from an assumed price would be the most quoted number on this
+                page and the only invented one on it. */}
+            <KpiBand>
+              <Kpi
+                label={t('rwa.kpiIssued')}
+                value={a.fractionDenom
+                  ? <Amount amount={held?.supply ?? null} denom={a.fractionDenom} />
+                  : t('rwa.kpiNotIssued')}
+                hint={t('rwa.kpiIssuedHint')}
+              />
+              <Kpi
+                label={t('rwa.kpiHolders')}
+                value={cap.loading ? '…' : cap.outcome.ok ? String(cap.outcome.value.rows.length) : '—'}
+                hint={!cap.loading && cap.outcome.ok && cap.outcome.value.more
+                  ? t('rwa.kpiHoldersMore')
+                  : t('rwa.kpiHoldersHint')}
+              />
+              <Kpi
+                label={t('rwa.kpiLargest')}
+                value={<Percent value={largest} places={1} />}
+                tone={largest !== null && largest >= 50 ? 'warn' : undefined}
+                hint={t('rwa.kpiLargestHint')}
+              />
+              <Kpi
+                label={t('rwa.kpiDistributed')}
+                value={vault ? <Amount amount={fundedTotal} denom={vault.denom} /> : '—'}
+                hint={t('rwa.kpiDistributedHint')}
+              />
+              <Kpi
+                label={t('rwa.kpiHolderShare')}
+                value={<Percent value={bpsToPercent(a.holderShareBps)} places={2} />}
+                hint={t('rwa.kpiHolderShareHint')}
+              />
+              <Kpi
+                label={t('rwa.kpiStatus')}
+                value={t(statusKey(a.status))}
+                tone={statusTone(a.status)}
+                hint={t('rwa.kpiStatusHint')}
+              />
+            </KpiBand>
+
+            <Panel eyebrow={t('rwa.whatEyebrow')} title={t('rwa.whatTitle')}>
+              <Fields>
+                <Field label={t('rwa.collection')}>
+                  <span className="y-mono">{a.collectionId || '—'}</span>
+                </Field>
+                <Field label={t('rwa.sponsor')}><Address value={a.owner} /></Field>
+                <Field label={t('rwa.shareDenom')}>
+                  {a.fractionDenom
+                    ? <span className="y-mono">{a.fractionDenom}</span>
+                    : <span className="muted">{t('rwa.notIssued')}</span>}
+                </Field>
+                <Field label={t('rwa.tokensCarry')}>
+                  {a.fractionDenom ? (
+                    <>
+                      <Percent value={bpsToPercent(a.holderShareBps)} />
+                      <span className="field__aside">
+                        {t('rwa.sponsorKeeps', { percent: bpsToPercent(10_000 - a.holderShareBps) })}
+                      </span>
+                    </>
+                  ) : <span className="muted">{t('rwa.notIssued')}</span>}
+                </Field>
+                <Field label={t('rwa.sharesInIssue')}>
+                  {held?.supply
+                    ? <Amount amount={held.supply} denom={a.fractionDenom} />
+                    : <span className="muted">{t('rwa.notIssued')}</span>}
+                </Field>
+                <Field label={t('rwa.incomeDenom')}>
+                  {/*
+                    The currency people call it, not the base denom the chain
+                    stores. `ucdf` is a unit nobody outside this repository
+                    reads, and it is the currency a holder is being promised
+                    income in.
+                  */}
+                  {vault ? <Symbol denom={vault.denom} /> : <span className="muted">—</span>}
+                </Field>
+              </Fields>
+
+              <Raw>
+                <pre className="y-mono">{JSON.stringify({ asset: a, vault, sale }, null, 2)}</pre>
+              </Raw>
+            </Panel>
+
+            {/* Only shown when this tokenisation IS over registered land. A
+                tokenisation over a company renders nothing here; see
+                LandPanel. */}
+            {land.loading
+              ? <Panel title={t('rwa.landTitle')}><Loading what={t('rwa.reading')} /></Panel>
+              : land.outcome.ok
+                ? <LandPanel gate={land.outcome.value.gate} parcel={land.outcome.value.parcel}
+                             parcelUnreadable={land.outcome.value.parcelUnreadable} />
+                : <Panel title={t('rwa.landTitle')}>
+                    <Note tone="warn">{t('rwa.auth.unreachable')}</Note>
+                  </Panel>}
+
+            {/* --- what could go wrong. The part that matters most, so it stays
+                    in the overview rather than behind a section nobody opens. */}
+            <Panel eyebrow={t('rwa.riskEyebrow')} title={t('rwa.riskTitle')}>
+              <p className="panel__lede">{t('rwa.riskLede')}</p>
+
+              {/* A holder needs to know that nothing outside this chain caps
+                  issuance, and they need to know it here, among the other
+                  things that can go wrong. */}
+              {!land.loading && land.outcome.ok && land.outcome.value.gate.kind === 'not-land' && (
+                <Note tone="mute" title={t('rwa.notLandTitle')}>{t('rwa.notLandBody')}</Note>
+              )}
+
+              {dilutionProtected(a) ? (
+                <Note tone="ok" title={t('rwa.noDilutionTitle')}>{t('rwa.noDilutionBody')}</Note>
+              ) : (
+                <Note tone="mute">{t('rwa.notIssuedYet')}</Note>
+              )}
+
+              {protection ? (
+                <>
+                  <div className="grade">
+                    <span className="y-label">{t('rwa.protection')}</span>
+                    <GradeChip level={protection.level} />
+                  </div>
+                  <ul className="findings">
+                    {protection.findings.map((f) => (
+                      <li key={f.key} className={`finding finding--${f.tone}`}>
+                        <span className="finding__dot" aria-hidden="true" />
+                        <span>
+                          {t(f.key, {
+                            ...f.values,
+                            ...(f.values?.seconds !== undefined
+                              ? { seconds: formatDuration(Number(f.values.seconds), locale) }
+                              : {}),
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <Note tone="warn">{t('rwa.noCollectionRead')}</Note>
+              )}
+            </Panel>
+
+            {/* The terms every vehicle in this collection inherits. On the
+                desktop this was a sidebar that a reader saw whether they wanted
+                it or not; a phone has no sidebar, and these are the numbers the
+                risk panel above is a reading of — so they sit under it. */}
+            <Panel eyebrow={t('rwa.termsEyebrow')} title={t('rwa.termsTitle')}>
+              {collection ? (
+                <Fields>
+                  <Field label={t('rwa.verification')}>
+                    {t(`rwa.verify.${collection.verification}`)}
+                  </Field>
+                  <Field label={t('rwa.threshold')}>
+                    {collection.verification === 'VERIFY_ATTESTORS'
+                      ? <span className="y-num">{collection.attestationThreshold}</span>
+                      : <span className="muted">{t('rwa.attestNotUsed')}</span>}
+                  </Field>
+                  <Field label={t('rwa.challengeWindow')}>
+                    <span className="y-num">
+                      {collection.challengeWindowSeconds > 0
+                        ? formatDuration(collection.challengeWindowSeconds, locale)
+                        : t('rwa.windowNone')}
+                    </span>
+                  </Field>
+                  <Field label={t('rwa.bond')}>
+                    <Percent value={bpsToPercent(collection.disputeBondBps)} />
+                    <span className="field__aside">{t('rwa.bondNote')}</span>
+                  </Field>
+                  <Field label={t('rwa.collectionAuthority')}>
+                    <Address value={collection.authority} />
+                  </Field>
+                </Fields>
+              ) : (
+                <p className="muted">{t('rwa.noCollectionRead')}</p>
+              )}
+            </Panel>
+          </>
+        )}
+
+        {section === 'holders' && (
+          <CapTable cap={cap} supply={held?.supply ?? null} sponsor={a.owner}
+                    denom={a.fractionDenom} />
+        )}
+
+        {section === 'documents' && (
+          <>
+            {/* The register of undertakings comes FIRST in this section, above
+                the mint-time manifest. The manifest is one string fixed when
+                title was created; the covenants are what the operator has
+                published since, and they are what a holder opened this section
+                to find. */}
+            <CovenantsPanel load={covenants} now={now} />
+
+            <Panel title={t('rwa.docsTitle')}>
               {desc.docsDigest ? (
                 <>
                   <p className="panel__lede">{t('rwa.docsLede')}</p>
@@ -1051,134 +1362,33 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                       <span className="y-mono">{desc.docsDigest}</span>
                     </Field>
                   </Fields>
-                  <Note tone="mute" title={t('rwa.docsOneFileTitle')}>{t('rwa.docsOneFileBody')}</Note>
+                  <Note tone="mute" title={t('rwa.docsOneFileTitle')}>
+                    {t('rwa.docsOneFileBody')}
+                  </Note>
                 </>
               ) : (
                 <p className="panel__lede">{t('rwa.docsNone')}</p>
               )}
             </Panel>
-          )}
+          </>
+        )}
 
-          {folder === 'overview' && (
-          <Panel eyebrow={t('rwa.whatEyebrow')} title={t('rwa.whatTitle')}>
-            <Fields>
-              <Field label={t('rwa.collection')}>
-                <span className="y-mono">{a.collectionId || '—'}</span>
-              </Field>
-              <Field label={t('rwa.sponsor')}><Address value={a.owner} /></Field>
-              <Field label={t('rwa.shareDenom')}>
-                {a.fractionDenom
-                  ? <span className="y-mono">{a.fractionDenom}</span>
-                  : <span className="muted">{t('rwa.notIssued')}</span>}
-              </Field>
-              <Field label={t('rwa.tokensCarry')}>
-                {a.fractionDenom ? (
-                  <>
-                    <Percent value={bpsToPercent(a.holderShareBps)} />
-                    <span className="field__aside">
-                      {t('rwa.sponsorKeeps', { percent: bpsToPercent(10_000 - a.holderShareBps) })}
-                    </span>
-                  </>
-                ) : <span className="muted">{t('rwa.notIssued')}</span>}
-              </Field>
-              <Field label={t('rwa.sharesInIssue')}>
-                {held?.supply
-                  ? <Amount amount={held.supply} denom={a.fractionDenom} />
-                  : <span className="muted">{t('rwa.notIssued')}</span>}
-              </Field>
-              <Field label={t('rwa.incomeDenom')}>
-                {/*
-                  The currency people call it, not the base denom the chain
-                  stores. `ucdf` is a unit nobody outside this repository reads,
-                  and it is the currency a holder is being promised income in.
-                */}
-                {vault ? <Symbol denom={vault.denom} /> : <span className="muted">—</span>}
-              </Field>
-            </Fields>
-
-            <Raw>
-              <pre className="y-mono">{JSON.stringify({ asset: a, vault, sale }, null, 2)}</pre>
-            </Raw>
-          </Panel>
-
-          )}
-
-          {/* Only shown when this tokenisation IS over registered land, and only
-              in the overview. A tokenisation over a company renders nothing
-              here; see LandPanel. */}
-          {folder === 'overview' && (land.loading
-            ? <Panel title={t('rwa.landTitle')}><Loading what={t('rwa.reading')} /></Panel>
-            : land.outcome.ok
-              ? <LandPanel gate={land.outcome.value.gate} parcel={land.outcome.value.parcel}
-                           parcelUnreadable={land.outcome.value.parcelUnreadable} />
-              : <Panel title={t('rwa.landTitle')}><Note tone="warn">{t('rwa.auth.unreachable')}</Note></Panel>)}
-
-          {/* --- what could go wrong. The part that matters most, so it stays
-                  in the overview rather than behind a folder nobody opens. --- */}
-          {folder === 'overview' && (
-          <Panel eyebrow={t('rwa.riskEyebrow')} title={t('rwa.riskTitle')} className="panel--risk">
-            <p className="panel__lede">{t('rwa.riskLede')}</p>
-
-            {/* Moved out of the old "Not registered land" panel. The fact is
-                worth keeping and the panel was not: a holder needs to know
-                nothing outside this chain caps issuance, and they need to know
-                it here, among the other things that can go wrong. */}
-            {!land.loading && land.outcome.ok && land.outcome.value.gate.kind === 'not-land' && (
-              <Note tone="mute" title={t('rwa.notLandTitle')}>{t('rwa.notLandBody')}</Note>
+        {section === 'distributions' && (
+          <>
+            {/* A reported sale is what every payout is computed from, so it
+                lives with the distributions rather than in the overview. */}
+            {collection && state && (
+              <SalePanel
+                sale={sale}
+                state={state}
+                collection={collection}
+                disputeWhy={acts?.dispute.whyKey}
+                onDispute={acts?.dispute.enabled && canSign(account)
+                  ? () => setDialog('dispute')
+                  : null}
+              />
             )}
 
-            {dilutionProtected(a) ? (
-              <Note tone="ok" title={t('rwa.noDilutionTitle')}>{t('rwa.noDilutionBody')}</Note>
-            ) : (
-              <Note tone="mute">{t('rwa.notIssuedYet')}</Note>
-            )}
-
-            {protection ? (
-              <>
-                <div className="grade">
-                  <span className="y-label">{t('rwa.protection')}</span>
-                  <GradeChip level={protection.level} />
-                </div>
-                <ul className="findings">
-                  {protection.findings.map((f) => (
-                    <li key={f.key} className={`finding finding--${f.tone}`}>
-                      <span className="finding__dot" aria-hidden="true" />
-                      <span>
-                        {t(f.key, {
-                          ...f.values,
-                          ...(f.values?.seconds !== undefined
-                            ? { seconds: formatDuration(Number(f.values.seconds), locale) }
-                            : {}),
-                        })}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <Note tone="warn">{t('rwa.noCollectionRead')}</Note>
-            )}
-          </Panel>
-          )}
-
-          {/* A reported sale is what every payout is computed from, so it lives
-              with the distributions rather than in the overview. */}
-          {folder === 'distributions' && collection && state && (
-            <SalePanel
-              sale={sale}
-              state={state}
-              collection={collection}
-              disputeWhy={acts?.dispute.whyKey}
-              onDispute={acts?.dispute.enabled && canSign(account)
-                ? () => setDialog('dispute')
-                : null}
-            />
-          )}
-
-          {/* The vault had no panel anywhere: what has been paid in, what is
-              still held against it, and the per-token index every entitlement
-              on this chain is computed from. */}
-          {folder === 'distributions' && (
             <Panel eyebrow={t('rwa.tabDistributions')} title={t('rwa.vaultTitle')}>
               {vault ? (
                 <Fields>
@@ -1191,13 +1401,13 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                   {/* What the module still holds against THIS tokenisation:
                       funded and not yet claimed. One module account serves
                       every vehicle, so this ledger rather than a bank balance
-                      is the only thing that says what belongs to whom -- and
-                      the gap between it and what was funded is what holders
-                      have already taken out. */}
+                      is the only thing that says what belongs to whom — and the
+                      gap between it and what was funded is what holders have
+                      already taken out. */}
                   <Field label={t('rwa.vaultHeld')}>
                     {vault.held.length > 0
                       ? vault.held.map((c) => (
-                        <span key={c.denom} className="mine__coin">
+                        <span key={c.denom} className="field__coin">
                           <Amount amount={c.amount} denom={c.denom} />
                         </span>
                       ))
@@ -1241,134 +1451,18 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
                 <p className="panel__lede">{t('rwa.vaultNone')}</p>
               )}
             </Panel>
-          )}
-        </div>
+          </>
+        )}
 
-        {/* --- what I own, and what I can do about it --- */}
-        <aside className="split__side">
-          <Panel eyebrow={t('rwa.mineEyebrow')} title={t('rwa.mineTitle')} className="panel--mine">
-            {account.mode === 'none' ? (
-              <p className="muted">{t('rwa.attachToSee')}</p>
-            ) : !a.fractionDenom ? (
-              <p className="muted">{t('rwa.notIssued')}</p>
-            ) : holding.loading ? (
-              <Loading what={t('rwa.reading')} />
-            ) : (
-              <>
-                <div className="mine__headline">
-                  <span className="y-label">{t('rwa.ofAsset')}</span>
-                  <span className="mine__figure"><Percent value={share.ofAsset} places={3} /></span>
-                  <span className="mine__sub">
-                    <Percent value={share.ofSupply} places={3} /> {t('rwa.ofShares')}
-                  </span>
-                </div>
+        {section === 'market' && (
+          <Market assetId={a.id} denom={a.fractionDenom}
+                  account={account} balance={held?.balance ?? '0'} />
+        )}
 
-                <Fields>
-                  <Field label={t('rwa.youHold')}>
-                    <Amount amount={held?.balance ?? null} denom={a.fractionDenom} />
-                  </Field>
-                  <Field label={t('rwa.claimableNow')}>
-                    {held?.owedUnknown
-                      ? <span className="muted">{t('rwa.owedUnknown')}</span>
-                      : <Amount amount={held?.owed?.amount ?? null}
-                                denom={held?.owed?.denom ?? vault?.denom ?? ''} />}
-                  </Field>
-                  <Field label={t('rwa.vaultPaid')}>
-                    {vault && vault.funded.length > 0
-                      ? vault.funded.map((c) => (
-                        <span key={c.denom} className="mine__coin">
-                          <Amount amount={c.amount} denom={c.denom} />
-                        </span>
-                      ))
-                      : <span className="muted">{t('rwa.nothingPaidIn')}</span>}
-                  </Field>
-                </Fields>
+        <ChainLine head={head} localClock={!clock.fromChain} />
+      </main>
 
-                {/* What it cost, and what that cost has returned. Beneath the
-                    balance rather than above it: the balance is the fact, the
-                    return is the judgement about it. */}
-                <CostBlock
-                  cost={cost}
-                  ret={ret}
-                  unknown={held?.positionUnknown ?? false}
-                  incomeDenom={held?.owed?.denom ?? vault?.denom ?? ''}
-                  shareDenom={a.fractionDenom}
-                />
-
-                {/* Only where there is a vault to accrue against. Without one
-                    there is no period, and a panel about an open period on a
-                    vehicle that has never distributed would be inventing one. */}
-                {vault && pending && (
-                  <AccrualBlock pending={pending} now={now} incomeDenom={vault.denom} />
-                )}
-
-                <p className="mine__note">{t('rwa.entitlementWhy')}</p>
-
-                {acts && (
-                  <div className="mine__acts">
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={!acts.claim.enabled}
-                      onClick={() => setDialog('claim')}
-                    >
-                      {t('rwa.actClaim')}
-                    </button>
-                    {!acts.claim.enabled && acts.claim.whyKey && (
-                      <p className="mine__why">{t(acts.claim.whyKey)}</p>
-                    )}
-
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--bad"
-                      disabled={!acts.redeem.enabled}
-                      onClick={() => setDialog('redeem')}
-                    >
-                      {t('rwa.actRedeem')}
-                    </button>
-                    {!acts.redeem.enabled && acts.redeem.whyKey && (
-                      <p className="mine__why">{t(acts.redeem.whyKey)}</p>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </Panel>
-
-          <Panel eyebrow={t('rwa.termsEyebrow')} title={t('rwa.termsTitle')} className="panel--terms">
-            {collection ? (
-              <Fields>
-                <Field label={t('rwa.verification')}>
-                  {t(`rwa.verify.${collection.verification}`)}
-                </Field>
-                <Field label={t('rwa.threshold')}>
-                  {collection.verification === 'VERIFY_ATTESTORS'
-                    ? <span className="y-num">{collection.attestationThreshold}</span>
-                    : <span className="muted">{t('rwa.attestNotUsed')}</span>}
-                </Field>
-                <Field label={t('rwa.challengeWindow')}>
-                  <span className="y-num">
-                    {collection.challengeWindowSeconds > 0
-                      ? formatDuration(collection.challengeWindowSeconds, locale)
-                      : t('rwa.windowNone')}
-                  </span>
-                </Field>
-                <Field label={t('rwa.bond')}>
-                  <Percent value={bpsToPercent(collection.disputeBondBps)} />
-                  <span className="field__aside">{t('rwa.bondNote')}</span>
-                </Field>
-                <Field label={t('rwa.collectionAuthority')}>
-                  <Address value={collection.authority} />
-                </Field>
-              </Fields>
-            ) : (
-              <p className="muted">{t('rwa.noCollectionRead')}</p>
-            )}
-          </Panel>
-        </aside>
-      </div>
-
-      {/* --- the dialogs --- */}
+      {/* --- the sheets. Portalled into the phone frame by Dialog. --- */}
       {dialog === 'claim' && canSign(account) && (
         <ClaimDialog
           account={account}
@@ -1404,6 +1498,6 @@ export function Vehicle({ assetId, account }: { assetId: string; account: Accoun
           onDone={() => reload()}
         />
       )}
-    </div>
+    </>
   );
 }

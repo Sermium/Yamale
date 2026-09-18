@@ -67,7 +67,10 @@ import {
   type Order,
   type SellRefusal,
 } from './market.ts';
-import { Address, Amount, Chip, Empty, Loading, Note, Panel, Unreachable } from './ui.tsx';
+import {
+  Address, Amount, Chip, Detail, Empty, Field, Fields, Kpi, KpiBand, Loading, Note, Panel,
+  Unreachable,
+} from './ui.tsx';
 import type { Account } from './address.ts';
 import type { Outcome as Result } from './abci.ts';
 
@@ -165,39 +168,39 @@ function Spread({ book }: { book: Book }) {
   const s = spreadOf(book);
   const denom = book.settlementDenom;
 
+  // Three across rather than three stacked. The comparison between the best bid
+  // and the best ask IS the content — a reader who has to scroll from one to
+  // the other is being asked to hold a price in their head, which is exactly
+  // the work a market screen exists to save them.
   return (
-    <div className="y-kpis mkt__spread">
-      <div className="y-kpi">
-        <p className="y-kpi__label">{t('mkt.bestBid')}</p>
-        <p className="y-kpi__value">
-          {s.bid ? <UnitPrice unitPrice={s.bid} settlementDenom={denom} />
-            : <span className="amount--empty">—</span>}
-        </p>
-        <p className="y-kpi__hint">{t('mkt.bestBidHint')}</p>
-      </div>
-      <div className="y-kpi">
-        <p className="y-kpi__label">{t('mkt.bestAsk')}</p>
-        <p className="y-kpi__value">
-          {s.ask ? <UnitPrice unitPrice={s.ask} settlementDenom={denom} />
-            : <span className="amount--empty">—</span>}
-        </p>
-        <p className="y-kpi__hint">{t('mkt.bestAskHint')}</p>
-      </div>
-      <div className={`y-kpi${s.crossed ? ' y-kpi--warn' : ''}`}>
-        <p className="y-kpi__label">{t('mkt.spread')}</p>
-        <p className="y-kpi__value">
-          {s.spread ? <UnitPrice unitPrice={s.spread} settlementDenom={denom} />
-            : <span className="amount--empty">—</span>}
-        </p>
-        <p className="y-kpi__hint">
-          {s.spread === null ? t('mkt.spreadOneSided') : t('mkt.spreadHint')}
-        </p>
-      </div>
-    </div>
+    <KpiBand three>
+      <Kpi label={t('mkt.bestBid')} hint={t('mkt.bestBidHint')}
+           value={s.bid
+             ? <UnitPrice unitPrice={s.bid} settlementDenom={denom} />
+             : <span className="amount--empty">—</span>} />
+      <Kpi label={t('mkt.bestAsk')} hint={t('mkt.bestAskHint')}
+           value={s.ask
+             ? <UnitPrice unitPrice={s.ask} settlementDenom={denom} />
+             : <span className="amount--empty">—</span>} />
+      <Kpi label={t('mkt.spread')} tone={s.crossed ? 'warn' : undefined}
+           hint={s.spread === null ? t('mkt.spreadOneSided') : t('mkt.spreadHint')}
+           value={s.spread
+             ? <UnitPrice unitPrice={s.spread} settlementDenom={denom} />
+             : <span className="amount--empty">—</span>} />
+    </KpiBand>
   );
 }
 
-/** One side of the book, aggregated into price levels. */
+/**
+ * One side of the book, aggregated into price levels.
+ *
+ * The three-column table — price, shares, cumulative — became one row per level
+ * with the cumulative drawn as the bar behind it. The cumulative column is the
+ * one a reader converts into a mental bar chart anyway, and at 358px three
+ * numeric columns is either a sideways scroll or three cramped ones. The figure
+ * itself is not lost: it sits under the size, in small type, because somebody
+ * sizing an order against the book needs the number and not the picture.
+ */
 function BookSide({ orders, denom, settlementDenom, title, tone }: {
   orders: Order[];
   denom: string;
@@ -208,41 +211,44 @@ function BookSide({ orders, denom, settlementDenom, title, tone }: {
   const rows = levels(orders);
   if (rows.length === 0) {
     return (
-      <div className="mkt__side">
+      <div className="panel">
         <h4 className="y-label">{title}</h4>
         <p className="muted">{t('mkt.sideEmpty')}</p>
       </div>
     );
   }
 
+  // The deepest level sets the scale. Taken from the levels themselves rather
+  // than from a constant, so a book with one order still draws a full bar and a
+  // book with twenty draws a shape.
+  const deepest = rows.reduce((m, l) => (BigInt(l.cumulative) > m ? BigInt(l.cumulative) : m), 0n);
+  const width = (cumulative: string) => (deepest > 0n
+    ? `${Number((BigInt(cumulative) * 1000n) / deepest) / 10}%`
+    : '0%');
+
   return (
-    <div className="mkt__side">
+    <div className="panel">
       <h4 className="y-label">{title}</h4>
-      <div className="y-scrollx">
-        <table className="y-data">
-          <thead>
-            <tr>
-              <th scope="col" className="num">{t('mkt.colPrice')}</th>
-              <th scope="col" className="num">{t('mkt.colShares')}</th>
-              <th scope="col" className="num">{t('mkt.colCumulative')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((level) => (
-              <tr key={level.unitPrice} className={`mkt__level mkt__level--${tone}`}>
-                <td className="num">
-                  <UnitPrice unitPrice={level.unitPrice} settlementDenom={settlementDenom} />
-                  {level.orders > 1 && (
-                    <span className="mkt__count"> {t('mkt.ordersAt', { n: level.orders })}</span>
-                  )}
-                </td>
-                <td className="num"><Amount amount={level.quantity} denom={denom} /></td>
-                <td className="num"><Amount amount={level.cumulative} denom={denom} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ul className="levels">
+        {rows.map((level) => (
+          <li key={level.unitPrice} className={`level level--${tone}`}>
+            <span className="level__bar" aria-hidden="true"
+                  style={{ inlineSize: width(level.cumulative) }} />
+            <span className="level__price">
+              <UnitPrice unitPrice={level.unitPrice} settlementDenom={settlementDenom} />
+              {level.orders > 1 && (
+                <span className="mkt__count"> {t('mkt.ordersAt', { n: level.orders })}</span>
+              )}
+            </span>
+            <span className="level__size">
+              <Amount amount={level.quantity} denom={denom} />
+              <span className="level__cum">
+                {t('mkt.colCumulative')} <Amount amount={level.cumulative} denom={denom} />
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -702,7 +708,7 @@ export function Market({ assetId, denom, account, balance }: {
   return (
     <>
       <Panel eyebrow={t('mkt.eyebrow')} title={t('mkt.title')}>
-        <p>{t('mkt.lede')}</p>
+        <p className="panel__lede">{t('mkt.lede')}</p>
         <Spread book={book} />
       </Panel>
 
@@ -712,7 +718,7 @@ export function Market({ assetId, denom, account, balance }: {
         <Panel eyebrow={t('mkt.sellEyebrow')} title={t('mkt.sellTitle')}>
           {BigInt(balance || '0') > 0n ? (
             <>
-              <p>{t('mkt.sellLede', { held: formatAmount(balance, denom) })}</p>
+              <p className="panel__lede">{t('mkt.sellLede', { held: formatAmount(balance, denom) })}</p>
               <div className="mkt__actions">
                 <button type="button" className="btn" onClick={() => setPending({ kind: 'list' })}>
                   {t('mkt.doList')}
@@ -727,7 +733,7 @@ export function Market({ assetId, denom, account, balance }: {
             </>
           ) : (
             <>
-              <p>{t('mkt.noSharesToSell')}</p>
+              <p className="panel__lede">{t('mkt.noSharesToSell')}</p>
               <div className="mkt__actions">
                 <button type="button" className="btn" onClick={() => setPending({ kind: 'order' })}>
                   {t('mkt.doBid')}
@@ -738,156 +744,184 @@ export function Market({ assetId, denom, account, balance }: {
         </Panel>
       )}
 
+      {/*
+        A listing is a parcel at a total. The six-column table it used to be —
+        shares, total, each, seller, state, action — became one card per
+        listing, with the TOTAL as the figure, because the total is the number a
+        buyer decides on: it is what leaves their account. The price per share
+        sits under it as the number that makes two listings comparable, and the
+        seller and the state go one tap deeper.
+      */}
       <Panel eyebrow={t('mkt.listingsEyebrow')} title={t('mkt.listingsTitle')}>
-        <p>{t('mkt.listingsLede')}</p>
+        <p className="panel__lede">{t('mkt.listingsLede')}</p>
         {listings.length === 0 ? (
           <Empty title={t('mkt.noListings')}>{t('mkt.noListingsBody')}</Empty>
         ) : (
-          <div className="y-scrollx">
-            <table className="y-data">
-              <thead>
-                <tr>
-                  <th scope="col" className="num">{t('mkt.colShares')}</th>
-                  <th scope="col" className="num">{t('mkt.colTotal')}</th>
-                  <th scope="col" className="num">{t('mkt.colEach')}</th>
-                  <th scope="col">{t('mkt.colSeller')}</th>
-                  <th scope="col">{t('mkt.colState')}</th>
-                  <th scope="col">{t('mkt.colAction')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listings.map((l) => {
-                  const can = listingActions(l, viewer);
-                  const each = impliedUnitPrice(l.price.amount, l.quantity);
-                  return (
-                    <tr key={l.id}>
-                      <td className="num"><Amount amount={l.quantity} denom={l.denom} /></td>
-                      <td className="num"><Amount amount={l.price.amount} denom={l.price.denom} /></td>
-                      <td className="num">
-                        {each
-                          ? <>
-                            <UnitPrice unitPrice={each.unitPrice} settlementDenom={l.price.denom} />
-                            {!each.exact && <span className="mkt__count"> ≈</span>}
-                          </>
-                          : '—'}
-                      </td>
-                      <td><Address value={l.seller} /></td>
-                      <td>
-                        <Chip tone={l.state === 'LISTING_STATE_LIVE' ? 'ok' : 'mute'}>
-                          {t(`mkt.listing.${l.state}`)}
-                        </Chip>
-                      </td>
-                      <td>
-                        {can.buy && connected && (
-                          <button type="button" className="btn btn--small"
-                                  onClick={() => setPending({ kind: 'buy', listing: l })}>
-                            {t('mkt.doBuy')}
-                          </button>
-                        )}
-                        {can.cancel && connected && (
-                          <button type="button" className="btn btn--small btn--ghost"
-                                  onClick={() => setPending({ kind: 'cancel-listing', listing: l })}>
-                            {t('mkt.doWithdraw')}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="y-cards">
+            {listings.map((l) => {
+              const can = listingActions(l, viewer);
+              const each = impliedUnitPrice(l.price.amount, l.quantity);
+              return (
+                <li key={l.id} className="y-card y-card--money">
+                  <div className="y-card__head">
+                    <span className="y-card__amount">
+                      <Amount amount={l.price.amount} denom={l.price.denom} />
+                    </span>
+                    <Chip tone={l.state === 'LISTING_STATE_LIVE' ? 'ok' : 'mute'}>
+                      {t(`mkt.listing.${l.state}`)}
+                    </Chip>
+                  </div>
+                  <p className="y-card__note">
+                    <Amount amount={l.quantity} denom={l.denom} />
+                    {each && (
+                      <>
+                        {' · '}
+                        {t('mkt.impliedEach')}{' '}
+                        <UnitPrice unitPrice={each.unitPrice} settlementDenom={l.price.denom} />
+                        {!each.exact && <span className="mkt__count"> ≈</span>}
+                      </>
+                    )}
+                  </p>
+
+                  {connected && (can.buy || can.cancel) && (
+                    <div className="mkt__actions">
+                      {can.buy && (
+                        <button type="button" className="btn btn--block"
+                                onClick={() => setPending({ kind: 'buy', listing: l })}>
+                          {t('mkt.doBuy')}
+                        </button>
+                      )}
+                      {can.cancel && (
+                        <button type="button" className="btn btn--ghost btn--block"
+                                onClick={() => setPending({ kind: 'cancel-listing', listing: l })}>
+                          {t('mkt.doWithdraw')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <Detail summary={t('rwa.detail')}>
+                    <Fields>
+                      <Field label={t('mkt.colSeller')}><Address value={l.seller} /></Field>
+                      <Field label={t('mkt.colShares')}>
+                        <Amount amount={l.quantity} denom={l.denom} />
+                      </Field>
+                      <Field label={t('mkt.colTotal')}>
+                        <Amount amount={l.price.amount} denom={l.price.denom} />
+                      </Field>
+                    </Fields>
+                  </Detail>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </Panel>
 
       <Panel eyebrow={t('mkt.auctionsEyebrow')} title={t('mkt.auctionsTitle')}>
-        <p>{t('mkt.auctionsLede')}</p>
+        <p className="panel__lede">{t('mkt.auctionsLede')}</p>
         {open.length === 0 ? (
           <Empty title={t('mkt.noAuctions')}>{t('mkt.noAuctionsBody')}</Empty>
-        ) : open.map((a) => {
-          const phase = auctionPhase(a, now);
-          const can = auctionActions(a, viewer, now);
-          const left = secondsRemaining(a, now);
-          return (
-            <div key={a.id} className="mkt__auction">
-              <div className="mkt__auctionHead">
-                <Amount amount={a.quantity} denom={a.denom} className="mkt__parcel" />
-                <Chip tone={phase === 'bidding' ? 'ok' : phase === 'closed' ? 'warn' : 'mute'}>
-                  {t(`mkt.phase.${phase}`)}
-                </Chip>
-              </div>
-              <dl className="fields">
-                <div className="field">
-                  <dt className="y-label field__label">{t('mkt.closesIn')}</dt>
-                  <dd className="field__value y-num">
-                    {phase === 'bidding' ? formatDuration(left, locale) : t('mkt.biddingOver')}
-                  </dd>
-                </div>
-                <div className="field">
-                  <dt className="y-label field__label">{t('mkt.standingBid')}</dt>
-                  <dd className="field__value">
-                    {hasBid(a)
-                      ? <Amount amount={a.bestBid.amount} denom={a.bestBid.denom} />
-                      : <span className="muted">{t('mkt.noBidYet')}</span>}
-                  </dd>
-                </div>
-                <div className="field">
-                  <dt className="y-label field__label">{t('mkt.reserveLabel')}</dt>
-                  <dd className="field__value">
-                    {a.reserve.amount === '0' || a.reserve.amount === ''
-                      ? <span className="muted">{t('mkt.noReserve')}</span>
-                      : <>
-                        <Amount amount={a.reserve.amount} denom={a.reserve.denom} />{' '}
-                        <Chip tone={reserveMet(a) ? 'ok' : 'warn'}>
-                          {reserveMet(a) ? t('mkt.reserveMet') : t('mkt.reserveNotMet')}
-                        </Chip>
-                      </>}
-                  </dd>
-                </div>
-                <div className="field">
-                  <dt className="y-label field__label">{t('mkt.colSeller')}</dt>
-                  <dd className="field__value"><Address value={a.seller} /></dd>
-                </div>
-              </dl>
+        ) : (
+          <ul className="y-cards">
+            {open.map((a) => {
+              const phase = auctionPhase(a, now);
+              const can = auctionActions(a, viewer, now);
+              const left = secondsRemaining(a, now);
+              return (
+                <li key={a.id} className="y-card y-card--money">
+                  <div className="y-card__head">
+                    <span className="mkt__parcel">
+                      <Amount amount={a.quantity} denom={a.denom} />
+                    </span>
+                    <Chip tone={phase === 'bidding' ? 'ok' : phase === 'closed' ? 'warn' : 'mute'}>
+                      {t(`mkt.phase.${phase}`)}
+                    </Chip>
+                  </div>
 
-              {/* Why anybody at all is offered the settle button. */}
-              {phase === 'closed' && <Note tone="warn">{t('mkt.settleAnyone')}</Note>}
+                  {/* The two facts a bidder decides on, on the face of the card:
+                      what it stands at, and how long is left. A countdown found
+                      one tap deeper is a countdown somebody misses. */}
+                  <div className="card__foot y-row">
+                    <div className="y-row__main">
+                      <div className="y-row__sub">{t('mkt.standingBid')}</div>
+                      <div className="y-row__title">
+                        {hasBid(a)
+                          ? <Amount amount={a.bestBid.amount} denom={a.bestBid.denom} />
+                          : <span className="muted">{t('mkt.noBidYet')}</span>}
+                      </div>
+                    </div>
+                    <div className="y-row__end">
+                      <div className="y-row__sub">{t('mkt.closesIn')}</div>
+                      {/* `y-num` only while it IS a number. Once bidding is
+                          over this cell holds a sentence, and a sentence set in
+                          tabular mono beside a price reads as a second
+                          figure. */}
+                      <div className={phase === 'bidding' ? 'y-row__title y-num' : 'y-row__title'}>
+                        {phase === 'bidding'
+                          ? formatDuration(left, locale)
+                          : <span className="muted">{t('mkt.biddingOver')}</span>}
+                      </div>
+                    </div>
+                  </div>
 
-              {connected && (
-                <div className="mkt__actions">
-                  {can.bid && (
-                    <button type="button" className="btn"
-                            onClick={() => setPending({ kind: 'bid', auction: a })}>
-                      {t('mkt.doBidOn')}
-                    </button>
+                  {/* Why anybody at all is offered the settle button. */}
+                  {phase === 'closed' && <Note tone="warn">{t('mkt.settleAnyone')}</Note>}
+
+                  {connected && (can.bid || can.settle || can.cancel) && (
+                    <div className="mkt__actions">
+                      {can.bid && (
+                        <button type="button" className="btn btn--block"
+                                onClick={() => setPending({ kind: 'bid', auction: a })}>
+                          {t('mkt.doBidOn')}
+                        </button>
+                      )}
+                      {can.settle && (
+                        <button type="button" className="btn btn--block"
+                                onClick={() => setPending({ kind: 'settle', auction: a })}>
+                          {t('mkt.doSettle')}
+                        </button>
+                      )}
+                      {can.cancel && (
+                        <button type="button" className="btn btn--ghost btn--block"
+                                onClick={() => setPending({ kind: 'cancel-auction', auction: a })}>
+                          {t('mkt.doWithdraw')}
+                        </button>
+                      )}
+                    </div>
                   )}
-                  {can.settle && (
-                    <button type="button" className="btn"
-                            onClick={() => setPending({ kind: 'settle', auction: a })}>
-                      {t('mkt.doSettle')}
-                    </button>
-                  )}
-                  {can.cancel && (
-                    <button type="button" className="btn btn--ghost"
-                            onClick={() => setPending({ kind: 'cancel-auction', auction: a })}>
-                      {t('mkt.doWithdraw')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+
+                  <Detail summary={t('rwa.detail')}>
+                    <Fields>
+                      <Field label={t('mkt.reserveLabel')}>
+                        {a.reserve.amount === '0' || a.reserve.amount === ''
+                          ? <span className="muted">{t('mkt.noReserve')}</span>
+                          : <>
+                            <Amount amount={a.reserve.amount} denom={a.reserve.denom} />{' '}
+                            <Chip tone={reserveMet(a) ? 'ok' : 'warn'}>
+                              {reserveMet(a) ? t('mkt.reserveMet') : t('mkt.reserveNotMet')}
+                            </Chip>
+                          </>}
+                      </Field>
+                      <Field label={t('mkt.colSeller')}><Address value={a.seller} /></Field>
+                    </Fields>
+                  </Detail>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Panel>
 
       <Panel eyebrow={t('mkt.bookEyebrow')} title={t('mkt.bookTitle')}>
-        <p>{t('mkt.bookLede')}</p>
-        <div className="mkt__book">
-          <BookSide orders={book.bids} denom={denom} settlementDenom={settlementDenom}
-                    title={t('mkt.bids')} tone="bid" />
-          <BookSide orders={book.asks} denom={denom} settlementDenom={settlementDenom}
-                    title={t('mkt.asks')} tone="ask" />
-        </div>
+        <p className="panel__lede">{t('mkt.bookLede')}</p>
+        {/* Bids above asks, stacked rather than side by side. Two half-width
+            columns of prices at 179px each is where a figure starts breaking
+            across lines, and a price broken in two is a different price. */}
+        <BookSide orders={book.bids} denom={denom} settlementDenom={settlementDenom}
+                  title={t('mkt.bids')} tone="bid" />
+        <BookSide orders={book.asks} denom={denom} settlementDenom={settlementDenom}
+                  title={t('mkt.asks')} tone="ask" />
 
         {/* A trader's own resting orders, which are the only ones they can
             withdraw and the only ones worth singling out. */}
@@ -895,25 +929,30 @@ export function Market({ assetId, denom, account, balance }: {
           const mine = [...book.bids, ...book.asks].filter((o) => o.trader === viewer);
           if (mine.length === 0) return null;
           return (
-            <div className="mkt__mine">
+            <>
               <h4 className="y-label">{t('mkt.yourOrders')}</h4>
-              <ul className="mkt__orderList">
+              <ul className="y-cards">
                 {mine.map((o) => (
-                  <li key={o.id}>
-                    <Chip tone={o.side === 'SIDE_BID' ? 'ok' : 'brass'}>
-                      {t(o.side === 'SIDE_BID' ? 'mkt.sideBuy' : 'mkt.sideSell')}
-                    </Chip>
-                    <Amount amount={o.remaining} denom={o.denom} />
-                    {' @ '}
-                    <UnitPrice unitPrice={o.unitPrice} settlementDenom={o.settlementDenom} />
-                    <button type="button" className="btn btn--small btn--ghost"
+                  <li key={o.id} className="y-card">
+                    <div className="y-card__head">
+                      <span className="y-card__amount">
+                        <UnitPrice unitPrice={o.unitPrice} settlementDenom={o.settlementDenom} />
+                      </span>
+                      <Chip tone={o.side === 'SIDE_BID' ? 'ok' : 'brass'}>
+                        {t(o.side === 'SIDE_BID' ? 'mkt.sideBuy' : 'mkt.sideSell')}
+                      </Chip>
+                    </div>
+                    <p className="y-card__note">
+                      <Amount amount={o.remaining} denom={o.denom} />
+                    </p>
+                    <button type="button" className="btn btn--ghost btn--block btn--small"
                             onClick={() => setPending({ kind: 'cancel-order', order: o })}>
                       {t('mkt.doWithdraw')}
                     </button>
                   </li>
                 ))}
               </ul>
-            </div>
+            </>
           );
         })()}
       </Panel>
