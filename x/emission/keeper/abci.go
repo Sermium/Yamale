@@ -39,6 +39,10 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		currentPeriod = uint64(height) / params.ReductionPeriodInBlocks
 	}
 
+	// Whether this block changed anything, so an unchanged state is not
+	// rewritten. See the note above the Set at the end.
+	changed := false
+
 	if currentPeriod > state.LastReductionPeriod {
 		provisions, ok := math.NewIntFromString(state.CurrentProvisionsPerBlock)
 		if !ok {
@@ -69,6 +73,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 
 		state.CurrentProvisionsPerBlock = reduced.TruncateInt().String()
 		state.LastReductionPeriod = currentPeriod
+		changed = true
 	}
 
 	provisions, ok := math.NewIntFromString(state.CurrentProvisionsPerBlock)
@@ -96,5 +101,29 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		}
 	}
 
+	// Written only when this block changed it.
+	//
+	// This used to be unconditional, and on a chain whose provisions have
+	// reached zero it rewrote byte-identical state on every block for the rest
+	// of the chain's life. Measured on devnet-2: provisions have been 0 since
+	// reduction period 4,522, and this line still ran 450,000 times.
+	//
+	// It is not free. A write per block is a write per block — but the reason it
+	// matters more than its size is that it is the kind of thing that makes a
+	// chain unable to go quiet. An app that touches its store every block
+	// changes its AppHash every block, and CometBFT then has to produce a block
+	// to commit the new hash even when nobody sent a transaction, which defeats
+	// `create_empty_blocks = false` entirely.
+	//
+	// Fixing this alone does NOT make the chain idle: x/slashing writes a
+	// liveness index for every validator on every block, which is SDK
+	// behaviour and dominates. Measured with this module's own state stable, the
+	// AppHash still changed on every empty block. So this is one unnecessary
+	// write removed rather than the door to an idle chain — but leaving a
+	// pointless write in a BeginBlocker because something else also writes is
+	// how a chain ends up with several.
+	if !changed {
+		return nil
+	}
 	return k.EmissionState.Set(ctx, state)
 }
