@@ -43,9 +43,21 @@
  * It does not extract a template from an image. Segmenting an iris, unwrapping
  * it and running the filter bank is a research problem, and getting it wrong
  * produces templates that compare beautifully to each other and mean nothing.
- * A dedicated device — IriTech's IriShield, for one — does that in firmware and
- * hands back a finished ISO/IEC 19794-6 template, which is exactly why the
- * hardware is worth having. See device.ts.
+ * A dedicated device does that in firmware, which is why the hardware is worth
+ * having. See device.ts.
+ *
+ * AND THE CODE IT RETURNS IS NOT A STANDARD. An earlier version of this comment
+ * said the device hands back "a finished ISO/IEC 19794-6 template". It does
+ * not, and the distinction decides a purchase: **19794-6 standardises iris
+ * IMAGES, not iris CODES.** The Gabor-phase code and mask this file compares
+ * are a vendor's own representation, and no interchange format for them exists.
+ *
+ * So templates from one manufacturer cannot be compared with another's, ever.
+ * The images can be re-processed if they were kept; the codes cannot be
+ * translated. Choosing a device is choosing a matcher for the life of every
+ * animal enrolled with it, and the mitigation — if the operation can afford the
+ * storage and the privacy exposure — is to retain the IMAGE alongside the code,
+ * because that is the only artefact a second vendor could ever re-enrol from.
  */
 
 /**

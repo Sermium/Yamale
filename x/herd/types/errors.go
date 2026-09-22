@@ -81,4 +81,13 @@ var (
 	ErrAgentInactive = errors.Register(ModuleName, 46,
 		"this agent has been struck off and can no longer attest")
 	ErrInvalidAgent = errors.Register(ModuleName, 47, "the agent is not a valid account")
+
+	// The identifier a certificate is printed with, refused rather than
+	// repaired. See keeper/identifiers.go: the register's whole claim is that
+	// an identifier means one animal, and that is false the moment
+	// 221/682/1029/L and 221/682/001029/L can both be stored.
+	ErrInvalidNationalID = errors.Register(ModuleName, 48,
+		"the national identifier is not in the form country/flock/serial/breed")
+	ErrInvalidTag = errors.Register(ModuleName, 49,
+		"the transponder code is not fifteen digits in the ISO 11784/11785 form")
 )

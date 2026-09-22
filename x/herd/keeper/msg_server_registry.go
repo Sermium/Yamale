@@ -91,9 +91,15 @@ func (m msgServer) IdentifyAnimal(
 		return nil, err
 	}
 
-	nationalID := strings.TrimSpace(msg.NationalId)
-	if nationalID == "" {
-		return nil, types.ErrNoNationalID
+	// Canonicalised before it is looked up, not merely trimmed.
+	//
+	// TrimSpace alone made the uniqueness check catch only byte-identical
+	// duplicates, so 221/682/1029/L and 221/682/001029/L were two animals on a
+	// register whose one promise is that an identifier means one. See
+	// keeper/identifiers.go.
+	nationalID, err := CanonicalNationalID(msg.NationalId)
+	if err != nil {
+		return nil, err
 	}
 	if existing, err := m.ByNationalID.Get(ctx, nationalID); err == nil {
 		return nil, types.ErrNationalIDTaken.Wrapf("animal %d", existing)
@@ -105,7 +111,12 @@ func (m msgServer) IdentifyAnimal(
 	// both are exactly what the registry exists to catch. Empty tags are not
 	// indexed: level 1 has none, and indexing the empty string would make every
 	// untagged animal collide with every other.
-	tag := strings.TrimSpace(msg.Tag)
+	// The same, for the transponder. A reader that prints groups of three and an
+	// operator who types none are reporting the same animal.
+	tag, err := CanonicalTag(msg.Tag)
+	if err != nil {
+		return nil, err
+	}
 	if tag != "" {
 		if existing, err := m.ByTag.Get(ctx, tag); err == nil {
 			return nil, types.ErrTagTaken.Wrapf("animal %d", existing)

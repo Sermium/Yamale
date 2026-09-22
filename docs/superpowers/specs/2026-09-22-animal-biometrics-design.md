@@ -155,6 +155,30 @@ capture, and a bad capture is far more common than a thief with pliers. Two
 independent markers, and a disagreement between them is a finding rather than an
 error.
 
+### 3.1 Choosing a device is choosing a matcher for life
+
+**ISO/IEC 19794-6 standardises iris IMAGES, not iris CODES.** This document's
+first draft, and the matcher's own comment, both said a device returns "a
+finished ISO/IEC 19794-6 template". That is wrong, and it decides a purchase.
+
+The comparable artefact — the Gabor-phase code and its mask — is every
+manufacturer's own representation, and there is no interchange format for it.
+Codes from one vendor's device cannot be compared with another's. Not with
+difficulty: at all.
+
+So the device choice is not a peripheral decision that can be revisited. Every
+animal enrolled on it is enrolled into that vendor's representation for the rest
+of its life, and a change of supplier means re-enrolling the entire national
+herd.
+
+The one mitigation, and it costs: **keep the image as well as the code.** An
+image can be re-processed by a second vendor's algorithm; a code cannot be
+translated. That means storage and, more seriously, it means holding the
+biometric itself rather than only a representation of it — which raises exactly
+the data-protection question §2 keeps templates off the chain to avoid. It is a
+real trade and it should be made deliberately at procurement rather than
+discovered at the point a supplier changes their terms.
+
 ---
 
 ## 4. An animal is not the same shape all its life
