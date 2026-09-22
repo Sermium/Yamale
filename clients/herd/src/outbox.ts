@@ -214,13 +214,16 @@ export interface Disagreement {
  */
 export function disagreements(entries: readonly Entry[]): Disagreement[] {
   // collections.Pair is not a map key in Go and a tuple is not one in
-  // JavaScript either — a string key, built explicitly, with a separator that
-  // cannot appear in either half.
+  // JavaScript either — a string key, built explicitly. The separator is a
+  // vertical bar rather than a NUL: a NUL in a source file is invisible, makes
+  // the file binary to git and survives a copy-paste as a different character.
+  // It is safe here because an animal id is decimal digits and a kind is one of
+  // four fixed lower-case words, so neither half can contain one.
   const groups = new Map<string, Entry[]>();
   for (const e of entries) {
     if (e.animalId === null) continue;
     if (e.state === 'sent') continue; // already on the chain; the chain shows it
-    const key = `${e.animalId} ${e.kind}`;
+    const key = `${e.animalId}|${e.kind}`;
     const got = groups.get(key);
     if (got) got.push(e); else groups.set(key, [e]);
   }
@@ -228,7 +231,7 @@ export function disagreements(entries: readonly Entry[]): Disagreement[] {
   const out: Disagreement[] = [];
   for (const [key, group] of groups) {
     if (group.length < 2) continue;
-    const [animalId, kind] = key.split(' ');
+    const [animalId, kind] = key.split('|');
     out.push({
       animalId,
       kind: kind as EntryKind,
