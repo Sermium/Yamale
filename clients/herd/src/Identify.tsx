@@ -390,7 +390,14 @@ function Assist({ name, state, busy, onClick, why }: {
             onClick={onClick} disabled={!ready || busy || !onClick}>
       <span className="assist__name">{name}</span>
       <Chip tone={tone}>{busy ? t('herd.reading') : t(`herd.cap.${state.kind}`)}</Chip>
-      <span className="assist__why">{ready ? why : (state.detail ?? why)}</span>
+      {/* `why` is the catalogue's sentence and `detail` is the device layer's.
+          The operator reads the first: `detail` names GATT characteristics and
+          USB endpoints in English, which is a procurement question rather than
+          something a person in a pen can act on, and it rendered untranslated
+          inside an Arabic interface. The technical list is still reachable — it
+          is what `kit.unconfirmed()` returns, for whoever specifies the
+          hardware. */}
+      <span className="assist__why">{why}</span>
     </button>
   );
 }
