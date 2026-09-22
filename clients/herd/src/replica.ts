@@ -1,0 +1,270 @@
+/**
+ * One herd, on the device, usable with nothing behind it.
+ *
+ * §5, and the scope is the design rather than a limitation: "the whole national
+ * index on a tablet is both impractical and a data-protection problem, whereas
+ * your own herd on your own tablet is just your own records." `x/herd`'s own
+ * query service says the same thing from the other side — no endpoint lists a
+ * keeper's holdings by name, because "a registry of who owns livestock and
+ * exactly where it grazes is a shopping list for cattle raiders".
+ *
+ * So this file holds the pure part: what a replica is, how it is indexed for
+ * the three lookups a person makes in a pen, and what a local answer is
+ * entitled to claim. `store.ts` is the IndexedDB underneath it and is not pure.
+ *
+ * # Why the index is built rather than queried
+ *
+ * IndexedDB has indexes and they would work. They are not used for the
+ * identifier lookups because the lookups are on NORMALISED values — a tag typed
+ * with spaces, a national identifier typed with dashes — and an IndexedDB index
+ * stores what was put in it. Normalising on the way in and on the way out is
+ * the same work; doing it in one pure function that a test can drive is the
+ * difference between knowing it is right and hoping.
+ *
+ * A herd is hundreds of animals. A Map is the correct data structure at that
+ * size and would still be at ten thousand.
+ */
+
+import {
+  type Animal,
+  type Height,
+  type HealthEvent,
+  type Herd,
+  classify,
+  normaliseNationalId,
+  normaliseTag,
+} from './herd.ts';
+import type { Enrolled } from './iris.ts';
+
+/** What was downloaded, and when, and from where. */
+export interface ReplicaMeta {
+  herdId: string;
+  /** The chain this came off. A replica from devnet must not be read as
+   *  mainnet's, and the id is the only thing that can say so. */
+  chainId: string;
+  /** The block the download was read at. Dates every claim the replica makes. */
+  height: Height;
+  /** The device's clock when the download finished, milliseconds. */
+  downloadedAt: number;
+  /** How many animals the download contained. */
+  animals: number;
+}
+
+export interface Replica {
+  meta: ReplicaMeta;
+  herd: Herd;
+  animals: Animal[];
+  healthEvents: HealthEvent[];
+}
+
+/* -------------------------------------------------------------- the index */
+
+export interface Index {
+  byId: Map<string, Animal>;
+  byNationalId: Map<string, Animal>;
+  byTag: Map<string, Animal>;
+  /** Identifiers that two animals share. Should be empty; is not assumed to be. */
+  collisions: { kind: 'national-id' | 'tag'; value: string; animalIds: string[] }[];
+}
+
+/**
+ * Build the three lookups.
+ *
+ * Collisions are collected rather than discarded. The chain enforces uniqueness
+ * on both identifiers, so a collision in a replica means the download is
+ * corrupt or two herds have been merged into one store — and a Map that
+ * silently kept the last writer would resolve a certificate to whichever animal
+ * happened to come second in a page. The screen refuses the lookup and says the
+ * replica needs downloading again.
+ */
+export function index(animals: readonly Animal[]): Index {
+  const byId = new Map<string, Animal>();
+  const byNationalId = new Map<string, Animal>();
+  const byTag = new Map<string, Animal>();
+  const clashes = new Map<string, string[]>();
+
+  // A vertical bar, not a NUL: a NUL in a source file is invisible and makes
+  // the file binary to git. It is safe as a separator here because `kind` is
+  // one of two fixed words and a normalised identifier is drawn from
+  // [0-9A-Z/], so neither half can contain one.
+  const note = (kind: 'national-id' | 'tag', value: string, id: string) => {
+    const key = `${kind}|${value}`;
+    const got = clashes.get(key);
+    if (got) got.push(id); else clashes.set(key, [id]);
+  };
+
+  for (const a of animals) {
+    byId.set(a.id, a);
+
+    const nid = normaliseNationalId(a.nationalId);
+    if (nid) {
+      note('national-id', nid, a.id);
+      if (!byNationalId.has(nid)) byNationalId.set(nid, a);
+    }
+
+    const tag = normaliseTag(a.tag);
+    if (tag) {
+      note('tag', tag, a.id);
+      if (!byTag.has(tag)) byTag.set(tag, a);
+    }
+  }
+
+  const collisions: Index['collisions'] = [];
+  for (const [key, ids] of clashes) {
+    if (ids.length < 2) continue;
+    const [kind, value] = key.split('|');
+    collisions.push({ kind: kind as 'national-id' | 'tag', value, animalIds: ids });
+  }
+
+  return { byId, byNationalId, byTag, collisions };
+}
+
+/** What a local lookup produced. */
+export type LocalLookup =
+  | { found: true; animal: Animal }
+  /** The replica does not contain it. NOT "the registry does not contain it". */
+  | { found: false; why: 'not-in-replica' }
+  /** Two animals in the replica carry it. The replica is wrong; refuse. */
+  | { found: false; why: 'collision'; animalIds: string[] }
+  /** Nothing has been downloaded to look in. */
+  | { found: false; why: 'no-replica' }
+  /** What was typed is neither form. */
+  | { found: false; why: 'unrecognised' };
+
+/**
+ * Resolve an identifier against the copy on this device.
+ *
+ * Never falls back to the other identifier kind. A fifteen-digit tag that is
+ * absent is absent — trying it as a national identifier as well and reporting
+ * whichever answered would make a miss and a hit indistinguishable to the
+ * operator, who has to know which marker the record was found by. §3's whole
+ * recommendation is two independent markers and a disagreement between them
+ * being a finding.
+ */
+export function lookup(idx: Index | null, raw: string): LocalLookup {
+  if (!idx) return { found: false, why: 'no-replica' };
+
+  const entry = classify(raw);
+  if (entry.kind === 'empty' || entry.kind === 'unrecognised') {
+    return { found: false, why: 'unrecognised' };
+  }
+
+  const collision = idx.collisions.find(
+    (c) => c.value === entry.value
+      && c.kind === (entry.kind === 'tag' ? 'tag' : 'national-id'),
+  );
+  if (collision) return { found: false, why: 'collision', animalIds: collision.animalIds };
+
+  const hit = entry.kind === 'tag'
+    ? idx.byTag.get(entry.value)
+    : idx.byNationalId.get(entry.value);
+
+  return hit ? { found: true, animal: hit } : { found: false, why: 'not-in-replica' };
+}
+
+/* ------------------------------------------------------------- freshness */
+
+/**
+ * How stale the copy is, in blocks and in days.
+ *
+ * Both, because they answer different questions. The block gap says how much
+ * the chain has moved since the download and is exact; the elapsed time says
+ * how long the operator has been working from a copy and is what they actually
+ * feel. Neither is a verdict — a replica three days old is completely correct
+ * for a herd nothing has happened to, and the screen says "downloaded three
+ * days ago" rather than "out of date".
+ */
+export interface Freshness {
+  blocksBehind: number | null;
+  ageMs: number;
+  /** True when the chain has moved and the device cannot say by how much. */
+  chainUnknown: boolean;
+}
+
+export function freshness(meta: ReplicaMeta, now: number, headHeight: number | null): Freshness {
+  return {
+    blocksBehind: headHeight === null ? null : Math.max(0, headHeight - meta.height),
+    ageMs: Math.max(0, now - meta.downloadedAt),
+    chainUnknown: headHeight === null,
+  };
+}
+
+/* --------------------------------------------------- biometrics on device */
+
+/**
+ * The templates this device can compare against, and the animals it cannot.
+ *
+ * The chain holds no templates, ever — §2 is unambiguous that "a public ledger
+ * is the worst possible home" for one. They are enrolled on the device and, in
+ * due course, synchronised with the jurisdiction's service. So the set of
+ * comparable animals is a strict subset of the replica, usually a small one,
+ * and the gap is the number a search result has to carry: an animal with no
+ * template was not compared and not excluded.
+ */
+export interface BiometricScope {
+  enrolled: Enrolled[];
+  /** Animals in the replica with at least one template on this device. */
+  withTemplate: number;
+  /** Animals in the replica with none. Never compared; never ruled out. */
+  withoutTemplate: number;
+}
+
+export function biometricScope(
+  animals: readonly Animal[],
+  enrolled: readonly Enrolled[],
+): BiometricScope {
+  const inReplica = new Set(animals.map((a) => a.id));
+  // An enrolment for an animal that is not in this replica is not comparable
+  // against this herd's question. Kept out rather than searched: "which of MY
+  // animals is this" must not be answered with somebody else's beast.
+  const usable = enrolled.filter((e) => inReplica.has(e.animalId));
+  const covered = new Set(usable.map((e) => e.animalId));
+  return {
+    enrolled: usable,
+    withTemplate: covered.size,
+    withoutTemplate: Math.max(0, inReplica.size - covered.size),
+  };
+}
+
+/**
+ * The enrolment to compare against, when an animal has several.
+ *
+ * §4: "a match is always against the template nearest in time". Not the newest
+ * — the NEAREST, because a probe taken today against a calf enrolled last year
+ * is a different comparison from the same probe against an adult enrolled last
+ * week, and the correct reference is the one closest to the animal's state.
+ * With a single probe taken now those coincide; the signature keeps the
+ * distinction so that re-comparing an archived capture does not quietly use the
+ * wrong reference.
+ */
+export function nearestInTime(enrolled: readonly Enrolled[], at: number): Enrolled | null {
+  let best: Enrolled | null = null;
+  let bestGap = Infinity;
+  for (const e of enrolled) {
+    const gap = Math.abs(e.capturedAt - at);
+    if (gap < bestGap) { best = e; bestGap = gap; }
+  }
+  return best;
+}
+
+/**
+ * Whether an animal is due to be enrolled again.
+ *
+ * §4: a calf's muzzle is not an adult's, a lamb's face changes for a year, and
+ * "a single photo_hash captured at registration and never revisited would stop
+ * matching the animal it belongs to within a year". The interval is a
+ * placeholder with its reasoning attached, exactly as `iris.ts`'s thresholds
+ * are: one year for a grown animal, three months for one under a year old,
+ * TO BE DERIVED FROM FIELD DATA and not from this comment.
+ */
+export function reEnrolmentDue(
+  ageMonths: number | null,
+  lastEnrolledAt: number | null,
+  now: number,
+): { due: boolean; sinceMs: number | null; intervalMs: number } {
+  const MONTH = 30 * 24 * 3600 * 1000;
+  const interval = ageMonths !== null && ageMonths < 12 ? 3 * MONTH : 12 * MONTH;
+  if (lastEnrolledAt === null) return { due: true, sinceMs: null, intervalMs: interval };
+  const since = Math.max(0, now - lastEnrolledAt);
+  return { due: since > interval, sinceMs: since, intervalMs: interval };
+}

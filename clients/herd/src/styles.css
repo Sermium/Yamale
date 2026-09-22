@@ -1,0 +1,653 @@
+/* Yamale Herd — a field instrument that happens to be a phone.
+ *
+ * The shape comes from `clients/shared/yamale.css`, THE MOBILE SHELL block:
+ * `.y-stage`, `.y-phone`, `.y-appbar`, `.y-screen`, `.y-tabbar`, `.y-cards`,
+ * `.y-card`, `.y-row`. Nothing below re-invents one of those. What is here is
+ * only what this surface needs on top of them, and each addition is listed so
+ * it can be promoted into the shell if a second surface needs it:
+ *
+ *   .modes / .mode        two kinds of evidence, as a two-up control
+ *   .bigfield             one text input, sized for a glove
+ *   .assists / .assist    an instrument and what it can do right now
+ *   .actionbar            the primary action, pinned within a thumb's arc
+ *   .cands / .cand        a candidate, its distance, and its scale
+ *   .scale                a distance drawn against its two thresholds
+ *   .segs / .seg          an animal's five sections
+ *   .figs / .fig          a figure with its unit and its limit
+ *   .note                 a sentence that has to be noticed
+ *   .natid / .tagcode     an identifier that cannot break across two lines
+ *
+ * THREE RULES THIS FILE IS WRITTEN AGAINST, all three of which have shipped as
+ * defects in this repository or are one edit away from doing so:
+ *
+ *   1. A FIGURE NEVER BREAKS ACROSS TWO LINES. `overflow-wrap: anywhere` has
+ *      twice printed `100,000,0` above `00`. A national identifier is worse:
+ *      `221/682/021029/L` offers the browser four break opportunities and both
+ *      halves look like perfectly good identifiers. Everything that carries an
+ *      identifier or a measurement gets `word-break: keep-all;
+ *      overflow-wrap: normal` — `normal` and not `nowrap`, so a unit may drop
+ *      to its own line while the digits hold together.
+ *
+ *   2. EVERY COLOUR IS DEFINED AT `:root`, NEVER ONLY INSIDE A MEDIA QUERY.
+ *      A colour whose sole definition sits under `prefers-color-scheme` is
+ *      undefined in the un-stamped state, which is the state most readers are
+ *      actually in. The dark values below are redefined in BOTH places the
+ *      shared sheet uses: `@media (prefers-color-scheme: dark)
+ *      :root:not([data-theme='light'])` and `:root[data-theme='dark']`.
+ *
+ *   3. LOGICAL PROPERTIES ONLY. No `left`, no `right`, no `margin-left`. This
+ *      ships in Arabic, `setLocale` writes `dir="rtl"` on the document, and a
+ *      physical property is a layout that silently stops mirroring.
+ *
+ * AND ONE THAT IS ONLY TRUE HERE: this is read in direct sunlight, through a
+ * glove, one-handed, with an animal moving. A primary action is 56px tall and
+ * sits at the bottom. A state is a word before it is a colour.
+ */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  /* Field-specific, and declared here rather than in a media query. */
+  --hit: 56px;          /* a primary target, for a gloved finger */
+  --hit-min: 48px;      /* everything else that is tapped */
+  --scale-h: 10px;
+
+  /* The distance scale's three regions. Brass for "match" rather than green,
+     because green reads as "safe to proceed" and a biometric match on its own
+     is explicitly not that — §3 wants a second marker before anything closes. */
+  --band-match: rgba(168, 123, 60, 0.35);
+  --band-maybe: rgba(168, 121, 27, 0.18);
+  --band-rest: var(--surface-3);
+  --pin: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --band-match: rgba(196, 152, 86, 0.42);
+    --band-maybe: rgba(210, 166, 94, 0.2);
+    --band-rest: var(--surface-3);
+    --pin: var(--text);
+  }
+}
+
+:root[data-theme='dark'] {
+  --band-match: rgba(196, 152, 86, 0.42);
+  --band-maybe: rgba(210, 166, 94, 0.2);
+  --band-rest: var(--surface-3);
+  --pin: var(--text);
+}
+
+/* -------------------------------------------------------------- the frame */
+
+.skip {
+  position: absolute;
+  inset-inline-start: -9999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  z-index: 20;
+}
+.skip:focus { inset-inline-start: var(--sp-3); top: var(--sp-3); }
+
+.stage__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.stage__link { font-size: var(--step--1); color: var(--desk-ink-mute); }
+
+.appbar__btn {
+  font: inherit;
+  font-size: var(--step-2);
+  line-height: 1;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  min-inline-size: var(--hit-min);
+  min-block-size: var(--hit-min);
+  border-radius: var(--radius);
+}
+.appbar__btn:hover { color: var(--text); background: var(--surface-2); }
+.appbar__back { margin-inline-end: var(--sp-2); }
+.appbar__mid { min-inline-size: 0; }
+.appbar__name {
+  /* The app bar carries a national identifier on an animal screen, and a
+     truncated one is better than a wrapped one here: the full value is the
+     first line of the screen below. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#sheet-root:empty { display: none; }
+
+/* The action bar sits between the screen and the tab bar, so the screen's
+   scroll must clear it. */
+.y-screen { padding-bottom: var(--sp-6); }
+
+/* ------------------------------------------------------- numbers and ids */
+
+/*
+ * The rule. `keep-all` stops a break inside the run; `normal` keeps the
+ * browser's ordinary opportunities between words, so a unit can still drop to
+ * its own line. `nowrap` is NOT used: it would push a long identifier under the
+ * edge of a 390px screen with no way to see the end of it.
+ */
+.natid, .tagcode, .num, .digest, .price, .mono, .pair {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'zero' 1;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  /*
+   * AN IDENTIFIER IS LEFT-TO-RIGHT IN EVERY LOCALE, and this is not a lapse
+   * from the logical-properties rule — it is a statement about the content.
+   *
+   * Measured in Arabic at 390px before this line existed: `221/682/000102/L`
+   * rendered as `L/221/682/000102`. The solidi and the trailing breed letter
+   * are bidi-neutral, so in an RTL paragraph the algorithm reorders the run and
+   * prints a DIFFERENT identifier that looks entirely plausible. `4 / 9` came
+   * out as `9 / 4` the same way.
+   *
+   * `isolate` rather than `embed`: the run must not affect the ordering of the
+   * Arabic text around it either.
+   */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.natid, .tagcode {
+  /* A solidus is a break opportunity in several engines. This is the pair that
+     holds `221/682/021029/L` together as one run. */
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.natid { font-weight: 600; }
+.tagcode { font-size: 0.95em; }
+.digest { font-size: 0.9em; color: var(--text-muted); }
+.absent { color: var(--text-faint); }
+.muted { color: var(--text-muted); }
+.mono-line { font-family: var(--font-mono); font-size: var(--step-1); margin: var(--sp-2) 0; }
+
+.addr {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: start;
+  word-break: break-all;
+}
+.addr:hover { color: var(--text); }
+
+/* ------------------------------------------------------------ the buttons */
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  min-block-size: var(--hit-min);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  text-decoration: none;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--wide { inline-size: 100%; }
+.btn--primary {
+  /* 56px, and the only one on a screen. A gloved finger on a target that a
+     desk would call generous still misses it. */
+  min-block-size: var(--hit);
+  font-size: var(--step-1);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn--primary:hover { filter: brightness(1.08); background: var(--accent); }
+.btn--ghost { background: none; border-color: transparent; color: var(--text-muted); }
+.btn--stop { border-color: var(--bad); color: var(--bad); background: var(--wash-bad); }
+
+/*
+ * Pinned above the tab bar, not scrolling with the content.
+ *
+ * An operator who has scrolled a candidate list must not scroll back to reach
+ * the only control that matters, and one hand on a halter means one thumb on
+ * the screen. It is a flex child of the phone frame, so it sits between the
+ * screen and the tab bar without any positioning at all.
+ */
+.actionbar {
+  flex: 0 0 auto;
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------- the two modes */
+
+.modes {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--sp-1);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 3px;
+  margin-block-end: var(--sp-4);
+}
+.mode {
+  font: inherit;
+  font-weight: 600;
+  min-block-size: var(--hit-min);
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.mode--on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+
+/* -------------------------------------------------------------- the field */
+
+.bigfield { display: block; margin-block-end: var(--sp-4); }
+.bigfield__input {
+  inline-size: 100%;
+  min-block-size: var(--hit);
+  margin-block-start: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono);
+  /* 20px. Anything smaller is unreadable at arm's length in sun, and on iOS a
+     font-size below 16px makes the browser zoom the page on focus — which on a
+     device frame is a layout that jumps under the operator's thumb. */
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--rule);
+  border-radius: 12px;
+}
+/*
+ * A placeholder must not read as a value.
+ *
+ * The browser default is close enough to the text colour that an example
+ * identifier sitting in an empty field looks like an identifier somebody
+ * entered — on the one screen in this application whose entire purpose is not
+ * to show an identity it does not have.
+ */
+.bigfield__input::placeholder { color: var(--text-faint); opacity: 1; }
+.bigfield__input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent);
+}
+.bigfield__kind {
+  display: block;
+  margin-block-start: var(--sp-1);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+.bigfield--search { margin-block-start: var(--sp-5); }
+
+/* ---------------------------------------------------------- the assists */
+
+.assists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin-block-end: var(--sp-4);
+}
+.assists--one { grid-template-columns: 1fr; }
+.assist {
+  font: inherit;
+  text-align: start;
+  display: grid;
+  gap: var(--sp-1);
+  justify-items: start;
+  min-block-size: var(--hit);
+  padding: var(--sp-3);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.assist:hover { background: var(--surface-2); }
+.assist--off { opacity: 0.72; cursor: not-allowed; }
+.assist__name { font-weight: 600; }
+.assist__why { font-size: var(--step--1); color: var(--text-muted); }
+
+/* ------------------------------------------------------------ structure */
+
+.panel { margin-block: var(--sp-5); }
+.panel__title { font-family: var(--font-display); font-size: var(--step-1); margin: 0 0 var(--sp-1); }
+.panel__sub, .lede { color: var(--text-muted); margin: 0 0 var(--sp-3); }
+.caveat { font-size: var(--step--1); color: var(--text-faint); margin: var(--sp-2) 0 0; }
+
+.fields { margin: var(--sp-2) 0 0; display: grid; gap: var(--sp-2); }
+.field {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 40%) 1fr;
+  gap: var(--sp-3);
+  align-items: baseline;
+  padding-block: var(--sp-1);
+  border-block-end: 1px solid var(--rule);
+}
+.field__label { margin: 0; color: var(--text-muted); }
+.field__value { margin: 0; min-inline-size: 0; }
+
+.more { margin-block-start: var(--sp-3); }
+.more__summary {
+  cursor: pointer;
+  min-block-size: var(--hit-min);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.more__body { padding-block-start: var(--sp-2); }
+
+/*
+ * A row's title and its subtitle are two lines.
+ *
+ * The shared shell styles them but does not lay them out, because the surfaces
+ * that use it wrap them in block elements. These are spans inside a span, so
+ * without this the identifier and the name run together — `221/682/000102/L`
+ * immediately followed by `Nianing`, which reads as one longer identifier.
+ */
+.row { min-block-size: var(--hit); }
+.row .y-row__main,
+.row .y-row__title,
+.row .y-row__sub { display: block; }
+
+/* ------------------------------------------------------------- the notes */
+
+.note {
+  border-radius: 12px;
+  padding: var(--sp-3);
+  margin-block: var(--sp-3);
+  border-inline-start: 4px solid var(--text-faint);
+  background: var(--wash-mute);
+}
+.note__title { display: block; }
+.note__body { margin-block-start: var(--sp-1); color: var(--text-muted); }
+.note__body p { margin-block: var(--sp-1); }
+.note--ok { border-inline-start-color: var(--ok); background: var(--wash-ok); }
+.note--warn { border-inline-start-color: var(--warn); background: var(--wash-warn); }
+.note--bad { border-inline-start-color: var(--bad); background: var(--wash-bad); }
+.note--brass { border-inline-start-color: var(--brass); background: var(--wash-brass); }
+.note--mute { border-inline-start-color: var(--text-faint); background: var(--wash-mute); }
+
+/* ------------------------------------------------------------ the record */
+
+.found { margin-block: var(--sp-3); }
+.found__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.found__id { font-size: var(--step-2); }
+.found__name { font-size: var(--step-1); margin: var(--sp-1) 0 var(--sp-3); }
+.found__from { font-size: var(--step--1); color: var(--text-muted); }
+
+/* --------------------------------------------------------- the candidates */
+
+.cands { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
+.cand {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: var(--sp-3);
+  background: var(--surface);
+}
+/*
+ * Flat. No rank, no emphasis on the first row, no primary button.
+ *
+ * Used for an ambiguous result and for near misses. A ranked list with a
+ * highlighted top row IS an answer, whatever the heading above it says, and the
+ * whole point of `ambiguous` is that there is no answer to give.
+ */
+.cands--flat .cand { border-color: var(--rule); background: var(--surface); }
+.cands--flat .cand:first-child { border-color: var(--rule); }
+.cand__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.cand__id { color: inherit; text-decoration: none; min-block-size: var(--hit-min); display: inline-flex; align-items: center; }
+.cand__name { color: var(--text-muted); font-size: var(--step--1); margin: var(--sp-1) 0; }
+.cand__nums {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+.cand__d .num { font-size: var(--step-1); color: var(--text); }
+.cands__caveat {
+  list-style: none;
+  font-size: var(--step--1);
+  color: var(--text-faint);
+}
+
+/*
+ * A distance against the thresholds it is judged by.
+ *
+ * Drawn as a scale with a pin rather than as a bar filling up: a distance is
+ * not a progress, lower is better, and a bar that grew with the number would
+ * read as "more" when it means "worse".
+ */
+.scale { margin-block-start: var(--sp-2); }
+.scale__track {
+  position: relative;
+  block-size: var(--scale-h);
+  border-radius: calc(var(--scale-h) / 2);
+  background: var(--band-rest);
+  overflow: hidden;
+}
+.scale__band { position: absolute; inset-block: 0; }
+.scale__band--match { inset-inline-start: 0; background: var(--band-match); }
+.scale__band--maybe { background: var(--band-maybe); }
+.scale__pin {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 3px;
+  background: var(--pin);
+  border-radius: 2px;
+  transform: translateX(-1px);
+}
+.scale__legend {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  margin-block-start: 2px;
+}
+.scale__mark { color: var(--text-muted); }
+
+/* ------------------------------------------------------------- the figures */
+
+.figs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin-block: var(--sp-3);
+}
+.fig {
+  border: 1px solid var(--rule);
+  border-inline-start: 3px solid var(--text-faint);
+  border-radius: 12px;
+  padding: var(--sp-3);
+  background: var(--surface);
+}
+.fig--ok { border-inline-start-color: var(--ok); }
+.fig--warn { border-inline-start-color: var(--warn); }
+.fig--bad { border-inline-start-color: var(--bad); }
+.fig--brass { border-inline-start-color: var(--brass); }
+.fig__label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+.fig__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--step-2);
+  font-weight: 500;
+  margin: var(--sp-1) 0 0;
+  /* See the note at the top. A figure never breaks. */
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.fig__unit { margin-inline-start: 0.3em; font-size: var(--step--1); color: var(--text-muted); }
+/*
+ * A count out of a total is ONE figure, not two.
+ *
+ * "4 of 9 enrolled" broken after the 4 would put a bare 4 on one line and "of
+ * 9" on the next, and a reader scanning the column would take the 4 as the
+ * whole answer. The spaces inside it are the break opportunities `keep-all`
+ * does not remove, so the pair is held explicitly.
+ */
+.pair { white-space: nowrap; }
+.addr, .att__ev, .entry__note { unicode-bidi: isolate; }
+.fig__hint { font-size: var(--step--1); color: var(--text-faint); margin: var(--sp-1) 0 0; }
+
+/* ------------------------------------------------------------ the sections */
+
+.segs {
+  display: flex;
+  gap: var(--sp-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-block: var(--sp-4) var(--sp-3);
+  padding-block-end: var(--sp-1);
+}
+.segs::-webkit-scrollbar { display: none; }
+.seg {
+  font: inherit;
+  flex: 0 0 auto;
+  min-block-size: var(--hit-min);
+  padding-inline: var(--sp-3);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg--on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.gen { margin-block-end: var(--sp-4); }
+.gen__label {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass-ink);
+  margin: 0 0 var(--sp-2);
+}
+
+.atts { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.att {
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-2);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--step--1);
+}
+.att__where, .att__when, .att__ev { color: var(--text-muted); }
+
+.price { font-size: var(--step-1); }
+.entry__note { font-size: var(--step--1); color: var(--bad); margin: var(--sp-2) 0 0; }
+
+.forms { margin: var(--sp-2) 0 0; padding-inline-start: var(--sp-4); }
+.forms li { margin-block: var(--sp-1); }
+
+/* ------------------------------------------------------------ the silences */
+
+.loading { color: var(--text-muted); padding-block: var(--sp-4); }
+
+.empty {
+  text-align: center;
+  padding: var(--sp-5) var(--sp-3);
+  border: 1px dashed var(--rule);
+  border-radius: 14px;
+  margin-block: var(--sp-3);
+}
+.empty--quiet { background: var(--wash-mute); border-style: solid; }
+.empty--bad { background: var(--wash-bad); border-color: var(--bad); border-style: solid; }
+.empty__title { font-family: var(--font-display); font-size: var(--step-1); margin: 0 0 var(--sp-2); }
+.empty__body { color: var(--text-muted); }
+.empty__body p { margin: var(--sp-2) auto; }
+.empty__at { font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-faint); }
+
+.readat {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--text-faint);
+  margin-block: var(--sp-5) var(--sp-2);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------- the tab bar */
+
+.tab__mark { position: relative; display: inline-flex; }
+.tab__badge {
+  position: absolute;
+  inset-block-start: -6px;
+  inset-inline-start: 12px;
+  min-inline-size: 16px;
+  padding-inline: 3px;
+  font-size: 0.6rem;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--brass);
+  color: #0b1523;
+}
+
+/* ----------------------------------------------------------------- mirror */
+
+/*
+ * The one place a glyph has a direction.
+ *
+ * A chevron pointing at the end of the row points the other way in Arabic, and
+ * an SVG path cannot be expressed in logical coordinates. Everything else in
+ * this file mirrors for free because it uses logical properties throughout.
+ */
+[dir='rtl'] .y-row__chev,
+[dir='rtl'] .appbar__back svg { transform: scaleX(-1); }
+
+/* The scale is a number line, and a number line reads left to right in every
+   locale — a distance of 0.30 must not appear on the right in Arabic while its
+   legend reads 0.00 on the right too. Pinned to physical direction on purpose. */
+[dir='rtl'] .scale__track, [dir='rtl'] .scale__legend { direction: ltr; }
+
+/* ---------------------------------------------------------- the small screen */
+
+@media (max-width: 430px) {
+  /* Below the frame's own width the shell drops the conceit and the phone
+     becomes the page. The action bar keeps its place at the foot of the flex
+     column, which is where a thumb already is. */
+  .y-screen { padding-bottom: var(--sp-5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
