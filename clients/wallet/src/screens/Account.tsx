@@ -30,6 +30,7 @@ import { ClaimUserId } from '../ClaimUserId.tsx';
 import { destroyVault, getUnlocked, lock, vaultSummary } from '../vault.ts';
 import { Field, Note, ScreenTitle } from '../ui.tsx';
 import { Placement } from './Attach.tsx';
+import { Protection } from './Protection.tsx';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -162,6 +163,12 @@ export function AccountScreen({ onDetached, onAttach }: {
           </button>
         )}
       </div>
+
+      {/* Above placement, and above preferences, because it answers a bigger
+          question than either: what happens to this account if this phone goes
+          in a river. An account that cannot be recovered should say so on the
+          screen that is about how the account is held. */}
+      <Protection address={account.address} />
 
       {/* The placement request, offered only where it is still needed. An
           account the chain has already placed does not want a form asking it
