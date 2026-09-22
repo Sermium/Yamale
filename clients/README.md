@@ -233,27 +233,35 @@ populated is the failure this one was written against.
 The claim it exists to make is one sentence: the operator cannot move a
 customer's money. Every payments system says something like it and almost all of
 them mean *we have a policy about that*. Here it is a statement about arithmetic
-— the key exists in three shares and no one of them can produce a signature —
-and the difference between those two things is the entire product. So the page
-does not assert it. It runs the protocol, refuses in front of you, and reads the
-consequences off a public chain.
+— the key is sealed under its owner's password *before* it is split three ways,
+so the two services this operator runs put their parts together and get a
+ciphertext they cannot open — and the difference between those two things is the
+entire product. So the page does not assert it. It does it in front of you, and
+reads the consequences off a public chain.
 
-`mpc/wasm` compiled to WebAssembly is what runs. The page is explicit about
-which half of what you are watching is real:
+It used to load a 19 MB WebAssembly build of a threshold protocol. It now runs
+the splitting directly, in about a millisecond, from a few hundred bytes of
+JavaScript; the directory went from 19 MB to 141 KB. The page is explicit about
+which part of what you are watching is real:
 
-- **Real:** the account on the chain, its transactions, their heights, and the
-  fact that the second was signed by shares that did not exist when the first
-  was — created in a password reset that did not move the address. Checkable
-  against any block explorer.
-- **Staged:** the live demonstration runs **both** parties inside this one page.
-  In production they are a phone and a server that never meet, exchanging the
-  messages you can see in the transcript. Running them together is what lets you
-  watch the traffic; it is also precisely the arrangement the design forbids, so
-  it uses a throwaway account that holds nothing and whose share files are
-  published on purpose.
+- **Real:** the sealed value, produced by the Go implementation from a key and
+  password printed beside it, read from the same vectors file that code’s own
+  tests answer to. And the splitting, which runs here.
+- **Not run at all:** the sealing. It is Argon2id at 128 MiB and would mean
+  shipping a cryptography library to every visitor, so the blob is shown rather
+  than computed — and the page says so where it is shown.
+- **History:** the two on-chain payments. They were made under the threshold
+  scheme, which was replaced on 2026-09-22, and they are labelled as history
+  rather than as a demonstration of what runs today.
+
+`clients/keys/sharing.js` is a third implementation of the sharing arithmetic —
+Go and the wallet have the others — which is acceptable only because none of
+them is trusted on its own authority: all three answer to
+`recovery/testdata/vectors.json`, and the page’s own test fails if its shipped
+copy drifts from the source.
 
 Being exact about that matters more than looking impressive. See
-[docs/guides/mpc.md](../docs/guides/mpc.md).
+[docs/guides/recovery.md](../docs/guides/recovery.md).
 
 ## Markets
 

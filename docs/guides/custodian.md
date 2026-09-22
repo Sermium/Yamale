@@ -1,19 +1,26 @@
-# The custodian: one share, and the decision to use it
+# The custodian: one part, and the decision to release it
 
-The service that holds the operator's share of a consumer account. What it does,
-what it refuses, and — the longer list — what it deliberately does not do.
+The service that holds one of the three parts of a consumer account's sealed key.
+What it does, what it refuses, and — the longer list — what it deliberately does
+not do.
 
-**Status: the service is built and is not an account service.** There is no
-enrolment over HTTP, no recovery workflow and no second factor. Read
-[what it does not do](#what-it-does-not-do) before deploying it anywhere near a
-person's money.
+**Status: built, tested end to end, and not deployed anywhere.** Enrolment over
+HTTP and the recovery workflow both exist; an end-to-end test enrols an account
+against two live services, destroys the device's part, drives a full recovery
+through both and signs with the rebuilt key. No member of the public has ever
+used it. Read [what it does not do](#what-it-does-not-do) before deploying it
+anywhere near a person's money.
 
-**Read first:** [mpc.md](mpc.md), for the three shares and why any two sign.
+**It does not co-sign anything.** Since the decision of 2026-09-18 the device
+signs alone. This service exists for recoveries, and every section below that
+talks about refusing is talking about refusing a recovery.
+
+**Read first:** [recovery.md](recovery.md), for the three parts and why any two recover.
 
 **Not to be confused with [custody.md](custody.md)**, which is `x/custody` —
 issuing on-chain claims against outside assets somebody else is holding. This
-page is `tools/custodian`, a service holding one share of a consumer key. The two
-share a word and nothing else.
+page is `tools/custodian`, a service holding one part of a sealed consumer key.
+The two share a word and nothing else.
 
 ---
 
@@ -25,10 +32,14 @@ The share alone is worthless, and saying so is not modesty — it is the propert
 that makes the rest tractable. One share signs nothing. A breach of this service
 that took every share it holds would not yield a single signing key.
 
-What the custodian protects is the **decision**. A person's phone can be stolen,
-and the thief then holds a device share and needs exactly one further thing to
-empty the account: a custodian willing to co-sign. A custodian that co-signs for
-whoever asks has turned a two-of-three into a one-of-one held by the attacker.
+What the custodian protects is the **decision** — to release its part, so that
+the account holder can rebuild their key on a new device. Somebody who has taken
+over an email address wants exactly that, and a custodian that releases for
+whoever asks has handed them the account.
+
+It no longer protects a payment. A thief holding the phone and the password does
+not need this service at all, and nothing here can stop them; see
+[it no longer sees a payment at all](#it-no-longer-sees-a-payment-at-all).
 
 Everything below exists because of that sentence. The endpoints are deliberately
 boring and the refusals are the product.
@@ -37,19 +48,19 @@ boring and the refusals are the product.
 
 | | |
 |---|---|
-| **Signing alone** | It holds one share of three. This is arithmetic, not configuration. |
-| **Importing any share but the custodian's** | *"importing any other would give this service two, and two shares sign"*. |
+| **Opening what it holds** | Its part is a share of a ciphertext sealed under a password it has never seen. This is arithmetic, not configuration. |
+| **Importing any part but its own** | *"one service holding two of the three is one service that can attempt a recovery on its own"*. |
 | **Starting with its secrets inside the store** | The sealing key and the pepper must live outside `--dir`, or the service exits. |
 | **A world-readable secret** | A key file with any group or other permission bit set is refused: `chmod 600 it`. |
 | **A pepper under 32 bytes** | A pepper an attacker can guess is a bare hash, which is the defect this replaces. |
 | **A password under 10 characters** | A length floor, and no composition rules — those measurably push people towards `Passw0rd!` and away from length. |
 | **Saying whether an account exists** | Wrong password and no such account are the same refusal, with the same status and the same wording, and the unknown case still spends the Argon2 time so the timing does not leak what the wording would not. |
-| **A second signature while one is in flight** | One open session per account, and the answer is `busy` rather than a queue. Concurrency here is the difference between paying somebody and paying them twice. |
-| **A frozen account** | A freeze stops co-signing entirely, and it is what a reported theft turns on. |
-| **A stale session** | Two minutes. An abandoned session holds a party mid-protocol with the share loaded, and a service accumulating those is one whose memory is a pile of live key material waiting for a heap dump. |
-| **Replaying a finished session** | Once a signature exists the session is done and closed, on the happy path too. |
-| **A message claiming to be from itself** | The only peer in a signing committee is the device. Anything else is a bug or somebody probing. |
-| **An amount over the second-factor threshold** | Refused outright, *because* second-factor enrolment is not built. A service that skips a check because the feature behind it is unfinished is a service that ships with the check missing. |
+| **A frozen account** | A freeze blocks a recovery outright, and it is what a reported theft turns on. |
+| **A deposit that is not signed by the key it names** | The signature covers the holding, the account and this service's role, so nothing in the middle can substitute any of them. |
+| **A holding meant for the other service** | The device posts a different part to each. One that posted the same to both would leave the account recoverable from one breach and unrecoverable from the intended pair — and neither symptom appears until somebody tries. |
+| **Enrolling over an existing account** | Checked before the expensive work and again after it, because two deposits for one email can both pass the first check. |
+| **Releasing a part before the waiting period** | 72 hours of notice, two approvals from different teams, then a further 24 hours in which the account holder can still cancel. |
+| **A recovery nobody was told about** | Without `--notify-command` the service refuses to start one at all. A process running correctly and silently is the worst configuration this can be in. |
 
 ## Running it
 
@@ -64,7 +75,7 @@ custodian --role custodian \
           --sealing-key-file /etc/yamale/custodian.key \
           --pepper-file /etc/yamale/custodian.pepper \
           --listen 127.0.0.1:8099 \
-          --second-factor-above 0
+          --notify-command /usr/local/bin/yamale-notify
 
 custodian --role recovery \
           --dir /var/lib/yamale/recovery \
@@ -106,25 +117,23 @@ not this deployment's role.
 ## Enrolment
 
 A member of the public creating an account, without any single service ever
-holding two shares.
+holding two of the three parts.
 
-**The device coordinates.** It runs its own key-generation party — in the
-browser, via `mpc/wasm` — and speaks to both services. Each service runs its own
-party, computes its own share, and transmits none of it. The device is the only
-participant that talks to both, and the only one that ever holds its own share.
+**The device does all of it.** It generates an ordinary secp256k1 key, seals it
+under the account holder's password, splits the sealed blob three ways, keeps one
+part and posts one to each service. It is the only participant that speaks to
+both, and the only one that ever holds its own part.
 
 ```
-POST /v1/enrol/start     email + password         -> session, first messages
-POST /v1/enrol/message   session + one message    -> replies, and whether done
-POST /v1/enrol/finish    session + the address    -> committed, or refused
+POST /v1/enrol   email + password + pubkey + holding + signature -> address
 ```
 
-`/v1/enrol/message` with no message is a **poll**, and it is not optional: a
-round's messages can become available after the response that triggered them was
-already written, and a client that never asks again stalls one round short with
-nothing logged. Poll until `done` is true **for every party** — the device
-knowing its own share says nothing about whether its peers know theirs, and
-`/finish` refuses a generation that has not completed.
+One request, no session, no state between calls. There is no longer any such
+thing as an abandoned enrolment: a deposit either commits or leaves nothing
+behind, so there is nothing to reap and no sweeper that can quietly stop running.
+
+This replaced three endpoints, a ten-minute session TTL, a pool of pre-computed
+safe primes, and about nine and a half minutes of a phone's CPU.
 
 ### What this can and cannot verify
 
@@ -158,22 +167,19 @@ abandoned, fails, or is finished with a mismatched address leaves no account
 behind — the password verifier is computed at `start` and held in memory until
 `finish`.
 
-### The pre-parameter pool
+### The expensive step is Argon2id, and it runs last
 
-A party's Paillier key needs two safe primes and finding them takes minutes.
-Generating them inside the request would give a person a four-minute spinner and
-give an attacker an unauthenticated endpoint costing minutes of CPU per call —
-a handful of requests pins every core and nobody can enrol or sign.
+There is no pre-parameter pool any more — no Paillier key, no safe primes,
+nothing to pre-compute. What enrolment costs this service is one Argon2id
+derivation at 128 MiB, for the password verifier.
 
-So they are made in advance, in the background, and enrolment either takes one
-from the shelf immediately or is refused immediately with `503`. Both answers
-are fast, and *"come back in a minute"* is a far better failure than a service
-that becomes slow for everybody.
+The order of checks is deliberate and every cheap one runs first: the
+already-enrolled check and the deposit signature are both verified **before**
+Argon2id is asked to do any work. An unauthenticated caller cannot spend this
+service's memory by posting rubbish.
 
-**Do not make `Take` block when the shelf is empty.** It is the obvious
-improvement and it restores the whole problem behind a nicer error message: an
-unbounded queue whose length is set by whoever is attacking. `--preparam-pool`
-sets how many are kept ready; the default is 4.
+The rate limit in front of it is what bounds the rest; see
+`deploy/nginx/yamale-account.conf`.
 
 ## Recovery
 
@@ -227,11 +233,15 @@ date of birth and address: that is precisely what social engineering runs on.
 
 ### What completing a recovery does not do
 
-**It does not re-key anything.** Completion marks the account recoverable and
-freezes outbound spending; the actual reshare — `mpc.Reshare`, which produces
-new shares under the *same* public key, so the address and the `x/alias`
-identifier survive — is driven by the device once the customer is back. Putting
-the reshare in here would mean this service generating a share on behalf of
+**It does not touch what it stores.** Completion marks a decision and starts a
+clock; the part it later releases is the same bytes that were deposited at
+enrolment. It must be — a part that changed would rebuild a ciphertext that does
+not open, and the account holder has no way to tell that from having mistyped
+their password.
+
+**It does not re-key anything either.** The key that comes back is the key that
+went in, so the address and the `x/alias` identifier survive untouched. Re-keying
+here would mean this service generating a key on behalf of
 somebody who was not present, which is exactly the property the whole design
 refuses.
 
@@ -263,40 +273,59 @@ process's environment is where the paths to the sealing key and the pepper are.
 
 | | |
 |---|---|
-| `POST /v1/sign/start` | authenticate, open a session, return the custodian's first protocol messages |
-| `POST /v1/sign/message` | feed one device message in, get the custodian's replies |
-| `POST /v1/sign/result` | the signature, or `{"pending": true}` |
-| `POST /v1/freeze` | stop this account co-signing |
-| `GET /v1/health` | account count, open sessions, uptime |
-
-Five, and one of them is a health check. The service is small on purpose.
+| `POST /v1/enrol` | verify a deposit and store one part |
+| `POST /v1/recovery/initiate` | operator; the 72-hour clock starts |
+| `POST /v1/recovery/approve` | a second operator, from a different team |
+| `POST /v1/recovery/complete` | after the notice period and two approvals |
+| `POST /v1/recovery/cancel` | anybody, until the part is actually released |
+| `POST /v1/recovery/claim` | **customer**; email + password -> this service's part |
+| `POST /v1/freeze` | mark an account as reported stolen |
+| `GET /v1/health` | account count, uptime, whether recovery can run |
+| `POST /v1/sign/*` | `410 Gone`, with the reason |
 
 `/v1/health` reports what it holds as a sentence rather than a number: *"one
-share per account, which signs nothing alone"*.
+holding per account: a share of a ciphertext this service cannot open"*.
 
-### It signs 32 bytes it cannot read
+The `/v1/sign/*` routes answer `410` rather than `404` on purpose. A client built
+against the old exchange is in somebody's browser cache, and the difference
+between *"this service is broken"* and *"this client is too old"* costs an
+afternoon to work out from a `404`.
 
-`/v1/sign/start` takes a digest. The custodian does not build the transaction and
-does not parse it, and it has no way to recover what those bytes commit to.
+### Only one endpoint emits key material
 
-**This is a limitation and not a design win**, and it is stated that way in the
-code. A custodian that cannot read what it signs cannot refuse a payment on its
-merits — it can only refuse the **signer**. It can tell a wrong password from a
-right one and a frozen account from a live one; it cannot tell a rent payment
-from an account being drained.
+`/v1/recovery/claim`, and it is a **customer** endpoint while the rest of the
+recovery flow is an operator one. That split is the point: an operator who drives
+a recovery end to end still finishes holding nothing they did not start with.
 
-The amount is passed alongside the digest, for the second-factor rule, and it is
-**asserted by the caller** — which means a thief asserts zero. That is named
-honestly in the request type rather than dressed up. Making the amount visible to
-the custodian, so the threshold applies to something the custodian can verify, is
-the next piece and it is not built.
+The password is required there — not to authorise the recovery, which the notice
+period and two approvals did, but because the holder needs it anyway to open the
+seal, so demanding it costs them nothing and stops the endpoint handing a
+ciphertext part to anybody who learned a recovery identifier.
 
-### The freeze is judged differently from signing, on purpose
+### It no longer sees a payment at all
 
-`/v1/freeze` needs only the password. That is a deliberately different bar from
-signing, and the reasoning is worth keeping: somebody reporting a stolen phone is
-often distressed, sometimes on a borrowed device, and rarely able to produce a
-second factor that was on the phone.
+This used to sign a 32-byte digest it could not read, which was a stated
+limitation: a custodian that cannot read what it signs can refuse the **signer**
+but never the payment.
+
+That limitation is now total. The device signs alone, so this service does not
+see a payment before, during or after — and the honest consequence is worth
+writing down rather than leaving for somebody to discover:
+
+**This service can no longer stop a payment, and a frozen account can still
+spend.** Nothing in this codebase can stop a thief who holds both the phone and
+the password. That is the shape of the architecture rather than an oversight in
+it, and it is the price of a deal being between a buyer and a seller.
+
+### The freeze is judged leniently, on purpose
+
+`/v1/freeze` needs only the password, and the reasoning is worth keeping:
+somebody reporting a stolen phone is often distressed, sometimes on a borrowed
+device, and rarely able to produce a second factor that was on the phone.
+
+What a freeze now does is **block a recovery**, which is narrower than what it
+used to do and is still the right thing to stop: somebody who has taken over an
+email address uses a recovery to move the account to a device they hold.
 
 Making a freeze hard to request protects nobody. The cost of a false freeze is an
 inconvenience; the cost of a slow one is the account.
@@ -304,16 +333,18 @@ inconvenience; the cost of a slow one is the account.
 A freeze is not a deletion. An account that vanishes takes its own audit trail
 with it.
 
-### The second factor is demanded at signing, not at login
+### The second factor moved to recovery, because that is where this service still is
 
-The rule most systems get wrong: gating the **login** and not the **payment**
-protects the session rather than the money. An attacker holding the password and
-the device share does not need to log in again — they need to sign.
+The rule most systems get wrong is gating the **login** rather than the action:
+an attacker holding the password does not need to log in again.
 
-So the threshold is on the amount, at the moment of signing, and not on the
-session's age. `--second-factor-above 0` means every signature needs one, which
-is a legitimate setting for an institution and a miserable one for somebody
-buying bread.
+That rule was right and this service can no longer apply it to a payment, because
+it never sees one. `--second-factor-above` is gone with the signing path. What
+remains is `factors.go`, which decides what a **recovery** must produce — a
+passkey if one is registered, else a TOTP code, else one sent by email — and
+that is the moment this service is still present at.
+
+The endpoints to enrol those factors are **not built**, and neither is a mailer.
 
 ## Operating it
 
@@ -324,11 +355,10 @@ nothing else in this service would:
 {
   "role": "custodian",
   "accounts": 0,
-  "preparams_ready": 1,
+  "uptime_seconds": 41,
+  "holds": "one holding per account: a share of a ciphertext this service cannot open",
   "enrolment": "ready",
-  "recovery": "disabled: no notify command, and a recovery nobody is told about is worse than none",
-  "open_sessions": 0,
-  "open_enrolments": 0
+  "recovery": "disabled: no notify command, and a recovery nobody is told about is worse than none"
 }
 ```
 
@@ -384,17 +414,18 @@ Stated first because it is the question an auditor asks first.
 | What leaks | What the attacker gets |
 |---|---|
 | The store alone | Ciphertext, and a set of blind indexes. No email addresses, no names, no signing key. |
-| The store **and** the sealing key | Every custodian share. Still not a key: they then need a device share per account, one at a time, from the people holding them. |
+| The store **and** the sealing key | Every part this service holds. Still not a key, and not even a ciphertext: one part of a 2-of-3 is information-theoretically nothing. |
+| **Both services**, and both sealing keys | A ciphertext per account, and the ability to guess at passwords offline. This is the case the seal exists for, and the only one where the password is what stands there. |
 | The store **and** the pepper | The ability to test a guess at which email addresses are enrolled. |
 
-Encrypting at rest is not the last line of defence here — the threshold is. What
-it buys is that a stolen disk is not also a stolen queue of half-compromised
-accounts.
+Encrypting at rest is not the last line of defence here — the seal is, and
+before that the fact that one part alone is nothing. What encrypting at rest buys
+is that a stolen disk is not also a stolen queue of half-compromised accounts.
 
 The `Account` record is worth reading for what is **not** in it: no name, no
 email, no phone, no document number. The custodian needs to find an account and
-decide whether to co-sign; it does not need to know who anybody is, and personal
-data it never holds is data it cannot leak or be compelled to produce.
+decide whether to release its part; it does not need to know who anybody is, and
+personal data it never holds is data it cannot leak or be compelled to produce.
 
 Passwords are **hashed, never encrypted** — Argon2id, per-user salt, tuned to
 roughly 90 ms rather than copied from an example. Encryption is reversible, so a
@@ -443,22 +474,33 @@ This list is longer than the feature list, and that is the honest shape of it.
   to answer.
 - **Recovery does not reach every enrolled device.** The design says notice goes
   to the registered email *and* every enrolled device; device enrolment does not
-  exist, so today it reaches one address. Email is also where password resets
-  land, which makes it one factor wearing two hats.
-- **The reshare after a recovery is not automated.** Completion restores
-  eligibility and freezes spending; the customer's device still has to drive
-  `mpc.Reshare` to get working shares back. Deliberate — see above — but it
-  means a recovery is not finished when the endpoint says completed.
-- **No second factor.** The `second_factor` field is a placeholder, there is no
-  enrolment, and above the threshold the service refuses rather than proceeds.
-- **No notification of a SIGNATURE.** Recovery notifies; ordinary signing does
-  not. Nothing tells a person their account signed something, or that somebody
-  tried, and it is the cheapest defence against a stolen device there is.
-- **No rate limit and no lockout.** Argon2id makes each guess cost about 90 ms
-  and that is all that stands between an attacker and an online password
-  attack.
-- **It cannot refuse a payment.** It signs 32 opaque bytes. It refuses the
-  signer; it cannot refuse the transaction.
+  exist, so today it would reach one address. Email is also where password
+  resets land, which makes it one factor wearing two hats.
+- **There is no mailer.** `--notify-command` names a program and no such program
+  is written, so a recovery refuses to start. That is the correct default and it
+  means recovery is off wherever it has not been configured, which is
+  everywhere.
+- **Second-factor enrolment is not built.** `factors.go` decides what a recovery
+  must produce — a passkey, else TOTP, else an emailed code — and there is no
+  endpoint to register any of them, so the ladder falls through to the factor
+  that needs the mailer above.
+- **It cannot refuse a payment, at all.** It does not see one. This is not a
+  gap to be closed later; it is what the architecture decided. Nothing here can
+  stop a thief holding both the phone and the password.
+- **Nothing notifies a person that their account signed something**, or that
+  somebody tried. It is the cheapest defence against a stolen device there is,
+  and with no service in the signing path there is now nowhere in this codebase
+  to put it — it has to come from the chain or from the device.
+- **Both services are run by the same operator today.** That is exactly the case
+  sealing before splitting exists for. It is also the case in which a breach of
+  both exposes the account to offline password guessing, which the scheme this
+  replaced did not allow.
+- **No rate limit and no lockout of its own.** Argon2id at 128 MiB makes each
+  guess expensive and that is all that stands between an attacker and an online
+  password attack; `deploy/nginx/yamale-account.conf` is where the limit lives
+  and it is not installed.
+- **Accounts enrolled under the old scheme cannot be read.** They would have to
+  enrol again. A migration is possible in principle and is not built.
 - **No transport security of its own.** It listens on loopback by default and
   expects to sit behind something that terminates TLS. It authenticates the
   account, not the network.
@@ -467,7 +509,7 @@ This list is longer than the feature list, and that is the honest shape of it.
 
 ## Where else to read
 
-- [mpc.md](mpc.md) — the protocol, the three shares, and what has been verified
+- [recovery.md](recovery.md) — the scheme, the three parts, and what has been verified
   on the live chain.
 - [accounts.md](accounts.md) — the design this is a fragment of, including
   everything above that is unbuilt.

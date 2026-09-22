@@ -1,5 +1,20 @@
 # Replacing GG18 with DKLs23
 
+> **Superseded 2026-09-22, and kept because the reasoning is still worth reading.**
+>
+> This evaluation asked which threshold-signature scheme to use. That question
+> stopped applying when the architecture decision of 2026-09-18 removed the
+> reason to have one at all: a deal is between a buyer and a seller, the services
+> appear only in a recovery, and the device signs alone with an ordinary key. So
+> there was nothing left for a threshold scheme to do, and tss-lib was deleted
+> rather than replaced — see [recovery.md](../guides/recovery.md).
+>
+> What survives is the analysis of *why* GG18 was painful: the Paillier safe
+> primes, the enrolment cost, the size of the WebAssembly build. Every one of
+> those was a symptom of paying for a property nobody wanted, which is a cheaper
+> lesson to learn from a document than from a second library.
+
+
 Decided 2026-09-09: move consumer-account threshold signing from tss-lib's GG18
 to DKLs23, using Silence Laboratories' audited implementation behind a sidecar.
 This records what the evaluation found, including the two things that make it

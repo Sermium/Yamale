@@ -4,7 +4,7 @@
 
 > The split key of Part 1 exists as `mpc` — 2-of-3 threshold ECDSA — and has
 > signed two payments on the live chain, the second after a password reset that
-> did not move the address. See **[mpc.md](mpc.md)** for what was built and
+> did not move the address. See **[recovery.md](recovery.md)** for what was built and
 > **[custodian.md](custodian.md)** for the service holding the operator's share.
 >
 > **Everything else here is still a specification.** No enrolment, no recovery
@@ -94,7 +94,7 @@ Why threshold ECDSA rather than a 2-of-3 `x/group` account, which would have
 needed no new cryptography: a multisig address derives from its member keys, so
 rotating a share changes the address, and on this chain that retires the
 account's `x/alias` identifier and breaks every saved payee. Resharing rotates
-every share under the same public key. [mpc.md](mpc.md) has the argument and the
+every share under the same public key. [recovery.md](recovery.md) has the argument and the
 two transactions that demonstrate it.
 
 Institutions keep self-custody, and treasuries keep multi-signature through

@@ -410,17 +410,23 @@ of the sharing arithmetic is held to those same vectors by its own tests. The
 directory went from 19 MB to 141 KB. The two on-chain payments stay, relabelled
 as history: they were made under the threshold scheme.
 
-Still open: `mpc/wasm` itself. `mpc`, `tools/mpc` and
-`spike/dkls23` are dead code pending deletion. Accounts enrolled under the old
+**Deleted 2026-09-22:** `mpc/`, `mpc/wasm`, `tools/mpc/`, `spike/dkls23`, the
+`github.com/bnb-chain/tss-lib/v2` dependency, and the `replace` directive for the
+withdrawn `github.com/agl/ed25519` that existed only to make tss-lib's module
+graph resolve. `docs/guides/mpc.md` is replaced by
+[recovery.md](../guides/recovery.md). Nothing in the repository imports a
+threshold library any more.
+
+Still open: nothing here is **deployed**, and accounts enrolled under the old
 protocol cannot be read by the new services and must re-enrol — a migration is
-possible in principle (the device share plus one service share reconstruct the
-old key, on the device, which could then be sealed and re-split) but is not
-built, and on a demonstrator chain it is probably not worth building.
+possible in principle (the device part plus one service part reconstruct the old
+key, on the device, which could then be sealed and re-split) but is not built,
+and on a demonstrator chain it is probably not worth building.
 
 **The share protocol is built, and it has signed on this chain.** `mpc` is
 2-of-3 threshold ECDSA over secp256k1 on tss-lib: three shares named `device`,
 `custodian` and `recovery`, any two of which sign, none of which signs alone. It
-is documented in [mpc.md](../guides/mpc.md). `tools/custodian` holds the second
+was documented in `mpc.md`, now replaced by [recovery.md](../guides/recovery.md). `tools/custodian` holds the second
 share and decides whether to co-sign — [custodian.md](../guides/custodian.md).
 `mpc/wasm` is the device's half compiled for the browser, and `clients/keys` runs
 the protocol in front of an audience at `/keys/`.
