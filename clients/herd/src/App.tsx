@@ -28,7 +28,7 @@
  * stubbed tag reader would put a fabricated identifier on a screen whose entire
  * purpose is to refuse one.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { t, useLocale } from '@yamale/chain';
 
@@ -36,7 +36,8 @@ import { AnimalScreen } from './Animal.tsx';
 import { useDownload, useLocalHerd, useOutbox, useStore } from './data.ts';
 import { Identify } from './Identify.tsx';
 import { MyHerd } from './MyHerd.tsx';
-import { NO_DEVICE, NO_IDENTITY } from './ports.ts';
+import { NO_IDENTITY } from './ports.ts';
+import { makeKit } from './kit.ts';
 import { Sync } from './Sync.tsx';
 
 /* ------------------------------------------------------------------ theme */
@@ -198,10 +199,22 @@ export function App() {
   const [download, startDownload] = useDownload(store, reload);
   const queue = useOutbox(store, local.outbox, reload);
 
-  // Until `identity.ts` and `device.ts` land. See ports.ts — these are
-  // absences, not stubs, and every screen renders the absence.
+  // The real field kit, built once for the life of the application.
+  //
+  // `device.ts` has landed and `kit.ts` joins it to the ports these screens
+  // ask in. What it reports is still mostly absence, and deliberately so: the
+  // IriShield's USB protocol and the stick reader's GATT service have not been
+  // confirmed by their vendors, so those sources are not constructed at all and
+  // the capabilities say which details are missing. The screens already render
+  // an absence properly, which is why this is a one-line change rather than a
+  // rewrite.
+  //
+  // `identity` is still NO_IDENTITY, and that one is not a gap in this
+  // application: x/herd has no enrolment message to sign yet, so there is
+  // nothing for a signer to do. outbox.ts holds captures rather than queueing
+  // them for exactly that reason.
+  const device = useMemo(() => makeKit(), []);
   const identity = NO_IDENTITY;
-  const device = NO_DEVICE;
   const operator = identity.operator();
 
   const pending = local.outbox.filter((e) => e.state !== 'sent').length;
