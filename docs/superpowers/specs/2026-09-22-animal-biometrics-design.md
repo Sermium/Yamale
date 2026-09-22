@@ -102,11 +102,38 @@ used for registration since the 1920s, and the best performer in the literature.
 It is the primary modality for cattle. It needs a **close, sharp, evenly lit**
 capture, which is what drives the camera requirement in §6.
 
-**Iris** works and is stable over life, which muzzle and face are not. It wants
-infrared illumination and a close working distance, and **no phone exposes an
-infrared camera** — the Face ID emitter on iPhones is not available to
-applications. Visible-light iris on a dark-eyed animal is much weaker than the
-human-iris literature suggests.
+**Iris** is stable over life, which muzzle and face are not, and that alone
+makes it worth taking seriously. An earlier draft of this document said flatly
+that a phone cannot do it. That was wrong and worth correcting carefully,
+because the truth is more useful than either slogan.
+
+Iris scanning *has* shipped on mainstream phones: the Samsung Galaxy Note 7
+through the Note 9 and S9 carried a dedicated near-infrared LED and a separate
+NIR camera, with an SDK, as did the Lumia 950 for Windows Hello. Samsung
+dropped it around 2019. So it is a proven thing to build, on hardware you can no
+longer buy as a fleet.
+
+What those phones had, and current ones do not, is **near-infrared**. Iris
+texture is revealed at roughly 700–900 nm because melanin is far more
+transparent there; in visible light a dark brown iris reads as a dark disc with
+little usable structure. That is why the iris standards are NIR, and why the
+visible-light iris research that does exist performs much better on light eyes
+than dark ones.
+
+**Cattle irises are dark brown.** So the modality that shipped on phones is the
+one that would work here, and the one an ordinary phone offers — a visible-light
+sensor behind an IR-cut filter — is the hard case.
+
+The practical route is therefore **a clip-on NIR module**: an infrared
+illuminator and a camera without the IR-cut filter. That is the same accessory
+class as the Bluetooth LF reader §1.1 already requires, which makes it a smaller
+decision than it first appears — the field kit is already not just a phone.
+
+A second problem applies whatever the sensor, and optics do not solve it: the
+camera has to come within centimetres of the eye of an animal that does not want
+it there. Muzzle is easier not because the imaging is easier but because the
+beast presents its nose and holds still for it. Both modalities really assume
+the animal is in a crush.
 
 **Face** is usable and less mature, and sensitive to pose. It is the friendliest
 to capture, which matters more than it sounds: a modality an operator will
@@ -196,6 +223,10 @@ an unusable image. **A fixed-focus macro camera disqualifies a device.**
 - A **ring light or dual-LED**, or a clip-on diffuser. A single LED puts a
   specular highlight in the middle of a wet muzzle, which is precisely where the
   detail is.
+- **A clip-on near-infrared module** if iris is wanted — an IR illuminator and a
+  camera without an IR-cut filter. See §3: this is what the Samsung iris phones
+  had built in, and it is the difference between iris working on a dark bovine
+  eye and not.
 - **A depth sensor or LiDAR** for body measurement and for liveness — a check
   that the operator is photographing an animal rather than a photograph.
 - **An NPU** if matching is to run on-device offline. Not needed if the herd is
