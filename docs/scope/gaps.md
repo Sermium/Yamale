@@ -417,8 +417,19 @@ graph resolve. `docs/guides/mpc.md` is replaced by
 [recovery.md](../guides/recovery.md). Nothing in the repository imports a
 threshold library any more.
 
-Still open: nothing here is **deployed**, and accounts enrolled under the old
-protocol cannot be read by the new services and must re-enrol — a migration is
+**Deployed 2026-09-22.** The frontend is live on the funnel and verified there:
+`/keys/` runs the split-and-recombine demonstration (the two service parts
+rebuild the sealed blob, and it is visibly not the key), the explorer and the
+investments console sign through the wallet, and the wallet carries the
+protection panel.
+
+Still open: the two SERVICES are not deployed. `deploy/nginx/yamale-account.conf`
+is still NOT INSTALLED and `deploy/deploy.sh` does not copy it, so `/api/custodian`
+and `/api/recovery` do not exist on any host. The wallet probes for them and says
+so rather than offering a control that cannot work — standing them up needs
+sealing keys, peppers, two systemd units, the nginx include, and a notify command
+that is not written. Accounts enrolled under the old protocol cannot be read by
+the new services and must re-enrol — a migration is
 possible in principle (the device part plus one service part reconstruct the old
 key, on the device, which could then be sealed and re-split) but is not built,
 and on a demonstrator chain it is probably not worth building.
