@@ -5,11 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"yamale/blockchain/mpc"
+	"yamale/blockchain/recovery"
 )
 
 // The refusals are the product, so they are what is tested.
@@ -75,17 +74,16 @@ func TestAGuessablePepperIsRefused(t *testing.T) {
 	require.Contains(t, err.Error(), "at least 32")
 }
 
-// The second factor is demanded at the moment of signing rather than at login,
-// because an attacker holding the password and the device share never logs in
-// again — they sign.
-func TestTheSecondFactorGatesTheAmountNotTheSession(t *testing.T) {
-	require.True(t, SecondFactorRequired(0, 0), "a threshold of zero must mean always")
-	require.True(t, SecondFactorRequired(1_000_000, 0))
-
-	require.False(t, SecondFactorRequired(999, 1000))
-	require.True(t, SecondFactorRequired(1000, 1000), "at the threshold, not merely above it")
-	require.True(t, SecondFactorRequired(1001, 1000))
-}
+// The second-factor test went with the signing gate.
+//
+// It asserted that the factor was demanded by AMOUNT rather than by session
+// age, which was the right rule and the reason it was worth a test: gating the
+// login protects the session, and the attacker already has the session.
+//
+// Nothing asks the question now, because nothing sees a payment before it
+// happens. The rule survives where it still applies — a recovery, in
+// factors_test.go — and does not survive here, where there is no longer a
+// moment of signing for this service to be present at.
 
 // ---------------------------------------------------------------- the store
 
@@ -93,87 +91,96 @@ func testStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
 	key := []byte(strings.Repeat("k", 32))
-	s, err := NewStore(dir, mpc.RoleCustodian, key)
+	s, err := NewStore(dir, recovery.RoleCustodian, key)
 	require.NoError(t, err)
 	return s, dir
 }
 
-func custodianShare(t *testing.T) mpc.Share {
+func custodianHolding(t *testing.T) recovery.Holding {
 	t.Helper()
-	// A share-shaped value is enough for the storage rules; the protocol tests
-	// in mpc/ exercise real ones, and generating one here would add four
-	// minutes of safe primes to a test about file handling.
-	return mpc.Share{Role: mpc.RoleCustodian}
+	// A real one. It used to be a role-shaped stub because generating a
+	// threshold share cost four minutes of safe primes; Protect costs under a
+	// second, so there is no longer any reason for the storage tests to run
+	// against something that is not what production stores.
+	holdings, err := recovery.Protect([]byte("a key, or something its length"), "seven horses eating apples")
+	require.NoError(t, err)
+	for _, h := range holdings {
+		if h.Role == recovery.RoleCustodian {
+			return h
+		}
+	}
+	t.Fatal("no custodian holding")
+	return recovery.Holding{}
 }
 
-func TestAStoredShareIsNotReadableFromTheFile(t *testing.T) {
+func TestAStoredHoldingIsNotReadableFromTheFile(t *testing.T) {
 	store, dir := testStore(t)
 	acct := Account{Index: "idx-1", Address: "yml1test"}
-	require.NoError(t, store.Put(acct, custodianShare(t)))
+	require.NoError(t, store.Put(acct, custodianHolding(t)))
 
 	raw, err := os.ReadFile(filepath.Join(dir, "idx-1.json"))
 	require.NoError(t, err)
-	require.NotContains(t, string(raw), mpc.RoleCustodian,
-		"the share went to disk in a readable form")
+	require.NotContains(t, string(raw), recovery.RoleCustodian,
+		"the holding went to disk in a readable form")
 }
 
-func TestAShareCannotBeMovedBetweenAccounts(t *testing.T) {
+func TestAHoldingCannotBeMovedBetweenAccounts(t *testing.T) {
 	store, _ := testStore(t)
-	require.NoError(t, store.Put(Account{Index: "idx-1"}, custodianShare(t)))
+	require.NoError(t, store.Put(Account{Index: "idx-1"}, custodianHolding(t)))
 
 	one, err := store.Get("idx-1")
 	require.NoError(t, err)
 
 	// Lift the sealed bytes into another account's record, which is what an
 	// attacker with write access would try.
-	forged := Account{Index: "idx-2", Share: one.Share}
-	_, err = store.Share(forged)
-	require.Error(t, err, "a share sealed for one account opened under another")
+	forged := Account{Index: "idx-2", Holding: one.Holding}
+	_, err = store.Holding(forged)
+	require.Error(t, err, "a holding sealed for one account opened under another")
 }
 
 func TestTheWrongSealingKeyOpensNothing(t *testing.T) {
 	dir := t.TempDir()
-	right, err := NewStore(dir, mpc.RoleCustodian, []byte(strings.Repeat("k", 32)))
+	right, err := NewStore(dir, recovery.RoleCustodian, []byte(strings.Repeat("k", 32)))
 	require.NoError(t, err)
-	require.NoError(t, right.Put(Account{Index: "idx-1"}, custodianShare(t)))
+	require.NoError(t, right.Put(Account{Index: "idx-1"}, custodianHolding(t)))
 
-	wrong, err := NewStore(dir, mpc.RoleCustodian, []byte(strings.Repeat("j", 32)))
+	wrong, err := NewStore(dir, recovery.RoleCustodian, []byte(strings.Repeat("j", 32)))
 	require.NoError(t, err)
 	acct, err := wrong.Get("idx-1")
 	require.NoError(t, err, "reading the record needs no key")
-	_, err = wrong.Share(acct)
+	_, err = wrong.Holding(acct)
 	require.Error(t, err)
 }
 
 // The rule that keeps a custodian a custodian, checked on both sides.
 //
-// Put refuses so the bad file never exists; Share refuses so a bad file that
+// Put refuses so the bad file never exists; Holding refuses so a bad file that
 // arrived some other way — written by the recovery deployment sharing a
 // directory, or restored from the wrong backup — is caught on read. The
-// read-side check is the one that matters, because a share on disk is a share
+// read-side check is the one that matters, because a holding on disk is one
 // that survives a restart, so it is exercised against a genuinely written file
 // rather than a hand-forged one.
-func TestAStoreRefusesToHandBackANonCustodianShare(t *testing.T) {
+func TestAStoreRefusesToHandBackAnotherRolesHolding(t *testing.T) {
 	store, dir := testStore(t)
 
-	// The device's share must not even be writable here. A service holding it
-	// could sign alone.
-	require.Error(t, store.Put(Account{Index: "idx-1"}, mpc.Share{Role: mpc.RoleDevice}),
-		"a custodian store accepted the device's share")
+	// The device's holding must not even be writable here. A service keeping it
+	// would hold two of the three.
+	require.Error(t, store.Put(Account{Index: "idx-1"}, recovery.Holding{Role: recovery.RoleDevice}),
+		"a custodian store accepted the device's holding")
 
 	// Now a file this store did not write. The recovery deployment is the
 	// realistic source: same directory by misconfiguration, same sealing key by
-	// copy-paste, and its share opens fine — which is exactly why the role has
-	// to be checked rather than inferred from the fact that it decrypted.
-	recovery, err := NewStore(dir, mpc.RoleRecovery, []byte(strings.Repeat("k", 32)))
+	// copy-paste, and its holding opens fine — which is exactly why the role
+	// has to be checked rather than inferred from the fact that it decrypted.
+	otherService, err := NewStore(dir, recovery.RoleRecovery, []byte(strings.Repeat("k", 32)))
 	require.NoError(t, err)
-	require.NoError(t, recovery.Put(Account{Index: "idx-2"}, mpc.Share{Role: mpc.RoleRecovery}))
+	require.NoError(t, otherService.Put(Account{Index: "idx-2"}, recovery.Holding{Role: recovery.RoleRecovery}))
 
 	acct, err := store.Get("idx-2")
 	require.NoError(t, err, "reading the record needs no role")
-	_, err = store.Share(acct)
+	_, err = store.Holding(acct)
 	require.Error(t, err, "a custodian store handed back a recovery share")
-	require.Contains(t, err.Error(), "let one service sign alone")
+	require.Contains(t, err.Error(), "can attempt a recovery on its own")
 }
 
 func TestAnUnknownAccountIsIndistinguishableFromAWrongPassword(t *testing.T) {
@@ -187,7 +194,7 @@ func TestAnUnknownAccountIsIndistinguishableFromAWrongPassword(t *testing.T) {
 
 func TestFreezingSurvivesAReRead(t *testing.T) {
 	store, _ := testStore(t)
-	require.NoError(t, store.Put(Account{Index: "idx-1", Address: "yml1x"}, custodianShare(t)))
+	require.NoError(t, store.Put(Account{Index: "idx-1", Address: "yml1x"}, custodianHolding(t)))
 	require.NoError(t, store.Freeze("idx-1", "phone stolen at the market"))
 
 	acct, err := store.Get("idx-1")
@@ -197,49 +204,17 @@ func TestFreezingSurvivesAReRead(t *testing.T) {
 
 	// And the share is still there: a freeze is not a deletion, because an
 	// account that vanishes takes its own audit trail with it.
-	_, err = store.Share(acct)
+	_, err = store.Holding(acct)
 	require.NoError(t, err)
 }
 
-// --------------------------------------------------------------- sessions
-
-func TestOnlyOneSignatureAtATime(t *testing.T) {
-	sessions := NewSessions()
-	// Start needs a real share to build a party, so this asserts the guard
-	// rather than the protocol: the counter is incremented before any crypto,
-	// and a second start must be refused.
-	sessions.byAccount["idx-1"] = MaxOpenSessions
-	_, _, err := sessions.Start("idx-1", make([]byte, 32), custodianShare(t))
-	require.ErrorIs(t, err, ErrBusy,
-		"two signatures in flight for one account is how somebody pays twice")
-}
-
-func TestASessionExpires(t *testing.T) {
-	sessions := NewSessions()
-	now := time.Now()
-	sessions.now = func() time.Time { return now }
-
-	sessions.open["s1"] = &Session{ID: "s1", Index: "idx-1", Started: now}
-	sessions.byAccount["idx-1"] = 1
-
-	_, err := sessions.lookupLocked("s1")
-	require.NoError(t, err)
-
-	now = now.Add(SessionTTL + time.Second)
-	_, err = sessions.lookupLocked("s1")
-	require.ErrorIs(t, err, ErrSessionOld)
-
-	// And it is gone, not merely reported stale — an expired session still
-	// holds the custodian's share in memory.
-	require.Empty(t, sessions.open)
-	require.Empty(t, sessions.byAccount)
-}
-
-func TestAnUnknownSessionIsRefused(t *testing.T) {
-	sessions := NewSessions()
-	_, err := sessions.Handle("nope", mpc.Outbound{From: mpc.RoleDevice})
-	require.ErrorIs(t, err, ErrNoSession)
-}
+// The session tests went with the signing sessions.
+//
+// They covered three rules — one signature at a time, a two-minute expiry, and
+// an unknown session refused — and all three were about a co-signing path that
+// no longer exists. Deleted rather than adapted: there is nothing left for them
+// to assert, and a test kept alive against a stub is worse than no test,
+// because it reports coverage of a guarantee nobody is making any more.
 
 // ---------------------------------------------------------------- config
 

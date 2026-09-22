@@ -14,17 +14,17 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// Authentication, which is the custodian's actual product.
+// Authentication, which is what this service decides with.
 //
-// It is tempting to think the custodian's job is holding a share. It is not.
-// The share alone signs nothing, so holding it safely is necessary and worth
-// very little on its own. What the custodian is FOR is deciding whether to
-// co-sign — and that decision is the only thing standing between a stolen phone
-// and a stolen account.
+// It is tempting to think the custodian's job is holding a share. It is not,
+// and since 2026-09-18 it is even less so: the holding is a share of a
+// ciphertext, it opens nothing on its own, and nothing here co-signs a payment.
 //
-// Put the other way round: a custodian that co-signs for whoever asks has
-// turned a two-of-three into a one-of-one held by the attacker. Every rule in
-// this file exists because of that.
+// What this service is FOR is deciding whether to let a RECOVERY proceed — to
+// hand back the piece that, with the other service's piece and the account
+// holder's password, rebuilds their key. That decision is the only thing
+// standing between somebody who has taken over an email address and somebody
+// else's account, and every rule in this file exists because of it.
 
 // Argon2id parameters.
 //
@@ -140,22 +140,17 @@ func (b *BlindIndex) Of(email string) string {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// SecondFactorRequired decides whether this action needs more than a password.
+// There is no SecondFactorRequired any more.
 //
-// The rule the spec insists on, and the one most systems get wrong: gating the
-// LOGIN and not the payment protects the session rather than the money. An
-// attacker who has the password and the device share does not need to log in
-// again; they need to sign. So the second factor is demanded at the moment of
-// signing, and the threshold is on the amount rather than on the session's age.
+// It answered "does this payment need more than a password?", and it answered
+// it at the moment of signing rather than at login — which was the right place,
+// because an attacker holding the password and the device share does not need
+// to log in again, they need to sign.
 //
-// Zero means every signature needs it, which is a legitimate setting for an
-// institution and a miserable one for somebody buying bread.
-func SecondFactorRequired(amount, threshold uint64) bool {
-	if threshold == 0 {
-		return true
-	}
-	return amount >= threshold
-}
+// Nothing asks the question now. The device signs alone, so no service sees a
+// payment before it happens and none can demand anything about one. The second
+// factor moved to RECOVERY, where this service is still a participant and can
+// still refuse; see factors.go.
 
 // MinPasswordLength is the only password rule this service imposes.
 //

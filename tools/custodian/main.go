@@ -46,6 +46,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -58,28 +59,22 @@ import (
 	"strings"
 	"time"
 
-	"yamale/blockchain/mpc"
-	mpccosmos "yamale/blockchain/mpc/cosmos"
+	"yamale/blockchain/recovery"
+	"yamale/blockchain/recovery/chain"
 
 	_ "yamale/blockchain/app" // its init() seals the yml bech32 prefix
 )
 
 type server struct {
-	store    *Store
-	sessions *Sessions
-	index    *BlindIndex
-	// role is which of the three shares this deployment holds. Two deployments
-	// of this binary — custodian and recovery — are what make enrolment
-	// possible without any one process ever holding two shares.
+	store *Store
+	index *BlindIndex
+	// role is which of the three holdings this deployment keeps. Two
+	// deployments of this binary — custodian and recovery — are what make an
+	// enrolment possible without any one process holding two of the three.
 	role       string
-	enrolments *Enrolments
-	preParams  *PreParamPool
 	recoveries *Recoveries
 	notifier   Notifier
-	// secondFactorAbove is the amount, in the smallest unit, at or above which
-	// a signature needs more than a password. Zero means always.
-	secondFactorAbove uint64
-	started           time.Time
+	started    time.Time
 	// now is the server's clock, and it must be the SAME clock the recoveries
 	// store stamps EligibleAt with.
 	//
@@ -108,25 +103,24 @@ func main() {
 	keyFile := flag.String("sealing-key-file", "", "file holding the 32-byte sealing key")
 	pepperFile := flag.String("pepper-file", "", "file holding the blind-index pepper")
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
-	sfAbove := flag.Uint64("second-factor-above", 0, "amount at or above which a second factor is required; 0 means always")
-	role := flag.String("role", mpc.RoleCustodian, "which share this deployment holds: custodian or recovery")
-	poolSize := flag.Int("preparam-pool", 4, "how many pre-computed parameter sets to keep ready for enrolment")
+	role := flag.String("role", recovery.RoleCustodian, "which holding this deployment keeps: custodian or recovery")
 	recoveryDir := flag.String("recovery-dir", "", "directory holding the recovery log; defaults to <dir>/recoveries")
 	notifyCmd := flag.String("notify-command", "", "program run to notify an account holder; without it recovery refuses to start")
-	importShare := flag.String("import", "", "enrol an account from a share file and exit")
+	importShare := flag.String("import", "", "enrol an account from a holding file and exit")
 	importEmail := flag.String("import-email", "", "the email to index the imported account under")
 	importPassword := flag.String("import-password", "", "the password for the imported account")
+	importAddr := flag.String("import-address", "", "the account address the imported holding belongs to")
 	flag.Parse()
 
 	// Refused early and by name. A deployment started with --role device would
-	// be one holding the share that is supposed to exist only on somebody's
+	// be one keeping the holding that is supposed to exist only on somebody's
 	// phone, and the failure would be silent: enrolment would succeed and the
-	// customer's own share would be sitting on a server.
-	if *role != mpc.RoleCustodian && *role != mpc.RoleRecovery {
+	// customer's own holding would be sitting on a server.
+	if *role != recovery.RoleCustodian && *role != recovery.RoleRecovery {
 		fmt.Fprintf(os.Stderr,
-			"custodian: --role must be %q or %q, not %q. The device's share belongs on the device "+
-				"and a service holding it defeats the point of splitting the key.\n",
-			mpc.RoleCustodian, mpc.RoleRecovery, *role)
+			"custodian: --role must be %q or %q, not %q. The device's holding belongs on the device "+
+				"and a service keeping it defeats the point of splitting at all.\n",
+			recovery.RoleCustodian, recovery.RoleRecovery, *role)
 		os.Exit(2)
 	}
 	if *dir == "" || *keyFile == "" || *pepperFile == "" {
@@ -188,30 +182,23 @@ func main() {
 	}
 
 	s := &server{
-		store: store, sessions: NewSessions(), index: index,
-		role: *role, enrolments: NewEnrolments(),
+		store: store, index: index, role: *role,
 		recoveries: recoveries, notifier: notifier,
-		secondFactorAbove: *sfAbove, started: time.Now(),
+		started: time.Now(),
 	}
 
 	if *importShare != "" {
-		if err := s.importAccount(*importShare, *importEmail, *importPassword); err != nil {
+		if err := s.importAccount(*importShare, *importEmail, *importPassword, *importAddr); err != nil {
 			fmt.Fprintln(os.Stderr, "custodian:", err)
 			os.Exit(1)
 		}
 		return
 	}
 
-	// Started only for the serving path, not for --import: generating safe
-	// primes in a process that is about to exit wastes minutes of CPU and
-	// produces nothing.
-	s.preParams = NewPreParamPool(*poolSize, nil)
-	defer s.preParams.Close()
-
 	n, _ := store.Count()
-	log.Printf("custodian on %s as %s, %d accounts, second factor above %d", *listen, *role, n, *sfAbove)
-	log.Printf("this service holds ONE share per account and cannot sign with it alone")
-	log.Printf("enrolment needs a second deployment holding the other role; this one is %s", *role)
+	log.Printf("custodian on %s as %s, %d accounts", *listen, *role, n)
+	log.Printf("this service keeps ONE holding per account: a share of a ciphertext it cannot open")
+	log.Printf("it does not co-sign anything; the device signs alone, and this is a recovery service")
 	if *notifyCmd == "" {
 		log.Printf("NO --notify-command: recovery will refuse to start, because a recovery " +
 			"nobody was told about is worse than none")
@@ -237,30 +224,40 @@ func main() {
 		return http.TimeoutHandler(h, 30*time.Second, `{"error":"this took too long"}`)
 	}
 	guarded := http.NewServeMux()
-	guarded.Handle("POST /v1/sign/start", fast(s.handleStart))
-	guarded.Handle("POST /v1/sign/message", fast(s.handleMessage))
-	guarded.Handle("POST /v1/sign/result", fast(s.handleResult))
+	// There are no /v1/sign routes any more. Under the architecture decision of
+	// 2026-09-18 the device signs alone, so this service co-signs nothing and
+	// there is no signing session for an endpoint to drive. They answer 410
+	// with the reason rather than 404, because a cached client will hit them.
+	guarded.Handle("POST /v1/sign/start", fast(handleEnrolGone))
+	guarded.Handle("POST /v1/sign/message", fast(handleEnrolGone))
+	guarded.Handle("POST /v1/sign/result", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/freeze", fast(s.handleFreeze))
 	guarded.Handle("GET /v1/health", fast(s.handleHealth))
 	guarded.Handle("POST /v1/recovery/initiate", fast(s.handleRecoveryInitiate))
 	guarded.Handle("POST /v1/recovery/approve", fast(s.handleRecoveryApprove))
 	guarded.Handle("POST /v1/recovery/complete", fast(s.handleRecoveryComplete))
 	guarded.Handle("POST /v1/recovery/cancel", fast(s.handleRecoveryCancel))
+	// The only endpoint that emits key material, and a customer one. See claim.go.
+	guarded.Handle("POST /v1/recovery/claim", fast(s.handleRecoveryClaim))
 	guarded.Handle("GET /v1/recovery/statistics", fast(s.handleRecoveryStatistics))
-	// Enrolment keeps the generous bound: these are the slow ones.
-	guarded.HandleFunc("POST /v1/enrol/start", s.handleEnrolStart)
-	guarded.HandleFunc("POST /v1/enrol/message", s.handleEnrolMessage)
-	guarded.HandleFunc("POST /v1/enrol/finish", s.handleEnrolFinish)
+	// Enrolment keeps the generous bound. It is one request now, but it still
+	// pays for an Argon2id derivation at 256 MiB, which is slow on purpose.
+	guarded.HandleFunc("POST /v1/enrol", s.handleEnrol)
+	guarded.Handle("POST /v1/enrol/start", fast(handleEnrolGone))
+	guarded.Handle("POST /v1/enrol/message", fast(handleEnrolGone))
+	guarded.Handle("POST /v1/enrol/finish", fast(handleEnrolGone))
 
 	srv := &http.Server{
 		Addr:              *listen,
 		Handler:           guarded,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		// The slowest legitimate handler is one round of key generation. The
-		// bound that actually limits an abandoned enrolment is EnrolTTL and the
-		// cap on how many may be open at once, not this.
-		WriteTimeout: 5 * time.Minute,
+		// The slowest legitimate handler is now a single Argon2id derivation,
+		// which is under a second. Left generous rather than tightened to
+		// match, because the rate limit in front of this service is what bounds
+		// the work, and a timeout tuned to the happy path is a timeout that
+		// starts cutting off real requests on a loaded host.
+		WriteTimeout: 1 * time.Minute,
 	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
@@ -307,30 +304,35 @@ func readSecret(path string) ([]byte, error) {
 }
 
 // importAccount enrols an account from a share file produced by the ceremony.
-func (s *server) importAccount(sharePath, email, password string) error {
+func (s *server) importAccount(holdingPath, email, password, importAddress string) error {
 	if email == "" || password == "" {
 		return errors.New("--import needs --import-email and --import-password")
 	}
-	raw, err := os.ReadFile(sharePath)
+	raw, err := os.ReadFile(holdingPath)
 	if err != nil {
 		return err
 	}
-	var share mpc.Share
-	if err := json.Unmarshal(raw, &share); err != nil {
-		return fmt.Errorf("reading the share: %w", err)
+	var holding recovery.Holding
+	if err := json.Unmarshal(raw, &holding); err != nil {
+		return fmt.Errorf("reading the holding: %w", err)
 	}
-	if share.Role != s.role {
+	if holding.Role != s.role {
 		return fmt.Errorf(
-			"that is a %s share and this deployment is the %s. A service must hold exactly its own "+
-				"share: importing any other would give it two, and two shares sign",
-			share.Role, s.role)
+			"that is a %s holding and this deployment is the %s. A service keeps exactly its own: "+
+				"importing any other would give it two of the three",
+			holding.Role, s.role)
 	}
-	pub, err := share.PublicKey()
-	if err != nil {
-		return err
+	// The address cannot be derived from a holding — it is a share of a
+	// ciphertext, and deriving anything from it would need the password. So an
+	// import takes the address alongside, and an operator importing the wrong
+	// one produces an account that recovers to a key controlling a different
+	// address. That is a real footgun and it is why this is an operator tool
+	// rather than an endpoint.
+	address := importAddress
+	if address == "" {
+		return errors.New("--import needs --import-address: an address cannot be derived from a holding")
 	}
-	address, err := mpccosmos.Address(pub)
-	if err != nil {
+	if err := chain.CheckAddress(address); err != nil {
 		return err
 	}
 	verifier, err := NewVerifier(password)
@@ -343,7 +345,7 @@ func (s *server) importAccount(sharePath, email, password string) error {
 	}
 	if err := s.store.Put(Account{
 		Index: idx, Address: address, Password: verifier, Created: time.Now().UTC(),
-	}, share); err != nil {
+	}, holding); err != nil {
 		return err
 	}
 	fmt.Println(address)
@@ -353,116 +355,29 @@ func (s *server) importAccount(sharePath, email, password string) error {
 
 // ---------------------------------------------------------------- endpoints
 
-type startRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	// Digest is the 32 bytes to sign, base64. The custodian does not build the
-	// transaction and does not parse it: it is handed a digest, and what that
-	// digest commits to is the device's business.
-	//
-	// Worth being explicit that this is a LIMITATION and not a design win. A
-	// custodian that cannot read what it signs cannot refuse a payment on its
-	// merits — it can only refuse the signer. Making the amount visible so the
-	// second-factor threshold applies to something real is the next piece.
-	Digest string `json:"digest"`
-	// Amount, for the second-factor rule. Asserted by the caller today, which
-	// means a thief asserts zero. Named honestly rather than dressed up.
-	Amount uint64 `json:"amount"`
-	// SecondFactor is a placeholder until enrolment exists.
-	SecondFactor string `json:"second_factor,omitempty"`
-}
-
-type startResponse struct {
-	Session  string         `json:"session"`
-	Address  string         `json:"address"`
-	Outbound []mpc.Outbound `json:"outbound"`
-}
-
-func (s *server) handleStart(w http.ResponseWriter, r *http.Request) {
-	var req startRequest
-	if !decode(w, r, &req) {
-		return
-	}
-	digest, err := base64.StdEncoding.DecodeString(req.Digest)
-	if err != nil || len(digest) != 32 {
-		refuse(w, http.StatusBadRequest, "the digest must be 32 bytes, base64")
-		return
-	}
-
-	account, ok := s.authenticate(w, req.Email, req.Password)
-	if !ok {
-		return
-	}
-	if SecondFactorRequired(req.Amount, s.secondFactorAbove) && req.SecondFactor == "" {
-		// Refused rather than waved through, even though enrolment does not
-		// exist yet. A service that skips a check because the feature behind it
-		// is unfinished is a service that ships with the check missing.
-		refuse(w, http.StatusForbidden,
-			"this amount needs a second factor, and second-factor enrolment is not built yet")
-		return
-	}
-
-	share, err := s.store.Share(account)
-	if err != nil {
-		log.Printf("unsealing a share for %s: %v", account.Index, err)
-		refuse(w, http.StatusInternalServerError, "this account's share cannot be opened")
-		return
-	}
-	sess, out, err := s.sessions.Start(account.Index, digest, share)
-	if errors.Is(err, ErrBusy) {
-		refuse(w, http.StatusConflict, ErrBusy.Error())
-		return
-	}
-	if err != nil {
-		log.Printf("starting a session: %v", err)
-		refuse(w, http.StatusInternalServerError, "the session could not be started")
-		return
-	}
-	respond(w, startResponse{Session: sess.ID, Address: account.Address, Outbound: out})
-}
-
-type messageRequest struct {
-	Session string       `json:"session"`
-	Message mpc.Outbound `json:"message"`
-}
-
-func (s *server) handleMessage(w http.ResponseWriter, r *http.Request) {
-	var req messageRequest
-	if !decode(w, r, &req) {
-		return
-	}
-	out, err := s.sessions.Handle(req.Session, req.Message)
-	if err != nil {
-		sessionError(w, err)
-		return
-	}
-	respond(w, map[string]any{"outbound": out})
-}
-
-func (s *server) handleResult(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Session string `json:"session"`
-	}
-	if !decode(w, r, &req) {
-		return
-	}
-	sig, done, err := s.sessions.Signature(req.Session)
-	if err != nil {
-		sessionError(w, err)
-		return
-	}
-	if !done {
-		respond(w, map[string]any{"pending": true})
-		return
-	}
-	s.sessions.Close(req.Session)
-	respond(w, map[string]any{"signature": base64.StdEncoding.EncodeToString(sig)})
-}
-
-// handleFreeze stops an account co-signing.
+// The signing endpoints are gone.
 //
-// Password-authenticated, which is the right bar for this one action and a
-// deliberately different judgement from signing: somebody reporting a stolen
+// They were the largest thing in this file: a three-message exchange that fed
+// the custodian share into a threshold signing party, plus the rules about when
+// it would run at all — one signature per account at a time, a two-minute
+// session TTL, and a second factor demanded at the moment of signing rather
+// than at login.
+//
+// The decision of 2026-09-18 removed the reason for all of it. A deal is
+// between a buyer and a seller; the custodian appears only in a recovery. The
+// device holds an ordinary key and signs with it, so there is no second party
+// to a signature and nothing here to gate.
+//
+// Worth being clear about what was given up, because those rules were good ones
+// and something real went with them: this service can no longer refuse a
+// payment, and a frozen account can still spend. A freeze now blocks a
+// RECOVERY, which is a narrower promise than the signing path made. Nothing in
+// this codebase can stop a thief who has both the phone and the password —
+// that is the shape of the architecture, not an oversight in it.
+
+// handleFreeze marks an account as reported stolen.
+//
+// Password-authenticated, which is the right bar for this one action: somebody reporting a stolen
 // phone is often distressed, sometimes on a borrowed device, and rarely able to
 // produce a second factor that was on the phone. Making a freeze hard to
 // request protects nobody — the cost of a false freeze is an inconvenience, and
@@ -493,25 +408,16 @@ func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	body := map[string]any{
 		"role":           s.role,
 		"accounts":       n,
-		"open_sessions":  s.sessions.Open(),
 		"uptime_seconds": int(time.Since(s.started).Seconds()),
-		"holds":          "one share per account, which signs nothing alone",
+		"holds":          "one holding per account: a share of a ciphertext this service cannot open",
+		"enrolment":      "ready",
 	}
 
-	// Enrolment's readiness, reported because nothing else would say so. A pool
-	// that has been empty for an hour means new accounts have been refused for
-	// an hour, and the service is otherwise perfectly healthy while it happens:
-	// existing accounts sign, the store is fine, and the only symptom is people
-	// who cannot sign up.
-	if s.preParams != nil {
-		ready := s.preParams.Ready()
-		body["preparams_ready"] = ready
-		body["enrolment"] = "ready"
-		if ready == 0 {
-			body["enrolment"] = "unavailable: no pre-computed parameters, so new accounts are refused"
-		}
-	}
-	body["open_enrolments"] = s.enrolments.Open()
+	// There is no pre-parameter pool to report and no open enrolments to count.
+	// Both were real availability signals — an empty pool meant new accounts
+	// had been silently refused for however long it had been empty — and both
+	// disappeared with the protocol that needed them. Enrolment is now ready
+	// whenever the process is running.
 
 	// Whether recovery can run at all. A deployment with no notifier refuses to
 	// start one, by design — and an operator should be able to see that here
@@ -549,33 +455,42 @@ func (s *server) authenticate(w http.ResponseWriter, email, password string) (Ac
 		return Account{}, false
 	}
 
-	// The post-recovery freeze, and this is where it becomes real rather than a
-	// field in a JSON file. Recovery restores ACCESS, not immediate spending —
-	// so somebody who did get through the process, wrongly, still cannot
-	// convert it to money that afternoon, and the 24 hours are another window
-	// in which the real owner can notice and object.
+	// The post-recovery freeze is deliberately NOT applied here.
 	//
-	// Checked on every signature rather than at sign-in: a session opened
-	// before the freeze started must not outlive it.
-	if until, frozen := s.recoveries.FrozenUntil(idx); frozen {
-		refuse(w, http.StatusForbidden, fmt.Sprintf(
-			"this account was recovered recently, so payments out of it are held until %s. "+
-				"If you did not ask for that recovery, say so now — that is what this delay is for",
-			until.Format(time.RFC3339)))
-		return Account{}, false
-	}
+	// It used to be, and this was the right place then: it was checked on every
+	// signature rather than at sign-in, so a session opened before the freeze
+	// began could not outlive it.
+	//
+	// There are no signatures to check now. The freeze moved to the one action
+	// this service still performs after a recovery — releasing the holding —
+	// and handleRecoveryClaim enforces it there, with a reason and a
+	// Retry-After. Applying it here as well would refuse the claim with 403 and
+	// a message about payments being held, on a service that no longer has any
+	// idea whether a payment is being made.
+	//
+	// The account-level Frozen flag above still applies, because a reported
+	// theft should stop a recovery outright rather than delay it.
+
 	return account, true
 }
 
-func sessionError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNoSession), errors.Is(err, ErrSessionOld):
-		refuse(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, ErrFinished):
-		refuse(w, http.StatusConflict, err.Error())
-	default:
-		refuse(w, http.StatusBadRequest, err.Error())
+// newID is a random identifier for a recovery.
+//
+// It lived in session.go, which went with the signing sessions. Moved rather
+// than reimplemented: recovery.go is its only remaining caller and an
+// identifier generated two slightly different ways in one service is a thing
+// somebody eventually has to reconcile.
+//
+// 18 bytes, so the base64 is 24 characters with no padding and the value is not
+// guessable. A recovery identifier is handed out over HTTP and quoted back, and
+// one an attacker can enumerate would let them cancel or approve somebody
+// else's recovery.
+func newID() (string, error) {
+	b := make([]byte, 18)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func decode(w http.ResponseWriter, r *http.Request, into any) bool {

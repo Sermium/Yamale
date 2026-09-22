@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"yamale/blockchain/mpc"
+	"yamale/blockchain/recovery"
 )
 
 // Where the custodian's shares live, and what a breach of this file yields.
@@ -43,8 +43,10 @@ type Account struct {
 	Address string `json:"address"`
 	// Password is the Argon2id verifier, never the password.
 	Password Verifier `json:"password"`
-	// Share is the custodian's share, sealed. One of three.
-	Share []byte `json:"share"`
+	// Holding is the custodian's holding, sealed again at rest by this store.
+	// One of three, and already a share of a password-sealed ciphertext before
+	// it ever reaches here — see the recovery package.
+	Holding []byte `json:"holding"`
 	// Created is when enrolment completed.
 	Created time.Time `json:"created"`
 	// Frozen stops this account co-signing at all, which is what a reported
@@ -74,14 +76,16 @@ type Store struct {
 
 // NewStore opens the store, sealing with a 32-byte key held outside it.
 func NewStore(dir, role string, sealingKey []byte) (*Store, error) {
-	if role != mpc.RoleCustodian && role != mpc.RoleRecovery {
-		// The device's share belongs on the device. A store willing to hold it
-		// would make this service able to sign on its own, which is the single
-		// thing the whole design exists to prevent — so it is refused at
+	if role != recovery.RoleCustodian && role != recovery.RoleRecovery {
+		// The device's holding belongs on the device, and recovery.RoleDevice
+		// is now a name this can refuse by. Under the sealed-then-split scheme
+		// a service pair holds ciphertext, so one more holding does not by
+		// itself sign — but a service holding the device's is a service holding
+		// what the account holder was promised nobody else had. Refused at
 		// construction rather than at the first read.
 		return nil, fmt.Errorf(
-			"a store may hold the %s or %s share, never %q",
-			mpc.RoleCustodian, mpc.RoleRecovery, role)
+			"a store may hold the %s or %s holding, never %q",
+			recovery.RoleCustodian, recovery.RoleRecovery, role)
 	}
 	if len(sealingKey) != 32 {
 		return nil, fmt.Errorf(
@@ -116,32 +120,33 @@ func (s *Store) path(index string) string {
 	return filepath.Join(s.dir, filepath.Base(index)+".json")
 }
 
-// Put writes an account, sealing the share.
-func (s *Store) Put(a Account, share mpc.Share) error {
+// Put writes an account, sealing the holding.
+func (s *Store) Put(a Account, holding recovery.Holding) error {
 	// Refused on the way in as well as on the way out. The read-side check is
 	// the one that catches a bad file; this one stops the bad file existing,
 	// which matters because a share written here is a share that survives a
 	// restart.
-	if share.Role != s.role {
+	if holding.Role != s.role {
 		return fmt.Errorf(
-			"this is a %s store and that is a %s share; holding both would let one service sign alone",
-			s.role, share.Role)
+			"this is a %s store and that is a %s holding; one service holding two of the three "+
+				"is one service that can attempt a recovery on its own",
+			s.role, holding.Role)
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	plain, err := json.Marshal(share)
+	plain, err := json.Marshal(holding)
 	if err != nil {
-		return fmt.Errorf("serialising the share: %w", err)
+		return fmt.Errorf("serialising the holding: %w", err)
 	}
 	nonce := make([]byte, s.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return fmt.Errorf("reading a nonce: %w", err)
 	}
-	// The index is authenticated as additional data, so a sealed share cannot
+	// The index is authenticated as additional data, so a sealed holding cannot
 	// be lifted out of one account's file and dropped into another's.
-	a.Share = s.aead.Seal(nonce, nonce, plain, []byte(a.Index))
+	a.Holding = s.aead.Seal(nonce, nonce, plain, []byte(a.Index))
 
 	raw, err := json.MarshalIndent(a, "", "  ")
 	if err != nil {
@@ -150,9 +155,9 @@ func (s *Store) Put(a Account, share mpc.Share) error {
 	return writeFileAtomic(s.path(a.Index), raw)
 }
 
-// Get reads an account without unsealing its share.
+// Get reads an account without unsealing its holding.
 //
-// Separate from Share() on purpose: authentication needs the verifier and the
+// Separate from Holding() on purpose: authentication needs the verifier and the
 // frozen flag and has no business touching key material, so the common path
 // never decrypts anything.
 func (s *Store) Get(index string) (Account, error) {
@@ -172,35 +177,45 @@ func (s *Store) Get(index string) (Account, error) {
 	return a, nil
 }
 
-// Share unseals the custodian's share for one account.
-func (s *Store) Share(a Account) (mpc.Share, error) {
-	if len(a.Share) < s.aead.NonceSize() {
-		return mpc.Share{}, errors.New("the stored share is truncated")
+// Holding unseals this service's holding for one account.
+//
+// Called only during a recovery. Nothing else in this service has any reason to
+// touch it: under the architecture decision of 2026-09-18 the device signs
+// alone, so there is no co-signing path that needs key material at all.
+func (s *Store) Holding(a Account) (recovery.Holding, error) {
+	if len(a.Holding) < s.aead.NonceSize() {
+		return recovery.Holding{}, errors.New("the stored holding is truncated")
 	}
-	nonce, sealed := a.Share[:s.aead.NonceSize()], a.Share[s.aead.NonceSize():]
+	nonce, sealed := a.Holding[:s.aead.NonceSize()], a.Holding[s.aead.NonceSize():]
 	plain, err := s.aead.Open(nil, nonce, sealed, []byte(a.Index))
 	if err != nil {
-		// Wrong key, tampering, or a share moved between accounts. All three
+		// Wrong key, tampering, or a holding moved between accounts. All three
 		// are the same refusal and none of them says which.
-		return mpc.Share{}, errors.New("the stored share does not open")
+		return recovery.Holding{}, errors.New("the stored holding does not open")
 	}
-	var share mpc.Share
-	if err := json.Unmarshal(plain, &share); err != nil {
-		return mpc.Share{}, fmt.Errorf("the unsealed share does not decode: %w", err)
+	var holding recovery.Holding
+	if err := json.Unmarshal(plain, &holding); err != nil {
+		return recovery.Holding{}, fmt.Errorf("the unsealed holding does not decode: %w", err)
 	}
-	if share.Role != s.role {
-		// A service holding a share that is not its own is a service holding
-		// two, and two shares sign. Checked on every read rather than trusted
-		// from whatever wrote the file — including a file written by an earlier
-		// version of this program, or restored from the wrong backup.
-		return mpc.Share{}, fmt.Errorf(
-			"this is a %s store and that is a %s share; holding both would let one service sign alone",
-			s.role, share.Role)
+	if holding.Role != s.role {
+		// Checked on every read rather than trusted from whatever wrote the
+		// file — including a file written by an earlier version of this
+		// program, or restored from the wrong backup.
+		return recovery.Holding{}, fmt.Errorf(
+			"this is a %s store and that is a %s holding; one service holding two of the three "+
+				"is one service that can attempt a recovery on its own",
+			s.role, holding.Role)
 	}
-	return share, nil
+	return holding, nil
 }
 
-// Freeze stops an account co-signing.
+// Freeze marks an account as reported stolen.
+//
+// It no longer stops a signature — nothing co-signs, so nothing can be stopped
+// at signing time. What it stops is a RECOVERY, which is the one thing this
+// service still gates, and it is the right thing to stop: somebody who has
+// taken over an email address uses a recovery to move the account to a device
+// they hold.
 func (s *Store) Freeze(index, reason string) error {
 	a, err := s.Get(index)
 	if err != nil {

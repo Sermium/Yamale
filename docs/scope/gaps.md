@@ -284,7 +284,7 @@ devnet-2" rather than "not on devnet-2 at all".
 | | | |
 |---|---|---|
 | Country enrolment | `ceremony country` - offices, grants, jurisdictions, approved by the foundation | tool complete, **never run**: `RoleHolders` is empty for every country asked |
-| Enrolment for a threshold account | `tools/custodian --import` takes a share file an operator produced with `tools/mpc keygen` | there is no path by which a member of the public gets an account |
+| Enrolment for a consumer account | `tools/custodian` serves `POST /v1/enrol`: one deposit per service, signed by the account key so nothing in the middle can substitute the holding or the address | **closed 2026-09-22.** An end-to-end test enrols against two live services, loses the device holding, drives a full recovery through both, and signs with the reassembled key under the original public key |
 | Distributed key generation | `mpc.KeygenParty` — one participant per process, share computed locally and never transmitted | **closed 2026-09-03.** A test captures every byte the three parties exchange and asserts no party's secret scalar appears in it |
 | Enrolment over HTTP | `tools/custodian` `/v1/enrol/*`, driven by the device against two deployments (`--role custodian` and `--role recovery`) | built and tested; never run against a real browser or a deployed pair |
 | The recovery process of Part 5 | two approvers from different teams, 72-hour delay, notice that aborts on failure, 24-hour outbound freeze enforced on every signature, recorded proof, aggregate publication | built and tested; never exercised by a real operator |
@@ -362,6 +362,54 @@ is specified to the same depth: two approvers from different teams, a 72-hour
 delay with notice to email and every enrolled device, outbound payments frozen
 for 24 hours afterwards, proof that is not public knowledge, and recoveries
 published in aggregate so an unusual rate is visible without exposing who.
+
+**Superseded 2026-09-22: the threshold protocol is replaced by sealed secret
+sharing, and tss-lib is no longer on the signing path.** Everything in the two
+paragraphs below is history from here on — it describes a scheme that ran, that
+signed on this chain, and that the architecture decision of 2026-09-18 removed
+the reason for.
+
+That decision — a deal is between a buyer and a seller, and the services appear
+only in a litigation or a recovery — means nothing co-signs. Threshold ECDSA
+exists so several parties can sign without any of them holding the key, which is
+precisely the property that was no longer wanted. What is left to do is put a
+lost key back together, and that is secret sharing.
+
+The replacement is `recovery`: the device generates an ordinary secp256k1 key,
+seals it under the account holder's password with Argon2id and XChaCha20, and
+splits the SEALED blob 2-of-3 over GF(2^8). Sealing before splitting is the
+whole design — split the raw key and the custodian plus the recovery service,
+both run by the platform, reconstruct it between them.
+
+What went with it, measured rather than estimated:
+
+| | Before | After |
+| --- | --- | --- |
+| Enrolment on a phone | ~9.5 minutes, and it needed a Web Worker to avoid freezing the tab | one HTTP request |
+| Enrolment endpoints | 3, with a session store and a 10-minute TTL | 1, stateless |
+| Shipped to the browser | a 19 MB `mpc.wasm` | nothing; the arithmetic is small enough to write in the client |
+| `tools/custodian` | — | 1,253 lines removed |
+| Package test time | 148s (`mpc`) | 12s (`recovery`) |
+| Third-party crypto dependency | tss-lib, with a withdrawn `agl/ed25519` in its module graph | none |
+
+What was GIVEN UP, and it is not nothing: with both services breached, the
+account is exposed to offline password guessing at Argon2id cost. The threshold
+scheme offered no such avenue. It is the same trade decision A already made
+everywhere else — nothing co-signs and nothing can freeze, so a stolen phone and
+password is a stolen account regardless. The custodian can no longer refuse a
+payment, and a frozen account can still spend; a freeze now blocks a RECOVERY,
+which is a narrower promise. The 24-hour post-recovery hold moved from "access
+restored, spending frozen" to "the holding is released 24 hours later", because
+releasing it is the only lever this service still has.
+
+Still open: `clients/keys` and `mpc/wasm` still run the old protocol and the
+console still ships the 19 MB binary, so the public demonstrator at `/keys/`
+describes a scheme the services no longer implement. `mpc`, `tools/mpc` and
+`spike/dkls23` are dead code pending deletion. Accounts enrolled under the old
+protocol cannot be read by the new services and must re-enrol — a migration is
+possible in principle (the device share plus one service share reconstruct the
+old key, on the device, which could then be sealed and re-split) but is not
+built, and on a demonstrator chain it is probably not worth building.
 
 **The share protocol is built, and it has signed on this chain.** `mpc` is
 2-of-3 threshold ECDSA over secp256k1 on tss-lib: three shares named `device`,

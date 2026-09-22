@@ -281,8 +281,21 @@ func (rs *Recoveries) Cancel(id, by, reason string) (*Recovery, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A COMPLETED recovery can still be cancelled, while its window is open.
+	//
+	// It could not before, and that was right then: completion restored access
+	// immediately and only spending was held back, so there was nothing left to
+	// call off. It is wrong now. The holding is not released until FrozenUntil
+	// passes, and the notice sent on completion asks the account holder to
+	// speak up if this was not them — so refusing them here would be asking a
+	// person to object to something and then giving them no way to do it.
+	//
+	// After the window, the holding is out and a cancellation would be theatre.
 	if r.State == RecoveryCompleted {
-		return nil, errors.New("that recovery has already completed")
+		if r.FrozenUntil == nil || !r.FrozenUntil.After(rs.now().UTC()) {
+			return nil, errors.New(
+				"that recovery has already completed and its holding has been released")
+		}
 	}
 	if r.State == RecoveryCancelled || r.State == RecoveryRefused {
 		return nil, ErrRecoveryClosed

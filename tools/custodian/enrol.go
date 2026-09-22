@@ -3,272 +3,157 @@ package main
 import (
 	"errors"
 	"fmt"
-	"sync"
-	"time"
+	"net/http"
+	"strings"
 
-	"github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"
-
-	"yamale/blockchain/mpc"
+	"yamale/blockchain/recovery"
+	"yamale/blockchain/recovery/chain"
 )
 
-// Enrolment: how a member of the public gets an account, without any single
-// service ever holding two shares.
+// Enrolment: how a member of the public gets an account.
 //
-// # The shape, because it is not the obvious one
+// # What this used to be, and why it is a tenth of the size
 //
-// The DEVICE coordinates. It runs its own key-generation party in the browser,
-// and talks to two independent services — this one as `custodian`, and a second
-// deployment of this same binary as `recovery`. Each service runs its own
-// party, computes its own share, and transmits none of it.
+// Until the architecture decision of 2026-09-18 this file ran a threshold key
+// generation. The device coordinated a three-party protocol across two
+// services, each computing a share of a key that existed nowhere; it took three
+// endpoints, a session store with a ten-minute TTL, a pool of pre-computed
+// Paillier safe primes, and about nine and a half minutes of a phone's CPU.
 //
-// That is why --role exists. Two deployments, two sealing keys, two
-// directories, ideally two operators. One process able to hold both shares
-// would be one process able to sign, and the whole design is the claim that no
-// such process exists.
+// All of that existed so that several parties could sign together. Decision A
+// says a deal is between a buyer and a seller and the services appear only in a
+// recovery — so nothing signs together, and the entire apparatus was paying for
+// a property nobody wanted.
+//
+// What replaces it: the device generates an ordinary secp256k1 key, seals it
+// under the account holder's password, splits the sealed blob three ways, and
+// posts ONE of those holdings here. One request, no session, no protocol, no
+// state between calls. The arithmetic is in the recovery package.
 //
 // # What this service can and cannot verify
 //
 // It cannot verify that the person enrolling is who they say. Nobody can, over
 // HTTP, without an identity document or an agent — and pretending otherwise
-// would be worse than saying so. What it CAN verify, and does:
+// would be worse than saying so. The identity question belongs to enrolment
+// policy and is deliberately not decided here.
 //
-//   - the email is not already enrolled, so enrolment can never overwrite an
-//     existing account or replace its custodian share;
-//   - the key generation actually completed, and the address the device claims
-//     is the one this party computed. A device talking to a substituted
-//     custodian, or through something rewriting the traffic, produces a
-//     different key here and is refused;
-//   - the password verifier is written only when both of the above hold.
+// What it CAN verify, and does:
 //
-// The identity question belongs to enrolment policy — an agent network, a
-// document check, an invitation — and is deliberately not decided here.
-
-// EnrolTTL bounds a half-finished enrolment.
-//
-// Longer than SessionTTL because key generation is genuinely slower than
-// signing and a phone on a bad connection should not have to start again, and
-// still short, because an abandoned enrolment holds a party mid-protocol with
-// live key material in it.
-const EnrolTTL = 10 * time.Minute
-
-// MaxOpenEnrolments across the whole service.
-//
-// A global cap rather than a per-account one, because there is no account yet —
-// that is the point of enrolling — so there is nothing to key a per-caller
-// limit on that a caller cannot simply change. It bounds memory and, with the
-// pre-parameter pool, bounds the CPU an unauthenticated caller can command.
-const MaxOpenEnrolments = 32
+//   - the email is not already enrolled, so an enrolment can never overwrite an
+//     existing account or replace its holding;
+//   - the deposit is signed by the key it names, and the signature covers the
+//     holding, the account and this service's role — so nothing between the
+//     device and here can substitute any of them. See recovery/deposit.go for
+//     exactly what that proves and what it does not;
+//   - the address is DERIVED from the verified public key rather than taken
+//     from the request, so there is no address field to lie in;
+//   - the password verifier is written only when all of the above hold.
 
 var (
-	ErrTooManyEnrolments = errors.New("too many enrolments are in progress; try again shortly")
-	ErrNoEnrolment       = errors.New("no such enrolment")
-	ErrEnrolmentOld      = errors.New("that enrolment has expired; start again")
-	ErrAlreadyEnrolled   = errors.New("an account already exists for that email")
+	ErrAlreadyEnrolled = errors.New("an account already exists for that email")
+	ErrWrongRole       = errors.New("that holding was not meant for this service")
 )
 
-// Enrolment is one key generation in progress.
-type Enrolment struct {
-	ID    string
-	Index string
-	// Email is held only to be re-indexed at finish; it is never stored.
-	Party    *mpc.KeygenParty
-	Verifier Verifier
-	Started  time.Time
-	Done     bool
-}
-
-// Enrolments holds the open ones.
-type Enrolments struct {
-	mu   sync.Mutex
-	open map[string]*Enrolment
-	// byIndex stops one email opening many enrolments at once, which would
-	// otherwise be the cheapest way to exhaust the cap above.
-	byIndex map[string]string
-	now     func() time.Time
-}
-
-func NewEnrolments() *Enrolments {
-	return &Enrolments{
-		open:    map[string]*Enrolment{},
-		byIndex: map[string]string{},
-		now:     time.Now,
-	}
-}
-
-// Start begins this party's half of a new account's key generation.
+// Deposit is one service's half of an enrolment.
 //
-// role is this deployment's role — custodian or recovery. The verifier is
-// computed by the caller and held until finish, so a failed generation leaves
-// nothing behind.
-func (e *Enrolments) Start(
-	role, index string, verifier Verifier, pre *keygen.LocalPreParams,
-) (*Enrolment, []mpc.Outbound, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.reapLocked()
-
-	if existing, ok := e.byIndex[index]; ok {
-		// Replaced rather than refused. A person whose phone lost connection
-		// mid-enrolment would otherwise be locked out for EnrolTTL by their own
-		// abandoned attempt, and there is no account yet to protect — the
-		// account-exists check happens before this and is where overwriting is
-		// actually prevented.
-		e.closeLocked(existing)
-	}
-	if len(e.open) >= MaxOpenEnrolments {
-		return nil, nil, ErrTooManyEnrolments
-	}
-
-	party, err := mpc.NewKeygenParty(role, pre)
-	if err != nil {
-		return nil, nil, err
-	}
-	out, err := party.Outbound()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	id, err := newID()
-	if err != nil {
-		return nil, nil, err
-	}
-	en := &Enrolment{
-		ID: id, Index: index, Party: party,
-		Verifier: verifier, Started: e.now(),
-	}
-	e.open[id] = en
-	e.byIndex[index] = id
-	return en, out, nil
+// Note what is absent: no address. It is derived from PubKey after the
+// signature verifies, because a field the caller supplies and the service
+// merely compares is a field somebody eventually forgets to compare.
+type Deposit struct {
+	Email    string           `json:"email"`
+	Password string           `json:"password"`
+	PubKey   []byte           `json:"pubkey"`
+	Holding  recovery.Holding `json:"holding"`
+	// Signature is over recovery.DepositDigest(index, role, pubkey, holding).
+	Signature []byte `json:"signature"`
 }
 
-// Handle feeds in one message and returns this party's replies.
-func (e *Enrolments) Handle(id string, in mpc.Outbound) ([]mpc.Outbound, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	en, err := e.lookupLocked(id)
-	if err != nil {
-		return nil, err
-	}
-	if err := en.Party.Handle(in); err != nil {
-		return nil, err
-	}
-	out, err := en.Party.Outbound()
-	if err != nil {
-		return nil, err
-	}
-	if _, done := en.Party.Share(); done {
-		en.Done = true
-	}
-	return out, nil
-}
-
-// Poll returns anything this party wants to send without feeding anything in.
+// Enrol validates a deposit and commits the account.
 //
-// Needed because the first messages of a round can appear after the response to
-// the message that triggered them has already been written. Without a way to
-// ask again, the protocol stalls one round short — the same failure the mpc
-// package documents on the signing side, arriving here through the transport
-// instead of through a channel.
-func (e *Enrolments) Poll(id string) ([]mpc.Outbound, bool, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	en, err := e.lookupLocked(id)
+// The order is deliberate and every step is cheap before the expensive one: the
+// existence check and the signature check both run before Argon2id is asked to
+// do 256 MiB of work, so an unauthenticated caller cannot spend this service's
+// memory by posting rubbish.
+func (s *server) Enrol(d Deposit) (string, error) {
+	email := strings.TrimSpace(d.Email)
+	if email == "" || d.Password == "" {
+		return "", errors.New("an email and a password are required")
+	}
+	if err := checkPassword(d.Password); err != nil {
+		return "", err
+	}
+	if d.Holding.Role != s.role {
+		// The device posts a different holding to each service. One that posted
+		// the same holding to both would leave the account recoverable from one
+		// breach and unrecoverable from the intended pair — and neither
+		// symptom would appear until somebody tried to recover.
+		return "", fmt.Errorf("%w: this is the %s service and that is the %s holding",
+			ErrWrongRole, s.role, d.Holding.Role)
+	}
+
+	index := s.index.Of(email)
+
+	// Refused before anything expensive happens, and this is the check that
+	// makes enrolment safe to expose: without it, anybody could enrol over an
+	// existing email and replace that account's holding, which does not steal
+	// the money but does destroy the ability to ever recover it.
+	if _, err := s.store.Get(index); err == nil {
+		return "", ErrAlreadyEnrolled
+	}
+
+	pub, err := recovery.VerifyDeposit(index, s.role, d.PubKey, d.Signature, d.Holding)
 	if err != nil {
-		return nil, false, err
+		return "", err
 	}
-	out, err := en.Party.Outbound()
+	address, err := chain.Address(pub.SerializeCompressed())
 	if err != nil {
-		return nil, false, err
+		return "", err
 	}
-	if _, done := en.Party.Share(); done {
-		en.Done = true
-	}
-	return out, en.Done, nil
-}
 
-// Finish returns the completed share, leaving the enrolment open so the caller
-// can commit it and close it in the right order.
-func (e *Enrolments) Finish(id string) (*Enrolment, mpc.Share, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	en, err := e.lookupLocked(id)
+	verifier, err := NewVerifier(d.Password)
 	if err != nil {
-		return nil, mpc.Share{}, err
+		return "", fmt.Errorf("the password could not be prepared: %w", err)
 	}
-	share, ok := en.Party.Share()
-	if !ok {
-		if perr := en.Party.Err(); perr != nil {
-			return nil, mpc.Share{}, perr
-		}
-		return nil, mpc.Share{}, errors.New("key generation has not finished yet")
-	}
-	return en, share, nil
-}
 
-// Close drops an enrolment and its party.
-func (e *Enrolments) Close(id string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.closeLocked(id)
-}
+	// Re-checked after the slow work. Two deposits for one email can arrive
+	// close enough together that both passed the first check, and the one that
+	// commits second would otherwise overwrite the first — replacing the
+	// holding of an account whose owner has already been told it exists.
+	if _, err := s.store.Get(index); err == nil {
+		return "", ErrAlreadyEnrolled
+	}
 
-func (e *Enrolments) closeLocked(id string) {
-	en, ok := e.open[id]
-	if !ok {
-		return
+	account := Account{
+		Index:    index,
+		Address:  address,
+		Password: verifier,
+		Created:  nowUTC(),
 	}
-	delete(e.open, id)
-	if e.byIndex[en.Index] == id {
-		delete(e.byIndex, en.Index)
+	if err := s.store.Put(account, d.Holding); err != nil {
+		return "", err
 	}
-}
-
-func (e *Enrolments) lookupLocked(id string) (*Enrolment, error) {
-	en, ok := e.open[id]
-	if !ok {
-		return nil, ErrNoEnrolment
-	}
-	if e.now().Sub(en.Started) > EnrolTTL {
-		e.closeLocked(id)
-		return nil, ErrEnrolmentOld
-	}
-	return en, nil
-}
-
-// reapLocked drops expired enrolments.
-//
-// Called on every Start rather than from a timer: the work is proportional to
-// what is open, which is capped, and a service with no background sweeper has
-// one less thing that can silently stop running.
-func (e *Enrolments) reapLocked() {
-	now := e.now()
-	for id, en := range e.open {
-		if now.Sub(en.Started) > EnrolTTL {
-			e.closeLocked(id)
-		}
-	}
-}
-
-// Open is how many are in progress, for the health endpoint.
-func (e *Enrolments) Open() int {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return len(e.open)
+	return address, nil
 }
 
 // enrolmentError maps the failures above onto status codes.
 func enrolmentError(err error) (int, string) {
 	switch {
-	case errors.Is(err, ErrNoEnrolment), errors.Is(err, ErrEnrolmentOld):
-		return 404, err.Error()
 	case errors.Is(err, ErrAlreadyEnrolled):
-		return 409, err.Error()
-	case errors.Is(err, ErrTooManyEnrolments), errors.Is(err, ErrNoPreParams):
-		// 503 with a retry hint rather than 429: the caller is not being rate
-		// limited for misbehaving, the service genuinely has nothing ready, and
-		// telling them otherwise sends them to the wrong remedy.
-		return 503, err.Error()
+		return http.StatusConflict, err.Error()
+	case errors.Is(err, ErrWrongRole):
+		return http.StatusBadRequest, err.Error()
+	case errors.Is(err, recovery.ErrBadSignature), errors.Is(err, recovery.ErrBadPubKey):
+		// 400 rather than 403. Nobody is being denied permission; the request
+		// does not prove what it claims, and the remedy is to send a correct
+		// one rather than to obtain access.
+		return http.StatusBadRequest, err.Error()
 	default:
-		return 400, fmt.Sprint(err)
+		return http.StatusBadRequest, fmt.Sprint(err)
 	}
 }
+
+// There is no longer any such thing as an abandoned enrolment.
+//
+// Worth stating because the operational runbook still refers to reaping them. A
+// deposit either commits or leaves nothing behind: no session, nothing to
+// expire, and no background sweeper that can quietly stop running.

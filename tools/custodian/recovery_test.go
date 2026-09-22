@@ -2,13 +2,12 @@ package main
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"yamale/blockchain/mpc"
+	"yamale/blockchain/recovery"
 )
 
 // Recovery is the path these systems are actually robbed through, so these
@@ -305,18 +304,18 @@ func TestStatisticsSayHowManyAndNotWho(t *testing.T) {
 	require.GreaterOrEqual(t, stats.MedianHours, RecoveryDelay.Hours())
 }
 
-// TestRecoveryDoesNotTouchTheShare. Completing a recovery must not re-key
-// anything: the reshare happens with the customer present, and a service that
-// generated new shares on behalf of somebody who was not there would be a
-// service that can sign alone.
-func TestRecoveryDoesNotTouchTheShare(t *testing.T) {
+// TestCompletingARecoveryDoesNotTouchTheHolding.
+//
+// Completing must change nothing about what this service stores. It marks a
+// decision and starts a clock; the holding it later releases has to be the same
+// bytes that were deposited at enrolment, or the account holder reconstructs a
+// ciphertext that will not open and has no way to tell that from having
+// mistyped their password.
+func TestCompletingARecoveryDoesNotTouchTheHolding(t *testing.T) {
 	store, _ := testStore(t)
 	rs, clock := testRecoveries(t)
 
-	// A distinguishable share id, so "unchanged" is a real assertion rather
-	// than nil compared with nil.
-	original := custodianShare(t)
-	original.Data.ShareID = big.NewInt(0xC0FFEE)
+	original := custodianHolding(t)
 	require.NoError(t, store.Put(Account{Index: "idx-1"}, original))
 
 	rec, err := rs.Initiate("idx-1", "amina", "support", "in person", noNotice)
@@ -331,10 +330,12 @@ func TestRecoveryDoesNotTouchTheShare(t *testing.T) {
 
 	acct, err := store.Get("idx-1")
 	require.NoError(t, err)
-	after, err := store.Share(acct)
+	after, err := store.Holding(acct)
 	require.NoError(t, err)
-	require.Equal(t, mpc.RoleCustodian, after.Role)
-	require.NotNil(t, after.Data.ShareID)
-	require.Zero(t, original.Data.ShareID.Cmp(after.Data.ShareID),
-		"completing a recovery changed the custodian's share")
+	require.Equal(t, recovery.RoleCustodian, after.Role)
+	require.Equal(t, original.Share.X, after.Share.X)
+	require.Equal(t, original.Share.Y, after.Share.Y,
+		"completing a recovery changed the custodian's holding")
+	require.Equal(t, original.Salt, after.Salt, "the seal header moved")
+	require.Equal(t, original.Nonce, after.Nonce, "the seal header moved")
 }
