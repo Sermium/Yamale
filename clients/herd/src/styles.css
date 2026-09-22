@@ -275,6 +275,20 @@
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+  /*
+   * The same statement about content that `.natid` makes, for the field the
+   * identifier is TYPED into — and this one was missed.
+   *
+   * Measured in Arabic: the placeholder `221/682/021029/L` rendered as
+   * `L/221/682/021029`, and typing `221/682/000102/L` displayed
+   * `L/221/682/000102`. The value in the DOM is correct either way; it is the
+   * rendering that lies, which is worse than an error, because what the
+   * operator reads back to confirm is a different identifier that looks
+   * entirely plausible. The solidi and the trailing breed letter are
+   * bidi-neutral, so an RTL paragraph reorders the whole run.
+   */
+  direction: ltr;
+  unicode-bidi: isolate;
   color: var(--text);
   background: var(--surface);
   border: 2px solid var(--rule);
