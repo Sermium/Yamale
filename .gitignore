@@ -60,4 +60,6 @@ blockchaind.exe
 #   GOOS=js GOARCH=wasm go build -o clients/keys/mpc.wasm ./mpc/wasm
 # A binary that large in history costs every clone forever, and one built from
 # a commit nobody can identify is worse than one built at deploy time.
-clients/keys/mpc.wasm
+# clients/keys/mpc.wasm is gone: the keys console no longer loads a 19 MB
+# WebAssembly build of the threshold protocol. It demonstrates the sealing
+# and splitting directly instead, in a few hundred bytes of JavaScript.

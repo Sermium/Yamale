@@ -402,9 +402,15 @@ which is a narrower promise. The 24-hour post-recovery hold moved from "access
 restored, spending frozen" to "the holding is released 24 hours later", because
 releasing it is the only lever this service still has.
 
-Still open: `clients/keys` and `mpc/wasm` still run the old protocol and the
-console still ships the 19 MB binary, so the public demonstrator at `/keys/`
-describes a scheme the services no longer implement. `mpc`, `tools/mpc` and
+Closed 2026-09-22: `clients/keys` was rewritten. The demonstrator no longer runs
+a threshold protocol or ships the 19 MB binary — it seals nothing in the page
+(that is Argon2id at 128 MiB) but splits and recombines the REAL sealed values
+from `recovery/testdata/vectors.json` in about a millisecond, and its third copy
+of the sharing arithmetic is held to those same vectors by its own tests. The
+directory went from 19 MB to 141 KB. The two on-chain payments stay, relabelled
+as history: they were made under the threshold scheme.
+
+Still open: `mpc/wasm` itself. `mpc`, `tools/mpc` and
 `spike/dkls23` are dead code pending deletion. Accounts enrolled under the old
 protocol cannot be read by the new services and must re-enrol — a migration is
 possible in principle (the device share plus one service share reconstruct the

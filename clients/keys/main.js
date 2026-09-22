@@ -1,32 +1,34 @@
-// Wiring for the threshold-accounts page.
+// Wiring for the sealed-accounts page.
 //
 // Two jobs, kept apart because they fail differently and a reader has to be
 // able to tell which one broke:
 //
-//   the demonstration  runs locally, needs the WebAssembly module and no chain
-//   the evidence       needs the chain and no WebAssembly
+//   the demonstration  runs locally, needs nothing but this page
+//   the evidence       needs the chain
 //
-// A page that collapsed both into one "loading…" would report a dead node as a
-// broken protocol.
+// A page that collapsed both into one "loading..." would report a dead node as
+// a broken claim.
+//
+// The demonstration used to load a 19 MB WebAssembly module to run a threshold
+// signing protocol. It now runs the arithmetic directly, in about a
+// millisecond, because the arithmetic that matters is small - see sharing.js
+// for why there is a copy of it here and what holds it honest.
 
 import {
   NotHeld,
   Unreachable,
   balances,
-  demonstrate,
-  digestOf,
   disclosureCount,
   disclosureTerms,
   earliestBlock,
   height,
-  loadProtocol,
-  refuseWithOneShare,
   transaction,
 } from './threshold.js';
+import { combine, fromHex, same, split, toHex } from './sharing.js';
 
 const status = document.getElementById('status');
 const verdict = document.getElementById('verdict');
-const wires = document.getElementById('wires');
+const parts = document.getElementById('parts');
 const goButton = document.getElementById('go');
 const oneButton = document.getElementById('one');
 
@@ -64,98 +66,109 @@ function show(kind, head, body) {
   verdict.append(box);
 }
 
-function clearWires() {
-  wires.innerHTML = '';
-}
-
-function addWire(message) {
-  const row = document.createElement('div');
-  row.className = 'wire';
-  const r = document.createElement('span');
-  r.className = 'r';
-  r.textContent = `${message.round}`;
-  const what = document.createElement('span');
-  const from = document.createElement('span');
-  from.className = `tag tag--${message.from}`;
-  from.textContent = message.from;
-  const arrow = document.createTextNode(' → ');
-  const to = document.createElement('span');
-  to.className = `tag tag--${message.to}`;
-  to.textContent = message.to;
-  what.append(from, arrow, to);
-  if (message.broadcast) {
-    const b = document.createElement('span');
-    b.className = 'r';
-    b.textContent = '  (broadcast)';
-    what.append(b);
-  }
-  const bytes = document.createElement('span');
-  bytes.className = 'b';
-  bytes.textContent = `${message.bytes} B`;
-  row.append(r, what, bytes);
-  wires.append(row);
-  wires.scrollTop = wires.scrollHeight;
-}
-
-// The throwaway shares this page demonstrates with. Fetched rather than
-// embedded so the page itself stays readable, and so the fact that they are
-// ordinary published files is obvious to anybody who looks.
-let sharesPromise = null;
-function demoShares() {
-  if (!sharesPromise) {
-    sharesPromise = (async () => {
-      // TEXT, never res.json().
-      //
-      // Go marshals a big.Int as a bare JSON NUMBER, and JSON.parse turns any
-      // number into a float64. A 2048-bit Paillier modulus becomes
-      // 1.7489051584485197e+308 and the share is destroyed — which the protocol
-      // then reports as "cannot unmarshal into a *big.Int", a long way from the
-      // line that broke it. So the share text is carried to WebAssembly
-      // untouched and JavaScript never looks inside it.
-      const load = async (role) => {
-        const res = await fetch(`./demo/${role}.share.json`);
-        if (!res.ok) throw new Error(`the ${role} share is not deployed (${res.status})`);
-        return res.text();
+/**
+ * The real values this page demonstrates with.
+ *
+ * vectors.json is a copy of recovery/testdata/vectors.json - the file the Go
+ * implementation and the wallet's are both tested against - and
+ * sharing.test.js fails if the copy drifts. So the sealed blob shown here is
+ * not a plausible string of bytes written for a demonstration; it is the
+ * output of the code that runs in production, for a password and a key that
+ * are printed on this page.
+ */
+let vectorsPromise = null;
+function demoVectors() {
+  if (!vectorsPromise) {
+    vectorsPromise = (async () => {
+      const res = await fetch('./vectors.json');
+      if (!res.ok) throw new Error(`the demonstration values are not deployed (${res.status})`);
+      const all = await res.json();
+      const v = all.seal[0];
+      return {
+        password: v.password,
+        key: fromHex(v.secret),
+        sealed: fromHex(v.expect),
+        time: v.time,
+        memory: v.memory,
       };
-      const [device, custodian] = await Promise.all([load('device'), load('custodian')]);
-      return { device, custodian };
     })();
   }
-  return sharesPromise;
+  return vectorsPromise;
 }
 
-async function ready() {
-  const mpc = await loadProtocol('./mpc.wasm', (stage) => {
-    if (stage === 'fetching') say('Fetching the protocol module…');
-    if (stage === 'instantiating') say('Starting it…');
-  });
-  const shares = await demoShares();
-  return { mpc, shares };
+/** Short enough to read, long enough to see that two parts differ. */
+function abbreviate(bytes, keep = 16) {
+  const hex = toHex(bytes);
+  return hex.length <= keep * 2 ? hex : `${hex.slice(0, keep * 2)}...`;
 }
+
+function clearParts() {
+  parts.innerHTML = '';
+}
+
+/**
+ * One row of the demonstration.
+ *
+ * `held` is who holds it, and it carries the party colour - the one
+ * categorical scale this page defines for itself, because the shared system
+ * has only a semantic one and colouring the custodian "ok" would say the
+ * custodian is the good one. It is not; it is one of three.
+ */
+function addPart(held, label, value, note) {
+  const row = document.createElement('div');
+  row.className = 'wire';
+  const who = document.createElement('span');
+  who.className = held ? `tag tag--${held}` : 'r';
+  who.textContent = label;
+  const bytes = document.createElement('span');
+  bytes.className = 'b';
+  bytes.textContent = value;
+  const hint = document.createElement('span');
+  hint.className = 'r';
+  hint.textContent = note ?? '';
+  row.append(who, bytes, hint);
+  parts.append(row);
+}
+
+/** The three parts, kept between the buttons so the second follows the first. */
+let currentParts = null;
 
 goButton.addEventListener('click', async () => {
   goButton.disabled = true;
   oneButton.disabled = true;
   verdict.innerHTML = '';
-  clearWires();
+  clearParts();
   try {
-    const { mpc, shares } = await ready();
-    say('Running the protocol. Each round is one message neither party could have produced alone.');
-    const digest = await digestOf(`a demonstration at ${new Date().toISOString()}`);
+    const v = await demoVectors();
+
+    addPart(null, 'the key', abbreviate(v.key), `${v.key.length} bytes`);
+    addPart(
+      null,
+      'sealed',
+      abbreviate(v.sealed),
+      `${v.sealed.length} bytes - Argon2id, ${Math.round(v.memory / 1024)} MiB`,
+    );
+
+    // Split live. Fresh randomness every time, which is why pressing this twice
+    // gives three different parts for the same blob - and why one part tells an
+    // attacker nothing about the other two.
     const started = performance.now();
-    const result = await demonstrate(mpc, digest, shares.device, shares.custodian, addWire);
-    const took = Math.round(performance.now() - started);
-    say(`Done in ${took} ms, over ${result.transcript.length} messages.`);
+    currentParts = split(v.sealed, 3, 2);
+    const took = performance.now() - started;
+
+    const held = ['device', 'custodian', 'recovery'];
+    currentParts.forEach((part, i) => {
+      addPart(held[i], held[i], abbreviate(part.y), `part ${part.x} of 3`);
+    });
+
+    say(`Split in ${took.toFixed(1)} ms. Press it again and the three parts are different.`);
     show(
       'ok',
-      'A signature exists, and neither party could have made it.',
-      `Both parties independently computed ${result.agreed ? 'the same' : 'DIFFERENT'} bytes. ` +
-        `Signature: ${result.signature.slice(0, 44)}…`,
+      'Sealed first, then split three ways.',
+      'The key was encrypted under the password before anything was divided. What the three ' +
+        'parties hold are parts of the CIPHERTEXT, not parts of the key - which is what the ' +
+        'next button is about.',
     );
-    if (!result.agreed) {
-      show('no', 'The two parties disagree about the signature.',
-        'That should never happen and is worth reporting.');
-    }
   } catch (err) {
     say('');
     show('no', 'The demonstration could not run.', String(err.message || err));
@@ -170,19 +183,46 @@ oneButton.addEventListener('click', async () => {
   oneButton.disabled = true;
   verdict.innerHTML = '';
   try {
-    const { mpc, shares } = await ready();
-    const digest = await digestOf('one share, trying');
-    const refusal = refuseWithOneShare(mpc, digest, shares.custodian);
+    const v = await demoVectors();
+    if (!currentParts) currentParts = split(v.sealed, 3, 2);
+
+    // Parts 2 and 3: the custodian and the recovery service. Both run by the
+    // same operator, which is the whole reason this is the interesting case.
+    const services = [currentParts[1], currentParts[2]];
+    const rebuilt = combine(services);
+
+    clearParts();
+    addPart('custodian', 'custodian', abbreviate(services[0].y), 'part 2 of 3');
+    addPart('recovery', 'recovery', abbreviate(services[1].y), 'part 3 of 3');
+    addPart(null, 'together', abbreviate(rebuilt), `${rebuilt.length} bytes`);
+    addPart(null, 'the key', abbreviate(v.key), `${v.key.length} bytes`);
+
+    const isSealed = same(rebuilt, v.sealed);
+    const isKey = same(rebuilt, v.key);
+
     say('');
-    if (refusal) {
-      show('no', 'Refused — and this refusal is the product.', refusal);
+    if (isSealed && !isKey) {
+      show(
+        'no',
+        'Both services together get a ciphertext they cannot open.',
+        'They rebuilt the sealed blob exactly - and it is not the key, as the two rows above ' +
+          'show. Opening it needs the password, which neither service holds in any form. That ' +
+          'is the difference between "no single service can move your money" and "not even ' +
+          'both of them can", and only the second survives one company running both.',
+      );
     } else {
-      show('no', 'It was NOT refused.',
-        'One share produced a session, which would mean the whole design is not doing what it claims. Worth reporting.');
+      // Stated rather than hidden. If this ever fires the page is wrong and a
+      // reader should be told, not shown a confident box.
+      show(
+        'no',
+        'That did not come out as expected.',
+        `The two service parts rebuilt ${isKey ? 'THE KEY ITSELF' : 'neither the sealed blob nor the key'}. ` +
+          'This page is wrong and it is worth reporting.',
+      );
     }
   } catch (err) {
     say('');
-    show('no', 'Could not run the refusal.', String(err.message || err));
+    show('no', 'Could not run the demonstration.', String(err.message || err));
   } finally {
     goButton.disabled = false;
     oneButton.disabled = false;

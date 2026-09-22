@@ -1,0 +1,156 @@
+{
+  "note": "Shared by recovery/vectors_test.go and the TypeScript port. Regenerate with: go test ./recovery -run TestVectors -update-vectors. A vector that stops matching means the code changed, not the vector.",
+  "argonSalt": [
+    {
+      "salt": "00000000000000000000000000000000",
+      "expect": "38623fd700cc161fa5f0d6babce59218"
+    },
+    {
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "expect": "0dbf1abb5fba5475480e0d37bd54cd6a"
+    },
+    {
+      "salt": "ffffffffffffffffffffffffffffffff",
+      "expect": "59cba4ee7770dff797c07267bef6aef2"
+    }
+  ],
+  "seal": [
+    {
+      "password": "seven horses eating apples slowly",
+      "secret": "4c9f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "expect": "2786ab93d175183e74f79a70c9a6fd35c80e31fd1b7177d33f5203e3b4b8134a152b3694af3b1b60ddb1082c738bf713"
+    },
+    {
+      "password": "une phrase de passe beaucoup plus longue",
+      "secret": "00112233445566778899aabbccddeeff",
+      "salt": "aabbccddeeff00112233445566778899",
+      "nonce": "ffeeddccbbaa99887766554433221100aabbccddeeff0011",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "expect": "27353099a7d1169ec06b95d45b3f641433a129be6c90c9ce4e6fcfdf1d08c793"
+    }
+  ],
+  "combine": [
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
+        },
+        {
+          "x": 2,
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
+        },
+        {
+          "x": 3,
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 2,
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
+        },
+        {
+          "x": 3,
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
+        },
+        {
+          "x": 2,
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
+        },
+        {
+          "x": 3,
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    }
+  ],
+  "digest": [
+    {
+      "email": "amara@example.org",
+      "role": "custodian",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "08e5b18df70e824c1391fd5565b708d479c43647d75aa37a54f5cc0b74a25bd0"
+    },
+    {
+      "email": "amara@example.org",
+      "role": "recovery",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "fcc04bef7d3c71ffd14279dbf4cf1e18c11f9f3c28c9c7c5368fb12ef47b35c4"
+    },
+    {
+      "email": "  Amara@Example.ORG  ",
+      "role": "custodian",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "08e5b18df70e824c1391fd5565b708d479c43647d75aa37a54f5cc0b74a25bd0"
+    }
+  ],
+  "wire": {
+    "role": "custodian",
+    "salt": "AQIDBAUGBwgJCgsMDQ4PEA==",
+    "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX",
+    "time": 3,
+    "memory": 131072,
+    "threads": 1,
+    "share": {
+      "x": 2,
+      "y": "3q2+78r+ASNFZ4mrze8BIw=="
+    }
+  }
+}

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Threshold accounts — Yamale</title>
-<meta name="description" content="A consumer key that exists in three shares and nowhere else, so the operator cannot move a customer's money.">
+<title>Sealed accounts — Yamale</title>
+<meta name="description" content="A consumer key sealed under its owner's password and split three ways, so not even both of the operator's services together can open it.">
 <link rel="icon" href="/favicon.ico">
 <!-- The typefaces the shared stylesheet names. Without this the page asked for
      IBM Plex and Archivo and never fetched them, so it rendered in whatever face
@@ -111,12 +111,12 @@ a { color: var(--brass-ink); }
 .share p { margin: 0; color: var(--text-muted); font-size: var(--step--1); }
 
 /* The 2-of-3, drawn.
-   Three shares and three pairs is a shape before it is a sentence, and it was a
-   sentence — "ordinary payments are device plus custodian, a person who has
-   lost their password and their phone is recovered by recovery plus custodian,
-   and if the operator disappeared entirely device plus recovery still signs",
-   which is the whole mechanism buried in one 46-word clause. The triangle says
-   it in one look: three corners, three edges, any edge signs. */
+   Three parts and three pairs is a shape before it is a sentence, and it was a
+   sentence — "a new phone is device plus custodian, a lost phone is recovery
+   plus custodian, and if the operator disappeared entirely device plus recovery
+   still rebuilds it", which is the whole mechanism buried in one clause. The
+   triangle says it in one look: three corners, three edges, any edge recovers.
+   Nothing on it signs: the device does that alone, and no pair is involved. */
 .tri { width: 100%; height: auto; display: block; }
 .tri__edge { stroke-width: 2.5; fill: none; }
 .tri__disc { stroke-width: 2; }
@@ -129,8 +129,8 @@ a { color: var(--brass-ink); }
 @media (min-width: 60rem) { .mech { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); } }
 
 /* The refusal is the product, so it is a row of the table rather than a note
-   under it: a reader comparing what signs against what does not should not have
-   to leave the comparison to find the second half of it. */
+   under it: a reader comparing what recovers against what does not should not
+   have to leave the comparison to find the second half of it. */
 .y-data tr.refuses td { color: var(--bad); }
 .y-data tr.refuses td:first-child { font-weight: 600; }
 
@@ -237,33 +237,33 @@ footer a { color: inherit; }
      reader who came back to check one of them should not have to scroll for it. -->
 <div class="hero">
   <div class="wrap">
-    <p class="eyebrow">Threshold accounts</p>
+    <p class="eyebrow">Sealed accounts</p>
     <h1>The operator cannot move your money.</h1>
     <p class="lede">
       Not as a policy, and not as a promise anybody has to take on trust. A consumer's
-      key on this chain exists in three shares and in no other form, anywhere, ever —
-      and no single share can produce a signature. The page below runs the protocol in
-      front of you, refuses in front of you, and reads the consequences off the public
-      chain.
+      key is sealed under their own password <em>before</em> it is split three ways, so the
+      two services this operator runs can put their parts together and get a ciphertext
+      they cannot open. The page below does that in front of you, with the real values,
+      and reads the consequences off the public chain.
     </p>
     <div class="y-kpis">
       <div class="y-kpi">
-        <p class="y-kpi__label">The key exists in</p>
-        <p class="y-kpi__value">3<span class="y-kpi__unit">shares</span></p>
-        <p class="y-kpi__hint">And in no other form. It has never been assembled, written down, or held
-          anywhere in one piece.</p>
+        <p class="y-kpi__label">The sealed key is split into</p>
+        <p class="y-kpi__value">3<span class="y-kpi__unit">parts</span></p>
+        <p class="y-kpi__hint">One on the device, one with each of two services. The key itself is never
+          divided — it is encrypted first, and the ciphertext is what gets split.</p>
       </div>
       <div class="y-kpi y-kpi--ok">
-        <p class="y-kpi__label">A signature needs</p>
+        <p class="y-kpi__label">A recovery needs</p>
         <p class="y-kpi__value">2<span class="y-kpi__unit">of them</span></p>
-        <p class="y-kpi__hint">Any two. Which two decides what the signature is for, not whether one is
-          possible.</p>
+        <p class="y-kpi__hint">Any two, and the password. Losing the phone is the ordinary reason anybody
+          recovers anything, so the phone must not be one of the two required.</p>
       </div>
       <div class="y-kpi y-kpi--bad">
-        <p class="y-kpi__label">One share alone can</p>
-        <p class="y-kpi__value">nothing</p>
-        <p class="y-kpi__hint">Not a policy and not a rule anybody enforces. The protocol has no state a
-          single share can reach.</p>
+        <p class="y-kpi__label">Both services together get</p>
+        <p class="y-kpi__value">ciphertext</p>
+        <p class="y-kpi__hint">Not a policy and not a rule anybody enforces. They hold parts of an
+          encrypted blob, and the password that opens it was never sent to either.</p>
       </div>
       <!-- Read from the chain, and rendered as unread until it answers. The
            whole point of putting the waiting period in consensus is that it is
@@ -280,36 +280,43 @@ footer a { color: inherit; }
 
 <section>
   <div class="wrap">
-    <h2>Three shares, any two of which sign</h2>
+    <h2>Sealed first, then split three ways</h2>
     <p class="sub">
       A password cannot authorise a transaction; only a key can. So every account design
       is an answer to where the key lives and who can use it. Holding it server-side makes
       the operator a custodian of everybody's money. Holding it on the phone under a
-      password makes a forgotten password a lost account, which is not viable for a
-      national system serving people who lose phones. This is the third answer.
+      password makes a lost phone a lost account, which is not viable for a national system
+      serving people who lose phones. This is the third answer, and the ORDER is the whole
+      of it: seal the key under the owner's password, and split the sealed blob. Split the
+      raw key instead and the two services below reconstruct it between them — so
+      &ldquo;no single service can move your money&rdquo; would be true while &ldquo;not
+      even both of them can&rdquo; was false, and the second is the one that matters when
+      one company runs both.
     </p>
     <div class="shares">
       <div class="share share--device">
         <div class="who">Device</div>
-        <p>On the customer's own hardware, wrapped by their password. Never leaves it, and
-          is generated there rather than sent to it — a share the server saw for a moment
-          is a share the server had.</p>
+        <p>The customer's own hardware, which is also where the key is generated, sealed and
+          used. It signs on its own — a payment is between a buyer and a seller, and
+          nothing else is asked to approve it. Its part exists so that a recovery can be
+          done with one service rather than needing both.</p>
       </div>
       <div class="share share--custodian">
         <div class="who">Custodian</div>
-        <p>The operator's service. It is one share. It signs nothing on its own, which is
-          the whole of what this design buys.</p>
+        <p>The operator's service. It holds one part of a ciphertext and never sees a
+          payment. It cannot refuse one, and it cannot make one.</p>
       </div>
       <div class="share share--recovery">
         <div class="who">Recovery</div>
-        <p>The foundation's offline custody — the same three-of-five the constitution
-          pins as the destination for anything seized. Deliberately not the operator: one
-          party holding custodian and recovery would be a custodian again.</p>
+        <p>A second, independent deployment. Separate sealing key, separate storage, ideally
+          separate operators — and if it is not separate, the seal is what still stands
+          between the pair of them and the account.</p>
       </div>
     </div>
-    <h3 style="margin-top:2.5rem">Any two of them, and which two says what for</h3>
-    <p class="sub">Three shares make three pairs, and each pair is a different situation. This was one
-      forty-six word sentence, which is the whole mechanism in a place nobody reads it twice.</p>
+    <h3 style="margin-top:2.5rem">Any two of them, and which two you are likely to have</h3>
+    <p class="sub">Three parts make three pairs, and each pair is a different accident. None of them
+      signs anything — the device does that on its own, every day, without asking either service.
+      What a pair does is rebuild the key when the device can no longer do it.</p>
 
     <div class="mech">
       <!-- Three corners, three edges, any edge signs. A triangle is what a
@@ -319,8 +326,9 @@ footer a { color: inherit; }
            of one theme. -->
       <figure style="margin:0">
         <svg class="tri" viewBox="0 0 300 260" role="img"
-             aria-label="Three shares — device, custodian and recovery — joined by three edges. Any two of
-                         the three produce a signature; no one of them can.">
+             aria-label="Three parts — device, custodian and recovery — joined by three edges. Any two
+                         of the three, together with the account holder's password, rebuild the key; no one
+                         of them can, and neither can both services without the password.">
           <g class="tri__edge">
             <line x1="150" y1="42" x2="48" y2="212" stroke="var(--party-device)"/>
             <line x1="150" y1="42" x2="252" y2="212" stroke="var(--party-recovery)"/>
@@ -328,7 +336,7 @@ footer a { color: inherit; }
           </g>
 
           <text class="tri__mid" x="150" y="150" text-anchor="middle">2 of 3</text>
-          <text class="tri__midsub" x="150" y="166" text-anchor="middle">ANY EDGE SIGNS</text>
+          <text class="tri__midsub" x="150" y="166" text-anchor="middle">ANY EDGE RECOVERS</text>
 
           <circle class="tri__disc" cx="150" cy="42" r="15"
                   fill="var(--surface)" stroke="var(--party-device)"/>
@@ -344,42 +352,46 @@ footer a { color: inherit; }
           <text class="tri__name" x="252" y="245" text-anchor="middle"
                 fill="var(--party-recovery)">Recovery</text>
 
-          <text class="tri__edgelabel" x="66" y="120" text-anchor="middle">every payment</text>
+          <text class="tri__edgelabel" x="66" y="120" text-anchor="middle">a new phone</text>
           <text class="tri__edgelabel" x="234" y="120" text-anchor="middle">operator gone</text>
-          <text class="tri__edgelabel" x="150" y="228" text-anchor="middle">a password reset</text>
+          <text class="tri__edgelabel" x="150" y="228" text-anchor="middle">phone in a river</text>
         </svg>
       </figure>
 
       <div class="y-scroll">
         <table class="y-data">
           <thead>
-            <tr><th>These two</th><th>Sign</th><th>When</th></tr>
+            <tr><th>These two</th><th>Rebuild the key</th><th>When</th></tr>
           </thead>
           <tbody>
             <tr>
               <td><span class="tag tag--device">Device</span> + <span class="tag tag--custodian">Custodian</span></td>
-              <td>Ordinary payments</td>
-              <td>Every day. The phone asks, the service co-signs, and neither could have sent it alone.</td>
+              <td>Moving to a new phone</td>
+              <td>The old handset still works, so its part is still readable. One service is enough and
+                nothing has to be approved by anybody.</td>
             </tr>
             <tr>
               <td><span class="tag tag--recovery">Recovery</span> + <span class="tag tag--custodian">Custodian</span></td>
-              <td>A reset that keeps the address</td>
-              <td>Password and phone both lost — and only after two approvers, a delay, and notice to every
-                enrolled device.</td>
+              <td>The phone is gone</td>
+              <td>The ordinary disaster, and the reason the device is not one of the two required. Two
+                approvers from different teams, 72 hours’ notice, and the parts are released a further 24
+                hours after that — time in which the real owner can still say it was not them.</td>
             </tr>
             <tr>
               <td><span class="tag tag--device">Device</span> + <span class="tag tag--recovery">Recovery</span></td>
-              <td>Everything</td>
-              <td>If the operator disappeared entirely. This is the edge that makes the custodian optional
+              <td>The operator disappeared</td>
+              <td>If the custodian stopped existing. This is the edge that makes the custodian optional
                 rather than trusted.</td>
             </tr>
             <tr class="refuses">
-              <td>Any one, alone</td>
+              <td><span class="tag tag--custodian">Custodian</span> + <span class="tag tag--recovery">Recovery</span>, without the password</td>
               <td>Nothing</td>
-              <td>Always. This row is the product — the three above are what it buys.</td>
+              <td>Both of the operator’s own services, together. They rebuild a ciphertext and stop there.
+                This row is the product — the three above are what it buys, and the demonstration below
+                is this row.</td>
             </tr>
           </tbody>
-          <caption>The custodian appears in two of the three pairs and is required by none of them.</caption>
+          <caption>Every payment is signed by the device alone. No pair on this chart is involved in one.</caption>
         </table>
       </div>
     </div>
@@ -388,45 +400,49 @@ footer a { color: inherit; }
 
 <section>
   <div class="wrap">
-    <h2>Watch two parties sign something neither could sign alone</h2>
+    <h2>Put both of the operator's parts together and see what you get</h2>
     <p class="sub">
-      Below, the protocol runs for real: two parties, each holding one share, exchanging
-      messages until a signature exists. Every message is listed as it passes. Neither
-      party ever sees the other's share, and the signature both arrive at is byte-identical
-      — which is what lets a phone check what it is about to broadcast rather than trusting
-      the server to hand back the signature it helped make.
+      Below, the splitting runs for real, in about a millisecond. Press the first button and
+      a sealed key is divided into three parts in front of you; press it again and the three
+      parts are different, because the division uses fresh randomness every time. Press the
+      second and the custodian's part and the recovery service's part are put back together
+      — the case that matters, because one company runs both.
     </p>
     <p class="note" style="margin-bottom:1.2rem">
-      <strong>Staged, and worth saying so.</strong> Both parties run inside this one page,
-      which is exactly the arrangement the design forbids — it is what lets you watch the
-      traffic. In production they are a phone and a server that never meet. The shares used
-      here belong to a throwaway account that holds nothing and whose share files are
-      published on purpose; nothing on this page can move real money.
+      <strong>What is real and what is not, exactly.</strong> The sealed value is real: it
+      was produced by the same Go code the services run, from the key and password printed
+      beside it, and it is read from the file that code's own tests answer to. The splitting
+      is real and runs here. The SEALING is not run in this page — it is Argon2id over
+      128&nbsp;MiB, which would mean shipping a cryptography library to every visitor, and
+      this page used to load 19&nbsp;MB of WebAssembly, which is the mistake not to repeat.
     </p>
 
     <div class="actions">
-      <button id="go" class="btn btn--primary" type="button">Sign with two shares</button>
-      <button id="one" class="btn" type="button">Try it with one share</button>
+      <button id="go" class="btn btn--primary" type="button">Seal and split</button>
+      <button id="one" class="btn" type="button">Combine both services' parts</button>
     </div>
-    <p class="status" id="status">The protocol module is several megabytes and loads only when you ask.</p>
+    <p class="status" id="status">Nothing loads until you ask. The arithmetic is a few hundred bytes of JavaScript.</p>
 
     <div id="verdict"></div>
 
-    <h3 style="margin-top:1.6rem">Messages exchanged</h3>
-    <p class="note" style="margin-bottom:0.7rem">Round, who sent it to whom, and how many bytes it was. A
-      round is one message neither party could have produced on its own.</p>
-    <div class="wires" id="wires"><p class="wire gone" style="grid-template-columns:1fr">Nothing yet.</p></div>
+    <h3 style="margin-top:1.6rem">The parts</h3>
+    <p class="note" style="margin-bottom:0.7rem">Who holds it, the first sixteen bytes, and what it is.
+      Abbreviated because the point is that they differ, not what they say.</p>
+    <div class="wires" id="parts"><p class="wire gone" style="grid-template-columns:1fr">Nothing yet.</p></div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <h2>What it did on the real chain</h2>
+    <h2>What the earlier design did on the real chain</h2>
     <p class="sub">
-      Two payments from one account whose key has never existed in one piece. The second
-      was signed by shares that did not exist when the first was sent — created by a
-      password reset that did not move the address. Read live from
-      <span class="mono">yamale-devnet-2</span>, not written into this page.
+      <strong>History, and labelled as such.</strong> These two payments were made under the
+      threshold scheme this page used to describe, where a signature genuinely needed two
+      shares. That scheme was replaced on 2026-09-22 — a deal is between a buyer and a
+      seller, so nothing co-signs, and the device signs alone. The transactions are left
+      here because they happened and anybody can check them; they are not a demonstration of
+      what runs today. Read live from <span class="mono">yamale-devnet-2</span>, not written
+      into this page.
     </p>
     <div class="y-scroll">
       <table class="y-data">
@@ -441,11 +457,13 @@ footer a { color: inherit; }
     </div>
     <p class="note" id="account" style="margin-top:0.9rem"></p>
     <div class="rule rule--ok">
-      <span class="k">Why the address did not move </span>
-      A password reset re-splits the key under the same public key. On a multi-signature
-      account it would change the address instead — and on this chain an address carries
-      the account's identifier, so resetting a password would retire the handle its owner
-      had given to everyone who pays them.
+      <span class="k">Why the address still does not move </span>
+      It was true then and it is true now, for a different reason. Then, a password reset
+      re-split the key under the same public key. Now, protecting an account seals and
+      splits the key it ALREADY has, so enrolling changes nothing anybody can see from
+      outside. On a multi-signature account it would change the address instead — and on
+      this chain an address carries the account's identifier, so it would retire the handle
+      its owner had given to everyone who pays them.
     </div>
   </div>
 </section>
@@ -484,10 +502,9 @@ footer a { color: inherit; }
     <p class="sub">
       The waiting period exists for one person: the holder whose phone was taken an
       hour ago. Once a key is out nothing protects them — a freeze does not bind a key
-      somebody holds in plaintext, and a re-share produces new shares under the
-      <em>same</em> public key, so a disclosed key signs for ever. Time plus notice is
-      the only protection left, and every enrolled device is told the moment a request
-      is made.
+      somebody holds in plaintext, and re-enrolling seals and splits the <em>same</em>
+      key, so a disclosed key signs for ever. Time plus notice is the only protection
+      left, and every enrolled device is told the moment a request is made.
     </p>
 
     <div id="door-terms" class="note" style="margin-top:1.2rem">Reading the terms from the chain…</div>
@@ -501,12 +518,11 @@ footer a { color: inherit; }
         re-keyed, but re-keying deliberately keeps the same address — so the exported
         key keeps working. There is no revocation; the only escape is to move
         everything to a new account.</li>
-      <li><strong>The custody guarantee ends.</strong> The platform keeps its share and
-        goes on co-signing, so the account still works and nothing is taken away. What
-        ends is the guarantee: two-of-three is no longer a property anybody can rely
-        on, because one of the three is now sufficient on its own for whoever holds
-        the exported key. Keeping the share is a convenience, not a protection, and
-        the acknowledgement says so.</li>
+      <li><strong>The recovery guarantee ends.</strong> The services keep their parts, so
+        the account can still be recovered and nothing is taken away. What ends is the
+        guarantee that recovery is the ONLY way back in: whoever holds the exported key
+        does not need a part, a password, a delay or an approver. Keeping the parts is a
+        convenience from then on, not a protection, and the acknowledgement says so.</li>
       <li><strong>The account is marked, publicly and permanently.</strong> Anyone can
         ask whether a given account's key has been disclosed. Some counterparties may
         decline to deal with one that has.</li>
@@ -528,13 +544,24 @@ footer a { color: inherit; }
       Being exact about this is worth more than looking finished.
     </p>
     <ul class="note" style="line-height:1.7">
-      <li>There is <strong>no account service</strong>. The custodian that would hold the
-        second share, authenticate a person and co-sign does not exist yet; the protocol
-        does, and a command-line tool drives it.</li>
-      <li>The payments app still generates an ordinary twelve-word key. Nothing in the
-        shipped apps uses threshold signing yet.</li>
-      <li>The recovery workflow — two approvers, a delay, notice, a freeze on outbound
-        payments afterwards — is specified and not implemented.</li>
+      <li><strong>Nothing here is deployed.</strong> The two services are built and tested
+        — an end-to-end test enrols an account against both, destroys the device’s part,
+        drives a full recovery and signs with the rebuilt key — but they are not running,
+        and no member of the public has ever enrolled.</li>
+      <li><strong>Accounts made under the old scheme cannot be read by the new services</strong>
+        and would have to enrol again. A migration is possible in principle and is not built;
+        on a demonstrator it is probably not worth building.</li>
+      <li><strong>There is no mailer.</strong> A recovery refuses to start unless the service
+        is configured to notify the account holder, which is the right default — and it
+        means recovery is off wherever that is not configured, which is everywhere.</li>
+      <li><strong>The second factor is half-built.</strong> The rule that a recovery needs a
+        passkey, a TOTP code or an emailed one exists in code; the endpoints to enrol those
+        factors do not.</li>
+      <li><strong>Both services are run by the same operator today.</strong> That is exactly
+        the case the seal is for, and it is also the reason the seal is not decoration: the
+        demonstration above is what stands between that operator and an account.</li>
+      <li><strong>The parameters are not tuned by anybody but us.</strong> Argon2id at
+        128&nbsp;MiB was chosen by measuring the browser, not by a review.</li>
       <li>None of this has been audited.</li>
     </ul>
   </div>
@@ -542,13 +569,13 @@ footer a { color: inherit; }
 
 <footer>
   <div class="wrap">
-    <p>Read live from <span class="mono">yamale-devnet-2</span>. The protocol is threshold
-      ECDSA over secp256k1; a signature it produces is an ordinary signature and an account
-      holding one is indistinguishable on chain from a self-custodied account.</p>
+    <p>Read live from <span class="mono">yamale-devnet-2</span>. The key is an ordinary
+      secp256k1 key, sealed with Argon2id and XChaCha20-Poly1305 and split over GF(2<sup>8</sup>);
+      a signature it makes is an ordinary signature, and an account held this way is
+      indistinguishable on chain from a self-custodied one.</p>
   </div>
 </footer>
 
-<script src="./wasm_exec.js"></script>
 <script type="module" src="./main.js"></script>
 </body>
 </html>

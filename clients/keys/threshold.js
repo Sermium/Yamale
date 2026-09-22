@@ -1,28 +1,51 @@
-// Threshold accounts, shown rather than described.
+// Sealed accounts, shown rather than described.
 //
 // The claim this page exists to make is one sentence: the operator cannot move
 // a customer's money. Every payments system says something like it, and almost
 // all of them mean "we have a policy about that". Here it is a statement about
-// arithmetic — the key exists in three shares and no one of them can produce a
-// signature — and the difference between those two things is the entire
-// product. So the page does not assert it. It runs the protocol in front of
-// you, refuses in front of you, and reads the consequences off a public chain.
+// arithmetic, and the difference between those two things is the entire
+// product. So the page does not assert it. It runs the arithmetic in front of
+// you and reads the consequences off a public chain.
+//
+// # What the claim is now, because the mechanism changed
+//
+// It used to be threshold signing: the key existed in three shares, no one of
+// them could produce a signature, and any two signed together. The decision of
+// 2026-09-18 — a deal is between a buyer and a seller, and the services appear
+// only in a recovery — removed the reason for that, and the device now signs
+// alone with an ordinary secp256k1 key.
+//
+// The sentence survives, and the arithmetic behind it changed:
+//
+//   the key is SEALED under the account holder's password, and only then split
+//   three ways. Two services run by the same operator can put their two parts
+//   together and what they get is a ciphertext they cannot open.
+//
+// Sealing BEFORE splitting is the whole thing. Split the raw key and those two
+// services reconstruct it between them — so "no single service can move your
+// money" would be true while "not even both of them can" was false, and the
+// second is the one that matters when one company runs both.
 //
 // # What is real here and what is staged
 //
 // Being exact about this matters more than looking impressive.
 //
-// REAL: the account on the chain, its transactions, their heights, and the fact
-// that the second was signed by shares that did not exist when the first was —
-// created in a password reset that did not move the address. Anybody can check
-// those against a block explorer.
+// REAL: the account on the chain, its transactions and their heights — made
+// under the threshold scheme, which is why they are labelled as history rather
+// than as a demonstration of what runs today. The sealed values in the
+// demonstration are real too: they were produced by the Go implementation and
+// are read from vectors.json, the same file its tests answer to.
 //
-// STAGED: the live demonstration below runs BOTH parties inside this one page.
-// In production they are a phone and a server that never meet, exchanging the
-// messages you can see in the transcript. Running them together is what lets
-// you watch the traffic; it is also precisely the arrangement the design
-// forbids, so the shares used for it belong to a throwaway account that holds
-// nothing and whose share files are published on purpose.
+// STAGED: the split and the reconstruction below run in this one page. In
+// production the three parts are a phone and two independent services that
+// never meet. Running them together is what lets you watch it; it is also
+// precisely the arrangement the design forbids, so everything used for it is a
+// throwaway whose values are published on purpose.
+//
+// NOT RUN AT ALL: the sealing itself. It is Argon2id at 128 MiB and would mean
+// shipping libsodium to every visitor. This page used to load a 19 MB
+// WebAssembly module and that is the mistake not to repeat, so the sealed blob
+// is shown rather than computed, and says so where it is shown.
 
 const RPC = '/api/rpc';
 const TIMEOUT_MS = 15000;
@@ -346,166 +369,23 @@ export function fieldsOf(bytes) {
   return out;
 }
 
-// ------------------------------------------------------------------ wasm
-
-let wasmReady = null;
-
-/**
- * Load the protocol.
- *
- * Deferred until somebody asks for it. The module is several megabytes because
- * threshold ECDSA carries Paillier and a pile of zero-knowledge proofs, and
- * making every visitor pay for that before they have decided to look would be
- * charging them for a demonstration they did not ask for.
- *
- * The size is a browser problem and not a product one: the same Go package
- * compiles for android/arm64 and ios/arm64, where it is part of an app binary
- * and downloaded once from a store.
- */
-export function loadProtocol(url = './mpc.wasm', onProgress = () => {}) {
-  if (wasmReady) return wasmReady;
-  wasmReady = (async () => {
-    if (typeof Go === 'undefined') {
-      throw new Error('the Go runtime shim did not load');
-    }
-    onProgress('fetching');
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`the protocol module is not deployed (${response.status})`);
-    const bytes = await response.arrayBuffer();
-    onProgress('instantiating');
-    const go = new Go();
-    const result = await WebAssembly.instantiate(bytes, go.importObject);
-    go.run(result.instance);
-    // go.run resolves only when main returns, and main blocks forever on
-    // purpose, so the exports are polled for instead of awaited.
-    for (let i = 0; i < 200 && typeof globalThis.yamaleMPC === 'undefined'; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    if (typeof globalThis.yamaleMPC === 'undefined') {
-      throw new Error('the protocol module loaded but exported nothing');
-    }
-    onProgress('ready');
-    return globalThis.yamaleMPC;
-  })();
-  return wasmReady;
-}
-
-/** Turns {error} into a thrown error, so callers stop checking two things. */
-function unwrap(result, what) {
-  if (!result || typeof result !== 'object') throw new Error(`${what}: no result`);
-  if (result.error) throw new Error(result.error);
-  return result;
-}
-
-/**
- * Run one signature between two parties, recording every message.
- *
- * The transcript is the point. A signature that simply appears is a black box
- * and asks to be trusted; a signature you watched being assembled out of
- * messages neither party could have produced alone is an argument.
- *
- * Both parties run here, which production never does. See the note at the top
- * of this file — that is why the shares are throwaway.
- */
-export async function demonstrate(mpc, digestB64, deviceShare, custodianShare, onRound = () => {}) {
-  const signers = 'custodian,device';
-  const sessions = {};
-  const transcript = [];
-
-  // deviceShare and custodianShare are the share files' RAW TEXT. See the note
-  // in main.js: parsing them in JavaScript silently destroys every big integer.
-  const device = unwrap(mpc.startSign(digestB64, deviceShare, signers), 'device');
-  sessions.device = device.session;
-  const custodian = unwrap(mpc.startSign(digestB64, custodianShare, signers), 'custodian');
-  sessions.custodian = custodian.session;
-
-  let pending = [
-    ...JSON.parse(device.outbound || '[]'),
-    ...JSON.parse(custodian.outbound || '[]'),
-  ];
-
-  let round = 0;
-  const deadline = Date.now() + 120000;
-  for (;;) {
-    const done = {};
-    for (const role of ['device', 'custodian']) {
-      const state = unwrap(mpc.signature(sessions[role]), role);
-      done[role] = !state.pending;
-    }
-    if (done.device && done.custodian) break;
-    if (Date.now() > deadline) throw new Error('the two parties never finished');
-
-    if (pending.length === 0) {
-      // Poll both parties for anything they have produced since we last looked.
-      //
-      // Under WebAssembly a Go goroutine only runs when JavaScript yields, so
-      // at the moment startSign returns neither party has done any work and
-      // neither has a message to give. A loop that waited to be handed the
-      // first one would wait forever — which is exactly what the first browser
-      // run did, for two minutes, with an empty transcript.
-      await new Promise((resolve) => setTimeout(resolve, 15));
-      for (const role of ['device', 'custodian']) {
-        const more = unwrap(mpc.outbound(sessions[role]), role);
-        pending.push(...JSON.parse(more.outbound || '[]'));
-      }
-      continue;
-    }
-
-    round += 1;
-    const carrying = pending;
-    pending = [];
-    for (const message of carrying) {
-      const to = message.from === 'device' ? 'custodian' : 'device';
-      if (!message.broadcast && !(message.to || []).includes(to)) continue;
-      transcript.push({
-        round,
-        from: message.from,
-        to,
-        broadcast: !!message.broadcast,
-        bytes: (message.wire || '').length,
-      });
-      onRound(transcript[transcript.length - 1]);
-      const reply = unwrap(mpc.handle(sessions[to], JSON.stringify(message)), to);
-      pending.push(...JSON.parse(reply.outbound || '[]'));
-    }
-  }
-
-  const deviceSig = unwrap(mpc.signature(sessions.device), 'device').signature;
-  const custodianSig = unwrap(mpc.signature(sessions.custodian), 'custodian').signature;
-  for (const role of ['device', 'custodian']) mpc.close(sessions[role]);
-
-  return {
-    signature: deviceSig,
-    // Both parties compute identical bytes. That is what lets a device check
-    // what it is about to broadcast rather than trusting the custodian to hand
-    // back the signature it helped make.
-    agreed: deviceSig === custodianSig,
-    transcript,
-  };
-}
-
-/**
- * Ask one share, alone, to sign — and report the refusal.
- *
- * The refusal is the product. It is run rather than described because a
- * sentence claiming the operator cannot sign is exactly as convincing as every
- * other such sentence, and this one can be checked.
- */
-export function refuseWithOneShare(mpc, digestB64, shareText) {
-  // The role is read off the text with a narrow match rather than by parsing,
-  // for the same reason: JSON.parse would ruin the share on the way past.
-  const role = (/"role"\s*:\s*"([a-z]+)"/.exec(shareText) || [])[1] || 'device';
-  const result = mpc.startSign(digestB64, shareText, role);
-  if (result && result.error) return result.error;
-  if (result && result.session) mpc.close(result.session);
-  return null;
-}
-
-/** A digest of arbitrary text, which is what the protocol signs. */
-export async function digestOf(text) {
-  const bytes = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  let binary = '';
-  for (const byte of new Uint8Array(hash)) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
+// ---------------------------------------------------- what used to be here
+//
+// Everything below this line was the threshold protocol: loading a 19 MB
+// WebAssembly module, driving a GG18 signing party across two simulated
+// participants, and rendering the messages they exchanged.
+//
+// It is gone because the thing it demonstrated is gone. The architecture
+// decision of 2026-09-18 — a deal is between a buyer and a seller, and the
+// services appear only in a recovery — removed the reason for threshold
+// signing, and the device now signs alone with an ordinary secp256k1 key.
+//
+// What replaced it is in sharing.js, and it is a better demonstration for
+// exactly the reason the old one was hard to love: it costs nothing to load, it
+// runs instantly rather than over several seconds of proofs, and it shows the
+// claim a reader is entitled to disbelieve — that two parts held by two
+// services run by the same operator rebuild something that is not the key.
+//
+// digestOf went with it. It hashed arbitrary text for the protocol to sign, and
+// it used crypto.subtle, which is undefined on this site because plain HTTP is
+// not a secure context. Nothing here needs a digest any more.
