@@ -16,7 +16,13 @@ import { test } from 'node:test';
 
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 
-import { addressOf, enrol, EnrolError, privateKeyFromMnemonic } from './enrol.ts';
+import {
+  addressOf,
+  enrol,
+  EnrolError,
+  privateKeyFromMnemonic,
+  servicesAvailable,
+} from './enrol.ts';
 import { restore, ROLE_CUSTODIAN, ROLE_DEVICE, ROLE_RECOVERY } from './protect.ts';
 import type { Holding } from './deposit.ts';
 
@@ -202,4 +208,69 @@ test('an unreachable service is reported as unreachable, not as a refusal', asyn
     () => enrol(privateKey, EMAIL, PASSWORD, SERVICES, fetchImpl),
     (e: unknown) => e instanceof EnrolError && /could not be reached/.test((e as Error).message),
   );
+});
+
+/* ---------------------------------------------------------- availability */
+
+function reachability(map: Record<string, number | 'hang' | 'throw'>) {
+  return (async (url: string | URL, init?: RequestInit) => {
+    const key = String(url).includes('custodian') ? 'custodian' : 'recovery';
+    const outcome = map[key];
+    if (outcome === 'throw') throw new TypeError('Failed to fetch');
+    if (outcome === 'hang') {
+      // Never resolves on its own: the abort signal is what has to end it.
+      return new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      });
+    }
+    return new Response('{}', { status: outcome as number });
+  }) as unknown as typeof fetch;
+}
+
+test('both services have to answer, because one is not half a protection', async () => {
+  // Deposited with one service only, the account is recoverable from the device
+  // alone — which is the situation enrolment exists to leave. Offering the form
+  // would promise something it cannot deliver.
+  assert.equal(
+    await servicesAvailable(SERVICES, reachability({ custodian: 200, recovery: 200 })),
+    true,
+  );
+  assert.equal(
+    await servicesAvailable(SERVICES, reachability({ custodian: 200, recovery: 'throw' })),
+    false,
+    'one reachable service was treated as enough',
+  );
+  assert.equal(
+    await servicesAvailable(SERVICES, reachability({ custodian: 'throw', recovery: 200 })),
+    false,
+    'one reachable service was treated as enough',
+  );
+});
+
+test('a route that exists but is not the service is not available', async () => {
+  // The realistic failure on a host where nginx serves the site but has no
+  // account routes: the catch-all answers, with a 404. A truthy Response is not
+  // an available service.
+  assert.equal(
+    await servicesAvailable(SERVICES, reachability({ custodian: 404, recovery: 404 })),
+    false,
+  );
+  assert.equal(
+    await servicesAvailable(SERVICES, reachability({ custodian: 200, recovery: 502 })),
+    false,
+  );
+});
+
+test('a service that never answers times out rather than hanging the screen', async () => {
+  // A network that blackholes the request would otherwise leave the panel on
+  // "checking" for as long as the browser allows, which reads as broken rather
+  // than as absent.
+  const started = Date.now();
+  const available = await servicesAvailable(
+    SERVICES,
+    reachability({ custodian: 'hang', recovery: 200 }),
+    150,
+  );
+  assert.equal(available, false);
+  assert.ok(Date.now() - started < 2000, 'the probe did not give up');
 });

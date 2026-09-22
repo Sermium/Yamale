@@ -114,6 +114,51 @@ interface DepositBody {
 }
 
 /**
+ * Whether both services are actually there.
+ *
+ * Asked before the screen offers to enrol, rather than discovered when somebody
+ * presses the button. The two deployments are not installed on every
+ * environment — `deploy/nginx/yamale-account.conf` says so at the top and
+ * `deploy/deploy.sh` does not copy it — so a wallet served from a host without
+ * them would otherwise show a prominent control that always fails.
+ *
+ * "Press this and find out" is a reasonable design for an action that usually
+ * works. This one usually does not, yet, and the difference between "your
+ * account cannot be protected here" and "something went wrong" is the whole of
+ * what a person needs to know.
+ *
+ * Both must answer. One service is not half a protection: the parts are
+ * deposited with both or the account is recoverable only from the device, which
+ * is the situation enrolment exists to leave.
+ */
+export async function servicesAvailable(
+  services: Services,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = 4000,
+): Promise<boolean> {
+  const reachable = async (url: string) => {
+    // Aborted rather than left hanging. A wallet opened on a network that
+    // blackholes the request would sit on "checking" for as long as the browser
+    // allows, which reads as broken rather than as absent.
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs);
+    try {
+      const res = await fetchImpl(`${url}/v1/health`, { signal: abort.signal });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const [custodian, recovery] = await Promise.all([
+    reachable(services.custodianUrl),
+    reachable(services.recoveryUrl),
+  ]);
+  return custodian && recovery;
+}
+
+/**
  * Enrol a key with both services.
  *
  * Deliberately NOT transactional, because it cannot be: two independent

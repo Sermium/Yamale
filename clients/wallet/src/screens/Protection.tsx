@@ -30,10 +30,16 @@
  * way to work it out.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { t } from '@yamale/chain';
 
-import { addressOf, enrol, EnrolError, privateKeyFromMnemonic } from '../account/enrol.ts';
+import {
+  addressOf,
+  enrol,
+  EnrolError,
+  privateKeyFromMnemonic,
+  servicesAvailable,
+} from '../account/enrol.ts';
 import { enrolmentFor, rememberEnrolment } from '../account/stored.ts';
 import { openVault, WrongPassword } from '../vault.ts';
 import { Field, Note } from '../ui.tsx';
@@ -57,6 +63,21 @@ export function Protection({ address }: { address: string }) {
   const [password, setPassword] = useState('');
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // 'checking' until both services answer. Not defaulted to available: a
+  // hopeful default would show the form for a moment and then take it away,
+  // which is worse than a short wait.
+  const [reach, setReach] = useState<'checking' | 'ready' | 'absent'>('checking');
+
+  useEffect(() => {
+    if (enrolment) return;
+    let live = true;
+    void servicesAvailable(SERVICES).then((ok) => {
+      if (live) setReach(ok ? 'ready' : 'absent');
+    });
+    return () => {
+      live = false;
+    };
+  }, [enrolment]);
 
   if (enrolment) {
     const when = new Date(enrolment.enrolledAt);
@@ -118,6 +139,21 @@ export function Protection({ address }: { address: string }) {
     } finally {
       setWorking(false);
     }
+  }
+
+  // The risk is stated whether or not anything can be done about it. Somebody
+  // whose account cannot be protected on this deployment still needs to know
+  // that losing this phone loses the account.
+  if (reach !== 'ready') {
+    return (
+      <section className="y-card">
+        <h2 className="wal-cardTitle">{t('wal.protTitle')}</h2>
+        <Note tone="warn">{t('wal.protUnsafe')}</Note>
+        <p className="wal-small wal-muted">
+          {reach === 'checking' ? t('wal.protChecking') : t('wal.protAbsent')}
+        </p>
+      </section>
+    );
   }
 
   return (

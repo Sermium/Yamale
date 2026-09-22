@@ -1390,6 +1390,8 @@ export const en = {
   /* --- Yamale Wallet, the mobile surface ---------------------------------- */
   'wal.notRead': "could not be read",
   'wal.tabMoney': "Money",
+  'wal.protChecking': "Checking whether this can be set up here…",
+  'wal.protAbsent': "This is not available on this deployment yet. The two services that would hold the other parts are not running, so there is nothing to send them. Your account still works; it just cannot be recovered.",
   'wal.protTitle': "If you lose this phone",
   'wal.protUnsafe': "Right now this account exists only on this device. Lose it, clear this browser, or forget the password and the account is gone — nobody can bring it back, including us.",
   'wal.protOffer': "Protect this account",
@@ -3180,6 +3182,8 @@ export const fr = {
   /* --- Yamale Wallet, the mobile surface ---------------------------------- */
   'wal.notRead': "n’a pas pu être lu",
   'wal.tabMoney': "Argent",
+  'wal.protChecking': "Vérification de la disponibilité ici…",
+  'wal.protAbsent': "Ce n'est pas encore disponible sur ce déploiement. Les deux services qui détiendraient les autres parts ne fonctionnent pas, il n'y a donc rien à leur envoyer. Votre compte fonctionne toujours ; il ne peut simplement pas être récupéré.",
   'wal.protTitle': "Si vous perdez ce téléphone",
   'wal.protUnsafe': "Pour l'instant ce compte n'existe que sur cet appareil. Si vous le perdez, effacez ce navigateur ou oubliez le mot de passe, le compte est perdu — personne ne peut le récupérer, nous non plus.",
   'wal.protOffer': "Protéger ce compte",
@@ -4969,6 +4973,8 @@ export const pt = {
   /* --- Yamale Wallet, the mobile surface ---------------------------------- */
   'wal.notRead': "não pôde ser lido",
   'wal.tabMoney': "Dinheiro",
+  'wal.protChecking': "A verificar se isto pode ser configurado aqui…",
+  'wal.protAbsent': "Ainda não está disponível nesta instalação. Os dois serviços que guardariam as outras partes não estão a funcionar, por isso não há nada para lhes enviar. A sua conta continua a funcionar; apenas não pode ser recuperada.",
   'wal.protTitle': "Se perder este telemóvel",
   'wal.protUnsafe': "Neste momento esta conta existe apenas neste dispositivo. Se o perder, limpar este navegador ou esquecer a palavra-passe, a conta desaparece — ninguém a pode recuperar, nem nós.",
   'wal.protOffer': "Proteger esta conta",
@@ -6758,6 +6764,8 @@ export const sw = {
   /* --- Yamale Wallet, the mobile surface ---------------------------------- */
   'wal.notRead': "haikusomeka",
   'wal.tabMoney': "Pesa",
+  'wal.protChecking': "Inaangalia kama hili linaweza kuwekwa hapa…",
+  'wal.protAbsent': "Hili halipatikani bado kwenye usakinishaji huu. Huduma mbili ambazo zingeshika sehemu nyingine hazifanyi kazi, kwa hivyo hakuna cha kuzitumia. Akaunti yako bado inafanya kazi; ila haiwezi kurudishwa.",
   'wal.protTitle': "Ukipoteza simu hii",
   'wal.protUnsafe': "Kwa sasa akaunti hii ipo kwenye kifaa hiki pekee. Ukikipoteza, ukafuta kivinjari hiki au ukasahau nenosiri, akaunti inapotea — hakuna anayeweza kuirudisha, wala sisi.",
   'wal.protOffer': "Linda akaunti hii",
@@ -8550,6 +8558,8 @@ export const ar = {
   /* --- Yamale Wallet, the mobile surface ---------------------------------- */
   'wal.notRead': "تعذّرت قراءته",
   'wal.tabMoney': "المال",
+  'wal.protChecking': "جارٍ التحقق مما إذا كان هذا ممكناً هنا…",
+  'wal.protAbsent': "هذا غير متاح بعد في هذا التنصيب. الخدمتان اللتان ستحتفظان بالأجزاء الأخرى لا تعملان، فلا يوجد ما يُرسل إليهما. حسابك ما زال يعمل؛ لكنه فقط لا يمكن استعادته.",
   'wal.protTitle': "إذا فقدت هذا الهاتف",
   'wal.protUnsafe': "هذا الحساب موجود حالياً على هذا الجهاز فقط. إذا فقدته أو مسحت بيانات المتصفح أو نسيت كلمة المرور، يضيع الحساب — ولا أحد يستطيع استعادته، ولا نحن.",
   'wal.protOffer': "احمِ هذا الحساب",
