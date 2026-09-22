@@ -1,0 +1,129 @@
+{
+  "note": "Shared by recovery/vectors_test.go and the TypeScript port. Regenerate with: go test ./recovery -run TestVectors -update-vectors. A vector that stops matching means the code changed, not the vector.",
+  "argonSalt": [
+    {
+      "salt": "00000000000000000000000000000000",
+      "expect": "38623fd700cc161fa5f0d6babce59218"
+    },
+    {
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "expect": "0dbf1abb5fba5475480e0d37bd54cd6a"
+    },
+    {
+      "salt": "ffffffffffffffffffffffffffffffff",
+      "expect": "59cba4ee7770dff797c07267bef6aef2"
+    }
+  ],
+  "seal": [
+    {
+      "password": "seven horses eating apples slowly",
+      "secret": "4c9f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "expect": "2786ab93d175183e74f79a70c9a6fd35c80e31fd1b7177d33f5203e3b4b8134a152b3694af3b1b60ddb1082c738bf713"
+    },
+    {
+      "password": "une phrase de passe beaucoup plus longue",
+      "secret": "00112233445566778899aabbccddeeff",
+      "salt": "aabbccddeeff00112233445566778899",
+      "nonce": "ffeeddccbbaa99887766554433221100aabbccddeeff0011",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "expect": "27353099a7d1169ec06b95d45b3f641433a129be6c90c9ce4e6fcfdf1d08c793"
+    }
+  ],
+  "combine": [
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+        },
+        {
+          "x": 2,
+          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+        },
+        {
+          "x": 3,
+          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 2,
+          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+        },
+        {
+          "x": 3,
+          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    },
+    {
+      "shares": [
+        {
+          "x": 1,
+          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+        },
+        {
+          "x": 2,
+          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+        },
+        {
+          "x": 3,
+          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+        }
+      ],
+      "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
+    }
+  ],
+  "digest": [
+    {
+      "index": "Zm9vYmFyLWJsaW5kLWluZGV4",
+      "role": "custodian",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "1635f4f9c17395653cc291bd127779b44dbc9fe19054bb5571150fc043092c75"
+    },
+    {
+      "index": "Zm9vYmFyLWJsaW5kLWluZGV4",
+      "role": "recovery",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "3d7b7428554554e43eccf16e0f8046993169eeb82144dff4fd5745e15ec7967c"
+    }
+  ]
+}
