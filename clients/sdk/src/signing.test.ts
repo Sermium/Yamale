@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { beginUnbonding, claimRewards, delegate, send, vote } from './signing.ts';
-import { describeChain } from './wallet.ts';
+import { describeChain } from './chaininfo.ts';
 
 // The message constructors exist so no interface assembles a typeUrl by hand.
 // A typo there produces a transaction the chain rejects for a reason that reads

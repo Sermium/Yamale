@@ -45,8 +45,18 @@ interface Vectors {
     expect: string;
   }[];
   combine: { shares: { x: number; y: string }[]; expect: string }[];
+  /** A Holding exactly as the services marshal one. */
+  wire: {
+    role: string;
+    salt: string;
+    nonce: string;
+    time: number;
+    memory: number;
+    threads: number;
+    share: { x: number; y: string };
+  };
   digest: {
-    index: string;
+    email: string;
     role: string;
     pubkey: string;
     salt: string;
@@ -151,7 +161,7 @@ test('the deposit digest matches Go, including the role binding', () => {
       threads: v.threads,
       share: { x: v.share.x, y: hex(v.share.y) },
     };
-    const got = depositDigest(v.index, v.role, hex(v.pubkey), holding);
+    const got = depositDigest(v.email, v.role, hex(v.pubkey), holding);
     assert.equal(toHex(got), v.expect, `digest[${i}] disagrees with Go`);
   }
 
@@ -163,4 +173,49 @@ test('the deposit digest matches Go, including the role binding', () => {
     vectors.digest[1]!.expect,
     'the two digest vectors are identical, so they contrast nothing',
   );
+
+  // The third differs from the first only in spelling: capitals and padding.
+  // Equal digests are what prove this file folds an address exactly as Go
+  // does — the failure it guards is somebody enrolling as Amara@Example.org
+  // and never being able to sign in as amara@example.org.
+  assert.notEqual(vectors.digest[0]!.email, vectors.digest[2]!.email, 'nothing is contrasted');
+  assert.equal(
+    vectors.digest[0]!.expect,
+    vectors.digest[2]!.expect,
+    'this build folds an email address differently from Go',
+  );
+});
+
+test('a holding as the services marshal it parses here', () => {
+  // The half of interoperability that arithmetic vectors do not cover, and the
+  // half that broke: Go marshals an untagged struct with capitalised keys while
+  // its decoder accepts lowercase ones. So a browser could enrol perfectly —
+  // the direction that is easy to test — and then fail to read back the holding
+  // a recovery handed it, which is the direction nobody exercises until
+  // somebody has already lost their phone.
+  const w = vectors.wire;
+  assert.ok(w, 'no wire vector');
+
+  // Byte arrays arrive as base64, which is how Go encodes []byte in JSON.
+  const bytesOf = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const holding: Holding = {
+    role: w.role,
+    salt: bytesOf(w.salt),
+    nonce: bytesOf(w.nonce),
+    time: w.time,
+    memory: w.memory,
+    threads: w.threads,
+    share: { x: w.share.x, y: bytesOf(w.share.y) },
+  };
+
+  assert.equal(holding.salt.length, 16, 'the salt did not survive the wire');
+  assert.equal(holding.nonce.length, 24, 'the nonce did not survive the wire');
+  assert.equal(holding.share.x, 2);
+  assert.ok(holding.share.y.length > 0, 'the share bytes did not survive the wire');
+  assert.equal(holding.threads, SEAL_THREADS);
+  assert.equal(holding.memory, SEAL_MEMORY_KIB);
+
+  // And it is usable: a digest over it is what this browser would sign.
+  const digest = depositDigest('amara@example.org', holding.role, new Uint8Array(33), holding);
+  assert.equal(digest.length, 32);
 });

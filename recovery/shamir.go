@@ -69,8 +69,13 @@ import (
 // zero IS the secret, so a share at x=0 would be the secret itself handed out
 // under a name that suggests otherwise.
 type Share struct {
-	X byte
-	Y []byte
+	// Tagged explicitly. Without tags Go marshals these as "X" and "Y", and
+	// accepts "x" and "y" on the way in because its decoder is case-insensitive
+	// — so a browser sending lowercase enrolled perfectly well and then could
+	// not parse the holding a recovery handed back. The asymmetry is the whole
+	// danger: it works in the direction that is easy to test.
+	X byte   `json:"x"`
+	Y []byte `json:"y"`
 }
 
 var (

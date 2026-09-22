@@ -41,11 +41,11 @@
       "shares": [
         {
           "x": 1,
-          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
         },
         {
           "x": 2,
-          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
         }
       ],
       "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
@@ -54,11 +54,11 @@
       "shares": [
         {
           "x": 1,
-          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
         },
         {
           "x": 3,
-          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
         }
       ],
       "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
@@ -67,11 +67,11 @@
       "shares": [
         {
           "x": 2,
-          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
         },
         {
           "x": 3,
-          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
         }
       ],
       "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
@@ -80,15 +80,15 @@
       "shares": [
         {
           "x": 1,
-          "y": "81614d6c6d0463dd0f0d9d8bef61234f7ada9770350352158beccc8dd8c95346"
+          "y": "0ceed672cbfc352e23dd0e13ccb7f5e92cd55e1656eeed5922d30d99920a9881"
         },
         {
           "x": 2,
-          "y": "f261fa4e75ad5931b18c82917e73f4fe6800a07c0a9c0b8f91721573d9fbd4fe"
+          "y": "f364d7722246f5cce937bfba38c443a9c41e29b0cc5d6e17d80c8c5b4d66596b"
         },
         {
           "x": 3,
-          "y": "2a6197507dca4f9cdbf37e6ef87db99166bf44781fe93cf96ef1abd02f1ca996"
+          "y": "a6eb21728cd9b592af98d0dd9d1cd8609cae04d2bac5e62d8eb0f3ecf142efc4"
         }
       ],
       "expect": "596120726563757065726174696f6e207465737420766563746f722e2e2e2e2e"
@@ -96,7 +96,7 @@
   ],
   "digest": [
     {
-      "index": "Zm9vYmFyLWJsaW5kLWluZGV4",
+      "email": "amara@example.org",
       "role": "custodian",
       "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
       "salt": "0102030405060708090a0b0c0d0e0f10",
@@ -108,10 +108,10 @@
         "x": 2,
         "y": "deadbeefcafe0123456789abcdef0123"
       },
-      "expect": "1635f4f9c17395653cc291bd127779b44dbc9fe19054bb5571150fc043092c75"
+      "expect": "08e5b18df70e824c1391fd5565b708d479c43647d75aa37a54f5cc0b74a25bd0"
     },
     {
-      "index": "Zm9vYmFyLWJsaW5kLWluZGV4",
+      "email": "amara@example.org",
       "role": "recovery",
       "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
       "salt": "0102030405060708090a0b0c0d0e0f10",
@@ -123,7 +123,34 @@
         "x": 2,
         "y": "deadbeefcafe0123456789abcdef0123"
       },
-      "expect": "3d7b7428554554e43eccf16e0f8046993169eeb82144dff4fd5745e15ec7967c"
+      "expect": "fcc04bef7d3c71ffd14279dbf4cf1e18c11f9f3c28c9c7c5368fb12ef47b35c4"
+    },
+    {
+      "email": "  Amara@Example.ORG  ",
+      "role": "custodian",
+      "pubkey": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "salt": "0102030405060708090a0b0c0d0e0f10",
+      "nonce": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "time": 3,
+      "memory": 131072,
+      "threads": 1,
+      "share": {
+        "x": 2,
+        "y": "deadbeefcafe0123456789abcdef0123"
+      },
+      "expect": "08e5b18df70e824c1391fd5565b708d479c43647d75aa37a54f5cc0b74a25bd0"
     }
-  ]
+  ],
+  "wire": {
+    "role": "custodian",
+    "salt": "AQIDBAUGBwgJCgsMDQ4PEA==",
+    "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX",
+    "time": 3,
+    "memory": 131072,
+    "threads": 1,
+    "share": {
+      "x": 2,
+      "y": "3q2+78r+ASNFZ4mrze8BIw=="
+    }
+  }
 }

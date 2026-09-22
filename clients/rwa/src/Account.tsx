@@ -57,7 +57,7 @@ function ThemeChoice() {
 }
 
 export function Account({ api, head }: { api: ReturnType<typeof useAccount>; head: Head }) {
-  const { account, wallets, connecting, problemKey } = api;
+  const { account, connecting, problemKey } = api;
   const [typed, setTyped] = useState('');
 
   return (
@@ -87,18 +87,15 @@ export function Account({ api, head }: { api: ReturnType<typeof useAccount>; hea
         <Panel title={t('rwa.attach')}>
           <p className="panel__lede">{t('rwa.attachLede')}</p>
 
-          {wallets.length > 0 ? (
-            <div className="btns">
-              {wallets.map((w) => (
-                <button key={w.id} type="button" className="btn btn--block"
-                        disabled={connecting} onClick={() => api.connectWallet(w.id)}>
-                  {connecting ? t('rwa.connecting') : `${t('action.connect')} ${w.label}`}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <Note tone="mute">{t('rwa.noWallet')}</Note>
-          )}
+          {/* One button. There is one kind of account, and the wallet is what
+              creates one for somebody who does not have it yet — so there is no
+              "no wallet found" branch: signing in and signing up are one door. */}
+          <div className="btns">
+            <button type="button" className="btn btn--block"
+                    disabled={connecting} onClick={() => void api.signIn()}>
+              {connecting ? t('rwa.connecting') : t('rwa.signIn')}
+            </button>
+          </div>
 
           <form
             className="fields"

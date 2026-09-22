@@ -3,10 +3,10 @@
  *
  * Everything else in this package reads the chain. This is the half that
  * changes it, and it is deliberately built around an injected signer rather
- * than around a browser wallet: the same code path is used by a browser
- * extension, by a key held in a script, and by the test suite — so the
- * behaviour that matters can be exercised against a real chain without a
- * browser in the loop.
+ * than around a browser wallet: the same code path is used by the Yamale
+ * wallet, by a key held in a script, and by the test suite — so the behaviour
+ * that matters can be exercised against a real chain without a browser in the
+ * loop.
  *
  * What it does not do is decide anything. Amounts arrive in base units, the
  * caller has already been shown what will happen, and this module's whole job
@@ -52,9 +52,10 @@ export interface SubmitResult {
 /**
  * A signer bound to one chain.
  *
- * Constructed from any OfflineSigner: `window.keplr.getOfflineSigner(chainId)`
- * in a browser, `DirectSecp256k1HdWallet.fromMnemonic(...)` in a script or a
- * test. Nothing below knows which it was given.
+ * Constructed from any OfflineSigner: `YamaleWallet` from `@yamale/connect` in
+ * a browser, `DirectSecp256k1HdWallet.fromMnemonic(...)` in a script or a test.
+ * Nothing below knows which it was given, which is what made dropping the
+ * browser extensions a change to one file rather than to every application.
  */
 export class ChainSigner {
   private readonly options: SignerOptions;

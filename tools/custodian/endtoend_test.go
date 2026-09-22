@@ -126,8 +126,9 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 		role string
 	}{{custodian, recovery.RoleCustodian}, {recoveryService, recovery.RoleRecovery}} {
 		h := byRole[target.role]
-		idx := target.svc.server.index.Of(email)
-		sig, err := recovery.SignDeposit(key, idx, target.role, h)
+		// The EMAIL, which is all the device knows. It cannot compute the blind
+		// index: the pepper never leaves the service.
+		sig, err := recovery.SignDeposit(key, email, target.role, h)
 		require.NoError(t, err)
 
 		var out enrolResponse
@@ -144,8 +145,7 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 	// Enrolling twice is refused, which is what stops an enrolment overwriting
 	// somebody's account.
 	h := byRole[recovery.RoleCustodian]
-	idx := custodian.server.index.Of(email)
-	sig, err := recovery.SignDeposit(key, idx, recovery.RoleCustodian, h)
+	sig, err := recovery.SignDeposit(key, email, recovery.RoleCustodian, h)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusConflict, custodian.call(t, "/v1/enrol", Deposit{
 		Email: email, Password: password,
@@ -154,7 +154,7 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 
 	// A holding meant for the other service is refused by this one.
 	wrong := byRole[recovery.RoleRecovery]
-	wrongSig, err := recovery.SignDeposit(key, idx, recovery.RoleCustodian, wrong)
+	wrongSig, err := recovery.SignDeposit(key, "someone.else@example.org", recovery.RoleCustodian, wrong)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, custodian.call(t, "/v1/enrol", Deposit{
 		Email: "someone.else@example.org", Password: password,
@@ -253,8 +253,9 @@ func TestTheOperatorHoldingBothServicesStillCannotOpenTheAccount(t *testing.T) {
 				h = c
 			}
 		}
-		idx := target.svc.server.index.Of(email)
-		sig, err := recovery.SignDeposit(key, idx, target.role, h)
+		// The EMAIL, which is all the device knows. It cannot compute the blind
+		// index: the pepper never leaves the service.
+		sig, err := recovery.SignDeposit(key, email, target.role, h)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, target.svc.call(t, "/v1/enrol", Deposit{
 			Email: email, Password: password,
@@ -262,8 +263,10 @@ func TestTheOperatorHoldingBothServicesStillCannotOpenTheAccount(t *testing.T) {
 		}, nil))
 
 		// Read straight out of the store, which is what an operator with the
-		// sealing key and the disk has.
-		account, err := target.svc.server.store.Get(idx)
+		// sealing key and the disk has. The operator CAN compute the index —
+		// they hold the pepper — which is exactly the asymmetry that makes this
+		// the right place to test collusion from.
+		account, err := target.svc.server.store.Get(target.svc.server.index.Of(email))
 		require.NoError(t, err)
 		stored, err := target.svc.server.store.Holding(account)
 		require.NoError(t, err)

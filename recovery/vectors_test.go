@@ -1,6 +1,7 @@
 package recovery
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -60,6 +61,14 @@ type vectorFile struct {
 	Seal      []sealVector      `json:"seal"`
 	Combine   []combineVector   `json:"combine"`
 	Digest    []digestVector    `json:"digest"`
+
+	// Wire is a Holding exactly as this service marshals it, so the TypeScript
+	// side can prove it parses what a recovery actually returns. Encoding is
+	// the half of interoperability that arithmetic vectors do not cover, and it
+	// broke once already: an untagged Share marshals as "X"/"Y" while Go's
+	// decoder accepts "x"/"y", so the browser enrolled fine and could not read
+	// its own holding back.
+	Wire json.RawMessage `json:"wire"`
 }
 
 type argonSaltVector struct {
@@ -91,7 +100,9 @@ type combineVector struct {
 }
 
 type digestVector struct {
-	Index   string      `json:"index"`
+	// The EMAIL, not the blind index. The device signs over what it knows, and
+	// it cannot know the index — the pepper never leaves the service.
+	Email   string      `json:"email"`
 	Role    string      `json:"role"`
 	PubKey  string      `json:"pubkey"`
 	Salt    string      `json:"salt"`
@@ -202,10 +213,28 @@ func TestVectors(t *testing.T) {
 	}
 
 	for i, v := range f.Digest {
-		got := DepositDigest(v.Index, v.Role, mustHex(t, v.PubKey), v.holding(t))
+		got := DepositDigest(v.Email, v.Role, mustHex(t, v.PubKey), v.holding(t))
 		if h := hex.EncodeToString(got[:]); h != v.Expect {
 			t.Errorf("digest[%d] = %s, want %s", i, h, v.Expect)
 		}
+	}
+
+	// The wire form must still parse here, which is what catches a tag being
+	// renamed on this side after the browser was written against it.
+	var back Holding
+	if err := json.Unmarshal(f.Wire, &back); err != nil {
+		t.Fatalf("the wire vector does not parse: %v", err)
+	}
+	if back.Share.X != 2 || len(back.Share.Y) == 0 {
+		t.Fatalf("the wire vector lost its share: %+v", back.Share)
+	}
+	if back.Role != RoleCustodian || back.Threads != sealThreads {
+		t.Fatalf("the wire vector lost a field: %+v", back)
+	}
+	// Lowercase, because that is what the browser sends and reads. An untagged
+	// Share would put "X" here and this is the assertion that says so.
+	if !bytes.Contains(f.Wire, []byte(`"x":`)) || !bytes.Contains(f.Wire, []byte(`"y":`)) {
+		t.Fatalf("the wire form does not use lowercase share keys: %s", f.Wire)
 	}
 }
 
@@ -286,7 +315,7 @@ func writeVectors(t *testing.T) {
 
 	digests := []digestVector{
 		{
-			Index:   "Zm9vYmFyLWJsaW5kLWluZGV4",
+			Email:   "amara@example.org",
 			Role:    RoleCustodian,
 			PubKey:  "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
 			Salt:    "0102030405060708090a0b0c0d0e0f10",
@@ -299,7 +328,7 @@ func writeVectors(t *testing.T) {
 		{
 			// Same everything, different role — the pair that proves the role is
 			// actually bound rather than merely present.
-			Index:   "Zm9vYmFyLWJsaW5kLWluZGV4",
+			Email:   "amara@example.org",
 			Role:    RoleRecovery,
 			PubKey:  "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
 			Salt:    "0102030405060708090a0b0c0d0e0f10",
@@ -310,11 +339,34 @@ func writeVectors(t *testing.T) {
 			Share:   shareVector{X: 2, Y: "deadbeefcafe0123456789abcdef0123"},
 		},
 	}
+	// A third, differing from the first ONLY in spelling. It must produce the
+	// SAME digest, and that is the vector which catches a case-folding
+	// difference between Go and JavaScript — the failure that would let
+	// somebody enrol as Amara@Example.org and never be able to sign in as
+	// amara@example.org.
+	spelled := digests[0]
+	spelled.Email = "  Amara@Example.ORG  "
+	digests = append(digests, spelled)
+
 	for _, d := range digests {
-		sum := DepositDigest(d.Index, d.Role, mustHex(t, d.PubKey), d.holding(t))
+		sum := DepositDigest(d.Email, d.Role, mustHex(t, d.PubKey), d.holding(t))
 		d.Expect = hex.EncodeToString(sum[:])
 		f.Digest = append(f.Digest, d)
 	}
+
+	wire, err := json.Marshal(Holding{
+		Role:    RoleCustodian,
+		Salt:    mustHex(t, "0102030405060708090a0b0c0d0e0f10"),
+		Nonce:   mustHex(t, "000102030405060708090a0b0c0d0e0f1011121314151617"),
+		Time:    sealTime,
+		Memory:  sealMemory,
+		Threads: sealThreads,
+		Share:   Share{X: 2, Y: mustHex(t, "deadbeefcafe0123456789abcdef0123")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Wire = wire
 
 	if err := os.MkdirAll(filepath.Dir(vectorsPath), 0o755); err != nil {
 		t.Fatal(err)
@@ -345,5 +397,11 @@ func TestTheDigestVectorsActuallyDiffer(t *testing.T) {
 	}
 	if f.Digest[0].Expect == f.Digest[1].Expect {
 		t.Fatal("two vectors differing only in role produced the same digest")
+	}
+	if len(f.Digest) < 3 {
+		t.Fatal("no case-folding vector, so nothing checks that the languages agree on spelling")
+	}
+	if f.Digest[0].Expect != f.Digest[2].Expect {
+		t.Fatal("the same address spelled differently produced a different digest")
 	}
 }

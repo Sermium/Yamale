@@ -18,6 +18,27 @@ import type { Share } from './shamir.ts';
 
 const DEPOSIT_DOMAIN = 'yamale/recovery/deposit/v1';
 
+/**
+ * The one spelling of an address this system uses.
+ *
+ * ASCII case folding only, and that is not laziness. `toLowerCase()` and Go's
+ * `strings.ToLower` disagree on a handful of characters — the Turkish dotted I
+ * is the famous one — so a device folding one way and a service folding the
+ * other would sign a digest the service could not reproduce. Domains are ASCII
+ * or punycode and local parts are case-sensitive per RFC 5321 anyway, so
+ * folding only ASCII is both portable and more correct.
+ *
+ * Mirrors `recovery.CanonicalEmail`. A vector pins the two together.
+ */
+export function canonicalEmail(email: string): string {
+  let out = '';
+  for (const ch of email.trim()) {
+    const c = ch.charCodeAt(0);
+    out += c >= 0x41 && c <= 0x5a ? String.fromCharCode(c + 32) : ch;
+  }
+  return out;
+}
+
 /** Fixed r||s, 32 bytes each — not DER. */
 export const SIGNATURE_LEN = 64;
 
@@ -41,7 +62,7 @@ export interface Holding {
  * of values together is the entire job of this digest.
  */
 export function depositDigest(
-  index: string,
+  email: string,
   role: string,
   pubKey: Uint8Array,
   holding: Holding,
@@ -54,7 +75,7 @@ export function depositDigest(
 
   const parts: Uint8Array[] = [
     utf8(DEPOSIT_DOMAIN),
-    utf8(index),
+    utf8(canonicalEmail(email)),
     utf8(role),
     pubKey,
     holding.salt,
@@ -88,13 +109,13 @@ export function depositDigest(
  */
 export async function signDeposit(
   privateKey: Uint8Array,
-  index: string,
+  email: string,
   role: string,
   holding: Holding,
 ): Promise<Uint8Array> {
   const { pubkey } = await Secp256k1.makeKeypair(privateKey);
   const compressed = Secp256k1.compressPubkey(pubkey);
-  const digest = depositDigest(index, role, compressed, holding);
+  const digest = depositDigest(email, role, compressed, holding);
   const signature = await Secp256k1.createSignature(digest, privateKey);
   // r and s, 32 bytes each, no recovery byte — which toFixedLength appends.
   return signature.toFixedLength().slice(0, SIGNATURE_LEN);

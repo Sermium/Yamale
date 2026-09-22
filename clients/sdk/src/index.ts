@@ -251,13 +251,7 @@ export {
   type VoteOption,
 } from './signing.ts';
 
-export {
-  availableWallets,
-  connect,
-  describeChain,
-  type ChainInfo,
-  type WalletProvider,
-} from './wallet.ts';
+export { describeChain, type ChainInfo } from './chaininfo.ts';
 
 /**
  * The address book, and the one rule every interface uses to name an account.

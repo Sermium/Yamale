@@ -212,7 +212,7 @@ test('a deposit signature is 64 bytes over the key it names', async () => {
   const holdings = await protect(key, PASSWORD);
   const custodian = holdings.find((h) => h.role === ROLE_CUSTODIAN)!;
 
-  const signature = await signDeposit(key, 'idx-1', ROLE_CUSTODIAN, custodian);
+  const signature = await signDeposit(key, 'amara@example.org', ROLE_CUSTODIAN, custodian);
   assert.equal(signature.length, 64, 'the Go side parses exactly r||s');
 
   const pub = await publicKeyOf(key);

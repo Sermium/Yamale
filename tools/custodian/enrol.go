@@ -101,7 +101,9 @@ func (s *server) Enrol(d Deposit) (string, error) {
 		return "", ErrAlreadyEnrolled
 	}
 
-	pub, err := recovery.VerifyDeposit(index, s.role, d.PubKey, d.Signature, d.Holding)
+	// Verified against the EMAIL, not the index: the device cannot compute the
+	// index, because the pepper never leaves this service.
+	pub, err := recovery.VerifyDeposit(email, s.role, d.PubKey, d.Signature, d.Holding)
 	if err != nil {
 		return "", err
 	}

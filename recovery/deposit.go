@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"strings"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
@@ -39,6 +40,18 @@ import (
 // attack it closes is substitution by a third party, and the one it leaves open
 // is self-harm by a broken client.
 //
+// # What the signature is over, and why it is not the blind index
+//
+// An earlier version signed over the blind index — HMAC(pepper, email) — which
+// the device cannot compute, because the pepper lives outside the store and
+// never leaves the service. A device could therefore never have produced a
+// valid deposit at all. The bug was invisible from the Go side, where every
+// test had a server handy to compute the index for it.
+//
+// So the signature is over the EMAIL, canonicalised. The index remains a
+// storage detail of each service — and it has to, because the two deployments
+// hold different peppers and so derive different indexes for the same person.
+//
 // # Why the digest is defined here
 //
 // Because the device computes it too, and the two must agree byte for byte. A
@@ -48,6 +61,30 @@ import (
 // because that happened.
 
 const depositDomain = "yamale/recovery/deposit/v1"
+
+// CanonicalEmail is the one spelling of an address that this system uses.
+//
+// ASCII case folding only, deliberately. Go's strings.ToLower and JavaScript's
+// toLowerCase disagree on a handful of characters — the Turkish dotted I is the
+// famous one — and a device that canonicalised an address one way while the
+// service canonicalised it another would sign a digest the service could not
+// reproduce. Domains are ASCII or punycode, and local parts are case-sensitive
+// per RFC 5321 anyway, so folding only ASCII is both portable and more correct
+// than folding everything.
+//
+// This is the same class of fault as x/herd/keeper/identifiers.go, and it is
+// worth naming twice: two implementations of one normalisation is a bug with a
+// delay fuse on it.
+func CanonicalEmail(email string) string {
+	trimmed := strings.TrimSpace(email)
+	out := []byte(trimmed)
+	for i, c := range out {
+		if c >= 'A' && c <= 'Z' {
+			out[i] = c + ('a' - 'A')
+		}
+	}
+	return string(out)
+}
 
 var (
 	ErrBadSignature = errors.New("the deposit is not signed by the key it claims")
@@ -67,7 +104,7 @@ const SignatureLen = 64
 // fields be re-cut into another's — an index of "ab" with a role of "c" hashing
 // the same as an index of "a" with a role of "bc" — and the whole point of this
 // digest is that it binds a specific set of values together.
-func DepositDigest(index, role string, pubKey []byte, h Holding) [32]byte {
+func DepositDigest(email, role string, pubKey []byte, h Holding) [32]byte {
 	sum := sha256.New()
 	write := func(b []byte) {
 		var n [4]byte
@@ -77,7 +114,7 @@ func DepositDigest(index, role string, pubKey []byte, h Holding) [32]byte {
 	}
 
 	write([]byte(depositDomain))
-	write([]byte(index))
+	write([]byte(CanonicalEmail(email)))
 	write([]byte(role))
 	write(pubKey)
 
@@ -101,12 +138,12 @@ func DepositDigest(index, role string, pubKey []byte, h Holding) [32]byte {
 
 // SignDeposit produces the proof. Used by the device, and by the tests that
 // stand in for one.
-func SignDeposit(key *secp256k1.PrivateKey, index, role string, h Holding) ([]byte, error) {
+func SignDeposit(key *secp256k1.PrivateKey, email, role string, h Holding) ([]byte, error) {
 	if key == nil {
 		return nil, errors.New("no key to sign with")
 	}
 	pub := key.PubKey().SerializeCompressed()
-	digest := DepositDigest(index, role, pub, h)
+	digest := DepositDigest(email, role, pub, h)
 
 	sig := ecdsa.Sign(key, digest[:])
 	r, s := sig.R(), sig.S()
@@ -124,7 +161,7 @@ func SignDeposit(key *secp256k1.PrivateKey, index, role string, h Holding) ([]by
 // actually verified, rather than from a second copy of it that might differ.
 // Handing back only a boolean is how a check ends up guarding one value while
 // the code stores another.
-func VerifyDeposit(index, role string, pubKey, signature []byte, h Holding) (*secp256k1.PublicKey, error) {
+func VerifyDeposit(email, role string, pubKey, signature []byte, h Holding) (*secp256k1.PublicKey, error) {
 	if len(pubKey) != secp256k1.PubKeyBytesLenCompressed {
 		return nil, ErrBadPubKey
 	}
@@ -151,7 +188,7 @@ func VerifyDeposit(index, role string, pubKey, signature []byte, h Holding) (*se
 		return nil, ErrBadSignature
 	}
 
-	digest := DepositDigest(index, role, pubKey, h)
+	digest := DepositDigest(email, role, pubKey, h)
 	if !ecdsa.NewSignature(&r, &s).Verify(digest[:], pub) {
 		return nil, ErrBadSignature
 	}

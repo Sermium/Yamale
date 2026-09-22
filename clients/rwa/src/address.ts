@@ -10,9 +10,16 @@
  * that address owns, sign nothing.
  *
  * `connected` adds exactly three abilities: claim, redeem, dispute. This app
- * never holds a key or a recovery phrase. A wallet extension does, and that is
- * the correct place for it — an investor app that asked for a mnemonic would be
- * teaching the habit that gets people robbed.
+ * never holds a key or a recovery phrase. The Yamale wallet does, on its own
+ * origin, and that is the correct place for it — an investor app that asked for
+ * a mnemonic would be teaching the habit that gets people robbed.
+ *
+ * It used to be a browser extension. It is now the Yamale account, which is an
+ * ordinary secp256k1 key sealed under a password and split three ways so that
+ * losing the phone is survivable. The extensions were dropped rather than kept
+ * alongside because an extension account cannot be enrolled or recovered, and
+ * looks identical here to one that can — so the app could not have answered
+ * "what happens if I lose this device?" about the account in front of it.
  *
  * Separated from the React hook in account.ts so these can be tested by the
  * repo's runner, which strips types but does not transform JSX and so cannot
@@ -24,7 +31,7 @@ import type { OfflineSigner } from '@cosmjs/proto-signing';
 export type Account =
   | { mode: 'none' }
   | { mode: 'watching'; address: string }
-  | { mode: 'connected'; address: string; signer: OfflineSigner; wallet: 'keplr' | 'leap' };
+  | { mode: 'connected'; address: string; signer: OfflineSigner };
 
 /**
  * Whether a string is an address on this chain — checksum and all.

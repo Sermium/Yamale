@@ -8,10 +8,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/argon2"
+
+	"yamale/blockchain/recovery"
 )
 
 // Authentication, which is what this service decides with.
@@ -136,7 +137,11 @@ func NewBlindIndex(pepper string) (*BlindIndex, error) {
 // can sign in to.
 func (b *BlindIndex) Of(email string) string {
 	mac := hmac.New(sha256.New, b.pepper)
-	mac.Write([]byte(strings.ToLower(strings.TrimSpace(email))))
+	// recovery.CanonicalEmail, not strings.ToLower, and the difference matters.
+	// The device signs its deposit over the canonical email, so the spelling
+	// this indexes under and the spelling that was signed have to be produced
+	// by the same function — in two languages. See the note on CanonicalEmail.
+	mac.Write([]byte(recovery.CanonicalEmail(email)))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 

@@ -1,5 +1,5 @@
 /**
- * Wallet connection, and the one place a signature is requested.
+ * Signing in, and the one place a signature is requested.
  *
  * The explorer was read-only by design, and mostly still is. What changed is
  * that everything it explains — staking, voting — previously ended with "now go
@@ -10,18 +10,32 @@
  * it gets its own component rather than being improvised per action: every
  * action states plainly what will change before it asks, and reports what the
  * chain actually did afterwards.
+ *
+ * # This no longer looks for a browser extension
+ *
+ * It used to offer Keplr and Leap. It now opens the Yamale wallet, which holds
+ * an enrolled account: an ordinary secp256k1 key sealed under a password and
+ * split three ways, so losing the device is survivable. See
+ * clients/wallet/src/account/ and the recovery package.
+ *
+ * The reason to drop the extensions rather than keep them alongside is not
+ * tidiness. An extension account cannot be recovered by this system, cannot be
+ * enrolled, and looks identical in every screen to one that can — so offering
+ * both would mean the interface could not truthfully answer "what happens if I
+ * lose this device?" for the account in front of it.
+ *
+ * `YamaleWallet` implements CosmJS's `OfflineDirectSigner`, so nothing below
+ * the connection changed: ChainSigner takes it exactly as it took an extension.
  */
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { YamaleWallet } from '@yamale/connect';
 import {
   ChainSigner,
-  availableWallets,
-  connect as connectWallet,
   translateError,
   type ChainInfo,
   type EncodeObject,
   type SubmitResult,
-  type WalletProvider,
 } from '@yamale/chain';
 
 /**
@@ -42,12 +56,27 @@ export const CHAIN: ChainInfo = {
   gasPrice: Number(import.meta.env.VITE_GAS_PRICE ?? 0),
 };
 
+/**
+ * Where the wallet is.
+ *
+ * Same origin by default, because the site serves every console as a
+ * subdirectory — see deploy/stage-site.sh. That is worth saying out loud rather
+ * than leaving implicit: the wallet is meant to be its OWN origin, serving no
+ * third-party script, and on one origin an injection into any console can read
+ * its storage. The postMessage checks in @yamale/connect still run, they just
+ * are not carrying the weight they were designed to carry.
+ *
+ * VITE_WALLET_URL is how a deployment gives the wallet a separate origin, and
+ * it should.
+ */
+const WALLET_URL: string =
+  import.meta.env.VITE_WALLET_URL ?? new URL('/wallet', globalThis.location.origin).toString();
+
 interface WalletState {
   address: string | null;
   connecting: boolean;
   error: string | null;
-  providers: WalletProvider[];
-  connect: (id: WalletProvider['id']) => Promise<void>;
+  connect: () => Promise<void>;
   disconnect: () => void;
   submit: (messages: EncodeObject[], memo?: string, gas?: number) => Promise<SubmitResult>;
 }
@@ -66,17 +95,22 @@ export function WalletProviderScope({ children }: { children: ReactNode }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Computed once per render rather than stored: an extension can be installed
-  // while the page is open, and a cached empty list would keep telling somebody
-  // they have no wallet after they have just installed one.
-  const providers = availableWallets();
+  // Held in a ref-like state so disconnect can tell the wallet window to go
+  // away rather than only forgetting about it locally.
+  const [wallet, setWallet] = useState<YamaleWallet | null>(null);
 
-  const connect = useCallback(async (id: WalletProvider['id']) => {
+  const connect = useCallback(async () => {
     setConnecting(true);
     setError(null);
     try {
-      const offlineSigner = await connectWallet(id, CHAIN);
-      const chainSigner = new ChainSigner(offlineSigner, {
+      const opened = new YamaleWallet({
+        walletUrl: WALLET_URL,
+        chainId: CHAIN.chainId,
+        appName: 'Yamale explorer',
+      });
+      await opened.connect();
+      setWallet(opened);
+      const chainSigner = new ChainSigner(opened, {
         rpcUrl: CHAIN.rpcUrl,
         chainId: CHAIN.chainId,
         feeDenom: CHAIN.baseDenom,
@@ -96,9 +130,11 @@ export function WalletProviderScope({ children }: { children: ReactNode }) {
 
   const disconnect = useCallback(() => {
     signer?.disconnect();
+    wallet?.disconnect();
+    setWallet(null);
     setSigner(null);
     setAddress(null);
-  }, [signer]);
+  }, [signer, wallet]);
 
   const submit = useCallback(
     async (messages: EncodeObject[], memo = '', gas = 200_000) => {
@@ -109,16 +145,16 @@ export function WalletProviderScope({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<WalletState>(
-    () => ({ address, connecting, error, providers, connect, disconnect, submit }),
-    [address, connecting, error, providers, connect, disconnect, submit],
+    () => ({ address, connecting, error, connect, disconnect, submit }),
+    [address, connecting, error, connect, disconnect, submit],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
-/** The connect control in the masthead. */
+/** The sign-in control in the masthead. */
 export function WalletButton() {
-  const { address, connecting, error, providers, connect, disconnect } = useWallet();
+  const { address, connecting, error, connect, disconnect } = useWallet();
 
   if (address) {
     return (
@@ -129,33 +165,14 @@ export function WalletButton() {
     );
   }
 
-  if (providers.length === 0) {
-    return (
-      <a
-        className="wallet"
-        href="https://www.keplr.app/"
-        target="_blank"
-        rel="noreferrer"
-        title="A browser wallet is needed to sign; the explorer works without one"
-      >
-        Get a wallet
-      </a>
-    );
-  }
-
+  // No "install an extension" branch any more, and nothing to choose between.
+  // There is one kind of account and either you have one or the wallet will
+  // offer to make you one, which is its job rather than the explorer's.
   return (
     <span className="inline" style={{ gap: '0.4rem' }}>
-      {providers.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          className="wallet"
-          onClick={() => void connect(p.id)}
-          disabled={connecting}
-        >
-          {connecting ? 'Connecting…' : `Connect ${p.label}`}
-        </button>
-      ))}
+      <button type="button" className="wallet" onClick={() => void connect()} disabled={connecting}>
+        {connecting ? 'Waiting for the wallet…' : 'Sign in'}
+      </button>
       {error ? (
         <span className="small" style={{ color: 'var(--negative)' }} role="alert">
           {error}
@@ -195,7 +212,7 @@ export function SignAction({
   if (!address) {
     return (
       <p className="small faint" style={{ margin: '0.4rem 0 0' }}>
-        Connect a wallet to {label.toLowerCase()}.
+        Sign in to {label.toLowerCase()}.
       </p>
     );
   }

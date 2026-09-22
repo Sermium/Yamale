@@ -18,7 +18,7 @@ import { useWallet } from './wallet.tsx';
  * Tier two stays dark until x/alias is on the chain.
  */
 export function AccountBadge() {
-  const { address, connecting, providers, connect, disconnect } = useWallet();
+  const { address, connecting, connect, disconnect } = useWallet();
   const { mode, setMode } = useViewMode();
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -115,24 +115,13 @@ export function AccountBadge() {
           ) : (
             <>
               <p className="acct__tier">{t('msg.notConnected')}</p>
-              {providers.length === 0 ? (
-                <p className="small muted">
-                  No wallet found. Open the{' '}
-                  <a href={`${location.protocol}//${location.hostname}:8092`}>Yamale Wallet</a> to
-                  create an account.
-                </p>
-              ) : (
-                providers.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => void connect(p.id)}
-                    disabled={connecting}
-                  >
-                    {connecting ? 'Connecting…' : `Connect ${p.label}`}
-                  </button>
-                ))
-              )}
+              {/* One button, because there is one kind of account. The wallet
+                  is what creates one if this person does not have one yet, so
+                  there is no "no wallet found" branch to write: signing in and
+                  signing up are the same door. */}
+              <button type="button" onClick={() => void connect()} disabled={connecting}>
+                {connecting ? 'Waiting for the wallet…' : 'Sign in'}
+              </button>
             </>
           )}
 
