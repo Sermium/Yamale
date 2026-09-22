@@ -567,7 +567,7 @@ The office that accredited an agent is recorded, because that is what the indepe
 | `authority` | string | The office that accredited this agent and can strike them off. |
 | `jurisdiction` | string | Copied from the accrediting office. An agent cannot be accredited into a jurisdiction their office does not hold. |
 | `active` | bool | Struck off agents keep their record — every attestation they ever made names them, and deleting the agent would leave those attestations pointing at nothing — but they stop being able to act. |
-| `accredited_at` | int64 |  |
+| `accredited_at` | int64 | Unix SECONDS, not a block height. See registered_at for why this module carries both and why they must not be confused. |
 
 ### Animal
 
@@ -592,7 +592,7 @@ Animal is what levels 2 and 3 record. One animal, one record.
 | `holder` | string | The current keeper. Moves only through a four-party transfer, which is what makes the resale of a stolen animal impossible rather than merely traceable. |
 | `authority` | string |  |
 | `status` | Status |  |
-| `registered_at` | int64 |  |
+| `registered_at` | int64 | THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970. This module carries both kinds of int64 and nothing used to distinguish them: registered_at and recorded_at are heights, while proposed_at, attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds 320898 and transfer 1 holds 1789310513, and a client that assumed one convention got a plausible wrong answer for half the fields. Height rather than time because this is a position in the chain's own history — what an auditor uses to find the block that made the record — whereas a transfer's clock is about people and deadlines. Converting it to a date needs the block, which is a query rather than an arithmetic. |
 
 ### Attestation
 
@@ -605,7 +605,7 @@ This is the only claim in the whole system that the chain cannot check for itsel
 | `attestor` | string |  |
 | `authority` | string | The office the attestor answers to, captured at attestation time. Recorded rather than looked up later because an attestor can be struck off, and the question "was this independent when it was made" has to stay answerable. |
 | `evidence_hash` | string | Hash of what they actually checked — the tag read back, a photograph taken at the time. A false attestation should be a specific claim by a named person, not a shrug. |
-| `attested_at` | int64 |  |
+| `attested_at` | int64 | Unix SECONDS, not a block height. See Herd.registered_at for why this module carries both kinds of int64 and why confusing them prints 1970. |
 
 ### Authority
 
@@ -634,7 +634,7 @@ A campaign without a registry produces a number of doses administered. That is n
 | `batch` | string | The vaccine batch. Recorded because a batch that fails has to be traceable to every herd that received it, and that is a recall rather than a rumour. |
 | `treated` | uint32 | How many animals were treated. May differ from the herd's declared size — that difference is itself information, and hiding it by forcing them equal would destroy the only signal that a declaration is drifting. |
 | `agent` | string | The accredited agent or veterinarian who administered it and signed for it. |
-| `recorded_at` | int64 |  |
+| `recorded_at` | int64 | THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970. This module carries both kinds of int64 and nothing used to distinguish them: registered_at and recorded_at are heights, while proposed_at, attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds 320898 and transfer 1 holds 1789310513, and a client that assumed one convention got a plausible wrong answer for half the fields. Height rather than time because this is a position in the chain's own history — what an auditor uses to find the block that made the record — whereas a transfer's clock is about people and deadlines. Converting it to a date needs the block, which is a query rather than an arithmetic. |
 
 ### Herd
 
@@ -652,7 +652,7 @@ Herd is what level 1 records, and it is costed per herd rather than per head.
 | `location_hash` | string | Hash of a surveyed location or a GeoJSON extent, when one exists — a fixed holding, a designated grazing area. Optional, because for a transhumant herd there is nothing honest to put here. |
 | `jurisdiction` | string |  |
 | `status` | Status |  |
-| `registered_at` | int64 |  |
+| `registered_at` | int64 | THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970. This module carries both kinds of int64 and nothing used to distinguish them: registered_at and recorded_at are heights, while proposed_at, attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds 320898 and transfer 1 holds 1789310513, and a client that assumed one convention got a plausible wrong answer for half the fields. Height rather than time because this is a position in the chain's own history — what an auditor uses to find the block that made the record — whereas a transfer's clock is about people and deadlines. Converting it to a date needs the block, which is a query rather than an arithmetic. |
 
 ### PedigreeNode
 
@@ -679,14 +679,14 @@ The mechanism is the same one x/land uses for a parcel, and for the same reason:
 | `price` | string | Free text, and not enforced by the chain. The registry records what the parties say they agreed; it does not hold the money and does not pretend to have witnessed the payment. |
 | `state` | TransferState |  |
 | `attestations` | repeated Attestation |  |
-| `attested_at` | int64 | When the attestation quorum was reached. The challenge window runs from this, not from the proposal — otherwise a transfer could be proposed quietly, left to age, and completed the moment it was attested. |
+| `attested_at` | int64 | When the attestation quorum was reached. The challenge window runs from this, not from the proposal — otherwise a transfer could be proposed quietly, left to age, and completed the moment it was attested. Unix SECONDS, not a block height. See Herd.registered_at for why this module carries both kinds of int64 and why confusing them prints 1970. |
 | `objected_by` | string |  |
 | `objection_reason` | string |  |
-| `proposed_at` | int64 |  |
+| `proposed_at` | int64 | Unix SECONDS, not a block height. See Herd.registered_at for why this module carries both kinds of int64 and why confusing them prints 1970. |
 | `resolved_by` | string | Who resolved the objection, and what they decided. An objection can be raised by anybody, so it has to be answerable by somebody — and the answer is recorded rather than merely applied, because the interesting pattern is not one dismissal, it is an office that dismisses every objection raised against one seller. |
 | `resolution_reason` | string |  |
 | `objection_upheld` | bool | True where the office found the objection had substance. Kept as a field rather than inferred from the state, because a dismissed objection returns the transfer to the state it was in and would otherwise leave no trace that it had ever been raised. |
-| `accepted_at` | int64 | When the buyer agreed. Needed to put a transfer back where it was after an objection is dismissed: the state alone was overwritten by OBJECTED, and guessing from the attestation count cannot tell a proposal nobody accepted from one that was accepted and not yet attested. |
+| `accepted_at` | int64 | When the buyer agreed. Needed to put a transfer back where it was after an objection is dismissed: the state alone was overwritten by OBJECTED, and guessing from the attestation count cannot tell a proposal nobody accepted from one that was accepted and not yet attested. Unix SECONDS, not a block height. See Herd.registered_at for why this module carries both kinds of int64 and why confusing them prints 1970. |
 
 ## Value types
 
@@ -803,6 +803,8 @@ Every way a transaction to this module can be rejected.
 | 45 | `ErrNotAgent` | you are not an accredited agent; an attestation is a named person's statement |
 | 46 | `ErrAgentInactive` | this agent has been struck off and can no longer attest |
 | 47 | `ErrInvalidAgent` | the agent is not a valid account |
+| 48 | `ErrInvalidNationalID` | the national identifier is not in the form country/flock/serial/breed |
+| 49 | `ErrInvalidTag` | the transponder code is not fifteen digits in the ISO 11784/11785 form |
 | 5 | `ErrNoReference` | a herd reference is required |
 | 6 | `ErrRefTaken` | this herd reference is already used |
 | 7 | `ErrInvalidKeeper` | the keeper is not a valid account |
