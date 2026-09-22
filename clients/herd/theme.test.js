@@ -120,6 +120,18 @@ test('an identifier is pinned to left-to-right order', () => {
     'embed would let the run reorder the Arabic text around it');
 });
 
+test('the field an identifier is TYPED into is pinned the same way', () => {
+  // The rule above covers an identifier the application prints. This covers the
+  // one the operator enters, which was missed: in Arabic the placeholder
+  // rendered as L/221/682/021029 and typed input displayed L/221/682/000102.
+  // The value submitted is correct; what the operator reads back to confirm it
+  // is a different identifier that looks entirely plausible.
+  const rule = withoutComments.match(/\.bigfield__input\s*\{([\s\S]*?)\}/)[1];
+  assert.match(rule, /direction:\s*ltr/,
+    'without this the entry field reorders the identifier being typed into it');
+  assert.match(rule, /unicode-bidi:\s*isolate/);
+});
+
 /* ------------------------------------------------- logical properties only */
 
 test('the stylesheet uses no physical direction', () => {
