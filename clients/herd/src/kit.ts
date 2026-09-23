@@ -47,6 +47,7 @@ import {
   type Unconfirmed,
 } from './device.ts';
 import { formatTagCode } from './identity.ts';
+import { readTattooLuma } from './ocr.ts';
 import type {
   CapabilityState,
   Capture as PortCapture,
@@ -263,21 +264,46 @@ export function makeKit(options: KitOptions = {}): Kit {
   };
 
   /**
-   * The tattoo reader is the camera, and there is NO character recognition in
-   * this build.
+   * The tattoo reader is the camera, and now it reads.
    *
-   * Inventing a `text` matters more here than anywhere else in the application:
-   * the screen puts the result straight into a field a person then submits. So
-   * it takes the photograph, returns an empty reading with a null confidence,
-   * and the screen's own rule — never submit, always let a person correct —
-   * does the rest. `ports.ts` requires confidence to be nullable for exactly
-   * this case.
+   * It returned an empty string with a null confidence until `ocr.ts` existed,
+   * which was the honest answer while nothing could recognise anything. It is
+   * no longer the honest answer, and leaving it would be the same lie in the
+   * other direction: refusing to report a reading the application can actually
+   * make.
+   *
+   * What has NOT changed is the rule around it. The reading goes into a field
+   * for a person to correct and is never submitted on its own — `ports.ts`
+   * keeps confidence nullable for exactly that reason, and `ocr.ts` refuses to
+   * call anything certain. Inventing a `text` matters more here than anywhere
+   * else in this application, because the screen puts the result straight into
+   * a field somebody then signs.
+   *
+   * The frame is read from the grabber rather than from the capture source: OCR
+   * needs the LUMA plane, and a `Capture` carries the encoded image, which
+   * would have to be decoded back into the pixels the camera already had.
    */
   const tattoo: TattooReader = {
     state: () => cameraSource.state(),
     read: async () => {
+      const grabber = options.grabber;
+      if (!grabber) {
+        // No camera was supplied, so there is nothing to read and nothing to
+        // pretend about. The capability state says why; this says it again
+        // rather than returning a confident empty string.
+        throw new Error('tattoo: unsupported — this build has no camera to read with');
+      }
+      // The capture is still taken through the source, so the photograph is
+      // recorded on the same path as every other capture and the enrolment
+      // record is not missing the one image somebody will want to see.
       await demand('tattoo', cameraSource.capture());
-      return { text: '', confidence: null };
+
+      const frame = await grabber.grab();
+      if (!frame.ok) {
+        throw new Error(`tattoo: ${frame.reason} — ${frame.detail}`);
+      }
+      const reading = readTattooLuma(frame.value.luma, frame.value.width, frame.value.height);
+      return { text: reading.text, confidence: reading.confidence };
     },
   };
 
