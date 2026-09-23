@@ -21,6 +21,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -214,6 +215,19 @@ func (f *faucet) handle(w http.ResponseWriter, r *http.Request) {
 	// The transfer is not a transfer until the block says so.
 	if err := f.confirm(hash); err != nil {
 		log.Printf("faucet: grant to %s did not land (%s): %v", address, hash, err)
+
+		// "Try again shortly" is only true of a transient failure, and an empty
+		// balance is not one. Telling somebody to retry something that can
+		// never succeed is worse than telling them it cannot: they retry.
+		var permanent permanentError
+		if errors.As(err, &permanent) {
+			writeJSON(w, http.StatusServiceUnavailable, response{
+				Error: "The faucet has none of that currency to give. This is not a " +
+					"temporary fault and retrying will not help — it is the operator's to fix.",
+			})
+			return
+		}
+
 		writeJSON(w, http.StatusServiceUnavailable, response{
 			Error: "The faucet could not send that right now. Please try again shortly.",
 		})
@@ -435,6 +449,53 @@ func (f *faucet) send(address, amount string) (string, error) {
 // Waiting here also gives the serialisation for free: a transaction that has
 // been included has had its sequence committed, so the next request cannot
 // collide with it.
+// permanentError is a failure that retrying cannot fix.
+//
+// The distinction exists because the faucet had exactly one way of describing
+// every failure — "try again shortly" — and one of the things that reaches it
+// is an empty balance, which no amount of trying again will change. Somebody
+// claiming a currency the faucet does not hold was told to wait and try again,
+// forever, and the message was confident about it.
+//
+// The chain says which it is. Code 5 is insufficient funds; the raw log names
+// the denom and the amount. Throwing that away and guessing "transient" was the
+// bug, not the empty balance.
+type permanentError struct{ reason string }
+
+func (e permanentError) Error() string { return e.reason }
+
+// insufficientFunds recognises the one permanent failure this faucet actually
+// hits, from the code the SDK returns for it.
+//
+// Matched on the code rather than on the text, because the text is a
+// human-readable string the SDK is free to reword and the code is part of its
+// interface. The log is still read, but only to name the denom in the message.
+const codeInsufficientFunds = 5
+
+// classify turns what the block said into an error the handler can act on.
+//
+// Split out from confirm because confirm shells out to the chain binary and is
+// therefore untestable without a chain, while THIS is the part that was wrong:
+// every non-zero code became the same transient-sounding failure.
+func classify(code int, rawLog string) error {
+	switch code {
+	case 0:
+		return nil
+	case codeInsufficientFunds:
+		// Permanent, and named as such. The faucet is out of, or has never
+		// held, the currency that was asked for.
+		return permanentError{
+			reason: fmt.Sprintf("the faucet holds none of that currency (%s)",
+				strings.TrimSpace(rawLog)),
+		}
+	default:
+		// Everything else is treated as transient, which is the right default:
+		// a sequence collision between two requests in one block is by far the
+		// most common, and it genuinely does clear on a retry.
+		return fmt.Errorf("failed in block (code %d): %s", code, rawLog)
+	}
+}
+
 func (f *faucet) confirm(hash string) error {
 	args := []string{"query", "tx", hash, "--node", f.node, "--output", "json"}
 	if f.home != "" {
@@ -454,10 +515,7 @@ func (f *faucet) confirm(hash string) error {
 				RawLog string `json:"raw_log"`
 			}
 			if json.Unmarshal(out, &result) == nil {
-				if result.Code != 0 {
-					return fmt.Errorf("failed in block (code %d): %s", result.Code, result.RawLog)
-				}
-				return nil
+				return classify(result.Code, result.RawLog)
 			}
 		}
 
