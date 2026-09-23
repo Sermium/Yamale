@@ -25,9 +25,9 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"regexp"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -304,8 +304,8 @@ func collectModules(set *descriptorpb.FileDescriptorSet) map[string]*Module {
 						// place of the paragraphs behind them; reversing it
 						// merely moved the loss, deleting a hundred and
 						// thirty-eight sentences of rpc comment instead.
-						Doc:     mergeDocs(doc, docsByFullName[in]),
-						Fields:  fieldsByFullName[in],
+						Doc:    mergeDocs(doc, docsByFullName[in]),
+						Fields: fieldsByFullName[in],
 					})
 				case "Query":
 					mod.Queries = append(mod.Queries, Query{

@@ -168,6 +168,18 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 	// and zeroing the variable here to look thorough would prove nothing
 	// either. What is left is two services and a password.
 
+	// An authenticator on each service, because a recovery now demands the
+	// account holder's own factor and the emailed floor needs a mailer that
+	// does not exist. This is the whole path a real person walks.
+	secrets := map[*service][]byte{}
+	for _, svc := range []*service{custodian, recoveryService} {
+		secret, err := NewTOTPSecret()
+		require.NoError(t, err)
+		require.NoError(t, svc.server.store.SetFactors(
+			svc.server.index.Of(email), Enrolled{TOTPSecret: secret, TOTPConfirmed: true}))
+		secrets[svc] = secret
+	}
+
 	claimed := make([]recovery.Holding, 0, 2)
 	for _, svc := range []*service{custodian, recoveryService} {
 		var rec recoveryView
@@ -187,12 +199,18 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 
 		// Still withheld for the post-recovery window.
 		require.Equal(t, http.StatusConflict, svc.call(t, "/v1/recovery/claim",
-			claimRequest{ID: rec.ID, Email: email, Password: password}, nil))
+			claimRequest{
+				ID: rec.ID, Email: email, Password: password,
+				Factor: string(FactorTOTP), Answer: totpAt(secrets[svc], uint64(svc.clock.Unix())/30),
+			}, nil))
 
 		*svc.clock = svc.clock.Add(PostRecoveryFreeze + time.Minute)
 		var out claimResponse
 		require.Equal(t, http.StatusOK, svc.call(t, "/v1/recovery/claim",
-			claimRequest{ID: rec.ID, Email: email, Password: password}, &out))
+			claimRequest{
+				ID: rec.ID, Email: email, Password: password,
+				Factor: string(FactorTOTP), Answer: totpAt(secrets[svc], uint64(svc.clock.Unix())/30),
+			}, &out))
 		require.Equal(t, wanted, out.Address)
 		claimed = append(claimed, out.Holding)
 	}

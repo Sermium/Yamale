@@ -239,6 +239,12 @@ func main() {
 	guarded.Handle("POST /v1/recovery/cancel", fast(s.handleRecoveryCancel))
 	// The only endpoint that emits key material, and a customer one. See claim.go.
 	guarded.Handle("POST /v1/recovery/claim", fast(s.handleRecoveryClaim))
+
+	// Second-factor enrolment. Customer endpoints, like the claim: this is the
+	// account holder's own half of a recovery and nobody can do it for them.
+	guarded.Handle("POST /v1/factors", fast(s.handleFactors))
+	guarded.HandleFunc("POST /v1/factors/totp/begin", s.handleTOTPBegin)
+	guarded.HandleFunc("POST /v1/factors/totp/confirm", s.handleTOTPConfirm)
 	guarded.Handle("GET /v1/recovery/statistics", fast(s.handleRecoveryStatistics))
 	// Enrolment keeps the generous bound. It is one request now, but it still
 	// pays for an Argon2id derivation at 256 MiB, which is slow on purpose.

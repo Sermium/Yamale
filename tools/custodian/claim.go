@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,6 +49,12 @@ type claimRequest struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// Factor is which rung of the ladder the caller is answering with, and
+	// Answer is the answer. Named rather than inferred: a service that guessed
+	// would accept the weakest thing that happened to verify, which is the
+	// whole of a downgrade attack.
+	Factor string `json:"factor"`
+	Answer string `json:"answer"`
 }
 
 type claimResponse struct {
@@ -116,6 +123,36 @@ func (s *server) handleRecoveryClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The account holder's own half of the recovery.
+	//
+	// Everything before this point was decided by other people: two approvers
+	// from different teams, over 72 hours. Useful, and all of it is somebody
+	// judging a story rather than checking a secret. This is the one step only
+	// the person who had the account can pass, and until it was wired in here
+	// the factor ladder was a well-tested function nothing called.
+	//
+	// Demanded at the CLAIM rather than at initiate because initiate is an
+	// operator action and the account holder is not there — asking for a code
+	// from somebody who has lost their phone, three days before they need it,
+	// would gate the wrong moment with the wrong person present.
+	enrolled, err := s.store.Factors(account)
+	if err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	updated, err := VerifyFactor(
+		enrolled, FactorKind(req.Factor), req.Answer, s.clock(), s.pendingCode(rec.ID))
+	if err != nil {
+		refuse(w, factorStatus(err), factorReason(err, enrolled.Strongest()))
+		return
+	}
+	// VerifyFactor returns an updated record because a spent TOTP step is
+	// recorded to stop a code being replayed inside its own thirty seconds.
+	if err := s.store.SetFactors(account.Index, updated); err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	holding, err := s.store.Holding(account)
 	if err != nil {
 		refuse(w, http.StatusInternalServerError, err.Error())
@@ -130,6 +167,57 @@ func (s *server) handleRecoveryClaim(w http.ResponseWriter, r *http.Request) {
 			"password on your own device; neither service can do it for you",
 	})
 }
+
+// factorStatus maps a factor failure onto a status.
+//
+// A wrong answer is 401 and a downgrade is 400, because they need different
+// things from the caller: one is "try again", the other is "you are answering
+// with the wrong factor and no number of attempts will fix it".
+func factorStatus(err error) int {
+	switch {
+	case errors.Is(err, ErrFactorDowngrade):
+		return http.StatusBadRequest
+	case errors.Is(err, ErrFactorRequired):
+		// 503, not 401. The caller did nothing wrong and no answer they could
+		// give would help: the factor this account needs is one this deployment
+		// cannot issue, because there is no mailer. Telling them they failed
+		// authentication would send them to retype a password that is correct.
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusUnauthorized
+	}
+}
+
+// factorReason says what to send, naming the factor the account actually has.
+//
+// Naming it is safe: the caller has already proved the password, so they are
+// either the account holder or somebody who already has more than this message
+// gives them. Withholding it would leave a legitimate holder guessing which of
+// three things to offer.
+func factorReason(err error, want FactorKind) string {
+	if errors.Is(err, ErrFactorRequired) {
+		return "this account's second factor is an emailed code, and this deployment has no " +
+			"way to send one. Enrol an authenticator at /v1/factors/totp/begin before a " +
+			"recovery is needed, or configure a mailer"
+	}
+	if errors.Is(err, ErrFactorDowngrade) {
+		return "this account is protected by " + string(want) +
+			", and that is what has to be answered here — a weaker factor is not accepted " +
+			"even when it is correct"
+	}
+	return err.Error()
+}
+
+// pendingCode is the emailed code issued for this recovery, if any.
+//
+// Always nil today, and that is the honest state rather than an oversight: an
+// emailed code needs a mailer, there is no mailer, and NewEmailCode has no
+// caller. An account whose strongest factor is the email floor therefore cannot
+// claim — VerifyFactor refuses a nil pending code — which is the correct
+// failure. The alternative, letting the floor pass because nothing can issue
+// it, would mean every account without an authenticator had no second factor at
+// all while the code said it did.
+func (s *server) pendingCode(string) *EmailCode { return nil }
 
 // retryAfter is seconds, rounded up, because a client that retries a fraction
 // of a second early gets the same refusal and learns nothing.

@@ -47,6 +47,13 @@ type Account struct {
 	// One of three, and already a share of a password-sealed ciphertext before
 	// it ever reaches here — see the recovery package.
 	Holding []byte `json:"holding"`
+	// Factors is the account holder's own second factor, sealed. Empty until
+	// they enrol one.
+	//
+	// Sealed rather than stored plainly because a TOTP secret IS the factor:
+	// anybody who reads it can produce codes for ever, and it does not expire
+	// or get noticed the way a stolen phone does.
+	Factors []byte `json:"factors,omitempty"`
 	// Created is when enrolment completed.
 	Created time.Time `json:"created"`
 	// Frozen stops this account co-signing at all, which is what a reported
@@ -207,6 +214,75 @@ func (s *Store) Holding(a Account) (recovery.Holding, error) {
 			s.role, holding.Role)
 	}
 	return holding, nil
+}
+
+// factorsAAD binds a sealed factor blob to its account AND to its purpose.
+//
+// The index alone would let a holding be written into the factors field, or the
+// reverse: both are sealed by the same key with the same index as additional
+// data, so both would open. They would then fail to decode, which is a worse
+// error than a refusal and arrives further from the cause.
+func factorsAAD(index string) []byte { return []byte(index + "|factors") }
+
+// Factors unseals the second factor this account has enrolled.
+//
+// An account with none returns the zero value and no error: not having enrolled
+// a factor is the ordinary state, and Strongest() answers FactorEmail for it.
+func (s *Store) Factors(a Account) (Enrolled, error) {
+	if len(a.Factors) == 0 {
+		return Enrolled{}, nil
+	}
+	if len(a.Factors) < s.aead.NonceSize() {
+		return Enrolled{}, errors.New("the stored factors are truncated")
+	}
+	nonce, sealed := a.Factors[:s.aead.NonceSize()], a.Factors[s.aead.NonceSize():]
+	plain, err := s.aead.Open(nil, nonce, sealed, factorsAAD(a.Index))
+	if err != nil {
+		return Enrolled{}, errors.New("the stored factors do not open")
+	}
+	var out Enrolled
+	if err := json.Unmarshal(plain, &out); err != nil {
+		return Enrolled{}, fmt.Errorf("the unsealed factors do not decode: %w", err)
+	}
+	return out, nil
+}
+
+// SetFactors writes the account holder's enrolled factors.
+//
+// Read-modify-write under the store's lock, because the alternative is a caller
+// holding an Account across a slow operation and writing back a record that has
+// lost whatever else changed in the meantime.
+func (s *Store) SetFactors(index string, factors Enrolled) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	raw, err := os.ReadFile(s.path(index))
+	if errors.Is(err, os.ErrNotExist) {
+		return ErrNoAccount
+	}
+	if err != nil {
+		return err
+	}
+	var a Account
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return fmt.Errorf("reading an account: %w", err)
+	}
+
+	plain, err := json.Marshal(factors)
+	if err != nil {
+		return fmt.Errorf("serialising the factors: %w", err)
+	}
+	nonce := make([]byte, s.aead.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return fmt.Errorf("reading a nonce: %w", err)
+	}
+	a.Factors = s.aead.Seal(nonce, nonce, plain, factorsAAD(a.Index))
+
+	out, err := json.MarshalIndent(a, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(s.path(index), out)
 }
 
 // Freeze marks an account as reported stolen.

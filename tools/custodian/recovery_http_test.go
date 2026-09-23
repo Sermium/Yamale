@@ -59,10 +59,35 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 	mux.HandleFunc("POST /v1/recovery/cancel", s.handleRecoveryCancel)
 	mux.HandleFunc("GET /v1/recovery/statistics", s.handleRecoveryStatistics)
 	mux.HandleFunc("POST /v1/recovery/claim", s.handleRecoveryClaim)
+	mux.HandleFunc("POST /v1/factors", s.handleFactors)
+	mux.HandleFunc("POST /v1/factors/totp/begin", s.handleTOTPBegin)
+	mux.HandleFunc("POST /v1/factors/totp/confirm", s.handleTOTPConfirm)
 
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return &recoveryFixture{t: t, srv: srv, server: s, notifier: notifier, clock: clock}
+}
+
+// armTOTP enrols and confirms an authenticator for an account.
+//
+// Every test that claims a holding needs one, and that is the system being
+// honest rather than the tests being awkward: with no mailer, an account whose
+// strongest factor is the emailed floor cannot claim at all. A fixture that
+// skipped this would be testing a path nobody can walk.
+func (f *recoveryFixture) armTOTP(t *testing.T, email string) []byte {
+	t.Helper()
+	idx := f.server.index.Of(email)
+	secret, err := NewTOTPSecret()
+	require.NoError(t, err)
+	require.NoError(t, f.server.store.SetFactors(idx, Enrolled{
+		TOTPSecret: secret, TOTPConfirmed: true,
+	}))
+	return secret
+}
+
+// totpNow is a code valid at the fixture's clock, which the tests move.
+func totpNow(secret []byte, at time.Time) string {
+	return totpAt(secret, uint64(at.Unix())/uint64(totpStep.Seconds()))
 }
 
 func (f *recoveryFixture) enrolAccount(t *testing.T, email, password string) {
@@ -119,10 +144,12 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 	const password = "correct horse battery staple"
 	f := newRecoveryFixture(t)
 	f.enrolAccount(t, email, password)
+	secret := f.armTOTP(t, email)
 
 	// Nothing is released before a recovery exists at all.
 	code := f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: "no-such-recovery", Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, nil)
 	require.Equal(t, http.StatusNotFound, code)
 
@@ -144,6 +171,7 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 	// A pending recovery releases nothing.
 	code = f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, nil)
 	require.Equal(t, http.StatusConflict, code, "a pending recovery released the holding")
 
@@ -178,6 +206,7 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 	// several other refusals on this endpoint answer with.
 	code, reason := f.postWithBody(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	})
 	require.Equal(t, http.StatusConflict, code,
 		"the holding came out the moment the recovery completed")
@@ -186,6 +215,7 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 	// And the wrong password does not get it either, at any point.
 	code = f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: "not the password at all",
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, nil)
 	require.Equal(t, http.StatusUnauthorized, code)
 
@@ -194,6 +224,7 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 	var claimed claimResponse
 	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, &claimed), "the hold outlasted its window")
 	require.Equal(t, recovery.RoleCustodian, claimed.Holding.Role)
 	require.NotEmpty(t, claimed.Holding.Share.Y, "an empty holding was released")
@@ -212,6 +243,7 @@ func TestACompletedRecoveryCanStillBeCancelledWithinItsWindow(t *testing.T) {
 	const password = "correct horse battery staple"
 	f := newRecoveryFixture(t)
 	f.enrolAccount(t, email, password)
+	secret := f.armTOTP(t, email)
 
 	var rec recoveryView
 	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/initiate", recoveryInitiateRequest{
@@ -235,6 +267,7 @@ func TestACompletedRecoveryCanStillBeCancelledWithinItsWindow(t *testing.T) {
 	*f.clock = f.clock.Add(PostRecoveryFreeze + time.Minute)
 	code := f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, nil)
 	require.Equal(t, http.StatusConflict, code,
 		"a cancelled recovery still released the holding")
@@ -289,6 +322,7 @@ func TestNoticeCannotBeRedirectedToAnotherAddress(t *testing.T) {
 	const password = "correct horse battery staple"
 	f := newRecoveryFixture(t)
 	f.enrolAccount(t, email, password)
+	secret := f.armTOTP(t, email)
 
 	// The attacker's address, on an account that exists.
 	code := f.post(t, "/v1/recovery/initiate", recoveryInitiateRequest{
@@ -324,6 +358,7 @@ func TestNoticeCannotBeRedirectedToAnotherAddress(t *testing.T) {
 	// The refusal must not have completed the recovery on its way out.
 	code = f.post(t, "/v1/recovery/claim", claimRequest{
 		ID: rec.ID, Email: email, Password: password,
+		Factor: string(FactorTOTP), Answer: totpNow(secret, *f.clock),
 	}, nil)
 	require.Equal(t, http.StatusConflict, code,
 		"a refused completion completed the recovery anyway")

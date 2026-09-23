@@ -159,10 +159,7 @@ func (c *commandNotifier) run(n notice) error {
 	// read until now.
 	cmd := exec.CommandContext(ctx, c.command, n.Event)
 	cmd.Stdin = bytes.NewReader(body)
-	// The environment is not inherited. A notification command should not need
-	// this process's environment, and this process's environment is where the
-	// paths to the sealing key and the pepper are.
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
+	cmd.Env = childEnv()
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -172,6 +169,38 @@ func (c *commandNotifier) run(n notice) error {
 		return fmt.Errorf("%s: %w: %s", c.command, err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// notifyEnvPrefix is the one family of variables that crosses into the command.
+const notifyEnvPrefix = "YAMALE_NOTIFY_"
+
+// childEnv is what the notification command is given, and it is an ALLOWLIST.
+//
+// The environment is not inherited wholesale. `EnvironmentFile=` in the unit
+// puts CUSTODIAN_SEALING_KEY and CUSTODIAN_PEPPER here — the paths, not the
+// contents, but a notification program has no business knowing where the
+// sealing key lives, and handing it over would make every future notifier a
+// place those paths could leak from.
+//
+// Passing NOTHING was the first version and it was wrong in a way that took a
+// working notifier and a working notify program to notice: a command with no
+// environment cannot be configured by one, so the reference program could never
+// have been told where to write. A deployment would have set a variable in the
+// unit file, watched every notice fail, and had nothing on either side saying
+// why.
+//
+// So: PATH, because a program has to be able to find its own tools, and
+// anything named YAMALE_NOTIFY_*. The prefix is the whole mechanism — an
+// operator configuring the notifier names its variables for it, and nothing
+// else can be reached by accident.
+func childEnv() []string {
+	env := []string{"PATH=" + os.Getenv("PATH")}
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, notifyEnvPrefix) {
+			env = append(env, kv)
+		}
+	}
+	return env
 }
 
 func (c *commandNotifier) RecoveryStarted(account Account, email string, delay time.Duration) error {

@@ -17,8 +17,13 @@
 #   sudo systemctl enable --now yamale-custodian
 
 [Unit]
-Description=Yamale account custodian — holds one share, and can never sign alone
+Description=Yamale account custodian — holds one part, and can never open it
 Documentation=https://github.com/Sermium/Yamale/blob/main/docs/guides/custodian.md
+
+# YAMALE_NOTIFY_* is the ONLY family of variables the notify command inherits.
+# The service passes nothing else on, because this environment holds the paths
+# to the sealing key and the pepper and a notifier has no business with them.
+# Anything the notify program needs is named for it here.
 After=network-online.target
 Wants=network-online.target
 
@@ -31,8 +36,7 @@ ExecStart=/opt/yamale/bin/yamale-custodian \
   --sealing-key-file ${CUSTODIAN_SEALING_KEY} \
   --pepper-file ${CUSTODIAN_PEPPER} \
   --listen ${CUSTODIAN_LISTEN} \
-  --preparam-pool ${CUSTODIAN_POOL} \
-  --second-factor-above ${CUSTODIAN_SECOND_FACTOR_ABOVE}
+  --notify-command ${CUSTODIAN_NOTIFY_COMMAND}
 
 Restart=always
 RestartSec=10s

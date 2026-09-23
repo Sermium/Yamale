@@ -126,7 +126,7 @@ func (e Enrolled) Strongest() FactorKind {
 var (
 	// ErrFactorRequired is returned when the value needs a factor and none was
 	// offered.
-	ErrFactorRequired = errors.New("this signature needs a second factor")
+	ErrFactorRequired = errors.New("this recovery needs a second factor")
 	// ErrFactorWrong is a factor that was offered and did not verify.
 	ErrFactorWrong = errors.New("the second factor did not verify")
 	// ErrFactorDowngrade is an attempt to answer with a weaker factor than the

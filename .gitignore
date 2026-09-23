@@ -63,3 +63,7 @@ blockchaind.exe
 # clients/keys/mpc.wasm is gone: the keys console no longer loads a 19 MB
 # WebAssembly build of the threshold protocol. It demonstrates the sealing
 # and splitting directly instead, in a few hundred bytes of JavaScript.
+
+# Go builds test binaries here instead of %TEMP%, where Windows app control
+# blocks them. See the memory note; GOTMPDIR=.gotmp is what makes go test run.
+.gotmp/
