@@ -41,7 +41,49 @@
  *    both and ask for a person.
  */
 
-import { ambiguous, type Candidate, type Enrolled, type IrisTemplate, search, THRESHOLDS } from './iris.ts';
+import {
+  ambiguous,
+  type Candidate as IrisCandidate,
+  type Enrolled,
+  type IrisTemplate,
+  type Verdict,
+  search,
+  THRESHOLDS,
+} from './iris.ts';
+
+/**
+ * A candidate from EITHER matcher.
+ *
+ * The common four fields are all this module classifies on. `rotation` and
+ * `comparedBits` are iris's and are optional here, because they are not
+ * "missing" for a muzzle — they are meaningless for one. A muzzle has no
+ * rotation search and no mask, so filling them with zeroes would put two
+ * numbers on a screen that mean something for one marker and nothing for the
+ * other, and nobody reading the screen could tell which they were looking at.
+ *
+ * iris.ts's and muzzle.ts's own Candidate types are both structurally
+ * assignable to this, so neither matcher has to know this exists.
+ */
+export interface Candidate {
+  animalId: string;
+  enrolmentId: string;
+  distance: number;
+  verdict: Verdict;
+  /** Iris only: how far the probe was rotated to reach this distance. */
+  rotation?: number;
+  /** Iris only: how many bits both masks admitted. */
+  comparedBits?: number;
+}
+
+/**
+ * Which biometric produced an answer.
+ *
+ * Carried on the identification because the screens must not present the two
+ * with equal authority. An iris is a strong claim; a muzzle is a strong claim
+ * with less field evidence behind its thresholds, and both are weaker than an
+ * identifier that resolved.
+ */
+export type Marker = 'iris' | 'muzzle';
 
 /** Where the search could reach. */
 export type Scope =
@@ -72,6 +114,7 @@ export type Identification =
   | {
       kind: 'biometric-match';
       scope: Scope;
+      marker: Marker;
       best: Candidate;
       /** Every candidate for this same animal — an animal has several captures
        *  over its life and matching two of them is normal, not a conflict. */
@@ -83,7 +126,7 @@ export type Identification =
       secondMarkerNeeded: true;
     }
   /** Two or more DIFFERENT animals at `match`. Stops, and asks for a person. */
-  | { kind: 'ambiguous'; scope: Scope; candidates: Candidate[] }
+  | { kind: 'ambiguous'; scope: Scope; marker: Marker; candidates: Candidate[] }
   /**
    * Something came back, and none of it is an identification.
    *
@@ -95,9 +138,15 @@ export type Identification =
    * mean anything — `iris.ts` returns a null distance and this carries that
    * through rather than printing the zero a coercion would produce.
    */
-  | { kind: 'inconclusive'; scope: Scope; why: 'near-threshold' | 'not-comparable'; candidates: Candidate[] }
+  | {
+      kind: 'inconclusive';
+      scope: Scope;
+      marker: Marker;
+      why: 'near-threshold' | 'not-comparable';
+      candidates: Candidate[];
+    }
   /** Compared against everything available, and nothing came close. */
-  | { kind: 'no-candidate'; scope: Scope; compared: number; withoutTemplate: number }
+  | { kind: 'no-candidate'; scope: Scope; marker: Marker; compared: number; withoutTemplate: number }
   /** There was nothing to compare against. NOT a statement about the animal. */
   | { kind: 'nothing-enrolled'; scope: Scope; animalsInHerd: number }
   /** The capture itself failed. No comparison was made. */
@@ -132,7 +181,12 @@ export function resolve(
     maxRotation: opts.maxRotation,
   });
 
-  return fromCandidates(candidates, { scope, compared: enrolled.length, withoutTemplate });
+  return fromCandidates(candidates, {
+    scope,
+    marker: 'iris',
+    compared: enrolled.length,
+    withoutTemplate,
+  });
 }
 
 /**
@@ -145,22 +199,23 @@ export function resolve(
  */
 export function fromCandidates(
   candidates: readonly Candidate[],
-  ctx: { scope: Scope; compared: number; withoutTemplate: number },
+  ctx: { scope: Scope; marker: Marker; compared: number; withoutTemplate: number },
 ): Identification {
-  const { scope } = ctx;
+  const { scope, marker } = ctx;
 
   if (candidates.length === 0) {
     return {
       kind: 'no-candidate',
       scope,
+      marker,
       compared: ctx.compared,
       withoutTemplate: ctx.withoutTemplate,
     };
   }
 
   // Two different animals both at `match`. Nothing further is decided here.
-  if (ambiguous(candidates)) {
-    return { kind: 'ambiguous', scope, candidates: [...candidates] };
+  if (ambiguous(candidates as readonly IrisCandidate[])) {
+    return { kind: 'ambiguous', scope, marker, candidates: [...candidates] };
   }
 
   const matched = candidates.filter((c) => c.verdict === 'match');
@@ -172,13 +227,22 @@ export function fromCandidates(
     const runnerUp = others.length
       ? others.reduce((a, b) => (b.distance < a.distance ? b : a))
       : null;
-    return { kind: 'biometric-match', scope, best, supporting, runnerUp, secondMarkerNeeded: true };
+    return {
+      kind: 'biometric-match',
+      scope,
+      marker,
+      best,
+      supporting,
+      runnerUp,
+      secondMarkerNeeded: true,
+    };
   }
 
   // Everything left is `inconclusive` — `search()` already dropped `no-match`.
   return {
     kind: 'inconclusive',
     scope,
+    marker,
     why: 'near-threshold',
     candidates: [...candidates],
   };
@@ -193,8 +257,8 @@ export function fromCandidates(
  * The caller distinguishes the two by counting comparable enrolments itself;
  * this is the constructor for the case where none were.
  */
-export function notComparable(scope: Scope): Identification {
-  return { kind: 'inconclusive', scope, why: 'not-comparable', candidates: [] };
+export function notComparable(scope: Scope, marker: Marker = 'iris'): Identification {
+  return { kind: 'inconclusive', scope, marker, why: 'not-comparable', candidates: [] };
 }
 
 /* --------------------------------------------------------- what to do next */
@@ -286,5 +350,9 @@ export function shownDistance(c: Candidate | null | undefined): string | null {
  */
 export function comparableFraction(c: Candidate, bits: number): number | null {
   if (!bits) return null;
+  // Undefined for a muzzle, which has no mask and therefore no comparable
+  // fraction. Null rather than a number, so the screen omits the figure instead
+  // of printing a confident zero per cent.
+  if (c.comparedBits === undefined) return null;
   return c.comparedBits / bits;
 }

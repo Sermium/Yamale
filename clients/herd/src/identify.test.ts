@@ -36,7 +36,7 @@ function candidate(
   return { animalId, enrolmentId, distance, rotation: 0, comparedBits: 1800, verdict };
 }
 
-const CTX = { scope: 'herd' as const, compared: 9, withoutTemplate: 0 };
+const CTX = { scope: 'herd' as const, marker: 'iris' as const, compared: 9, withoutTemplate: 0 };
 
 /* ------------------------------------------------------- the dangerous one */
 
@@ -147,7 +147,7 @@ describe('an empty result', () => {
     // Four of nine enrolled. The five with no template were not ruled out —
     // they were not looked at. A screen that said "not one of your animals"
     // would be wrong about five of them.
-    const got = fromCandidates([], { scope: 'herd', compared: 4, withoutTemplate: 5 });
+    const got = fromCandidates([], { scope: 'herd', marker: 'iris', compared: 4, withoutTemplate: 5 });
     assert.equal(got.kind, 'no-candidate');
     if (got.kind !== 'no-candidate') return;
     assert.equal(got.compared, 4);

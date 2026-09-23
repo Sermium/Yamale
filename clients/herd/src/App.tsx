@@ -311,6 +311,29 @@ export function App() {
                     onRegistered={(r) => {
                       if (!operator || !local.meta) return;
                       void queue([
+                        // The muzzle, when one was taken, as its own capture
+                        // tied to the same reference. It cannot be an enrolment
+                        // yet: an enrolment is keyed to an animal id and the id
+                        // does not exist until an office creates the record.
+                        ...(r.muzzle
+                          ? [
+                              newEntry({
+                                kind: 'capture',
+                                animalId: null,
+                                herdId: r.herdId,
+                                observedAt: r.muzzle.capturedAt,
+                                deviceId: device.id(),
+                                agent: operator.address,
+                                position: null,
+                                detail: {
+                                  modality: 'muzzle',
+                                  quality: r.muzzle.quality,
+                                  reference: r.reference,
+                                  descriptor: r.muzzle.descriptor,
+                                },
+                              }),
+                            ]
+                          : []),
                         newEntry({
                           kind: 'registration',
                           // No animal id: the record does not exist yet, and

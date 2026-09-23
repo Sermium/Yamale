@@ -36,12 +36,15 @@ import {
   animalsNamed,
   comparableFraction,
   fromCandidates,
+  type Candidate,
   nextStep,
   notComparable,
   shownDistance,
   type Identification,
 } from './identify.ts';
-import { MIN_COMPARABLE_FRACTION, THRESHOLDS, compare, search, type Candidate } from './iris.ts';
+import { MIN_COMPARABLE_FRACTION, THRESHOLDS, compare, search } from './iris.ts';
+import { search as searchMuzzle } from './muzzle.ts';
+import { toMuzzleEnrolled } from './store.ts';
 import { newEntry, type Entry } from './outbox.ts';
 import type { CapabilityState, Device, Operator } from './ports.ts';
 import {
@@ -63,7 +66,16 @@ import {
   Tag,
 } from './ui.tsx';
 
-type Mode = 'identifier' | 'biometric';
+/**
+ * Which way of asking.
+ *
+ * 'muzzle' is listed before 'biometric' — the iris — because it is the one that
+ * works on a bare handset. The iris needs near-infrared and a clip-on module;
+ * the muzzle needs an ordinary camera held close, which every phone in a pen
+ * already has. An app whose strongest-looking option is greyed out because an
+ * accessory is not paired is an app nobody carries.
+ */
+type Mode = 'identifier' | 'muzzle' | 'biometric';
 
 /** What the screen is currently showing, over and above an identification. */
 type Screen =
@@ -137,6 +149,88 @@ export function Identify({ local, device, operator, queue }: {
    * result — so the queue entry is written before the classification is
    * rendered and is not conditional on it.
    */
+  /**
+   * Photograph a muzzle and search the replica with it.
+   *
+   * Deliberately its own function rather than a branch inside the iris one.
+   * The two share a shape and nothing else: different capture path, different
+   * matcher, different reasons for being unable to compare — and a single
+   * function taking a mode flag would have to keep explaining which half of
+   * itself it was in.
+   */
+  const captureMuzzleAndSearch = useCallback(async () => {
+    setScreen({ phase: 'working', what: t('herd.capturing') });
+
+    let capture;
+    try {
+      capture = await device.muzzle.capture();
+    } catch (err) {
+      setScreen({
+        phase: 'answered',
+        identification: {
+          kind: 'no-capture',
+          refusal: err instanceof Error ? err.message : String(err),
+        },
+        animal: null, from: 'chain',
+      });
+      return;
+    }
+
+    const enrolled = local.enrolments
+      .map(toMuzzleEnrolled)
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+
+    if (enrolled.length === 0) {
+      // NOT a statement about the animal. Nobody has enrolled a muzzle yet,
+      // which is the ordinary state of a register that has been identifying by
+      // iris, and saying "no match" here would be a finding this has not made.
+      setScreen({
+        phase: 'answered',
+        identification: {
+          kind: 'nothing-enrolled', scope: 'herd', animalsInHerd: local.animals.length,
+        },
+        animal: null, from: 'replica',
+      });
+      return;
+    }
+
+    const candidates = searchMuzzle(capture.descriptor, enrolled);
+    const withTemplate = new Set(enrolled.map((e) => e.animalId)).size;
+    const identification = fromCandidates(candidates, {
+      scope: 'herd',
+      marker: 'muzzle',
+      compared: enrolled.length,
+      withoutTemplate: Math.max(0, local.animals.length - withTemplate),
+    });
+
+    if (operator && local.meta) {
+      const named = animalsNamed(identification);
+      await queue([
+        newEntry({
+          kind: 'capture',
+          animalId: named.length === 1 ? named[0]! : null,
+          herdId: local.meta.herdId,
+          observedAt: capture.capturedAt,
+          deviceId: capture.deviceId,
+          agent: operator.address,
+          position: null,
+          detail: {
+            modality: 'muzzle',
+            quality: capture.quality,
+            outcome: identification.kind,
+          },
+        }),
+      ]);
+    }
+
+    setScreen({
+      phase: 'answered',
+      identification,
+      animal: null,
+      from: 'replica',
+    });
+  }, [device, local, operator, queue]);
+
   const captureAndSearch = useCallback(async () => {
     setScreen({ phase: 'working', what: t('herd.capturing') });
 
@@ -192,6 +286,7 @@ export function Identify({ local, device, operator, queue }: {
     const candidates = search(probe, enrolled);
     const identification = fromCandidates(candidates, {
       scope: 'herd',
+      marker: 'iris',
       compared: enrolled.length,
       withoutTemplate: local.scope.withoutTemplate,
     });
@@ -233,6 +328,13 @@ export function Identify({ local, device, operator, queue }: {
                   onClick={() => { setMode('identifier'); setScreen({ phase: 'idle' }); }}>
             {t('herd.modeIdentifier')}
           </button>
+          {/* The muzzle sits before the iris because it is the one that
+              works on a bare handset. */}
+          <button type="button" role="tab" aria-selected={mode === 'muzzle'}
+                  className={`mode${mode === 'muzzle' ? ' mode--on' : ''}`}
+                  onClick={() => { setMode('muzzle'); setScreen({ phase: 'idle' }); }}>
+            {t('herd.modeMuzzle')}
+          </button>
           <button type="button" role="tab" aria-selected={mode === 'biometric'}
                   className={`mode${mode === 'biometric' ? ' mode--on' : ''}`}
                   onClick={() => { setMode('biometric'); setScreen({ phase: 'idle' }); }}>
@@ -240,9 +342,13 @@ export function Identify({ local, device, operator, queue }: {
           </button>
         </div>
 
-        {mode === 'identifier'
-          ? <IdentifierPane typed={typed} setTyped={setTyped} device={device} />
-          : <BiometricPane local={local} device={device} />}
+        {mode === 'identifier' ? (
+          <IdentifierPane typed={typed} setTyped={setTyped} device={device} />
+        ) : mode === 'muzzle' ? (
+          <MuzzlePane local={local} device={device} />
+        ) : (
+          <BiometricPane local={local} device={device} />
+        )}
 
         <Result screen={screen} local={local} head={head} connected={connected} />
       </div>
@@ -252,6 +358,11 @@ export function Identify({ local, device, operator, queue }: {
           <Button kind="primary" wide onClick={lookUp}
                   disabled={entry.kind === 'empty' || screen.phase === 'working'}>
             {t('herd.lookUp')}
+          </Button>
+        ) : mode === 'muzzle' ? (
+          <Button kind="primary" wide onClick={captureMuzzleAndSearch}
+                  disabled={device.muzzle.state().kind !== 'ready' || screen.phase === 'working'}>
+            {t('herd.capture')}
           </Button>
         ) : (
           <Button kind="primary" wide onClick={captureAndSearch}
@@ -346,6 +457,40 @@ function IdentifierPane({ typed, setTyped, device }: {
  * covered and how many are not — are the only honest framing for whatever comes
  * back.
  */
+/**
+ * What the operator sees before photographing a muzzle.
+ *
+ * Says how many muzzles are on this device, because the honest failure here is
+ * not "no match" — it is that nobody has enrolled a muzzle yet, and a screen
+ * that did not say so would let an agent conclude a registered animal was
+ * unregistered.
+ */
+function MuzzlePane({ local, device }: { local: LocalHerd; device: Device }) {
+  const state = device.muzzle.state();
+  const enrolled = local.enrolments.filter((e) => e.modality === 'muzzle').length;
+
+  return (
+    <Panel>
+      <p className="y-screen__lede">{t('herd.muzzleLede')}</p>
+      {state.kind !== 'ready' ? (
+        <Note tone="warn" title={t('herd.muzzleUnavailable')}>
+          {state.detail ?? t('herd.muzzleUnavailableWhy')}
+        </Note>
+      ) : enrolled === 0 ? (
+        <Note tone="warn" title={t('herd.muzzleNoneEnrolled')}>
+          {t('herd.muzzleNoneEnrolledWhy')}
+        </Note>
+      ) : (
+        <Fields>
+          <Field label={t('herd.muzzlesOnDevice')}>
+            <span className="num">{enrolled}</span>
+          </Field>
+        </Fields>
+      )}
+    </Panel>
+  );
+}
+
 function BiometricPane({ local, device }: { local: LocalHerd; device: Device }) {
   const state = device.iris.state();
   const { withTemplate, withoutTemplate } = local.scope;

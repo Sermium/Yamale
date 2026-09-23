@@ -31,7 +31,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
-import type { Enrolled } from './muzzle.ts';
+import type { Descriptor as MuzzleDescriptor, Enrolled } from './muzzle.ts';
 import type { Device } from './ports.ts';
 import type { Operator } from './ports.ts';
 import {
@@ -64,6 +64,19 @@ export interface RegisterProps {
     particulars: Particulars;
     herdId: string;
     pedigree?: { dam: string; sire: string };
+    /**
+     * The muzzle taken while the animal was held, when one was.
+     *
+     * Travels with the registration rather than becoming a local enrolment,
+     * and the reason is an ordering problem that cannot be wished away: an
+     * enrolment is keyed to an animal id, and the id does not exist until a
+     * registry office creates the record. Minting one on the device would be
+     * inventing the record this registration exists to ask for.
+     *
+     * So it goes to the outbox as evidence tied to the same reference, and
+     * becomes an enrolment on this device when the created record syncs back.
+     */
+    muzzle?: { descriptor: MuzzleDescriptor; quality: number | null; capturedAt: number };
   }) => void;
 }
 
@@ -78,6 +91,9 @@ export function Register({ known = EMPTY_KNOWN, device, operator, herdId, onRegi
   const [sire, setSire] = useState('');
 
   const [muzzle, setMuzzle] = useState<Enrolled['descriptor'] | undefined>();
+  const [muzzleMeta, setMuzzleMeta] = useState<
+    { quality: number | null; capturedAt: number } | undefined
+  >();
   const [muzzleNote, setMuzzleNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -121,6 +137,7 @@ export function Register({ known = EMPTY_KNOWN, device, operator, herdId, onRegi
     try {
       const capture = await device.muzzle.capture();
       setMuzzle(capture.descriptor);
+      setMuzzleMeta({ quality: capture.quality, capturedAt: capture.capturedAt });
       setMuzzleNote(captureAdvice(capture.quality).reason);
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
@@ -141,12 +158,19 @@ export function Register({ known = EMPTY_KNOWN, device, operator, herdId, onRegi
         dam.trim() !== '' || sire.trim() !== ''
           ? withParents('pending', { dam, sire }).pedigree
           : undefined;
-      onRegistered({ ...made, pedigree });
+      onRegistered({
+        ...made,
+        pedigree,
+        muzzle: muzzle && muzzleMeta ? { descriptor: muzzle, ...muzzleMeta } : undefined,
+      });
       navigate('/');
     } catch (e) {
       setProblem(e instanceof RegisterError ? e.message : String(e));
     }
-  }, [claimed, known, muzzle, herdId, particulars, checked, overridden, dam, sire, onRegistered, navigate]);
+  }, [
+    claimed, known, muzzle, muzzleMeta, herdId, particulars,
+    checked, overridden, dam, sire, onRegistered, navigate,
+  ]);
 
   /* ---------------------------------------------- nothing to register into */
 
