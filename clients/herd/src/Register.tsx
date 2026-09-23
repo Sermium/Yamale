@@ -308,6 +308,15 @@ export function Register({ known = EMPTY_KNOWN, device, operator, herdId, onRegi
             </Fields>
           </details>
 
+          {/* Said before the button, not after it. This device cannot create
+              the record: MsgIdentifyAnimal is refused by consensus for anybody
+              who is not an active registry office. What this produces is the
+              evidence an office registers from, and an agent who believed
+              otherwise would spend a morning wondering why nothing appeared. */}
+          <Note tone="mute" title={t('herd.regHandoffTitle')}>
+            {t('herd.regHandoff')}
+          </Note>
+
           <Button kind="primary" wide onClick={submit}>
             {t('herd.regSubmit')}
           </Button>

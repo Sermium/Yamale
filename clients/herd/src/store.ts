@@ -27,6 +27,10 @@
 
 import type { Animal, HealthEvent, Herd } from './herd.ts';
 import type { Enrolled, IrisTemplate } from './iris.ts';
+import type {
+  Descriptor as MuzzleDescriptor,
+  Enrolled as MuzzleEnrolled,
+} from './muzzle.ts';
 import type { Entry } from './outbox.ts';
 import type { Replica, ReplicaMeta } from './replica.ts';
 
@@ -53,13 +57,31 @@ export interface StoredEnrolment {
   animalId: string;
   herdId: string;
   capturedAt: number;
-  /** 'iris' today. Muzzle and face are §3's other modalities. */
+  /**
+   * Which biometric this is: 'iris', 'muzzle' or 'face'.
+   *
+   * It decides which of the two payloads below is present, and which matcher
+   * can read it. An enrolment whose modality disagrees with its payload is not
+   * a degraded record, it is a record that will be compared with the wrong
+   * arithmetic — so `toEnrolled` and `toMuzzleEnrolled` each return null rather
+   * than guess.
+   */
   modality: string;
   /** As the capture device scored it, or null when it does not score. */
   quality: number | null;
   deviceId: string;
   agent: string;
-  template: IrisTemplate;
+  /** Present for 'iris'. */
+  template?: IrisTemplate;
+  /**
+   * Present for 'muzzle' and 'face'.
+   *
+   * Stored as the DESCRIPTOR rather than the photograph, because comparison
+   * happens on the device against this replica and a descriptor is what can be
+   * compared. The photograph goes to the outbox as a capture, where it is
+   * evidence rather than an index.
+   */
+  descriptor?: MuzzleDescriptor;
 }
 
 export interface HerdStore {
@@ -84,13 +106,39 @@ export interface HerdStore {
   forgetReplica(): Promise<void>;
 }
 
-/** An enrolment in the shape `iris.ts` searches over. */
-export function toEnrolled(e: StoredEnrolment): Enrolled {
+/**
+ * An enrolment in the shape `iris.ts` searches over, or null.
+ *
+ * Null when this enrolment is not an iris. It used to return unconditionally,
+ * reading `template` off whatever it was given — which was safe while iris was
+ * the only modality and becomes a way to hand `undefined` to a matcher the
+ * moment a second one exists.
+ */
+export function toEnrolled(e: StoredEnrolment): Enrolled | null {
+  if (e.modality !== 'iris' || !e.template) return null;
   return {
     animalId: e.animalId,
     enrolmentId: e.enrolmentId,
     capturedAt: e.capturedAt,
     template: e.template,
+  };
+}
+
+/**
+ * An enrolment in the shape `muzzle.ts` searches over, or null.
+ *
+ * Faces are included: `muzzle.ts` compares them with the same arithmetic and
+ * refuses to compare a face with a muzzle, so the kind travels on the
+ * descriptor and the matcher enforces it rather than this function.
+ */
+export function toMuzzleEnrolled(e: StoredEnrolment): MuzzleEnrolled | null {
+  if (!e.descriptor) return null;
+  if (e.modality !== 'muzzle' && e.modality !== 'face') return null;
+  return {
+    animalId: e.animalId,
+    enrolmentId: e.enrolmentId,
+    capturedAt: e.capturedAt,
+    descriptor: e.descriptor,
   };
 }
 

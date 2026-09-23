@@ -37,8 +37,10 @@ import { useDownload, useLocalHerd, useOutbox, useStore } from './data.ts';
 import { Identify } from './Identify.tsx';
 import { MyHerd } from './MyHerd.tsx';
 import { Register } from './Register.tsx';
+import type { Known } from './register.ts';
 import { NO_IDENTITY } from './ports.ts';
 import { makeKit } from './kit.ts';
+import { toMuzzleEnrolled } from './store.ts';
 import { newEntry } from './outbox.ts';
 import { Sync } from './Sync.tsx';
 
@@ -84,6 +86,47 @@ function ThemeButton() {
       <span aria-hidden="true">{theme === 'dark' ? '◐' : theme === 'light' ? '○' : '◑'}</span>
     </button>
   );
+}
+
+/**
+ * What this device knows, for the registration duplicate check.
+ *
+ * Built from the OFFLINE replica, and that is the whole reason the check exists
+ * on the device at all. The chain enforces identifier uniqueness too, and it
+ * cannot be asked anything in a pen with no signal — which is where
+ * registration happens.
+ *
+ * Every field here was briefly wired to an empty collection while the screen
+ * was being built, which typechecked, rendered, and made the entire check
+ * inert: `check` would have returned `ready` for an animal the replica was
+ * holding a record of. Worth saying because nothing about an empty Map looks
+ * wrong at a call site.
+ */
+function knownFrom(local: ReturnType<typeof useLocalHerd>[0]): Known {
+  return {
+    byNationalId: new Map(
+      local.animals.filter((a) => a.nationalId).map((a) => [a.nationalId, a.id]),
+    ),
+    byTag: new Map(local.animals.filter((a) => a.tag).map((a) => [a.tag, a.id])),
+
+    // References already spent on THIS device, from its own outbox. A
+    // registration that has not reached the chain is still a registration, and
+    // an agent who lost signal after the first one must not be able to spend
+    // the same form again on the second.
+    usedReferences: new Set(
+      local.outbox
+        .filter((e) => e.detail?.registration === true)
+        .map((e) => String(e.detail?.reference ?? ''))
+        .filter((r) => r !== ''),
+    ),
+
+    // Muzzle and face enrolments only. toMuzzleEnrolled returns null for an
+    // iris, so an iris enrolment cannot arrive at a matcher that would read its
+    // descriptor and find nothing there.
+    enrolments: local.enrolments
+      .map(toMuzzleEnrolled)
+      .filter((e): e is NonNullable<typeof e> => e !== null),
+  };
 }
 
 /* ------------------------------------------------------------- the bottom */
@@ -264,28 +307,16 @@ export function App() {
                     device={device}
                     operator={operator}
                     herdId={local.meta?.herdId ?? ''}
-                    known={{
-                      // Built from the replica this device holds. It is the
-                      // only register available in a pen with no signal, and
-                      // it is why the duplicate check lives on the device at
-                      // all rather than only on the chain.
-                      byNationalId: new Map(
-                        local.animals.filter((a) => a.nationalId).map((a) => [a.nationalId, a.id]),
-                      ),
-                      byTag: new Map(
-                        local.animals.filter((a) => a.tag).map((a) => [a.tag, a.id]),
-                      ),
-                      usedReferences: new Set<string>(),
-                      enrolments: [],
-                    }}
+                    known={knownFrom(local)}
                     onRegistered={(r) => {
                       if (!operator || !local.meta) return;
                       void queue([
                         newEntry({
-                          kind: 'identification-claim',
-                          // No animal id yet: the chain assigns one. Filing it
-                          // against a guess would be inventing the very record
-                          // this entry exists to ask for.
+                          kind: 'registration',
+                          // No animal id: the record does not exist yet, and
+                          // the chain assigns the id when a registry office
+                          // creates it. Filing this against a guess would be
+                          // inventing the very record it exists to ask for.
                           animalId: null,
                           herdId: r.herdId,
                           observedAt: Date.now(),

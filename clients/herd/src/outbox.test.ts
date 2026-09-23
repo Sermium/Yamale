@@ -224,3 +224,46 @@ describe('advancing an entry', () => {
     assert.equal(got.animalId, '7');
   });
 });
+
+describe('a registration', () => {
+  it('is held, and not because the chain lacks a message', () => {
+    // The distinction matters and is easy to lose. `capture` and
+    // `identification-claim` are held because x/herd has nowhere to put them.
+    // `registration` is held because MsgIdentifyAnimal EXISTS and its handler
+    // begins with activeAuthority(ctx, msg.Creator) — only a registry office may
+    // create a record, and a field agent's key is refused by consensus.
+    //
+    // Marking it submittable would queue a transaction every node rejects, and
+    // the agent would watch it retry and conclude the network was down.
+    assert.equal(SUBMITTABLE.registration, false);
+
+    const entry = newEntry({
+      kind: 'registration',
+      animalId: null,
+      herdId: '7',
+      observedAt: 1,
+      deviceId: 'dev-1',
+      agent: 'yml1agent',
+      position: null,
+      detail: { reference: 'FORM-1', nationalId: '221/682/000001/L' },
+    });
+    assert.equal(entry.state, 'held');
+    assert.deepEqual(sendable([entry]), [], 'a registration was queued for submission');
+  });
+
+  it('carries no animal id, because the record does not exist', () => {
+    // The chain assigns the id when an office creates the record. Filing this
+    // against a guess would be inventing the very record it exists to ask for.
+    const entry = newEntry({
+      kind: 'registration',
+      animalId: null,
+      herdId: '7',
+      observedAt: 1,
+      deviceId: 'dev-1',
+      agent: 'yml1agent',
+      position: null,
+      detail: { reference: 'FORM-1' },
+    });
+    assert.equal(entry.animalId, null);
+  });
+});

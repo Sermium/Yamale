@@ -50,7 +50,21 @@ export type EntryKind =
   /** An accredited agent swearing an animal is the animal. MsgAttestTransfer. */
   | 'attestation'
   /** A treatment administered. MsgRecordHealthEvent. */
-  | 'health-event';
+  | 'health-event'
+  /**
+   * A new animal, recorded in the field for a registry office to act on.
+   *
+   * NOT a message this device can send, and the reason is not that the chain
+   * lacks one. `MsgIdentifyAnimal` exists, and its handler begins with
+   * `activeAuthority(ctx, msg.Creator)` — only a registry office may create a
+   * record. A field agent's key is refused by consensus.
+   *
+   * That is the design rather than a gap: creating a record is a registry
+   * office's act, and the four-party shape exists so that one person with one
+   * device cannot perform it. What the field produces is the evidence an office
+   * registers FROM.
+   */
+  | 'registration';
 
 /**
  * Which kinds the chain has somewhere to put, today.
@@ -60,6 +74,12 @@ export type EntryKind =
  */
 export const SUBMITTABLE: Record<EntryKind, boolean> = {
   capture: false,
+  // False, and NOT for the usual reason. The other `false` entries here are
+  // waiting for a message the chain does not have; this one is refused by the
+  // chain on purpose. Marking it submittable would queue a transaction that
+  // every node rejects, which is worse than holding it: the agent would watch
+  // it retry and conclude the network was down.
+  registration: false,
   'identification-claim': false,
   attestation: true,
   'health-event': true,

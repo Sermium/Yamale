@@ -435,7 +435,18 @@ function Enrolments({ local, animal }: { local: LocalHerd; animal: AnimalRecord 
                 </Field>
                 <Field label={t('herd.capturedBy')}><Address value={e.agent} /></Field>
                 <Field label={t('herd.device')}><span className="mono">{e.deviceId}</span></Field>
-                <Field label={t('herd.bits')}><span className="num">{e.template.bits}</span></Field>
+                {/* An enrolment now carries an iris template OR a muzzle
+                    descriptor, so the row shows whichever it has rather than
+                    reaching for a field that may not be there. */}
+                {e.template ? (
+                  <Field label={t('herd.bits')}>
+                    <span className="num">{e.template.bits}</span>
+                  </Field>
+                ) : e.descriptor ? (
+                  <Field label={t('herd.cells')}>
+                    <span className="num">{e.descriptor.cols * e.descriptor.rows}</span>
+                  </Field>
+                ) : null}
               </Fields>
             </li>
           ))}

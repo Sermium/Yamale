@@ -196,7 +196,14 @@ export function useLocalHerd(store: HerdStore | null): [LocalHerd, () => void] {
     [raw.animals],
   );
   const scope = useMemo(
-    () => biometricScope(raw.animals, raw.enrolments.map(toEnrolled)),
+    // Iris enrolments only: toEnrolled returns null for a muzzle, and the
+    // scope is a statement about what the IRIS matcher can compare. Passing
+    // the nulls through would have counted muzzle enrolments as iris coverage.
+    () =>
+      biometricScope(
+        raw.animals,
+        raw.enrolments.map(toEnrolled).filter((e): e is NonNullable<typeof e> => e !== null),
+      ),
     [raw.animals, raw.enrolments],
   );
 
