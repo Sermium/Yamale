@@ -299,7 +299,7 @@ export function makeKit(options: KitOptions = {}): Kit {
    */
   const muzzle: MuzzleCamera = {
     state: () => cameraSource.state(),
-    capture: async () => {
+    capture: async (kind = 'muzzle') => {
       const grabber = options.grabber;
       if (!grabber) {
         throw new Error('muzzle: unsupported — this build has no camera');
@@ -309,7 +309,10 @@ export function makeKit(options: KitOptions = {}): Kit {
       if (!frame.ok) throw new Error(`muzzle: ${frame.reason} — ${frame.detail}`);
 
       return {
-        descriptor: describeMuzzle(frame.value.luma, frame.value.width, frame.value.height, 'muzzle'),
+        // The KIND travels on the descriptor, and muzzle.ts refuses to compare
+        // two of different kinds. That is what stops a coat being scored
+        // against a muzzle and producing a number that sorts among real ones.
+        descriptor: describeMuzzle(frame.value.luma, frame.value.width, frame.value.height, kind),
         quality: taken.quality,
         capturedAt: taken.capturedAt,
         deviceId: id,

@@ -125,7 +125,10 @@ export interface MuzzleCamera {
    * is everywhere else: an instrument that does not score has not said the
    * capture was bad.
    */
-  capture(signal?: AbortSignal): Promise<{
+  capture(
+    kind?: 'muzzle' | 'face' | 'coat',
+    signal?: AbortSignal,
+  ): Promise<{
     descriptor: MuzzleDescriptor;
     quality: number | null;
     capturedAt: number;

@@ -1,5 +1,6 @@
 /**
- * Matching a beast by the print on its muzzle, and by the shape of its face.
+ * Matching a beast by the print on its muzzle, and narrowing by its face and
+ * its coat.
  *
  * # Why the muzzle and not the face
  *
@@ -16,8 +17,20 @@
  * four hundred" and almost nothing when it says "this one" — and the code says
  * so where it would otherwise be tempting to believe it.
  *
- * That asymmetry is the whole design: `compareMuzzle` can support an identity
- * claim, and `compareFace` may only ever reject one.
+ * The COAT — the body, its markings and its outline — is the third, and it is
+ * the one whose usefulness depends entirely on the animal. A piebald or
+ * skewbald pattern is close to individual and survives a change of angle better
+ * than a face does; a solid-coloured Gobra is one brown shape among nine
+ * hundred brown shapes and the same measurement tells you nothing at all.
+ *
+ * That conditionality is the reason it is treated like the face rather than
+ * like the muzzle: a marker that is sometimes strong and sometimes worthless,
+ * with no way for the code to tell which it is looking at, must never be
+ * allowed to confirm. It excludes, and an operator who knows their herd is
+ * patterned can weigh what it excluded.
+ *
+ * The asymmetry is the whole design: a muzzle can support an identity claim,
+ * and a face or a coat may only ever reject one.
  *
  * # What this is, mechanically
  *
@@ -46,7 +59,7 @@
 /** A grid of local binary pattern histograms. */
 export interface Descriptor {
   /** Which part of the animal this describes. */
-  kind: 'muzzle' | 'face';
+  kind: 'muzzle' | 'face' | 'coat';
   /** Cells across and down. */
   cols: number;
   rows: number;
@@ -188,6 +201,14 @@ export function distance(a: Descriptor, b: Descriptor): number {
  */
 export const MUZZLE_THRESHOLDS = { match: 0.18, inconclusive: 0.30 };
 export const FACE_THRESHOLDS = { reject: 0.55 };
+/**
+ * Looser than the face, because a coat changes.
+ *
+ * Mud, a wet hide, a seasonal moult and a season's growth all move this
+ * measurement on an animal that has not changed at all. Excluding on a small
+ * difference would throw away the right animal for being dirty.
+ */
+export const COAT_THRESHOLDS = { reject: 0.70 };
 
 export type Verdict = 'match' | 'inconclusive' | 'no-match';
 
@@ -216,6 +237,19 @@ export function muzzleVerdict(d: number | null): Verdict {
 export function faceVerdict(d: number | null): 'no-match' | 'inconclusive' {
   if (d === null) return 'inconclusive';
   return d > FACE_THRESHOLDS.reject ? 'no-match' : 'inconclusive';
+}
+
+/**
+ * What a coat distance means, and it is never 'match' either.
+ *
+ * Same signature as the face for the same reason, and the return type is what
+ * enforces it. The difference is only the threshold: a coat is dirtier, wetter
+ * and more seasonal than a face, so it takes a larger difference before this
+ * will exclude anything.
+ */
+export function coatVerdict(d: number | null): 'no-match' | 'inconclusive' {
+  if (d === null) return 'inconclusive';
+  return d > COAT_THRESHOLDS.reject ? 'no-match' : 'inconclusive';
 }
 
 /* -------------------------------------------------------------- searching */
@@ -285,10 +319,37 @@ export function ambiguous(candidates: readonly Candidate[]): boolean {
  */
 export function narrowByFace(probe: Descriptor, herd: readonly Enrolled[]): Enrolled[] {
   if (probe.kind !== 'face') throw new MuzzleError('narrowByFace needs a face descriptor');
+  return narrowBy(probe, herd, faceVerdict);
+}
+
+/**
+ * Narrow a herd by the coat.
+ *
+ * The same shape as narrowByFace, and the same promise: it returns what could
+ * not be EXCLUDED. It never says an animal matches, because for a solid-
+ * coloured animal it would be saying so about nine hundred of them.
+ */
+export function narrowByCoat(probe: Descriptor, herd: readonly Enrolled[]): Enrolled[] {
+  if (probe.kind !== 'coat') throw new MuzzleError('narrowByCoat needs a coat descriptor');
+  return narrowBy(probe, herd, coatVerdict);
+}
+
+/**
+ * The shared half.
+ *
+ * An enrolment with nothing of this kind on file is KEPT. Absence of evidence
+ * is not exclusion, and an animal enrolled before coats were captured must not
+ * be filtered out of its own identification.
+ */
+function narrowBy(
+  probe: Descriptor,
+  herd: readonly Enrolled[],
+  verdict: (d: number | null) => 'no-match' | 'inconclusive',
+): Enrolled[] {
   return herd.filter((e) => {
-    if (e.descriptor.kind !== 'face') return true; // nothing to exclude it by
+    if (e.descriptor.kind !== probe.kind) return true;
     try {
-      return faceVerdict(distance(probe, e.descriptor)) !== 'no-match';
+      return verdict(distance(probe, e.descriptor)) !== 'no-match';
     } catch {
       return true;
     }

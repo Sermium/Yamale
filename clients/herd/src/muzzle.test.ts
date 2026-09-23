@@ -13,13 +13,16 @@ import { test } from 'node:test';
 
 import {
   ambiguous,
+  coatVerdict,
   describe,
   distance,
   faceVerdict,
   muzzleVerdict,
+  narrowByCoat,
   narrowByFace,
   search,
   MuzzleError,
+  COAT_THRESHOLDS,
   FACE_THRESHOLDS,
   MUZZLE_THRESHOLDS,
   type Descriptor,
@@ -267,4 +270,49 @@ test('the thresholds are ordered, and the face is looser than the muzzle', () =>
 test('a null distance is inconclusive and never a rejection', () => {
   assert.equal(muzzleVerdict(null), 'inconclusive');
   assert.equal(faceVerdict(null), 'inconclusive');
+});
+
+/* ------------------------------------------------------------- the coat */
+
+test('a coat can reject and can never confirm, like a face', () => {
+  // The conditionality is the reason. A piebald pattern is close to individual;
+  // a solid-coloured Gobra is one brown shape among nine hundred, and nothing
+  // in this file can tell which it is looking at. A marker that is sometimes
+  // worthless must never be allowed to confirm.
+  const a = describe(grain(21), W, H, 'coat');
+  const b = describe(grain(770), W, H, 'coat');
+  for (const v of [coatVerdict(0), coatVerdict(distance(a, a)), coatVerdict(distance(a, b)), coatVerdict(null)]) {
+    assert.ok(v === 'no-match' || v === 'inconclusive', `a coat returned ${v}`);
+  }
+  assert.equal(coatVerdict(distance(a, a)), 'inconclusive');
+});
+
+test('a coat is slower to exclude than a face', () => {
+  // Mud, a wet hide, a moult and a season's growth all move this measurement on
+  // an animal that has not changed. Excluding on a small difference would throw
+  // away the right animal for being dirty.
+  assert.ok(COAT_THRESHOLDS.reject > FACE_THRESHOLDS.reject);
+});
+
+test('narrowing by coat keeps an animal with no coat on file', () => {
+  const probe = describe(grain(21), W, H, 'coat');
+  const herd: Enrolled[] = [
+    { animalId: 'muzzle-only', enrolmentId: 'm', capturedAt: 0, descriptor: describe(grain(900), W, H, 'muzzle') },
+  ];
+  assert.equal(narrowByCoat(probe, herd).length, 1);
+});
+
+test('narrowing refuses a probe of the wrong kind', () => {
+  // narrowByCoat given a face would compare a face against coats, which
+  // distance() refuses one pair at a time — so every animal would survive and
+  // the caller would believe nothing could be excluded.
+  const face = describe(grain(21), W, H, 'face');
+  assert.throws(() => narrowByCoat(face, []), MuzzleError);
+});
+
+test('a coat is never returned by a muzzle search', () => {
+  const herd: Enrolled[] = [
+    { animalId: 'a', enrolmentId: 'a-0', capturedAt: 0, descriptor: describe(grain(50), W, H, 'coat') },
+  ];
+  assert.deepEqual(search(describe(grain(50), W, H, 'muzzle'), herd), []);
 });
