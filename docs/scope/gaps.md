@@ -423,13 +423,28 @@ rebuild the sealed blob, and it is visibly not the key), the explorer and the
 investments console sign through the wallet, and the wallet carries the
 protection panel.
 
-Still open: the two SERVICES are not deployed. `deploy/nginx/yamale-account.conf`
-is still NOT INSTALLED and `deploy/deploy.sh` does not copy it, so `/api/custodian`
-and `/api/recovery` do not exist on any host. The wallet probes for them and says
-so rather than offering a control that cannot work — standing them up needs
-sealing keys, peppers, two systemd units, the nginx include, and a notify command
-that is not written. Accounts enrolled under the old protocol cannot be read by
-the new services and must re-enrol — a migration is
+**The two services are DEPLOYED, 2026-09-23.** `custodian` on the VM at
+`100.117.244.96:8099`, `recovery` on the Pi at `127.0.0.1:8100`, reached from
+the internet as `/api/custodian/` and `/api/recovery/`. Never both on one host:
+a host holding two of the three parts is one that can attempt a recovery alone.
+
+Verified by enrolling a real account through the public hostname with the
+wallet's own code: sealed and split in 656 ms, both services accepted the
+deposit, and both independently derived the SAME address from the public key
+they each verified. `tools/notify` is installed on both and both report
+`"recovery":"ready"`.
+
+Two things found while installing it. The sealing keys and peppers are raw
+32-byte files and `readSecret` trims whitespace, so roughly one draw in twenty
+produces a 31-byte key and a service that refuses to start for a key that was
+generated correctly — they are now generated with a guard, and the trim hazard
+is worth removing at the source. And `sites-enabled` held a
+`yamale.before-account` backup, so nginx was loading every server block twice
+and the right one won only on alphabetical order; it has been moved to
+`/etc/nginx/backups/`.
+
+Still open: accounts enrolled under the old protocol cannot be read by the new
+services and must re-enrol — a migration is
 possible in principle (the device part plus one service part reconstruct the old
 key, on the device, which could then be sealed and re-split) but is not built,
 and on a demonstrator chain it is probably not worth building.
