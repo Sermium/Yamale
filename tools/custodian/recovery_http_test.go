@@ -162,13 +162,13 @@ func TestRecoveryOverHTTPWithholdsTheHoldingAfterwards(t *testing.T) {
 		recoveryApproveRequest{ID: rec.ID, Operator: "chinwe", Team: "compliance"}, nil))
 
 	// Approved, and still too early.
-	code = f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID}, nil)
+	code = f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID, Email: email}, nil)
 	require.Equal(t, http.StatusConflict, code, "a recovery completed before its delay")
 
 	*f.clock = f.clock.Add(RecoveryDelay + time.Minute)
 	var done recoveryView
 	require.Equal(t, http.StatusOK,
-		f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID}, &done))
+		f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID, Email: email}, &done))
 	require.Equal(t, string(RecoveryCompleted), done.State)
 	require.NotNil(t, done.FrozenUntil)
 	require.Equal(t, 1, f.notifier.completed, "no notice was sent on completion")
@@ -224,7 +224,7 @@ func TestACompletedRecoveryCanStillBeCancelledWithinItsWindow(t *testing.T) {
 
 	*f.clock = f.clock.Add(RecoveryDelay + time.Minute)
 	require.Equal(t, http.StatusOK,
-		f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID}, nil))
+		f.post(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID, Email: email}, nil))
 
 	// The real owner reads the notice and says it was not them.
 	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/cancel", recoveryIDRequest{
@@ -272,3 +272,89 @@ func TestStatisticsExposeNoIdentity(t *testing.T) {
 
 // base64Of is the encoding the sign endpoint expects for a digest.
 func base64Of(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
+
+// Notice goes to the address the ACCOUNT is registered under, and an operator
+// cannot point it somewhere else.
+//
+// This is the property the whole 72-hour delay rests on. A recovery the owner
+// is never told about is not a slow recovery, it is a silent one, and an
+// operator who could redirect the notice would turn the delay into a formality
+// they wait out.
+//
+// The service stores no email, so it cannot look one up. What it can do is
+// insist the address supplied matches the account's blind index — and a
+// substituted address produces a different index and matches nothing.
+func TestNoticeCannotBeRedirectedToAnotherAddress(t *testing.T) {
+	const email = "amara@example.org"
+	const password = "correct horse battery staple"
+	f := newRecoveryFixture(t)
+	f.enrolAccount(t, email, password)
+
+	// The attacker's address, on an account that exists.
+	code := f.post(t, "/v1/recovery/initiate", recoveryInitiateRequest{
+		Email: "attacker@example.org", Operator: "amina", Team: "support", Proof: "x",
+	}, nil)
+	require.Equal(t, http.StatusNotFound, code,
+		"a recovery was opened against an address the account is not registered under")
+	require.Empty(t, f.notifier.toldStarted, "notice went somewhere before any recovery existed")
+
+	// The real address works, and is what the notice was sent to.
+	var rec recoveryView
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/initiate", recoveryInitiateRequest{
+		Email: email, Operator: "amina", Team: "support", Proof: "in person",
+	}, &rec))
+	require.Equal(t, []string{email}, f.notifier.toldStarted,
+		"notice did not go to the address the account is registered under")
+
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/approve",
+		recoveryApproveRequest{ID: rec.ID, Operator: "boubacar", Team: "risk"}, nil))
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/approve",
+		recoveryApproveRequest{ID: rec.ID, Operator: "chinwe", Team: "compliance"}, nil))
+	*f.clock = f.clock.Add(RecoveryDelay + time.Minute)
+
+	// And the same check at completion, which sends the SECOND notice. Without
+	// it an operator could wait out the delay honestly and then redirect the
+	// one message that says the account has just been handed over.
+	code = f.post(t, "/v1/recovery/complete", recoveryIDRequest{
+		ID: rec.ID, Email: "attacker@example.org",
+	}, nil)
+	require.Equal(t, http.StatusNotFound, code, "completion accepted a substituted address")
+	require.Empty(t, f.notifier.toldCompleted)
+
+	// The refusal must not have completed the recovery on its way out.
+	code = f.post(t, "/v1/recovery/claim", claimRequest{
+		ID: rec.ID, Email: email, Password: password,
+	}, nil)
+	require.Equal(t, http.StatusConflict, code,
+		"a refused completion completed the recovery anyway")
+
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/complete", recoveryIDRequest{
+		ID: rec.ID, Email: email,
+	}, nil))
+	require.Equal(t, []string{email}, f.notifier.toldCompleted)
+}
+
+// Completion without an email is refused rather than silently skipping notice.
+func TestCompletionWillNotProceedWithNobodyToTell(t *testing.T) {
+	const email = "bakary@example.org"
+	f := newRecoveryFixture(t)
+	f.enrolAccount(t, email, "a long enough passphrase")
+
+	var rec recoveryView
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/initiate", recoveryInitiateRequest{
+		Email: email, Operator: "amina", Team: "support", Proof: "in person",
+	}, &rec))
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/approve",
+		recoveryApproveRequest{ID: rec.ID, Operator: "boubacar", Team: "risk"}, nil))
+	require.Equal(t, http.StatusOK, f.post(t, "/v1/recovery/approve",
+		recoveryApproveRequest{ID: rec.ID, Operator: "chinwe", Team: "compliance"}, nil))
+	*f.clock = f.clock.Add(RecoveryDelay + time.Minute)
+
+	// The tempting alternative is to complete and log that notice was skipped.
+	// That produces a service which runs the process correctly and silently,
+	// which is the configuration this design refuses everywhere else.
+	code, reason := f.postWithBody(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID})
+	require.Equal(t, http.StatusBadRequest, code)
+	require.Contains(t, reason, "stores no addresses")
+	require.Equal(t, 0, f.notifier.completed)
+}

@@ -162,9 +162,9 @@ change**.
 Operator endpoints, on loopback, in order:
 
 ```
-POST /v1/recovery/initiate   operator, team, proof   -> the clock starts
+POST /v1/recovery/initiate   email + operator, team, proof -> the clock starts
 POST /v1/recovery/approve    a second operator, a different team
-POST /v1/recovery/complete   after 72 hours and two approvals
+POST /v1/recovery/complete   email, after 72 hours and two approvals
 POST /v1/recovery/cancel     anybody, any time before the holding is released
 ```
 
@@ -179,6 +179,34 @@ Rules that must not be softened: two approvers from different teams and never
 the initiator or their team; 72 hours as a constant; **notice failing aborts the
 whole recovery**, and the default notifier refuses, because a service running
 the process correctly and silently is the worst configuration it can be in.
+
+### Why initiate and complete both ask for the email
+
+This service stores no email — the account record holds a blind index and no
+personal data at all — so it cannot look up where to send notice. For a while
+the notifier was handed an `Account` and a bech32 address and asked to reach a
+person, which it could not do. The delay was protecting nobody and nothing said
+so.
+
+The address comes from the operator and is **checked rather than trusted**: the
+service computes its blind index and matches it against the account. A
+substituted address produces a different index, finds nothing, and is refused as
+an email nobody holds.
+
+So notice can only ever go to the address the account was registered under,
+while the service keeps storing none. An operator cannot wait out the delay
+honestly and then redirect the one message that says the account has just been
+handed over — `TestNoticeCannotBeRedirectedToAnotherAddress` is that property,
+and it fails if either check is removed.
+
+Completion **refuses** without an email rather than completing and logging that
+notice was skipped. The tempting alternative produces a service that runs the
+process correctly and silently.
+
+The email goes to the notify command as JSON on **stdin**, never argv:
+`/proc/<pid>/cmdline` is world-readable, so an address in an argument would
+publish to `ps` the one piece of personal data this service is careful never to
+store.
 
 ### The 24 hours changed meaning, and the name did not
 

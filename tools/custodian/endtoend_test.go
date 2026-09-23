@@ -183,7 +183,7 @@ func TestAnAccountSurvivesLosingThePhone(t *testing.T) {
 
 		*svc.clock = svc.clock.Add(RecoveryDelay + time.Minute)
 		require.Equal(t, http.StatusOK,
-			svc.call(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID}, nil))
+			svc.call(t, "/v1/recovery/complete", recoveryIDRequest{ID: rec.ID, Email: email}, nil))
 
 		// Still withheld for the post-recovery window.
 		require.Equal(t, http.StatusConflict, svc.call(t, "/v1/recovery/claim",

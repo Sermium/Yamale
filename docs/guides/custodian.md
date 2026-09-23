@@ -274,9 +274,9 @@ process's environment is where the paths to the sealing key and the pepper are.
 | | |
 |---|---|
 | `POST /v1/enrol` | verify a deposit and store one part |
-| `POST /v1/recovery/initiate` | operator; the 72-hour clock starts |
+| `POST /v1/recovery/initiate` | operator, **with the account's email**; the 72-hour clock starts |
 | `POST /v1/recovery/approve` | a second operator, from a different team |
-| `POST /v1/recovery/complete` | after the notice period and two approvals |
+| `POST /v1/recovery/complete` | **with the email again**, after the notice period and two approvals |
 | `POST /v1/recovery/cancel` | anybody, until the part is actually released |
 | `POST /v1/recovery/claim` | **customer**; email + password -> this service's part |
 | `POST /v1/freeze` | mark an account as reported stolen |
@@ -479,7 +479,9 @@ This list is longer than the feature list, and that is the honest shape of it.
 - **There is no mailer.** `--notify-command` names a program and no such program
   is written, so a recovery refuses to start. That is the correct default and it
   means recovery is off wherever it has not been configured, which is
-  everywhere.
+  everywhere. What the command is *given* is now correct — a JSON notice on
+  stdin carrying the address and the proved email — so writing one is a small
+  job rather than a blocked one.
 - **Second-factor enrolment is not built.** `factors.go` decides what a recovery
   must produce — a passkey, else TOTP, else an emailed code — and there is no
   endpoint to register any of them, so the ladder falls through to the factor

@@ -39,7 +39,17 @@ type recoveryApproveRequest struct {
 }
 
 type recoveryIDRequest struct {
-	ID     string `json:"id"`
+	ID string `json:"id"`
+	// Email is required by complete and ignored by cancel.
+	//
+	// Completion sends the second notice, and the recovery record holds a blind
+	// index rather than an address — one-way, on purpose. So the address has to
+	// be supplied again and proved again, exactly as it was at initiate.
+	//
+	// Cancel does not need it: cancelling notifies nobody, and requiring an
+	// email to stop a recovery would put a hurdle in front of the one action
+	// this service wants to be easy.
+	Email  string `json:"email"`
 	By     string `json:"by"`
 	Reason string `json:"reason"`
 }
@@ -96,8 +106,13 @@ func (s *server) handleRecoveryInitiate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// The email is passed on because the account was FOUND by it: the lookup
+	// above computed its blind index and matched. So this is the address the
+	// account is registered under, not whatever an operator typed — a
+	// substituted address produces a different index, finds no account, and is
+	// refused above as an email nobody holds. It is never stored.
 	rec, err := s.recoveries.Initiate(index, req.Operator, req.Team, req.Proof, func() error {
-		return s.notifier.RecoveryStarted(account, s.recoveryDelay())
+		return s.notifier.RecoveryStarted(account, email, s.recoveryDelay())
 	})
 	if err != nil {
 		refuse(w, recoveryStatus(err), err.Error())
@@ -124,15 +139,38 @@ func (s *server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) 
 	if !decode(w, r, &req) {
 		return
 	}
-	rec, err := s.recoveries.Complete(req.ID)
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		refuse(w, http.StatusBadRequest,
+			"the account's email is required, because completion sends a second notice and "+
+				"this service stores no addresses to send it to")
+		return
+	}
+
+	rec, err := s.recoveries.Get(req.ID)
+	if err != nil {
+		refuse(w, recoveryStatus(err), err.Error())
+		return
+	}
+	// Proved, not trusted, and checked BEFORE completing. An operator who
+	// supplied a different address here would otherwise complete the recovery
+	// and send its notice somewhere the account holder never sees — which is
+	// the one failure the notice exists to prevent.
+	if s.index.Of(email) != rec.Index {
+		refuse(w, http.StatusNotFound, "no account matches that email")
+		return
+	}
+
+	rec, err = s.recoveries.Complete(req.ID)
 	if err != nil {
 		refuse(w, recoveryStatus(err), err.Error())
 		return
 	}
 	// Notice again on completion. The owner who missed the first message has a
-	// second chance to notice during the 24 hours in which nothing can leave.
+	// second chance during the 24 hours before the holding is released, and
+	// they can still cancel in that window.
 	if account, err := s.store.Get(rec.Index); err == nil && rec.FrozenUntil != nil {
-		if err := s.notifier.RecoveryCompleted(account, *rec.FrozenUntil); err != nil {
+		if err := s.notifier.RecoveryCompleted(account, email, *rec.FrozenUntil); err != nil {
 			// Logged, not fatal: the recovery IS complete, and pretending
 			// otherwise would leave the record disagreeing with the state.
 			s.notifier.Problem("notice of a completed recovery could not be sent", err)

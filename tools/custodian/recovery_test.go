@@ -18,18 +18,25 @@ type fakeNotifier struct {
 	started   int
 	completed int
 	fail      error
+	// The addresses notice was actually sent to. Recorded rather than counted,
+	// because "a notice was sent" and "a notice reached the account holder" are
+	// different claims and only the second one protects anybody.
+	toldStarted   []string
+	toldCompleted []string
 }
 
-func (f *fakeNotifier) RecoveryStarted(Account, time.Duration) error {
+func (f *fakeNotifier) RecoveryStarted(_ Account, email string, _ time.Duration) error {
 	if f.fail != nil {
 		return f.fail
 	}
 	f.started++
+	f.toldStarted = append(f.toldStarted, email)
 	return nil
 }
 
-func (f *fakeNotifier) RecoveryCompleted(Account, time.Time) error {
+func (f *fakeNotifier) RecoveryCompleted(_ Account, email string, _ time.Time) error {
 	f.completed++
+	f.toldCompleted = append(f.toldCompleted, email)
 	return nil
 }
 
@@ -163,7 +170,7 @@ func TestTheDefaultNotifierRefuses(t *testing.T) {
 	var n Notifier = refusingNotifier{}
 
 	_, err := rs.Initiate("idx-1", "amina", "support", "a prior device", func() error {
-		return n.RecoveryStarted(Account{}, RecoveryDelay)
+		return n.RecoveryStarted(Account{}, "amara@example.org", RecoveryDelay)
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNoNotifier)

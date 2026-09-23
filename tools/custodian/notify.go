@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -26,6 +29,30 @@ import (
 // building one in would mean building the wrong one. What is built in is the
 // refusal to run without one.
 //
+// # Where the address to notify comes from, which is not the store
+//
+// This service does not store an email. The Account record holds a blind index
+// and no personal data at all, deliberately, so for a while the notifier was
+// handed an Account and a bech32 address and asked to reach a person — which it
+// could not do, because nothing in what it was given says where to write. The
+// 72-hour delay was protecting nobody, and nothing said so.
+//
+// The email comes from the OPERATOR, at the moment a recovery is initiated, and
+// it is checked rather than trusted: the service computes the blind index of
+// what was supplied and looks an account up by it. A different email produces a
+// different index and finds nothing.
+//
+// That check is what makes this safe, and it is worth being precise about why.
+// An operator who substitutes an attacker's address does not redirect the
+// notice — they get "no account matches that email", the same refusal as an
+// email nobody holds. Notice can therefore only ever go to the address the
+// account was registered under, while the service continues to store no
+// addresses at all. It is held in memory for the length of one request.
+//
+// The same rule applies at completion, which is why that endpoint asks for the
+// email too rather than working from the recovery record: the record holds a
+// blind index, and a blind index is one-way on purpose.
+//
 // # What is NOT here, and is a real gap
 //
 // Notice to every enrolled device. The design says email *and* every enrolled
@@ -39,10 +66,15 @@ import (
 type Notifier interface {
 	// RecoveryStarted must reach the account holder, and its error aborts the
 	// recovery. Everything about this method's contract follows from that.
-	RecoveryStarted(account Account, delay time.Duration) error
+	//
+	// `email` has been proved to belong to this account by the caller — it is
+	// the address whose blind index found the account — so an implementation
+	// may write to it without checking anything further, and must not write to
+	// any other address it happens to know.
+	RecoveryStarted(account Account, email string, delay time.Duration) error
 	// RecoveryCompleted is best-effort: the recovery has already happened and
 	// failing to say so must not undo it.
-	RecoveryCompleted(account Account, frozenUntil time.Time) error
+	RecoveryCompleted(account Account, email string, frozenUntil time.Time) error
 	// Problem records something an operator should see.
 	Problem(what string, err error)
 }
@@ -62,9 +94,13 @@ var ErrNoNotifier = errors.New(
 // the one person who could object never told.
 type refusingNotifier struct{}
 
-func (refusingNotifier) RecoveryStarted(Account, time.Duration) error { return ErrNoNotifier }
+func (refusingNotifier) RecoveryStarted(Account, string, time.Duration) error {
+	return ErrNoNotifier
+}
 
-func (refusingNotifier) RecoveryCompleted(Account, time.Time) error { return ErrNoNotifier }
+func (refusingNotifier) RecoveryCompleted(Account, string, time.Time) error {
+	return ErrNoNotifier
+}
 
 func (refusingNotifier) Problem(what string, err error) { log.Printf("%s: %v", what, err) }
 
@@ -89,9 +125,40 @@ func newCommandNotifier(command string) *commandNotifier {
 	return &commandNotifier{command: command, timeout: 20 * time.Second}
 }
 
-func (c *commandNotifier) run(event string, account Account, extra ...string) error {
-	args := append([]string{event, account.Address}, extra...)
-	cmd := exec.Command(c.command, args...)
+// notice is what the command is given, as JSON on stdin.
+//
+// On STDIN and not in argv, and that is the whole reason this is a struct.
+// /proc/<pid>/cmdline is world-readable on Linux, so an email passed as an
+// argument is visible to every user on the host for as long as the process
+// runs — which would take the one piece of personal data this service is
+// careful never to store and publish it to `ps`. /proc/<pid>/environ is
+// owner-only, so an environment variable would be better, and a pipe is better
+// still because it reaches nothing but the child.
+type notice struct {
+	Event   string `json:"event"`
+	Address string `json:"address"`
+	Email   string `json:"email"`
+	// DelayHours is set for recovery-started, FrozenUntil for
+	// recovery-completed. Both are present as fields so the command can decode
+	// one shape rather than switching on the event before it can parse.
+	DelayHours  int    `json:"delay_hours,omitempty"`
+	FrozenUntil string `json:"frozen_until,omitempty"`
+}
+
+func (c *commandNotifier) run(n notice) error {
+	body, err := json.Marshal(n)
+	if err != nil {
+		return fmt.Errorf("encoding the notice: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	// Bounded. A notification command that hangs would hold a recovery open
+	// indefinitely, and the timeout was a field on this struct that nothing
+	// read until now.
+	cmd := exec.CommandContext(ctx, c.command, n.Event)
+	cmd.Stdin = bytes.NewReader(body)
 	// The environment is not inherited. A notification command should not need
 	// this process's environment, and this process's environment is where the
 	// paths to the sealing key and the pepper are.
@@ -99,17 +166,30 @@ func (c *commandNotifier) run(event string, account Account, extra ...string) er
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("%s did not finish within %s", c.command, c.timeout)
+		}
 		return fmt.Errorf("%s: %w: %s", c.command, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func (c *commandNotifier) RecoveryStarted(account Account, delay time.Duration) error {
-	return c.run("recovery-started", account, fmt.Sprintf("%.0f", delay.Hours()))
+func (c *commandNotifier) RecoveryStarted(account Account, email string, delay time.Duration) error {
+	return c.run(notice{
+		Event:      "recovery-started",
+		Address:    account.Address,
+		Email:      email,
+		DelayHours: int(delay.Hours()),
+	})
 }
 
-func (c *commandNotifier) RecoveryCompleted(account Account, frozenUntil time.Time) error {
-	return c.run("recovery-completed", account, frozenUntil.UTC().Format(time.RFC3339))
+func (c *commandNotifier) RecoveryCompleted(account Account, email string, frozenUntil time.Time) error {
+	return c.run(notice{
+		Event:       "recovery-completed",
+		Address:     account.Address,
+		Email:       email,
+		FrozenUntil: frozenUntil.UTC().Format(time.RFC3339),
+	})
 }
 
 func (c *commandNotifier) Problem(what string, err error) {
