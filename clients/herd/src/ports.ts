@@ -37,6 +37,7 @@
  */
 
 import type { IrisTemplate } from './iris.ts';
+import type { Descriptor as MuzzleDescriptor } from './muzzle.ts';
 
 /* ------------------------------------------------------------- the device */
 
@@ -102,6 +103,37 @@ export interface IrisCamera {
   watch(listener: (state: CapabilityState) => void): () => void;
 }
 
+/**
+ * The muzzle, which is the one cattle biometric with a literature behind it.
+ *
+ * Separate from `IrisCamera` because they are different instruments answering
+ * different questions. An iris needs near-infrared and an accessory; a muzzle
+ * needs an ordinary camera held close, which every phone in the field already
+ * has — so this capability is `ready` on a bare handset where the iris is not,
+ * and the screens should prefer it for exactly that reason.
+ *
+ * Returns a DESCRIPTOR rather than an image. The comparison is done on the
+ * device against the offline replica, so what a screen needs is the thing that
+ * can be compared; the photograph itself goes to the outbox as a capture.
+ */
+export interface MuzzleCamera {
+  state(): CapabilityState;
+  /**
+   * Photograph the muzzle and describe it.
+   *
+   * `quality` is the capture's own score and is nullable for the same reason it
+   * is everywhere else: an instrument that does not score has not said the
+   * capture was bad.
+   */
+  capture(signal?: AbortSignal): Promise<{
+    descriptor: MuzzleDescriptor;
+    quality: number | null;
+    capturedAt: number;
+    deviceId: string;
+  }>;
+  watch(listener: (state: CapabilityState) => void): () => void;
+}
+
 /** Optical character recognition over the camera, for a tattooed ear. */
 export interface TattooReader {
   state(): CapabilityState;
@@ -129,6 +161,7 @@ export interface Device {
   id(): string;
   tag: TagReader;
   iris: IrisCamera;
+  muzzle: MuzzleCamera;
   tattoo: TattooReader;
   position: Positioner;
 }
@@ -182,6 +215,7 @@ export const NO_DEVICE: Device = {
   id: () => 'unattached',
   tag: { state: () => UNSUPPORTED, read: refuse('tag'), watch: noWatch },
   iris: { state: () => UNSUPPORTED, capture: refuse('iris'), watch: noWatch },
+  muzzle: { state: () => UNSUPPORTED, capture: refuse('muzzle'), watch: noWatch },
   tattoo: { state: () => UNSUPPORTED, read: refuse('tattoo') },
   position: { state: () => UNSUPPORTED, fix: () => Promise.resolve(null) },
 };

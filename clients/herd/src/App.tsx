@@ -36,8 +36,10 @@ import { AnimalScreen } from './Animal.tsx';
 import { useDownload, useLocalHerd, useOutbox, useStore } from './data.ts';
 import { Identify } from './Identify.tsx';
 import { MyHerd } from './MyHerd.tsx';
+import { Register } from './Register.tsx';
 import { NO_IDENTITY } from './ports.ts';
 import { makeKit } from './kit.ts';
+import { newEntry } from './outbox.ts';
 import { Sync } from './Sync.tsx';
 
 /* ------------------------------------------------------------------ theme */
@@ -94,6 +96,10 @@ function TabIcon({ name }: { name: string }) {
     herd: 'M4 14a2.5 2.5 0 015 0 M4 14v2 M9 14v2 M11 11a2.5 2.5 0 015 0 M11 11v5 M16 11v5 M5 9l1.5-3h3L11 9',
     // Two arrows in a loop: what has gone out and what has come back.
     sync: 'M4 8a6 6 0 019.8-3.4 M16 12a6 6 0 01-9.8 3.4 M4 4v4h4 M16 16v-4h-4',
+    // A form with a plus: this is the tab that CREATES something, and it is
+    // the only one that does. Reusing the viewfinder would have said "another
+    // way to look at an animal", which is the opposite of what it is.
+    register: 'M5 3h7l3 3v11a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z M12 3v3h3 M9.5 9v5 M7 11.5h5',
   };
   return (
     <svg className="y-tab__icon" viewBox="0 0 20 20" aria-hidden="true"
@@ -114,6 +120,7 @@ function TabIcon({ name }: { name: string }) {
 function TabBar({ pending }: { pending: number }) {
   const tabs = [
     { to: '/', end: true, label: t('herd.navIdentify'), icon: 'identify', badge: 0 },
+    { to: '/register', end: false, label: t('herd.navRegister'), icon: 'register', badge: 0 },
     { to: '/herd', end: false, label: t('herd.navHerd'), icon: 'herd', badge: 0 },
     { to: '/sync', end: false, label: t('herd.navSync'), icon: 'sync', badge: pending },
   ];
@@ -245,6 +252,50 @@ export function App() {
               <Route path="/" element={
                 <Screen>
                   <Identify local={local} device={device} operator={operator} queue={queue} />
+                </Screen>
+              } />
+              {/* Registration is its own route rather than a mode on
+                  Identify. Identify answers a question; this asserts something
+                  the register did not have, and a person should know which one
+                  they are doing before they start. */}
+              <Route path="/register" element={
+                <Screen>
+                  <Register
+                    device={device}
+                    operator={operator}
+                    herdId={local.meta?.herdId ?? ''}
+                    known={{
+                      // Built from the replica this device holds. It is the
+                      // only register available in a pen with no signal, and
+                      // it is why the duplicate check lives on the device at
+                      // all rather than only on the chain.
+                      byNationalId: new Map(
+                        local.animals.filter((a) => a.nationalId).map((a) => [a.nationalId, a.id]),
+                      ),
+                      byTag: new Map(
+                        local.animals.filter((a) => a.tag).map((a) => [a.tag, a.id]),
+                      ),
+                      usedReferences: new Set<string>(),
+                      enrolments: [],
+                    }}
+                    onRegistered={(r) => {
+                      if (!operator || !local.meta) return;
+                      void queue([
+                        newEntry({
+                          kind: 'identification-claim',
+                          // No animal id yet: the chain assigns one. Filing it
+                          // against a guess would be inventing the very record
+                          // this entry exists to ask for.
+                          animalId: null,
+                          herdId: r.herdId,
+                          observedAt: Date.now(),
+                          deviceId: device.id(),
+                          agent: operator.address,
+                          detail: { ...r, registration: true },
+                        }),
+                      ]);
+                    }}
+                  />
                 </Screen>
               } />
               <Route path="/herd" element={

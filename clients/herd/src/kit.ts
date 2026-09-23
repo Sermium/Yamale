@@ -47,12 +47,14 @@ import {
   type Unconfirmed,
 } from './device.ts';
 import { formatTagCode } from './identity.ts';
+import { describe as describeMuzzle } from './muzzle.ts';
 import { readTattooLuma } from './ocr.ts';
 import type {
   CapabilityState,
   Capture as PortCapture,
   Device,
   IrisCamera,
+  MuzzleCamera,
   Positioner,
   TagReader,
   TattooReader,
@@ -283,6 +285,39 @@ export function makeKit(options: KitOptions = {}): Kit {
    * needs the LUMA plane, and a `Capture` carries the encoded image, which
    * would have to be decoded back into the pixels the camera already had.
    */
+  /**
+   * The muzzle, from the ordinary camera.
+   *
+   * This is the capability most likely to work on a bare handset in a pen: no
+   * accessory, no pairing, no near-infrared. It goes through the same source as
+   * the tattoo because it is the same lens — what differs is what is done with
+   * the frame afterwards.
+   *
+   * The descriptor is computed HERE rather than on a screen, because the grid
+   * size is part of what makes two descriptors comparable and a screen choosing
+   * its own would produce captures that cannot be matched against the replica.
+   */
+  const muzzle: MuzzleCamera = {
+    state: () => cameraSource.state(),
+    capture: async () => {
+      const grabber = options.grabber;
+      if (!grabber) {
+        throw new Error('muzzle: unsupported — this build has no camera');
+      }
+      const taken = await demand('muzzle', cameraSource.capture());
+      const frame = await grabber.grab();
+      if (!frame.ok) throw new Error(`muzzle: ${frame.reason} — ${frame.detail}`);
+
+      return {
+        descriptor: describeMuzzle(frame.value.luma, frame.value.width, frame.value.height, 'muzzle'),
+        quality: taken.quality,
+        capturedAt: taken.capturedAt,
+        deviceId: id,
+      };
+    },
+    watch: (l) => cameraSource.watch(l),
+  };
+
   const tattoo: TattooReader = {
     state: () => cameraSource.state(),
     read: async () => {
@@ -348,6 +383,7 @@ export function makeKit(options: KitOptions = {}): Kit {
     id: () => id,
     tag,
     iris,
+    muzzle,
     tattoo,
     position,
     unconfirmed: () =>
