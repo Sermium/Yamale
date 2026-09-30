@@ -23,7 +23,13 @@ new = [c for c in curs if not c.get("existing")]
 # regardless of how many units of the currency that represents.
 DEPTH = 20000
 # Mint enough to foundation to seed the pool and feed the faucet for a long time.
-MINT = 10**16
+#
+# 10^13 base units is ten million coins. It was 10^16, which no ceiling this
+# chain would sensibly grant: x/stablecoin refuses any mint that takes a
+# currency past its supply ceiling, the default ceiling is ZERO, and the one
+# currency with a ceiling of its own (uusd) has 10^15. A new currency needs a
+# ceiling from governance first, and this figure has to fit under it.
+MINT = 10**13
 
 # --- onchain.sh -----------------------------------------------------------
 # Re-runnable, and honest about what it did.
@@ -144,7 +150,23 @@ sh.append('$CURRENCIES')
 sh.append('EOF')
 sh.append('')
 sh.append('echo "=== 4/4  opening YML-hub pools (skip any denom already pooled) ==="')
-sh.append('POOLS=$($B query amm pool --home $H -o json 2>/dev/null)')
+# `query amm pool` is not a command. It printed the usage text, which names no
+# denom, so every "already pooled" test below said no and the script tried to
+# open all 38 pools on 2026-09-30. It did no damage only because none of them
+# existed -- the old script had been "skipping" pools that were never opened.
+# An empty or unreadable list is now a stop, not a list with nothing in it.
+sh.append('POOLS=$($B query amm list-pool --page-limit 1000 --home $H -o json 2>/dev/null)')
+# grep reads a here-string, never a pipe. Under `set -o pipefail`,
+# `echo "$POOLS" | grep -q X` is a race: grep -q exits at its first match, echo
+# is still writing, dies of SIGPIPE, and pipefail turns the MATCH into a
+# failure. So a pool that sits early in the list read as "not pooled" -- the
+# 2026-09-30 dry run would have opened a second umad pool, pool 3 being umad --
+# and a pool late in the list read correctly. It depends on timing, so it
+# passes a reading and a lucky run.
+sh.append('grep -q ' + chr(39) + '"pool"' + chr(39) + ' <<<"$POOLS" || { echo "  cannot read the pool list -- refusing to guess which pools exist"; exit 1; }')
+sh.append('# What the foundation can actually put in. A pool it cannot fund is')
+sh.append('# reported as such rather than attempted and charged a fee to fail.')
+sh.append('have() { $B query bank balance "$F" "$1" --home $H -o json 2>/dev/null | grep -oE ' + chr(39) + '"amount": *"[0-9]+"' + chr(39) + ' | grep -oE ' + chr(39) + '[0-9]+' + chr(39) + '; }')
 for c in new:
     d, rate, ccode = c["denom"], c["rate_per_yml"], c["code"]
     ra = DEPTH * 10**6
@@ -153,8 +175,12 @@ for c in new:
     rb = int(round(DEPTH * rate * 10**6))
     # A new currency only ever appears in its own uyml pool, so a plain grep
     # of the pool list for the denom is a sufficient "already pooled" test.
-    sh.append('if echo "$POOLS" | grep -q \'"%s"\'; then echo "  uyml/%s exists, skip"; else h=$($B tx amm create-pool uyml %d %s %d 30 --from foundation $TX 2>&1 | grep -oE "[A-F0-9]{64}" | head -1); sleep 6; say "pool uyml/%s (1 YML = %s %s)" "$h" || true; fi'
-              % (d, d, ra, d, rb, d, rate, ccode))
+    sh.append('if grep -q \'"%s"\' <<<"$POOLS"; then echo "  uyml/%s exists, skip"; '
+              'elif [ "$(have %s)" -lt %d ] 2>/dev/null || [ -z "$(have %s)" ]; then '
+              'echo "  uyml/%s NOT OPENED: the foundation holds $(have %s) %s and the pool needs %d"; else '
+              'h=$($B tx amm create-pool uyml %d %s %d 30 --from foundation $TX 2>&1 | grep -oE "[A-F0-9]{64}" | head -1); '
+              'sleep 6; say "pool uyml/%s (1 YML = %s %s)" "$h" || true; fi'
+              % (d, d, d, rb, d, d, d, d, rb, ra, d, rb, d, rate, ccode))
 sh.append('echo "=== done ==="')
 io.open(os.path.join(HERE, "onchain.sh"), "w", encoding="utf-8", newline="\n").write("\n".join(sh) + "\n")
 
