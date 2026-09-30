@@ -1645,8 +1645,11 @@ against `AppliedPlan`. A row here now says both dates when they differ.
   six boots in three days end with no shutdown, one logged 12 under-voltage
   lines, and `vcgencmd get_throttled` read `0x50000`. Its third downtime
   jailing (tokens/shares = 0.99^3). Unjailed 2026-09-30 at 601220 and signing
-  again, but **the supply is unchanged, so the next cut jails it again** and
-  burns another 1%. While it was out, only `pi-operator` could carry a vote.
+  again. **Supply replaced 2026-09-30 ~15:10 CEST**; the swap cost 4 missed
+  blocks and no jailing, and the Pi read `throttled=0x0` with no under-voltage
+  ten minutes after boot. Not yet proven: the flags are cumulative per boot, so
+  re-check `vcgencmd get_throttled` after a few days under load. While pi-2 was
+  out, only `pi-operator` could carry a vote.
 - **The currency script had never opened most of the pools it claimed to skip.**
   Its "already pooled" check ran `query amm pool`, which is not a command, so it
   searched the usage text. On 2026-09-30 it opened 14 pools -- the first those
