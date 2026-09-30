@@ -1,0 +1,180 @@
+{
+  "mint_ceilings": [
+    {
+      "denom": "uxof",
+      "ceiling": "600000000000000000"
+    },
+    {
+      "denom": "uxaf",
+      "ceiling": "600000000000000000"
+    },
+    {
+      "denom": "ungn",
+      "ceiling": "1550000000000000000"
+    },
+    {
+      "denom": "ukes",
+      "ceiling": "129000000000000000"
+    },
+    {
+      "denom": "uzar",
+      "ceiling": "18000000000000000"
+    },
+    {
+      "denom": "ughs",
+      "ceiling": "15000000000000000"
+    },
+    {
+      "denom": "uegp",
+      "ceiling": "50000000000000000"
+    },
+    {
+      "denom": "umad",
+      "ceiling": "10000000000000000"
+    },
+    {
+      "denom": "udzd",
+      "ceiling": "135000000000000000"
+    },
+    {
+      "denom": "utnd",
+      "ceiling": "3000000000000000"
+    },
+    {
+      "denom": "uetb",
+      "ceiling": "120000000000000000"
+    },
+    {
+      "denom": "uugx",
+      "ceiling": "3700000000000000000"
+    },
+    {
+      "denom": "utzs",
+      "ceiling": "2600000000000000000"
+    },
+    {
+      "denom": "urwf",
+      "ceiling": "1350000000000000000"
+    },
+    {
+      "denom": "uzmw",
+      "ceiling": "26000000000000000"
+    },
+    {
+      "denom": "umzn",
+      "ceiling": "64000000000000000"
+    },
+    {
+      "denom": "uaoa",
+      "ceiling": "910000000000000000"
+    },
+    {
+      "denom": "ubwp",
+      "ceiling": "13000000000000000"
+    },
+    {
+      "denom": "unad",
+      "ceiling": "18000000000000000"
+    },
+    {
+      "denom": "umur",
+      "ceiling": "46000000000000000"
+    },
+    {
+      "denom": "ugmd",
+      "ceiling": "70000000000000000"
+    },
+    {
+      "denom": "ugnf",
+      "ceiling": "8600000000000000000"
+    },
+    {
+      "denom": "ulrd",
+      "ceiling": "193000000000000000"
+    },
+    {
+      "denom": "usle",
+      "ceiling": "22000000000000000"
+    },
+    {
+      "denom": "umwk",
+      "ceiling": "1730000000000000000"
+    },
+    {
+      "denom": "umga",
+      "ceiling": "4500000000000000000"
+    },
+    {
+      "denom": "ucdf",
+      "ceiling": "2800000000000000000"
+    },
+    {
+      "denom": "usdg",
+      "ceiling": "600000000000000000"
+    },
+    {
+      "denom": "ussp",
+      "ceiling": "4500000000000000000"
+    },
+    {
+      "denom": "ulyd",
+      "ceiling": "5000000000000000"
+    },
+    {
+      "denom": "usos",
+      "ceiling": "571000000000000000"
+    },
+    {
+      "denom": "udjf",
+      "ceiling": "178000000000000000"
+    },
+    {
+      "denom": "uern",
+      "ceiling": "15000000000000000"
+    },
+    {
+      "denom": "ubif",
+      "ceiling": "2900000000000000000"
+    },
+    {
+      "denom": "uscr",
+      "ceiling": "13000000000000000"
+    },
+    {
+      "denom": "ucve",
+      "ceiling": "101000000000000000"
+    },
+    {
+      "denom": "ustn",
+      "ceiling": "22000000000000000"
+    },
+    {
+      "denom": "ukmf",
+      "ceiling": "450000000000000000"
+    },
+    {
+      "denom": "ulsl",
+      "ceiling": "18000000000000000"
+    },
+    {
+      "denom": "uszl",
+      "ceiling": "18000000000000000"
+    },
+    {
+      "denom": "umru",
+      "ceiling": "40000000000000000"
+    },
+    {
+      "denom": "uzwg",
+      "ceiling": "13000000000000000"
+    },
+    {
+      "denom": "uusdc",
+      "ceiling": "1000000000000000"
+    },
+    {
+      "denom": "ueurc",
+      "ceiling": "920000000000000"
+    }
+  ]
+}
