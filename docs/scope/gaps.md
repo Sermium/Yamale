@@ -1627,6 +1627,32 @@ against `AppliedPlan`. A row here now says both dates when they differ.
   hostname — which reads as "the faucet is broken" rather than as "you are asking
   the wrong host". The funnel now proxies to the one real faucet over the tailnet
   and the stale unit is disabled.
+- **USDC and EURC are offered by the faucet and do not exist yet (2026-09-30).**
+  Three separate gates, each found only after the one before it was cleared.
+  (1) No application had ever been filed: `register-currency` files an
+  application rather than creating a currency, and the script that should have
+  filed these two sent its output to `/dev/null`. Filed 2026-09-23. (2) The
+  foundation was not their issuer: governance admitted it in proposal 24,
+  PASSED 2026-09-30. (3) The supply ceiling is zero: the default mint ceiling is
+  0 and only `uusd` has its own. Proposal 25 (10^15 each, the `uusd` figure)
+  expired unvoted on 2026-09-30; **it needs resubmitting with somebody present to
+  vote inside the 30 minutes.** After that, `scripts/currencies/onchain.sh` mints
+  both and opens their pools; a dry run against the chain shows those four
+  transactions and nothing else. Until then the faucet says the currency is
+  missing and that retrying will not help, instead of "try again shortly" --
+  the fix was committed 2026-09-23 but only deployed 2026-09-30; the binary it
+  replaced dated from 2026-08-17 and is kept as `yamale-faucet.prev-20260817`.
+- **Only one validator is bonded.** pi-2 has been jailed since about 2026-09-26
+  (unbonding completes 2026-10-17), so the chain runs on `pi` alone and only
+  `pi-operator` carries a governance vote (81.7%). alice, whose delegation is
+  mostly to pi-2, fell to 18.3% of bonded -- below quorum -- and `foundation`
+  has no stake at all.
+- **The currency script had never opened most of the pools it claimed to skip.**
+  Its "already pooled" check ran `query amm pool`, which is not a command, so it
+  searched the usage text. On 2026-09-30 it opened 14 pools -- the first those
+  currencies ever had, not duplicates -- and could not fund the other 24: the
+  foundation holds 798,000 of most currencies, and a 20,000-YML pool needs up to
+  172 million at the indicative rate. Those 24 currencies still have no pool.
 - **A deploy used to be invisible.** nginx sent no `Cache-Control` at all, so
   browsers applied heuristic freshness and an old page after a deploy looked
   identical to a fix that did not work. That is the diagnosis that burns hours,
