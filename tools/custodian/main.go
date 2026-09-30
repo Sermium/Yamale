@@ -89,6 +89,9 @@ type server struct {
 	//
 	// Nil means wall clock, so production behaviour is unchanged.
 	now func() time.Time
+	// attempts slows password guessing per account. Its zero value works, so
+	// every server has it, however it was built.
+	attempts attemptThrottle
 }
 
 // clock is the server's time, defaulting to the wall clock.
@@ -248,7 +251,8 @@ func main() {
 	guarded.HandleFunc("POST /v1/factors/totp/confirm", s.handleTOTPConfirm)
 	guarded.Handle("GET /v1/recovery/statistics", fast(s.handleRecoveryStatistics))
 	// Enrolment keeps the generous bound. It is one request now, but it still
-	// pays for an Argon2id derivation at 256 MiB, which is slow on purpose.
+	// pays for an Argon2id derivation at 64 MiB for the password verifier,
+	// which is slow on purpose.
 	guarded.HandleFunc("POST /v1/enrol", s.handleEnrol)
 	guarded.Handle("POST /v1/enrol/start", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/enrol/message", fast(handleEnrolGone))
@@ -481,18 +485,33 @@ func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // into an oracle for which email addresses are enrolled.
 func (s *server) authenticate(w http.ResponseWriter, email, password string) (Account, bool) {
 	idx := s.index.Of(email)
+
+	// Before anything is read. A guess made during the wait is refused
+	// unchecked, and an address with no account waits the same as one with an
+	// account, so neither the wait nor its absence says which it is.
+	now := s.clock()
+	if wait := s.attempts.wait(idx, now); wait > 0 {
+		w.Header().Set("Retry-After", retryAfter(wait))
+		refuse(w, http.StatusTooManyRequests,
+			"too many wrong passwords for this account; try again in "+wait.Round(time.Second).String())
+		return Account{}, false
+	}
+
 	account, err := s.store.Get(idx)
 	if err != nil {
 		// Still spend the time. Returning fast for an unknown account leaks
 		// the same fact the wording was careful not to.
 		_, _ = NewVerifier("a password that goes nowhere at all")
+		s.attempts.failed(idx, now)
 		refuse(w, http.StatusUnauthorized, "that email and password do not match an account")
 		return Account{}, false
 	}
 	if !account.Password.Verify(password) {
+		s.attempts.failed(idx, now)
 		refuse(w, http.StatusUnauthorized, "that email and password do not match an account")
 		return Account{}, false
 	}
+	s.attempts.succeeded(idx)
 	if account.Frozen {
 		refuse(w, http.StatusForbidden, "this account is frozen: "+account.FrozenReason)
 		return Account{}, false

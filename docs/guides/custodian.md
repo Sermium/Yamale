@@ -187,15 +187,27 @@ behind — the password verifier is computed at `start` and held in memory until
 
 There is no pre-parameter pool any more — no Paillier key, no safe primes,
 nothing to pre-compute. What enrolment costs this service is one Argon2id
-derivation at 128 MiB, for the password verifier.
+derivation at 64 MiB, for the password verifier. (128 MiB is the seal's
+figure, and the seal is derived on the device, never here.)
 
 The order of checks is deliberate and every cheap one runs first: the
 already-enrolled check and the deposit signature are both verified **before**
 Argon2id is asked to do any work. An unauthenticated caller cannot spend this
 service's memory by posting rubbish.
 
-The rate limit in front of it is what bounds the rest; see
-`deploy/nginx/yamale-account.conf`.
+Two limits bound the rest. nginx limits each ADDRESS to one request a minute
+with a burst of 20 (`deploy/nginx/yamale-account.conf`). The service limits
+each ACCOUNT, because an attacker has as many addresses as they rent: five
+wrong passwords are free, and each one after that doubles a wait that starts at
+a minute and stops at an hour. The wait is checked before the password is, so a
+guess made during it is refused unread (429, with `Retry-After`), and an address
+with no account waits exactly as long as one with an account, so the 429 says
+nothing the careful 401 does not. It is a wait rather than a lockout on
+purpose: a lockout would let anybody who knows an email shut its owner out of
+the one urgent thing they may need here, a freeze after a theft. At an hour a
+guess, a ten-character minimum is out of reach, and an owner is never kept out
+for longer than that. The record is in memory and a correct password clears
+it.
 
 ## Recovery
 
@@ -513,10 +525,10 @@ This list is longer than the feature list, and that is the honest shape of it.
   sealing before splitting exists for. It is also the case in which a breach of
   both exposes the account to offline password guessing, which the scheme this
   replaced did not allow.
-- **No rate limit and no lockout of its own.** Argon2id at 128 MiB makes each
-  guess expensive and that is all that stands between an attacker and an online
-  password attack; `deploy/nginx/yamale-account.conf` is where the limit lives
-  and it is not installed.
+- **The per-account wait is in memory.** A restart forgets it, which an
+  attacker cannot arrange from outside, and each of the two services keeps its
+  own. It slows guessing; it does not tell the owner anybody was guessing, and
+  nothing here does.
 - **Accounts enrolled under the old scheme cannot be read.** They would have to
   enrol again. A migration is possible in principle and is not built.
 - **No transport security of its own.** It listens on loopback by default and

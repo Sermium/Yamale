@@ -582,9 +582,15 @@ HSM custody, a documented upgrade rollback.
 
 **The account service** has its own section above and is mostly no longer
 untouched: enrolment, distributed key generation and the recovery workflow were
-built on 2026-09-03. What remains untouched around it is **second-factor
-enrolment**, **rate limiting or lockout on the custodian's password check**, an
-**identity check at enrolment**, and any **client** that speaks to it.
+built on 2026-09-03. What remains untouched around it is an **identity check
+at enrolment**. The rest of what this sentence used to list has happened:
+second-factor enrolment (an authenticator, confirmed before it counts), a client
+(the wallet enrols through the public hostname), and **a per-account limit on
+the password check, deployed 2026-09-30** -- five free mistakes, then a wait
+that doubles from a minute to an hour, checked before the password so a guess
+during it is refused unread, and applied identically to an address with no
+account. nginx's per-address limit could not do this: an attacker has as many
+addresses as they rent.
 
 Plus USSD and feature-phone access, without which most African transaction
 volume is unreachable, and agent-network and mobile-money integration. Those are
