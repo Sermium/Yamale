@@ -1652,12 +1652,17 @@ against `AppliedPlan`. A row here now says both dates when they differ.
   ten minutes after boot. Not yet proven: the flags are cumulative per boot, so
   re-check `vcgencmd get_throttled` after a few days under load. While pi-2 was
   out, only `pi-operator` could carry a vote.
-- **The currency script had never opened most of the pools it claimed to skip.**
-  Its "already pooled" check ran `query amm pool`, which is not a command, so it
-  searched the usage text. On 2026-09-30 it opened 14 pools -- the first those
-  currencies ever had, not duplicates -- and could not fund the other 24: the
-  foundation holds 798,000 of most currencies, and a 20,000-YML pool needs up to
-  172 million at the indicative rate. Those 24 currencies still have no pool.
+- **Every currency now has a pool (2026-09-30): 44 pools, one per currency, no
+  duplicates.** The currency script had never opened most of the pools it
+  claimed to skip -- its "already pooled" check ran `query amm pool`, which is
+  not a command -- and it could not fund them: the foundation held about 798,000
+  of most currencies and a 20,000-YML pool needs up to 172 million. Proposal 27
+  set a mint ceiling for all 44 (one billion dollars' worth at the indicative
+  rate; `uusd` kept, EURC moved to 920 million) and moved 600,000 YML from the
+  community pool to the foundation. The rewritten script then made 44 top-up
+  mints and opened 27 pools with no failures, exactly its dry run. Proven by a
+  GNF claim through the public faucet and a swap of it in pool 32: 860 GNF in,
+  0.099699 YML out -- 0.1 at 8,600 less the 0.3% fee.
 - **A deploy used to be invisible.** nginx sent no `Cache-Control` at all, so
   browsers applied heuristic freshness and an old page after a deploy looked
   identical to a fix that did not work. That is the diagnosis that burns hours,
