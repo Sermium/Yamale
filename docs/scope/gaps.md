@@ -437,8 +437,10 @@ they each verified. `tools/notify` is installed on both and both report
 Two things found while installing it. The sealing keys and peppers are raw
 32-byte files and `readSecret` trims whitespace, so roughly one draw in twenty
 produces a 31-byte key and a service that refuses to start for a key that was
-generated correctly — they are now generated with a guard, and the trim hazard
-is worth removing at the source. And `sites-enabled` held a
+generated correctly. Fixed at the source 2026-09-30: `readSecret` decodes hex
+(the documented form, `openssl rand -hex 32`), takes exactly 32 raw bytes
+untouched, and refuses anything else with that command in the message. The
+test for it fails against the old code on a raw key ending in `\n`. And `sites-enabled` held a
 `yamale.before-account` backup, so nginx was loading every server block twice
 and the right one won only on alphabetical order; it has been moved to
 `/etc/nginx/backups/`.

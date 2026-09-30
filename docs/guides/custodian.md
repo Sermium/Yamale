@@ -92,6 +92,22 @@ on disk — which is what catches a directory shared by mistake or a backup
 restored to the wrong service. `--role device` is refused outright, because the
 device's share belongs on the device.
 
+Write each secret as **hex**, on the host that will use it, so it never
+crosses a network:
+
+```bash
+umask 077
+openssl rand -hex 32 > /etc/yamale/custodian.key
+openssl rand -hex 32 > /etc/yamale/custodian.pepper
+```
+
+A file of exactly 32 raw bytes is also accepted and used exactly as stored, so
+keys written that way keep working. What is refused is anything in between — a
+typed secret plus an editor's newline, say — because it cannot be told apart
+from a random key that happens to end in a newline byte, and the earlier habit
+of trimming it made about one correctly generated raw key in twenty come out a
+byte short.
+
 The sealing key and the pepper **must not live in `--dir`**, and the service
 refuses to start if either does. That is the whole point of both: a stolen
 directory yields ciphertext and a set of unguessable blind indexes, and neither

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,13 +243,78 @@ func TestAWorldReadableSecretIsRefused(t *testing.T) {
 	require.Contains(t, err.Error(), "readable by others")
 }
 
-func TestASecretIsTrimmed(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "key")
-	require.NoError(t, os.WriteFile(path, []byte(strings.Repeat("k", 32)+"\n"), 0o600))
-	got, err := readSecret(path)
-	if err != nil && strings.Contains(err.Error(), "readable by others") {
+// writeSecret writes a secret file the way an operator would, and skips the
+// test on a filesystem that cannot hold unix permissions, where readSecret
+// refuses everything for being world-readable.
+func writeSecret(t *testing.T, content []byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "secret")
+	require.NoError(t, os.WriteFile(path, content, 0o600))
+	if _, err := readSecret(path); err != nil && strings.Contains(err.Error(), "readable by others") {
 		t.Skip("this filesystem does not carry unix permissions")
 	}
+	return path
+}
+
+// The bug this replaced. readSecret used to TrimSpace every file, so a raw
+// random key whose first or last byte happened to be whitespace — 6 of the 256
+// byte values, at either end, so about one key in twenty — came back 31 bytes
+// long and the service refused to start on a key that was generated correctly.
+// It surfaced deploying the account services on 2026-09-23 and looked like a
+// mystery, because it depends on the draw.
+func TestARawKeyIsNeverTrimmed(t *testing.T) {
+	for _, edge := range []byte{'\n', '\r', ' ', '\t', '\v', '\f'} {
+		key := []byte(strings.Repeat("k", 32))
+		key[31] = edge
+		got, err := readSecret(writeSecret(t, key))
+		require.NoError(t, err)
+		require.Equal(t, key, got, "a raw key ending in %q was altered", edge)
+
+		key = []byte(strings.Repeat("k", 32))
+		key[0] = edge
+		got, err = readSecret(writeSecret(t, key))
+		require.NoError(t, err)
+		require.Equal(t, key, got, "a raw key starting with %q was altered", edge)
+	}
+}
+
+// Hex is the format to write, and the one where trimming is safe: a hex digit
+// is never whitespace, so the newline an editor or `openssl rand -hex` adds can
+// be removed without ever touching the secret.
+func TestAHexSecretIsDecoded(t *testing.T) {
+	want := make([]byte, 32)
+	for i := range want {
+		want[i] = byte(i * 7)
+	}
+	for _, form := range []string{"%x", "%x\n", "  %x\r\n", "%X\n"} {
+		got, err := readSecret(writeSecret(t, []byte(fmt.Sprintf(form, want))))
+		require.NoError(t, err, "form %q", form)
+		require.Equal(t, want, got, "form %q", form)
+	}
+}
+
+// A longer hex pepper is fine; the pepper only has a minimum.
+func TestALongHexPepperIsDecoded(t *testing.T) {
+	want := []byte(strings.Repeat("p", 48))
+	got, err := readSecret(writeSecret(t, []byte(fmt.Sprintf("%x\n", want))))
 	require.NoError(t, err)
-	require.Len(t, got, 32, "a trailing newline made the key the wrong length")
+	require.Equal(t, want, got)
+}
+
+// What used to be silently "fixed" is now refused, and told how to fix it. A
+// 32-character typed secret plus the editor's newline is 33 bytes that are not
+// hex: trimming it was right for that file and wrong for a random one, and
+// readSecret cannot tell which it has been given.
+func TestAnAmbiguousSecretIsRefusedWithTheFix(t *testing.T) {
+	for name, content := range map[string][]byte{
+		"typed secret with a newline": []byte(strings.Repeat("k", 32) + "\n"),
+		"too short":                   []byte(strings.Repeat("k", 16)),
+		"short hex":                   []byte(strings.Repeat("ab", 16) + "\n"),
+		"odd-length hex":              []byte(strings.Repeat("a", 65)),
+		"empty":                       {},
+	} {
+		_, err := readSecret(writeSecret(t, content))
+		require.Error(t, err, name)
+		require.Contains(t, err.Error(), "openssl rand -hex 32", name)
+	}
 }

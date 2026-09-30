@@ -48,6 +48,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -304,9 +305,45 @@ func readSecret(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Trimmed, because a trailing newline from an editor is the commonest way a
-	// key that "looks right" is the wrong 33 bytes.
-	return []byte(strings.TrimSpace(string(raw))), nil
+	return parseSecret(path, raw)
+}
+
+// secretLen is the size of every secret this service reads: the sealing key is
+// exactly this, and the pepper is at least this.
+const secretLen = 32
+
+// parseSecret accepts a secret in one of two forms that cannot be mistaken for
+// each other.
+//
+// HEX, of at least 32 bytes, with any surrounding whitespace. This is the form
+// to write — `openssl rand -hex 32` — and the only one where trimming is safe,
+// because a hex digit is never whitespace.
+//
+// RAW, of exactly 32 bytes, used exactly as stored. Never trimmed. The version
+// this replaced trimmed every file, so a random key whose first or last byte
+// happened to be one of the six whitespace values — about one key in twenty —
+// came back 31 bytes long and the service refused a key that had been
+// generated correctly. The two services on devnet-2 hold raw keys, which is why
+// raw is still read at all.
+//
+// They cannot collide: a raw secret is 32 bytes, and valid hex for 32 bytes is
+// at least 64 characters. Anything else is refused, because the one case the
+// old trimming was for — a typed secret plus an editor's newline — is
+// indistinguishable from a random key that ends in a newline byte, and
+// guessing is how the service came to refuse good keys.
+func parseSecret(path string, raw []byte) ([]byte, error) {
+	if text := strings.TrimSpace(string(raw)); len(text) >= 2*secretLen && len(text)%2 == 0 {
+		if decoded, err := hex.DecodeString(text); err == nil {
+			return decoded, nil
+		}
+	}
+	if len(raw) == secretLen {
+		return raw, nil
+	}
+	return nil, fmt.Errorf(
+		"%s is %d bytes and is neither hex nor exactly %d raw bytes; "+
+			"write it as hex with `openssl rand -hex 32 > %s`",
+		path, len(raw), secretLen, path)
 }
 
 // importAccount enrols an account from a share file produced by the ceremony.
