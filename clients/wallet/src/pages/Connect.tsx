@@ -24,7 +24,7 @@ import {
   type TxStatus,
 } from '@yamale/chain';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { serveWalletRequests, fromBase64, toBase64 } from '@yamale/connect';
+import { serveWalletRequests, fromBase64, toBase64, appOriginsFor } from '@yamale/connect';
 import type { AnyRequest, AnyResult } from '@yamale/connect';
 
 import { listContacts } from '@yamale/chain';
@@ -75,9 +75,10 @@ export function ConnectPage() {
 
   useEffect(() => {
     return serveWalletRequests({
-      // Every app here is served by the same nginx as this wallet. On a network
-      // carrying value this becomes an explicit list.
-      allowedOrigins: '*',
+      // An explicit list: on wallet.yamaletech.com the app subdomains, on an
+      // old host only that host. '*' only for development, whose servers sit
+      // on arbitrary ports.
+      allowedOrigins: import.meta.env.DEV ? '*' : appOriginsFor(window.location.origin),
       onRequest: (request, origin) =>
         new Promise<AnyResult>((resolve) => setPending({ request, origin, resolve })),
     });

@@ -19,6 +19,7 @@ services:
     volumes:
       - /opt/yamale/gate/nginx.conf:/etc/nginx/nginx.conf:ro
       - /opt/yamale/gate/snippets:/etc/nginx/snippets:ro
+      - /srv/chain:/srv/chain:ro
       - /etc/yamale/gate/yamale-supervisors:/etc/nginx/yamale-supervisors:ro
       # The supervisor route's access log is its audit trail ("the log names who
       # did it"), so it is kept on the host, not on a tmpfs that a restart empties.

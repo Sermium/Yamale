@@ -29,7 +29,7 @@
  */
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { YamaleWallet } from '@yamale/connect';
+import { YamaleWallet, walletUrlFor } from '@yamale/connect';
 import {
   ChainSigner,
   translateError,
@@ -70,7 +70,7 @@ export const CHAIN: ChainInfo = {
  * it should.
  */
 const WALLET_URL: string =
-  import.meta.env.VITE_WALLET_URL ?? new URL('/wallet', globalThis.location.origin).toString();
+  import.meta.env.VITE_WALLET_URL ?? walletUrlFor(globalThis.location.origin);
 
 interface WalletState {
   address: string | null;

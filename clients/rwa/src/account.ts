@@ -5,7 +5,7 @@
  * in address.ts and is tested there.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { YamaleWallet } from '@yamale/connect';
+import { YamaleWallet, walletUrlFor } from '@yamale/connect';
 
 import { looksLikeAddress, type Account } from './address.ts';
 import { CHAIN_ID } from './chain.ts';
@@ -23,7 +23,9 @@ const WATCH_KEY = 'yamale.rwa.watch';
  * rather than by configuration, matching how chain.ts holds the RPC and REST
  * endpoints, because this app has no build-time environment.
  */
-const WALLET_URL = new URL('/wallet', window.location.origin).toString();
+// On yamaletech.com that separate host exists: wallet.yamaletech.com, decided
+// from the address bar in @yamale/connect so the old hosts keep theirs.
+const WALLET_URL = walletUrlFor(window.location.origin);
 
 export interface AccountApi {
   account: Account;

@@ -9,6 +9,7 @@
  */
 export { YamaleWallet, WalletError, type ConnectOptions } from './client.ts';
 export { serveWalletRequests, type ServeOptions } from './provider.ts';
+export { walletUrlFor, appOriginsFor, APP_HOSTS } from './deployment.ts';
 export {
   PROTOCOL_VERSION,
   fromBase64,
