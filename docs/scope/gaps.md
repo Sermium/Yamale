@@ -59,15 +59,17 @@ running chain rather than the tree.
 - **The VM is not a validator yet.** Its operator applied and is funded with
   5,000 YML; the admission vote (proposal 28) expired unvoted and must be
   re-proposed. The stake is sized so the master keeps two thirds alone.
-- **yamale-us is not on the tailnet** until somebody completes its Tailscale
-  login, so wallet.yamaletech.com cannot reach the recovery service on the Pi.
-  The funnel still can.
+- ~~yamale-us is not on the tailnet~~ **Closed 2026-10-10**: it joined as
+  100.76.214.3, and wallet.yamaletech.com reaches the recovery service on the Pi.
+  The dashboard (status.yamaletech.com) shows all 31 checks green, including
+  both validators signing; pi-2 is unjailed and has an auto-unjail.
 - **The ops signer is still on the VM**, and the governance console's ops
   buttons do not work on governance.yamaletech.com until it moves (it needs the
   tailnet too, for pi-2).
-- **pi-2 is jailed again** (its node stalled on 2026-10-08 with a stuck peer,
-  not a power cut; re-synced 2026-10-10). Its feeder is paused until unjail,
-  because every report it made was refused and filled the explorer's front page.
+- ~~pi-2 is jailed again~~ **Closed 2026-10-10**: unjailed at 776268, its
+  feeder back on. `yamale-auto-unjail` on the Pi now unjails it through an
+  authz grant (MsgUnjail only) when safe, and the dashboard alerts within
+  seconds when any validator stops signing.
 - **Accounts created at the old addresses stay there.** A wallet account lives
   in the browser storage of the wallet's origin, so pay.yamalelegal.com/wallet
   and wallet.yamaletech.com are different wallets to a browser.
