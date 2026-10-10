@@ -56,9 +56,10 @@ running chain rather than the tree.
 
 **Open:**
 
-- **The VM is not a validator yet.** Its operator applied and is funded with
-  5,000 YML; the admission vote (proposal 28) expired unvoted and must be
-  re-proposed. The stake is sized so the master keeps two thirds alone.
+- ~~The VM is not a validator yet~~ **Closed 2026-10-10**: admitted by proposal
+  30 and created at block 778617 as `oracle`, 5,000 YML (2.8%), signing, with
+  its own feeder and auto-unjail. The master keeps 68.6%, so it can still make
+  blocks alone.
 - ~~yamale-us is not on the tailnet~~ **Closed 2026-10-10**: it joined as
   100.76.214.3, and wallet.yamaletech.com reaches the recovery service on the Pi.
   The dashboard (status.yamaletech.com) shows all 31 checks green, including
