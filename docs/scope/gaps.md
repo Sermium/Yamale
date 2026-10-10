@@ -35,6 +35,50 @@ running chain rather than the tree.
 
 ---
 
+## The move to yamale-us, 2026-10-10
+
+**Live and checked against the network on 2026-10-10:**
+
+- **The master validator runs on yamale-us** (OVH) since height
+  **774153**. Its key moved from the Oracle VM; the chain halted about three
+  minutes and missed no blocks. The VM runs a non-signing node with a new key.
+- **Public endpoints:** rpc.yamaletech.com and api.yamaletech.com, through the
+  same nginx gates the VM ran (unsafe RPC 403, unlisted REST 401).
+- **Every chain app on its own subdomain** of yamaletech.com, 17 of them (app is
+  pay., livestock is ladoum.) plus chain. for the hub and docs, all 200 with
+  /api/ reaching the chain. Sign-in from explorer.yamaletech.com opens
+  wallet.yamaletech.com, the one wallet origin.
+- **Faucet, custodian and the master's feeder** run on yamale-us, each with its
+  own user and only the key it needs. The faucet answers through all three entry
+  points (pay.yamaletech.com, pay.yamalelegal.com, the funnel).
+- **yamaletech.com** serves the Lovable company site (repository
+  `yamaletech-site`).
+
+**Open:**
+
+- **The VM is not a validator yet.** Its operator applied and is funded with
+  5,000 YML; the admission vote (proposal 28) expired unvoted and must be
+  re-proposed. The stake is sized so the master keeps two thirds alone.
+- **yamale-us is not on the tailnet** until somebody completes its Tailscale
+  login, so wallet.yamaletech.com cannot reach the recovery service on the Pi.
+  The funnel still can.
+- **The ops signer is still on the VM**, and the governance console's ops
+  buttons do not work on governance.yamaletech.com until it moves (it needs the
+  tailnet too, for pi-2).
+- **pi-2 is jailed again** (its node stalled on 2026-10-08 with a stuck peer,
+  not a power cut; re-synced 2026-10-10). Its feeder is paused until unjail,
+  because every report it made was refused and filled the explorer's front page.
+- **Accounts created at the old addresses stay there.** A wallet account lives
+  in the browser storage of the wallet's origin, so pay.yamalelegal.com/wallet
+  and wallet.yamaletech.com are different wallets to a browser.
+- **Caddy's apt repository answers 402 Payment Required** (Cloudsmith), so the
+  server cannot update Caddy until the source is replaced.
+- **The company site's contact form sends nothing**: its handler shows the
+  thank-you and discards the message, on Lovable's preview as well.
+- **Shared logins (yamalelegal and yamaletech) are not built.** yamalelegal's
+  accounts live in Clerk; sharing them across a second domain means changing the
+  production Clerk configuration, which is a decision, not a deployment.
+
 ## What moved between 2026-09-05 and 2026-09-13
 
 Re-read from the live chain at block **320,662** on 2026-09-13. Governance was
