@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# yamale-auto-unjail - bring a jailed validator back on its own, when that is safe.
+#
+# pi-2 was jailed on 2026-10-08 after its node stalled, and stayed jailed for two
+# days because nobody noticed: a jailed validator never re-enters by itself. This
+# runs every two minutes (yamale-auto-unjail.timer) on the validator's own host.
+#
+# It does not hold the operator's key. The operator grants a separate key - this
+# host's "unjailer", worth a few YML for fees - an x/authz GenericAuthorization
+# for /cosmos.slashing.v1beta1.MsgUnjail and nothing else. That key can unjail
+# this validator; it cannot move money, vote or change anything else.
+#
+# It unjails only when every one of these holds, and logs which one did not:
+#   - the validator is jailed, and its jail period is over;
+#   - it is NOT tombstoned: a double-sign is never undone by a script;
+#   - this node is the one that signs for it (its consensus key is this
+#     validator's), is caught up, has a peer, and has a fresh block - otherwise
+#     it would miss blocks again at once and be jailed again, for another 1%;
+#   - it has not already unjailed AU_MAX_PER_DAY times in 24 h. A validator that
+#     keeps falling over needs a person, not a loop that burns 1% each time.
+#
+# The dashboard on yamale-us (MONITOR_CHAIN_SET) alerts within seconds when the
+# validator stops signing, so a jailing is seen even when this fixes it.
+#
+#   yamale-auto-unjail            check, and unjail if all the conditions hold
+#   yamale-auto-unjail --dry-run  check, and say what it would do
+set -uo pipefail
+DRY=0
+[ "${1:-}" = "--dry-run" ] && DRY=1
+# The unit loads this as root (EnvironmentFile=); /etc/yamale need not be
+# traversable by this script's user. Sourced here only when run by hand.
+[ -n "${AU_VALOPER:-}" ] || source /etc/yamale/auto-unjail.env
+B="${AU_BINARY:-/opt/yamale/bin/blockchaind}"
+NODE="${AU_NODE:-http://127.0.0.1:26657}"
+STATE="${STATE_DIRECTORY:-/var/lib/yamale-auto-unjail}"
+MAX="${AU_MAX_PER_DAY:-3}"
+mkdir -p "$STATE"
+say() { echo "auto-unjail: $*"; }
+json() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1"; }
+
+v=$("$B" q staking validator "$AU_VALOPER" --node "$NODE" -o json 2>/dev/null) || { say "cannot read the validator from the node; nothing done"; exit 0; }
+v=$(echo "$v" | json 'json.dumps(d.get("validator", d))')
+jailed=$(echo "$v" | json 'd.get("jailed", False)')
+if [ "$jailed" != "True" ]; then
+    [ "$DRY" = 1 ] && say "not jailed: nothing to do"
+    exit 0   # the ordinary case: say nothing
+fi
+
+pubkey=$(echo "$v" | json 'd["consensus_pubkey"].get("key") or d["consensus_pubkey"].get("value",{}).get("key","")')
+info=$("$B" q slashing signing-info "{\"@type\":\"/cosmos.crypto.ed25519.PubKey\",\"key\":\"$pubkey\"}" --node "$NODE" -o json 2>/dev/null)
+info=$(echo "$info" | json 'json.dumps(d.get("val_signing_info", d))')
+if [ "$(echo "$info" | json 'd.get("tombstoned", False)')" = "True" ]; then
+    say "TOMBSTONED (double-signed): never unjailed automatically, and cannot be unjailed at all"
+    exit 0
+fi
+until=$(echo "$info" | json 'd.get("jailed_until","1970-01-01T00:00:00Z")')
+if [ "$(date -u -d "$until" +%s 2>/dev/null || echo 0)" -gt "$(date -u +%s)" ]; then
+    say "jailed until $until; waiting"
+    exit 0
+fi
+
+# This node must be the one that would sign, and ready to.
+st=$(curl -s -m 10 "$NODE/status") || { say "the node does not answer; not unjailing"; exit 0; }
+mine=$(echo "$st" | json 'd["result"]["validator_info"]["pub_key"]["value"]')
+if [ "$mine" != "$pubkey" ]; then
+    say "this node signs with a different key than the validator's; not unjailing"
+    exit 0
+fi
+if [ "$(echo "$st" | json 'd["result"]["sync_info"]["catching_up"]')" != "False" ]; then
+    say "the node is catching up; not unjailing until it is at the tip"
+    exit 0
+fi
+age=$(( $(date -u +%s) - $(date -u -d "$(echo "$st" | json 'd["result"]["sync_info"]["latest_block_time"]')" +%s) ))
+if [ "$age" -gt 60 ]; then
+    say "the node's latest block is ${age}s old; not unjailing a node that is not following the chain"
+    exit 0
+fi
+peers=$(curl -s -m 10 "$NODE/net_info" | json 'd["result"]["n_peers"]')
+if [ "${peers:-0}" -lt 1 ]; then
+    say "the node has no peers; not unjailing"
+    exit 0
+fi
+
+# The flap guard.
+now=$(date -u +%s)
+touch "$STATE/attempts"
+recent=$(awk -v cut=$((now - 86400)) '$1 > cut' "$STATE/attempts" | wc -l)
+if [ "$recent" -ge "$MAX" ]; then
+    say "HELD: already unjailed $recent times in 24 h. It keeps falling over; look at the node, then unjail by hand"
+    exit 0
+fi
+
+if [ "$DRY" = 1 ]; then
+    say "(dry run) every condition holds: would send MsgUnjail for $AU_VALOPER through the authz grant"
+    exit 0
+fi
+
+T=$(mktemp -d); trap 'rm -r "$T"' EXIT
+"$B" tx slashing unjail --from "$AU_GRANTER" --chain-id "$AU_CHAIN_ID" --node "$NODE" \
+    --generate-only -o json >"$T/unjail.json" 2>"$T/err" || { say "could not compose the unjail: $(tail -1 "$T/err")"; exit 0; }
+out=$("$B" tx authz exec "$T/unjail.json" --from "$AU_KEY" --keyring-backend test --home "$AU_KEYRING_HOME" \
+    --chain-id "$AU_CHAIN_ID" --node "$NODE" --fees "${AU_FEES:-2000uyml}" --gas 300000 --yes -o json 2>&1)
+hash=$(echo "$out" | grep -oE '[A-F0-9]{64}' | head -1)
+echo "$now" >>"$STATE/attempts"
+[ -n "$hash" ] || { say "the unjail was not broadcast: $(echo "$out" | tail -1)"; exit 0; }
+sleep 8
+res=$("$B" q tx "$hash" --node "$NODE" -o json 2>/dev/null | json '"code %s %s" % (d["code"], d.get("raw_log","")[:200])')
+say "unjail sent ($hash): $res"
