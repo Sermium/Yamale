@@ -1,0 +1,25 @@
+# The chain's nginx gates on yamale-us, in a container because the platform
+# rule is that no host nginx is installed there: Caddy alone owns 80/443.
+#
+# Host networking, so the snippets' 127.0.0.1 upstreams (the node's REST on
+# 1317, rpcgate on 26659, the faucet on 8085, the custodian on 8099) are the
+# host's own loopback, exactly as on the VM. nginx.conf listens on
+# 127.0.0.1:8081 only, so host networking publishes nothing.
+name: yamale-gate
+services:
+  nginx:
+    image: nginx:stable-alpine
+    network_mode: host
+    restart: unless-stopped
+    mem_limit: 128m
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    volumes:
+      - /opt/yamale/gate/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/yamale/gate/snippets:/etc/nginx/snippets:ro
+      - /etc/yamale/gate/yamale-supervisors:/etc/nginx/yamale-supervisors:ro
+      # The supervisor route's access log is its audit trail ("the log names who
+      # did it"), so it is kept on the host, not on a tmpfs that a restart empties.
+      - /var/log/yamale-gate:/var/log/nginx
