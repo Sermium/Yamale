@@ -64,9 +64,9 @@ running chain rather than the tree.
   100.76.214.3, and wallet.yamaletech.com reaches the recovery service on the Pi.
   The dashboard (status.yamaletech.com) shows all 31 checks green, including
   both validators signing; pi-2 is unjailed and has an auto-unjail.
-- **The ops signer is still on the VM**, and the governance console's ops
-  buttons do not work on governance.yamaletech.com until it moves (it needs the
-  tailnet too, for pi-2).
+- ~~The ops signer is still on the VM~~ **Closed 2026-10-11**: it runs on
+  yamale-us, and governance.yamaletech.com's buttons reach both signers (pi
+  locally, pi-2 over the tailnet) behind the console password.
 - ~~pi-2 is jailed again~~ **Closed 2026-10-10**: unjailed at 776268, its
   feeder back on. `yamale-auto-unjail` on the Pi now unjails it through an
   authz grant (MsgUnjail only) when safe, and the dashboard alerts within
