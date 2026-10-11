@@ -21,6 +21,7 @@ services:
       - /opt/yamale/gate/snippets:/etc/nginx/snippets:ro
       - /srv/chain:/srv/chain:ro
       - /etc/yamale/gate/yamale-supervisors:/etc/nginx/yamale-supervisors:ro
+      - /etc/yamale/gate/private:/etc/nginx/private:ro
       # The supervisor route's access log is its audit trail ("the log names who
       # did it"), so it is kept on the host, not on a tmpfs that a restart empties.
       - /var/log/yamale-gate:/var/log/nginx

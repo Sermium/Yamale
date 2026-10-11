@@ -39,12 +39,14 @@ tar xzf - -C "$S"
 # Validate the new configuration in a throwaway container before it replaces
 # the running one, so a bad snippet never takes the gate down.
 sudo install -d -m 755 /var/log/yamale-gate
+sudo install -d -o root -g 101 -m 750 /etc/yamale/gate/private
 # Read-only, as the real container is: nginx -t opens every log file, so a
 # path the container cannot write fails here rather than on start-up.
 sudo docker run --rm --network none --read-only --tmpfs /var/cache/nginx --tmpfs /var/run \
   -v /var/log/yamale-gate:/var/log/nginx -v /srv/chain:/srv/chain:ro \
   -v "$S/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$S/snippets:/etc/nginx/snippets:ro" \
   -v /etc/yamale/gate/yamale-supervisors:/etc/nginx/yamale-supervisors:ro \
+  -v /etc/yamale/gate/private:/etc/nginx/private:ro \
   nginx:stable-alpine nginx -t 2>&1 | tail -2
 sudo install -d -m 755 /opt/yamale/gate
 sudo rm -rf /opt/yamale/gate/snippets.new

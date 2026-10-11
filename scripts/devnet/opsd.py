@@ -88,7 +88,10 @@ NODE = os.environ.get("OPSD_NODE", "tcp://localhost:26657")
 # one entry by OPSD_VALIDATOR, so the map is a single fact rather than two that
 # have to be kept in agreement.
 VALIDATORS = {
-    "pi":   {"key": "alice", "home": "/opt/yamale/node"},       # signs on the VM
+    # pi signs on yamale-us since 2026-10-10, from a keyring of its own: the
+    # node's home there holds the master validator's consensus key and is
+    # readable by the chain's user alone.
+    "pi":   {"key": "alice", "home": "/opt/yamale/ops"},        # signs on yamale-us
     "pi-2": {"key": "pival", "home": "/opt/yamale/join-node"},  # signs on the Pi
 }
 
