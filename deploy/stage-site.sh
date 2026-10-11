@@ -31,7 +31,7 @@ trap 'rm -rf "$staging"' EXIT
 # The root: the presentation site and the shared stylesheets every console
 # links. README.md and build-docs.mjs are the sources of this directory, not
 # part of it.
-for f in index.html favicon.ico logo.svg mark.svg site.css yamale.css doc.css; do
+for f in index.html favicon.ico mark.png site.css yamale.css doc.css; do
   [ -f "$clients/site/$f" ] && cp "$clients/site/$f" "$staging/"
 done
 [ -d "$clients/site/docs" ] && cp -r "$clients/site/docs" "$staging/docs"

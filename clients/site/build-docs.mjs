@@ -46,12 +46,12 @@ const page = (title, body, depth, cls = 'doc') => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} — Yamale</title>
-<link rel="icon" type="image/svg+xml" href="${up}../mark.svg">
+<link rel="icon" type="image/png" href="${up}../mark.png">
 <link rel="stylesheet" href="${up}doc.css">
 </head>
 <body>
 <header class="docbar">
-  <a class="docbar__brand" href="${up}index.html"><svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" stroke-width="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" stroke-width="7.2"/></svg> Yamale <span>docs</span></a>
+  <a class="docbar__brand" href="${up}index.html"><img class="brand__mark" src="${up}../mark.png" alt=""> Yamale <span>docs</span></a>
   <a href="${up}../index.html">← back to the site</a>
 </header>
 <main class="${cls}">

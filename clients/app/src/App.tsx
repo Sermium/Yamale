@@ -70,7 +70,7 @@ export function App() {
     <div className="stage">
       <header className="stage__bar">
         <a className="stage__back" href="/">
-          <svg className="brand__mark" viewBox="0 0 64 64" aria-hidden="true" width="22" height="22"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2"/></svg>
+          <img className="brand__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={22} height={22} />
           <span>Yamale</span>
         </a>
         <span className="stage__title">Yamale Pay</span>
@@ -113,7 +113,7 @@ function Header({ profile, onSignOut }: { profile: { name: string; userId?: stri
       {/* The same mark the sign-in screen opens with. Inside the app it does
           the work a bank's logo does on a statement: says whose ledger this is,
           on a screen that is otherwise only numbers. */}
-      <img className="appbar__mark" src="mark.svg" alt="Yamale" width={30} height={30} />
+      <img className="appbar__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="Yamale" width={30} height={30} />
       <div>
         <div className="appbar__hello">{t('app.hello')}</div>
         <div className="appbar__name">{profile.name}</div>
@@ -234,7 +234,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
   if (pending) {
     return (
       <div className="welcome">
-        <img className="welcome__mark" src="mark.svg" alt="" width={56} height={56} />
+        <img className="welcome__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={56} height={56} />
         <h1>{t('app.secondStep')}</h1>
         <p className="muted">{t('app.enterCode')}</p>
         <form onSubmit={confirmOtp} className="form">
@@ -264,7 +264,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
 
   return (
     <div className="welcome">
-      <img className="welcome__mark" src="mark.svg" alt="" width={56} height={56} />
+      <img className="welcome__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={56} height={56} />
       <h1>{t('app.title')}</h1>
       <p className="muted">{t('app.tagline')}</p>
 

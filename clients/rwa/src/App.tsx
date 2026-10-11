@@ -161,7 +161,7 @@ function AppBar({ back, title, subtitle }: {
           </svg>
         </button>
       ) : (
-        <img className="y-appbar__mark" src="mark.svg" alt="" width={28} height={28} />
+        <img className="y-appbar__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={28} height={28} />
       )}
       <div className="appbar__mid">
         <div className="y-appbar__eyebrow">{subtitle}</div>
@@ -235,11 +235,7 @@ export function App() {
             that is not being drawn is just a row of text nobody asked for. */}
         <header className="y-stage__bar">
           <a className="stage__brand" href="/">
-            <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
-              <rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F" />
-              <path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2" />
-              <path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2" />
-            </svg>
+            <img src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={22} height={22} />
             <span>Yamale</span>
           </a>
           <span className="y-stage__title">{t('rwa.title')}</span>

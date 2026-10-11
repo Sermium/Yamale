@@ -1,4 +1,19 @@
-# Yamale — “Monolith” identity kit
+# Yamale — brand
+
+**Since 2026-10-11 the apps carry the Yamale Tech mark**, the gold ribbon Y of
+the company site (yamaletech.com). It exists only as a raster: `yamaletech/`
+holds the source lockup and `yamaletech/build.py`, which cuts the Y out of it
+and writes every size the apps serve (`mark.png`, `favicon.ico`, the pay app's
+home-screen icons) into each app. Change the logo by replacing
+`yamaletech/yamale-tech-lockup.png` and re-running the script; never edit the
+copies.
+
+The Monolith kit below (navy block, brass stem) is retired. It is kept as the
+record of the first identity, not for use.
+
+---
+
+## The retired “Monolith” identity kit
 
 A solid block with the Y cut clean out of it, the stem re-filled in brass. The block is the
 ledger: closed, permissioned, immovable. The cut is the transfer passing through it — two

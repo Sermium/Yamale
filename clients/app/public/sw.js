@@ -13,11 +13,11 @@
  *      that has moved on is a support problem nobody can diagnose from the
  *      outside.
  */
-const VERSION = 'yamale-v1';
+const VERSION = 'yamale-v2';
 const SHELL = [
   '/app/',
   '/app/index.html',
-  '/app/mark.svg',
+  '/app/mark.png',
   '/app/manifest.webmanifest',
 ];
 

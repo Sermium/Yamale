@@ -26,7 +26,7 @@ export function App() {
               already covers that. Built from location.hostname so it is right
               over LAN, Tailscale or a domain with no rebuild. */}
           <a href="/" className="brand">
-            <svg className="brand__mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F"/><path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2"/><path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2"/></svg>
+            <img className="brand__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" />
             Yamale <span>Safe</span>
           </a>
           <nav className="nav">

@@ -86,11 +86,7 @@ function Phone() {
           the screen that has least of it. */}
       <header className="y-stage__bar">
         <a className="wal-brand" href="/">
-          <svg viewBox="0 0 64 64" aria-hidden="true" width="22" height="22">
-            <rect x="4" y="4" width="56" height="56" rx="7" fill="#12253F" />
-            <path d="M17 17 L32 32 L47 17" fill="none" stroke="#FFFFFF" strokeWidth="7.2" />
-            <path d="M32 32 L32 49.5" fill="none" stroke="#A87B3C" strokeWidth="7.2" />
-          </svg>
+          <img src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={22} height={22} />
           <span>Yamale</span>
         </a>
         <span className="y-stage__title">Yamale Wallet</span>
@@ -165,10 +161,10 @@ function AppBar({ account, onLock }: {
   return (
     <header className="y-appbar">
       {/* Through BASE_URL, not a root-absolute path. The app is served under
-          /wallet/, so "/mark.svg" asks the site's origin and gets its 404 — and
-          a bare "mark.svg" resolves against the current route, which breaks the
+          /wallet/, so "/mark.png" asks the site's origin and gets its 404 — and
+          a bare "mark.png" resolves against the current route, which breaks the
           moment somebody is on /a/<address>. */}
-      <img className="y-appbar__mark" src={`${import.meta.env.BASE_URL}mark.svg`}
+      <img className="y-appbar__mark" src={`${import.meta.env.BASE_URL}mark.png`}
            alt="" width={30} height={30} />
       <div className="wal-appbarWho">
         <div className="y-appbar__eyebrow">{t('wal.appEyebrow')}</div>
