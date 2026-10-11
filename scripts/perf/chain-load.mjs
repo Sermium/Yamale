@@ -2,6 +2,14 @@
 //
 //   node chain-load.mjs keys <accounts>                 write accounts.json (throwaway keys)
 //   node chain-load.mjs run <perAccount> [concurrency]  sign, flood, and measure
+//   node chain-load.mjs measure <fromHeight> <toHeight> read the blocks back only
+//
+// ACCOUNTS names the accounts file (default accounts.json), so several clients
+// can flood one node at once, each with its own accounts: one client tops out
+// near 550 tx/s on signing and HTTP, which is a property of the client. With
+// NO_MEASURE=1 a client only signs and floods; run `measure` once afterwards
+// over the whole span. START_AT (a Unix time in ms) holds every client's flood
+// until the same moment, after each has finished signing.
 //
 // Each account signs its transfers OFFLINE with explicit sequence numbers, so
 // signing never waits on the chain, then the transactions are broadcast straight
@@ -43,6 +51,36 @@ async function height() {
   return Number((await rpc("status")).sync_info.latest_block_height);
 }
 
+const ACCOUNTS = process.env.ACCOUNTS ?? "accounts.json";
+
+async function measure(h0, h1) {
+  const meta = [];
+  for (let h = h0; h <= h1; h += 20) {
+    const r = await rpc("blockchain", { minHeight: String(h), maxHeight: String(Math.min(h + 19, h1)) });
+    meta.push(...r.block_metas);
+  }
+  meta.sort((x, y) => Number(x.header.height) - Number(y.header.height));
+  const rows = meta.map((m) => ({ h: Number(m.header.height), n: Number(m.num_txs), t: Date.parse(m.header.time) }));
+  const busy = rows.filter((r) => r.n > 0);
+  const committed = busy.reduce((n, r) => n + r.n, 0);
+  console.log(`\nblocks ${h0}..${h1}:`);
+  for (let i = 1; i < rows.length; i++) {
+    console.log(`  ${rows[i].h}  ${String(rows[i].n).padStart(6)} txs  ${((rows[i].t - rows[i - 1].t) / 1000).toFixed(2)} s`);
+  }
+  if (busy.length) {
+    const first = rows.find((r) => r.h === busy[0].h - 1) ?? busy[0];
+    const span = (busy[busy.length - 1].t - first.t) / 1000;
+    const peak = Math.max(...busy.map((r) => r.n));
+    console.log(`\ncommitted ${committed} txs in ${busy.length} blocks over ${span.toFixed(1)} s`);
+    console.log(`sustained ${(committed / span).toFixed(1)} tx/s; largest block ${peak} txs`);
+  }
+}
+
+if (cmd === "measure") {
+  await measure(Number(a1), Number(a2));
+  process.exit(0);
+}
+
 if (cmd === "keys") {
   const n = Number(a1 ?? 50);
   const accounts = [];
@@ -51,7 +89,7 @@ if (cmd === "keys") {
     const [acc] = await w.getAccounts();
     accounts.push({ mnemonic: w.mnemonic, address: acc.address });
   }
-  writeFileSync("accounts.json", JSON.stringify(accounts));
+  writeFileSync(ACCOUNTS, JSON.stringify(accounts));
   console.log(accounts.map((a) => a.address).join(" "));
   process.exit(0);
 }
@@ -63,7 +101,7 @@ if (cmd !== "run") {
 
 const perAccount = Number(a1 ?? 10);
 const concurrency = Number(a2 ?? 50);
-const accounts = JSON.parse(readFileSync("accounts.json", "utf8"));
+const accounts = JSON.parse(readFileSync(ACCOUNTS, "utf8"));
 
 // 1. Sign everything first, offline, so the flood measures the chain and not
 //    the signer.
@@ -96,6 +134,10 @@ console.log(`signed ${total} transfers from ${accounts.length} accounts in ${sig
 
 // 2. Flood. Each worker takes whole accounts and sends that account's
 //    transactions in sequence order.
+if (process.env.START_AT) {
+  const wait = Number(process.env.START_AT) - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+}
 const h0 = await height();
 const results = { accepted: 0, full: 0, other: 0, errors: {} };
 const floodStart = Date.now();
@@ -131,23 +173,8 @@ for (let i = 0; i < 60; i++) {
 }
 await new Promise((r) => setTimeout(r, 6000));
 const h1 = await height();
-const meta = [];
-for (let h = h0; h <= h1; h += 20) {
-  const r = await rpc("blockchain", { minHeight: String(h), maxHeight: String(Math.min(h + 19, h1)) });
-  meta.push(...r.block_metas);
+if (process.env.NO_MEASURE) {
+  console.log(`flood started at height ${h0}`);
+  process.exit(0);
 }
-meta.sort((x, y) => Number(x.header.height) - Number(y.header.height));
-const rows = meta.map((m) => ({ h: Number(m.header.height), n: Number(m.num_txs), t: Date.parse(m.header.time) }));
-const busy = rows.filter((r) => r.n > 0);
-const committed = busy.reduce((n, r) => n + r.n, 0);
-console.log(`\nblocks ${h0}..${h1}:`);
-for (let i = 1; i < rows.length; i++) {
-  console.log(`  ${rows[i].h}  ${String(rows[i].n).padStart(5)} txs  ${((rows[i].t - rows[i - 1].t) / 1000).toFixed(2)} s`);
-}
-if (busy.length) {
-  const first = rows.find((r) => r.h === busy[0].h - 1) ?? busy[0];
-  const span = (busy[busy.length - 1].t - first.t) / 1000;
-  const peak = Math.max(...busy.map((r) => r.n));
-  console.log(`\ncommitted ${committed} txs in ${busy.length} blocks over ${span.toFixed(1)} s`);
-  console.log(`sustained ${(committed / span).toFixed(1)} tx/s; largest block ${peak} txs`);
-}
+await measure(h0, h1);
