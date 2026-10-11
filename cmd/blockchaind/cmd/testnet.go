@@ -21,7 +21,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/spf13/cast"
@@ -176,19 +175,19 @@ func initAppForTestnet(app *app.App, args valArgs) *app.App {
 
 	// BANK
 	//
-	bondDenom, err := app.StakingKeeper.BondDenom(ctx)
-	handleErr(err)
-
-	defaultCoins := sdk.NewCoins(sdk.NewInt64Coin(bondDenom, 1000000000))
-
-	// Fund local accounts
+	// Fund local accounts.
+	//
+	// This chain has no x/mint (issuance is x/emission), so minting through
+	// the mint module account panics. It did so on EVERY run, funded accounts
+	// or not: strings.Split("", ",") is [""], so the loop always ran once. The
+	// command had never worked. Fund test accounts with a transaction from a
+	// funded key in the forked state instead (the foundation, say).
 	for _, accountStr := range args.accountsToFund {
-		handleErr(app.BankKeeper.MintCoins(ctx, minttypes.ModuleName, defaultCoins))
-
-		account, err := app.AuthKeeper.AddressCodec().StringToBytes(accountStr)
-		handleErr(err)
-
-		handleErr(app.BankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, account, defaultCoins))
+		if accountStr == "" {
+			continue
+		}
+		panic(fmt.Sprintf("--%s is not supported on this chain: it has no x/mint to mint from; "+
+			"fund %s with a transaction from a funded key once the testnet is running", flagAccountsToFund, accountStr))
 	}
 
 	return app
