@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"yamale/blockchain/x/herd/keeper"
 	"yamale/blockchain/x/herd/types"
@@ -137,4 +139,37 @@ func TestTheChainAgreesWithWhatTheClientCanonicalises(t *testing.T) {
 		require.NoError(t, err, in)
 		require.Equal(t, want, got, in)
 	}
+}
+
+// The read side of the same promise. The write canonicalised from the
+// one-identifier-one-animal upgrade on; the lookups did not, so a buyer who
+// typed the serial without its zeros was told no such animal existed. Found on
+// devnet-2 the morning the upgrade landed: 221/682/102/l missed animal 1.
+func TestALookupFindsTheAnimalHoweverTheIdentifierIsWritten(t *testing.T) {
+	tf := setupTransfer(t)
+	lamb := tf.animal(t, "221/682/000777/L", "982000000000777", "2025-03-03", types.SEX_FEMALE, "single")
+	q := keeper.NewQueryServerImpl(tf.k)
+
+	for _, written := range []string{"221/682/000777/L", "221/682/777/L", "221/682/777/l", " 221 / 682 / 0777 / L "} {
+		got, err := q.AnimalByNationalID(tf.env.Ctx, &types.QueryAnimalByNationalIDRequest{NationalId: written})
+		require.NoError(t, err, written)
+		require.Equal(t, lamb, got.Animal.Id, written)
+	}
+	for _, read := range []string{"982000000000777", "982 000 000 000 777", "982-000000000777"} {
+		got, err := q.AnimalByTag(tf.env.Ctx, &types.QueryAnimalByTagRequest{Tag: read})
+		require.NoError(t, err, read)
+		require.Equal(t, lamb, got.Animal.Id, read)
+	}
+
+	// Refused with the reason, not reported missing: a seven-digit serial is
+	// a different numbering scheme or a typo, and "not found" would hide which.
+	_, err := q.AnimalByNationalID(tf.env.Ctx, &types.QueryAnimalByNationalIDRequest{NationalId: "221/682/0000777/L"})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	_, err = q.AnimalByTag(tf.env.Ctx, &types.QueryAnimalByTagRequest{Tag: ""})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	// And an identifier that is well formed but registered to nobody is still
+	// simply not found.
+	_, err = q.AnimalByNationalID(tf.env.Ctx, &types.QueryAnimalByNationalIDRequest{NationalId: "221/682/999/L"})
+	require.Equal(t, codes.NotFound, status.Code(err))
 }

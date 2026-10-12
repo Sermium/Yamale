@@ -109,10 +109,21 @@ func (q queryServer) Animal(
 // AnimalByNationalID is the certificate lookup: the identifier printed on the
 // document, resolved to the record it refers to. This is the query a buyer
 // standing in a market makes.
+//
+// The identifier is canonicalised exactly as the write was, so the same animal
+// answers to 221/682/102/l and 221/682/000102/L. Without this the register made
+// one identifier mean one animal on the way in and still asked the reader to
+// type the stored form on the way out. An identifier that cannot be
+// canonicalised (a seven-digit serial, a missing part) is refused with the
+// reason rather than reported as not found.
 func (q queryServer) AnimalByNationalID(
 	ctx context.Context, req *types.QueryAnimalByNationalIDRequest,
 ) (*types.QueryAnimalResponse, error) {
-	id, err := q.ByNationalID.Get(ctx, req.NationalId)
+	key, err := CanonicalNationalID(req.NationalId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	id, err := q.ByNationalID.Get(ctx, key)
 	if err != nil {
 		if isNotFound(err) {
 			return nil, status.Errorf(codes.NotFound,
@@ -123,11 +134,20 @@ func (q queryServer) AnimalByNationalID(
 	return q.Animal(ctx, &types.QueryAnimalRequest{Id: id})
 }
 
-// AnimalByTag resolves a transponder code read in the field.
+// AnimalByTag resolves a transponder code read in the field, in any of the
+// forms a reader or a person writes it (982 000 000 000 102, 982-000000000102):
+// canonicalised as the write was.
 func (q queryServer) AnimalByTag(
 	ctx context.Context, req *types.QueryAnimalByTagRequest,
 ) (*types.QueryAnimalResponse, error) {
-	id, err := q.ByTag.Get(ctx, req.Tag)
+	key, err := CanonicalTag(req.Tag)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if key == "" {
+		return nil, status.Error(codes.InvalidArgument, "no transponder code given")
+	}
+	id, err := q.ByTag.Get(ctx, key)
 	if err != nil {
 		if isNotFound(err) {
 			return nil, status.Errorf(codes.NotFound, "no animal carrying tag %q", req.Tag)

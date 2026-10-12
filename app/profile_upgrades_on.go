@@ -10,6 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	herdkeeper "yamale/blockchain/x/herd/keeper"
 	herdtypes "yamale/blockchain/x/herd/types"
 	markettypes "yamale/blockchain/x/market/types"
 	selfcustodytypes "yamale/blockchain/x/selfcustody/types"
@@ -332,6 +333,67 @@ var profileUpgrades = []Upgrade{
 					"through an order the module can return",
 			)
 
+			return vm, nil
+		},
+	},
+	{
+		// One identifier, one animal; and an emission that stops writing nothing.
+		//
+		// No store is added and no state is rewritten: both changes are in the
+		// logic that runs after the halt, and a halt is needed only because both
+		// change what a block computes.
+		//
+		// x/herd now indexes a national identifier and a transponder code in a
+		// canonical form (serial padded to six digits, separators dropped), so
+		// 221/682/1029/L and 221/682/001029/L are the same animal rather than two.
+		// Records written before this upgrade were checked on devnet-2 on
+		// 2026-10-11 and all twelve were canonical already, so nothing is
+		// re-indexed. The handler checks again rather than trusting that, because
+		// the old binary accepts non-canonical identifiers right up to the halt.
+		// It reports what it finds and does NOT fail: a handler that errors stops
+		// the chain at this height until somebody ships another binary, and a
+		// non-canonical record is a lookup that misses, not money that moves.
+		//
+		// x/emission stops rewriting byte-identical state in every BeginBlocker.
+		Name: "one-identifier-one-animal",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			checked, stray := 0, 0
+			if err := app.HerdKeeper.Animal.Walk(ctx, nil, func(id uint64, a herdtypes.Animal) (bool, error) {
+				checked++
+				if a.NationalId != "" {
+					if c, err := herdkeeper.CanonicalNationalID(a.NationalId); err != nil || c != a.NationalId {
+						stray++
+						ctx.Logger().Error("an animal is indexed under a non-canonical national identifier; "+
+							"a lookup by its canonical form will not find it",
+							"animal", id, "stored", a.NationalId, "canonical", c)
+					}
+				}
+				if a.Tag != "" {
+					if c, err := herdkeeper.CanonicalTag(a.Tag); err != nil || c != a.Tag {
+						stray++
+						ctx.Logger().Error("an animal is indexed under a non-canonical transponder code; "+
+							"a lookup by its canonical form will not find it",
+							"animal", id, "stored", a.Tag, "canonical", c)
+					}
+				}
+				return false, nil
+			}); err != nil {
+				return nil, fmt.Errorf("walking the herd register: %w", err)
+			}
+
+			ctx.Logger().Info(
+				"one identifier now means one animal",
+				"checked", checked, "non_canonical", stray,
+				"rule", "a national identifier is indexed with its serial padded to six digits and "+
+					"its breed upper-cased; a transponder code as its fifteen digits. A serial "+
+					"longer than six digits is refused, never truncated",
+				"emission", "the BeginBlocker no longer rewrites identical state on every block",
+			)
 			return vm, nil
 		},
 	},

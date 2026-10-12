@@ -136,4 +136,24 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The settlement half of one-identifier-one-animal. x/herd is not linked
+		// into a settlement build, so only the emission change applies here: the
+		// BeginBlocker no longer rewrites identical state on every block. The
+		// entry exists because an upgrade name a binary does not know panics the
+		// node at the halt height.
+		Name: "one-identifier-one-animal",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info(
+				"one identifier, one animal: only emission applies",
+				"absent", "x/herd is not linked into a settlement build",
+				"emission", "the BeginBlocker no longer rewrites identical state on every block",
+			)
+			return vm, nil
+		},
+	},
 }
