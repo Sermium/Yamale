@@ -35,6 +35,27 @@ running chain rather than the tree.
 
 ---
 
+## one-identifier-one-animal, applied 2026-10-12
+
+**Live and checked against the network on 2026-10-12**, height 796,281
+(proposal 31): x/herd indexes national identifiers and transponder codes in
+canonical form (3881c44), x/emission no longer rewrites identical state every
+block (ad5feb8), and the herd's height-vs-seconds timestamps are documented
+(f68f2c4). The handler checked all 12 animals: 0 non-canonical. The lookups
+were canonicalised the same morning (b94e8dc, a query change, rolled out by
+restart): `221/682/102/l` finds animal 1, a seven-digit serial is refused with
+the reason. All three validators signing, dashboard 35/35.
+
+**What it cost:** the halt watcher lost its ssh session to the VM and the chain
+sat halted from 22:53 to 05:47 UTC. The swap script then failed silently on
+yamale-us (it read a node home only `yamale-chain` can open), and the VM's
+auto-unjail could not read the new binary's key format; both fixed in bed4faa.
+
+**Still open:** the followers precommit nil on most blocks (the proposal from
+the US reaches them after their 3 s wait). It was so before this upgrade, it
+counts as signed for slashing, and the master carries the chain alone, but it
+means their votes never confirm a block.
+
 ## The move to yamale-us, 2026-10-10
 
 **Live and checked against the network on 2026-10-10:**
@@ -76,11 +97,12 @@ running chain rather than the tree.
   and wallet.yamaletech.com are different wallets to a browser.
 - **Caddy's apt repository answers 402 Payment Required** (Cloudsmith), so the
   server cannot update Caddy until the source is replaced.
-- **The company site's contact form sends nothing**: its handler shows the
-  thank-you and discards the message, on Lovable's preview as well.
-- **Shared logins (yamalelegal and yamaletech) are not built.** yamalelegal's
-  accounts live in Clerk; sharing them across a second domain means changing the
-  production Clerk configuration, which is a decision, not a deployment.
+- ~~The company site's contact form sends nothing~~ **Closed 2026-10-10**: it
+  keeps its messages, read in yamaletech.com/admin.
+- ~~Shared logins are not built~~ **Closed 2026-10-11 for lex and
+  yamaletech**: yamaletech.com/login signs in with lex accounts
+  (lex.yamaletech.com, moved from qwilon that day). yamalelegal's production
+  Clerk accounts remain separate, by decision.
 
 ## What moved between 2026-09-05 and 2026-09-13
 
