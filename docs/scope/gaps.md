@@ -51,10 +51,16 @@ sat halted from 22:53 to 05:47 UTC. The swap script then failed silently on
 yamale-us (it read a node home only `yamale-chain` can open), and the VM's
 auto-unjail could not read the new binary's key format; both fixed in bed4faa.
 
-**Still open:** the followers precommit nil on most blocks (the proposal from
-the US reaches them after their 3 s wait). It was so before this upgrade, it
-counts as signed for slashing, and the master carries the chain alone, but it
-means their votes never confirm a block.
+~~**The followers precommit nil on most blocks**~~ **Closed 2026-10-12.** The
+cause was not distance. The master commits on its own vote, so it proposes,
+prevotes and precommits within milliseconds, and with CometBFT's default
+`peer_gossip_sleep_duration` of 100ms its precommit reached pi-2 about 120ms
+before the block did (seen in pi-2's consensus debug log). A validator holding
++2/3 precommits for a block it has not got precommits nil. Setting the master's
+gossip pause to 10ms took pi-2 from 4 to 27 confirmed blocks in 30 and the VM
+from 2 to 28, block times unchanged (median 5.02s). Local config on yamale-us
+(`config.toml.before-gossip-10ms` beside it), and set by
+`scripts/testnet/05-configure-peers.sh` for the testnet.
 
 ## The move to yamale-us, 2026-10-10
 
