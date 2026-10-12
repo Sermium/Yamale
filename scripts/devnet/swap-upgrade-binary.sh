@@ -25,22 +25,26 @@ UPGRADE=${1:-}
 BIN=/opt/yamale/bin/blockchaind
 NEXT=$BIN.next
 SERVICE=yamale-devnet
-HOME_DIR=/opt/yamale/node
+# No --home on the queries below: they ask the node over RPC and need nothing
+# from its home. On yamale-us the home belongs to yamale-chain, so reading it as
+# the login user failed, the query printed nothing, and under set -e the script
+# exited silently at the halt of 2026-10-12. Run it as root anyway (it stops and
+# starts the service), but no query depends on that.
 NODE=http://127.0.0.1:26657
 
 [ -x "$NEXT" ] || { echo "no staged binary at $NEXT"; exit 1; }
 
 height() {
-  "$BIN" status --home "$HOME_DIR" --node "$NODE" -o json 2>/dev/null \
+  "$BIN" status --node "$NODE" -o json 2>/dev/null \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["sync_info"]["latest_block_height"])' 2>/dev/null
 }
 plan_height() {
-  "$BIN" query upgrade plan --home "$HOME_DIR" --node "$NODE" -o json 2>/dev/null \
+  "$BIN" query upgrade plan --node "$NODE" -o json 2>/dev/null \
     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("plan",{}).get("height",""))' 2>/dev/null
 }
 
 plan_name() {
-  "$BIN" query upgrade plan --home "$HOME_DIR" --node "$NODE" -o json 2>/dev/null     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("plan",{}).get("name",""))' 2>/dev/null
+  "$BIN" query upgrade plan --node "$NODE" -o json 2>/dev/null     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("plan",{}).get("name",""))' 2>/dev/null
 }
 
 PLAN=$(plan_height)

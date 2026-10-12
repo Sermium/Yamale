@@ -46,7 +46,15 @@ if [ "$jailed" != "True" ]; then
     exit 0   # the ordinary case: say nothing
 fi
 
-pubkey=$(echo "$v" | json 'd["consensus_pubkey"].get("key") or d["consensus_pubkey"].get("value",{}).get("key","")')
+# The CLI has printed this three ways: {"@type", "key"}, {"type", "value": KEY}
+# and {"value": {"key": KEY}}. The 2026-10-12 binary prints the second, which
+# this line did not read: the key came back empty, every comparison below
+# failed, and a validator that could have been unjailed was left out.
+pubkey=$(echo "$v" | json '(lambda c: c.get("key") or (c.get("value") if isinstance(c.get("value"), str) else (c.get("value") or {}).get("key", "")))(d["consensus_pubkey"])')
+if [ -z "$pubkey" ]; then
+    say "cannot read the validator's consensus key; nothing done"
+    exit 0
+fi
 info=$("$B" q slashing signing-info "{\"@type\":\"/cosmos.crypto.ed25519.PubKey\",\"key\":\"$pubkey\"}" --node "$NODE" -o json 2>/dev/null)
 info=$(echo "$info" | json 'json.dumps(d.get("val_signing_info", d))')
 if [ "$(echo "$info" | json 'd.get("tombstoned", False)')" = "True" ]; then
