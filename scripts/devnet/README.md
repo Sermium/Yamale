@@ -113,6 +113,24 @@ same bug `tools/faucet/main.go` had — a freeze that failed in the block came
 back to the console as "sent". Requests therefore take a block to answer, which
 is what `proxy_read_timeout 70s` in the nginx snippet is for.
 
+## The Pi's node and its memory
+
+The Pi (1.8 GB) runs pi-2's node as `yamale-devnet.service` with
+`MemoryMax=1400M`. That cap does not stop a node that grows: it pushes it into
+swap. With the default `iavl-cache-size = 781250` the node grew for days until it
+was swapping continuously (sar: about 1,100 pages a second in and out from 14 Oct),
+fell behind, was jailed and re-jailed, and locked the Pi until the watchdog
+rebooted it on 2026-10-17. Since then the Pi carries:
+
+- `iavl-cache-size = 100000` in `/opt/yamale/join-node/config/app.toml`
+  (the previous file is `app.toml.bak-2026-10-17`);
+- `GOMEMLIMIT=1000MiB` in `/etc/systemd/system/yamale-devnet.service.d/memory.conf`,
+  so Go reclaims memory before it reaches the cap.
+
+Any node set up on a board this size needs both. `sysstat` records the Pi's
+load, memory and swap every 10 minutes (28 days): `sar -W -f /var/log/sysstat/saDD`
+shows whether swapping is creeping back.
+
 ## What is deliberately not here
 
 No `unsafe-reset-all` shortcut. `init-devnet.sh` removes the home directory
