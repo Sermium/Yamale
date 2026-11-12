@@ -31,16 +31,19 @@ func (k msgServer) UpdateParams(ctx context.Context, req *types.MsgUpdateParams)
 	if err := req.Params.Validate(); err != nil {
 		return nil, err
 	}
-	if req.Params.Office != "" {
-		if _, err := k.addressCodec.StringToBytes(req.Params.Office); err != nil {
-			return nil, types.ErrInvalidAddress.Wrapf("office %s", req.Params.Office)
+	params := req.Params
+	if params.Office != "" {
+		office, err := k.canonical(params.Office)
+		if err != nil {
+			return nil, types.ErrInvalidAddress.Wrapf("office %s", params.Office)
 		}
+		params.Office = office
 		if k.groupKeeper != nil {
 			if _, err := k.groupKeeper.GroupPolicyInfo(ctx,
-				&group.QueryGroupPolicyInfoRequest{Address: req.Params.Office}); err != nil {
-				return nil, types.ErrOfficeNotGroup.Wrapf("%s", req.Params.Office)
+				&group.QueryGroupPolicyInfoRequest{Address: office}); err != nil {
+				return nil, types.ErrOfficeNotGroup.Wrapf("%s", office)
 			}
 		}
 	}
-	return &types.MsgUpdateParamsResponse{}, k.Params.Set(ctx, req.Params)
+	return &types.MsgUpdateParamsResponse{}, k.Params.Set(ctx, params)
 }

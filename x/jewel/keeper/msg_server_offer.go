@@ -27,11 +27,12 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 		return nil, types.ErrOfferTarget
 	}
 	claimKey := strings.ToLower(req.ClaimKey)
+	to := ""
 	if req.To != "" {
-		if _, err := k.addressCodec.StringToBytes(req.To); err != nil {
-			return nil, types.ErrInvalidAddress.Wrapf("%s", req.To)
+		if to, err = k.canonical(req.To); err != nil {
+			return nil, err
 		}
-		if req.To == owner {
+		if to == owner {
 			return nil, types.ErrSelfOffer
 		}
 	} else if b, err := hex.DecodeString(claimKey); err != nil || len(b) != secp256k1.PubKeySize {
@@ -48,7 +49,7 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 	if err != nil {
 		return nil, err
 	}
-	offer := types.Offer{JewelId: j.Id, From: owner, To: req.To, ClaimKey: claimKey, ExpiresAt: now + p.OfferTtl}
+	offer := types.Offer{JewelId: j.Id, From: owner, To: to, ClaimKey: claimKey, ExpiresAt: now + p.OfferTtl}
 	if err := k.Offer.Set(ctx, j.Id, offer); err != nil {
 		return nil, err
 	}
@@ -100,10 +101,14 @@ func (k msgServer) AcceptOffer(ctx context.Context, req *types.MsgAcceptOffer) (
 	if err != nil {
 		return nil, err
 	}
-	if o.To == "" || o.To != req.Recipient {
+	recipient, err := k.canonical(req.Recipient)
+	if err != nil {
+		return nil, err
+	}
+	if o.To == "" || o.To != recipient {
 		return nil, types.ErrNotRecipient
 	}
-	return &types.MsgAcceptOfferResponse{}, k.transfer(ctx, &j, req.Recipient)
+	return &types.MsgAcceptOfferResponse{}, k.transfer(ctx, &j, recipient)
 }
 
 // ClaimOffer takes a jewel offered to a claim key. The key signs the
@@ -120,14 +125,18 @@ func (k msgServer) ClaimOffer(ctx context.Context, req *types.MsgClaimOffer) (*t
 	if o.ClaimKey == "" || hex.EncodeToString(req.ClaimPubKey) != o.ClaimKey {
 		return nil, types.ErrBadClaim
 	}
-	msg := types.ClaimSignBytes(k.chainID(ctx), j.Id, req.Claimer)
+	claimer, err := k.canonical(req.Claimer)
+	if err != nil {
+		return nil, err
+	}
+	msg := types.ClaimSignBytes(k.chainID(ctx), j.Id, claimer)
 	if _, ok := types.VerifySecp256k1(req.ClaimPubKey, msg, req.ClaimSignature); !ok {
 		return nil, types.ErrBadClaim
 	}
-	if req.Claimer == o.From {
+	if claimer == o.From {
 		return nil, types.ErrSelfOffer
 	}
-	return &types.MsgClaimOfferResponse{}, k.transfer(ctx, &j, req.Claimer)
+	return &types.MsgClaimOfferResponse{}, k.transfer(ctx, &j, claimer)
 }
 
 // ReportStolen flags the jewel and closes its open offer.

@@ -22,13 +22,14 @@ func (k msgServer) AdmitJeweler(ctx context.Context, req *types.MsgAdmitJeweler)
 	if name == "" {
 		return nil, types.ErrNoName
 	}
-	if _, err := k.addressCodec.StringToBytes(req.Business); err != nil {
-		return nil, types.ErrInvalidAddress.Wrapf("business %s", req.Business)
+	business, err := k.canonical(req.Business)
+	if err != nil {
+		return nil, err
 	}
-	if has, err := k.ByBusiness.Has(ctx, req.Business); err != nil {
+	if has, err := k.ByBusiness.Has(ctx, business); err != nil {
 		return nil, err
 	} else if has {
-		return nil, types.ErrBusinessTaken.Wrapf("%s", req.Business)
+		return nil, types.ErrBusinessTaken.Wrapf("%s", business)
 	}
 
 	id, err := nextID(ctx, k.NextJewelerID)
@@ -38,11 +39,11 @@ func (k msgServer) AdmitJeweler(ctx context.Context, req *types.MsgAdmitJeweler)
 	if err := k.nft.SaveClass(ctx, nft.Class{Id: types.ClassID(id), Name: name, Symbol: "JEWEL"}); err != nil {
 		return nil, err
 	}
-	j := types.Jeweler{Id: id, Name: name, Business: req.Business, Status: types.JEWELER_ACTIVE}
+	j := types.Jeweler{Id: id, Name: name, Business: business, Status: types.JEWELER_ACTIVE}
 	if err := k.Jeweler.Set(ctx, id, j); err != nil {
 		return nil, err
 	}
-	if err := k.ByBusiness.Set(ctx, req.Business, id); err != nil {
+	if err := k.ByBusiness.Set(ctx, business, id); err != nil {
 		return nil, err
 	}
 	return &types.MsgAdmitJewelerResponse{Id: id}, nil
@@ -84,10 +85,18 @@ func (k msgServer) SetStaff(ctx context.Context, req *types.MsgSetStaff) (*types
 	if err != nil {
 		return nil, err
 	}
-	if req.Business != j.Business {
+	business, err := k.canonical(req.Business)
+	if err != nil {
+		return nil, err
+	}
+	if business != j.Business {
 		return nil, types.ErrNotBusiness.Wrapf("%s", req.Business)
 	}
-	for _, s := range req.Remove {
+	for _, raw := range req.Remove {
+		s, err := k.canonical(raw)
+		if err != nil {
+			return nil, err
+		}
 		if got, err := k.ByStaff.Get(ctx, s); err == nil && got == j.Id {
 			if err := k.ByStaff.Remove(ctx, s); err != nil {
 				return nil, err
@@ -95,9 +104,10 @@ func (k msgServer) SetStaff(ctx context.Context, req *types.MsgSetStaff) (*types
 		}
 		j.Staff = slices.DeleteFunc(j.Staff, func(x string) bool { return x == s })
 	}
-	for _, s := range req.Add {
-		if _, err := k.addressCodec.StringToBytes(s); err != nil {
-			return nil, types.ErrInvalidAddress.Wrapf("staff %s", s)
+	for _, raw := range req.Add {
+		s, err := k.canonical(raw)
+		if err != nil {
+			return nil, types.ErrInvalidAddress.Wrapf("staff %s", raw)
 		}
 		got, err := k.ByStaff.Get(ctx, s)
 		switch {

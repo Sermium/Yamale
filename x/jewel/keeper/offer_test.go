@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"encoding/hex"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,34 @@ func TestAResaleNeedsTheOwnerNotTheJeweler(t *testing.T) {
 	_, someone := f.env.Addr(t)
 	_, err := f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: staff, JewelId: id, To: someone})
 	require.ErrorIs(t, err, types.ErrNotOwner, "once sold, the jeweler's staff are strangers to it")
+}
+
+// Bech32 accepts an all-upper-case spelling of the same account. It must not
+// be a second account: not a way to offer a jewel to its owner, and not a
+// recipient who cannot accept.
+func TestAnUpperCaseSpellingOfTheOwnerIsStillASelfOffer(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	owner := f.sell(t, staff, id)
+
+	_, err := f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: owner, JewelId: id, To: strings.ToUpper(owner)})
+	require.ErrorIs(t, err, types.ErrSelfOffer)
+	require.Equal(t, uint32(1), f.jewel(t, id).OwnerCount, "no fake owner in the provenance")
+}
+
+func TestAnUpperCaseRecipientIsTheSameRecipient(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	_, buyer := f.env.Addr(t)
+	_, err := f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: staff, JewelId: id, To: strings.ToUpper(buyer)})
+	require.NoError(t, err)
+
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: buyer, JewelId: id})
+	require.NoError(t, err)
+	require.Equal(t, buyer, f.owner(t, id))
+	require.Equal(t, uint32(1), f.jewel(t, id).OwnerCount)
 }
 
 func TestAnOfferIsForTheNamedRecipientAndLapses(t *testing.T) {

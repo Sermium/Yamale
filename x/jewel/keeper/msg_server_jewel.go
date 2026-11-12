@@ -12,9 +12,13 @@ import (
 
 // RegisterJewel mints a jewel into the signer's jeweler's stock.
 func (k msgServer) RegisterJewel(ctx context.Context, req *types.MsgRegisterJewel) (*types.MsgRegisterJewelResponse, error) {
-	jewelerID, err := k.ByStaff.Get(ctx, req.Staff)
+	staff, err := k.canonical(req.Staff)
+	if err != nil {
+		return nil, err
+	}
+	jewelerID, err := k.ByStaff.Get(ctx, staff)
 	if isNotFound(err) {
-		return nil, types.ErrNotStaff.Wrapf("%s", req.Staff)
+		return nil, types.ErrNotStaff.Wrapf("%s", staff)
 	}
 	if err != nil {
 		return nil, err
@@ -76,7 +80,11 @@ func (k msgServer) AmendJewel(ctx context.Context, req *types.MsgAmendJewel) (*t
 	if err != nil {
 		return nil, err
 	}
-	if _, err := k.requireStaff(ctx, req.Staff, j.JewelerId); err != nil {
+	staff, err := k.canonical(req.Staff)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := k.requireStaff(ctx, staff, j.JewelerId); err != nil {
 		return nil, err
 	}
 	if err := types.ValidateRecord(req.RecordHash, req.RecordUri); err != nil {
@@ -87,7 +95,7 @@ func (k msgServer) AmendJewel(ctx context.Context, req *types.MsgAmendJewel) (*t
 	}
 	j.Amendments = append(j.Amendments, types.Amendment{
 		RecordHash: req.RecordHash, RecordUri: req.RecordUri, Note: req.Note,
-		Staff: req.Staff, Time: k.now(ctx),
+		Staff: staff, Time: k.now(ctx),
 	})
 	if err := k.nft.Update(ctx, nft.NFT{
 		ClassId: types.ClassID(j.JewelerId), Id: types.TokenID(j.Id),

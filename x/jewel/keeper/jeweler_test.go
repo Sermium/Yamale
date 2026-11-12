@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/x/group"
@@ -60,6 +61,9 @@ func TestAPersonWorksForOneJewelerAtATime(t *testing.T) {
 	other, otherBusiness, _ := f.admit(t, "Atelier Ba")
 	_, err := f.srv.SetStaff(f.env.Ctx, &types.MsgSetStaff{Business: otherBusiness, JewelerId: other, Add: []string{staff}})
 	require.ErrorIs(t, err, types.ErrStaffTaken)
+	_, err = f.srv.SetStaff(f.env.Ctx, &types.MsgSetStaff{Business: otherBusiness, JewelerId: other,
+		Add: []string{strings.ToUpper(staff)}})
+	require.ErrorIs(t, err, types.ErrStaffTaken, "the upper-case spelling is the same person")
 }
 
 func TestOnlyTheBusinessManagesStaff(t *testing.T) {

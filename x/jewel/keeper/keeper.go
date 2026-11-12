@@ -145,6 +145,17 @@ func (k Keeper) chainID(ctx context.Context) string {
 	return sdk.UnwrapSDKContext(ctx).ChainID()
 }
 
+// canonical returns the one spelling of an account. Bech32 accepts an
+// all-upper-case string for the same account, so every address is brought
+// to this form before it is compared, used as a key or stored.
+func (k Keeper) canonical(addr string) (string, error) {
+	b, err := k.addressCodec.StringToBytes(addr)
+	if err != nil {
+		return "", types.ErrInvalidAddress.Wrapf("%s", addr)
+	}
+	return k.addressCodec.BytesToString(b)
+}
+
 // requireOffice refuses anyone but the appointed office.
 func (k Keeper) requireOffice(ctx context.Context, signer string) error {
 	p, err := k.Params.Get(ctx)
@@ -153,6 +164,10 @@ func (k Keeper) requireOffice(ctx context.Context, signer string) error {
 	}
 	if p.Office == "" {
 		return types.ErrNoOffice
+	}
+	signer, err = k.canonical(signer)
+	if err != nil {
+		return err
 	}
 	if signer != p.Office {
 		return types.ErrNotOffice.Wrapf("%s", signer)
@@ -226,6 +241,10 @@ func (k Keeper) Owner(ctx context.Context, j types.Jewel) (string, error) {
 // stock, an active member of that jeweler's staff. It returns the owner.
 func (k Keeper) actsForOwner(ctx context.Context, signer string, j types.Jewel) (string, error) {
 	owner, err := k.Owner(ctx, j)
+	if err != nil {
+		return "", err
+	}
+	signer, err = k.canonical(signer)
 	if err != nil {
 		return "", err
 	}
