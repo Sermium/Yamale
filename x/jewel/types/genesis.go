@@ -36,6 +36,7 @@ func (gs GenesisState) Validate() error {
 	}
 
 	jewels := map[uint64]bool{}
+	jewelerOf := map[uint64]uint64{}
 	inscriptions := map[string]uint64{}
 	for _, j := range gs.Jewels {
 		if j.Id == 0 || j.Id >= gs.NextJewelId {
@@ -54,6 +55,7 @@ func (gs GenesisState) Validate() error {
 		}
 		inscriptions[key] = j.Id
 		jewels[j.Id] = true
+		jewelerOf[j.Id] = j.JewelerId
 	}
 
 	for _, o := range gs.Offers {
@@ -72,6 +74,12 @@ func (gs GenesisState) Validate() error {
 		}
 		if !jewels[b.JewelId] || !jewelers[b.JewelerId] {
 			return fmt.Errorf("benefit %d names a jewel or jeweler not in this genesis", b.Id)
+		}
+		// The handler derives a benefit's jeweler from its jewel; a benefit
+		// naming another jeweler would let that jeweler's staff honour it.
+		if jewelerOf[b.JewelId] != b.JewelerId {
+			return fmt.Errorf("benefit %d names jeweler %d, but its jewel %d belongs to jeweler %d",
+				b.Id, b.JewelerId, b.JewelId, jewelerOf[b.JewelId])
 		}
 		benefits[b.Id] = true
 	}

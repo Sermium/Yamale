@@ -45,9 +45,14 @@ func TestAGenesisThatBreaksAGuaranteeIsRefused(t *testing.T) {
 			g.Jewels = append(g.Jewels, types.Jewel{Id: 2, JewelerId: 1, Inscription: "MD0001"})
 			g.NextJewelId = 3
 		},
-		"offer with both targets":  func(g *types.GenesisState) { g.Offers[0].ClaimKey = "ab" },
-		"offer on no jewel":        func(g *types.GenesisState) { g.Offers[0].JewelId = 9 },
-		"benefit on no jewel":      func(g *types.GenesisState) { g.Benefits[0].JewelId = 9 },
+		"offer with both targets": func(g *types.GenesisState) { g.Offers[0].ClaimKey = "ab" },
+		"offer on no jewel":       func(g *types.GenesisState) { g.Offers[0].JewelId = 9 },
+		"benefit on no jewel":     func(g *types.GenesisState) { g.Benefits[0].JewelId = 9 },
+		"benefit of another jeweler": func(g *types.GenesisState) {
+			g.Jewelers = append(g.Jewelers, types.Jeweler{Id: 2, Business: "b2"})
+			g.NextJewelerId = 3
+			g.Benefits[0].JewelerId = 2
+		},
 		"nonce of no benefit":      func(g *types.GenesisState) { g.UsedNonces[0].BenefitId = 9 },
 		"reassignment of no jewel": func(g *types.GenesisState) { g.Reassignments = []types.Reassignment{{JewelId: 9}} },
 	} {
