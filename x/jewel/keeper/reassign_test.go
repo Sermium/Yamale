@@ -181,3 +181,35 @@ func TestAStolenReportStopsAPendingReassignment(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrStolen)
 	require.Equal(t, owner, f.owner(t, id))
 }
+
+// The window is the least time the owner has, not the most. A veto stays
+// possible after it closes, until someone completes the reassignment: an owner
+// who turns up late still keeps their jewel.
+func TestTheOwnerMayStillVetoAfterTheWindowUntilItIsCompleted(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	owner := f.sell(t, staff, id)
+	_, claimant := f.env.Addr(t)
+	_, err := f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: claimant, Reason: "claimant says the key is lost"})
+	require.NoError(t, err)
+
+	f.advance(month + time.Second)
+	_, err = f.srv.VetoReassignment(f.env.Ctx, &types.MsgVetoReassignment{Owner: owner, JewelId: id})
+	require.NoError(t, err, "late, but nobody had completed it")
+	_, err = f.srv.CompleteReassignment(f.env.Ctx, &types.MsgCompleteReassignment{Creator: claimant, JewelId: id})
+	require.ErrorIs(t, err, types.ErrNoReassignment)
+	require.Equal(t, owner, f.owner(t, id))
+
+	// Once it is completed, there is nothing left to veto.
+	_, err = f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: claimant, Reason: "second request"})
+	require.NoError(t, err)
+	f.advance(month + time.Second)
+	_, err = f.srv.CompleteReassignment(f.env.Ctx, &types.MsgCompleteReassignment{Creator: claimant, JewelId: id})
+	require.NoError(t, err)
+	_, err = f.srv.VetoReassignment(f.env.Ctx, &types.MsgVetoReassignment{Owner: owner, JewelId: id})
+	require.ErrorIs(t, err, types.ErrNoReassignment)
+	require.Equal(t, claimant, f.owner(t, id))
+}

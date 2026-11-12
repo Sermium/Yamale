@@ -21,21 +21,30 @@ enum JewelerStatus {
 
 // Jeweler is a business the office has admitted.
 message Jeweler {
+  // id is the jeweler's number, assigned by the chain at admission; never 0.
   uint64 id = 1;
+  // name is the business's display name, as the office admitted it.
   string name = 2;
   // business holds the jeweler's stock and manages its staff.
   string business = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // staff act for the jeweler. A person works for one jeweler at a time.
   repeated string staff = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // status says whether the jeweler may act; the office sets it.
   JewelerStatus status = 5;
 }
 
 // Amendment is a correction appended to a jewel's record. The original and
-// every correction stay visible.
+// every correction stay visible. A jewel carries at most 50, each with a note
+// of at most 500 bytes: the amendments live inside the jewel's record, which
+// every change of owner rewrites.
 message Amendment {
+  // record_hash is the SHA-256, in lower-case hex, of the corrected record file.
   string record_hash = 1;
+  // record_uri is where the corrected record file can be fetched; at most 512 characters.
   string record_uri = 2;
+  // note says what was corrected and why, in the staff member's words; at most 500 bytes.
   string note = 3;
+  // staff is the staff member who appended it.
   string staff = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // time is the block time, in unix seconds.
   int64 time = 5;
@@ -44,7 +53,9 @@ message Amendment {
 // Jewel is one registered piece. Its token is x/nft class jewel-<jeweler_id>,
 // id jewel-<id>. Ownership is x/nft's and is not copied here.
 message Jewel {
+  // id is the jewel's number, assigned by the chain at registration; never 0.
   uint64 id = 1;
+  // jeweler_id is the jeweler that registered it, and whose collection holds its token.
   uint64 jeweler_id = 2;
   // inscription is the normalised laser inscription: upper case, separators
   // removed.
@@ -52,12 +63,15 @@ message Jewel {
   // record_hash is the SHA-256, in lower-case hex, of the record file
   // (photos, materials, origin) as first registered.
   string record_hash = 4;
+  // record_uri is where that record file can be fetched; at most 512 characters.
   string record_uri = 5;
   // registered_at is the block time of registration, in unix seconds.
   int64 registered_at = 6;
   // owner_count counts owners since the jeweler sold it. Zero in stock.
   uint32 owner_count = 7;
+  // stolen is set while the owner reports it stolen; no offer or reassignment opens then.
   bool stolen = 8;
+  // amendments are the corrections staff appended, oldest first; at most 50.
   repeated Amendment amendments = 9 [(gogoproto.nullable) = false];
   // owner_since holds, for each owner since the jeweler sold it, the block
   // time in unix seconds at which they became the owner: the date of each
@@ -69,8 +83,10 @@ message Jewel {
 // Offer proposes handing a jewel to someone. Exactly one of to and claim_key
 // is set.
 message Offer {
+  // jewel_id is the jewel offered.
   uint64 jewel_id = 1;
-  // from is the owner when the offer was made.
+  // from is the owner the offer speaks for. It can be taken only while the
+  // jewel still belongs to from.
   string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // to is the recipient, when they already have an account.
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
@@ -78,7 +94,7 @@ message Offer {
   // one-time key sent by email, when the recipient has no account yet. The
   // claimer proves it by signing their own address with it.
   string claim_key = 4;
-  // expires_at is in unix seconds.
+  // expires_at is when the offer lapses, in unix seconds.
   int64 expires_at = 5;
   // maker is the account that signed the offer: equal to from when the
   // owner made it, or the staff member who offered the jeweler's stock. A
@@ -90,8 +106,11 @@ message Offer {
 // Benefit is a service a jeweler attaches to a jewel. It passes with the
 // jewel to each new owner.
 message Benefit {
+  // id is the benefit's number, assigned by the chain; never 0.
   uint64 id = 1;
+  // jewel_id is the jewel it is attached to; it passes with the jewel to each owner.
   uint64 jewel_id = 2;
+  // jeweler_id is the jeweler whose staff honour it: the jewel's own jeweler.
   uint64 jeweler_id = 3;
   // kind is the service as the jeweler words it, e.g. "cleaning".
   string kind = 4;
@@ -100,7 +119,8 @@ message Benefit {
   // period is the rolling window, in seconds, the allowance applies to. Zero
   // means the allowance covers the benefit's whole life.
   int64 period = 6;
-  // expires_at is in unix seconds. Zero means it does not expire.
+  // expires_at is when the benefit ends, in unix seconds. Zero means it does
+  // not expire.
   int64 expires_at = 7;
   // uses are the block times, in unix seconds, of every use.
   repeated int64 uses = 8;
@@ -109,21 +129,28 @@ message Benefit {
 // Reassignment is the office's proposal to move a jewel whose owner has lost
 // their key. The owner may veto it until window_ends.
 message Reassignment {
+  // jewel_id is the jewel to be moved.
   uint64 jewel_id = 1;
   // from is the owner when it was proposed. A later change of owner voids it.
   string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the account the office proposes to move it to.
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // reason is the office's public account of why, written when it proposed.
   string reason = 4;
-  // window_ends is in unix seconds.
+  // window_ends is when the veto window closes, in unix seconds. The owner
+  // may still veto after it, until someone completes the reassignment.
   int64 window_ends = 5;
 }
 
 // Voucher is what the owner's app signs to consent to one use of a benefit.
 message Voucher {
+  // benefit_id is the benefit to use.
   uint64 benefit_id = 1;
+  // jewel_id is the benefit's jewel; it must match the benefit's.
   uint64 jewel_id = 2;
   // nonce is single-use, at most 64 characters.
   string nonce = 3;
-  // expires_at is in unix seconds.
+  // expires_at is when the voucher stops being valid, in unix seconds; at
+  // most voucher_max_ttl after the block that redeems it.
   int64 expires_at = 4;
 }

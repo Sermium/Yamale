@@ -33,8 +33,10 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // MsgUpdateParams is the message that carries out UpdateParams.
 type MsgUpdateParams struct {
+	// authority is the governance module account, the only signer accepted.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
-	Params    Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
+	// params replace the settings whole; office must be a group policy account.
+	Params Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params"`
 }
 
 func (m *MsgUpdateParams) Reset()         { *m = MsgUpdateParams{} }
@@ -123,8 +125,11 @@ var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 // MsgAdmitJeweler is the message that carries out AdmitJeweler.
 type MsgAdmitJeweler struct {
-	Office   string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
-	Name     string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// office is the register's office, the signer.
+	Office string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// name is the business's display name.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// business is the account that will hold the stock and manage staff.
 	Business string `protobuf:"bytes,3,opt,name=business,proto3" json:"business,omitempty"`
 }
 
@@ -184,6 +189,7 @@ func (m *MsgAdmitJeweler) GetBusiness() string {
 
 // MsgAdmitJewelerResponse is the result of MsgAdmitJeweler.
 type MsgAdmitJewelerResponse struct {
+	// id is the new jeweler's id.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
@@ -229,9 +235,12 @@ func (m *MsgAdmitJewelerResponse) GetId() uint64 {
 
 // MsgSuspendJeweler is the message that carries out SuspendJeweler.
 type MsgSuspendJeweler struct {
-	Office    string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// office is the register's office, the signer.
+	Office string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// jeweler_id is the jeweler to suspend.
 	JewelerId uint64 `protobuf:"varint,2,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
-	Reason    string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	// reason is the office's public account of why; required.
+	Reason string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
 }
 
 func (m *MsgSuspendJeweler) Reset()         { *m = MsgSuspendJeweler{} }
@@ -327,7 +336,9 @@ var xxx_messageInfo_MsgSuspendJewelerResponse proto.InternalMessageInfo
 
 // MsgReinstateJeweler is the message that carries out ReinstateJeweler.
 type MsgReinstateJeweler struct {
-	Office    string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// office is the register's office, the signer.
+	Office string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// jeweler_id is the jeweler to reinstate.
 	JewelerId uint64 `protobuf:"varint,2,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
 }
 
@@ -417,10 +428,14 @@ var xxx_messageInfo_MsgReinstateJewelerResponse proto.InternalMessageInfo
 
 // MsgSetStaff is the message that carries out SetStaff.
 type MsgSetStaff struct {
-	Business  string   `protobuf:"bytes,1,opt,name=business,proto3" json:"business,omitempty"`
-	JewelerId uint64   `protobuf:"varint,2,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
-	Add       []string `protobuf:"bytes,3,rep,name=add,proto3" json:"add,omitempty"`
-	Remove    []string `protobuf:"bytes,4,rep,name=remove,proto3" json:"remove,omitempty"`
+	// business is the jeweler's business account, the signer.
+	Business string `protobuf:"bytes,1,opt,name=business,proto3" json:"business,omitempty"`
+	// jeweler_id is the jeweler whose staff change.
+	JewelerId uint64 `protobuf:"varint,2,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
+	// add are accounts to act for the jeweler; none may work for another.
+	Add []string `protobuf:"bytes,3,rep,name=add,proto3" json:"add,omitempty"`
+	// remove are accounts that stop acting for it, at once.
+	Remove []string `protobuf:"bytes,4,rep,name=remove,proto3" json:"remove,omitempty"`
 }
 
 func (m *MsgSetStaff) Reset()         { *m = MsgSetStaff{} }
@@ -523,10 +538,14 @@ var xxx_messageInfo_MsgSetStaffResponse proto.InternalMessageInfo
 
 // MsgRegisterJewel is the message that carries out RegisterJewel.
 type MsgRegisterJewel struct {
-	Staff       string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// staff is the staff member registering it, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// inscription is the laser inscription as typed; separators and case are normalised.
 	Inscription string `protobuf:"bytes,2,opt,name=inscription,proto3" json:"inscription,omitempty"`
-	RecordHash  string `protobuf:"bytes,3,opt,name=record_hash,json=recordHash,proto3" json:"record_hash,omitempty"`
-	RecordUri   string `protobuf:"bytes,4,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
+	// record_hash is the SHA-256, in lower-case hex, of the record file.
+	RecordHash string `protobuf:"bytes,3,opt,name=record_hash,json=recordHash,proto3" json:"record_hash,omitempty"`
+	// record_uri is where the record file can be fetched; at most 512 characters.
+	RecordUri string `protobuf:"bytes,4,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
 }
 
 func (m *MsgRegisterJewel) Reset()         { *m = MsgRegisterJewel{} }
@@ -592,6 +611,7 @@ func (m *MsgRegisterJewel) GetRecordUri() string {
 
 // MsgRegisterJewelResponse is the result of MsgRegisterJewel.
 type MsgRegisterJewelResponse struct {
+	// id is the new jewel's id.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
@@ -635,13 +655,19 @@ func (m *MsgRegisterJewelResponse) GetId() uint64 {
 	return 0
 }
 
-// MsgAmendJewel is the message that carries out AmendJewel.
+// MsgAmendJewel is the message that carries out AmendJewel. A jewel carries
+// at most 50 amendments, each with a note of at most 500 bytes.
 type MsgAmendJewel struct {
-	Staff      string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
-	JewelId    uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// staff is a staff member of the jewel's own jeweler, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// jewel_id is the jewel to correct.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// record_hash is the SHA-256, in lower-case hex, of the corrected record file.
 	RecordHash string `protobuf:"bytes,3,opt,name=record_hash,json=recordHash,proto3" json:"record_hash,omitempty"`
-	RecordUri  string `protobuf:"bytes,4,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
-	Note       string `protobuf:"bytes,5,opt,name=note,proto3" json:"note,omitempty"`
+	// record_uri is where the corrected record file can be fetched; at most 512 characters.
+	RecordUri string `protobuf:"bytes,4,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
+	// note says what was corrected; required, at most 500 bytes.
+	Note string `protobuf:"bytes,5,opt,name=note,proto3" json:"note,omitempty"`
 }
 
 func (m *MsgAmendJewel) Reset()         { *m = MsgAmendJewel{} }
@@ -752,9 +778,12 @@ var xxx_messageInfo_MsgAmendJewelResponse proto.InternalMessageInfo
 // MsgOfferJewel is the message that carries out OfferJewel.
 type MsgOfferJewel struct {
 	// owner is the jewel's owner, or a staff member while it is stock.
-	Owner    string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
-	JewelId  uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
-	To       string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// jewel_id is the jewel to offer.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// to is the recipient's account; set this or claim_key, not both.
+	To string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	// claim_key is a one-time key's compressed secp256k1 public key in hex, for a recipient with no account yet.
 	ClaimKey string `protobuf:"bytes,4,opt,name=claim_key,json=claimKey,proto3" json:"claim_key,omitempty"`
 }
 
@@ -821,6 +850,7 @@ func (m *MsgOfferJewel) GetClaimKey() string {
 
 // MsgOfferJewelResponse is the result of MsgOfferJewel.
 type MsgOfferJewelResponse struct {
+	// expires_at is when the offer lapses, in unix seconds.
 	ExpiresAt int64 `protobuf:"varint,1,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 }
 
@@ -866,7 +896,9 @@ func (m *MsgOfferJewelResponse) GetExpiresAt() int64 {
 
 // MsgCancelOffer is the message that carries out CancelOffer.
 type MsgCancelOffer struct {
-	Owner   string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// owner is the jewel's owner, or a staff member while it is stock; the signer.
+	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// jewel_id is the jewel whose offer to close.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 
@@ -956,8 +988,10 @@ var xxx_messageInfo_MsgCancelOfferResponse proto.InternalMessageInfo
 
 // MsgAcceptOffer is the message that carries out AcceptOffer.
 type MsgAcceptOffer struct {
+	// recipient is the account the offer names, the signer.
 	Recipient string `protobuf:"bytes,1,opt,name=recipient,proto3" json:"recipient,omitempty"`
-	JewelId   uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// jewel_id is the jewel to take.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 
 func (m *MsgAcceptOffer) Reset()         { *m = MsgAcceptOffer{} }
@@ -1046,7 +1080,9 @@ var xxx_messageInfo_MsgAcceptOfferResponse proto.InternalMessageInfo
 
 // MsgClaimOffer is the message that carries out ClaimOffer.
 type MsgClaimOffer struct {
+	// claimer is the account that receives the jewel, the signer.
 	Claimer string `protobuf:"bytes,1,opt,name=claimer,proto3" json:"claimer,omitempty"`
+	// jewel_id is the jewel to claim.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 	// claim_pub_key is the compressed secp256k1 public key of the claim key.
 	ClaimPubKey []byte `protobuf:"bytes,3,opt,name=claim_pub_key,json=claimPubKey,proto3" json:"claim_pub_key,omitempty"`
@@ -1154,7 +1190,9 @@ var xxx_messageInfo_MsgClaimOfferResponse proto.InternalMessageInfo
 
 // MsgReportStolen is the message that carries out ReportStolen.
 type MsgReportStolen struct {
-	Owner   string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// owner is the jewel's owner, or a staff member while it is stock; the signer.
+	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// jewel_id is the jewel to flag.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 
@@ -1244,7 +1282,9 @@ var xxx_messageInfo_MsgReportStolenResponse proto.InternalMessageInfo
 
 // MsgClearStolen is the message that carries out ClearStolen.
 type MsgClearStolen struct {
-	Owner   string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// owner is the jewel's owner, or a staff member while it is stock; the signer.
+	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// jewel_id is the jewel to clear.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 
@@ -1334,12 +1374,18 @@ var xxx_messageInfo_MsgClearStolenResponse proto.InternalMessageInfo
 
 // MsgAttachBenefit is the message that carries out AttachBenefit.
 type MsgAttachBenefit struct {
-	Staff     string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
-	JewelId   uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
-	Kind      string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// staff is a staff member of the jewel's own jeweler, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// jewel_id is the jewel to attach it to.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// kind is the service as the jeweler words it, e.g. "cleaning"; at most 80 characters.
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// allowance is how many uses fit in one period; at least 1.
 	Allowance uint32 `protobuf:"varint,4,opt,name=allowance,proto3" json:"allowance,omitempty"`
-	Period    int64  `protobuf:"varint,5,opt,name=period,proto3" json:"period,omitempty"`
-	ExpiresAt int64  `protobuf:"varint,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// period is the rolling window the allowance applies to, in seconds; 0 means the whole life.
+	Period int64 `protobuf:"varint,5,opt,name=period,proto3" json:"period,omitempty"`
+	// expires_at is when the benefit ends, in unix seconds; 0 means never.
+	ExpiresAt int64 `protobuf:"varint,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 }
 
 func (m *MsgAttachBenefit) Reset()         { *m = MsgAttachBenefit{} }
@@ -1419,6 +1465,7 @@ func (m *MsgAttachBenefit) GetExpiresAt() int64 {
 
 // MsgAttachBenefitResponse is the result of MsgAttachBenefit.
 type MsgAttachBenefitResponse struct {
+	// id is the new benefit's id.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
@@ -1464,7 +1511,9 @@ func (m *MsgAttachBenefitResponse) GetId() uint64 {
 
 // MsgRedeemBenefit is the message that carries out RedeemBenefit.
 type MsgRedeemBenefit struct {
-	Staff   string  `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// staff is a staff member of the benefit's jeweler, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// voucher is what the owner's app signed, shown to staff as a code.
 	Voucher Voucher `protobuf:"bytes,2,opt,name=voucher,proto3" json:"voucher"`
 	// owner_pub_key is the compressed secp256k1 public key of the owner.
 	OwnerPubKey []byte `protobuf:"bytes,3,opt,name=owner_pub_key,json=ownerPubKey,proto3" json:"owner_pub_key,omitempty"`
@@ -1572,10 +1621,14 @@ var xxx_messageInfo_MsgRedeemBenefitResponse proto.InternalMessageInfo
 
 // MsgProposeReassignment is the message that carries out ProposeReassignment.
 type MsgProposeReassignment struct {
-	Office  string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// office is the register's office, the signer.
+	Office string `protobuf:"bytes,1,opt,name=office,proto3" json:"office,omitempty"`
+	// jewel_id is the jewel to move.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
-	To      string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	Reason  string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	// to is the account to move it to.
+	To string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	// reason is the office's public account of why; required.
+	Reason string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
 }
 
 func (m *MsgProposeReassignment) Reset()         { *m = MsgProposeReassignment{} }
@@ -1641,6 +1694,7 @@ func (m *MsgProposeReassignment) GetReason() string {
 
 // MsgProposeReassignmentResponse is the result of MsgProposeReassignment.
 type MsgProposeReassignmentResponse struct {
+	// window_ends is when the veto window closes, in unix seconds.
 	WindowEnds int64 `protobuf:"varint,1,opt,name=window_ends,json=windowEnds,proto3" json:"window_ends,omitempty"`
 }
 
@@ -1686,7 +1740,9 @@ func (m *MsgProposeReassignmentResponse) GetWindowEnds() int64 {
 
 // MsgVetoReassignment is the message that carries out VetoReassignment.
 type MsgVetoReassignment struct {
-	Owner   string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// owner is the jewel's current owner, the signer.
+	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	// jewel_id is the jewel whose reassignment to refuse.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 
@@ -1776,7 +1832,9 @@ var xxx_messageInfo_MsgVetoReassignmentResponse proto.InternalMessageInfo
 
 // MsgCompleteReassignment is the message that carries out CompleteReassignment.
 type MsgCompleteReassignment struct {
+	// creator is any account, the signer; it pays the fee.
 	Creator string `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"`
+	// jewel_id is the jewel whose reassignment to complete.
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 }
 

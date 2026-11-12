@@ -56,8 +56,11 @@ func (k msgServer) ProposeReassignment(ctx context.Context, req *types.MsgPropos
 	return &types.MsgProposeReassignmentResponse{WindowEnds: r.WindowEnds}, nil
 }
 
-// VetoReassignment closes it. The current owner's key only: a jewel's stock
-// is never reassigned, so staff have no say here.
+// VetoReassignment closes it. The current owner's key only, and for stock
+// that means the business account itself: staff act for the business in
+// selling, not in refusing to let the office move a jewel. A veto stays
+// possible after the window ends, until someone completes the reassignment;
+// the window is the least time the owner has, not the most.
 func (k msgServer) VetoReassignment(ctx context.Context, req *types.MsgVetoReassignment) (*types.MsgVetoReassignmentResponse, error) {
 	j, err := k.getJewel(ctx, req.JewelId)
 	if err != nil {

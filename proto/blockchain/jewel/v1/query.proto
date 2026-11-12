@@ -39,48 +39,60 @@ service Query {
 message QueryParamsRequest {}
 // QueryParamsResponse is the result of QueryParams.
 message QueryParamsResponse {
+  // params are the register's settings, office included.
   Params params = 1 [(gogoproto.nullable) = false];
 }
 
 // QueryJewelerRequest asks for Jeweler.
 message QueryJewelerRequest {
+  // id is the jeweler to show.
   uint64 id = 1;
 }
 // QueryJewelerResponse is the result of QueryJeweler.
 message QueryJewelerResponse {
+  // jeweler is the jeweler asked for.
   Jeweler jeweler = 1 [(gogoproto.nullable) = false];
 }
 
 // QueryJewelersRequest asks for Jewelers.
 message QueryJewelersRequest {
+  // pagination pages through the jewelers in id order.
   cosmos.base.query.v1beta1.PageRequest pagination = 1;
 }
 // QueryJewelersResponse is the result of QueryJewelers.
 message QueryJewelersResponse {
+  // jewelers are this page of jewelers.
   repeated Jeweler jewelers = 1 [(gogoproto.nullable) = false];
+  // pagination is the key to the next page.
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // QueryJewelRequest asks for Jewel.
 message QueryJewelRequest {
+  // id is the jewel to show.
   uint64 id = 1;
 }
 // QueryJewelResponse is the result of QueryJewel.
 message QueryJewelResponse {
+  // jewel is the register's record of it.
   Jewel jewel = 1 [(gogoproto.nullable) = false];
+  // owner is its current owner, read from x/nft.
   string owner = 2;
   // offer is set while an offer is open, expired or not.
   Offer offer = 3;
   // reassignment is set while one is pending.
   Reassignment reassignment = 4;
+  // benefits are the benefits attached to it.
   repeated Benefit benefits = 5 [(gogoproto.nullable) = false];
 }
 
 // QueryJewelsByInscriptionRequest asks for JewelsByInscription.
 message QueryJewelsByInscriptionRequest {
+  // inscription is the code as read off the metal; it is normalised before the search.
   string inscription = 1;
 }
 // QueryJewelsByInscriptionResponse is the result of QueryJewelsByInscription.
 message QueryJewelsByInscriptionResponse {
+  // jewels are every jewel carrying it, at most 50.
   repeated Jewel jewels = 1 [(gogoproto.nullable) = false];
 }

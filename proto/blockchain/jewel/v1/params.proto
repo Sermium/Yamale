@@ -21,6 +21,6 @@ message Params {
   // voucher_max_ttl is the longest a benefit voucher may live, in seconds.
   int64 voucher_max_ttl = 3;
   // reassignment_window is how long a proposed reassignment stays open to
-  // the owner's veto, in seconds.
+  // the owner's veto, in seconds; at least 604800 (7 days).
   int64 reassignment_window = 4;
 }

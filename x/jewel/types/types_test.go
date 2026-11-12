@@ -51,11 +51,16 @@ func TestParamsThatDisableAProtectionAreRefused(t *testing.T) {
 		func(p *types.Params) { p.VoucherMaxTtl = 0 },
 		func(p *types.Params) { p.VoucherMaxTtl = 3601 },
 		func(p *types.Params) { p.ReassignmentWindow = 0 },
+		// An owner travelling for a week must still be able to object.
+		func(p *types.Params) { p.ReassignmentWindow = 7*24*3600 - 1 },
 	} {
 		p := types.DefaultParams()
 		mutate(&p)
 		require.Error(t, p.Validate())
 	}
+	p := types.DefaultParams()
+	p.ReassignmentWindow = 7 * 24 * 3600
+	require.NoError(t, p.Validate(), "a week is the shortest window allowed")
 }
 
 // A signature by the right key over the right bytes verifies, and names the

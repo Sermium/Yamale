@@ -2,6 +2,11 @@ package types
 
 import "fmt"
 
+// MinReassignmentWindow is the shortest veto window governance may set, in
+// seconds: a week, so an owner who is away still hears of a reassignment in
+// time to refuse it.
+const MinReassignmentWindow = 7 * 24 * 3600
+
 // DefaultParams are the spec's numbers. The office stays empty: appointing it
 // is governance's act, not a default.
 func DefaultParams() Params {
@@ -20,8 +25,9 @@ func (p Params) Validate() error {
 	if p.VoucherMaxTtl <= 0 || p.VoucherMaxTtl > 3600 {
 		return fmt.Errorf("voucher_max_ttl must be between 1 and 3600 seconds; a long-lived voucher is a benefit someone can spend without the owner present, got %d", p.VoucherMaxTtl)
 	}
-	if p.ReassignmentWindow <= 0 {
-		return fmt.Errorf("reassignment_window must be positive; at zero the office could move a jewel before its owner could object, got %d", p.ReassignmentWindow)
+	if p.ReassignmentWindow < MinReassignmentWindow {
+		return fmt.Errorf("reassignment_window must be at least %d seconds (7 days); a shorter window could move a jewel before its owner heard of it, got %d",
+			MinReassignmentWindow, p.ReassignmentWindow)
 	}
 	return nil
 }

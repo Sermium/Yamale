@@ -57,7 +57,9 @@ service Msg {
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "blockchain/x/jewel/MsgUpdateParams";
+  // authority is the governance module account, the only signer accepted.
   string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // params replace the settings whole; office must be a group policy account.
   Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 }
 // MsgUpdateParamsResponse is the result of MsgUpdateParams.
@@ -67,12 +69,16 @@ message MsgUpdateParamsResponse {}
 message MsgAdmitJeweler {
   option (cosmos.msg.v1.signer) = "office";
   option (amino.name) = "blockchain/x/jewel/MsgAdmitJeweler";
+  // office is the register's office, the signer.
   string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // name is the business's display name.
   string name = 2;
+  // business is the account that will hold the stock and manage staff.
   string business = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
 // MsgAdmitJewelerResponse is the result of MsgAdmitJeweler.
 message MsgAdmitJewelerResponse {
+  // id is the new jeweler's id.
   uint64 id = 1;
 }
 
@@ -80,8 +86,11 @@ message MsgAdmitJewelerResponse {
 message MsgSuspendJeweler {
   option (cosmos.msg.v1.signer) = "office";
   option (amino.name) = "blockchain/x/jewel/MsgSuspendJeweler";
+  // office is the register's office, the signer.
   string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jeweler_id is the jeweler to suspend.
   uint64 jeweler_id = 2;
+  // reason is the office's public account of why; required.
   string reason = 3;
 }
 // MsgSuspendJewelerResponse is the result of MsgSuspendJeweler.
@@ -91,7 +100,9 @@ message MsgSuspendJewelerResponse {}
 message MsgReinstateJeweler {
   option (cosmos.msg.v1.signer) = "office";
   option (amino.name) = "blockchain/x/jewel/MsgReinstateJeweler";
+  // office is the register's office, the signer.
   string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jeweler_id is the jeweler to reinstate.
   uint64 jeweler_id = 2;
 }
 // MsgReinstateJewelerResponse is the result of MsgReinstateJeweler.
@@ -101,9 +112,13 @@ message MsgReinstateJewelerResponse {}
 message MsgSetStaff {
   option (cosmos.msg.v1.signer) = "business";
   option (amino.name) = "blockchain/x/jewel/MsgSetStaff";
+  // business is the jeweler's business account, the signer.
   string business = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jeweler_id is the jeweler whose staff change.
   uint64 jeweler_id = 2;
+  // add are accounts to act for the jeweler; none may work for another.
   repeated string add = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // remove are accounts that stop acting for it, at once.
   repeated string remove = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
 // MsgSetStaffResponse is the result of MsgSetStaff.
@@ -113,24 +128,35 @@ message MsgSetStaffResponse {}
 message MsgRegisterJewel {
   option (cosmos.msg.v1.signer) = "staff";
   option (amino.name) = "blockchain/x/jewel/MsgRegisterJewel";
+  // staff is the staff member registering it, the signer.
   string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // inscription is the laser inscription as typed; separators and case are normalised.
   string inscription = 2;
+  // record_hash is the SHA-256, in lower-case hex, of the record file.
   string record_hash = 3;
+  // record_uri is where the record file can be fetched; at most 512 characters.
   string record_uri = 4;
 }
 // MsgRegisterJewelResponse is the result of MsgRegisterJewel.
 message MsgRegisterJewelResponse {
+  // id is the new jewel's id.
   uint64 id = 1;
 }
 
-// MsgAmendJewel is the message that carries out AmendJewel.
+// MsgAmendJewel is the message that carries out AmendJewel. A jewel carries
+// at most 50 amendments, each with a note of at most 500 bytes.
 message MsgAmendJewel {
   option (cosmos.msg.v1.signer) = "staff";
   option (amino.name) = "blockchain/x/jewel/MsgAmendJewel";
+  // staff is a staff member of the jewel's own jeweler, the signer.
   string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to correct.
   uint64 jewel_id = 2;
+  // record_hash is the SHA-256, in lower-case hex, of the corrected record file.
   string record_hash = 3;
+  // record_uri is where the corrected record file can be fetched; at most 512 characters.
   string record_uri = 4;
+  // note says what was corrected; required, at most 500 bytes.
   string note = 5;
 }
 // MsgAmendJewelResponse is the result of MsgAmendJewel.
@@ -142,12 +168,16 @@ message MsgOfferJewel {
   option (amino.name) = "blockchain/x/jewel/MsgOfferJewel";
   // owner is the jewel's owner, or a staff member while it is stock.
   string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to offer.
   uint64 jewel_id = 2;
+  // to is the recipient's account; set this or claim_key, not both.
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // claim_key is a one-time key's compressed secp256k1 public key in hex, for a recipient with no account yet.
   string claim_key = 4;
 }
 // MsgOfferJewelResponse is the result of MsgOfferJewel.
 message MsgOfferJewelResponse {
+  // expires_at is when the offer lapses, in unix seconds.
   int64 expires_at = 1;
 }
 
@@ -155,7 +185,9 @@ message MsgOfferJewelResponse {
 message MsgCancelOffer {
   option (cosmos.msg.v1.signer) = "owner";
   option (amino.name) = "blockchain/x/jewel/MsgCancelOffer";
+  // owner is the jewel's owner, or a staff member while it is stock; the signer.
   string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose offer to close.
   uint64 jewel_id = 2;
 }
 // MsgCancelOfferResponse is the result of MsgCancelOffer.
@@ -165,7 +197,9 @@ message MsgCancelOfferResponse {}
 message MsgAcceptOffer {
   option (cosmos.msg.v1.signer) = "recipient";
   option (amino.name) = "blockchain/x/jewel/MsgAcceptOffer";
+  // recipient is the account the offer names, the signer.
   string recipient = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to take.
   uint64 jewel_id = 2;
 }
 // MsgAcceptOfferResponse is the result of MsgAcceptOffer.
@@ -175,7 +209,9 @@ message MsgAcceptOfferResponse {}
 message MsgClaimOffer {
   option (cosmos.msg.v1.signer) = "claimer";
   option (amino.name) = "blockchain/x/jewel/MsgClaimOffer";
+  // claimer is the account that receives the jewel, the signer.
   string claimer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to claim.
   uint64 jewel_id = 2;
   // claim_pub_key is the compressed secp256k1 public key of the claim key.
   bytes claim_pub_key = 3;
@@ -189,7 +225,9 @@ message MsgClaimOfferResponse {}
 message MsgReportStolen {
   option (cosmos.msg.v1.signer) = "owner";
   option (amino.name) = "blockchain/x/jewel/MsgReportStolen";
+  // owner is the jewel's owner, or a staff member while it is stock; the signer.
   string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to flag.
   uint64 jewel_id = 2;
 }
 // MsgReportStolenResponse is the result of MsgReportStolen.
@@ -199,7 +237,9 @@ message MsgReportStolenResponse {}
 message MsgClearStolen {
   option (cosmos.msg.v1.signer) = "owner";
   option (amino.name) = "blockchain/x/jewel/MsgClearStolen";
+  // owner is the jewel's owner, or a staff member while it is stock; the signer.
   string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to clear.
   uint64 jewel_id = 2;
 }
 // MsgClearStolenResponse is the result of MsgClearStolen.
@@ -209,15 +249,22 @@ message MsgClearStolenResponse {}
 message MsgAttachBenefit {
   option (cosmos.msg.v1.signer) = "staff";
   option (amino.name) = "blockchain/x/jewel/MsgAttachBenefit";
+  // staff is a staff member of the jewel's own jeweler, the signer.
   string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to attach it to.
   uint64 jewel_id = 2;
+  // kind is the service as the jeweler words it, e.g. "cleaning"; at most 80 characters.
   string kind = 3;
+  // allowance is how many uses fit in one period; at least 1.
   uint32 allowance = 4;
+  // period is the rolling window the allowance applies to, in seconds; 0 means the whole life.
   int64 period = 5;
+  // expires_at is when the benefit ends, in unix seconds; 0 means never.
   int64 expires_at = 6;
 }
 // MsgAttachBenefitResponse is the result of MsgAttachBenefit.
 message MsgAttachBenefitResponse {
+  // id is the new benefit's id.
   uint64 id = 1;
 }
 
@@ -225,7 +272,9 @@ message MsgAttachBenefitResponse {
 message MsgRedeemBenefit {
   option (cosmos.msg.v1.signer) = "staff";
   option (amino.name) = "blockchain/x/jewel/MsgRedeemBenefit";
+  // staff is a staff member of the benefit's jeweler, the signer.
   string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // voucher is what the owner's app signed, shown to staff as a code.
   Voucher voucher = 2 [(gogoproto.nullable) = false];
   // owner_pub_key is the compressed secp256k1 public key of the owner.
   bytes owner_pub_key = 3;
@@ -239,13 +288,18 @@ message MsgRedeemBenefitResponse {}
 message MsgProposeReassignment {
   option (cosmos.msg.v1.signer) = "office";
   option (amino.name) = "blockchain/x/jewel/MsgProposeReassignment";
+  // office is the register's office, the signer.
   string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to move.
   uint64 jewel_id = 2;
+  // to is the account to move it to.
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // reason is the office's public account of why; required.
   string reason = 4;
 }
 // MsgProposeReassignmentResponse is the result of MsgProposeReassignment.
 message MsgProposeReassignmentResponse {
+  // window_ends is when the veto window closes, in unix seconds.
   int64 window_ends = 1;
 }
 
@@ -253,7 +307,9 @@ message MsgProposeReassignmentResponse {
 message MsgVetoReassignment {
   option (cosmos.msg.v1.signer) = "owner";
   option (amino.name) = "blockchain/x/jewel/MsgVetoReassignment";
+  // owner is the jewel's current owner, the signer.
   string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose reassignment to refuse.
   uint64 jewel_id = 2;
 }
 // MsgVetoReassignmentResponse is the result of MsgVetoReassignment.
@@ -263,7 +319,9 @@ message MsgVetoReassignmentResponse {}
 message MsgCompleteReassignment {
   option (cosmos.msg.v1.signer) = "creator";
   option (amino.name) = "blockchain/x/jewel/MsgCompleteReassignment";
+  // creator is any account, the signer; it pays the fee.
   string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose reassignment to complete.
   uint64 jewel_id = 2;
 }
 // MsgCompleteReassignmentResponse is the result of MsgCompleteReassignment.

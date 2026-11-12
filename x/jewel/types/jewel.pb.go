@@ -59,12 +59,15 @@ func (JewelerStatus) EnumDescriptor() ([]byte, []int) {
 
 // Jeweler is a business the office has admitted.
 type Jeweler struct {
-	Id   uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// id is the jeweler's number, assigned by the chain at admission; never 0.
+	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// name is the business's display name, as the office admitted it.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// business holds the jeweler's stock and manages its staff.
 	Business string `protobuf:"bytes,3,opt,name=business,proto3" json:"business,omitempty"`
 	// staff act for the jeweler. A person works for one jeweler at a time.
-	Staff  []string      `protobuf:"bytes,4,rep,name=staff,proto3" json:"staff,omitempty"`
+	Staff []string `protobuf:"bytes,4,rep,name=staff,proto3" json:"staff,omitempty"`
+	// status says whether the jeweler may act; the office sets it.
 	Status JewelerStatus `protobuf:"varint,5,opt,name=status,proto3,enum=blockchain.jewel.v1.JewelerStatus" json:"status,omitempty"`
 }
 
@@ -137,12 +140,18 @@ func (m *Jeweler) GetStatus() JewelerStatus {
 }
 
 // Amendment is a correction appended to a jewel's record. The original and
-// every correction stay visible.
+// every correction stay visible. A jewel carries at most 50, each with a note
+// of at most 500 bytes: the amendments live inside the jewel's record, which
+// every change of owner rewrites.
 type Amendment struct {
+	// record_hash is the SHA-256, in lower-case hex, of the corrected record file.
 	RecordHash string `protobuf:"bytes,1,opt,name=record_hash,json=recordHash,proto3" json:"record_hash,omitempty"`
-	RecordUri  string `protobuf:"bytes,2,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
-	Note       string `protobuf:"bytes,3,opt,name=note,proto3" json:"note,omitempty"`
-	Staff      string `protobuf:"bytes,4,opt,name=staff,proto3" json:"staff,omitempty"`
+	// record_uri is where the corrected record file can be fetched; at most 512 characters.
+	RecordUri string `protobuf:"bytes,2,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
+	// note says what was corrected and why, in the staff member's words; at most 500 bytes.
+	Note string `protobuf:"bytes,3,opt,name=note,proto3" json:"note,omitempty"`
+	// staff is the staff member who appended it.
+	Staff string `protobuf:"bytes,4,opt,name=staff,proto3" json:"staff,omitempty"`
 	// time is the block time, in unix seconds.
 	Time int64 `protobuf:"varint,5,opt,name=time,proto3" json:"time,omitempty"`
 }
@@ -218,7 +227,9 @@ func (m *Amendment) GetTime() int64 {
 // Jewel is one registered piece. Its token is x/nft class jewel-<jeweler_id>,
 // id jewel-<id>. Ownership is x/nft's and is not copied here.
 type Jewel struct {
-	Id        uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// id is the jewel's number, assigned by the chain at registration; never 0.
+	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// jeweler_id is the jeweler that registered it, and whose collection holds its token.
 	JewelerId uint64 `protobuf:"varint,2,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
 	// inscription is the normalised laser inscription: upper case, separators
 	// removed.
@@ -226,12 +237,15 @@ type Jewel struct {
 	// record_hash is the SHA-256, in lower-case hex, of the record file
 	// (photos, materials, origin) as first registered.
 	RecordHash string `protobuf:"bytes,4,opt,name=record_hash,json=recordHash,proto3" json:"record_hash,omitempty"`
-	RecordUri  string `protobuf:"bytes,5,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
+	// record_uri is where that record file can be fetched; at most 512 characters.
+	RecordUri string `protobuf:"bytes,5,opt,name=record_uri,json=recordUri,proto3" json:"record_uri,omitempty"`
 	// registered_at is the block time of registration, in unix seconds.
 	RegisteredAt int64 `protobuf:"varint,6,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
 	// owner_count counts owners since the jeweler sold it. Zero in stock.
-	OwnerCount uint32      `protobuf:"varint,7,opt,name=owner_count,json=ownerCount,proto3" json:"owner_count,omitempty"`
-	Stolen     bool        `protobuf:"varint,8,opt,name=stolen,proto3" json:"stolen,omitempty"`
+	OwnerCount uint32 `protobuf:"varint,7,opt,name=owner_count,json=ownerCount,proto3" json:"owner_count,omitempty"`
+	// stolen is set while the owner reports it stolen; no offer or reassignment opens then.
+	Stolen bool `protobuf:"varint,8,opt,name=stolen,proto3" json:"stolen,omitempty"`
+	// amendments are the corrections staff appended, oldest first; at most 50.
 	Amendments []Amendment `protobuf:"bytes,9,rep,name=amendments,proto3" json:"amendments"`
 	// owner_since holds, for each owner since the jeweler sold it, the block
 	// time in unix seconds at which they became the owner: the date of each
@@ -346,8 +360,10 @@ func (m *Jewel) GetOwnerSince() []int64 {
 // Offer proposes handing a jewel to someone. Exactly one of to and claim_key
 // is set.
 type Offer struct {
+	// jewel_id is the jewel offered.
 	JewelId uint64 `protobuf:"varint,1,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
-	// from is the owner when the offer was made.
+	// from is the owner the offer speaks for. It can be taken only while the
+	// jewel still belongs to from.
 	From string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	// to is the recipient, when they already have an account.
 	To string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
@@ -355,7 +371,7 @@ type Offer struct {
 	// one-time key sent by email, when the recipient has no account yet. The
 	// claimer proves it by signing their own address with it.
 	ClaimKey string `protobuf:"bytes,4,opt,name=claim_key,json=claimKey,proto3" json:"claim_key,omitempty"`
-	// expires_at is in unix seconds.
+	// expires_at is when the offer lapses, in unix seconds.
 	ExpiresAt int64 `protobuf:"varint,5,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// maker is the account that signed the offer: equal to from when the
 	// owner made it, or the staff member who offered the jeweler's stock. A
@@ -442,8 +458,11 @@ func (m *Offer) GetMaker() string {
 // Benefit is a service a jeweler attaches to a jewel. It passes with the
 // jewel to each new owner.
 type Benefit struct {
-	Id        uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	JewelId   uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// id is the benefit's number, assigned by the chain; never 0.
+	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// jewel_id is the jewel it is attached to; it passes with the jewel to each owner.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// jeweler_id is the jeweler whose staff honour it: the jewel's own jeweler.
 	JewelerId uint64 `protobuf:"varint,3,opt,name=jeweler_id,json=jewelerId,proto3" json:"jeweler_id,omitempty"`
 	// kind is the service as the jeweler words it, e.g. "cleaning".
 	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
@@ -452,7 +471,8 @@ type Benefit struct {
 	// period is the rolling window, in seconds, the allowance applies to. Zero
 	// means the allowance covers the benefit's whole life.
 	Period int64 `protobuf:"varint,6,opt,name=period,proto3" json:"period,omitempty"`
-	// expires_at is in unix seconds. Zero means it does not expire.
+	// expires_at is when the benefit ends, in unix seconds. Zero means it does
+	// not expire.
 	ExpiresAt int64 `protobuf:"varint,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// uses are the block times, in unix seconds, of every use.
 	Uses []int64 `protobuf:"varint,8,rep,packed,name=uses,proto3" json:"uses,omitempty"`
@@ -550,12 +570,16 @@ func (m *Benefit) GetUses() []int64 {
 // Reassignment is the office's proposal to move a jewel whose owner has lost
 // their key. The owner may veto it until window_ends.
 type Reassignment struct {
+	// jewel_id is the jewel to be moved.
 	JewelId uint64 `protobuf:"varint,1,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 	// from is the owner when it was proposed. A later change of owner voids it.
-	From   string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	To     string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	From string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	// to is the account the office proposes to move it to.
+	To string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	// reason is the office's public account of why, written when it proposed.
 	Reason string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
-	// window_ends is in unix seconds.
+	// window_ends is when the veto window closes, in unix seconds. The owner
+	// may still veto after it, until someone completes the reassignment.
 	WindowEnds int64 `protobuf:"varint,5,opt,name=window_ends,json=windowEnds,proto3" json:"window_ends,omitempty"`
 }
 
@@ -629,11 +653,14 @@ func (m *Reassignment) GetWindowEnds() int64 {
 
 // Voucher is what the owner's app signs to consent to one use of a benefit.
 type Voucher struct {
+	// benefit_id is the benefit to use.
 	BenefitId uint64 `protobuf:"varint,1,opt,name=benefit_id,json=benefitId,proto3" json:"benefit_id,omitempty"`
-	JewelId   uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// jewel_id is the benefit's jewel; it must match the benefit's.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 	// nonce is single-use, at most 64 characters.
 	Nonce string `protobuf:"bytes,3,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	// expires_at is in unix seconds.
+	// expires_at is when the voucher stops being valid, in unix seconds; at
+	// most voucher_max_ttl after the block that redeems it.
 	ExpiresAt int64 `protobuf:"varint,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 }
 

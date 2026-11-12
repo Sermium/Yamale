@@ -69,6 +69,7 @@ var xxx_messageInfo_QueryParamsRequest proto.InternalMessageInfo
 
 // QueryParamsResponse is the result of QueryParams.
 type QueryParamsResponse struct {
+	// params are the register's settings, office included.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
 }
 
@@ -114,6 +115,7 @@ func (m *QueryParamsResponse) GetParams() Params {
 
 // QueryJewelerRequest asks for Jeweler.
 type QueryJewelerRequest struct {
+	// id is the jeweler to show.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
@@ -159,6 +161,7 @@ func (m *QueryJewelerRequest) GetId() uint64 {
 
 // QueryJewelerResponse is the result of QueryJeweler.
 type QueryJewelerResponse struct {
+	// jeweler is the jeweler asked for.
 	Jeweler Jeweler `protobuf:"bytes,1,opt,name=jeweler,proto3" json:"jeweler"`
 }
 
@@ -204,6 +207,7 @@ func (m *QueryJewelerResponse) GetJeweler() Jeweler {
 
 // QueryJewelersRequest asks for Jewelers.
 type QueryJewelersRequest struct {
+	// pagination pages through the jewelers in id order.
 	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
@@ -249,7 +253,9 @@ func (m *QueryJewelersRequest) GetPagination() *query.PageRequest {
 
 // QueryJewelersResponse is the result of QueryJewelers.
 type QueryJewelersResponse struct {
-	Jewelers   []Jeweler           `protobuf:"bytes,1,rep,name=jewelers,proto3" json:"jewelers"`
+	// jewelers are this page of jewelers.
+	Jewelers []Jeweler `protobuf:"bytes,1,rep,name=jewelers,proto3" json:"jewelers"`
+	// pagination is the key to the next page.
 	Pagination *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
@@ -302,6 +308,7 @@ func (m *QueryJewelersResponse) GetPagination() *query.PageResponse {
 
 // QueryJewelRequest asks for Jewel.
 type QueryJewelRequest struct {
+	// id is the jewel to show.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
@@ -347,13 +354,16 @@ func (m *QueryJewelRequest) GetId() uint64 {
 
 // QueryJewelResponse is the result of QueryJewel.
 type QueryJewelResponse struct {
-	Jewel Jewel  `protobuf:"bytes,1,opt,name=jewel,proto3" json:"jewel"`
+	// jewel is the register's record of it.
+	Jewel Jewel `protobuf:"bytes,1,opt,name=jewel,proto3" json:"jewel"`
+	// owner is its current owner, read from x/nft.
 	Owner string `protobuf:"bytes,2,opt,name=owner,proto3" json:"owner,omitempty"`
 	// offer is set while an offer is open, expired or not.
 	Offer *Offer `protobuf:"bytes,3,opt,name=offer,proto3" json:"offer,omitempty"`
 	// reassignment is set while one is pending.
 	Reassignment *Reassignment `protobuf:"bytes,4,opt,name=reassignment,proto3" json:"reassignment,omitempty"`
-	Benefits     []Benefit     `protobuf:"bytes,5,rep,name=benefits,proto3" json:"benefits"`
+	// benefits are the benefits attached to it.
+	Benefits []Benefit `protobuf:"bytes,5,rep,name=benefits,proto3" json:"benefits"`
 }
 
 func (m *QueryJewelResponse) Reset()         { *m = QueryJewelResponse{} }
@@ -426,6 +436,7 @@ func (m *QueryJewelResponse) GetBenefits() []Benefit {
 
 // QueryJewelsByInscriptionRequest asks for JewelsByInscription.
 type QueryJewelsByInscriptionRequest struct {
+	// inscription is the code as read off the metal; it is normalised before the search.
 	Inscription string `protobuf:"bytes,1,opt,name=inscription,proto3" json:"inscription,omitempty"`
 }
 
@@ -471,6 +482,7 @@ func (m *QueryJewelsByInscriptionRequest) GetInscription() string {
 
 // QueryJewelsByInscriptionResponse is the result of QueryJewelsByInscription.
 type QueryJewelsByInscriptionResponse struct {
+	// jewels are every jewel carrying it, at most 50.
 	Jewels []Jewel `protobuf:"bytes,1,rep,name=jewels,proto3" json:"jewels"`
 }
 

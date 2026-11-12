@@ -25,8 +25,10 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // UsedNonce is a voucher already spent.
 type UsedNonce struct {
+	// benefit_id is the benefit the voucher was for.
 	BenefitId uint64 `protobuf:"varint,1,opt,name=benefit_id,json=benefitId,proto3" json:"benefit_id,omitempty"`
-	Nonce     string `protobuf:"bytes,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	// nonce is the voucher's single-use nonce.
+	Nonce string `protobuf:"bytes,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
 }
 
 func (m *UsedNonce) Reset()         { *m = UsedNonce{} }
@@ -79,16 +81,26 @@ func (m *UsedNonce) GetNonce() string {
 // GenesisState carries the whole register. Indexes are rebuilt from it. The
 // counters are exported rather than derived, so an import keeps its numbering.
 type GenesisState struct {
-	Params        Params         `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
-	Jewelers      []Jeweler      `protobuf:"bytes,2,rep,name=jewelers,proto3" json:"jewelers"`
-	Jewels        []Jewel        `protobuf:"bytes,3,rep,name=jewels,proto3" json:"jewels"`
-	Offers        []Offer        `protobuf:"bytes,4,rep,name=offers,proto3" json:"offers"`
-	Benefits      []Benefit      `protobuf:"bytes,5,rep,name=benefits,proto3" json:"benefits"`
-	UsedNonces    []UsedNonce    `protobuf:"bytes,6,rep,name=used_nonces,json=usedNonces,proto3" json:"used_nonces"`
+	// params are the register's settings.
+	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// jewelers are every admitted jeweler, suspended ones included.
+	Jewelers []Jeweler `protobuf:"bytes,2,rep,name=jewelers,proto3" json:"jewelers"`
+	// jewels are every registered jewel; their owners are x/nft's.
+	Jewels []Jewel `protobuf:"bytes,3,rep,name=jewels,proto3" json:"jewels"`
+	// offers are the open offers, at most one per jewel.
+	Offers []Offer `protobuf:"bytes,4,rep,name=offers,proto3" json:"offers"`
+	// benefits are every attached benefit, with its uses.
+	Benefits []Benefit `protobuf:"bytes,5,rep,name=benefits,proto3" json:"benefits"`
+	// used_nonces are the vouchers already spent.
+	UsedNonces []UsedNonce `protobuf:"bytes,6,rep,name=used_nonces,json=usedNonces,proto3" json:"used_nonces"`
+	// reassignments are the pending reassignments, at most one per jewel.
 	Reassignments []Reassignment `protobuf:"bytes,7,rep,name=reassignments,proto3" json:"reassignments"`
-	NextJewelerId uint64         `protobuf:"varint,8,opt,name=next_jeweler_id,json=nextJewelerId,proto3" json:"next_jeweler_id,omitempty"`
-	NextJewelId   uint64         `protobuf:"varint,9,opt,name=next_jewel_id,json=nextJewelId,proto3" json:"next_jewel_id,omitempty"`
-	NextBenefitId uint64         `protobuf:"varint,10,opt,name=next_benefit_id,json=nextBenefitId,proto3" json:"next_benefit_id,omitempty"`
+	// next_jeweler_id is the next jeweler id the chain will assign.
+	NextJewelerId uint64 `protobuf:"varint,8,opt,name=next_jeweler_id,json=nextJewelerId,proto3" json:"next_jeweler_id,omitempty"`
+	// next_jewel_id is the next jewel id the chain will assign.
+	NextJewelId uint64 `protobuf:"varint,9,opt,name=next_jewel_id,json=nextJewelId,proto3" json:"next_jewel_id,omitempty"`
+	// next_benefit_id is the next benefit id the chain will assign.
+	NextBenefitId uint64 `protobuf:"varint,10,opt,name=next_benefit_id,json=nextBenefitId,proto3" json:"next_benefit_id,omitempty"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }

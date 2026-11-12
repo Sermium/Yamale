@@ -36,7 +36,7 @@ type Params struct {
 	// voucher_max_ttl is the longest a benefit voucher may live, in seconds.
 	VoucherMaxTtl int64 `protobuf:"varint,3,opt,name=voucher_max_ttl,json=voucherMaxTtl,proto3" json:"voucher_max_ttl,omitempty"`
 	// reassignment_window is how long a proposed reassignment stays open to
-	// the owner's veto, in seconds.
+	// the owner's veto, in seconds; at least 604800 (7 days).
 	ReassignmentWindow int64 `protobuf:"varint,4,opt,name=reassignment_window,json=reassignmentWindow,proto3" json:"reassignment_window,omitempty"`
 }
 
