@@ -1,0 +1,56 @@
+package types
+
+import (
+	"fmt"
+
+	"cosmossdk.io/collections"
+)
+
+const (
+	// ModuleName defines the module name.
+	ModuleName = "jewel"
+
+	// StoreKey defines the primary module store key.
+	StoreKey = ModuleName
+
+	// GovModuleName duplicates the gov module's name to avoid a dependency.
+	GovModuleName = "gov"
+
+	// NFTSendTypeURL is x/nft's own send. It skips the offer and acceptance,
+	// the stolen flag and the owner count, so x/circuit must disable it, and
+	// this module refuses to start registering while it is open.
+	NFTSendTypeURL = "/cosmos.nft.v1beta1.MsgSend"
+
+	// MaxSearchResults bounds JewelsByInscription. Two jewelers may share a
+	// code; two hundred sharing one is not a search, it is a scan.
+	MaxSearchResults = 50
+)
+
+// Prefixes. "jewel" is a byte-prefix of "jeweler", and collections refuses
+// overlapping prefixes, so the records are "maker" and "piece".
+var (
+	ParamsKey       = collections.NewPrefix("p_jewel")
+	JewelerKey      = collections.NewPrefix("maker")
+	JewelKey        = collections.NewPrefix("piece")
+	OfferKey        = collections.NewPrefix("offer")
+	BenefitKey      = collections.NewPrefix("benefit")
+	ReassignmentKey = collections.NewPrefix("reassign")
+	UsedNonceKey    = collections.NewPrefix("used_nonce")
+
+	// The indexes, each one there because the alternative is a scan.
+	ByBusinessKey      = collections.NewPrefix("idx_business")
+	ByStaffKey         = collections.NewPrefix("idx_staff")
+	ByInscriptionKey   = collections.NewPrefix("idx_inscription")
+	SearchKey          = collections.NewPrefix("idx_search")
+	BenefitsByJewelKey = collections.NewPrefix("idx_benefits_by_piece")
+
+	NextJewelerIDKey = collections.NewPrefix("next_maker_id")
+	NextJewelIDKey   = collections.NewPrefix("next_piece_id")
+	NextBenefitIDKey = collections.NewPrefix("next_benefit_id")
+)
+
+// ClassID is the x/nft class holding one jeweler's jewels.
+func ClassID(jewelerID uint64) string { return fmt.Sprintf("jewel-%d", jewelerID) }
+
+// TokenID is the x/nft id of one jewel.
+func TokenID(jewelID uint64) string { return fmt.Sprintf("jewel-%d", jewelID) }

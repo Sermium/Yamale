@@ -1,0 +1,86 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "blockchain/jewel/v1/jewel.proto";
+import "blockchain/jewel/v1/params.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// Query is the read side, and what the public verification page calls.
+service Query {
+  // Params returns the settings and the office.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/params";
+  }
+  // Jeweler returns one jeweler.
+  rpc Jeweler(QueryJewelerRequest) returns (QueryJewelerResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/jeweler/{id}";
+  }
+  // Jewelers lists the jewelers, suspended ones included.
+  rpc Jewelers(QueryJewelersRequest) returns (QueryJewelersResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewelers";
+  }
+  // Jewel returns one jewel with its owner, open offer, pending reassignment
+  // and benefits.
+  rpc Jewel(QueryJewelRequest) returns (QueryJewelResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewel/{id}";
+  }
+  // JewelsByInscription finds every jewel carrying an inscription, whichever
+  // jeweler registered it. At most 50.
+  rpc JewelsByInscription(QueryJewelsByInscriptionRequest) returns (QueryJewelsByInscriptionResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/inscription/{inscription}";
+  }
+}
+
+// QueryParamsRequest asks for Params.
+message QueryParamsRequest {}
+// QueryParamsResponse is the result of QueryParams.
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryJewelerRequest asks for Jeweler.
+message QueryJewelerRequest {
+  uint64 id = 1;
+}
+// QueryJewelerResponse is the result of QueryJeweler.
+message QueryJewelerResponse {
+  Jeweler jeweler = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryJewelersRequest asks for Jewelers.
+message QueryJewelersRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+// QueryJewelersResponse is the result of QueryJewelers.
+message QueryJewelersResponse {
+  repeated Jeweler jewelers = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryJewelRequest asks for Jewel.
+message QueryJewelRequest {
+  uint64 id = 1;
+}
+// QueryJewelResponse is the result of QueryJewel.
+message QueryJewelResponse {
+  Jewel jewel = 1 [(gogoproto.nullable) = false];
+  string owner = 2;
+  // offer is set while an offer is open, expired or not.
+  Offer offer = 3;
+  // reassignment is set while one is pending.
+  Reassignment reassignment = 4;
+  repeated Benefit benefits = 5 [(gogoproto.nullable) = false];
+}
+
+// QueryJewelsByInscriptionRequest asks for JewelsByInscription.
+message QueryJewelsByInscriptionRequest {
+  string inscription = 1;
+}
+// QueryJewelsByInscriptionResponse is the result of QueryJewelsByInscription.
+message QueryJewelsByInscriptionResponse {
+  repeated Jewel jewels = 1 [(gogoproto.nullable) = false];
+}

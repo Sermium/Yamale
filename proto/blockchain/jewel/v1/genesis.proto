@@ -1,0 +1,29 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "blockchain/jewel/v1/jewel.proto";
+import "blockchain/jewel/v1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// UsedNonce is a voucher already spent.
+message UsedNonce {
+  uint64 benefit_id = 1;
+  string nonce = 2;
+}
+
+// GenesisState carries the whole register. Indexes are rebuilt from it. The
+// counters are exported rather than derived, so an import keeps its numbering.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  repeated Jeweler jewelers = 2 [(gogoproto.nullable) = false];
+  repeated Jewel jewels = 3 [(gogoproto.nullable) = false];
+  repeated Offer offers = 4 [(gogoproto.nullable) = false];
+  repeated Benefit benefits = 5 [(gogoproto.nullable) = false];
+  repeated UsedNonce used_nonces = 6 [(gogoproto.nullable) = false];
+  repeated Reassignment reassignments = 7 [(gogoproto.nullable) = false];
+  uint64 next_jeweler_id = 8;
+  uint64 next_jewel_id = 9;
+  uint64 next_benefit_id = 10;
+}

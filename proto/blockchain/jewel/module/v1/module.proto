@@ -1,0 +1,18 @@
+syntax = "proto3";
+package blockchain.jewel.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// Module is the config object for the jewel register.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {go_import: "yamale/blockchain/x/jewel"};
+
+  // authority defines the custom module authority.
+  //
+  // If not set, defaults to the governance module. Governance appoints the
+  // office, and the office admits jewelers: an office that could appoint
+  // itself could admit a jeweler that mints forgeries under a real name.
+  string authority = 1;
+}

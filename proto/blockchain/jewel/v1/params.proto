@@ -1,0 +1,26 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// Params are the register's settings. Governance sets them.
+message Params {
+  option (amino.name) = "blockchain/x/jewel/Params";
+  option (gogoproto.equal) = true;
+
+  // office is the x/group policy account that admits and suspends jewelers
+  // and proposes reassignments. Empty until governance appoints one, and no
+  // jeweler can be admitted before then.
+  string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // offer_ttl is how long an offer stays open, in seconds.
+  int64 offer_ttl = 2;
+  // voucher_max_ttl is the longest a benefit voucher may live, in seconds.
+  int64 voucher_max_ttl = 3;
+  // reassignment_window is how long a proposed reassignment stays open to
+  // the owner's veto, in seconds.
+  int64 reassignment_window = 4;
+}

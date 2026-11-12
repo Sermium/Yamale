@@ -1,0 +1,119 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// JewelerStatus says whether a jeweler may still act.
+enum JewelerStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // Never stored.
+  JEWELER_STATUS_UNSPECIFIED = 0;
+  // May register jewels, sell stock and honour benefits.
+  JEWELER_ACTIVE = 1;
+  // Its jewels and their histories stay. It registers nothing, and its
+  // benefits are no longer honoured.
+  JEWELER_SUSPENDED = 2;
+}
+
+// Jeweler is a business the office has admitted.
+message Jeweler {
+  uint64 id = 1;
+  string name = 2;
+  // business holds the jeweler's stock and manages its staff.
+  string business = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // staff act for the jeweler. A person works for one jeweler at a time.
+  repeated string staff = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  JewelerStatus status = 5;
+}
+
+// Amendment is a correction appended to a jewel's record. The original and
+// every correction stay visible.
+message Amendment {
+  string record_hash = 1;
+  string record_uri = 2;
+  string note = 3;
+  string staff = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // time is the block time, in unix seconds.
+  int64 time = 5;
+}
+
+// Jewel is one registered piece. Its token is x/nft class jewel-<jeweler_id>,
+// id jewel-<id>. Ownership is x/nft's and is not copied here.
+message Jewel {
+  uint64 id = 1;
+  uint64 jeweler_id = 2;
+  // inscription is the normalised laser inscription: upper case, separators
+  // removed.
+  string inscription = 3;
+  // record_hash is the SHA-256, in lower-case hex, of the record file
+  // (photos, materials, origin) as first registered.
+  string record_hash = 4;
+  string record_uri = 5;
+  // registered_at is the block time of registration, in unix seconds.
+  int64 registered_at = 6;
+  // owner_count counts owners since the jeweler sold it. Zero in stock.
+  uint32 owner_count = 7;
+  bool stolen = 8;
+  repeated Amendment amendments = 9 [(gogoproto.nullable) = false];
+}
+
+// Offer proposes handing a jewel to someone. Exactly one of to and claim_key
+// is set.
+message Offer {
+  uint64 jewel_id = 1;
+  // from is the owner when the offer was made.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the recipient, when they already have an account.
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // claim_key is the lower-case hex compressed secp256k1 public key of a
+  // one-time key sent by email, when the recipient has no account yet. The
+  // claimer proves it by signing their own address with it.
+  string claim_key = 4;
+  // expires_at is in unix seconds.
+  int64 expires_at = 5;
+}
+
+// Benefit is a service a jeweler attaches to a jewel. It passes with the
+// jewel to each new owner.
+message Benefit {
+  uint64 id = 1;
+  uint64 jewel_id = 2;
+  uint64 jeweler_id = 3;
+  // kind is the service as the jeweler words it, e.g. "cleaning".
+  string kind = 4;
+  // allowance is how many uses fit in one period.
+  uint32 allowance = 5;
+  // period is the rolling window, in seconds, the allowance applies to. Zero
+  // means the allowance covers the benefit's whole life.
+  int64 period = 6;
+  // expires_at is in unix seconds. Zero means it does not expire.
+  int64 expires_at = 7;
+  // uses are the block times, in unix seconds, of every use.
+  repeated int64 uses = 8;
+}
+
+// Reassignment is the office's proposal to move a jewel whose owner has lost
+// their key. The owner may veto it until window_ends.
+message Reassignment {
+  uint64 jewel_id = 1;
+  // from is the owner when it was proposed. A later change of owner voids it.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string reason = 4;
+  // window_ends is in unix seconds.
+  int64 window_ends = 5;
+}
+
+// Voucher is what the owner's app signs to consent to one use of a benefit.
+message Voucher {
+  uint64 benefit_id = 1;
+  uint64 jewel_id = 2;
+  // nonce is single-use, at most 64 characters.
+  string nonce = 3;
+  // expires_at is in unix seconds.
+  int64 expires_at = 4;
+}

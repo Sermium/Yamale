@@ -1,0 +1,270 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "amino/amino.proto";
+import "blockchain/jewel/v1/jewel.proto";
+import "blockchain/jewel/v1/params.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// Msg is the write side of the jewel register.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams sets the settings and appoints the office. Governance only;
+  // the office must be a group account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  // AdmitJeweler admits a business and opens its collection. Office only.
+  rpc AdmitJeweler(MsgAdmitJeweler) returns (MsgAdmitJewelerResponse);
+  // SuspendJeweler stops a jeweler acting. Office only.
+  rpc SuspendJeweler(MsgSuspendJeweler) returns (MsgSuspendJewelerResponse);
+  // ReinstateJeweler lets a suspended jeweler act again. Office only.
+  rpc ReinstateJeweler(MsgReinstateJeweler) returns (MsgReinstateJewelerResponse);
+  // SetStaff adds and removes the people who act for a jeweler.
+  rpc SetStaff(MsgSetStaff) returns (MsgSetStaffResponse);
+  // RegisterJewel mints a jewel into its jeweler's stock.
+  rpc RegisterJewel(MsgRegisterJewel) returns (MsgRegisterJewelResponse);
+  // AmendJewel appends a correction to a jewel's record.
+  rpc AmendJewel(MsgAmendJewel) returns (MsgAmendJewelResponse);
+  // OfferJewel opens an offer to an account or a claim key.
+  rpc OfferJewel(MsgOfferJewel) returns (MsgOfferJewelResponse);
+  // CancelOffer closes an open offer.
+  rpc CancelOffer(MsgCancelOffer) returns (MsgCancelOfferResponse);
+  // AcceptOffer takes a jewel offered to the signer's account.
+  rpc AcceptOffer(MsgAcceptOffer) returns (MsgAcceptOfferResponse);
+  // ClaimOffer takes a jewel offered to a claim key.
+  rpc ClaimOffer(MsgClaimOffer) returns (MsgClaimOfferResponse);
+  // ReportStolen flags a jewel and closes its offer.
+  rpc ReportStolen(MsgReportStolen) returns (MsgReportStolenResponse);
+  // ClearStolen lifts the flag.
+  rpc ClearStolen(MsgClearStolen) returns (MsgClearStolenResponse);
+  // AttachBenefit adds a benefit to a jewel.
+  rpc AttachBenefit(MsgAttachBenefit) returns (MsgAttachBenefitResponse);
+  // RedeemBenefit records one use, with the owner's signed voucher.
+  rpc RedeemBenefit(MsgRedeemBenefit) returns (MsgRedeemBenefitResponse);
+  // ProposeReassignment opens the public window. Office only.
+  rpc ProposeReassignment(MsgProposeReassignment) returns (MsgProposeReassignmentResponse);
+  // VetoReassignment closes it. The current owner only.
+  rpc VetoReassignment(MsgVetoReassignment) returns (MsgVetoReassignmentResponse);
+  // CompleteReassignment moves the jewel once the window has passed. Anyone.
+  rpc CompleteReassignment(MsgCompleteReassignment) returns (MsgCompleteReassignmentResponse);
+}
+
+// MsgUpdateParams is the message that carries out UpdateParams.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/jewel/MsgUpdateParams";
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+// MsgUpdateParamsResponse is the result of MsgUpdateParams.
+message MsgUpdateParamsResponse {}
+
+// MsgAdmitJeweler is the message that carries out AdmitJeweler.
+message MsgAdmitJeweler {
+  option (cosmos.msg.v1.signer) = "office";
+  option (amino.name) = "blockchain/x/jewel/MsgAdmitJeweler";
+  string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 2;
+  string business = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// MsgAdmitJewelerResponse is the result of MsgAdmitJeweler.
+message MsgAdmitJewelerResponse {
+  uint64 id = 1;
+}
+
+// MsgSuspendJeweler is the message that carries out SuspendJeweler.
+message MsgSuspendJeweler {
+  option (cosmos.msg.v1.signer) = "office";
+  option (amino.name) = "blockchain/x/jewel/MsgSuspendJeweler";
+  string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jeweler_id = 2;
+  string reason = 3;
+}
+// MsgSuspendJewelerResponse is the result of MsgSuspendJeweler.
+message MsgSuspendJewelerResponse {}
+
+// MsgReinstateJeweler is the message that carries out ReinstateJeweler.
+message MsgReinstateJeweler {
+  option (cosmos.msg.v1.signer) = "office";
+  option (amino.name) = "blockchain/x/jewel/MsgReinstateJeweler";
+  string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jeweler_id = 2;
+}
+// MsgReinstateJewelerResponse is the result of MsgReinstateJeweler.
+message MsgReinstateJewelerResponse {}
+
+// MsgSetStaff is the message that carries out SetStaff.
+message MsgSetStaff {
+  option (cosmos.msg.v1.signer) = "business";
+  option (amino.name) = "blockchain/x/jewel/MsgSetStaff";
+  string business = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jeweler_id = 2;
+  repeated string add = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated string remove = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// MsgSetStaffResponse is the result of MsgSetStaff.
+message MsgSetStaffResponse {}
+
+// MsgRegisterJewel is the message that carries out RegisterJewel.
+message MsgRegisterJewel {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgRegisterJewel";
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string inscription = 2;
+  string record_hash = 3;
+  string record_uri = 4;
+}
+// MsgRegisterJewelResponse is the result of MsgRegisterJewel.
+message MsgRegisterJewelResponse {
+  uint64 id = 1;
+}
+
+// MsgAmendJewel is the message that carries out AmendJewel.
+message MsgAmendJewel {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgAmendJewel";
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+  string record_hash = 3;
+  string record_uri = 4;
+  string note = 5;
+}
+// MsgAmendJewelResponse is the result of MsgAmendJewel.
+message MsgAmendJewelResponse {}
+
+// MsgOfferJewel is the message that carries out OfferJewel.
+message MsgOfferJewel {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgOfferJewel";
+  // owner is the jewel's owner, or a staff member while it is stock.
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string claim_key = 4;
+}
+// MsgOfferJewelResponse is the result of MsgOfferJewel.
+message MsgOfferJewelResponse {
+  int64 expires_at = 1;
+}
+
+// MsgCancelOffer is the message that carries out CancelOffer.
+message MsgCancelOffer {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgCancelOffer";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgCancelOfferResponse is the result of MsgCancelOffer.
+message MsgCancelOfferResponse {}
+
+// MsgAcceptOffer is the message that carries out AcceptOffer.
+message MsgAcceptOffer {
+  option (cosmos.msg.v1.signer) = "recipient";
+  option (amino.name) = "blockchain/x/jewel/MsgAcceptOffer";
+  string recipient = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgAcceptOfferResponse is the result of MsgAcceptOffer.
+message MsgAcceptOfferResponse {}
+
+// MsgClaimOffer is the message that carries out ClaimOffer.
+message MsgClaimOffer {
+  option (cosmos.msg.v1.signer) = "claimer";
+  option (amino.name) = "blockchain/x/jewel/MsgClaimOffer";
+  string claimer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+  // claim_pub_key is the compressed secp256k1 public key of the claim key.
+  bytes claim_pub_key = 3;
+  // claim_signature signs ClaimSignBytes(chain id, jewel id, claimer).
+  bytes claim_signature = 4;
+}
+// MsgClaimOfferResponse is the result of MsgClaimOffer.
+message MsgClaimOfferResponse {}
+
+// MsgReportStolen is the message that carries out ReportStolen.
+message MsgReportStolen {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgReportStolen";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgReportStolenResponse is the result of MsgReportStolen.
+message MsgReportStolenResponse {}
+
+// MsgClearStolen is the message that carries out ClearStolen.
+message MsgClearStolen {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgClearStolen";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgClearStolenResponse is the result of MsgClearStolen.
+message MsgClearStolenResponse {}
+
+// MsgAttachBenefit is the message that carries out AttachBenefit.
+message MsgAttachBenefit {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgAttachBenefit";
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+  string kind = 3;
+  uint32 allowance = 4;
+  int64 period = 5;
+  int64 expires_at = 6;
+}
+// MsgAttachBenefitResponse is the result of MsgAttachBenefit.
+message MsgAttachBenefitResponse {
+  uint64 id = 1;
+}
+
+// MsgRedeemBenefit is the message that carries out RedeemBenefit.
+message MsgRedeemBenefit {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgRedeemBenefit";
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Voucher voucher = 2 [(gogoproto.nullable) = false];
+  // owner_pub_key is the compressed secp256k1 public key of the owner.
+  bytes owner_pub_key = 3;
+  // owner_signature signs VoucherSignBytes(chain id, voucher).
+  bytes owner_signature = 4;
+}
+// MsgRedeemBenefitResponse is the result of MsgRedeemBenefit.
+message MsgRedeemBenefitResponse {}
+
+// MsgProposeReassignment is the message that carries out ProposeReassignment.
+message MsgProposeReassignment {
+  option (cosmos.msg.v1.signer) = "office";
+  option (amino.name) = "blockchain/x/jewel/MsgProposeReassignment";
+  string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string reason = 4;
+}
+// MsgProposeReassignmentResponse is the result of MsgProposeReassignment.
+message MsgProposeReassignmentResponse {
+  int64 window_ends = 1;
+}
+
+// MsgVetoReassignment is the message that carries out VetoReassignment.
+message MsgVetoReassignment {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgVetoReassignment";
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgVetoReassignmentResponse is the result of MsgVetoReassignment.
+message MsgVetoReassignmentResponse {}
+
+// MsgCompleteReassignment is the message that carries out CompleteReassignment.
+message MsgCompleteReassignment {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "blockchain/x/jewel/MsgCompleteReassignment";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 jewel_id = 2;
+}
+// MsgCompleteReassignmentResponse is the result of MsgCompleteReassignment.
+message MsgCompleteReassignmentResponse {}
