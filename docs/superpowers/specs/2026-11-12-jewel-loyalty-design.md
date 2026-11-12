@@ -96,7 +96,11 @@ An owner can share a link that proves they are the current owner.
   switched off. The public search on a code returns every match with its
   jeweler, since two jewelers may use the same code.
 - **Offer**: jewel, sender, an expiry, and either a recipient address or the
-  SHA-256 fingerprint of a claim secret. One open offer per jewel.
+  public key of a one-time **claim key**. One open offer per jewel. The email
+  link carries the claim key's private half, never a bare secret: a secret
+  submitted on chain sits in the mempool where anyone can copy it and claim
+  first, whereas a signature by the claim key names the claimer's own address
+  and is useless for any other.
 - **Benefit**: id, jewel, issuing jeweler, kind, allowance per period, the
   period, an expiry, and the uses recorded so far.
 - **Pending reassignment** (section 6): jewel, proposed new owner, the end of
@@ -112,10 +116,10 @@ An owner can share a link that proves they are the current owner.
 | `SetStaff` | The jeweler's business address | Adds or removes staff |
 | `RegisterJewel` | Staff of an active jeweler | Mints the token to the jeweler and indexes the inscription |
 | `AmendJewel` | Staff of the issuing jeweler | Appends an amendment |
-| `OfferJewel` | The owner | Opens an offer to an address or a claim fingerprint |
+| `OfferJewel` | The owner | Opens an offer to an address or a claim key |
 | `CancelOffer` | The owner | Closes it |
 | `AcceptOffer` | The named recipient | Moves the token and increments the owner count |
-| `ClaimOffer` | Anyone holding the claim secret | Moves the token to the signer |
+| `ClaimOffer` | Anyone holding the claim key, which signs for the claimer's address | Moves the token to the signer |
 | `AttachBenefit` | Staff of the issuing jeweler | Adds a benefit |
 | `RedeemBenefit` | Staff of the issuing jeweler, carrying the owner's signed voucher | Records one use |
 | `ReportStolen`, `ClearStolen` | The owner | Sets or clears the flag |
@@ -151,6 +155,11 @@ way. The **circuit breaker** (`x/circuit`, already wired) disables
 today, so nothing breaks. The rule from now on: an NFT on this chain moves only
 through the module that owns its rules. A future `x/tokenisation` title NFT
 follows the same rule.
+
+`x/jewel` checks this itself. It refuses to admit a jeweler or register a
+jewel while the circuit breaker still allows the bare send. A genesis file or
+an upgrade that forgets the setting then fails at the first jeweler, loudly,
+rather than leaving every jewel quietly movable.
 
 ### 4.5 Fees
 
@@ -226,7 +235,9 @@ validators under one owner and genesis resets in its past.
   accepted. After that, only the new owner can send it back. Neither the
   platform nor the jeweler can reverse a change of owner, and the app says so
   before the seller confirms.
-- **A claim link is forwarded or leaks.** Whoever holds the secret can claim.
+- **A claim link is forwarded or leaks.** Whoever holds the claim key can
+  claim. Copying a claim out of the mempool does not work, because the
+  signature names the claimer's address.
   The app also asks the claimer to sign in with the email address the offer
   went to. That is a safeguard in the app, not a rule on the chain, and the
   app does not present it as one. The seller can cancel until the offer is
@@ -258,8 +269,9 @@ validators under one owner and genesis resets in its past.
     jeweler, and reassignment before the window ends or after a veto;
   - amendments only append;
   - genesis export and import match byte for byte.
-- **Simulation**, with one jeweler admitted at genesis. Office proposals almost
-  never pass in simulation.
+- **No simulation**, like `x/land` and `x/herd`. A registry's rules are
+  refusals that random messages almost never reach, so the keeper tests and
+  the devnet run carry the weight.
 - **End to end on a local devnet**: a seeder script with real keys, signing
   through the chain signer. It runs admission, registration, sale by email
   claim, resale, a benefit use, a stolen report and a reassignment.
