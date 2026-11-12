@@ -23,6 +23,11 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 	if err != nil {
 		return nil, err
 	}
+	// actsForOwner accepted the signer, so it has a canonical spelling.
+	maker, err := k.canonical(req.Owner)
+	if err != nil {
+		return nil, err
+	}
 	if (req.To == "") == (req.ClaimKey == "") {
 		return nil, types.ErrOfferTarget
 	}
@@ -49,7 +54,7 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 	if err != nil {
 		return nil, err
 	}
-	offer := types.Offer{JewelId: j.Id, From: owner, To: to, ClaimKey: claimKey, ExpiresAt: now + p.OfferTtl}
+	offer := types.Offer{JewelId: j.Id, From: owner, Maker: maker, To: to, ClaimKey: claimKey, ExpiresAt: now + p.OfferTtl}
 	if err := k.Offer.Set(ctx, j.Id, offer); err != nil {
 		return nil, err
 	}
@@ -73,7 +78,11 @@ func (k msgServer) CancelOffer(ctx context.Context, req *types.MsgCancelOffer) (
 	return &types.MsgCancelOfferResponse{}, k.Offer.Remove(ctx, j.Id)
 }
 
-// openOffer returns the jewel's offer if one exists and has not lapsed.
+// openOffer returns the jewel's offer if it may still be taken: it exists,
+// has not lapsed, still speaks for the jewel's current owner, and, when a
+// staff member made it from stock, that person still works for the jeweler
+// and the jeweler is active. An offer must not outlive the authority of
+// whoever made it.
 func (k msgServer) openOffer(ctx context.Context, j types.Jewel) (types.Offer, error) {
 	if j.Stolen {
 		return types.Offer{}, types.ErrStolen.Wrapf("jewel %d", j.Id)
@@ -87,6 +96,18 @@ func (k msgServer) openOffer(ctx context.Context, j types.Jewel) (types.Offer, e
 	}
 	if k.now(ctx) >= o.ExpiresAt {
 		return o, types.ErrOfferExpired
+	}
+	owner, err := k.Owner(ctx, j)
+	if err != nil {
+		return o, err
+	}
+	if o.From != owner {
+		return o, types.ErrOfferStale
+	}
+	if o.Maker != o.From {
+		if _, err := k.requireStaff(ctx, o.Maker, j.JewelerId); err != nil {
+			return o, err
+		}
 	}
 	return o, nil
 }

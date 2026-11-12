@@ -45,6 +45,9 @@ func (k Keeper) checkCanonicalAddresses(gs types.GenesisState) error {
 		if err := k.requireCanonicalAddress(o.From); err != nil {
 			return fmt.Errorf("offer on jewel %d from: %w", o.JewelId, err)
 		}
+		if err := k.requireCanonicalAddress(o.Maker); err != nil {
+			return fmt.Errorf("offer on jewel %d maker: %w", o.JewelId, err)
+		}
 		if o.To != "" {
 			if err := k.requireCanonicalAddress(o.To); err != nil {
 				return fmt.Errorf("offer on jewel %d to: %w", o.JewelId, err)

@@ -93,6 +93,12 @@ func (k msgServer) AmendJewel(ctx context.Context, req *types.MsgAmendJewel) (*t
 	if strings.TrimSpace(req.Note) == "" {
 		return nil, types.ErrNoReason
 	}
+	if len(req.Note) > types.MaxAmendmentNote {
+		return nil, types.ErrNoteTooLong.Wrapf("%d bytes", len(req.Note))
+	}
+	if len(j.Amendments) >= types.MaxAmendments {
+		return nil, types.ErrTooManyAmendments
+	}
 	j.Amendments = append(j.Amendments, types.Amendment{
 		RecordHash: req.RecordHash, RecordUri: req.RecordUri, Note: req.Note,
 		Staff: staff, Time: k.now(ctx),

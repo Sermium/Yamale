@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ func validGenesis() types.GenesisState {
 	gs.Jewels = []types.Jewel{{Id: 1, JewelerId: 1, Inscription: "MD0001"}}
 	gs.Benefits = []types.Benefit{{Id: 1, JewelId: 1, JewelerId: 1, Kind: "cleaning", Allowance: 1}}
 	gs.UsedNonces = []types.UsedNonce{{BenefitId: 1, Nonce: "n"}}
-	gs.Offers = []types.Offer{{JewelId: 1, From: "b1", To: "c1", ExpiresAt: 10}}
+	gs.Offers = []types.Offer{{JewelId: 1, From: "b1", Maker: "s1", To: "c1", ExpiresAt: 10}}
 	gs.NextJewelerId, gs.NextJewelId, gs.NextBenefitId = 2, 2, 2
 	return gs
 }
@@ -55,9 +56,61 @@ func TestAGenesisThatBreaksAGuaranteeIsRefused(t *testing.T) {
 		},
 		"nonce of no benefit":      func(g *types.GenesisState) { g.UsedNonces[0].BenefitId = 9 },
 		"reassignment of no jewel": func(g *types.GenesisState) { g.Reassignments = []types.Reassignment{{JewelId: 9}} },
+
+		// Two records under one id: the second import would silently
+		// overwrite the first.
+		"jeweler id twice": func(g *types.GenesisState) {
+			g.Jewelers = append(g.Jewelers, types.Jeweler{Id: 1, Name: "Atelier Ba", Business: "b2"})
+		},
+		"jewel id twice": func(g *types.GenesisState) {
+			g.Jewels = append(g.Jewels, types.Jewel{Id: 1, JewelerId: 1, Inscription: "MD0002"})
+		},
+		"benefit id twice": func(g *types.GenesisState) {
+			g.Benefits = append(g.Benefits, types.Benefit{Id: 1, JewelId: 1, JewelerId: 1, Kind: "resize", Allowance: 1})
+		},
+		"two offers on one jewel": func(g *types.GenesisState) {
+			g.Offers = append(g.Offers, types.Offer{JewelId: 1, From: "b1", Maker: "s1", To: "c2", ExpiresAt: 10})
+		},
+		"two reassignments of one jewel": func(g *types.GenesisState) {
+			g.Reassignments = []types.Reassignment{{JewelId: 1, From: "b1", To: "c1"}, {JewelId: 1, From: "b1", To: "c2"}}
+		},
+		"a used voucher twice": func(g *types.GenesisState) {
+			g.UsedNonces = append(g.UsedNonces, types.UsedNonce{BenefitId: 1, Nonce: "n"})
+		},
+
+		// States the handlers never write.
+		"offer on a stolen jewel": func(g *types.GenesisState) { g.Jewels[0].Stolen = true },
+		"claim key in upper case": func(g *types.GenesisState) {
+			g.Offers[0].To, g.Offers[0].ClaimKey = "", "02"+strings.Repeat("AB", 32)
+		},
+		"claim key of 32 bytes": func(g *types.GenesisState) {
+			g.Offers[0].To, g.Offers[0].ClaimKey = "", strings.Repeat("ab", 32)
+		},
+		"claim key not hex": func(g *types.GenesisState) {
+			g.Offers[0].To, g.Offers[0].ClaimKey = "", strings.Repeat("zz", 33)
+		},
+		"reassignment to nobody": func(g *types.GenesisState) {
+			g.Reassignments = []types.Reassignment{{JewelId: 1, From: "b1"}}
+		},
+		"offer without its maker": func(g *types.GenesisState) { g.Offers[0].Maker = "" },
+		"amendment note too long": func(g *types.GenesisState) {
+			g.Jewels[0].Amendments = []types.Amendment{{Note: strings.Repeat("x", types.MaxAmendmentNote+1)}}
+		},
+		"too many amendments": func(g *types.GenesisState) {
+			g.Jewels[0].Amendments = make([]types.Amendment, types.MaxAmendments+1)
+		},
 	} {
-		gs := validGenesis()
-		mutate(&gs)
-		require.Error(t, gs.Validate(), name)
+		t.Run(name, func(t *testing.T) {
+			gs := validGenesis()
+			mutate(&gs)
+			require.Error(t, gs.Validate())
+		})
 	}
+}
+
+// A claim key the handler accepted validates: 33 bytes in lower-case hex.
+func TestAGenesisClaimKeyOfferValidates(t *testing.T) {
+	gs := validGenesis()
+	gs.Offers[0].To, gs.Offers[0].ClaimKey = "", "02"+strings.Repeat("ab", 32)
+	require.NoError(t, gs.Validate())
 }

@@ -24,6 +24,13 @@ const (
 	// MaxSearchResults bounds JewelsByInscription. Two jewelers may share a
 	// code; two hundred sharing one is not a search, it is a scan.
 	MaxSearchResults = 50
+
+	// MaxAmendmentNote and MaxAmendments bound a jewel's corrections. The
+	// amendments live inside the jewel's record, which every offer, report
+	// and change of owner reads and rewrites, so without a bound a jeweler's
+	// staff could make a sold jewel too expensive for its owner to move.
+	MaxAmendmentNote = 500
+	MaxAmendments    = 50
 )
 
 // Prefixes. "jewel" is a byte-prefix of "jeweler", and collections refuses

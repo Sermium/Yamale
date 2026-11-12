@@ -47,4 +47,8 @@ var (
 	ErrReassignmentStale = errors.Register(ModuleName, 36, "the jewel changed owner after the reassignment was proposed")
 	ErrNoReason          = errors.Register(ModuleName, 37, "a reason is required")
 	ErrInvalidSigner     = errors.Register(ModuleName, 38, "only governance may change these settings")
+	ErrOfferStale        = errors.Register(ModuleName, 39, "the jewel changed owner after this offer was made")
+	ErrNoteTooLong       = errors.Register(ModuleName, 40, "an amendment's note is at most 500 bytes; put the detail in the record file")
+	ErrTooManyAmendments = errors.Register(ModuleName, 41,
+		"this jewel has 50 amendments, the most it may carry; put further corrections in the record file of the last one")
 )

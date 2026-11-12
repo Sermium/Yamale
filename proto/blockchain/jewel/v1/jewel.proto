@@ -75,6 +75,11 @@ message Offer {
   string claim_key = 4;
   // expires_at is in unix seconds.
   int64 expires_at = 5;
+  // maker is the account that signed the offer: equal to from when the
+  // owner made it, or the staff member who offered the jeweler's stock. A
+  // stock offer can be taken only while its maker is still staff of an
+  // active jeweler.
+  string maker = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
 
 // Benefit is a service a jeweler attaches to a jewel. It passes with the
