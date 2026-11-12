@@ -49,6 +49,10 @@ func (k msgServer) ProposeReassignment(ctx context.Context, req *types.MsgPropos
 	if err := k.Reassignment.Set(ctx, j.Id, r); err != nil {
 		return nil, err
 	}
+	if err := k.emit(ctx, &types.EventReassignmentProposed{JewelId: j.Id, From: owner, To: to,
+		WindowEnds: r.WindowEnds}); err != nil {
+		return nil, err
+	}
 	return &types.MsgProposeReassignmentResponse{WindowEnds: r.WindowEnds}, nil
 }
 
@@ -75,7 +79,10 @@ func (k msgServer) VetoReassignment(ctx context.Context, req *types.MsgVetoReass
 	if signer != owner {
 		return nil, types.ErrNotOwner.Wrapf("%s", signer)
 	}
-	return &types.MsgVetoReassignmentResponse{}, k.Reassignment.Remove(ctx, j.Id)
+	if err := k.Reassignment.Remove(ctx, j.Id); err != nil {
+		return nil, err
+	}
+	return &types.MsgVetoReassignmentResponse{}, k.emit(ctx, &types.EventReassignmentVetoed{JewelId: j.Id, Owner: owner})
 }
 
 // CompleteReassignment moves the jewel once the window has passed. Anyone may
@@ -108,5 +115,5 @@ func (k msgServer) CompleteReassignment(ctx context.Context, req *types.MsgCompl
 	if err := k.Reassignment.Remove(ctx, j.Id); err != nil {
 		return nil, err
 	}
-	return &types.MsgCompleteReassignmentResponse{}, k.transfer(ctx, &j, r.To)
+	return &types.MsgCompleteReassignmentResponse{}, k.transfer(ctx, &j, r.To, types.TransferReassign)
 }

@@ -1,0 +1,159 @@
+syntax = "proto3";
+package blockchain.jewel.v1;
+
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "yamale/blockchain/x/jewel/types";
+
+// Events are how the loyalty app's backend and anyone else watching learn what
+// changed, in the block it changed in, without polling every jewel. They carry
+// ids, addresses and kinds only. Reasons and names stay in the records, where
+// the office and jewelers wrote them, and are not repeated here.
+
+// EventJewelerAdmitted is emitted when the office admits a jeweler.
+message EventJewelerAdmitted {
+  // jeweler_id is the new jeweler's id.
+  uint64 jeweler_id = 1;
+  // business is the jeweler's business account, which holds its stock.
+  string business = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventJewelerSuspended is emitted when the office suspends a jeweler.
+message EventJewelerSuspended {
+  // jeweler_id is the suspended jeweler.
+  uint64 jeweler_id = 1;
+}
+
+// EventJewelerReinstated is emitted when the office lets a suspended jeweler
+// act again.
+message EventJewelerReinstated {
+  // jeweler_id is the reinstated jeweler.
+  uint64 jeweler_id = 1;
+}
+
+// EventStaffChanged is emitted when a jeweler's business account adds or
+// removes staff. It lists only the changes that took effect.
+message EventStaffChanged {
+  // jeweler_id is the jeweler whose staff changed.
+  uint64 jeweler_id = 1;
+  // added are the accounts that now act for the jeweler.
+  repeated string added = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // removed are the accounts that no longer act for it.
+  repeated string removed = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventJewelRegistered is emitted when a jewel is minted into a jeweler's
+// stock.
+message EventJewelRegistered {
+  // jewel_id is the new jewel's id.
+  uint64 jewel_id = 1;
+  // jeweler_id is the jeweler that registered it.
+  uint64 jeweler_id = 2;
+  // staff is the staff member who registered it.
+  string staff = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventJewelAmended is emitted when a correction is appended to a jewel's
+// record.
+message EventJewelAmended {
+  // jewel_id is the jewel corrected.
+  uint64 jewel_id = 1;
+  // staff is the staff member who appended the correction.
+  string staff = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventOfferMade is emitted when an offer opens.
+message EventOfferMade {
+  // jewel_id is the jewel offered.
+  uint64 jewel_id = 1;
+  // from is the owner the offer speaks for.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // maker is the account that signed the offer: from itself, or a staff
+  // member offering the jeweler's stock.
+  string maker = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the recipient's account; empty when the offer is to a claim key.
+  string to = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // expires_at is when the offer lapses, in unix seconds.
+  int64 expires_at = 5;
+}
+
+// EventOfferCancelled is emitted when an open offer is withdrawn.
+message EventOfferCancelled {
+  // jewel_id is the jewel whose offer was withdrawn.
+  uint64 jewel_id = 1;
+  // by is the account that withdrew it.
+  string by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventJewelTransferred is emitted on every change of owner. Counting them is
+// the jewel's owner count; their block times are the dates of each change.
+message EventJewelTransferred {
+  // jewel_id is the jewel that changed owner.
+  uint64 jewel_id = 1;
+  // from is the previous owner.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the new owner.
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // kind is how it moved: "accept" (an offer to an account), "claim" (an
+  // offer to a claim key) or "reassign" (the office's reassignment after its
+  // veto window).
+  string kind = 4;
+}
+
+// EventStolenReported is emitted when a jewel is reported stolen.
+message EventStolenReported {
+  // jewel_id is the jewel reported.
+  uint64 jewel_id = 1;
+  // by is the account that reported it: the owner, or staff while it is stock.
+  string by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventStolenCleared is emitted when the stolen flag is lifted.
+message EventStolenCleared {
+  // jewel_id is the jewel cleared.
+  uint64 jewel_id = 1;
+  // by is the account that lifted the flag.
+  string by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventBenefitAttached is emitted when a jeweler attaches a benefit to a
+// jewel.
+message EventBenefitAttached {
+  // benefit_id is the new benefit's id.
+  uint64 benefit_id = 1;
+  // jewel_id is the jewel it is attached to.
+  uint64 jewel_id = 2;
+  // jeweler_id is the jeweler that honours it.
+  uint64 jeweler_id = 3;
+}
+
+// EventBenefitRedeemed is emitted for each use of a benefit.
+message EventBenefitRedeemed {
+  // benefit_id is the benefit used.
+  uint64 benefit_id = 1;
+  // jewel_id is the jewel it belongs to.
+  uint64 jewel_id = 2;
+  // staff is the staff member who recorded the use.
+  string staff = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventReassignmentProposed is emitted when the office opens a reassignment's
+// veto window.
+message EventReassignmentProposed {
+  // jewel_id is the jewel to be moved.
+  uint64 jewel_id = 1;
+  // from is the owner it would be taken from.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the account it would go to.
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // window_ends is when the owner's veto window closes, in unix seconds.
+  int64 window_ends = 4;
+}
+
+// EventReassignmentVetoed is emitted when the owner refuses a reassignment.
+message EventReassignmentVetoed {
+  // jewel_id is the jewel that stays put.
+  uint64 jewel_id = 1;
+  // owner is the owner who vetoed it.
+  string owner = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}

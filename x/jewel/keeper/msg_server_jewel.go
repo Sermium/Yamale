@@ -71,6 +71,9 @@ func (k msgServer) RegisterJewel(ctx context.Context, req *types.MsgRegisterJewe
 	if err := k.Search.Set(ctx, collections.Join(code, id)); err != nil {
 		return nil, err
 	}
+	if err := k.emit(ctx, &types.EventJewelRegistered{JewelId: id, JewelerId: jr.Id, Staff: staff}); err != nil {
+		return nil, err
+	}
 	return &types.MsgRegisterJewelResponse{Id: id}, nil
 }
 
@@ -109,5 +112,8 @@ func (k msgServer) AmendJewel(ctx context.Context, req *types.MsgAmendJewel) (*t
 	}); err != nil {
 		return nil, err
 	}
-	return &types.MsgAmendJewelResponse{}, k.Jewel.Set(ctx, j.Id, j)
+	if err := k.Jewel.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgAmendJewelResponse{}, k.emit(ctx, &types.EventJewelAmended{JewelId: j.Id, Staff: staff})
 }

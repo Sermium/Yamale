@@ -10,6 +10,7 @@ import (
 	corestore "cosmossdk.io/core/store"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 
 	"yamale/blockchain/x/jewel/types"
 )
@@ -141,6 +142,11 @@ func (k Keeper) now(ctx context.Context) int64 {
 	return sdk.UnwrapSDKContext(ctx).BlockTime().Unix()
 }
 
+// emit announces a change, after the state that records it has been written.
+func (k Keeper) emit(ctx context.Context, ev proto.Message) error {
+	return sdk.UnwrapSDKContext(ctx).EventManager().EmitTypedEvent(ev)
+}
+
 func (k Keeper) chainID(ctx context.Context) string {
 	return sdk.UnwrapSDKContext(ctx).ChainID()
 }
@@ -263,17 +269,23 @@ func (k Keeper) actsForOwner(ctx context.Context, signer string, j types.Jewel) 
 	return "", types.ErrNotOwner.Wrapf("%s", signer)
 }
 
-// transfer moves the token, counts the new owner, and closes any offer and
-// any pending reassignment: a change of owner voids both.
-func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to string) error {
+// transfer moves the token, counts and dates the new owner, and closes any
+// offer and any pending reassignment: a change of owner voids both. kind is
+// how it moved, one of types.TransferAccept, TransferClaim, TransferReassign.
+func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to, kind string) error {
 	addr, err := k.addressCodec.StringToBytes(to)
 	if err != nil {
 		return types.ErrInvalidAddress.Wrapf("%s", to)
+	}
+	from, err := k.Owner(ctx, *j)
+	if err != nil {
+		return err
 	}
 	if err := k.nft.Transfer(ctx, types.ClassID(j.JewelerId), types.TokenID(j.Id), addr); err != nil {
 		return err
 	}
 	j.OwnerCount++
+	j.OwnerSince = append(j.OwnerSince, k.now(ctx))
 	if err := k.Offer.Remove(ctx, j.Id); err != nil {
 		return err
 	}
@@ -281,5 +293,8 @@ func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to string) error {
 	if err := k.Reassignment.Remove(ctx, j.Id); err != nil {
 		return err
 	}
-	return k.Jewel.Set(ctx, j.Id, *j)
+	if err := k.Jewel.Set(ctx, j.Id, *j); err != nil {
+		return err
+	}
+	return k.emit(ctx, &types.EventJewelTransferred{JewelId: j.Id, From: from, To: to, Kind: kind})
 }

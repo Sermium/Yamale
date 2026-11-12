@@ -46,6 +46,9 @@ func (k msgServer) AdmitJeweler(ctx context.Context, req *types.MsgAdmitJeweler)
 	if err := k.ByBusiness.Set(ctx, business, id); err != nil {
 		return nil, err
 	}
+	if err := k.emit(ctx, &types.EventJewelerAdmitted{JewelerId: id, Business: business}); err != nil {
+		return nil, err
+	}
 	return &types.MsgAdmitJewelerResponse{Id: id}, nil
 }
 
@@ -62,7 +65,10 @@ func (k msgServer) SuspendJeweler(ctx context.Context, req *types.MsgSuspendJewe
 		return nil, err
 	}
 	j.Status = types.JEWELER_SUSPENDED
-	return &types.MsgSuspendJewelerResponse{}, k.Jeweler.Set(ctx, j.Id, j)
+	if err := k.Jeweler.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgSuspendJewelerResponse{}, k.emit(ctx, &types.EventJewelerSuspended{JewelerId: j.Id})
 }
 
 // ReinstateJeweler lets a suspended jeweler act again.
@@ -75,7 +81,10 @@ func (k msgServer) ReinstateJeweler(ctx context.Context, req *types.MsgReinstate
 		return nil, err
 	}
 	j.Status = types.JEWELER_ACTIVE
-	return &types.MsgReinstateJewelerResponse{}, k.Jeweler.Set(ctx, j.Id, j)
+	if err := k.Jeweler.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgReinstateJewelerResponse{}, k.emit(ctx, &types.EventJewelerReinstated{JewelerId: j.Id})
 }
 
 // SetStaff adds and removes the people who act for a jeweler. Allowed while
@@ -92,6 +101,7 @@ func (k msgServer) SetStaff(ctx context.Context, req *types.MsgSetStaff) (*types
 	if business != j.Business {
 		return nil, types.ErrNotBusiness.Wrapf("%s", req.Business)
 	}
+	ev := types.EventStaffChanged{JewelerId: j.Id}
 	for _, raw := range req.Remove {
 		s, err := k.canonical(raw)
 		if err != nil {
@@ -101,6 +111,7 @@ func (k msgServer) SetStaff(ctx context.Context, req *types.MsgSetStaff) (*types
 			if err := k.ByStaff.Remove(ctx, s); err != nil {
 				return nil, err
 			}
+			ev.Removed = append(ev.Removed, s)
 		}
 		j.Staff = slices.DeleteFunc(j.Staff, func(x string) bool { return x == s })
 	}
@@ -122,6 +133,10 @@ func (k msgServer) SetStaff(ctx context.Context, req *types.MsgSetStaff) (*types
 			return nil, err
 		}
 		j.Staff = append(j.Staff, s)
+		ev.Added = append(ev.Added, s)
 	}
-	return &types.MsgSetStaffResponse{}, k.Jeweler.Set(ctx, j.Id, j)
+	if err := k.Jeweler.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgSetStaffResponse{}, k.emit(ctx, &ev)
 }

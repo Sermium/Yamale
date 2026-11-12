@@ -59,6 +59,11 @@ message Jewel {
   uint32 owner_count = 7;
   bool stolen = 8;
   repeated Amendment amendments = 9 [(gogoproto.nullable) = false];
+  // owner_since holds, for each owner since the jeweler sold it, the block
+  // time in unix seconds at which they became the owner: the date of each
+  // change of owner, oldest first. It has owner_count entries; the date the
+  // jeweler's stock began is registered_at.
+  repeated int64 owner_since = 10;
 }
 
 // Offer proposes handing a jewel to someone. Exactly one of to and claim_key

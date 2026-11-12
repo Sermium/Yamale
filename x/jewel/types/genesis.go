@@ -65,6 +65,9 @@ func (gs GenesisState) Validate() error {
 			return fmt.Errorf("jewels %d and %d share inscription %s at jeweler %d", prev, j.Id, code, j.JewelerId)
 		}
 		inscriptions[key] = j.Id
+		if len(j.OwnerSince) != int(j.OwnerCount) {
+			return fmt.Errorf("jewel %d has %d owners but %d dates of a change of owner", j.Id, j.OwnerCount, len(j.OwnerSince))
+		}
 		if len(j.Amendments) > MaxAmendments {
 			return fmt.Errorf("jewel %d carries %d amendments, more than %d", j.Id, len(j.Amendments), MaxAmendments)
 		}

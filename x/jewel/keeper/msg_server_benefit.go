@@ -41,6 +41,9 @@ func (k msgServer) AttachBenefit(ctx context.Context, req *types.MsgAttachBenefi
 	if err := k.BenefitsByJewel.Set(ctx, collections.Join(j.Id, id)); err != nil {
 		return nil, err
 	}
+	if err := k.emit(ctx, &types.EventBenefitAttached{BenefitId: id, JewelId: j.Id, JewelerId: jr.Id}); err != nil {
+		return nil, err
+	}
 	return &types.MsgAttachBenefitResponse{Id: id}, nil
 }
 
@@ -117,5 +120,9 @@ func (k msgServer) RedeemBenefit(ctx context.Context, req *types.MsgRedeemBenefi
 	if err := k.Benefit.Set(ctx, b.Id, b); err != nil {
 		return nil, err
 	}
-	return &types.MsgRedeemBenefitResponse{}, k.UsedNonce.Set(ctx, nonceKey)
+	if err := k.UsedNonce.Set(ctx, nonceKey); err != nil {
+		return nil, err
+	}
+	return &types.MsgRedeemBenefitResponse{}, k.emit(ctx, &types.EventBenefitRedeemed{BenefitId: b.Id, JewelId: b.JewelId,
+		Staff: staff})
 }

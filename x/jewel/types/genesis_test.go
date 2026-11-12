@@ -96,6 +96,10 @@ func TestAGenesisThatBreaksAGuaranteeIsRefused(t *testing.T) {
 		"amendment note too long": func(g *types.GenesisState) {
 			g.Jewels[0].Amendments = []types.Amendment{{Note: strings.Repeat("x", types.MaxAmendmentNote+1)}}
 		},
+		"owners without their dates": func(g *types.GenesisState) { g.Jewels[0].OwnerCount = 1 },
+		"a date without its owner": func(g *types.GenesisState) {
+			g.Jewels[0].OwnerSince = []int64{1_788_000_000}
+		},
 		"too many amendments": func(g *types.GenesisState) {
 			g.Jewels[0].Amendments = make([]types.Amendment, types.MaxAmendments+1)
 		},

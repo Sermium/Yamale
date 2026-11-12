@@ -31,6 +31,11 @@ const (
 	// staff could make a sold jewel too expensive for its owner to move.
 	MaxAmendmentNote = 500
 	MaxAmendments    = 50
+
+	// The kinds of change of owner EventJewelTransferred reports.
+	TransferAccept   = "accept"   // an offer to an account, accepted
+	TransferClaim    = "claim"    // an offer to a claim key, claimed
+	TransferReassign = "reassign" // the office's reassignment, completed
 )
 
 // Prefixes. "jewel" is a byte-prefix of "jeweler", and collections refuses

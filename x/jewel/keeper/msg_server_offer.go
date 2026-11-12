@@ -58,6 +58,10 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 	if err := k.Offer.Set(ctx, j.Id, offer); err != nil {
 		return nil, err
 	}
+	if err := k.emit(ctx, &types.EventOfferMade{JewelId: j.Id, From: owner, Maker: maker, To: to,
+		ExpiresAt: offer.ExpiresAt}); err != nil {
+		return nil, err
+	}
 	return &types.MsgOfferJewelResponse{ExpiresAt: offer.ExpiresAt}, nil
 }
 
@@ -70,12 +74,19 @@ func (k msgServer) CancelOffer(ctx context.Context, req *types.MsgCancelOffer) (
 	if _, err := k.actsForOwner(ctx, req.Owner, j); err != nil {
 		return nil, err
 	}
+	by, err := k.canonical(req.Owner)
+	if err != nil {
+		return nil, err
+	}
 	if has, err := k.Offer.Has(ctx, j.Id); err != nil {
 		return nil, err
 	} else if !has {
 		return nil, types.ErrNoOffer
 	}
-	return &types.MsgCancelOfferResponse{}, k.Offer.Remove(ctx, j.Id)
+	if err := k.Offer.Remove(ctx, j.Id); err != nil {
+		return nil, err
+	}
+	return &types.MsgCancelOfferResponse{}, k.emit(ctx, &types.EventOfferCancelled{JewelId: j.Id, By: by})
 }
 
 // openOffer returns the jewel's offer if it may still be taken: it exists,
@@ -129,7 +140,7 @@ func (k msgServer) AcceptOffer(ctx context.Context, req *types.MsgAcceptOffer) (
 	if o.To == "" || o.To != recipient {
 		return nil, types.ErrNotRecipient
 	}
-	return &types.MsgAcceptOfferResponse{}, k.transfer(ctx, &j, recipient)
+	return &types.MsgAcceptOfferResponse{}, k.transfer(ctx, &j, recipient, types.TransferAccept)
 }
 
 // ClaimOffer takes a jewel offered to a claim key. The key signs the
@@ -157,7 +168,7 @@ func (k msgServer) ClaimOffer(ctx context.Context, req *types.MsgClaimOffer) (*t
 	if claimer == o.From {
 		return nil, types.ErrSelfOffer
 	}
-	return &types.MsgClaimOfferResponse{}, k.transfer(ctx, &j, claimer)
+	return &types.MsgClaimOfferResponse{}, k.transfer(ctx, &j, claimer, types.TransferClaim)
 }
 
 // ReportStolen flags the jewel and closes its open offer.
@@ -169,11 +180,18 @@ func (k msgServer) ReportStolen(ctx context.Context, req *types.MsgReportStolen)
 	if _, err := k.actsForOwner(ctx, req.Owner, j); err != nil {
 		return nil, err
 	}
+	by, err := k.canonical(req.Owner)
+	if err != nil {
+		return nil, err
+	}
 	j.Stolen = true
 	if err := k.Offer.Remove(ctx, j.Id); err != nil {
 		return nil, err
 	}
-	return &types.MsgReportStolenResponse{}, k.Jewel.Set(ctx, j.Id, j)
+	if err := k.Jewel.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgReportStolenResponse{}, k.emit(ctx, &types.EventStolenReported{JewelId: j.Id, By: by})
 }
 
 // ClearStolen lifts the flag.
@@ -185,9 +203,16 @@ func (k msgServer) ClearStolen(ctx context.Context, req *types.MsgClearStolen) (
 	if _, err := k.actsForOwner(ctx, req.Owner, j); err != nil {
 		return nil, err
 	}
+	by, err := k.canonical(req.Owner)
+	if err != nil {
+		return nil, err
+	}
 	if !j.Stolen {
 		return nil, types.ErrNotStolen
 	}
 	j.Stolen = false
-	return &types.MsgClearStolenResponse{}, k.Jewel.Set(ctx, j.Id, j)
+	if err := k.Jewel.Set(ctx, j.Id, j); err != nil {
+		return nil, err
+	}
+	return &types.MsgClearStolenResponse{}, k.emit(ctx, &types.EventStolenCleared{JewelId: j.Id, By: by})
 }
