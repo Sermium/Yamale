@@ -13,6 +13,10 @@
 #   7. a cleaning benefit is attached and used with the buyer's signed code
 #   8. the buyer reports it stolen; an offer is refused; the flag is cleared
 #
+# It needs a FRESH devnet: the inscription, the voucher nonce and the key names
+# are fixed, so a second run on the same chain is refused at stage 2 onward.
+# Each refusal is checked for its reason, not merely for failing.
+#
 # Usage, against scripts/devnet/init-local-devnet.sh:
 #
 #   BIN=$SCRATCH/blockchaind.exe SIGN=$SCRATCH/jewelsign.exe \
@@ -40,7 +44,7 @@ ensure_key() {
   "$BIN" keys show "$1" -a --keyring-backend "$KEYRING" --home "$HOME_DIR" >/dev/null 2>&1 \
     || "$BIN" keys add "$1" --keyring-backend "$KEYRING" --home "$HOME_DIR" >/dev/null 2>&1
 }
-privhex() { yes | "$BIN" keys export "$1" --unarmored-hex --unsafe --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null | tail -1; }
+privhex() { yes | "$BIN" keys export "$1" --unarmored-hex --unsafe --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null | tail -1 || true; }  # `yes` dies of SIGPIPE; pipefail must not count it
 FAILED=0
 
 # A transaction's code 0 is only CheckTx. Read the block's verdict.
@@ -57,16 +61,44 @@ committed() {
 }
 run() { local out; out=$("$BIN" tx "$@" $TX -o json 2>&1) || return 1; committed "$out"; }
 
+# Everything a transaction said about itself: the CLI's own output (a CheckTx or
+# simulation rejection has no hash, and its reason is only there) plus, when a
+# hash exists, the block's verdict with its raw_log.
+outcome() {
+  local out=$1 hash res=""
+  hash=$(printf '%s' "$out" | json txhash)
+  if [ -n "$hash" ]; then
+    for _ in $(seq 1 20); do
+      res=$("$BIN" query tx "$hash" $Q 2>/dev/null || true)
+      [ -n "$res" ] && break
+      sleep 1
+    done
+  fi
+  printf '%s\n%s' "$out" "$res"
+}
+# A refusal passes only for the stated reason. Any other failure (a keyring
+# error, a wrong flag, no gas, an unfunded account) is a FAIL, not an ok.
+expect_refused() {
+  local label=$1 want=$2; shift 2
+  local out; out=$("$BIN" tx "$@" $TX -o json 2>&1 || true)
+  if outcome "$out" | grep -qF -- "$want"; then ok "$label"; else bad "$label: refused, but not for the expected reason ($want)"; fi
+}
+
 # Broadcast one message built by jewelsign, signed by a keyring key.
-run_json() {
-  local msg=$1 from=$2 body="$HOME_DIR/.jewel-tx.json" signed="$HOME_DIR/.jewel-signed.json" out
+broadcast_json() {
+  local msg=$1 from=$2 body="$HOME_DIR/.jewel-tx.json" signed="$HOME_DIR/.jewel-signed.json"
   cat > "$body" <<JSON
 {"body":{"messages":[$msg],"memo":"","timeout_height":"0","extension_options":[],"non_critical_extension_options":[]},
  "auth_info":{"signer_infos":[],"fee":{"amount":[],"gas_limit":"400000","payer":"","granter":""}},"signatures":[]}
 JSON
-  "$BIN" tx sign "$body" --from "$from" --keyring-backend "$KEYRING" --home "$HOME_DIR" --chain-id "$CHAIN" --node "$NODE" > "$signed" || return 1
-  out=$("$BIN" tx broadcast "$signed" --node "$NODE" -o json 2>&1) || return 1
-  committed "$out"
+  "$BIN" tx sign "$body" --from "$from" --keyring-backend "$KEYRING" --home "$HOME_DIR" --chain-id "$CHAIN" --node "$NODE" > "$signed" 2>&1 || { echo "sign failed"; return 1; }
+  "$BIN" tx broadcast "$signed" --node "$NODE" -o json 2>&1 || true
+}
+run_json() { local out; out=$(broadcast_json "$@") || return 1; committed "$out"; }
+expect_refused_json() {
+  local label=$1 want=$2; shift 2
+  local out; out=$(broadcast_json "$@" || true)
+  if outcome "$out" | grep -qF -- "$want"; then ok "$label"; else bad "$label: refused, but not for the expected reason ($want)"; fi
 }
 
 # Act as the office (a 3-of-5 policy): propose, three members vote, the third
@@ -105,25 +137,31 @@ JSON
 for k in jw-business jw-staff jw-customer jw-buyer; do ensure_key "$k"; done
 BUSINESS=$(addr jw-business); STAFF=$(addr jw-staff); CUSTOMER=$(addr jw-customer); BUYER=$(addr jw-buyer)
 for a in "$BUSINESS" "$STAFF" "$CUSTOMER" "$BUYER"; do
-  run bank send "$(addr "$M3")" "$a" 10000000uyml --from "$M3" >/dev/null || true
+  run bank send "$(addr "$M3")" "$a" 10000000uyml --from "$M3" >/dev/null \
+    || { echo "could not fund $a from $M3; is this a fresh devnet from init-local-devnet.sh?" >&2; exit 1; }
 done
+need() { [ -n "$2" ] || { echo "could not read $1 from the chain; stopping rather than sending malformed commands" >&2; exit 1; }; }
 
 say "1  the office admits Maison Diop"
 as_office "{\"@type\":\"/blockchain.jewel.v1.MsgAdmitJeweler\",\"office\":\"$OFFICE\",\"name\":\"Maison Diop\",\"business\":\"$BUSINESS\"}" \
   && ok "admitted" || bad "admission"
-JEWELER=$("$BIN" query jewel jewelers $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4)
+JEWELER=$("$BIN" query jewel jewelers $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4 || true)
+need "the jeweler id" "$JEWELER"
 
 say "2  staff, then a ring"
 run jewel set-staff "$JEWELER" --add "$STAFF" --from jw-business && ok "staff added" || bad "staff"
 HASH=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 run jewel register "MD-2026-0001" "$HASH" "https://loyalty.yamaletech.com/r/$HASH" --from jw-staff && ok "ring registered" || bad "register"
-RING=$("$BIN" query jewel inscription MD20260001 $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4)
+RING=$("$BIN" query jewel inscription MD20260001 $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4 || true)
+need "the ring's id" "$RING"
 
 say "3  the same inscription again"
-run jewel register "md 2026 0001" "$HASH" "u" --from jw-staff && bad "a duplicate was accepted" || ok "refused"
+expect_refused "refused as already registered" "this jeweler has already registered a jewel with this inscription" \
+  jewel register "md 2026 0001" "$HASH" "u" --from jw-staff
 
 say "4  a bare x/nft send"
-run nft send "jewel-$JEWELER" "jewel-$RING" "$BUYER" --from jw-business && bad "the bare send went through" || ok "refused at the router"
+expect_refused "refused at the router" "circuit breaker disables execution of this message" \
+  nft send "jewel-$JEWELER" "jewel-$RING" "$BUYER" --from jw-business
 
 say "5  sold by email: a claim key"
 read -r CLAIM_PRIV CLAIM_PUB < <("$SIGN" claimkey)
@@ -136,17 +174,29 @@ run jewel accept "$RING" --from jw-buyer && ok "accepted" || bad "accept"
 
 say "7  a cleaning, used with the buyer's code"
 run jewel attach-benefit "$RING" cleaning 2 --period 31536000 --from jw-staff && ok "attached" || bad "attach"
-BENEFIT=$("$BIN" query jewel jewel "$RING" $Q | sed -n '/"benefits"/,$p' | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4)
-EXPIRES=$(( $(date +%s) + 240 ))
-VOUCHER=$("$SIGN" voucher "$(privhex jw-buyer)" "$CHAIN" "$STAFF" "$BENEFIT" "$RING" "seed-1" "$EXPIRES")
+BENEFIT=$("$BIN" query jewel jewel "$RING" $Q | sed -n '/"benefits"/,$p' | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4 || true)
+need "the benefit's id" "$BENEFIT"
+# The chain checks expiry against block time, so measure from the chain's clock
+# when the status call gives it; the local clock otherwise.
+NOW=$(date -d "$("$BIN" status --node "$NODE" 2>/dev/null | grep -oE '"latest_block_time":[[:space:]]*"[^"]*"' | cut -d'"' -f4)" +%s 2>/dev/null || true)
+[ -n "$NOW" ] || NOW=$(date +%s)
+EXPIRES=$(( NOW + 240 ))
+PRIV=$(privhex jw-buyer); need "the buyer's private key" "$PRIV"
+VOUCHER=$("$SIGN" voucher "$PRIV" "$CHAIN" "$STAFF" "$BENEFIT" "$RING" "seed-1" "$EXPIRES"); need "the voucher" "$VOUCHER"
 run_json "$VOUCHER" jw-staff && ok "used" || bad "redeem"
-run_json "$VOUCHER" jw-staff && bad "the same code was used twice" || ok "a second use of the same code is refused"
+expect_refused_json "a second use of the same code is refused" "this voucher has already been used" "$VOUCHER" jw-staff
 
 say "8  stolen"
 run jewel report-stolen "$RING" --from jw-buyer && ok "reported" || bad "report"
-run jewel offer "$RING" --to "$CUSTOMER" --from jw-buyer && bad "a stolen jewel was offered" || ok "an offer is refused"
+expect_refused "an offer on a stolen jewel is refused" "this jewel is reported stolen" \
+  jewel offer "$RING" --to "$CUSTOMER" --from jw-buyer
 run jewel clear-stolen "$RING" --from jw-buyer && ok "cleared" || bad "clear"
 
 say "the record"
-"$BIN" query jewel jewel "$RING" $Q
+RECORD=$("$BIN" query jewel jewel "$RING" $Q)
+printf '%s\n' "$RECORD"
+printf '%s' "$RECORD" | grep -qE '"owner_count":[[:space:]]*2([^0-9]|$)' && ok "two owners" || bad "owner_count is not 2"
+printf '%s' "$RECORD" | grep -qE '"stolen":[[:space:]]*true' && bad "the jewel is still flagged stolen" || ok "not flagged stolen"
+USES=$(printf '%s' "$RECORD" | sed -n '/"uses"/,/\]/p' | grep -cE '^[[:space:]]*"[0-9]+",?[[:space:]]*$' || true)
+[ "$USES" = 1 ] && ok "the benefit shows exactly one use" || bad "the benefit shows $USES uses, expected 1"
 [ "$FAILED" = 0 ] && echo "all stages behaved" || { echo "some stages did not behave; see FAIL above" >&2; exit 1; }
