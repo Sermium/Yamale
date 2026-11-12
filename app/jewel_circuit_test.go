@@ -33,17 +33,19 @@ func TestABareNFTSendIsRefusedAtTheRouterEvenInsideAuthz(t *testing.T) {
 	handler := app.MsgServiceRouter().Handler(send)
 	require.NotNil(t, handler)
 	const nftAnswer = "is not the owner of nft"
+	// baseapp/msg_service_router.go: "circuit breaker disables execution of this message: <url>"
+	const breakerAnswer = "circuit breaker disables execution of this message"
 	_, err = handler(ctx, send)
 	require.ErrorContains(t, err, nftAnswer, "control: with the send open, x/nft itself answers")
 
 	require.NoError(t, app.CircuitBreakerKeeper.DisableList.Set(ctx, jeweltypes.NFTSendTypeURL))
 
 	_, err = handler(ctx, send)
-	require.Error(t, err)
-	require.NotContains(t, err.Error(), nftAnswer, "the router must refuse before x/nft runs")
+	require.ErrorContains(t, err, breakerAnswer, "the router must refuse before x/nft runs")
+	require.NotContains(t, err.Error(), nftAnswer)
 
 	exec := authz.NewMsgExec(owner, []sdk.Msg{send})
 	_, err = app.MsgServiceRouter().Handler(&exec)(ctx, &exec)
-	require.Error(t, err)
+	require.ErrorContains(t, err, breakerAnswer, "authz must be refused by the router too")
 	require.NotContains(t, err.Error(), nftAnswer, "authz must not reach x/nft either")
 }
