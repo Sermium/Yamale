@@ -11,8 +11,6 @@ import (
 
 type msgServer struct {
 	Keeper
-	// Embedded until every handler exists; removed in Task 9.
-	types.UnimplementedMsgServer
 }
 
 // NewMsgServerImpl returns the register's Msg service.
