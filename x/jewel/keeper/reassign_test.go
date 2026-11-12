@@ -74,9 +74,9 @@ func TestASaleDuringTheWindowVoidsTheReassignment(t *testing.T) {
 
 	f.advance(month + time.Second)
 	_, err = f.srv.CompleteReassignment(f.env.Ctx, &types.MsgCompleteReassignment{Creator: claimant, JewelId: id})
-	require.ErrorIs(t, err, types.ErrReassignmentStale)
+	require.ErrorIs(t, err, types.ErrNoReassignment, "the sale voided the proposal")
 
-	// A stale proposal does not block a fresh one.
+	// A voided proposal does not block a fresh one.
 	_, err = f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
 		To: claimant, Reason: "r2"})
 	require.NoError(t, err)
@@ -110,4 +110,74 @@ func TestAnUpperCaseSpellingIsTheSameAccount(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.srv.VetoReassignment(f.env.Ctx, &types.MsgVetoReassignment{Owner: strings.ToUpper(owner), JewelId: id})
 	require.NoError(t, err)
+}
+
+// A proposal made while A holds the jewel must not come back to life when A
+// holds it again: the sales in between void it, and its window is long spent.
+func TestAProposalDoesNotReviveWhenTheJewelReturnsToItsOwner(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	a := f.sell(t, staff, id)
+	_, c := f.env.Addr(t)
+	_, err := f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: c, Reason: "r"})
+	require.NoError(t, err)
+
+	b := f.sellFrom(t, a, id)
+	_, err = f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: b, JewelId: id, To: a})
+	require.NoError(t, err)
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: a, JewelId: id})
+	require.NoError(t, err)
+	require.Equal(t, a, f.owner(t, id))
+
+	f.advance(month + time.Second)
+	_, err = f.srv.CompleteReassignment(f.env.Ctx, &types.MsgCompleteReassignment{Creator: c, JewelId: id})
+	require.ErrorIs(t, err, types.ErrNoReassignment)
+	require.Equal(t, a, f.owner(t, id))
+}
+
+// sellFrom has the owner offer the jewel to a fresh account, which accepts it.
+func (f *fixture) sellFrom(t *testing.T, owner string, id uint64) string {
+	t.Helper()
+	_, buyer := f.env.Addr(t)
+	_, err := f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: owner, JewelId: id, To: buyer})
+	require.NoError(t, err)
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: buyer, JewelId: id})
+	require.NoError(t, err)
+	return buyer
+}
+
+func TestACannotProposeAStolenJewel(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	owner := f.sell(t, staff, id)
+	_, err := f.srv.ReportStolen(f.env.Ctx, &types.MsgReportStolen{Owner: owner, JewelId: id})
+	require.NoError(t, err)
+	_, c := f.env.Addr(t)
+
+	_, err = f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: c, Reason: "r"})
+	require.ErrorIs(t, err, types.ErrStolen)
+}
+
+// Reporting stolen is the owner's refusal to consent: a proposal made before
+// the report must not complete after it, even once the window has passed.
+func TestAStolenReportStopsAPendingReassignment(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	owner := f.sell(t, staff, id)
+	_, thief := f.env.Addr(t)
+	_, err := f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: thief, Reason: "claimant says the key is lost"})
+	require.NoError(t, err)
+	_, err = f.srv.ReportStolen(f.env.Ctx, &types.MsgReportStolen{Owner: owner, JewelId: id})
+	require.NoError(t, err)
+
+	f.advance(month + time.Second)
+	_, err = f.srv.CompleteReassignment(f.env.Ctx, &types.MsgCompleteReassignment{Creator: thief, JewelId: id})
+	require.ErrorIs(t, err, types.ErrStolen)
+	require.Equal(t, owner, f.owner(t, id))
 }

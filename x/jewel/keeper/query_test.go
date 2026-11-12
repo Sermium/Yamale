@@ -28,6 +28,25 @@ func TestTheVerificationPageGetsEverythingInOneQuery(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrNoJewel)
 }
 
+func TestASaleVoidsTheReassignmentShownOnTheVerificationPage(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	owner := f.sell(t, staff, id)
+	_, c := f.env.Addr(t)
+	_, err := f.srv.ProposeReassignment(f.env.Ctx, &types.MsgProposeReassignment{Office: f.office, JewelId: id,
+		To: c, Reason: "r"})
+	require.NoError(t, err)
+	res, err := f.qs.Jewel(f.env.Ctx, &types.QueryJewelRequest{Id: id})
+	require.NoError(t, err)
+	require.NotNil(t, res.Reassignment)
+
+	f.sellFrom(t, owner, id)
+	res, err = f.qs.Jewel(f.env.Ctx, &types.QueryJewelRequest{Id: id})
+	require.NoError(t, err)
+	require.Nil(t, res.Reassignment)
+}
+
 func TestASearchByInscriptionFindsEveryJewelerUsingIt(t *testing.T) {
 	f := setup(t)
 	_, _, a := f.admit(t, "Maison Diop")

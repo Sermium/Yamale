@@ -263,7 +263,8 @@ func (k Keeper) actsForOwner(ctx context.Context, signer string, j types.Jewel) 
 	return "", types.ErrNotOwner.Wrapf("%s", signer)
 }
 
-// transfer moves the token, counts the new owner and closes any offer.
+// transfer moves the token, counts the new owner, and closes any offer and
+// any pending reassignment: a change of owner voids both.
 func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to string) error {
 	addr, err := k.addressCodec.StringToBytes(to)
 	if err != nil {
@@ -274,6 +275,10 @@ func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to string) error {
 	}
 	j.OwnerCount++
 	if err := k.Offer.Remove(ctx, j.Id); err != nil {
+		return err
+	}
+	// Remove on a missing key is not an error in collections.
+	if err := k.Reassignment.Remove(ctx, j.Id); err != nil {
 		return err
 	}
 	return k.Jewel.Set(ctx, j.Id, *j)

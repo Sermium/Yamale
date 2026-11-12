@@ -17,6 +17,10 @@ func (k msgServer) ProposeReassignment(ctx context.Context, req *types.MsgPropos
 	if err != nil {
 		return nil, err
 	}
+	// A reported jewel is one its owner does not consent to moving.
+	if j.Stolen {
+		return nil, types.ErrStolen.Wrapf("jewel %d", j.Id)
+	}
 	to, err := k.canonical(req.To)
 	if err != nil {
 		return nil, err
@@ -80,6 +84,9 @@ func (k msgServer) CompleteReassignment(ctx context.Context, req *types.MsgCompl
 	j, err := k.getJewel(ctx, req.JewelId)
 	if err != nil {
 		return nil, err
+	}
+	if j.Stolen {
+		return nil, types.ErrStolen.Wrapf("jewel %d", j.Id)
 	}
 	r, err := k.Reassignment.Get(ctx, j.Id)
 	if isNotFound(err) {
