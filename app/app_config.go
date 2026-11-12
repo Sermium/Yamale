@@ -302,6 +302,7 @@ var (
 			marketInitGenesis,
 			landInitGenesis,
 			herdInitGenesis,
+			jewelInitGenesis,
 		),
 	}
 
@@ -406,7 +407,7 @@ var (
 				Name:   epochstypes.ModuleName,
 				Config: appconfig.WrapAny(&epochsmodulev1.Module{}),
 			},
-		}, landModuleConfigs, herdModuleConfigs, []*appv1alpha1.ModuleConfig{
+		}, landModuleConfigs, herdModuleConfigs, jewelModuleConfigs, []*appv1alpha1.ModuleConfig{
 			{
 				Name:   constitutionmoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&constitutionmoduletypes.Module{}),

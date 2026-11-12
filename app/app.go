@@ -117,6 +117,7 @@ type App struct {
 	syndicateKeepers
 	marketKeepers
 	herdKeepers
+	jewelKeepers
 
 	// simulation manager
 	sm                 *module.SimulationManager
@@ -237,6 +238,7 @@ func New(
 		app.syndicateDepinjectOutputs(),
 		app.marketDepinjectOutputs(),
 		app.herdDepinjectOutputs(),
+		app.jewelDepinjectOutputs(),
 	)...)
 
 	if err := depinject.Inject(appConfig, outputs...); err != nil {

@@ -24,7 +24,7 @@ import (
 func TestExcludedModulesAreUnwiredInThisProfile(t *testing.T) {
 	macc := GetMaccPerms()
 
-	for _, name := range []string{"amm", "builderfee", "custody", "tokenisation", "land", "emission"} {
+	for _, name := range []string{"amm", "builderfee", "custody", "tokenisation", "land", "jewel", "emission"} {
 		require.NotContains(t, macc, name,
 			"a compiled-out module must not keep a module account")
 	}
@@ -55,6 +55,8 @@ func TestExcludedModulesAreUnwiredInThisProfile(t *testing.T) {
 
 	require.Empty(t, landInitGenesis)
 	require.Empty(t, landModuleConfigs)
+	require.Empty(t, jewelInitGenesis)
+	require.Empty(t, jewelModuleConfigs)
 }
 
 // x/enforcement stays. Scope §4 keeps enforcement oversight and calls it
@@ -78,7 +80,7 @@ func TestTheSovereignModulesAreNotTreatedAsExtras(t *testing.T) {
 // module set. A name left in one of these lists is a module the runtime is
 // asked to find and cannot, which fails at startup rather than at review.
 func TestExcludedModulesAreGoneFromEveryOrdering(t *testing.T) {
-	for _, name := range []string{"amm", "builderfee", "custody", "tokenisation", "land", "emission"} {
+	for _, name := range []string{"amm", "builderfee", "custody", "tokenisation", "land", "jewel", "emission"} {
 		require.NotContains(t, runtimeConfig.BeginBlockers, name)
 		require.NotContains(t, runtimeConfig.EndBlockers, name)
 		require.NotContains(t, runtimeConfig.InitGenesis, name)
