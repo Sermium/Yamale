@@ -12,6 +12,7 @@ import (
 
 	herdkeeper "yamale/blockchain/x/herd/keeper"
 	herdtypes "yamale/blockchain/x/herd/types"
+	jeweltypes "yamale/blockchain/x/jewel/types"
 	markettypes "yamale/blockchain/x/market/types"
 	selfcustodytypes "yamale/blockchain/x/selfcustody/types"
 	syndicatetypes "yamale/blockchain/x/syndicate/types"
@@ -393,6 +394,65 @@ var profileUpgrades = []Upgrade{
 					"its breed upper-cased; a transponder code as its fifteen digits. A serial "+
 					"longer than six digits is refused, never truncated",
 				"emission", "the BeginBlocker no longer rewrites identical state on every block",
+			)
+			return vm, nil
+		},
+	},
+	{
+		// x/jewel: the register of jewels (loyalty.yamaletech.com).
+		//
+		// A new store, so it is added before any migration runs, and x/jewel's
+		// InitGenesis arrives through the standard migration path — fromVM must
+		// NOT carry "jewel", or the module's genesis never runs and its params
+		// stay unwritten.
+		//
+		// The handler shuts x/nft's own MsgSend in x/circuit BEFORE the module
+		// arrives, in the same block. x/nft's send checks only that the sender
+		// owns the token, so while it is open an owner could move a jewel
+		// around every rule x/jewel exists for, and x/jewel itself refuses to
+		// admit a jeweler until it is shut. Only the gov authority can reset a
+		// breaker on devnet-2 (x/circuit has no accounts), so reopening it would
+		// take a vote.
+		//
+		// The office arrives empty, asserted rather than assumed: it is appointed
+		// by governance, and an upgrade that installed one would be admitting an
+		// authority over other people's jewels that nobody voted for.
+		Name:          "jewel-register",
+		StoreUpgrades: storetypes.StoreUpgrades{Added: []string{jeweltypes.StoreKey}},
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			if err := app.CircuitBreakerKeeper.DisableList.Set(ctx, jeweltypes.NFTSendTypeURL); err != nil {
+				return nil, fmt.Errorf("closing x/nft's own send: %w", err)
+			}
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			params, err := app.JewelKeeper.Params.Get(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading the jewel parameters this upgrade just wrote: %w", err)
+			}
+			if params.Office != "" {
+				return nil, fmt.Errorf("x/jewel arrived with office %s appointed; the office is "+
+					"appointed by a vote, not by a migration", params.Office)
+			}
+			jewelers := 0
+			if err := app.JewelKeeper.Jeweler.Walk(ctx, nil,
+				func(uint64, jeweltypes.Jeweler) (bool, error) { jewelers++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the jewelers this upgrade just wrote: %w", err)
+			}
+			if jewelers != 0 {
+				return nil, fmt.Errorf("x/jewel arrived with %d jeweler(s) admitted; the office admits them", jewelers)
+			}
+
+			ctx.Logger().Info(
+				"the register of jewels arrived",
+				"jewel", "jewelers are admitted by an office governance appoints; until then nothing can be registered",
+				"nft", "x/nft's own MsgSend is disabled in x/circuit from this height; a jewel moves only by "+
+					"offer and acceptance, a claim key, or a reassignment",
+				"params", fmt.Sprintf("offer_ttl=%ds voucher_max_ttl=%ds reassignment_window=%ds",
+					params.OfferTtl, params.VoucherMaxTtl, params.ReassignmentWindow),
 			)
 			return vm, nil
 		},

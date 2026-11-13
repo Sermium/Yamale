@@ -6,10 +6,12 @@ import (
 	"context"
 	"testing"
 
+	"cosmossdk.io/collections"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
 	herdtypes "yamale/blockchain/x/herd/types"
+	jeweltypes "yamale/blockchain/x/jewel/types"
 	markettypes "yamale/blockchain/x/market/types"
 	selfcustodytypes "yamale/blockchain/x/selfcustody/types"
 	syndicatetypes "yamale/blockchain/x/syndicate/types"
@@ -283,4 +285,49 @@ func TestTheMarketEscrowIsRegisteredWithTheRegister(t *testing.T) {
 		app.TokenisationKeeper.IsEscrow(app.MarketKeeper.ModuleAddress()),
 		"app.registerMarketEscrow must have run; without it a holder who withdraws "+
 			"an offer nobody took comes back with their cost basis spent")
+}
+
+func TestTheJewelRegisterAddsItsStore(t *testing.T) {
+	u := findUpgrade(t, "jewel-register")
+	require.Contains(t, u.StoreUpgrades.Added, jeweltypes.StoreKey)
+}
+
+// The upgrade closes x/nft's own send in the same block the module arrives.
+// Left open for even one block, a jewel token could move outside x/jewel; and
+// x/jewel refuses to admit any jeweler while it is open, so without this no
+// jeweler could ever be admitted.
+func TestTheJewelRegisterClosesTheBareNFTSendAndAppointsNobody(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	if err := app.CircuitBreakerKeeper.DisableList.Remove(ctx, jeweltypes.NFTSendTypeURL); err != nil {
+		require.ErrorIs(t, err, collections.ErrNotFound)
+	}
+
+	u := findUpgrade(t, "jewel-register")
+	_, err := u.Handler(ctx, app, priorVersions(app, jeweltypes.ModuleName))
+	require.NoError(t, err)
+
+	closed, err := app.CircuitBreakerKeeper.DisableList.Has(ctx, jeweltypes.NFTSendTypeURL)
+	require.NoError(t, err)
+	require.True(t, closed)
+
+	params, err := app.JewelKeeper.Params.Get(ctx)
+	require.NoError(t, err)
+	require.Empty(t, params.Office, "the office is appointed by a vote, never by a migration")
+	want := jeweltypes.DefaultParams()
+	require.Equal(t, want, params, "InitGenesis must have run: fromVM must not pre-set the module")
+}
+
+// An upgrade that found an office already appointed would be installing an
+// authority nobody voted for; it refuses rather than carry on.
+func TestTheJewelRegisterRefusesAnOfficeItDidNotAppoint(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	p := jeweltypes.DefaultParams()
+	p.Office = "yml1dlszg2sst9r69my4f84l3mj66zxcf3umcgujys30t84srg95dgvsrmuayr"
+	require.NoError(t, app.JewelKeeper.Params.Set(ctx, p))
+
+	u := findUpgrade(t, "jewel-register")
+	_, err := u.Handler(ctx, app, priorVersions(app)) // jewel already at its version: no InitGenesis
+	require.ErrorContains(t, err, "office")
 }

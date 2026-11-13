@@ -156,4 +156,20 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The settlement half of jewel-register. x/jewel is not linked into a
+		// settlement build, so there is no store to add and no breaker to trip.
+		// The entry exists because an upgrade name a binary does not know panics
+		// the node at the halt height.
+		Name: "jewel-register",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info("the register of jewels: nothing to do",
+				"absent", "x/jewel is not linked into a settlement build")
+			return vm, nil
+		},
+	},
 }

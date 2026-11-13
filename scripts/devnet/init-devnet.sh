@@ -277,6 +277,14 @@ ombudsman = os.environ.get("OMBUDSMAN", "").strip()
 if ombudsman:
     p["ombudsman"] = ombudsman
 
+# x/jewel refuses to admit a jeweler while x/nft's own send is open (see the
+# jewel-register upgrade), so a devnet relaunched from genesis closes it at
+# height zero, as the upgrade does on the running chain.
+circuit = g["app_state"].setdefault("circuit", {})
+urls = circuit.setdefault("disabled_type_urls", [])
+if "/cosmos.nft.v1beta1.MsgSend" not in urls:
+    urls.append("/cosmos.nft.v1beta1.MsgSend")
+
 json.dump(g, open(path, "w"), indent=2)
 PY
 echo "  recovery destination: $(grep -o '"recovery_destination": *"[^"]*"' "$G" | head -1)"
