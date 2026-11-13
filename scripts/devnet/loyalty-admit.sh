@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# Admits a jeweler created in the loyalty app: the office's 3-of-5 vote, as in
+# seed-jewel.sh stage 1, then 50 YML to the business so it can pay its staff's
+# fees.
+#
+#   BIN=$SCRATCH/blockchaind.exe HOME_DIR=.devnet/local/node CHAIN=yamale-local-1 \
+#   NODE=tcp://127.0.0.1:26957 scripts/devnet/loyalty-admit.sh "Maison Test" yml1…
+set -euo pipefail
+BIN=${BIN:?the chain binary}
+HOME_DIR=${HOME_DIR:?the node home}
+CHAIN=${CHAIN:?the chain id}
+NODE=${NODE:?the node RPC}
+KEYRING=${KEYRING:-test}
+M1=${M1:-custodian1}; M2=${M2:-custodian2}; M3=${M3:-custodian3}
+NAME=${1:?the jeweler name}
+BUSINESS=${2:?the business account code, from the Account tab of the app}
+TX="--keyring-backend $KEYRING --home $HOME_DIR --chain-id $CHAIN --node $NODE --gas auto --gas-adjustment 1.5 -y"
+Q="--home $HOME_DIR --node $NODE -o json"
+. "$(dirname "$0")/jewel-lib.sh"
+
+run bank send "$(addr "$M3")" "$BUSINESS" 50000000uyml --from "$M3" >/dev/null \
+  && ok "funded the business" || { bad "funding"; exit 1; }
+as_office "{\"@type\":\"/blockchain.jewel.v1.MsgAdmitJeweler\",\"office\":\"$OFFICE\",\"name\":\"$NAME\",\"business\":\"$BUSINESS\"}" \
+  && ok "admitted $NAME" || { bad "admission"; exit 1; }
+"$BIN" query jewel jewelers $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4

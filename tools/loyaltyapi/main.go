@@ -41,6 +41,11 @@ type server struct {
 	slotsOnce sync.Once
 	slots     chan struct{}
 	slotWait  time.Duration // how long an upload waits for a slot; zero means 2s
+
+	granter       Granter // nil: sponsoring is off
+	sponsorDaily  int
+	operatorToken string // empty: the application list is off
+	mu            sync.Mutex
 }
 
 func main() {
@@ -48,9 +53,19 @@ func main() {
 	dir := flag.String("dir", "loyalty-data", "directory for files and profiles")
 	rest := flag.String("rest", "http://127.0.0.1:1517", "the chain's REST API, read for jewelers and their staff")
 	chainID := flag.String("chain-id", "yamale-local-1", "the chain id every signed request names")
+	bin := flag.String("bin", "blockchaind", "chain binary that signs the fee grants")
+	from := flag.String("from", "", "key name of the sponsor account; empty turns sponsoring off")
+	home := flag.String("home", "", "home of the chain binary, holding the keyring")
+	keyring := flag.String("keyring-backend", "test", "keyring backend")
+	node := flag.String("node", "tcp://127.0.0.1:26957", "CometBFT RPC the chain binary broadcasts to")
+	spend := flag.String("sponsor", "2000000uyml", "fee allowance granted to each account")
+	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
+	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
+	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
 	flag.Parse()
 
-	for _, sub := range []string{"files", "profiles"} {
+	for _, sub := range []string{"files", "profiles", "applications"} {
 		if err := os.MkdirAll(filepath.Join(*dir, sub), 0o750); err != nil {
 			log.Fatal(err)
 		}
@@ -60,6 +75,22 @@ func main() {
 		chainID: *chainID,
 		chain:   restChain{base: strings.TrimRight(*rest, "/"), client: &http.Client{Timeout: 10 * time.Second}},
 		now:     time.Now,
+	}
+	if *from != "" {
+		g, err := newCLIGranter(*bin, *from, *home, *keyring, *node, *chainID, *spend, *fees, *lifetime)
+		if err != nil {
+			log.Fatalf("sponsor key %q: %v", *from, err)
+		}
+		s.granter = g
+		s.sponsorDaily = *daily
+		log.Printf("sponsoring fees from %s, at most %d accounts a day", g.Address(), *daily)
+	}
+	if *tokenFile != "" {
+		raw, err := os.ReadFile(*tokenFile)
+		if err != nil || len(strings.TrimSpace(string(raw))) < 32 {
+			log.Fatalf("operator token file %s must hold at least 32 characters", *tokenFile)
+		}
+		s.operatorToken = strings.TrimSpace(string(raw))
 	}
 	srv := &http.Server{
 		Addr: *listen, Handler: s.routes(),
@@ -78,6 +109,10 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/files/{hash}", s.handleFile)
 	mux.HandleFunc("GET /v1/jewelers/{id}/profile", s.handleProfileGet)
 	mux.HandleFunc("PUT /v1/jewelers/{id}/profile", s.handleProfilePut)
+	mux.HandleFunc("GET /v1/sponsor", s.handleSponsorInfo)
+	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
+	mux.HandleFunc("POST /v1/applications", s.handleApply)
+	mux.HandleFunc("GET /v1/applications", s.handleApplications)
 	return mux
 }
 
