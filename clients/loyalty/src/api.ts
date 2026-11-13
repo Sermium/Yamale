@@ -4,7 +4,7 @@
  * hash to what the chain recorded is reported as a mismatch, never displayed.
  */
 
-import { sha256Hex } from '../../sdk/src/loyaltyauth.ts';
+import { sha256Hex, signedHeaders } from '../../sdk/src/loyaltyauth.ts';
 
 // Not imported from config.ts: that module reads `window` when it loads, and
 // record.ts, which Node's test runner loads, imports this one.
@@ -37,5 +37,30 @@ export async function fetchProfile(jewelerId: string): Promise<JewelerProfile | 
     return (await res.json()) as JewelerProfile;
   } catch {
     return null;
+  }
+}
+
+/** The platform's fee granter, or null when sponsoring is off or the API is down. */
+export async function sponsorInfo(): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/v1/sponsor`);
+    if (!res.ok) return null;
+    return String((await res.json()).granter);
+  } catch {
+    return null;
+  }
+}
+
+export async function requestSponsorship(key: Uint8Array, address: string, chainId: string):
+  Promise<{ ok: true; granter: string } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await fetch(`${API}/v1/sponsor`, {
+      method: 'POST', headers: signedHeaders(key, 'sponsor', chainId, address),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, status: res.status, error: String(body.error ?? '') };
+    return { ok: true, granter: String(body.granter) };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
   }
 }

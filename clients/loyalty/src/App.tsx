@@ -1,13 +1,18 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { LanguagePicker, t, useLocale } from '@yamale/chain';
 
+import { AccountScreen } from './account/Account.tsx';
+import { SessionProvider } from './account/session.tsx';
 import { NotFound } from './ui.tsx';
 import { JewelPage } from './verify/JewelPage.tsx';
 import { Proof } from './verify/Proof.tsx';
 import { Search } from './verify/Search.tsx';
 
 function TabBar() {
-  const tabs = [{ to: '/', end: true, label: t('loyalty.navVerify') }];
+  const tabs = [
+    { to: '/', end: true, label: t('loyalty.navVerify') },
+    { to: '/account', end: false, label: t('loyalty.navAccount') },
+  ];
   return (
     <nav className="y-tabbar" aria-label={t('loyalty.navLabel')}>
       {tabs.map((tab) => (
@@ -24,6 +29,7 @@ export function App() {
   useLocale();
   return (
     <BrowserRouter>
+      <SessionProvider>
       <div className="y-stage">
         <a className="skip" href="#main">{t('loyalty.skip')}</a>
         <header className="y-stage__bar">
@@ -38,12 +44,14 @@ export function App() {
               <Route path="/" element={<Search />} />
               <Route path="/j/:jeweler/:jewel" element={<JewelPage />} />
               <Route path="/own/:jewel" element={<Proof />} />
+              <Route path="/account" element={<AccountScreen />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <TabBar />
           </div>
         </div>
       </div>
+      </SessionProvider>
     </BrowserRouter>
   );
 }

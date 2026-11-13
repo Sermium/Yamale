@@ -1,0 +1,164 @@
+/**
+ * The signed-in state: which account this device holds, whether its key is
+ * open in memory, and the one way the app sends a transaction.
+ *
+ * The key lives in a ref, not in React state, so it never reaches a devtools
+ * snapshot or a re-render log. It is dropped after ten minutes without use,
+ * and on lock or reload.
+ */
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { DirectSecp256k1Wallet } from '@cosmjs/proto-signing';
+import { ChainSigner, JEWEL_GAS, type EncodeObject, type SubmitResult } from '@yamale/chain';
+
+import { enrol, servicesAvailable } from '../../../wallet/src/account/enrol.ts';
+import { rememberEnrolment } from '../../../wallet/src/account/stored.ts';
+import { requestSponsorship, sponsorInfo } from '../api.ts';
+import { CHAIN_ID, GAS_PRICE, RPC_ENDPOINT, SERVICES } from '../config.ts';
+import {
+  adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
+} from './device.ts';
+
+const IDLE_MS = 10 * 60 * 1000;
+
+export interface Session {
+  account: StoredAccount | null;
+  address: string | null;
+  unlocked: boolean;
+  sponsor: string | null;
+  create(email: string, password: string): Promise<void>;
+  unlock(password: string): Promise<void>;
+  lock(): void;
+  forget(): void;
+  adopt(privateKey: Uint8Array, email: string, password: string): Promise<void>;
+  withKey<T>(use: (key: Uint8Array) => T): T;
+  submit(messages: EncodeObject[], granter: string | null): Promise<SubmitResult>;
+  submitAsOwner(messages: EncodeObject[]): Promise<SubmitResult>;
+  ensureSponsored(): Promise<'sponsored' | 'unavailable' | 'refused'>;
+  protect(password: string): Promise<'enrolled' | 'unavailable'>;
+}
+
+/** Owners hold no coins: without the platform's allowance an owner cannot act. */
+export class SponsorshipUnavailable extends Error {
+  constructor(public readonly state: 'unavailable' | 'refused') {
+    super(`fees cannot be sponsored: ${state}`);
+    this.name = 'SponsorshipUnavailable';
+  }
+}
+
+const SessionContext = createContext<Session | null>(null);
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [account, setAccount] = useState<StoredAccount | null>(() => readAccount());
+  const [unlocked, setUnlocked] = useState(false);
+  const [sponsor, setSponsor] = useState<string | null>(null);
+  // The granter as of now, read by submitAsOwner. State alone would hand a
+  // closure the value from the render it was created in.
+  const sponsorRef = useRef<string | null>(null);
+  const key = useRef<Uint8Array | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => { sponsorInfo().then((g) => { sponsorRef.current = g; setSponsor(g); }); }, []);
+
+  const lock = useCallback(() => {
+    window.clearTimeout(timer.current);
+    key.current?.fill(0);
+    key.current = null;
+    setUnlocked(false);
+  }, []);
+
+  const touch = useCallback(() => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(lock, IDLE_MS);
+  }, [lock]);
+
+  const hold = useCallback((k: Uint8Array) => { key.current = k; setUnlocked(true); touch(); }, [touch]);
+
+  const withKey = useCallback(<T,>(use: (k: Uint8Array) => T): T => {
+    if (!key.current) throw new Error('locked');
+    touch();
+    return use(key.current);
+  }, [touch]);
+
+  const ensureSponsored = useCallback(async () => {
+    const current = readAccount();
+    if (!current || !key.current) return 'refused' as const;
+    if (current.sponsored) return 'sponsored' as const;
+    const out = await requestSponsorship(key.current, current.address, CHAIN_ID);
+    if (out.ok) {
+      setAccount(updateAccount({ sponsored: true }));
+      sponsorRef.current = out.granter;
+      setSponsor(out.granter);
+      return 'sponsored' as const;
+    }
+    return out.status === 0 || out.status >= 500 ? 'unavailable' as const : 'refused' as const;
+  }, []);
+
+  const protect = useCallback(async (password: string) => {
+    const current = readAccount();
+    if (!current || !key.current) throw new Error('locked');
+    if (!(await servicesAvailable(SERVICES))) return 'unavailable' as const;
+    const done = await enrol(key.current, current.email, password, SERVICES);
+    rememberEnrolment({ address: done.address, email: current.email, holding: done.deviceHolding,
+      enrolledAt: new Date().toISOString() });
+    setAccount(updateAccount({ protection: 'enrolled' }));
+    return 'enrolled' as const;
+  }, []);
+
+  const submitWith = useCallback(async (messages: EncodeObject[], granter: string | null) => {
+    const wallet = await withKey((k) => DirectSecp256k1Wallet.fromKey(k, 'yml'));
+    const signer = new ChainSigner(wallet, {
+      rpcUrl: RPC_ENDPOINT, chainId: CHAIN_ID, gasPrice: GAS_PRICE, ...(granter ? { feeGranter: granter } : {}),
+    });
+    try {
+      return await signer.submit(messages, '', JEWEL_GAS);
+    } finally {
+      signer.disconnect();
+    }
+  }, [withKey]);
+
+  const submitAsOwner = useCallback(async (messages: EncodeObject[]) => {
+    const state = await ensureSponsored();
+    if (state !== 'sponsored') throw new SponsorshipUnavailable(state);
+    if (!sponsorRef.current) sponsorRef.current = await sponsorInfo();
+    if (!sponsorRef.current) throw new SponsorshipUnavailable('unavailable');
+    return submitWith(messages, sponsorRef.current);
+  }, [ensureSponsored, submitWith]);
+
+  const value = useMemo<Session>(() => ({
+    account,
+    address: account?.address ?? null,
+    unlocked,
+    sponsor,
+    async create(email, password) {
+      const made = await createAccount(email, password);
+      setAccount(made.account);
+      hold(made.privateKey);
+    },
+    async unlock(password) {
+      if (!account) throw new Error('no account on this device');
+      hold(await unlockAccount(account, password));
+    },
+    lock,
+    forget() { lock(); forgetAccount(); setAccount(null); },
+    async adopt(privateKey, email, password) {
+      forgetAccount();
+      const adopted = await adoptKey(privateKey, email, password);
+      setAccount(updateAccount({ protection: 'enrolled', sponsored: adopted.sponsored }));
+      hold(privateKey);
+    },
+    withKey,
+    submit: submitWith,
+    submitAsOwner,
+    ensureSponsored,
+    protect,
+  }), [account, unlocked, sponsor, hold, lock, withKey, submitWith, submitAsOwner, ensureSponsored, protect]);
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+export function useSession(): Session {
+  const s = useContext(SessionContext);
+  if (!s) throw new Error('useSession outside SessionProvider');
+  return s;
+}
