@@ -5,6 +5,7 @@
 FAILED=0
 # How many of M1 M2 M3 vote as the office: 3 on the local 3-of-5, 2 on devnet-2's 2-of-3.
 OFFICE_VOTES=${OFFICE_VOTES:-3}
+case "$OFFICE_VOTES" in 1|2|3) ;; *) echo "OFFICE_VOTES must be 1, 2 or 3 (got '$OFFICE_VOTES'): the office votes with M1, M2, M3" >&2; exit 1 ;; esac
 
 say()  { LAST_TX=""; printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 # LAST_TX holds the chain's raw answer (CLI tx/query/proposal JSON, never a key)
