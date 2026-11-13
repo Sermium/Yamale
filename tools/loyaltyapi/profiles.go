@@ -54,7 +54,7 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusBadRequest, "a jeweler id is a positive integer")
 		return
 	}
-	_ = http.NewResponseController(w).SetReadDeadline(s.now().Add(10 * time.Second))
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(10 * time.Second))
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<10))
 	if err != nil {
 		readFailed(w, err, "a profile is at most 4 KiB")

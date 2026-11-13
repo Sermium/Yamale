@@ -81,14 +81,6 @@ func readFailed(w http.ResponseWriter, err error, tooBig string) {
 // reads a byte of the body, streams the body to disk while hashing it, and
 // moves it into place only once the signature over that hash verifies.
 func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
-	if !s.acquire() {
-		w.Header().Set("Retry-After", "5")
-		refuse(w, http.StatusServiceUnavailable, "the server is busy storing other files; try again shortly")
-		return
-	}
-	defer s.release()
-	_ = http.NewResponseController(w).SetReadDeadline(s.now().Add(uploadDeadline))
-
 	c, err := s.claimed(r)
 	if err != nil {
 		refuse(w, http.StatusUnauthorized, err.Error())
@@ -103,6 +95,19 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusForbidden, "only the staff of an active jeweler can store files")
 		return
 	}
+
+	// Only now take a slot, so a stalled chain read never holds one.
+	if !s.acquire() {
+		w.Header().Set("Retry-After", "5")
+		refuse(w, http.StatusServiceUnavailable, "the server is busy storing other files; try again shortly")
+		return
+	}
+	defer s.release()
+	// The server-wide WriteTimeout runs from the headers, so a slow upload
+	// would otherwise be unable to write its answer. Real time, not s.now.
+	rc := http.NewResponseController(w)
+	_ = rc.SetReadDeadline(time.Now().Add(uploadDeadline))
+	_ = rc.SetWriteDeadline(time.Now().Add(uploadDeadline + 30*time.Second))
 
 	filesDir := filepath.Join(s.dir, "files")
 	if err := os.MkdirAll(filesDir, 0o750); err != nil {

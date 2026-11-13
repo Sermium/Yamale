@@ -126,3 +126,29 @@ func TestAFullServerAnswers503WithRetryAfter(t *testing.T) {
 	require.Equal(t, http.StatusCreated, w.Code)
 	require.Len(t, s.slots, 0, "the slot is released after each upload")
 }
+
+// A slow upload must still be able to write its answer after the server-wide
+// WriteTimeout has passed, because the write deadline starts at the headers.
+func TestASlowUploadOutlivesTheServerWriteTimeout(t *testing.T) {
+	biz := testKey("biz")
+	s := testServer(t, activeJeweler("1", biz))
+	ts := httptest.NewUnstartedServer(s.routes())
+	ts.Config.WriteTimeout = 300 * time.Millisecond
+	ts.Start()
+	defer ts.Close()
+
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = pw.Write(pngBytes[:32])
+		time.Sleep(700 * time.Millisecond)
+		_, _ = pw.Write(pngBytes[32:])
+		pw.Close()
+	}()
+	req, err := http.NewRequest("POST", ts.URL+"/v1/files", pr)
+	require.NoError(t, err)
+	sign(t, req, biz, "file", hashHex(pngBytes), testNow.Unix())
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusCreated, res.StatusCode)
+}
