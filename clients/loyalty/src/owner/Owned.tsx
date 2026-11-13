@@ -14,7 +14,7 @@ import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { CHAIN_ID, PUBLIC_ORIGIN } from '../config.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, ShareButtons, useLoad } from '../ui.tsx';
-import { benefitState } from '../verify/history.ts';
+import { benefitState, type IssuerStatus } from '../verify/history.ts';
 import { benefitKind, Hallmark } from '../verify/JewelPage.tsx';
 import { currentRecordHash, useRecord } from '../verify/record.ts';
 import { forgetStaleLinks } from './links.ts';
@@ -70,14 +70,15 @@ function Veto({ view, onChange }: { view: JewelView; onChange: () => void }) {
   );
 }
 
-function Benefits({ view, issuerActive, now }: { view: JewelView; issuerActive: boolean; now: number }) {
+function Benefits({ view, issuer, now }: { view: JewelView; issuer: IssuerStatus; now: number }) {
   const [open, setOpen] = useState<string | null>(null);
   if (view.benefits.length === 0) return <p className="hint">{t('loyalty.noBenefits')}</p>;
   return (
     <ul className="y-cards">
       {view.benefits.map((b) => {
-        const s = benefitState(b, issuerActive, now);
-        const usable = s.state === 'active' && s.left > 0 && !view.jewel.stolen;
+        const s = benefitState(b, issuer, now);
+        // With the issuer unread nobody can say the benefit will be honoured, so no use is offered.
+        const usable = s.state === 'active' && s.left > 0 && !view.jewel.stolen && issuer === 'active';
         return (
           <li key={b.id} className="y-card stack">
             <div className="benefit">
@@ -166,7 +167,12 @@ export function Owned() {
               </UnlockGate>
             </Section>
             <Section title={t('loyalty.benefits')}>
-              {jeweler ? <Benefits view={v} issuerActive={jeweler.ok ? isActive(jeweler.value) : false} now={now} /> : <Loading />}
+              {jeweler
+                ? <>
+                    {jeweler.ok ? null : <Problem outcome={jeweler} />}
+                    <Benefits view={v} issuer={jeweler.ok ? (isActive(jeweler.value) ? 'active' : 'suspended') : 'unknown'} now={now} />
+                  </>
+                : <Loading />}
             </Section>
             <Section title={t('loyalty.proveIt')}><Proof jewelId={v.jewel.id} /></Section>
             <Section title={t('loyalty.stolenTitle')}><Stolen view={v} onChange={reload} /></Section>

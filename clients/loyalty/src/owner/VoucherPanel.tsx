@@ -1,20 +1,25 @@
 /**
  * The owner's consent to one use of a benefit, as a code the staff scan.
  *
- * Dated by the chain's clock, not the phone's, and renewed shortly before it
- * lapses, so the code on screen is always one the chain will accept.
+ * Dated by the chain's clock, not the phone's. ONE code is issued: it is never
+ * renewed behind the owner's back. When it lapses the owner must ask for a new
+ * one, and while it is shown the chain is polled so a recorded use closes it.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chainHead, encodeVoucherCode, makeVoucher, t } from '@yamale/chain';
+import { chainHead, encodeVoucherCode, makeVoucher, readJewel, t } from '@yamale/chain';
 
 import { QrCode } from '../../../app/src/qr.tsx';
 import { useSession } from '../account/session.tsx';
 import { CHAIN_ID } from '../config.ts';
+import { useMark, voucherPhase, type UseMark } from './voucher.ts';
+
+const POLL_MS = 4000;
 
 export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitId: string }) {
-  const session = useSession();
-  const [code, setCode] = useState<{ text: string; deadline: number } | null>(null);
+  const { withKey } = useSession();
+  const [code, setCode] = useState<{ text: string; deadline: number; issued: UseMark } | null>(null);
+  const [current, setCurrent] = useState<UseMark | null>(null);
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState(Date.now());
   const making = useRef(false);
@@ -23,27 +28,43 @@ export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitI
     if (making.current) return;
     making.current = true;
     try {
-      const head = await chainHead();
-      if (!head.ok) { setFailed(true); return; }
-      const v = session.withKey((k) => makeVoucher(k, CHAIN_ID, benefitId, jewelId, head.value.time));
+      const [head, view] = await Promise.all([chainHead(), readJewel(jewelId)]);
+      if (!head.ok || !view.ok) { setFailed(true); return; }
+      const benefit = view.value.benefits.find((b) => b.id === benefitId);
+      if (!benefit) { setFailed(true); return; }
+      const v = withKey((k) => makeVoucher(k, CHAIN_ID, benefitId, jewelId, head.value.time));
       const lifetime = Number(v.voucher.expiresAt) - head.value.time;
-      setCode({ text: encodeVoucherCode(v), deadline: Date.now() + lifetime * 1000 });
+      const issued = useMark(benefit.uses);
+      setCurrent(issued);
+      setCode({ text: encodeVoucherCode(v), deadline: Date.now() + lifetime * 1000, issued });
       setFailed(false);
     } catch {
       setFailed(true);
     } finally {
       making.current = false;
     }
-  }, [session, benefitId, jewelId]);
+  }, [withKey, benefitId, jewelId]);
 
   useEffect(() => { make(); }, [make]);
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  const phase = code ? voucherPhase(code.issued, current, now, code.deadline) : null;
   useEffect(() => {
-    if (code && code.deadline - now < 20_000) make();
-  }, [now, code, make]);
+    if (phase !== 'showing') return;
+    let live = true;
+    const id = window.setInterval(async () => {
+      try {
+        const view = await readJewel(jewelId);
+        if (!live || !view.ok) return;
+        const b = view.value.benefits.find((x) => x.id === benefitId);
+        if (b) setCurrent(useMark(b.uses));
+      } catch { /* the next poll tries again */ }
+    }, POLL_MS);
+    return () => { live = false; window.clearInterval(id); };
+  }, [phase, jewelId, benefitId]);
 
   if (failed) {
     return (
@@ -53,7 +74,16 @@ export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitI
       </div>
     );
   }
-  if (!code) return <p className="loading">{t('loyalty.loading')}</p>;
+  if (!code || !phase) return <p className="loading">{t('loyalty.loading')}</p>;
+  if (phase === 'used') return <p className="banner banner--ok" role="status">{t('loyalty.voucherUsed')}</p>;
+  if (phase === 'lapsed') {
+    return (
+      <div className="stack">
+        <p className="note">{t('loyalty.voucherLapsed')}</p>
+        <button type="button" className="btn" onClick={() => { setCode(null); make(); }}>{t('loyalty.voucherNew')}</button>
+      </div>
+    );
+  }
   const seconds = Math.max(0, Math.round((code.deadline - now) / 1000));
   return (
     <div className="stack voucher">

@@ -28,13 +28,18 @@ export async function fetchVerified(hash: string): Promise<Fetched> {
   return { ok: true, bytes, type: res.headers.get('Content-Type') ?? '' };
 }
 
+const HEX_COLOUR = /^#[0-9a-f]{6}$/;
+function safeColour(v: unknown): string { return typeof v === 'string' && HEX_COLOUR.test(v) ? v : ''; }
+
 export interface JewelerProfile { logo: string; colour: string; accent: string }
 
 export async function fetchProfile(jewelerId: string): Promise<JewelerProfile | null> {
   try {
     const res = await fetch(`${API}/v1/jewelers/${jewelerId}/profile`);
     if (!res.ok) return null;
-    return (await res.json()) as JewelerProfile;
+    const p = (await res.json()) as JewelerProfile;
+    // Colours go into CSS: only a plain hex colour is used, anything else is ignored.
+    return { ...p, colour: safeColour(p.colour), accent: safeColour(p.accent) };
   } catch {
     return null;
   }

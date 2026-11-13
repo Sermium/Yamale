@@ -40,7 +40,7 @@ export function checkRedeem(i: RedeemInput): RedeemCheck {
   if (i.codeExpiresAt > i.now + VOUCHER_MAX_TTL) return { ok: false, key: 'loyalty.voucherTooFar' };
   if (i.stolen) return { ok: false, key: 'loyalty.err.stolen' };
   // The staff member is active (the screen requires it), so the issuer is honouring its benefits.
-  const s = benefitState(i.benefit, true, i.now);
+  const s = benefitState(i.benefit, 'active', i.now);
   if (s.state === 'expired') return { ok: false, key: 'loyalty.err.benefitExpired' };
   if (s.state !== 'active') return { ok: false, key: 'loyalty.voucherNotOurs' };
   if (s.left === 0) return { ok: false, key: 'loyalty.err.allowanceUsed' };

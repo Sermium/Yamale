@@ -56,6 +56,11 @@ test('a claim link carries the jewel and the key, and nothing else parses', () =
   for (const bad of ['', '#12', '#0.' + 'a'.repeat(64), '#12.' + 'a'.repeat(63), '#x.' + 'a'.repeat(64)]) {
     assert.equal(parseClaimFragment(bad), null, bad);
   }
+  // Well-formed hex that is not a valid secp256k1 scalar: zero, and the curve order itself and above.
+  const order = 'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141';
+  for (const bad of ['0'.repeat(64), order, 'f'.repeat(64)]) {
+    assert.equal(parseClaimFragment('#12.' + bad), null, bad);
+  }
 });
 
 test('a claim message signs for the claimer named in it', () => {

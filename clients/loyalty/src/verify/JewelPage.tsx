@@ -16,7 +16,7 @@ import {
 
 import { fetchProfile } from '../api.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
-import { benefitState, ownershipSteps } from './history.ts';
+import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
 import { currentRecordHash, useRecord, type JewelRecord } from './record.ts';
 
@@ -48,12 +48,12 @@ export function benefitKind(kind: string): string {
   return KNOWN_KINDS.includes(kind) ? t(`loyalty.benefitKind.${kind}`) : kind;
 }
 
-export function BenefitList({ benefits, issuerActive, now }: { benefits: Benefit[]; issuerActive: boolean; now: number }) {
+export function BenefitList({ benefits, issuer, now }: { benefits: Benefit[]; issuer: IssuerStatus; now: number }) {
   if (benefits.length === 0) return <p className="hint">{t('loyalty.noBenefits')}</p>;
   return (
     <ul className="y-cards">
       {benefits.map((b) => {
-        const s = benefitState(b, issuerActive, now);
+        const s = benefitState(b, issuer, now);
         return (
           <li key={b.id} className="y-card benefit">
             <span className="benefit__kind">{benefitKind(b.kind)}</span>
@@ -139,8 +139,17 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
 
   const now = head?.ok ? head.value.time : Math.floor(Date.now() / 1000);
   const issuer = jeweler.ok ? jeweler.value : null;
-  const brand = (profile ? { '--jeweler-colour': profile.colour, '--jeweler-accent': profile.accent } : {}) as CSSProperties;
-  const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id: jewel.id });
+  const issuerStatus: IssuerStatus = issuer ? (isActive(issuer) ? 'active' : 'suspended') : 'unknown';
+  const brand = {
+    ...(profile?.colour ? { '--jeweler-colour': profile.colour } : {}),
+    ...(profile?.accent ? { '--jeweler-accent': profile.accent } : {}),
+  } as CSSProperties;
+  // The record is the jeweler's claim: it counts as this jewel's only if it names this jewel's
+  // inscription and jeweler as the chain holds them.
+  const recordOk = record.state === 'ok'
+    && record.record.inscription === jewel.inscription && record.record.jewelerId === jewel.jewelerId;
+  const recordForeign = record.state === 'ok' && !recordOk;
+  const title = recordOk ? record.record.title : t('loyalty.jewelN', { id: jewel.id });
 
   return (
     <>
@@ -165,8 +174,8 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
           </div>
         )}
 
-        {record.state === 'ok' && <Gallery hashes={record.record.photos} alt={title} />}
-        {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
+        {record.state === 'ok' && recordOk && <Gallery hashes={record.record.photos} alt={title} />}
+        {(record.state === 'mismatch' || recordForeign) && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
         {(record.state === 'missing' || record.state === 'unreachable' || record.state === 'unreadable') && (
           <p className="note">{t('loyalty.recordMissing')}</p>
         )}
@@ -175,12 +184,13 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
 
         {head?.ok && actions?.(view.value, head.value.time, reload)}
 
-        {record.state === 'ok' && (<>
+        {record.state === 'ok' && recordOk && (<>
           <Section title={t('loyalty.materials')}><RecordFacts record={record.record} /></Section>
         </>)}
         <Section title={t('loyalty.ownersTitle')}><Owners jewel={jewel} /></Section>
         <Section title={t('loyalty.benefits')}>
-          <BenefitList benefits={view.value.benefits} issuerActive={issuer ? isActive(issuer) : false} now={now} />
+          {jeweler.ok ? null : <Problem outcome={jeweler} />}
+          <BenefitList benefits={view.value.benefits} issuer={issuerStatus} now={now} />
         </Section>
         <Corrections jewel={jewel} />
 

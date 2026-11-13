@@ -60,5 +60,5 @@ export function AttachBenefit({ view, business, now, onChange }:
 }
 
 export function JewelBenefits({ view, active, now }: { view: JewelView; active: boolean; now: number }) {
-  return <BenefitList benefits={view.benefits} issuerActive={active} now={now} />;
+  return <BenefitList benefits={view.benefits} issuer={active ? 'active' : 'suspended'} now={now} />;
 }

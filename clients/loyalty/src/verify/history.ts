@@ -17,17 +17,21 @@ export type BenefitState =
   | { state: 'expired'; expiredAt: number }
   | { state: 'withdrawn' };
 
+/** A suspended issuer is a fact; an issuer that could not be read is only unknown. */
+export type IssuerStatus = 'active' | 'suspended' | 'unknown';
+
 /**
  * Counts uses exactly as RedeemBenefit in x/jewel/keeper/msg_server_benefit.go
  * does: with a period, a use counts while u > now - period; without one,
  * every use counts. A suspended issuer's benefits are shown as withdrawn,
- * because nobody will honour them.
+ * because nobody will honour them. An unknown issuer (the read failed) is not
+ * a withdrawal: the benefit is described as the chain holds it.
  */
 export function benefitState(
   b: { allowance: number; period: string; expiresAt: string; uses: string[] },
-  issuerActive: boolean, now: number,
+  issuer: IssuerStatus, now: number,
 ): BenefitState {
-  if (!issuerActive) return { state: 'withdrawn' };
+  if (issuer === 'suspended') return { state: 'withdrawn' };
   const expiresAt = Number(b.expiresAt);
   if (expiresAt > 0 && now >= expiresAt) return { state: 'expired', expiredAt: expiresAt };
   const period = Number(b.period);

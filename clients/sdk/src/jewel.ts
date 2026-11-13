@@ -152,7 +152,10 @@ export function claimLink(origin: string, jewelId: string, privateKey: Uint8Arra
 export function parseClaimFragment(fragment: string): { jewelId: string; privateKey: Uint8Array } | null {
   const m = /^#?([1-9][0-9]*)\.([0-9a-fA-F]{64})$/.exec(fragment);
   if (!m) return null;
-  return { jewelId: m[1]!, privateKey: fromHex(m[2]!.toLowerCase()) };
+  const privateKey = fromHex(m[2]!.toLowerCase());
+  // Zero, or at or above the curve order, is no key: refuse it here rather than throw while rendering.
+  if (!secp256k1.utils.isValidPrivateKey(privateKey)) return null;
+  return { jewelId: m[1]!, privateKey };
 }
 
 /* --------------------------------------------------------------- vouchers */

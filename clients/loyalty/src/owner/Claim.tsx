@@ -56,6 +56,7 @@ export function Claim() {
           <Hallmark code={view.value.jewel.inscription} />
         </header>
         {record.state === 'ok' && <Gallery hashes={record.record.photos} alt={title} />}
+        <p className="declared">{t('loyalty.declared')}</p>
         {!open && <p className="banner banner--warn">{t('loyalty.claimClosed')}</p>}
         {open && (
           <UnlockGate>

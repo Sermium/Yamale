@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AVAILABLE, registerAll, resolveLocale, setLocale } from '@yamale/chain';
 
 import { App } from './App.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
 // The shared visual system first, then this surface's own rules on top of it.
 import '../../shared/yamale.css';
 import './styles.css';
@@ -22,6 +23,6 @@ setLocale(resolveLocale(AVAILABLE));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary><App /></ErrorBoundary>
   </StrictMode>,
 );

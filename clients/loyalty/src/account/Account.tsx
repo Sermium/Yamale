@@ -173,6 +173,8 @@ function RecoverForm() {
       try {
         await session.adopt(out.privateKey, f.email, f.password);
       } catch {
+        // A claimed key that was not adopted must not linger in memory.
+        out.privateKey.fill(0);
         setState({ kind: 'failed', reason: 'adopt' });
         return;
       }
