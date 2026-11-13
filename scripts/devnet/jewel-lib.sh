@@ -17,17 +17,23 @@ privhex() { yes | "$BIN" keys export "$1" --unarmored-hex --unsafe --keyring-bac
 
 # A transaction's code 0 is only CheckTx. Read the block's verdict.
 committed() {
-  local out=$1 hash code
+  local out=$1 hash code res
+  LAST_TX=$out
   hash=$(printf '%s' "$out" | json txhash)
   [ -n "$hash" ] || return 1
   for _ in $(seq 1 20); do
-    code=$("$BIN" query tx "$hash" $Q 2>/dev/null | grep -oE '"code":[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+$' || true)
-    [ -n "$code" ] && { [ "$code" = 0 ]; return; }
+    res=$("$BIN" query tx "$hash" $Q 2>/dev/null || true)
+    code=$(printf '%s' "$res" | grep -oE '"code":[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+$' || true)
+    if [ -n "$code" ]; then
+      [ "$code" = 0 ] && { LAST_TX=""; return 0; }
+      LAST_TX=$res; return 1
+    fi
     sleep 1
   done
+  LAST_TX="not in a block after 20 s: $out"
   return 1
 }
-run() { local out; out=$("$BIN" tx "$@" $TX -o json 2>&1) || return 1; committed "$out"; }
+run() { local out; out=$("$BIN" tx "$@" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }; committed "$out"; }
 
 # Everything a transaction said about itself: the CLI's own output (a CheckTx or
 # simulation rejection has no hash, and its reason is only there) plus, when a
@@ -49,7 +55,8 @@ outcome() {
 expect_refused() {
   local label=$1 want=$2; shift 2
   local out; out=$("$BIN" tx "$@" $TX -o json 2>&1 || true)
-  if outcome "$out" | grep -qF -- "$want"; then ok "$label"; else bad "$label: refused, but not for the expected reason ($want)"; fi
+  local res; res=$(outcome "$out")
+  if printf '%s' "$res" | grep -qF -- "$want"; then ok "$label"; else LAST_TX=$res; bad "$label: refused, but not for the expected reason ($want)"; fi
 }
 
 # Broadcast one message built by jewelsign, signed by a keyring key.
@@ -66,7 +73,8 @@ run_json() { local out; out=$(broadcast_json "$@") || return 1; committed "$out"
 expect_refused_json() {
   local label=$1 want=$2; shift 2
   local out; out=$(broadcast_json "$@" || true)
-  if outcome "$out" | grep -qF -- "$want"; then ok "$label"; else bad "$label: refused, but not for the expected reason ($want)"; fi
+  local res; res=$(outcome "$out")
+  if printf '%s' "$res" | grep -qF -- "$want"; then ok "$label"; else LAST_TX=$res; bad "$label: refused, but not for the expected reason ($want)"; fi
 }
 
 # Act as the office (a 3-of-5 policy): propose, three members vote, the third
@@ -86,7 +94,7 @@ JSON
       | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4 || true
   }
   before=$(last_proposal)
-  out=$("$BIN" tx group submit-proposal "$msg" --from "$M1" $TX -o json 2>&1) || return 1
+  out=$("$BIN" tx group submit-proposal "$msg" --from "$M1" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
   committed "$out" || return 1
   id=""
   for _ in $(seq 1 10); do
@@ -96,11 +104,11 @@ JSON
     sleep 1
   done
   [ -n "$id" ] || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M1")" VOTE_OPTION_YES "" --from "$M1" $TX -o json 2>&1) || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M1")" VOTE_OPTION_YES "" --from "$M1" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
   committed "$out" || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M2")" VOTE_OPTION_YES "" --from "$M2" $TX -o json 2>&1) || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M2")" VOTE_OPTION_YES "" --from "$M2" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
   committed "$out" || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M3")" VOTE_OPTION_YES "" --exec try --from "$M3" $TX -o json 2>&1) || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M3")" VOTE_OPTION_YES "" --exec try --from "$M3" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
   committed "$out" || return 1
   for _ in $(seq 1 20); do
     proposal=$("$BIN" query group proposal "$id" $Q 2>/dev/null || true)
@@ -108,7 +116,7 @@ JSON
     result=$(printf '%s' "$proposal" | json executor_result)
     case "$result" in
       PROPOSAL_EXECUTOR_RESULT_SUCCESS) return 0 ;;
-      PROPOSAL_EXECUTOR_RESULT_FAILURE) return 1 ;;
+      PROPOSAL_EXECUTOR_RESULT_FAILURE) LAST_TX=$proposal; return 1 ;;
     esac
     sleep 1
   done
