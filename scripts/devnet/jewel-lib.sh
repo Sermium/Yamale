@@ -75,20 +75,33 @@ expect_refused_json() {
 OFFICE=$("$BIN" query jewel params $Q | json office)
 [ -n "$OFFICE" ] || { echo "no office in x/jewel params; rebuild the devnet with init-local-devnet.sh" >&2; exit 1; }
 as_office() {
-  local body=$1 msg="$HOME_DIR/.jewel-office.json" id proposal result
+  local body=$1 msg="$HOME_DIR/.jewel-office.json" before id out proposal result
   cat > "$msg" <<JSON
 {"group_policy_address":"$OFFICE","messages":[$body],"metadata":"seed-jewel","proposers":["$(addr "$M1")"]}
 JSON
-  "$BIN" tx group submit-proposal "$msg" --from "$M1" $TX >/dev/null 2>&1 || return 1
-  sleep 3
-  id=$("$BIN" query group proposals-by-group-policy "$OFFICE" $Q 2>/dev/null \
-    | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4 || true)
+  # Each transaction is waited for in its block: a broadcast can exit 0 and
+  # still be refused, and a fixed sleep races the commit.
+  last_proposal() {
+    "$BIN" query group proposals-by-group-policy "$OFFICE" $Q 2>/dev/null \
+      | grep -oE '"id":[[:space:]]*"[0-9]+"' | tail -1 | cut -d'"' -f4 || true
+  }
+  before=$(last_proposal)
+  out=$("$BIN" tx group submit-proposal "$msg" --from "$M1" $TX -o json 2>&1) || return 1
+  committed "$out" || return 1
+  id=""
+  for _ in $(seq 1 10); do
+    id=$(last_proposal)
+    [ -n "$id" ] && [ "$id" != "$before" ] && break
+    id=""
+    sleep 1
+  done
   [ -n "$id" ] || return 1
-  "$BIN" tx group vote "$id" "$(addr "$M1")" VOTE_OPTION_YES "" --from "$M1" $TX >/dev/null 2>&1 || return 1
-  sleep 2
-  "$BIN" tx group vote "$id" "$(addr "$M2")" VOTE_OPTION_YES "" --from "$M2" $TX >/dev/null 2>&1 || return 1
-  sleep 2
-  "$BIN" tx group vote "$id" "$(addr "$M3")" VOTE_OPTION_YES "" --exec try --from "$M3" $TX >/dev/null 2>&1 || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M1")" VOTE_OPTION_YES "" --from "$M1" $TX -o json 2>&1) || return 1
+  committed "$out" || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M2")" VOTE_OPTION_YES "" --from "$M2" $TX -o json 2>&1) || return 1
+  committed "$out" || return 1
+  out=$("$BIN" tx group vote "$id" "$(addr "$M3")" VOTE_OPTION_YES "" --exec try --from "$M3" $TX -o json 2>&1) || return 1
+  committed "$out" || return 1
   for _ in $(seq 1 20); do
     proposal=$("$BIN" query group proposal "$id" $Q 2>/dev/null || true)
     [ -n "$proposal" ] || return 0

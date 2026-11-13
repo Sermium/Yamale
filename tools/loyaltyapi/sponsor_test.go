@@ -112,6 +112,10 @@ func TestTheGrantIsLimitedToOwnerMessages(t *testing.T) {
 		"--fees", "0uyml", "--gas", "250000", "-y", "--output", "json",
 	}, g.grantArgs("yml1owner"))
 	require.Len(t, ownerMessages, 8)
+
+	g.home = ""
+	require.NotContains(t, g.grantArgs("yml1owner"), "--home")
+	require.Contains(t, g.grantArgs("yml1owner"), "--node")
 }
 
 func TestTheCLIGranterWaitsForTheBlock(t *testing.T) {

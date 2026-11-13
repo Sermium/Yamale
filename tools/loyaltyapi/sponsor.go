@@ -10,6 +10,7 @@ package main
 // uses, and it can only grant fees from its own balance.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -127,8 +128,19 @@ type cliGranter struct {
 	poll                                                               time.Duration
 }
 
+// runCommand returns the command's stdout alone, so a warning on stderr cannot
+// corrupt the JSON the caller parses. Stderr rides along in the error.
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			err = fmt.Errorf("%w: %s", err, msg)
+		}
+		return stdout.Bytes(), err
+	}
+	return stdout.Bytes(), nil
 }
 
 func newCLIGranter(bin, from, home, keyring, node, chainID, spend, fees string, lifetime time.Duration) (*cliGranter, error) {
@@ -149,14 +161,19 @@ func newCLIGranter(bin, from, home, keyring, node, chainID, spend, fees string, 
 func (g *cliGranter) Address() string { return g.address }
 
 func (g cliGranter) grantArgs(grantee string) []string {
-	return []string{
+	args := []string{
 		"tx", "feegrant", "grant", g.from, grantee,
 		"--spend-limit", g.spendLimit,
 		"--expiration", g.now().Add(g.lifetime).UTC().Format(time.RFC3339),
 		"--allowed-messages", strings.Join(ownerMessages, ","),
-		"--chain-id", g.chainID, "--keyring-backend", g.keyring, "--home", g.home, "--node", g.node,
-		"--fees", g.fees, "--gas", "250000", "-y", "--output", "json",
+		"--chain-id", g.chainID, "--keyring-backend", g.keyring,
 	}
+	// An empty --home would be taken literally by the SDK, so it is left out.
+	if g.home != "" {
+		args = append(args, "--home", g.home)
+	}
+	return append(args, "--node", g.node,
+		"--fees", g.fees, "--gas", "250000", "-y", "--output", "json")
 }
 
 // Grant broadcasts, then waits for the block. A code of 0 from the broadcast

@@ -26,7 +26,7 @@ balance=$("$BIN" query bank balance "$SPONSOR" uyml $Q | json amount)
 if [ "${balance:-0}" = "0" ]; then
   run bank send "$(addr "$M3")" "$SPONSOR" 1000000000uyml --from "$M3" >/dev/null && ok "funded the sponsor" || { bad "funding the sponsor"; exit 1; }
 fi
-[ -s "$DATA/operator-token" ] || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$DATA/operator-token"
+[ -s "$DATA/operator-token" ] || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$DATA/operator-token")
 
 say "loyalty-api on 127.0.0.1:8095, sponsor $SPONSOR"
 exec "$API_BIN" --listen 127.0.0.1:8095 --dir "$DATA" --rest "$REST" --chain-id "$CHAIN" \

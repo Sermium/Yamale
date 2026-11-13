@@ -115,8 +115,8 @@ func (s *server) handleApplications(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusNotFound, "not available here")
 		return
 	}
-	got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if subtle.ConstantTimeCompare([]byte(got), []byte(s.operatorToken)) != 1 {
+	got, hasPrefix := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !hasPrefix || subtle.ConstantTimeCompare([]byte(got), []byte(s.operatorToken)) != 1 {
 		refuse(w, http.StatusUnauthorized, "the operator token is required")
 		return
 	}

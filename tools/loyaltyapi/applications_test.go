@@ -68,4 +68,7 @@ func TestTheListNeedsTheOperatorToken(t *testing.T) {
 	r := request("GET", "/v1/applications", nil)
 	r.Header.Set("Authorization", "Bearer wrong")
 	require.Equal(t, http.StatusUnauthorized, serve(s, r).Code)
+	bare := request("GET", "/v1/applications", nil)
+	bare.Header.Set("Authorization", s.operatorToken)
+	require.Equal(t, http.StatusUnauthorized, serve(s, bare).Code)
 }
