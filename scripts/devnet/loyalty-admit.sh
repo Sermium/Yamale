@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Admits a jeweler created in the loyalty app: the office's 3-of-5 vote, as in
-# seed-jewel.sh stage 1, then 50 YML to the business so it can pay its staff's
+# Admits a jeweler created in the loyalty app: the office's vote, as in
+# seed-jewel.sh stage 1 (3-of-5 locally; 2-of-3 on devnet-2, OFFICE_VOTES=2, with
+# FUNDER naming a key that holds funds there), then 50 YML to the business so it can pay its staff's
 # fees.
 #
 #   BIN=$SCRATCH/blockchaind.exe HOME_DIR=.devnet/local/node CHAIN=yamale-local-1 \
@@ -13,6 +14,7 @@ CHAIN=${CHAIN:?the chain id}
 NODE=${NODE:?the node RPC}
 KEYRING=${KEYRING:-test}
 M1=${M1:-custodian1}; M2=${M2:-custodian2}; M3=${M3:-custodian3}
+FUNDER=${FUNDER:-$M3}
 NAME=${1:?the jeweler name}
 BUSINESS=${2:?the business account code, from the Account tab of the app}
 # The name is written into JSON below, so it may not carry a double quote, a
@@ -28,7 +30,7 @@ TX="--keyring-backend $KEYRING --home $HOME_DIR --chain-id $CHAIN --node $NODE -
 Q="--home $HOME_DIR --node $NODE -o json"
 . "$(dirname "$0")/jewel-lib.sh"
 
-run bank send "$(addr "$M3")" "$BUSINESS" 50000000uyml --from "$M3" >/dev/null \
+run bank send "$(addr "$FUNDER")" "$BUSINESS" 50000000uyml --from "$FUNDER" >/dev/null \
   && ok "funded the business" || { bad "funding"; exit 1; }
 as_office "{\"@type\":\"/blockchain.jewel.v1.MsgAdmitJeweler\",\"office\":\"$OFFICE\",\"name\":\"$NAME\",\"business\":\"$BUSINESS\"}" \
   && ok "admitted $NAME" || { bad "admission"; exit 1; }

@@ -3,6 +3,8 @@
 # Sourced, never run. The caller sets BIN, HOME_DIR, KEYRING, TX, Q and
 # M1..M3 first, exactly as seed-jewel.sh does; FAILED is set to 0 here.
 FAILED=0
+# How many of M1 M2 M3 vote as the office: 3 on the local 3-of-5, 2 on devnet-2's 2-of-3.
+OFFICE_VOTES=${OFFICE_VOTES:-3}
 
 say()  { LAST_TX=""; printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 # LAST_TX holds the chain's raw answer (CLI tx/query/proposal JSON, never a key)
@@ -88,8 +90,8 @@ expect_refused_json() {
   if printf '%s' "$res" | grep -qF -- "$want"; then ok "$label"; else LAST_TX=$res; bad "$label: refused, but not for the expected reason ($want)"; fi
 }
 
-# Act as the office (a 3-of-5 policy): propose, three members vote, the third
-# with --exec try.
+# Act as the office (a policy of M1..M3): propose, OFFICE_VOTES of them vote,
+# the last with --exec try.
 # Success is the proposal being pruned. See seed-herd.sh for why each part.
 OFFICE=$("$BIN" query jewel params $Q | json office)
 [ -n "$OFFICE" ] || { echo "no office in x/jewel params; rebuild the devnet with init-local-devnet.sh" >&2; exit 1; }
@@ -115,12 +117,13 @@ JSON
     sleep 1
   done
   [ -n "$id" ] || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M1")" VOTE_OPTION_YES "" --from "$M1" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
-  committed "$out" || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M2")" VOTE_OPTION_YES "" --from "$M2" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
-  committed "$out" || return 1
-  out=$("$BIN" tx group vote "$id" "$(addr "$M3")" VOTE_OPTION_YES "" --exec try --from "$M3" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
-  committed "$out" || return 1
+  local n=0 voter execflag
+  for voter in "$M1" "$M2" "$M3"; do
+    n=$((n + 1)); [ "$n" -le "$OFFICE_VOTES" ] || break
+    execflag=""; if [ "$n" -eq "$OFFICE_VOTES" ]; then execflag="--exec try"; fi
+    out=$("$BIN" tx group vote "$id" "$(addr "$voter")" VOTE_OPTION_YES "" $execflag --from "$voter" $TX -o json 2>&1) || { LAST_TX=$out; return 1; }
+    committed "$out" || return 1
+  done
   for _ in $(seq 1 20); do
     proposal=$("$BIN" query group proposal "$id" $Q 2>/dev/null || true)
     [ -n "$proposal" ] || return 0

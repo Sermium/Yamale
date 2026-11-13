@@ -241,8 +241,13 @@ export function verifyOwnershipProof(chainId: string, jewelId: string, query: st
 
 /* --------------------------------------------------------------- messages */
 
-/** Enough for the heaviest jewel message, an amendment at its 50-entry cap. */
-export const JEWEL_GAS = 400_000;
+/**
+ * Enough for the heaviest jewel message, an amendment at its 50-entry cap with a
+ * 500-byte note: amendment 50 of 50 measured at 1,247,310 gas on 2026-11-13
+ * (scripts/devnet/measure-amend-gas.sh); 30% headroom, rounded up to 50,000.
+ * The gas price is zero on devnet-2, so the limit costs nothing until it is not.
+ */
+export const JEWEL_GAS = 1_650_000;
 
 /** What a jeweler's business pays for when its staff sign. */
 export const STAFF_MESSAGES: readonly string[] = [

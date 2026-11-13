@@ -324,10 +324,14 @@ if (g.app_state.group.group_members.length !== 5) {
 
 // x/jewel refuses to admit a jeweler while x/nft's own send is open, so the
 // devnet disables it at height zero, as the devnet-2 upgrade will.
-g.app_state.circuit = g.app_state.circuit || {};
-g.app_state.circuit.disabled_type_urls = [
-  ...new Set([...(g.app_state.circuit.disabled_type_urls || []), "/cosmos.nft.v1beta1.MsgSend"]),
-];
+// SKIP_NFT_BREAKER=1 leaves it open: the upgrade rehearsal must start with the
+// send open, so it can prove the upgrade closes it.
+if (process.env.SKIP_NFT_BREAKER !== "1") {
+  g.app_state.circuit = g.app_state.circuit || {};
+  g.app_state.circuit.disabled_type_urls = [
+    ...new Set([...(g.app_state.circuit.disabled_type_urls || []), "/cosmos.nft.v1beta1.MsgSend"]),
+  ];
+}
 // The foundation's 3-of-5 is the register's office on a local devnet.
 if (g.app_state.jewel) g.app_state.jewel.params.office = policy;
 
