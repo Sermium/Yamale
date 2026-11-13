@@ -1,0 +1,46 @@
+[
+  {
+    "priv_key": "f7f44a09a1477f70f405e2c4797a89d2dd3b427e7212200408c30e2cab4928ea",
+    "pub_key": "025f8e8dbcbbc24247c28943cc9b12a5eef9796ccca029af17b3c11ccc687c80ec",
+    "address": "yml1spt983xyjcxf287pzdxysyd9hazx5urclflj0j",
+    "purpose": "file",
+    "chain_id": "yamale-local-1",
+    "subject": "55c64d0fcd6f9d5f7c828093857e3fdfda68478bb4e9bd24d481ef391c7804e8",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-loyalty/v1:file:yamale-local-1:55c64d0fcd6f9d5f7c828093857e3fdfda68478bb4e9bd24d481ef391c7804e8:1790000000",
+    "signature": "978ba4dbe06f2f05588674bd264f2f0a7cac36afc65ada06888253115c92bcd44168d09178a0e1ce7ea2886aa094a79e92eab0553be3b78020899f4d35f9e805"
+  },
+  {
+    "priv_key": "0cd9c75f0d1f0d375454a7603a5f8a2e9ccf87a620f7f4687673103a130830a5",
+    "pub_key": "03a962bdb07c509d29638a79c903cb3a03f91e8b5321b13fb6a46a22f6a56da163",
+    "address": "yml1lwjcrlx2w52upgdtrydrpm4l3ud3pyc4yv0dya",
+    "purpose": "profile",
+    "chain_id": "yamale-local-1",
+    "subject": "12.dbbf372d9529f4aa1e160003593732fc56e09f9cab43a490afe0074c63ea6a73",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-loyalty/v1:profile:yamale-local-1:12.dbbf372d9529f4aa1e160003593732fc56e09f9cab43a490afe0074c63ea6a73:1790000000",
+    "signature": "243a655df47a3367b1ade573c17afbd8ebba83f420f50b2c22718cbba24ba16a611a886c4e467c8ff39daa4b64e4e405c9c55e0f39aecc916b0edbd76198db02"
+  },
+  {
+    "priv_key": "622a122f95a347bd6222332031c94daf9ce57b520d3874a3355bcfd79bb42fa1",
+    "pub_key": "03482c1d3daa47ee4c1922cf85a2d17695d8957dcc6817d5083b86e373be0a920b",
+    "address": "yml16gwejcry2vu0lr8k6wqjtlwnz99ueads82d087",
+    "purpose": "sponsor",
+    "chain_id": "yamale-local-1",
+    "subject": "yml16gwejcry2vu0lr8k6wqjtlwnz99ueads82d087",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-loyalty/v1:sponsor:yamale-local-1:yml16gwejcry2vu0lr8k6wqjtlwnz99ueads82d087:1790000000",
+    "signature": "6d31af3d0bcf8d155532c884a04248e8c87b7bd762470050c9d781ece6633abf29a9f2ae5e47e99ac932c9f83e378c18bce78a5c53eca8c11087490e1d53d760"
+  },
+  {
+    "priv_key": "3fe36202b5a1d2a8b9c0b7d102a44fc824ea53c27d56961718e1bd1baf6dc286",
+    "pub_key": "024719fbcb262e4eaa510683e9d909866484b47b2b210922c15e1479c90dd6b340",
+    "address": "yml16yu5ztdrm62e0ztgv8gel2jzjv7r5sj7m20xm4",
+    "purpose": "application",
+    "chain_id": "yamale-local-1",
+    "subject": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-loyalty/v1:application:yamale-local-1:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a:1790000000",
+    "signature": "e1d51bcd5406e61221eaf7c84e71fee825494591faa206029fa633ccece44be768a60102b3fa24dbfcb5f36334a07c7726edeb974692e96e3efdda52264a2740"
+  }
+]
