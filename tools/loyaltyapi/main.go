@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,14 @@ type server struct {
 	chainID string
 	chain   Chain
 	now     func() time.Time
+
+	cacheMu  sync.Mutex
+	cached   []Jeweler
+	cachedAt time.Time
+
+	slotsOnce sync.Once
+	slots     chan struct{}
+	slotWait  time.Duration // how long an upload waits for a slot; zero means 2s
 }
 
 func main() {
@@ -54,7 +63,7 @@ func main() {
 	}
 	srv := &http.Server{
 		Addr: *listen, Handler: s.routes(),
-		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 2 * time.Minute,
+		ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 2 * time.Minute,
 	}
 	log.Printf("loyaltyapi listening on %s for chain %s", *listen, *chainID)
 	log.Fatal(srv.ListenAndServe())

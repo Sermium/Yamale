@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // Jeweler is what the API needs to know about one, read from the chain's REST
@@ -21,8 +22,9 @@ type Jeweler struct {
 
 func (j Jeweler) Active() bool { return j.Status == "JEWELER_ACTIVE" }
 
-// Chain is the one thing the API asks the chain. It is asked on every write
-// rather than cached, so removing a staff member takes effect at once.
+// Chain is the one thing the API asks the chain. The server caches the answer
+// for jewelersTTL, so a burst of requests costs one read and removing a staff
+// member takes effect within seconds.
 type Chain interface {
 	Jewelers(ctx context.Context) ([]Jeweler, error)
 }
@@ -96,4 +98,24 @@ func jewelerByID(js []Jeweler, id string) (Jeweler, bool) {
 		}
 	}
 	return Jeweler{}, false
+}
+
+const jewelersTTL = 5 * time.Second
+
+// jewelers is the cached accessor every handler uses. Errors are not cached.
+func (s *server) jewelers(ctx context.Context) ([]Jeweler, error) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	if s.cached != nil && s.now().Sub(s.cachedAt) < jewelersTTL {
+		return s.cached, nil
+	}
+	js, err := s.chain.Jewelers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if js == nil {
+		js = []Jeweler{}
+	}
+	s.cached, s.cachedAt = js, s.now()
+	return js, nil
 }

@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 // Files are stored by their SHA-256 and served under it. Nobody can replace
@@ -34,30 +36,105 @@ func fileType(b []byte) string {
 	return ""
 }
 
-func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxFileBytes))
-	if err != nil {
-		refuse(w, http.StatusRequestEntityTooLarge, "a file may be at most 8 MiB")
+const (
+	maxUploads       = 4
+	uploadDeadline   = 5 * time.Minute
+	maxJSONFileBytes = 1 << 20 // a record is small; only images may be large
+)
+
+// acquire takes one of the upload slots, waiting briefly. The caller must
+// release it.
+func (s *server) acquire() bool {
+	s.slotsOnce.Do(func() {
+		if s.slots == nil {
+			s.slots = make(chan struct{}, maxUploads)
+		}
+	})
+	wait := s.slotWait
+	if wait == 0 {
+		wait = 2 * time.Second
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case s.slots <- struct{}{}:
+		return true
+	case <-t.C:
+		return false
+	}
+}
+
+func (s *server) release() { <-s.slots }
+
+// readFailed answers a body that could not be read: 413 only if it was over
+// the limit, otherwise the client's upload simply did not complete.
+func readFailed(w http.ResponseWriter, err error, tooBig string) {
+	var big *http.MaxBytesError
+	if errors.As(err, &big) {
+		refuse(w, http.StatusRequestEntityTooLarge, tooBig)
 		return
 	}
-	sum := sha256.Sum256(body)
-	hash := hex.EncodeToString(sum[:])
+	refuse(w, http.StatusBadRequest, "the upload did not complete")
+}
 
-	address, err := s.signer(r, "file", func(string) string { return hash })
+// handleUpload refuses strangers from the headers and the chain before it
+// reads a byte of the body, streams the body to disk while hashing it, and
+// moves it into place only once the signature over that hash verifies.
+func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	if !s.acquire() {
+		w.Header().Set("Retry-After", "5")
+		refuse(w, http.StatusServiceUnavailable, "the server is busy storing other files; try again shortly")
+		return
+	}
+	defer s.release()
+	_ = http.NewResponseController(w).SetReadDeadline(s.now().Add(uploadDeadline))
+
+	c, err := s.claimed(r)
 	if err != nil {
 		refuse(w, http.StatusUnauthorized, err.Error())
 		return
 	}
-	js, err := s.chain.Jewelers(r.Context())
+	js, err := s.jewelers(r.Context())
 	if err != nil {
 		refuse(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	if _, ok := jewelerOf(js, address); !ok {
+	if _, ok := jewelerOf(js, c.address); !ok {
 		refuse(w, http.StatusForbidden, "only the staff of an active jeweler can store files")
 		return
 	}
-	ctype := fileType(body)
+
+	filesDir := filepath.Join(s.dir, "files")
+	if err := os.MkdirAll(filesDir, 0o750); err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	tmp, err := os.CreateTemp(filesDir, ".upload-*")
+	if err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer os.Remove(tmp.Name()) // a no-op once renamed into place
+	h := sha256.New()
+	size, err := io.Copy(io.MultiWriter(tmp, h), http.MaxBytesReader(w, r.Body, maxFileBytes))
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		readFailed(w, err, "a file may be at most 8 MiB")
+		return
+	}
+	hash := hex.EncodeToString(h.Sum(nil))
+	if err := s.verify(c, "file", hash); err != nil {
+		refuse(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	ctype, err := sniffFile(tmp.Name(), size)
+	if err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if ctype == "" {
 		refuse(w, http.StatusUnsupportedMediaType, "a photo must be JPEG, PNG or WebP, and a record must be JSON")
 		return
@@ -76,11 +153,40 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if err := writeAtomically(path, body); err != nil {
+	if err := os.Rename(tmp.Name(), path); err != nil {
 		refuse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"hash": hash})
+}
+
+// sniffFile reads the first 512 bytes for an image type, and otherwise
+// accepts only a small file that is valid JSON.
+func sniffFile(path string, size int64) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	head := make([]byte, 512)
+	n, err := io.ReadFull(f, head)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+	if t := fileType(head[:n]); t != "" && t != "application/json" {
+		return t, nil
+	}
+	if size > maxJSONFileBytes {
+		return "", nil
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if json.Valid(body) {
+		return "application/json", nil
+	}
+	return "", nil
 }
 
 func (s *server) handleFile(w http.ResponseWriter, r *http.Request) {

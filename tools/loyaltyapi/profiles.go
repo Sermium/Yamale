@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 // A jeweler's look on its own jewels' pages: a logo and two colours. It lives
@@ -53,9 +54,10 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusBadRequest, "a jeweler id is a positive integer")
 		return
 	}
+	_ = http.NewResponseController(w).SetReadDeadline(s.now().Add(10 * time.Second))
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<10))
 	if err != nil {
-		refuse(w, http.StatusRequestEntityTooLarge, "a profile is at most 4 KiB")
+		readFailed(w, err, "a profile is at most 4 KiB")
 		return
 	}
 	sum := sha256.Sum256(body)
@@ -85,7 +87,7 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	js, err := s.chain.Jewelers(r.Context())
+	js, err := s.jewelers(r.Context())
 	if err != nil {
 		refuse(w, http.StatusBadGateway, err.Error())
 		return
