@@ -30,9 +30,10 @@ for a in "$@"; do
 done
 if [ $DO_API = 0 ] && [ $DO_APP = 0 ]; then DO_API=1; DO_APP=1; fi
 
-if ls clients/loyalty/.env* clients/.env* >/dev/null 2>&1; then
-  echo "refusing: an .env file under clients/ would be inlined into the bundle by Vite" >&2
-  ls -d clients/loyalty/.env* clients/.env* 2>/dev/null >&2 || true
+if compgen -G "clients/loyalty/.env*" >/dev/null || compgen -G "clients/.env*" >/dev/null; then
+  echo "refusing: an .env file under clients/ would be inlined into the bundle by Vite:" >&2
+  compgen -G "clients/loyalty/.env*" >&2 || true
+  compgen -G "clients/.env*" >&2 || true
   exit 1
 fi
 if ! command -v go >/dev/null 2>&1 && [ -d "/c/Program Files/Go/bin" ]; then
@@ -54,6 +55,12 @@ if [ $DO_APP = 1 ]; then
 fi
 if [ $DO_API = 1 ]; then
   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "$T/yamale-loyaltyapi" ./tools/loyaltyapi
+  for sc in scripts/devnet/jewel-lib.sh scripts/devnet/loyalty-admit.sh deploy/yamale-us/loyalty/jewel-admit; do
+    if [ "$(LC_ALL=C tr -dc '\r' < "$sc" | wc -c)" -ne 0 ]; then
+      echo "refusing: $sc contains a CR byte (CRLF line endings); a script with CRLF cannot run on the host" >&2
+      exit 1
+    fi
+  done
   cp scripts/devnet/jewel-lib.sh scripts/devnet/loyalty-admit.sh deploy/yamale-us/loyalty/jewel-admit "$T/"
 fi
 
@@ -76,7 +83,8 @@ if [ "$API" = 1 ]; then
 
   # The sponsor key: created only when absent, its seed phrase goes nowhere.
   sudo -u yamale-loyalty $BIN keys show loyalty-sponsor -a --keyring-backend test --home $H >/dev/null 2>&1 \
-    || sudo -u yamale-loyalty $BIN keys add loyalty-sponsor --keyring-backend test --home $H >/dev/null 2>&1
+    || sudo -u yamale-loyalty $BIN keys add loyalty-sponsor --keyring-backend test --home $H >/dev/null 2>&1 \
+    || { echo "could not create the sponsor key"; exit 1; }
   ADDR=$(sudo -u yamale-loyalty $BIN keys show loyalty-sponsor -a --keyring-backend test --home $H)
   [ -n "$ADDR" ] || { echo "no sponsor address"; exit 1; }
   echo "sponsor address: $ADDR"
@@ -101,6 +109,7 @@ if [ "$API" = 1 ]; then
   echo "sponsor balance: $B uyml"
 
   # The operator token: created only when absent, never printed.
+  sudo install -d -o root -g root -m 755 /etc/yamale
   sudo test -s $TOKEN || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d " \n" | sudo tee $TOKEN >/dev/null)
   sudo chown root:yamale-loyalty $TOKEN && sudo chmod 640 $TOKEN
 

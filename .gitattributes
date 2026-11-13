@@ -81,3 +81,7 @@ clients/oversight/**   text eol=lf
 # that check exists to detect. Pinned at the source, because the generated copy
 # inherits whatever this file has.
 clients/ceremony/index.html  text eol=lf
+
+# Not a *.sh name, so it needs its own rule: install-loyalty.sh ships this file as it
+# sits in the working tree, and a CRLF checkout would break it on the host.
+deploy/yamale-us/loyalty/jewel-admit  text eol=lf
