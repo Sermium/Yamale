@@ -36,6 +36,7 @@ export interface StoredAccount {
 }
 
 export const MIN_PASSWORD = 10;
+export const ACCOUNT_EXISTS = 'this device already holds an account; forget it first';
 const KEY = 'yamale.loyalty.account';
 
 export class WrongPassword extends Error {
@@ -85,7 +86,7 @@ export async function adoptKey(privateKey: Uint8Array, email: string, password: 
 
 export async function createAccount(email: string, password: string, store: KeyStore = browserStore(),
   newKey: () => Uint8Array = () => secp256k1.utils.randomPrivateKey()): Promise<{ account: StoredAccount; privateKey: Uint8Array }> {
-  if (readAccount(store)) throw new Error('this device already holds an account; forget it first');
+  if (readAccount(store)) throw new Error(ACCOUNT_EXISTS);
   if (password.length < MIN_PASSWORD) throw new Error(`a password needs at least ${MIN_PASSWORD} characters`);
   const privateKey = newKey();
   return { account: await adoptKey(privateKey, email, password, store), privateKey };
@@ -99,7 +100,10 @@ export async function unlockAccount(account: StoredAccount, password: string): P
     if (err instanceof WrongSeal) throw new WrongPassword();
     throw err;
   }
-  if (addressOfPublicKey(compressedPublicKey(key)) !== account.address) throw new WrongPassword();
+  if (addressOfPublicKey(compressedPublicKey(key)) !== account.address) {
+    key.fill(0);
+    throw new WrongPassword();
+  }
   return key;
 }
 

@@ -179,6 +179,7 @@ test('an already-enrolled service is not a failure', async () => {
   // blank — the caller needs to know which account this was.
   assert.equal(address, await addressOf(privateKey));
   assert.ok(deviceHolding.share.y.length > 0);
+  assert.deepEqual((await enrol(privateKey, EMAIL, PASSWORD, SERVICES, fetchImpl)).alreadyEnrolled, ['custodian', 'recovery']);
 });
 
 test('services that disagree about the address stop the enrolment', async () => {

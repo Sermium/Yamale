@@ -54,3 +54,19 @@ test('services that disagree about the account are not trusted', async () => {
     services, fetchImpl);
   assert.equal((out as { reason: string }).reason, 'mismatch');
 });
+
+test('a service that cannot take a claim is unavailable, not a refusal', async () => {
+  const fetchImpl = (async () => new Response(JSON.stringify({ error: 'no second factor' }), { status: 503 })) as unknown as typeof fetch;
+  const out = await claimRecovered({ recoveryId: 'r', email: 'a@b.c', password: 'x'.repeat(10), factor: 'email', answer: '1' },
+    services, fetchImpl);
+  assert.equal((out as { reason: string }).reason, 'unavailable');
+});
+
+test('a service answering as the wrong role is not trusted', async () => {
+  const holdings = await protect(key, 'the long password');
+  const h = holdings.find((x) => x.role === ROLE_CUSTODIAN)!;
+  const fetchImpl = (async () => new Response(JSON.stringify({ role: ROLE_CUSTODIAN, address, holding: wire(h) }), { status: 200 })) as unknown as typeof fetch;
+  const out = await claimRecovered({ recoveryId: 'r', email: 'a@b.c', password: 'the long password', factor: 'email', answer: '1' },
+    services, fetchImpl);
+  assert.equal((out as { reason: string }).reason, 'mismatch');
+});

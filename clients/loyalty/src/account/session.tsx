@@ -12,12 +12,13 @@ import { DirectSecp256k1Wallet } from '@cosmjs/proto-signing';
 import { ChainSigner, JEWEL_GAS, type EncodeObject, type SubmitResult } from '@yamale/chain';
 
 import { enrol, servicesAvailable } from '../../../wallet/src/account/enrol.ts';
-import { rememberEnrolment } from '../../../wallet/src/account/stored.ts';
+import { forgetEnrolment, rememberEnrolment } from '../../../wallet/src/account/stored.ts';
 import { requestSponsorship, sponsorInfo } from '../api.ts';
 import { CHAIN_ID, GAS_PRICE, RPC_ENDPOINT, SERVICES } from '../config.ts';
 import {
-  adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
+  ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
 } from './device.ts';
+import { protectionOutcome } from './protection.ts';
 
 const IDLE_MS = 10 * 60 * 1000;
 
@@ -35,7 +36,8 @@ export interface Session {
   submit(messages: EncodeObject[], granter: string | null): Promise<SubmitResult>;
   submitAsOwner(messages: EncodeObject[]): Promise<SubmitResult>;
   ensureSponsored(): Promise<'sponsored' | 'unavailable' | 'refused'>;
-  protect(password: string): Promise<'enrolled' | 'unavailable'>;
+  /** Throws WrongPassword when the password does not open this account's key. */
+  protect(password: string): Promise<'enrolled' | 'unavailable' | 'email-in-use'>;
 }
 
 /** Owners hold no coins: without the platform's allowance an owner cannot act. */
@@ -72,7 +74,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     timer.current = window.setTimeout(lock, IDLE_MS);
   }, [lock]);
 
-  const hold = useCallback((k: Uint8Array) => { key.current = k; setUnlocked(true); touch(); }, [touch]);
+  const hold = useCallback((k: Uint8Array) => { key.current?.fill(0); key.current = k; setUnlocked(true); touch(); }, [touch]);
 
   const withKey = useCallback(<T,>(use: (k: Uint8Array) => T): T => {
     if (!key.current) throw new Error('locked');
@@ -97,8 +99,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const protect = useCallback(async (password: string) => {
     const current = readAccount();
     if (!current || !key.current) throw new Error('locked');
+    // The password sealed into the service copies must be the one that opens
+    // this key; a typo would seal them under a password nobody set.
+    (await unlockAccount(current, password)).fill(0);
     if (!(await servicesAvailable(SERVICES))) return 'unavailable' as const;
+    if (!key.current) throw new Error('locked');
     const done = await enrol(key.current, current.email, password, SERVICES);
+    // Only brand-new keys are enrolled here, so a 409 is another key's copies.
+    if (protectionOutcome(done) === 'email-in-use') return 'email-in-use' as const;
     rememberEnrolment({ address: done.address, email: current.email, holding: done.deviceHolding,
       enrolledAt: new Date().toISOString() });
     setAccount(updateAccount({ protection: 'enrolled' }));
@@ -140,9 +148,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       hold(await unlockAccount(account, password));
     },
     lock,
-    forget() { lock(); forgetAccount(); setAccount(null); },
-    async adopt(privateKey, email, password) {
+    forget() {
+      lock();
+      if (account) forgetEnrolment(account.address);
       forgetAccount();
+      setAccount(null);
+    },
+    async adopt(privateKey, email, password) {
+      if (readAccount()) throw new Error(ACCOUNT_EXISTS);
       const adopted = await adoptKey(privateKey, email, password);
       setAccount(updateAccount({ protection: 'enrolled', sponsored: adopted.sponsored }));
       hold(privateKey);

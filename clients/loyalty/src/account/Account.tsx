@@ -14,7 +14,7 @@ import { t } from '@yamale/chain';
 import { QrCode } from '../../../app/src/qr.tsx';
 import { SERVICES } from '../config.ts';
 import { AppBar, Section } from '../ui.tsx';
-import { MIN_PASSWORD, WrongPassword } from './device.ts';
+import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from './device.ts';
 import { claimRecovered } from './recover.ts';
 import { useSession } from './session.tsx';
 
@@ -25,7 +25,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   const [password, setPassword] = useState('');
   const [again, setAgain] = useState('');
   const [step, setStep] = useState<'form' | 'making' | 'sponsoring' | 'protecting' | 'failed'>('form');
-  const [error, setError] = useState('');
+  const [error, setError] = useState('');  // a catalogue key, never raw English
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
   const differs = again.length > 0 && again !== password;
@@ -38,7 +38,8 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
       setStep('making');
       await session.create(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const m = err instanceof Error ? err.message : '';
+      setError(m === ACCOUNT_EXISTS ? 'loyalty.accountExists' : m.includes('at least') ? 'loyalty.passwordShort' : 'loyalty.createFailed');
       setStep('failed');
       onBusy?.(false);
       return;
@@ -68,7 +69,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
       <input id="pw2" className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       {differs && <p className="hint">{t('loyalty.passwordDiffers')}</p>}
       <p className="note">{t('loyalty.passwordWarning')}</p>
-      {step === 'failed' && <p className="note note--warn" role="alert">{error}</p>}
+      {step === 'failed' && <p className="note note--warn" role="alert">{t(error, { n: MIN_PASSWORD })}</p>}
       <button className="btn btn--primary" disabled={tooShort || differs}>{t('loyalty.createButton')}</button>
     </form>
   );
@@ -134,19 +135,22 @@ function AccountCode({ address }: { address: string }) {
 function ProtectButton() {
   const session = useSession();
   const [password, setPassword] = useState('');
-  const [state, setState] = useState<'idle' | 'busy' | 'unavailable' | 'failed'>('idle');
+  const [state, setState] = useState<'idle' | 'busy' | 'unavailable' | 'inuse' | 'wrong' | 'failed'>('idle');
   return (
     <form className="stack" onSubmit={async (e) => {
       e.preventDefault();
       setState('busy');
       try {
-        setState((await session.protect(password)) === 'enrolled' ? 'idle' : 'unavailable');
-      } catch { setState('failed'); }
+        const out = await session.protect(password);
+        setState(out === 'enrolled' ? 'idle' : out === 'email-in-use' ? 'inuse' : 'unavailable');
+      } catch (err) { setState(err instanceof WrongPassword ? 'wrong' : 'failed'); }
     }}>
       <label className="y-label" htmlFor="pp">{t('loyalty.passwordToProtect')}</label>
       <input id="pp" className="bigfield" type="password" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />
       {state === 'unavailable' && <p className="note">{t('loyalty.protectUnavailable')}</p>}
+      {state === 'inuse' && <p className="note note--warn" role="alert">{t('loyalty.protectEmailInUse')}</p>}
+      {state === 'wrong' && <p className="note note--warn" role="alert">{t('loyalty.passwordWrong')}</p>}
       {state === 'failed' && <p className="note note--warn">{t('loyalty.protectFailed')}</p>}
       <button className="btn" disabled={state === 'busy'}>{t('loyalty.protectButton')}</button>
     </form>
@@ -167,7 +171,7 @@ function RecoverForm() {
       try {
         await session.adopt(out.privateKey, f.email, f.password);
       } catch {
-        setState({ kind: 'failed', reason: 'refused' });
+        setState({ kind: 'failed', reason: 'adopt' });
         return;
       }
       setState({ kind: 'idle' });
@@ -197,6 +201,7 @@ export function AccountScreen() {
   const session = useSession();
   const [confirmForget, setConfirmForget] = useState(false);
   const [setup, setSetup] = useState(false);
+  const [sponsorNote, setSponsorNote] = useState<'unavailable' | 'refused' | null>(null);
   const a = session.account;
   return (
     <>
@@ -215,7 +220,11 @@ export function AccountScreen() {
                 {a.sponsored ? t('loyalty.sponsored') : t('loyalty.notSponsored')}
               </span>
             </div>
-            {!a.sponsored && <button className="btn" onClick={() => { void session.ensureSponsored(); }}>{t('loyalty.sponsorRetry')}</button>}
+            {!a.sponsored && <button className="btn" onClick={async () => {
+              const out = await session.ensureSponsored();
+              setSponsorNote(out === 'sponsored' ? null : out);
+            }}>{t('loyalty.sponsorRetry')}</button>}
+            {sponsorNote && !a.sponsored && <p className="note" role="status">{t(`loyalty.sponsorOutcome.${sponsorNote}`)}</p>}
             <AccountCode address={a.address} />
           </Section>
           {a.protection !== 'enrolled' && <Section title={t('loyalty.protectTitle')}><ProtectButton /></Section>}

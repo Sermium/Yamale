@@ -99,6 +99,13 @@ export interface EnrolResult {
   address: string;
   /** The holding this device keeps. Everything else went to a service. */
   deviceHolding: Holding;
+  /**
+   * Roles whose service answered 409: an account already exists under that
+   * email. That is success for re-running a half-finished enrolment of THIS
+   * key, but the service may hold another key's copies, so a caller enrolling
+   * a brand-new key must not treat it as protection.
+   */
+  alreadyEnrolled: Array<'custodian' | 'recovery'>;
 }
 
 /**
@@ -188,6 +195,7 @@ export async function enrol(
   const pubkey = await publicKeyOf(privateKey);
 
   let address = '';
+  const alreadyEnrolled: Array<'custodian' | 'recovery'> = [];
   for (const [role, url] of [
     [ROLE_CUSTODIAN, services.custodianUrl],
     [ROLE_RECOVERY, services.recoveryUrl],
@@ -208,7 +216,8 @@ export async function enrol(
       signature: base64(signature),
     };
 
-    const reported = await post(fetchImpl, `${url}/v1/enrol`, body, role);
+    const { address: reported, existed } = await post(fetchImpl, `${url}/v1/enrol`, body, role);
+    if (existed) alreadyEnrolled.push(role === ROLE_CUSTODIAN ? 'custodian' : 'recovery');
     // Each service derives the address from the public key it verified, rather
     // than being told it. They must agree, and with each other: a disagreement
     // means one of them verified something different.
@@ -225,7 +234,7 @@ export async function enrol(
   if (!address) {
     address = await addressOf(privateKey);
   }
-  return { address, deviceHolding };
+  return { address, deviceHolding, alreadyEnrolled };
 }
 
 /**
@@ -241,7 +250,7 @@ async function post(
   url: string,
   body: DepositBody,
   role: string,
-): Promise<string> {
+): Promise<{ address: string; existed: boolean }> {
   let response: Response;
   try {
     response = await fetchImpl(url, {
@@ -253,7 +262,7 @@ async function post(
     throw new EnrolError(`the ${role} service could not be reached`, role);
   }
 
-  if (response.status === 409) return '';
+  if (response.status === 409) return { address: '', existed: true };
   if (!response.ok) {
     // The services answer {"error": "..."} and those messages are written to be
     // read by a person, so it is passed through rather than replaced.
@@ -269,7 +278,7 @@ async function post(
   }
 
   const parsed = (await response.json()) as { address?: string };
-  return parsed?.address ?? '';
+  return { address: parsed?.address ?? '', existed: false };
 }
 
 /** Byte arrays as base64, which is how Go marshals `[]byte` into JSON. */

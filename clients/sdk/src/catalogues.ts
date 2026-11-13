@@ -2008,6 +2008,13 @@ export const en = {
   'loyalty.forgetUnprotected': "This account is not protected. Removing it destroys the key, and every jewel it holds is lost for good.",
   'loyalty.forgetConfirm': "Remove it",
   'loyalty.cancel': "Cancel",
+  'loyalty.protectEmailInUse': "This email is already used for protection on another account, so this account is only on this phone.",
+  'loyalty.recoverFailed.unavailable': "Recovery is not available here yet. Contact the platform.",
+  'loyalty.recoverFailed.adopt': "Your account was recovered but could not be saved on this phone. Check the password is at least 10 characters and that no account is already here, then try again.",
+  'loyalty.accountExists': "This phone already holds an account. Remove it first to make another.",
+  'loyalty.createFailed': "The account could not be made. Nothing was saved; try again.",
+  'loyalty.sponsorOutcome.unavailable': "The platform's fee cover did not answer. Try again in a moment.",
+  'loyalty.sponsorOutcome.refused': "The platform declined to cover fees for this account.",
 };
 
 export const fr = {
@@ -3977,6 +3984,13 @@ export const fr = {
   'loyalty.forgetUnprotected': "Ce compte n'est pas protégé. Le retirer détruit la clé, et chaque bijou qu'il détient est perdu pour de bon.",
   'loyalty.forgetConfirm': "Le retirer",
   'loyalty.cancel': "Annuler",
+  'loyalty.protectEmailInUse': "Cet e-mail sert déjà à la protection d'un autre compte ; ce compte reste donc uniquement sur ce téléphone.",
+  'loyalty.recoverFailed.unavailable': "La récupération n'est pas encore disponible ici. Contactez la plateforme.",
+  'loyalty.recoverFailed.adopt': "Votre compte a été récupéré mais n'a pas pu être enregistré sur ce téléphone. Vérifiez que le mot de passe compte au moins 10 caractères et qu'aucun compte n'est déjà présent, puis réessayez.",
+  'loyalty.accountExists': "Ce téléphone détient déjà un compte. Retirez-le d'abord pour en créer un autre.",
+  'loyalty.createFailed': "Le compte n'a pas pu être créé. Rien n'a été enregistré ; réessayez.",
+  'loyalty.sponsorOutcome.unavailable': "La prise en charge des frais n'a pas répondu. Réessayez dans un instant.",
+  'loyalty.sponsorOutcome.refused': "La plateforme a refusé de prendre en charge les frais de ce compte.",
 };
 
 export const pt = {
@@ -5945,6 +5959,13 @@ export const pt = {
   'loyalty.forgetUnprotected': "Esta conta não está protegida. Removê-la destrói a chave, e cada joia que ela detém perde-se para sempre.",
   'loyalty.forgetConfirm': "Removê-la",
   'loyalty.cancel': "Cancelar",
+  'loyalty.protectEmailInUse': "Este e-mail já é usado para a proteção de outra conta, pelo que esta conta fica apenas neste telemóvel.",
+  'loyalty.recoverFailed.unavailable': "A recuperação ainda não está disponível aqui. Contacte a plataforma.",
+  'loyalty.recoverFailed.adopt': "A sua conta foi recuperada mas não pôde ser guardada neste telemóvel. Verifique que a palavra-passe tem pelo menos 10 caracteres e que não há já uma conta aqui, e tente de novo.",
+  'loyalty.accountExists': "Este telemóvel já tem uma conta. Remova-a primeiro para criar outra.",
+  'loyalty.createFailed': "Não foi possível criar a conta. Nada foi guardado; tente de novo.",
+  'loyalty.sponsorOutcome.unavailable': "A cobertura das taxas pela plataforma não respondeu. Tente de novo daqui a pouco.",
+  'loyalty.sponsorOutcome.refused': "A plataforma recusou cobrir as taxas desta conta.",
 };
 
 export const sw = {
@@ -7912,6 +7933,13 @@ export const sw = {
   'loyalty.forgetUnprotected': "Akaunti hii haijalindwa. Kuiondoa kunaharibu ufunguo, na kila kito ilichonacho kinapotea milele.",
   'loyalty.forgetConfirm': "Iondoe",
   'loyalty.cancel': "Ghairi",
+  'loyalty.protectEmailInUse': "Barua pepe hii tayari inatumika kulinda akaunti nyingine, kwa hiyo akaunti hii iko kwenye simu hii pekee.",
+  'loyalty.recoverFailed.unavailable': "Urejeshaji bado haupatikani hapa. Wasiliana na jukwaa.",
+  'loyalty.recoverFailed.adopt': "Akaunti yako imerejeshwa lakini haikuweza kuhifadhiwa kwenye simu hii. Hakikisha nenosiri lina angalau herufi 10 na kwamba hakuna akaunti iliyopo hapa, kisha jaribu tena.",
+  'loyalty.accountExists': "Simu hii tayari ina akaunti. Iondoe kwanza ili kufungua nyingine.",
+  'loyalty.createFailed': "Akaunti haikuweza kufunguliwa. Hakuna kilichohifadhiwa; jaribu tena.",
+  'loyalty.sponsorOutcome.unavailable': "Mpango wa jukwaa wa kulipia ada haukujibu. Jaribu tena baada ya muda mfupi.",
+  'loyalty.sponsorOutcome.refused': "Jukwaa limekataa kulipia ada za akaunti hii.",
 };
 
 // Arabic drives the right-to-left path. Every logical property in the
@@ -9886,6 +9914,13 @@ export const ar = {
   'loyalty.forgetUnprotected': "هذا الحساب غير محمي. إزالته تُتلف المفتاح، وكل مجوهرة يملكها تضيع إلى الأبد.",
   'loyalty.forgetConfirm': "أزله",
   'loyalty.cancel': "إلغاء",
+  'loyalty.protectEmailInUse': "هذا البريد الإلكتروني مستخدم بالفعل لحماية حساب آخر، لذا يبقى هذا الحساب على هذا الهاتف فقط.",
+  'loyalty.recoverFailed.unavailable': "الاسترداد غير متاح هنا بعد. تواصل مع المنصة.",
+  'loyalty.recoverFailed.adopt': "استُردّ حسابك لكن تعذّر حفظه على هذا الهاتف. تأكد أن كلمة المرور 10 أحرف على الأقل وأنه لا يوجد حساب هنا بالفعل، ثم حاول مرة أخرى.",
+  'loyalty.accountExists': "يحتوي هذا الهاتف على حساب بالفعل. أزله أولًا لإنشاء حساب آخر.",
+  'loyalty.createFailed': "تعذّر إنشاء الحساب. لم يُحفظ شيء؛ حاول مرة أخرى.",
+  'loyalty.sponsorOutcome.unavailable': "لم تستجب تغطية الرسوم من المنصة. حاول مرة أخرى بعد قليل.",
+  'loyalty.sponsorOutcome.refused': "رفضت المنصة تغطية رسوم هذا الحساب.",
 };
 
 /** Locales shipped today. Tier 2 arrives through contribution. */

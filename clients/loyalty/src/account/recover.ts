@@ -12,7 +12,7 @@
  * For that the platform proposes reassigning the jewels, publicly, over 30 days.
  */
 
-import { restore } from '../../../wallet/src/account/protect.ts';
+import { restore, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../../wallet/src/account/protect.ts';
 import { canonicalEmail, type Holding } from '../../../wallet/src/account/deposit.ts';
 import type { Services } from '../../../wallet/src/account/enrol.ts';
 import { addressOfPublicKey, compressedPublicKey } from '../../../sdk/src/jewel.ts';
@@ -27,7 +27,7 @@ export interface RecoveryClaim {
 
 export type ClaimOutcome =
   | { ok: true; privateKey: Uint8Array; address: string }
-  | { ok: false; reason: 'not-ready' | 'held' | 'refused' | 'unreachable' | 'mismatch'; detail: string };
+  | { ok: false; reason: 'not-ready' | 'held' | 'refused' | 'unreachable' | 'mismatch' | 'unavailable'; detail: string };
 
 function bytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -45,7 +45,7 @@ function holdingFromWire(w: any): Holding {
   };
 }
 
-async function claimOne(url: string, claim: RecoveryClaim, fetchImpl: typeof fetch):
+async function claimOne(url: string, role: string, claim: RecoveryClaim, fetchImpl: typeof fetch):
   Promise<{ ok: true; address: string; holding: Holding } | Extract<ClaimOutcome, { ok: false }>> {
   let res: Response;
   try {
@@ -61,7 +61,13 @@ async function claimOne(url: string, claim: RecoveryClaim, fetchImpl: typeof fet
   if (res.status === 409) {
     return { ok: false, reason: res.headers.get('Retry-After') ? 'held' : 'not-ready', detail: String(body.error ?? '') };
   }
+  // 503: the service cannot take a claim at all (no second factor configured,
+  // or down). Nothing the person typed was wrong.
+  if (res.status === 503) return { ok: false, reason: 'unavailable', detail: String(body.error ?? '') };
   if (!res.ok) return { ok: false, reason: 'refused', detail: String(body.error ?? `http ${res.status}`) };
+  if (body.role !== role) {
+    return { ok: false, reason: 'mismatch', detail: 'a service answered as the wrong role' };
+  }
   try {
     return { ok: true, address: String(body.address), holding: holdingFromWire(body.holding) };
   } catch {
@@ -71,9 +77,9 @@ async function claimOne(url: string, claim: RecoveryClaim, fetchImpl: typeof fet
 
 export async function claimRecovered(claim: RecoveryClaim, services: Services,
   fetchImpl: typeof fetch = fetch): Promise<ClaimOutcome> {
-  const custodian = await claimOne(services.custodianUrl, claim, fetchImpl);
+  const custodian = await claimOne(services.custodianUrl, ROLE_CUSTODIAN, claim, fetchImpl);
   if (!custodian.ok) return custodian;
-  const recovery = await claimOne(services.recoveryUrl, claim, fetchImpl);
+  const recovery = await claimOne(services.recoveryUrl, ROLE_RECOVERY, claim, fetchImpl);
   if (!recovery.ok) return recovery;
   if (custodian.address !== recovery.address) {
     return { ok: false, reason: 'mismatch', detail: 'the two services named different accounts' };
