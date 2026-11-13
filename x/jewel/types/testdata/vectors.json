@@ -1,0 +1,101 @@
+{
+  "comment": "Shared by x/jewel/types and clients/sdk/src/jewel.ts. Regenerate with: go test ./x/jewel/types -run TestVectors -update-vectors",
+  "inscriptions": [
+    {
+      "in": "MD-2026-0001",
+      "out": "MD20260001"
+    },
+    {
+      "in": "md 2026/0001",
+      "out": "MD20260001"
+    },
+    {
+      "in": "a.b_c-d 1/2",
+      "out": "ABCD12"
+    },
+    {
+      "in": "abc",
+      "out": ""
+    },
+    {
+      "in": "ring é",
+      "out": ""
+    },
+    {
+      "in": "straße-1",
+      "out": ""
+    },
+    {
+      "in": "ıstanbul-9",
+      "out": "ISTANBUL9"
+    },
+    {
+      "in": "ſeal-77",
+      "out": "SEAL77"
+    },
+    {
+      "in": "K-1234",
+      "out": "K1234"
+    },
+    {
+      "in": "ring\t01",
+      "out": ""
+    },
+    {
+      "in": "0123456789012345678901234567890123456789",
+      "out": "0123456789012345678901234567890123456789"
+    },
+    {
+      "in": "0123456789012345678901234567890123456789X",
+      "out": ""
+    }
+  ],
+  "claims": [
+    {
+      "priv_key": "41e82abba74c08429dfd7f92e672492667f3f2b40060950083cb0cf9c75a5962",
+      "pub_key": "0348fd6205b91607c604d7eff50f709bffafa5881e34b7a47418558ca287d390c4",
+      "address": "yml17kgw27uaxzkjpcc6a6ynk79qw02895wmrk377x",
+      "chain_id": "yamale-local-1",
+      "jewel_id": "1",
+      "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "sign_bytes": "yamale-jewel-claim/v1:yamale-local-1:1:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "d38db0331addbf04dbb61059fbab8555e5644b506d15b08a737272dbfff471ab1ed3ab29920fda154af7cd8c47efa2f9c4b7c5eb051b359eb2b4f479b249b419"
+    },
+    {
+      "priv_key": "e5f9c12f3cd32068c84dbe27e665ad8ab0e3141a43183df502bde2068969eee3",
+      "pub_key": "0327ba454feb957260adc09848cc76b625ddcdacea4472f7bb0a573ffa69085521",
+      "address": "yml1akzt4frtp99n9pvuu6w4hd42n7n8sse7ux53cs",
+      "chain_id": "yamale-devnet-2",
+      "jewel_id": "18446744073709551615",
+      "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "sign_bytes": "yamale-jewel-claim/v1:yamale-devnet-2:18446744073709551615:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "bd7c01c35ba585b68ab87a1a016cd02fa0b2fccd3961f3766a724ab837050be22b6a31d52efc07d7911a275b081726fda9227a60f69773e0902c947f70ddebac"
+    }
+  ],
+  "vouchers": [
+    {
+      "priv_key": "ad0cc45065d8f318a7a78af5f2b02abe7b1c8cecfb623a2c9c4e02f5b5f0d839",
+      "pub_key": "0248828df96e4698990bd4fc6bc1985f40305d6ecb8cca6d2eb1cba27edb3d455d",
+      "address": "yml1quu6g26djnyp00qcvy9c59mh99g0qwx2t472ym",
+      "chain_id": "yamale-local-1",
+      "benefit_id": "1",
+      "jewel_id": "1",
+      "nonce": "00112233445566778899aabbccddeeff",
+      "expires_at": "1790000000",
+      "sign_bytes": "yamale-jewel-voucher/v1:yamale-local-1:1:1:00112233445566778899aabbccddeeff:1790000000",
+      "signature": "a06a8a032d7b0c7945e6df2c2f7e4ae9d64221eed17334b2d95a813003ca0f83111b10b16dabfd9f6539f66729bb50761d8a3ddfdc529122767892159c243579"
+    },
+    {
+      "priv_key": "0291e8d6da18e2e03769f3fb5e8b83bc2aa5b34cd3f631cc7df83b9fc103ac15",
+      "pub_key": "02dbb72195853ada32b9fd15aa3fcc98018c0bad6b2653518b3210e2a355320ba5",
+      "address": "yml1y64l9mnzxadcsdu6wxvxg6rzrtdtzffev5qpns",
+      "chain_id": "yamale-local-1",
+      "benefit_id": "42",
+      "jewel_id": "9001",
+      "nonce": "n",
+      "expires_at": "1",
+      "sign_bytes": "yamale-jewel-voucher/v1:yamale-local-1:42:9001:n:1",
+      "signature": "185142f4d9ececae12e037e0f945fd63ecdcc544847254e450c0d88efbab02762db6de10ac7ba7509c9e8b271bed6e7fbcf2645c5acf1d01a9f87c9d746bc457"
+    }
+  ]
+}

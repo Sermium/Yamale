@@ -348,3 +348,14 @@ export {
 export type { Locale, LanguageInfo, Catalogue } from './i18n.ts';
 export { registerAll, AVAILABLE } from './catalogues.ts';
 export { LanguagePicker, useLocale } from './language.tsx';
+
+export {
+  normaliseInscription, claimSignBytes, voucherSignBytes, ownershipProofBytes, signArbitrary,
+  verifyArbitrary, compressedPublicKey, addressOfPublicKey, toHex, fromHex, toBase64, toBase64Url,
+  fromBase64Url, newClaimKey, claimLink, parseClaimFragment, makeVoucher, encodeVoucherCode,
+  decodeVoucherCode, voucherSigner, makeOwnershipProof, verifyOwnershipProof, STAFF_MESSAGES,
+  JEWEL_GAS, registerJewel, amendJewel, offerJewelToAccount, offerJewelByLink, cancelJewelOffer,
+  acceptJewelOffer, claimJewelOffer, reportJewelStolen, clearJewelStolen, attachJewelBenefit,
+  redeemJewelBenefit, setJewelStaff, vetoJewelReassignment, completeJewelReassignment, grantStaffFees,
+  type VoucherFields, type VoucherCode,
+} from './jewel.ts';
