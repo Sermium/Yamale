@@ -123,3 +123,24 @@ export function Section({ title, children }: { title: string; children: ReactNod
     </section>
   );
 }
+
+/** Share a link without our servers in the path: the phone's own share sheet, a copy, or mail. */
+export function ShareButtons({ link, title, text }: { link: string; title: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  const mail = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${text}\n\n${link}`)}`;
+  return (
+    <div className="actions">
+      {typeof navigator !== 'undefined' && 'share' in navigator && (
+        <button type="button" className="btn" onClick={() => navigator.share({ title, text, url: link }).catch(() => {})}>
+          {t('loyalty.share')}
+        </button>
+      )}
+      <button type="button" className="btn" onClick={async () => {
+        try { await navigator.clipboard.writeText(link); setCopied(true); } catch { /* no clipboard on plain http */ }
+      }}>
+        {copied ? t('loyalty.copied') : t('loyalty.copyLink')}
+      </button>
+      <a className="btn" href={mail}>{t('loyalty.sendByEmail')}</a>
+    </div>
+  );
+}

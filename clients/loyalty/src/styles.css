@@ -114,3 +114,15 @@
 .num { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+.jewelcard__link { display: flex; align-items: center; gap: var(--sp-2); color: inherit; text-decoration: none; }
+.jewelcard__img { flex: none; inline-size: 56px; block-size: 56px; object-fit: cover; border-radius: var(--radius);
+  min-block-size: 0; }
+.jewelcard__text { display: grid; justify-items: start; gap: 0.25rem; flex: 1; min-inline-size: 0; }
+.jewelcard__title { max-inline-size: 100%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jewelcard .hallmark { font-size: 0.8rem; padding: 0.15rem 0.4rem; }
+
+/* A code a camera must read: dark modules on white, whatever the theme. */
+.linkshare__qr { justify-self: center; padding: var(--sp-2); background: #ffffff; border-radius: var(--radius); }
+.linkshare__qr svg { display: block; }
+.voucher { justify-items: center; text-align: center; }

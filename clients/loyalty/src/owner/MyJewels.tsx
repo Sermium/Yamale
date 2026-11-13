@@ -1,0 +1,70 @@
+import { useState } from 'react';
+import { acceptJewelOffer, chainHead, jewelsHeldBy, offersAddressedTo, t } from '@yamale/chain';
+
+import { UnlockGate } from '../account/Account.tsx';
+import { useSession } from '../account/session.tsx';
+import { ActionStatus, useAction } from '../actions/useAction.tsx';
+import { AppBar, Problem, Section, useLoad } from '../ui.tsx';
+import { JewelCard } from '../verify/JewelCard.tsx';
+
+function AcceptButton({ jewelId, onDone }: { jewelId: string; onDone: () => void }) {
+  const session = useSession();
+  const [action, run] = useAction();
+  const [confirm, setConfirm] = useState(false);
+  if (!confirm) return <button type="button" className="btn btn--primary" onClick={() => setConfirm(true)}>{t('loyalty.accept')}</button>;
+  return (
+    <UnlockGate>
+      <p className="note">{t('loyalty.acceptExplain')}</p>
+      <div className="actions">
+        <button type="button" className="btn btn--primary" disabled={action.kind === 'busy'} onClick={async () => {
+          if (await run(() => session.submitAsOwner([acceptJewelOffer(session.address!, jewelId)]))) onDone();
+        }}>{t('loyalty.acceptConfirm')}</button>
+        <button type="button" className="btn" onClick={() => setConfirm(false)}>{t('loyalty.cancel')}</button>
+      </div>
+      <ActionStatus state={action} />
+    </UnlockGate>
+  );
+}
+
+function Holdings({ address }: { address: string }) {
+  const [head] = useLoad(() => chainHead(), []);
+  const now = head?.ok ? head.value.time : Math.floor(Date.now() / 1000);
+  const [offers, reloadOffers] = useLoad(() => offersAddressedTo(address, now), [address, head?.ok]);
+  const [held, reloadHeld] = useLoad(() => jewelsHeldBy(address), [address]);
+  const reload = () => { reloadOffers(); reloadHeld(); };
+  return (
+    <>
+      {offers?.ok && offers.value.length > 0 && (
+        <Section title={t('loyalty.offersForYou')}>
+          <ul className="y-cards">
+            {offers.value.map((v) => (
+              <JewelCard key={v.jewel.id} id={v.jewel.id} to={`/j/${v.jewel.jewelerId}/${v.jewel.id}`}
+                         extra={<AcceptButton jewelId={v.jewel.id} onDone={reload} />} />
+            ))}
+          </ul>
+        </Section>
+      )}
+      {offers && !offers.ok && <Problem outcome={offers} />}
+      <Section title={t('loyalty.yourJewels')}>
+        {!held && <p className="loading">{t('loyalty.loading')}</p>}
+        {held && !held.ok && <Problem outcome={held} />}
+        {held?.ok && held.value.length === 0 && <p className="hint">{t('loyalty.noJewels')}</p>}
+        {held?.ok && held.value.length > 0 && (
+          <ul className="y-cards">{held.value.map((id) => <JewelCard key={id} id={id} to={`/mine/${id}`} />)}</ul>
+        )}
+      </Section>
+    </>
+  );
+}
+
+export function MyJewels() {
+  const session = useSession();
+  return (
+    <>
+      <AppBar title={t('loyalty.mineTitle')} eyebrow={t('loyalty.title')} />
+      <main className="y-screen">
+        {session.address ? <Holdings address={session.address} /> : <UnlockGate>{null}</UnlockGate>}
+      </main>
+    </>
+  );
+}

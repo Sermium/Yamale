@@ -1,8 +1,12 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
-import { LanguagePicker, t, useLocale } from '@yamale/chain';
+import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView } from '@yamale/chain';
 
-import { AccountScreen } from './account/Account.tsx';
-import { SessionProvider } from './account/session.tsx';
+import { AccountScreen, UnlockGate } from './account/Account.tsx';
+import { SessionProvider, useSession } from './account/session.tsx';
+import { ActionStatus, useAction } from './actions/useAction.tsx';
+import { Claim } from './owner/Claim.tsx';
+import { MyJewels } from './owner/MyJewels.tsx';
+import { Owned } from './owner/Owned.tsx';
 import { NotFound } from './ui.tsx';
 import { JewelPage } from './verify/JewelPage.tsx';
 import { Proof } from './verify/Proof.tsx';
@@ -11,6 +15,7 @@ import { Search } from './verify/Search.tsx';
 function TabBar() {
   const tabs = [
     { to: '/', end: true, label: t('loyalty.navVerify') },
+    { to: '/mine', end: false, label: t('loyalty.navMine') },
     { to: '/account', end: false, label: t('loyalty.navAccount') },
   ];
   return (
@@ -22,6 +27,26 @@ function TabBar() {
         </NavLink>
       ))}
     </nav>
+  );
+}
+
+/** The spec's "anyone, once the window has passed": shown only to a signed-in visitor. */
+function CompleteReassignment({ view, now }: { view: JewelView; now: number }) {
+  const session = useSession();
+  const [action, run] = useAction();
+  const r = view.reassignment;
+  if (!r || !session.address || now < Number(r.windowEnds)) return null;
+  return (
+    <div className="stack">
+      <p className="hint">{t('loyalty.reassignmentDue')}</p>
+      <UnlockGate>
+        <button type="button" className="btn" disabled={action.kind === 'busy'} onClick={() =>
+          run(() => session.submitAsOwner([completeJewelReassignment(session.address!, view.jewel.id)]))}>
+          {t('loyalty.completeReassignment')}
+        </button>
+        <ActionStatus state={action} done={t('loyalty.reassignmentDone')} />
+      </UnlockGate>
+    </div>
   );
 }
 
@@ -42,8 +67,12 @@ export function App() {
           <div className="y-phone__screen" id="main" tabIndex={-1}>
             <Routes>
               <Route path="/" element={<Search />} />
-              <Route path="/j/:jeweler/:jewel" element={<JewelPage />} />
+              <Route path="/j/:jeweler/:jewel" element={
+                <JewelPage actions={(view, now) => <CompleteReassignment view={view} now={now} />} />} />
               <Route path="/own/:jewel" element={<Proof />} />
+              <Route path="/mine" element={<MyJewels />} />
+              <Route path="/mine/:jewel" element={<Owned />} />
+              <Route path="/claim" element={<Claim />} />
               <Route path="/account" element={<AccountScreen />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

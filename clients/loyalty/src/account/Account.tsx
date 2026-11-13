@@ -7,7 +7,7 @@
  * platform help after a lost phone, but only slowly and in the open.
  */
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
@@ -20,6 +20,7 @@ import { useSession } from './session.tsx';
 
 /** `onBusy` lets a screen keep this form mounted while the account is set up behind it. */
 export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (busy: boolean) => void }) {
+  const uid = useId();
   const session = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,13 +61,13 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   return (
     <form className="stack" onSubmit={submit}>
       <p className="hint">{t('loyalty.createLede')}</p>
-      <label className="y-label" htmlFor="email">{t('loyalty.email')}</label>
-      <input id="email" className="bigfield" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <label className="y-label" htmlFor="pw">{t('loyalty.password')}</label>
-      <input id="pw" className="bigfield" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <label className="y-label" htmlFor={uid + "-email"}>{t('loyalty.email')}</label>
+      <input id={uid + "-email"} className="bigfield" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <label className="y-label" htmlFor={uid + "-pw"}>{t('loyalty.password')}</label>
+      <input id={uid + "-pw"} className="bigfield" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {tooShort && <p className="hint">{t('loyalty.passwordShort', { n: MIN_PASSWORD })}</p>}
-      <label className="y-label" htmlFor="pw2">{t('loyalty.passwordAgain')}</label>
-      <input id="pw2" className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
+      <label className="y-label" htmlFor={uid + "-pw2"}>{t('loyalty.passwordAgain')}</label>
+      <input id={uid + "-pw2"} className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       {differs && <p className="hint">{t('loyalty.passwordDiffers')}</p>}
       <p className="note">{t('loyalty.passwordWarning')}</p>
       {step === 'failed' && <p className="note note--warn" role="alert">{t(error, { n: MIN_PASSWORD })}</p>}
@@ -76,6 +77,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
 }
 
 export function UnlockForm({ onDone }: { onDone?: () => void }) {
+  const uid = useId();
   const session = useSession();
   const [password, setPassword] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'wrong'>('idle');
@@ -92,8 +94,8 @@ export function UnlockForm({ onDone }: { onDone?: () => void }) {
   }
   return (
     <form className="stack" onSubmit={submit}>
-      <label className="y-label" htmlFor="unlock">{t('loyalty.passwordToOpen')}</label>
-      <input id="unlock" className="bigfield" type="password" autoComplete="current-password" value={password}
+      <label className="y-label" htmlFor={uid + "-unlock"}>{t('loyalty.passwordToOpen')}</label>
+      <input id={uid + "-unlock"} className="bigfield" type="password" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />
       {state === 'wrong' && <p className="note note--warn" role="alert">{t('loyalty.passwordWrong')}</p>}
       <button className="btn btn--primary" disabled={state === 'busy'}>
