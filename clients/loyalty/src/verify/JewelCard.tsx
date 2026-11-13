@@ -1,14 +1,20 @@
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { readJewel, t } from '@yamale/chain';
 
+import { forgetStaleLinks } from '../owner/links.ts';
+import { liveClaimKey, offerIsOpen } from '../owner/offers.ts';
 import { Loading, useLoad } from '../ui.tsx';
 import { Hallmark } from './JewelPage.tsx';
 import { VerifiedImage } from './Photos.tsx';
 import { currentRecordHash, useRecord } from './record.ts';
 
-export function JewelCard({ id, to, extra }: { id: string; to: string; extra?: ReactNode }) {
+/** `now` is the chain's block time: an offer past it is not on offer, though the chain still holds it. */
+export function JewelCard({ id, to, now, extra }: { id: string; to: string; now: number; extra?: ReactNode }) {
   const [view] = useLoad(() => readJewel(id), [id]);
+  useEffect(() => {
+    if (view?.ok) forgetStaleLinks(id, liveClaimKey(view.value.offer, now));
+  }, [view, id, now]);
   const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
   if (!view) return <li className="y-card"><Loading /></li>;
   if (!view.ok) return null;
@@ -25,7 +31,7 @@ export function JewelCard({ id, to, extra }: { id: string; to: string; extra?: R
           <Hallmark code={view.value.jewel.inscription} />
         </span>
         {view.value.jewel.stolen && <span className="y-chip y-chip--bad">{t('loyalty.stolenShort')}</span>}
-        {view.value.offer && <span className="y-chip y-chip--brass">{t('loyalty.onOffer')}</span>}
+        {offerIsOpen(view.value.offer, now) && <span className="y-chip y-chip--brass">{t('loyalty.onOffer')}</span>}
       </Link>
       {extra}
     </li>

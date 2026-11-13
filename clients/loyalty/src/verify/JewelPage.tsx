@@ -121,10 +121,10 @@ function OriginalRecord({ hash }: { hash: string }) {
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
 
 /** `actions` lets Task 8 add a signed-in action without forking this page. */
-export function JewelPage({ actions }: { actions?: (view: JewelView, now: number) => ReactNode } = {}) {
+export function JewelPage({ actions }: { actions?: (view: JewelView, now: number, reload: () => void) => ReactNode } = {}) {
   const { jeweler: jewelerId = '', jewel: jewelId = '' } = useParams();
   const valid = isId(jewelerId) && isId(jewelId);
-  const [view] = useLoad(() => (valid ? readJewel(jewelId) : Promise.resolve(NO_SUCH)), [jewelId, valid]);
+  const [view, reload] = useLoad(() => (valid ? readJewel(jewelId) : Promise.resolve(NO_SUCH)), [jewelId, valid]);
   const [jeweler] = useLoad(() => (valid ? readJeweler(jewelerId) : Promise.resolve(NO_SUCH)), [jewelerId, valid]);
   const [head] = useLoad(() => chainHead(), []);
   const [profile] = useLoad(() => (valid ? fetchProfile(jewelerId) : Promise.resolve(null)), [jewelerId, valid], () => null);
@@ -173,7 +173,7 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
 
         <p className="declared">{t('loyalty.declared')}</p>
 
-        {actions?.(view.value, now)}
+        {head?.ok && actions?.(view.value, head.value.time, reload)}
 
         {record.state === 'ok' && (<>
           <Section title={t('loyalty.materials')}><RecordFacts record={record.record} /></Section>

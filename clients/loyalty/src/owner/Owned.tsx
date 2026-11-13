@@ -2,7 +2,7 @@
  * One jewel its owner holds, and everything the owner can do with it.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   chainHead, clearJewelStolen, isActive, makeOwnershipProof, readJewel, readJeweler, reportJewelStolen, t,
@@ -17,7 +17,9 @@ import { AppBar, day, isId, Loading, NotFound, Problem, Section, ShareButtons, u
 import { benefitState } from '../verify/history.ts';
 import { benefitKind, Hallmark } from '../verify/JewelPage.tsx';
 import { currentRecordHash, useRecord } from '../verify/record.ts';
+import { forgetStaleLinks } from './links.ts';
 import { OfferPanel } from './OfferPanel.tsx';
+import { liveClaimKey } from './offers.ts';
 import { VoucherPanel } from './VoucherPanel.tsx';
 
 function Stolen({ view, onChange }: { view: JewelView; onChange: () => void }) {
@@ -97,16 +99,24 @@ function Benefits({ view, issuerActive, now }: { view: JewelView; issuerActive: 
 function Proof({ jewelId }: { jewelId: string }) {
   const session = useSession();
   const [link, setLink] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   if (link) return <ShareButtons link={link} title={t('loyalty.proofTitle')} text={t('loyalty.proofShareText')} />;
   return (
     <UnlockGate>
       <p className="hint">{t('loyalty.proofExplain')}</p>
       <button type="button" className="btn" onClick={async () => {
-        const head = await chainHead();
-        const now = head.ok ? head.value.time : Math.floor(Date.now() / 1000);
-        const q = session.withKey((k) => makeOwnershipProof(k, CHAIN_ID, jewelId, now));
-        setLink(`${PUBLIC_ORIGIN}/own/${jewelId}?${q}`);
+        try {
+          // Dated by the chain's clock; without it a proof could be refused as from the future.
+          const head = await chainHead();
+          if (!head.ok) { setFailed(true); return; }
+          const q = session.withKey((k) => makeOwnershipProof(k, CHAIN_ID, jewelId, head.value.time));
+          setFailed(false);
+          setLink(`${PUBLIC_ORIGIN}/own/${jewelId}?${q}`);
+        } catch {
+          setFailed(true);
+        }
       }}>{t('loyalty.makeProof')}</button>
+      {failed && <p className="note note--warn" role="alert">{t('loyalty.proofFailed')}</p>}
     </UnlockGate>
   );
 }
@@ -121,12 +131,21 @@ export function Owned() {
   const [head] = useLoad(() => chainHead(), []);
   const [jeweler] = useLoad(() => (view?.ok ? readJeweler(view.value.jewel.jewelerId) : Promise.resolve(NO_SUCH)), [view?.ok]);
   const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const headTime = head?.ok ? head.value.time : null;
+  useEffect(() => {
+    // Links are kept only for the offer that is open: sweep the rest once the jewel and the clock are read.
+    if (view?.ok && headTime !== null) forgetStaleLinks(id, liveClaimKey(view.value.offer, headTime));
+  }, [view, headTime, id]);
 
   if (!valid) return <NotFound />;
-  if (!view) return <><AppBar title={t('loyalty.mineTitle')} eyebrow="" back /><main className="y-screen"><Loading /></main></>;
+  if (!session.account) {
+    return <><AppBar title={t('loyalty.mineTitle')} eyebrow="" back /><main className="y-screen"><UnlockGate>{null}</UnlockGate></main></>;
+  }
+  if (!view || !head) return <><AppBar title={t('loyalty.mineTitle')} eyebrow="" back /><main className="y-screen"><Loading /></main></>;
   if (!view.ok) return <><AppBar title={t('loyalty.mineTitle')} eyebrow="" back /><main className="y-screen"><Problem outcome={view} /></main></>;
+  if (!head.ok) return <><AppBar title={t('loyalty.mineTitle')} eyebrow="" back /><main className="y-screen"><Problem outcome={head} /></main></>;
   const v = view.value;
-  const now = head?.ok ? head.value.time : Math.floor(Date.now() / 1000);
+  const now = head.value.time;
   const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id });
   const publicPage = `/j/${v.jewel.jewelerId}/${v.jewel.id}`;
 
@@ -143,11 +162,11 @@ export function Owned() {
             <Veto view={v} onChange={reload} />
             <Section title={t('loyalty.passOn')}>
               <UnlockGate>
-                <OfferPanel view={v} actor={session.address!} send={(m) => session.submitAsOwner(m)} onChange={reload} />
+                <OfferPanel view={v} actor={session.address!} now={now} send={(m) => session.submitAsOwner(m)} onChange={reload} />
               </UnlockGate>
             </Section>
             <Section title={t('loyalty.benefits')}>
-              {jeweler && head ? <Benefits view={v} issuerActive={jeweler.ok ? isActive(jeweler.value) : false} now={now} /> : <Loading />}
+              {jeweler ? <Benefits view={v} issuerActive={jeweler.ok ? isActive(jeweler.value) : false} now={now} /> : <Loading />}
             </Section>
             <Section title={t('loyalty.proveIt')}><Proof jewelId={v.jewel.id} /></Section>
             <Section title={t('loyalty.stolenTitle')}><Stolen view={v} onChange={reload} /></Section>

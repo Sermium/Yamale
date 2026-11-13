@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { addressOfPublicKey, compressedPublicKey } from '../../../sdk/src/jewel.ts';
-import { forgetLinks, isAccountCode, rememberLink, storedLink } from './links.ts';
+import { forgetLinks, forgetStaleLinks, isAccountCode, rememberLink, storedLink } from './links.ts';
 
 function memory(): Storage {
   const m = new Map<string, string>();
@@ -33,5 +33,19 @@ test('a claim link is kept per offer, and forgotten with the jewel', () => {
   assert.equal(storedLink('4', 'bb', store), 'https://x/claim#4.k2');
   forgetLinks('4', store);
   assert.equal(storedLink('4', 'aa', store), null);
+  assert.equal(storedLink('5', 'cc', store), 'https://x/claim#5.k3');
+});
+
+test('stale links go, and the live offer link stays', () => {
+  const store = memory();
+  rememberLink('4', 'aa', 'https://x/claim#4.k1', store);
+  rememberLink('4', 'bb', 'https://x/claim#4.k2', store);
+  rememberLink('5', 'cc', 'https://x/claim#5.k3', store);
+  forgetStaleLinks('4', 'bb', store);
+  assert.equal(storedLink('4', 'aa', store), null);
+  assert.equal(storedLink('4', 'bb', store), 'https://x/claim#4.k2');
+  assert.equal(storedLink('5', 'cc', store), 'https://x/claim#5.k3');
+  forgetStaleLinks('4', null, store);
+  assert.equal(storedLink('4', 'bb', store), null);
   assert.equal(storedLink('5', 'cc', store), 'https://x/claim#5.k3');
 });

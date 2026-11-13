@@ -31,7 +31,7 @@ function TabBar() {
 }
 
 /** The spec's "anyone, once the window has passed": shown only to a signed-in visitor. */
-function CompleteReassignment({ view, now }: { view: JewelView; now: number }) {
+function CompleteReassignment({ view, now, reload }: { view: JewelView; now: number; reload: () => void }) {
   const session = useSession();
   const [action, run] = useAction();
   const r = view.reassignment;
@@ -40,8 +40,9 @@ function CompleteReassignment({ view, now }: { view: JewelView; now: number }) {
     <div className="stack">
       <p className="hint">{t('loyalty.reassignmentDue')}</p>
       <UnlockGate>
-        <button type="button" className="btn" disabled={action.kind === 'busy'} onClick={() =>
-          run(() => session.submitAsOwner([completeJewelReassignment(session.address!, view.jewel.id)]))}>
+        <button type="button" className="btn" disabled={action.kind === 'busy'} onClick={async () => {
+          if (await run(() => session.submitAsOwner([completeJewelReassignment(session.address!, view.jewel.id)]))) reload();
+        }}>
           {t('loyalty.completeReassignment')}
         </button>
         <ActionStatus state={action} done={t('loyalty.reassignmentDone')} />
@@ -68,7 +69,7 @@ export function App() {
             <Routes>
               <Route path="/" element={<Search />} />
               <Route path="/j/:jeweler/:jewel" element={
-                <JewelPage actions={(view, now) => <CompleteReassignment view={view} now={now} />} />} />
+                <JewelPage actions={(view, now, reload) => <CompleteReassignment view={view} now={now} reload={reload} />} />} />
               <Route path="/own/:jewel" element={<Proof />} />
               <Route path="/mine" element={<MyJewels />} />
               <Route path="/mine/:jewel" element={<Owned />} />

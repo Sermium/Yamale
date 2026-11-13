@@ -45,7 +45,14 @@ export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitI
     if (code && code.deadline - now < 20_000) make();
   }, [now, code, make]);
 
-  if (failed) return <p className="note note--warn">{t('loyalty.voucherNoChain')}</p>;
+  if (failed) {
+    return (
+      <div className="stack">
+        <p className="note note--warn">{t('loyalty.voucherNoChain')}</p>
+        <button type="button" className="btn" onClick={() => { make(); }}>{t('loyalty.retry')}</button>
+      </div>
+    );
+  }
   if (!code) return <p className="loading">{t('loyalty.loading')}</p>;
   const seconds = Math.max(0, Math.round((code.deadline - now) / 1000));
   return (

@@ -2097,6 +2097,9 @@ export const en = {
   'loyalty.err.windowOpen': "The owner can still refuse; it cannot be completed yet.",
   'loyalty.err.reassignmentStale': "The jewel changed hands after the move was proposed.",
   'loyalty.err.noteTooLong': "The note is too long. Keep it under 500 characters and put the detail in the record.",
+  'loyalty.offerExpiredNote': "Your last offer expired. You can make a new one.",
+  'loyalty.proofFailed': "The link could not be made. Check your connection and try again.",
+  'loyalty.retry': "Try again",
 };
 
 export const fr = {
@@ -4155,6 +4158,9 @@ export const fr = {
   'loyalty.err.windowOpen': "Le propriétaire peut encore refuser ; impossible de finaliser pour l'instant.",
   'loyalty.err.reassignmentStale': "Le bijou a changé de mains après la proposition de transfert.",
   'loyalty.err.noteTooLong': "La note est trop longue. Restez sous 500 caractères et mettez le détail dans la fiche.",
+  'loyalty.offerExpiredNote': "Votre dernière offre a expiré. Vous pouvez en faire une nouvelle.",
+  'loyalty.proofFailed': "Le lien n'a pas pu être créé. Vérifiez votre connexion et réessayez.",
+  'loyalty.retry': "Réessayer",
 };
 
 export const pt = {
@@ -6212,6 +6218,9 @@ export const pt = {
   'loyalty.err.windowOpen': "O proprietário ainda pode recusar; ainda não é possível concluir.",
   'loyalty.err.reassignmentStale': "A joia mudou de mãos depois de a transferência ser proposta.",
   'loyalty.err.noteTooLong': "A nota é demasiado longa. Mantenha-a abaixo de 500 caracteres e ponha o detalhe no registo.",
+  'loyalty.offerExpiredNote': "A sua última oferta expirou. Pode fazer uma nova.",
+  'loyalty.proofFailed': "Não foi possível criar a ligação. Verifique a ligação à internet e tente de novo.",
+  'loyalty.retry': "Tentar de novo",
 };
 
 export const sw = {
@@ -8268,6 +8277,9 @@ export const sw = {
   'loyalty.err.windowOpen': "Mmiliki bado anaweza kukataa; haiwezi kukamilishwa bado.",
   'loyalty.err.reassignmentStale': "Kito kilibadilisha mmiliki baada ya uhamisho kupendekezwa.",
   'loyalty.err.noteTooLong': "Maelezo ni marefu mno. Yaweke chini ya herufi 500 na weka undani kwenye rekodi.",
+  'loyalty.offerExpiredNote': "Ofa yako ya mwisho imeisha muda. Unaweza kutoa nyingine.",
+  'loyalty.proofFailed': "Kiungo hakikuweza kutengenezwa. Angalia mtandao wako na ujaribu tena.",
+  'loyalty.retry': "Jaribu tena",
 };
 
 // Arabic drives the right-to-left path. Every logical property in the
@@ -10331,6 +10343,9 @@ export const ar = {
   'loyalty.err.windowOpen': "لا يزال بإمكان المالك الرفض؛ لا يمكن الإتمام بعد.",
   'loyalty.err.reassignmentStale': "تغيّر مالك المجوهرة بعد اقتراح النقل.",
   'loyalty.err.noteTooLong': "الملاحظة طويلة جدًا. اجعلها أقل من 500 حرف وضع التفاصيل في السجل.",
+  'loyalty.offerExpiredNote': "انتهى عرضك الأخير. يمكنك تقديم عرض جديد.",
+  'loyalty.proofFailed': "تعذّر إنشاء الرابط. تحقق من اتصالك وحاول مرة أخرى.",
+  'loyalty.retry': "حاول مرة أخرى",
 };
 
 /** Locales shipped today. Tier 2 arrives through contribution. */

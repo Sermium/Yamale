@@ -16,6 +16,7 @@ import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { CHAIN_ID } from '../config.ts';
+import { offerIsOpen } from './offers.ts';
 import { AppBar, Loading, Problem, useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
@@ -38,10 +39,11 @@ export function Claim() {
   if (!parsed) return <>{bar}<main className="y-screen"><p className="banner banner--bad">{t('loyalty.claimBroken')}</p></main></>;
   if (!view || !head) return <>{bar}<main className="y-screen"><Loading /></main></>;
   if (!view.ok) return <>{bar}<main className="y-screen"><Problem outcome={view} /></main></>;
+  if (!head.ok) return <>{bar}<main className="y-screen"><Problem outcome={head} /></main></>;
 
   const offer = view.value.offer;
   const claimKey = toHex(compressedPublicKey(parsed.privateKey));
-  const open = offer?.claimKey === claimKey && head.ok && Number(offer.expiresAt) > head.value.time;
+  const open = offer?.claimKey === claimKey && offerIsOpen(offer, head.value.time);
   const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id: parsed.jewelId });
 
   return (

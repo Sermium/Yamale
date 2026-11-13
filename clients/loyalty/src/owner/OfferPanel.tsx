@@ -20,6 +20,7 @@ import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { PUBLIC_ORIGIN } from '../config.ts';
 import { day, ShareButtons } from '../ui.tsx';
 import { forgetLinks, isAccountCode, rememberLink, storedLink } from './links.ts';
+import { offerIsOpen } from './offers.ts';
 
 export function AccountCodeInput({ value, onChange, id }: { value: string; onChange: (v: string) => void; id: string }) {
   const [scanning, setScanning] = useState(false);
@@ -47,14 +48,15 @@ function LinkShare({ link, expiresAt }: { link: string; expiresAt: string }) {
   );
 }
 
-export function OfferPanel({ view, actor, send, onChange }: {
-  view: JewelView; actor: string; send: (messages: EncodeObject[]) => Promise<SubmitResult>; onChange: () => void;
+export function OfferPanel({ view, actor, now, send, onChange }: {
+  view: JewelView; actor: string; now: number; send: (messages: EncodeObject[]) => Promise<SubmitResult>; onChange: () => void;
 }) {
   const [action, run] = useAction();
   const [mode, setMode] = useState<'choose' | 'account' | 'link'>('choose');
   const [to, setTo] = useState('');
   const id = view.jewel.id;
-  const offer = view.offer;
+  const offer = offerIsOpen(view.offer, now) ? view.offer : null;
+  const lapsed = !!view.offer && !offer;
 
   if (view.jewel.stolen) return <p className="note">{t('loyalty.cannotOfferStolen')}</p>;
 
@@ -76,6 +78,7 @@ export function OfferPanel({ view, actor, send, onChange }: {
   if (mode === 'choose') {
     return (
       <div className="stack">
+        {lapsed && <p className="hint">{t('loyalty.offerExpiredNote')}</p>}
         <button type="button" className="btn" onClick={() => setMode('account')}>{t('loyalty.offerToAccount')}</button>
         <button type="button" className="btn" onClick={() => setMode('link')}>{t('loyalty.offerByLink')}</button>
       </div>
@@ -95,11 +98,11 @@ export function OfferPanel({ view, actor, send, onChange }: {
                     if (await run(() => send([offerJewelToAccount(actor, id, to.trim())]))) onChange();
                     return;
                   }
+                  // Kept before sending: a submit that fails after broadcasting must not lose the key.
+                  // A link whose offer never lands is never shown, and is swept when the jewel is next read.
                   const { privateKey, claimKey } = newClaimKey();
-                  if (await run(() => send([offerJewelByLink(actor, id, claimKey)]))) {
-                    rememberLink(id, claimKey, claimLink(PUBLIC_ORIGIN, id, privateKey));
-                    onChange();
-                  }
+                  rememberLink(id, claimKey, claimLink(PUBLIC_ORIGIN, id, privateKey));
+                  if (await run(() => send([offerJewelByLink(actor, id, claimKey)]))) onChange();
                 }}>
           {t('loyalty.confirmOffer')}
         </button>
