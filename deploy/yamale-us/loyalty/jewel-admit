@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# jewel-admit <jeweler name…> <business account>: the office admits a jeweler on devnet-2.
+#
+# Two of the office's three members vote (OFFICE_VOTES=2), the third funds the
+# business with 50 YML. The name is every argument but the last, joined by
+# single spaces, so the command survives PowerShell and ssh without quoting:
+#
+#   ssh -t yamale-us sudo /opt/yamale/bin/jewel-admit Maison Diop yml1...
+set -euo pipefail
+[ $# -ge 2 ] || { echo "usage: jewel-admit <name…> <business account>" >&2; exit 2; }
+BUSINESS=${!#}
+NAME=${*:1:$#-1}
+export BIN=/opt/yamale/bin/blockchaind HOME_DIR=/opt/yamale/jewel-office CHAIN=yamale-devnet-2 \
+  NODE=tcp://127.0.0.1:26657 KEYRING=test M1=jewel-office-1 M2=jewel-office-2 M3=jewel-office-3 \
+  OFFICE_VOTES=2 FUNDER=jewel-office-3
+exec /opt/yamale/bin/loyalty-admit.sh "$NAME" "$BUSINESS"
