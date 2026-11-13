@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -42,6 +43,10 @@ type server struct {
 	slots     chan struct{}
 	slotWait  time.Duration // how long an upload waits for a slot; zero means 2s
 
+	balances     BalanceReader // reads the sponsor's balance for /v1/health/sponsor
+	sponsorFloor *big.Int      // below this balance the health check answers 503
+	sponsorDenom string
+
 	granter       Granter // nil: sponsoring is off
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
@@ -62,6 +67,7 @@ func main() {
 	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
 	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	floor := flag.String("sponsor-floor", "10000000uyml", "below this sponsor balance /v1/health/sponsor answers 503")
 	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
 	flag.Parse()
 
@@ -70,11 +76,19 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+	chain := restChain{base: strings.TrimRight(*rest, "/"), client: &http.Client{Timeout: 10 * time.Second}}
+	floorAmount, floorDenom, err := splitCoin(*floor)
+	if err != nil {
+		log.Fatalf("sponsor floor: %v", err)
+	}
 	s := &server{
-		dir:     *dir,
-		chainID: *chainID,
-		chain:   restChain{base: strings.TrimRight(*rest, "/"), client: &http.Client{Timeout: 10 * time.Second}},
-		now:     time.Now,
+		dir:          *dir,
+		chainID:      *chainID,
+		chain:        chain,
+		balances:     chain,
+		sponsorFloor: floorAmount,
+		sponsorDenom: floorDenom,
+		now:          time.Now,
 	}
 	if *from != "" {
 		g, err := newCLIGranter(*bin, *from, *home, *keyring, *node, *chainID, *spend, *fees, *lifetime)
@@ -105,6 +119,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
+	mux.HandleFunc("GET /v1/health/sponsor", s.handleSponsorHealth)
 	mux.HandleFunc("POST /v1/files", s.handleUpload)
 	mux.HandleFunc("GET /v1/files/{hash}", s.handleFile)
 	mux.HandleFunc("GET /v1/jewelers/{id}/profile", s.handleProfileGet)
