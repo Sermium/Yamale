@@ -28,6 +28,9 @@ func (k msgServer) OfferJewel(ctx context.Context, req *types.MsgOfferJewel) (*t
 	if err != nil {
 		return nil, err
 	}
+	if err := k.requireSellable(ctx, owner, j); err != nil {
+		return nil, err
+	}
 	if (req.To == "") == (req.ClaimKey == "") {
 		return nil, types.ErrOfferTarget
 	}
@@ -92,7 +95,8 @@ func (k msgServer) CancelOffer(ctx context.Context, req *types.MsgCancelOffer) (
 // openOffer returns the jewel's offer if it may still be taken: it exists,
 // has not lapsed, still speaks for the jewel's current owner, and, when a
 // staff member made it from stock, that person still works for the jeweler
-// and the jeweler is active. An offer must not outlive the authority of
+// and the jeweler is active. An offer from stock also dies while its jeweler
+// is suspended, whoever made it. An offer must not outlive the authority of
 // whoever made it.
 func (k msgServer) openOffer(ctx context.Context, j types.Jewel) (types.Offer, error) {
 	if j.Stolen {
@@ -114,6 +118,9 @@ func (k msgServer) openOffer(ctx context.Context, j types.Jewel) (types.Offer, e
 	}
 	if o.From != owner {
 		return o, types.ErrOfferStale
+	}
+	if err := k.requireSellable(ctx, o.From, j); err != nil {
+		return o, err
 	}
 	if o.Maker != o.From {
 		if _, err := k.requireStaff(ctx, o.Maker, j.JewelerId); err != nil {

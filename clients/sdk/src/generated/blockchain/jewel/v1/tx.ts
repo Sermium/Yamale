@@ -2792,7 +2792,7 @@ export interface Msg {
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse>;
   /** AdmitJeweler admits a business and opens its collection. Office only. */
   AdmitJeweler(request: MsgAdmitJeweler): Promise<MsgAdmitJewelerResponse>;
-  /** SuspendJeweler stops a jeweler acting. Office only. */
+  /** SuspendJeweler stops a jeweler acting: no registration, no sale of its stock, and its staff's offers die. Office only. */
   SuspendJeweler(request: MsgSuspendJeweler): Promise<MsgSuspendJewelerResponse>;
   /** ReinstateJeweler lets a suspended jeweler act again. Office only. */
   ReinstateJeweler(request: MsgReinstateJeweler): Promise<MsgReinstateJewelerResponse>;

@@ -2084,7 +2084,7 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// AdmitJeweler admits a business and opens its collection. Office only.
 	AdmitJeweler(ctx context.Context, in *MsgAdmitJeweler, opts ...grpc.CallOption) (*MsgAdmitJewelerResponse, error)
-	// SuspendJeweler stops a jeweler acting. Office only.
+	// SuspendJeweler stops a jeweler acting: no registration, no sale of its stock, and its staff's offers die. Office only.
 	SuspendJeweler(ctx context.Context, in *MsgSuspendJeweler, opts ...grpc.CallOption) (*MsgSuspendJewelerResponse, error)
 	// ReinstateJeweler lets a suspended jeweler act again. Office only.
 	ReinstateJeweler(ctx context.Context, in *MsgReinstateJeweler, opts ...grpc.CallOption) (*MsgReinstateJewelerResponse, error)
@@ -2295,7 +2295,7 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// AdmitJeweler admits a business and opens its collection. Office only.
 	AdmitJeweler(context.Context, *MsgAdmitJeweler) (*MsgAdmitJewelerResponse, error)
-	// SuspendJeweler stops a jeweler acting. Office only.
+	// SuspendJeweler stops a jeweler acting: no registration, no sale of its stock, and its staff's offers die. Office only.
 	SuspendJeweler(context.Context, *MsgSuspendJeweler) (*MsgSuspendJewelerResponse, error)
 	// ReinstateJeweler lets a suspended jeweler act again. Office only.
 	ReinstateJeweler(context.Context, *MsgReinstateJeweler) (*MsgReinstateJewelerResponse, error)

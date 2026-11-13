@@ -9,14 +9,14 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  chainHead, claimJewelOffer, compressedPublicKey, parseClaimFragment, readJewel, readJeweler, t, toHex,
+  chainHead, claimJewelOffer, compressedPublicKey, isActive, parseClaimFragment, readJewel, readJeweler, t, toHex,
 } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { CHAIN_ID } from '../config.ts';
-import { offerIsOpen } from './offers.ts';
+import { offerIsOpen, stockOfferBlocked } from './offers.ts';
 import { AppBar, Loading, Problem, useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
@@ -43,7 +43,9 @@ export function Claim() {
 
   const offer = view.value.offer;
   const claimKey = toHex(compressedPublicKey(parsed.privateKey));
-  const open = offer?.claimKey === claimKey && offerIsOpen(offer, head.value.time);
+  const issuer = jeweler?.ok ? jeweler.value : null;
+  const open = offer?.claimKey === claimKey && offerIsOpen(offer, head.value.time)
+    && !stockOfferBlocked(offer, issuer?.business ?? null, issuer ? isActive(issuer) : true);
   const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id: parsed.jewelId });
 
   return (

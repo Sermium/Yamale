@@ -263,7 +263,7 @@ Signed by the `office` field.
 
 MsgSuspendJeweler is the message that carries out SuspendJeweler.
 
-SuspendJeweler stops a jeweler acting. Office only.
+SuspendJeweler stops a jeweler acting: no registration, no sale of its stock, and its staff's offers die. Office only.
 
 | Field | Type | Description |
 | --- | --- | --- |

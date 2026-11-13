@@ -269,6 +269,20 @@ func (k Keeper) actsForOwner(ctx context.Context, signer string, j types.Jewel) 
 	return "", types.ErrNotOwner.Wrapf("%s", signer)
 }
 
+// requireSellable refuses to let a suspended jeweler sell its stock. Stock is
+// a jewel its jeweler's business still owns; a jewel that has left the shop
+// is its owner's to sell whatever the shop's standing.
+func (k Keeper) requireSellable(ctx context.Context, owner string, j types.Jewel) error {
+	jr, err := k.getJeweler(ctx, j.JewelerId)
+	if err != nil {
+		return err
+	}
+	if owner == jr.Business && jr.Status != types.JEWELER_ACTIVE {
+		return types.ErrJewelerSuspended.Wrapf("%s cannot sell its stock while suspended", jr.Name)
+	}
+	return nil
+}
+
 // transfer moves the token, counts and dates the new owner, and closes any
 // offer and any pending reassignment: a change of owner voids both. kind is
 // how it moved, one of types.TransferAccept, TransferClaim, TransferReassign.

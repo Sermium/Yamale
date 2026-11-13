@@ -230,3 +230,40 @@ func TestOnlyTheOwnerReportsATheft(t *testing.T) {
 	_, err := f.srv.ReportStolen(f.env.Ctx, &types.MsgReportStolen{Owner: stranger, JewelId: id})
 	require.ErrorIs(t, err, types.ErrNotOwner)
 }
+
+// While its jeweler is suspended, the business cannot sell its stock: no new
+// offer, and an offer made before the suspension cannot be taken. A jewel
+// that has left the shop is its owner's to sell whatever the shop's standing,
+// and reinstatement restores selling.
+func TestASuspendedJewelerCannotSellItsStock(t *testing.T) {
+	f := setup(t)
+	jid, business, staff := f.admit(t, "Maison Diop")
+	ring := f.register(t, staff, "MD-0001")
+	sold := f.register(t, staff, "MD-0002")
+	owner := f.sell(t, staff, sold)
+	_, buyer := f.env.Addr(t)
+
+	_, err := f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: business, JewelId: ring, To: buyer})
+	require.NoError(t, err)
+	_, err = f.srv.SuspendJeweler(f.env.Ctx, &types.MsgSuspendJeweler{Office: f.office, JewelerId: jid, Reason: "complaint 2026-118"})
+	require.NoError(t, err)
+
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: buyer, JewelId: ring})
+	require.ErrorIs(t, err, types.ErrJewelerSuspended, "an offer from stock cannot be taken while the jeweler is suspended")
+	_, err = f.srv.CancelOffer(f.env.Ctx, &types.MsgCancelOffer{Owner: business, JewelId: ring})
+	require.NoError(t, err, "the business may still withdraw it")
+	_, err = f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: business, JewelId: ring, To: buyer})
+	require.ErrorIs(t, err, types.ErrJewelerSuspended, "and may not offer its stock again")
+
+	_, err = f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: owner, JewelId: sold, To: buyer})
+	require.NoError(t, err, "a private owner's resale is untouched")
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: buyer, JewelId: sold})
+	require.NoError(t, err)
+
+	_, err = f.srv.ReinstateJeweler(f.env.Ctx, &types.MsgReinstateJeweler{Office: f.office, JewelerId: jid})
+	require.NoError(t, err)
+	_, err = f.srv.OfferJewel(f.env.Ctx, &types.MsgOfferJewel{Owner: business, JewelId: ring, To: buyer})
+	require.NoError(t, err, "reinstatement restores selling")
+	_, err = f.srv.AcceptOffer(f.env.Ctx, &types.MsgAcceptOffer{Recipient: buyer, JewelId: ring})
+	require.NoError(t, err)
+}

@@ -14,3 +14,12 @@ export function offerIsOpen<T extends { expiresAt: string }>(offer: T | null | u
 export function liveClaimKey(offer: { expiresAt: string; claimKey: string } | null | undefined, now: number): string | null {
   return offerIsOpen(offer, now) && offer.claimKey ? offer.claimKey : null;
 }
+
+/**
+ * The chain refuses an offer from a jeweler's own stock while that jeweler is
+ * suspended. `business` is null when the jeweler could not be read: then the
+ * chain decides, and the screen does not guess.
+ */
+export function stockOfferBlocked(offer: { from: string } | null | undefined, business: string | null, active: boolean): boolean {
+  return !!offer && business !== null && offer.from === business && !active;
+}
