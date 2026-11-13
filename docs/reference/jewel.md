@@ -108,7 +108,7 @@ ClaimOffer takes a jewel offered to a claim key.
 | `claimer` | string | claimer is the account that receives the jewel, the signer. |
 | `jewel_id` | uint64 | jewel_id is the jewel to claim. |
 | `claim_pub_key` | bytes | claim_pub_key is the compressed secp256k1 public key of the claim key. |
-| `claim_signature` | bytes | claim_signature signs ClaimSignBytes(chain id, jewel id, claimer). |
+| `claim_signature` | bytes | claim_signature signs ClaimSignBytes(chain id, jewel id, the offer's expires_at, claimer): "yamale-jewel-claim/v2:<chain>:<jewel>:<expires>:<claimer>". |
 
 ### MsgClearStolen
 

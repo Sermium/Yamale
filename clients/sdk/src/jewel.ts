@@ -89,9 +89,10 @@ export function normaliseInscription(raw: string): string | null {
 
 /* ------------------------------------------------------------- sign bytes */
 
-export function claimSignBytes(chainId: string, jewelId: string, claimer: string): Uint8Array {
+export function claimSignBytes(chainId: string, jewelId: string, offerExpiresAt: string, claimer: string): Uint8Array {
   if (!ID.test(jewelId)) throw new Error(`jewel id ${jewelId}`);
-  return utf8.encode(`yamale-jewel-claim/v1:${chainId}:${jewelId}:${claimer}`);
+  if (!DECIMAL.test(offerExpiresAt)) throw new Error(`offer expiry ${offerExpiresAt}`);
+  return utf8.encode(`yamale-jewel-claim/v2:${chainId}:${jewelId}:${offerExpiresAt}:${claimer}`);
 }
 
 export interface VoucherFields { benefitId: string; jewelId: string; nonce: string; expiresAt: string }
@@ -276,11 +277,14 @@ export function attachJewelBenefit(staff: string, jewelId: string, kind: string,
   });
 }
 
-export function claimJewelOffer(claimer: string, jewelId: string, claimPrivateKey: Uint8Array, chainId: string): EncodeObject {
+/** `offerExpiresAt` is the open offer's expires_at as the chain holds it: the signature is good for that offer only. */
+export function claimJewelOffer(
+  claimer: string, jewelId: string, offerExpiresAt: string, claimPrivateKey: Uint8Array, chainId: string,
+): EncodeObject {
   return msg('MsgClaimOffer', {
     claimer, jewelId,
     claimPubKey: compressedPublicKey(claimPrivateKey),
-    claimSignature: signArbitrary(claimPrivateKey, claimSignBytes(chainId, jewelId, claimer)),
+    claimSignature: signArbitrary(claimPrivateKey, claimSignBytes(chainId, jewelId, offerExpiresAt, claimer)),
   });
 }
 

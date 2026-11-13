@@ -67,7 +67,7 @@ export function Claim() {
             <p>{t('loyalty.claimExplain')}</p>
             <button type="button" className="btn btn--primary" disabled={action.kind === 'busy'} onClick={async () => {
               const done = await run(() => session.submitAsOwner(
-                [claimJewelOffer(session.address!, parsed.jewelId, parsed.privateKey, CHAIN_ID)]));
+                [claimJewelOffer(session.address!, parsed.jewelId, offer!.expiresAt, parsed.privateKey, CHAIN_ID)]));
               if (done) {
                 window.history.replaceState(null, '', '/claim');
                 navigate(`/mine/${parsed.jewelId}`, { replace: true });

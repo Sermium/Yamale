@@ -43,8 +43,7 @@ func TestAStockOfferDiesWithTheRoleOfWhoeverMadeIt(t *testing.T) {
 		require.NoError(t, err)
 
 		_, accomplice := f.env.Addr(t)
-		sig, err := claimKey.Sign(types.ClaimSignBytes("yamale-test-1", id, accomplice))
-		require.NoError(t, err)
+		sig := f.claimSig(t, claimKey, id, accomplice)
 		_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: accomplice, JewelId: id,
 			ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: sig})
 		require.ErrorIs(t, err, types.ErrJewelerSuspended)

@@ -46,14 +46,15 @@ type inscriptionVector struct {
 }
 
 type claimVector struct {
-	PrivKey   string `json:"priv_key"`
-	PubKey    string `json:"pub_key"`
-	Address   string `json:"address"`
-	ChainID   string `json:"chain_id"`
-	JewelID   string `json:"jewel_id"`
-	Claimer   string `json:"claimer"`
-	SignBytes string `json:"sign_bytes"`
-	Signature string `json:"signature"`
+	PrivKey        string `json:"priv_key"`
+	PubKey         string `json:"pub_key"`
+	Address        string `json:"address"`
+	ChainID        string `json:"chain_id"`
+	JewelID        string `json:"jewel_id"`
+	OfferExpiresAt string `json:"offer_expires_at"`
+	Claimer        string `json:"claimer"`
+	SignBytes      string `json:"sign_bytes"`
+	Signature      string `json:"signature"`
 }
 
 type voucherVector struct {
@@ -105,15 +106,16 @@ func buildJewelVectors(t *testing.T) jewelVectors {
 
 	claimer := ymlAddress(t, vectorKey("claimer"))
 	for i, c := range []struct {
-		chain string
-		jewel uint64
-	}{{"yamale-local-1", 1}, {"yamale-devnet-2", 18446744073709551615}} {
+		chain   string
+		jewel   uint64
+		expires int64
+	}{{"yamale-local-1", 1, 1790000000}, {"yamale-devnet-2", 18446744073709551615, 9223372036854775807}} {
 		k := vectorKey("claim-" + strconv.Itoa(i))
-		msg := types.ClaimSignBytes(c.chain, c.jewel, claimer)
+		msg := types.ClaimSignBytes(c.chain, c.jewel, c.expires, claimer)
 		v.Claims = append(v.Claims, claimVector{
 			PrivKey: hex.EncodeToString(k.Key), PubKey: hex.EncodeToString(k.PubKey().Bytes()),
 			Address: ymlAddress(t, k), ChainID: c.chain, JewelID: strconv.FormatUint(c.jewel, 10),
-			Claimer: claimer, SignBytes: string(msg), Signature: sign(t, k, msg),
+			OfferExpiresAt: strconv.FormatInt(c.expires, 10), Claimer: claimer, SignBytes: string(msg), Signature: sign(t, k, msg),
 		})
 	}
 

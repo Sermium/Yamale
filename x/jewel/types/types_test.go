@@ -67,7 +67,7 @@ func TestParamsThatDisableAProtectionAreRefused(t *testing.T) {
 // key's address. Anything else does not verify.
 func TestSignaturesVerifyOnlyOverTheirOwnBytes(t *testing.T) {
 	priv := secp256k1.GenPrivKey()
-	msg := types.ClaimSignBytes("yamale-local-1", 7, "yml1claimer")
+	msg := types.ClaimSignBytes("yamale-local-1", 7, 1790000000, "yml1claimer")
 	sig, err := priv.Sign(msg)
 	require.NoError(t, err)
 
@@ -75,10 +75,12 @@ func TestSignaturesVerifyOnlyOverTheirOwnBytes(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, sdk.AccAddress(priv.PubKey().Address()), addr)
 
-	_, ok = types.VerifySecp256k1(priv.PubKey().Bytes(), types.ClaimSignBytes("yamale-local-1", 7, "yml1thief"), sig)
+	_, ok = types.VerifySecp256k1(priv.PubKey().Bytes(), types.ClaimSignBytes("yamale-local-1", 7, 1790000000, "yml1thief"), sig)
 	require.False(t, ok, "a claim signed for one address must not verify for another")
-	_, ok = types.VerifySecp256k1(priv.PubKey().Bytes(), types.ClaimSignBytes("other-chain", 7, "yml1claimer"), sig)
+	_, ok = types.VerifySecp256k1(priv.PubKey().Bytes(), types.ClaimSignBytes("other-chain", 7, 1790000000, "yml1claimer"), sig)
 	require.False(t, ok, "a claim signed on one chain must not verify on another")
+	_, ok = types.VerifySecp256k1(priv.PubKey().Bytes(), types.ClaimSignBytes("yamale-local-1", 7, 1790000001, "yml1claimer"), sig)
+	require.False(t, ok, "a claim signed for one offer must not verify for another")
 	_, ok = types.VerifySecp256k1([]byte{1, 2, 3}, msg, sig)
 	require.False(t, ok)
 }

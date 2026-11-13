@@ -69,7 +69,9 @@ expect_refused "refused at the router" "circuit breaker disables execution of th
 say "5  sold by email: a claim key"
 read -r CLAIM_PRIV CLAIM_PUB < <("$SIGN" claimkey)
 run jewel offer "$RING" --claim-key "$CLAIM_PUB" --from jw-staff && ok "offered to a claim key" || bad "offer"
-run_json "$("$SIGN" claim "$CLAIM_PRIV" "$CHAIN" "$RING" "$CUSTOMER")" jw-customer && ok "claimed by the customer" || bad "claim"
+EXPIRES=$("$BIN" query jewel jewel "$RING" $Q | tr -d '\n' | grep -oE '"offer":[[:space:]]*\{[^}]*\}' | grep -oE '"expires_at":[[:space:]]*"[0-9]+"' | grep -oE '[0-9]+' || true)
+need "the link offer's expiry" "$EXPIRES"
+run_json "$("$SIGN" claim "$CLAIM_PRIV" "$CHAIN" "$RING" "$EXPIRES" "$CUSTOMER")" jw-customer && ok "claimed by the customer" || bad "claim"
 
 say "6  resold, owner to owner"
 run jewel offer "$RING" --to "$BUYER" --from jw-customer && ok "offered" || bad "offer"

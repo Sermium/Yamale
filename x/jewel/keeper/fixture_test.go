@@ -7,6 +7,7 @@ import (
 
 	"cosmossdk.io/x/nft"
 	nftkeeper "cosmossdk.io/x/nft/keeper"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/stretchr/testify/require"
 
 	"yamale/blockchain/testutil/integration"
@@ -95,6 +96,18 @@ func (f *fixture) owner(t *testing.T, id uint64) string {
 	o, err := f.k.Owner(f.env.Ctx, f.jewel(t, id))
 	require.NoError(t, err)
 	return o
+}
+
+// claimSig signs a claim over the jewel's open offer, as the buyer's phone
+// does: the bytes name the offer's expiry, so a signature made for one offer
+// never claims another.
+func (f *fixture) claimSig(t *testing.T, key *secp256k1.PrivKey, id uint64, claimer string) []byte {
+	t.Helper()
+	o, err := f.k.Offer.Get(f.env.Ctx, id)
+	require.NoError(t, err)
+	sig, err := key.Sign(types.ClaimSignBytes("yamale-test-1", id, o.ExpiresAt, claimer))
+	require.NoError(t, err)
+	return sig
 }
 
 func (f *fixture) advance(d time.Duration) {

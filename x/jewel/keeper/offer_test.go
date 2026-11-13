@@ -150,21 +150,49 @@ func TestAClaimKeyHandsTheJewelToWhoeverSignsWithIt(t *testing.T) {
 
 	_, customer := f.env.Addr(t)
 	_, thief := f.env.Addr(t)
-	sig, err := claimKey.Sign(types.ClaimSignBytes("yamale-test-1", id, customer))
-	require.NoError(t, err)
+	sig := f.claimSig(t, claimKey, id, customer)
 
 	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: thief, JewelId: id,
 		ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: sig})
 	require.ErrorIs(t, err, types.ErrBadClaim, "a copied signature names the customer, not the thief")
 
 	wrongKey := secp256k1.GenPrivKey()
-	wrongSig, _ := wrongKey.Sign(types.ClaimSignBytes("yamale-test-1", id, thief))
+	wrongSig := f.claimSig(t, wrongKey, id, thief)
 	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: thief, JewelId: id,
 		ClaimPubKey: wrongKey.PubKey().Bytes(), ClaimSignature: wrongSig})
 	require.ErrorIs(t, err, types.ErrBadClaim)
 
 	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: customer, JewelId: id,
 		ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: sig})
+	require.NoError(t, err)
+	require.Equal(t, customer, f.owner(t, id))
+}
+
+// A seller who reuses a claim key for a later offer must not revive the
+// earlier one's signature: the signed bytes name the offer by its expiry.
+func TestASignatureForAnEarlierOfferDoesNotClaimALaterOne(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	claimKey := secp256k1.GenPrivKey()
+	offer := &types.MsgOfferJewel{Owner: staff, JewelId: id, ClaimKey: hex.EncodeToString(claimKey.PubKey().Bytes())}
+	_, err := f.srv.OfferJewel(f.env.Ctx, offer)
+	require.NoError(t, err)
+	_, customer := f.env.Addr(t)
+	stale := f.claimSig(t, claimKey, id, customer)
+
+	_, err = f.srv.CancelOffer(f.env.Ctx, &types.MsgCancelOffer{Owner: staff, JewelId: id})
+	require.NoError(t, err)
+	f.advance(time.Second)
+	_, err = f.srv.OfferJewel(f.env.Ctx, offer)
+	require.NoError(t, err)
+
+	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: customer, JewelId: id,
+		ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: stale})
+	require.ErrorIs(t, err, types.ErrBadClaim, "the signature names the first offer, which is gone")
+
+	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: customer, JewelId: id,
+		ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: f.claimSig(t, claimKey, id, customer)})
 	require.NoError(t, err)
 	require.Equal(t, customer, f.owner(t, id))
 }

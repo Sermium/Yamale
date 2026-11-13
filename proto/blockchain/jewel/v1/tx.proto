@@ -215,7 +215,8 @@ message MsgClaimOffer {
   uint64 jewel_id = 2;
   // claim_pub_key is the compressed secp256k1 public key of the claim key.
   bytes claim_pub_key = 3;
-  // claim_signature signs ClaimSignBytes(chain id, jewel id, claimer).
+  // claim_signature signs ClaimSignBytes(chain id, jewel id, the offer's
+  // expires_at, claimer): "yamale-jewel-claim/v2:<chain>:<jewel>:<expires>:<claimer>".
   bytes claim_signature = 4;
 }
 // MsgClaimOfferResponse is the result of MsgClaimOffer.

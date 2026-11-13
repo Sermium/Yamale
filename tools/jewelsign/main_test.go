@@ -49,18 +49,21 @@ func TestClaimOfferVerifiesOnlyForItsClaimer(t *testing.T) {
 	claimer := sdk.AccAddress(priv.PubKey().Address()).String()
 	other := sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address()).String()
 
-	m := claimOffer(hex.EncodeToString(priv.Key), testChain, "7", claimer)
+	m := claimOffer(hex.EncodeToString(priv.Key), testChain, "7", "1790000000", claimer)
 	pub, sig := unb64(t, m, "claim_pub_key"), unb64(t, m, "claim_signature")
 
-	addr, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes(testChain, 7, claimer), sig)
+	addr, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes(testChain, 7, 1790000000, claimer), sig)
 	if !ok || !bytes.Equal(addr, priv.PubKey().Address()) {
 		t.Fatalf("claim does not verify for its claimer")
 	}
-	if _, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes(testChain, 7, other), sig); ok {
+	if _, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes(testChain, 7, 1790000000, other), sig); ok {
 		t.Fatal("claim verifies for a different claimer")
 	}
-	if _, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes("other-chain", 7, claimer), sig); ok {
+	if _, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes("other-chain", 7, 1790000000, claimer), sig); ok {
 		t.Fatal("claim verifies on a different chain")
+	}
+	if _, ok := types.VerifySecp256k1(pub, types.ClaimSignBytes(testChain, 7, 1790000001, claimer), sig); ok {
+		t.Fatal("claim verifies for a different offer expiry")
 	}
 
 	msg, ok := decodeMsg(t, m).(*types.MsgClaimOffer)

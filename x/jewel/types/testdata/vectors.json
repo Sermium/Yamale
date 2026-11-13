@@ -57,9 +57,10 @@
       "address": "yml17kgw27uaxzkjpcc6a6ynk79qw02895wmrk377x",
       "chain_id": "yamale-local-1",
       "jewel_id": "1",
+      "offer_expires_at": "1790000000",
       "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
-      "sign_bytes": "yamale-jewel-claim/v1:yamale-local-1:1:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
-      "signature": "d38db0331addbf04dbb61059fbab8555e5644b506d15b08a737272dbfff471ab1ed3ab29920fda154af7cd8c47efa2f9c4b7c5eb051b359eb2b4f479b249b419"
+      "sign_bytes": "yamale-jewel-claim/v2:yamale-local-1:1:1790000000:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "2a6772fcae71a7ca9d23155b289488d80f9d92f0223c1f5c2f0b761eecb875327075281e34b7e446a6366d616951647c6b0a8350be8926fc76733cb58a7948bd"
     },
     {
       "priv_key": "e5f9c12f3cd32068c84dbe27e665ad8ab0e3141a43183df502bde2068969eee3",
@@ -67,9 +68,10 @@
       "address": "yml1akzt4frtp99n9pvuu6w4hd42n7n8sse7ux53cs",
       "chain_id": "yamale-devnet-2",
       "jewel_id": "18446744073709551615",
+      "offer_expires_at": "9223372036854775807",
       "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
-      "sign_bytes": "yamale-jewel-claim/v1:yamale-devnet-2:18446744073709551615:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
-      "signature": "bd7c01c35ba585b68ab87a1a016cd02fa0b2fccd3961f3766a724ab837050be22b6a31d52efc07d7911a275b081726fda9227a60f69773e0902c947f70ddebac"
+      "sign_bytes": "yamale-jewel-claim/v2:yamale-devnet-2:18446744073709551615:9223372036854775807:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "646f955c90fdfed2c32402a89cc8e86d4702fd1526987f3c94ec20d4aebef0c124c4b0f48ed7e8bd8d67f48742207a96ac19a124e4427060abe2028e5685f8e0"
     }
   ],
   "vouchers": [

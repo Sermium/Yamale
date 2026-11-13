@@ -1086,7 +1086,8 @@ type MsgClaimOffer struct {
 	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
 	// claim_pub_key is the compressed secp256k1 public key of the claim key.
 	ClaimPubKey []byte `protobuf:"bytes,3,opt,name=claim_pub_key,json=claimPubKey,proto3" json:"claim_pub_key,omitempty"`
-	// claim_signature signs ClaimSignBytes(chain id, jewel id, claimer).
+	// claim_signature signs ClaimSignBytes(chain id, jewel id, the offer's
+	// expires_at, claimer): "yamale-jewel-claim/v2:<chain>:<jewel>:<expires>:<claimer>".
 	ClaimSignature []byte `protobuf:"bytes,4,opt,name=claim_signature,json=claimSignature,proto3" json:"claim_signature,omitempty"`
 }
 

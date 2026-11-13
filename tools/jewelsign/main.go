@@ -28,8 +28,8 @@ func main() {
 		k := secp256k1.GenPrivKey()
 		fmt.Println(hex.EncodeToString(k.Key), hex.EncodeToString(k.PubKey().Bytes()))
 	case "claim":
-		need(6)
-		emit(claimOffer(os.Args[2], os.Args[3], os.Args[4], os.Args[5]))
+		need(7)
+		emit(claimOffer(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6]))
 	case "voucher":
 		need(9)
 		emit(redeemBenefit(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], os.Args[7], os.Args[8]))
@@ -41,9 +41,9 @@ func main() {
 // claimOffer signs the claimer exactly as given. The handlers canonicalise the
 // address before building the sign bytes, so scripts must pass the lower-case
 // keyring address, or the claim is refused as a bad signature.
-func claimOffer(privHex, chainID, jewelIDStr, claimer string) map[string]any {
+func claimOffer(privHex, chainID, jewelIDStr, expiresStr, claimer string) map[string]any {
 	k := key(privHex)
-	sig := sign(k, types.ClaimSignBytes(chainID, u64(jewelIDStr), claimer))
+	sig := sign(k, types.ClaimSignBytes(chainID, u64(jewelIDStr), i64(expiresStr), claimer))
 	return map[string]any{
 		"@type": "/blockchain.jewel.v1.MsgClaimOffer", "claimer": claimer,
 		"jewel_id": jewelIDStr, "claim_pub_key": b64(k.PubKey().Bytes()), "claim_signature": b64(sig),
@@ -64,7 +64,7 @@ func redeemBenefit(privHex, chainID, staff, benefitIDStr, jewelIDStr, nonce, exp
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: jewelsign claimkey | claim <priv-hex> <chain-id> <jewel-id> <claimer> | voucher <priv-hex> <chain-id> <staff> <benefit-id> <jewel-id> <nonce> <expires-at>")
+	fmt.Fprintln(os.Stderr, "usage: jewelsign claimkey | claim <priv-hex> <chain-id> <jewel-id> <offer-expires-at> <claimer> | voucher <priv-hex> <chain-id> <staff> <benefit-id> <jewel-id> <nonce> <expires-at>")
 	os.Exit(2)
 }
 

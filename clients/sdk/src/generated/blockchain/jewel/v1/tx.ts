@@ -171,7 +171,10 @@ export interface MsgClaimOffer {
   jewelId: string;
   /** claim_pub_key is the compressed secp256k1 public key of the claim key. */
   claimPubKey: Uint8Array;
-  /** claim_signature signs ClaimSignBytes(chain id, jewel id, claimer). */
+  /**
+   * claim_signature signs ClaimSignBytes(chain id, jewel id, the offer's
+   * expires_at, claimer): "yamale-jewel-claim/v2:<chain>:<jewel>:<expires>:<claimer>".
+   */
   claimSignature: Uint8Array;
 }
 

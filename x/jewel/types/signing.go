@@ -14,10 +14,12 @@ func VoucherSignBytes(chainID string, v Voucher) []byte {
 		chainID, v.BenefitId, v.JewelId, v.Nonce, v.ExpiresAt))
 }
 
-// ClaimSignBytes is what a claim key signs. It names the claimer, which is
-// what makes a claim copied out of the mempool useless to anyone else.
-func ClaimSignBytes(chainID string, jewelID uint64, claimer string) []byte {
-	return []byte(fmt.Sprintf("yamale-jewel-claim/v1:%s:%d:%s", chainID, jewelID, claimer))
+// ClaimSignBytes is what a claim key signs. It names the claimer, which makes
+// a claim copied out of the mempool useless to anyone else, and the offer's
+// expiry, which makes a signature for one offer useless for any later offer
+// made to the same key.
+func ClaimSignBytes(chainID string, jewelID uint64, offerExpiresAt int64, claimer string) []byte {
+	return []byte(fmt.Sprintf("yamale-jewel-claim/v2:%s:%d:%d:%s", chainID, jewelID, offerExpiresAt, claimer))
 }
 
 // VerifySecp256k1 checks a signature by a compressed secp256k1 key and

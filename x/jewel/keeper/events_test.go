@@ -46,8 +46,7 @@ func TestEveryChangeOfOwnerIsAnnounced(t *testing.T) {
 		ClaimKey: hex.EncodeToString(claimKey.PubKey().Bytes())})
 	require.NoError(t, err)
 	_, friend := f.env.Addr(t)
-	sig, err := claimKey.Sign(types.ClaimSignBytes("yamale-test-1", id, friend))
-	require.NoError(t, err)
+	sig := f.claimSig(t, claimKey, id, friend)
 	_, err = f.srv.ClaimOffer(f.env.Ctx, &types.MsgClaimOffer{Claimer: friend, JewelId: id,
 		ClaimPubKey: claimKey.PubKey().Bytes(), ClaimSignature: sig})
 	require.NoError(t, err)

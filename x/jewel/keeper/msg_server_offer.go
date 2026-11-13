@@ -143,8 +143,9 @@ func (k msgServer) AcceptOffer(ctx context.Context, req *types.MsgAcceptOffer) (
 	return &types.MsgAcceptOfferResponse{}, k.transfer(ctx, &j, recipient, types.TransferAccept)
 }
 
-// ClaimOffer takes a jewel offered to a claim key. The key signs the
-// claimer's own address, so a claim copied from the mempool is worthless.
+// ClaimOffer takes a jewel offered to a claim key. The key signs the claimer's
+// own address and the offer's expiry, so a claim copied from the mempool is
+// worthless, and so is a signature made for an earlier offer to the same key.
 func (k msgServer) ClaimOffer(ctx context.Context, req *types.MsgClaimOffer) (*types.MsgClaimOfferResponse, error) {
 	j, err := k.getJewel(ctx, req.JewelId)
 	if err != nil {
@@ -161,7 +162,7 @@ func (k msgServer) ClaimOffer(ctx context.Context, req *types.MsgClaimOffer) (*t
 	if err != nil {
 		return nil, err
 	}
-	msg := types.ClaimSignBytes(k.chainID(ctx), j.Id, claimer)
+	msg := types.ClaimSignBytes(k.chainID(ctx), j.Id, o.ExpiresAt, claimer)
 	if _, ok := types.VerifySecp256k1(req.ClaimPubKey, msg, req.ClaimSignature); !ok {
 		return nil, types.ErrBadClaim
 	}

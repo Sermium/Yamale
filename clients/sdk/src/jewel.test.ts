@@ -27,7 +27,7 @@ test('claim keys, sign bytes and signatures match the chain byte for byte', () =
     const pub = compressedPublicKey(priv);
     assert.equal(toHex(pub), v.pub_key);
     assert.equal(addressOfPublicKey(pub), v.address);
-    const bytes = claimSignBytes(v.chain_id, v.jewel_id, v.claimer);
+    const bytes = claimSignBytes(v.chain_id, v.jewel_id, v.offer_expires_at, v.claimer);
     assert.equal(text(bytes), v.sign_bytes);
     // Both sides sign deterministically (RFC 6979), so the bytes must be
     // identical, not merely both valid.
@@ -63,9 +63,14 @@ test('a claim link carries the jewel and the key, and nothing else parses', () =
   }
 });
 
+test('a claim signature names the offer by a canonical expiry', () => {
+  assert.throws(() => claimSignBytes('c', '1', '01', 'yml1x'));
+  assert.throws(() => claimSignBytes('c', '1', '-1', 'yml1x'));
+});
+
 test('a claim message signs for the claimer named in it', () => {
   const v = vectors.claims[0];
-  const msg = claimJewelOffer(v.claimer, v.jewel_id, fromHex(v.priv_key), v.chain_id);
+  const msg = claimJewelOffer(v.claimer, v.jewel_id, v.offer_expires_at, fromHex(v.priv_key), v.chain_id);
   const decoded = chainRegistry().decode({
     typeUrl: msg.typeUrl,
     value: chainRegistry().encode(msg as never),
