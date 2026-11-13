@@ -8,6 +8,7 @@ import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from 
 import { Hallmark, RecordFacts } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
 import { currentRecordHash, useRecord } from '../verify/record.ts';
+import { AttachBenefit, JewelBenefits } from './Benefits.tsx';
 import { useRole } from './role.ts';
 
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
@@ -65,6 +66,10 @@ export function AtelierJewel() {
         ) : (
           <p className="note">{lastChange ? t('loyalty.soldOn', { date: day(lastChange) }) : t('loyalty.notInStock')}</p>
         )}
+        <Section title={t('loyalty.benefits')}>
+          <JewelBenefits view={v} active={role.active} now={now} />
+          {canAct && <AttachBenefit view={v} business={role.jeweler.business} now={now} onChange={reload} />}
+        </Section>
       </main>
     </>
   );

@@ -85,3 +85,36 @@ export async function uploadFile(key: Uint8Array, bytes: Uint8Array, chainId: st
     return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+async function signedSend(method: 'PUT' | 'POST', path: string, key: Uint8Array, purpose: 'profile' | 'application',
+  subject: string, body: Uint8Array, chainId: string): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method, headers: { ...signedHeaders(key, purpose, chainId, subject), 'Content-Type': 'application/json' },
+      body: body as Uint8Array<ArrayBuffer>,
+    });
+    if (res.ok) return { ok: true };
+    const b = await res.json().catch(() => ({}));
+    return { ok: false, status: res.status, error: String(b.error ?? '') };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** The jeweler's look, signed by its business account. The logo must already be stored. */
+export function saveProfile(key: Uint8Array, jewelerId: string, profile: JewelerProfile, chainId: string) {
+  const body = new TextEncoder().encode(JSON.stringify({ logo: profile.logo, colour: profile.colour, accent: profile.accent }));
+  return signedSend('PUT', `/v1/jewelers/${jewelerId}/profile`, key, 'profile', `${jewelerId}.${sha256Hex(body)}`, body, chainId);
+}
+
+export interface Application {
+  business: string; name: string; contact: string; email: string; phone: string; country: string; message: string;
+}
+
+/** An application, signed by the account that will be the business. It admits nobody. */
+export function submitApplication(key: Uint8Array, a: Application, chainId: string) {
+  const body = new TextEncoder().encode(JSON.stringify({
+    business: a.business, name: a.name, contact: a.contact, email: a.email, phone: a.phone, country: a.country, message: a.message,
+  }));
+  return signedSend('POST', '/v1/applications', key, 'application', sha256Hex(body), body, chainId);
+}

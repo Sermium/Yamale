@@ -4,9 +4,12 @@ import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView
 import { AccountScreen, UnlockGate } from './account/Account.tsx';
 import { SessionProvider, useSession } from './account/session.tsx';
 import { ActionStatus, useAction } from './actions/useAction.tsx';
+import { Apply } from './atelier/Apply.tsx';
 import { Amend } from './atelier/Amend.tsx';
 import { Atelier } from './atelier/Atelier.tsx';
 import { AtelierJewel } from './atelier/AtelierJewel.tsx';
+import { Profile } from './atelier/Profile.tsx';
+import { Redeem } from './atelier/Redeem.tsx';
 import { Register } from './atelier/Register.tsx';
 import { useRole } from './atelier/role.ts';
 import { Staff } from './atelier/Staff.tsx';
@@ -86,6 +89,9 @@ export function App() {
               <Route path="/atelier" element={<Atelier />} />
               <Route path="/atelier/register" element={<Register />} />
               <Route path="/atelier/staff" element={<Staff />} />
+              <Route path="/atelier/redeem" element={<Redeem />} />
+              <Route path="/atelier/look" element={<Profile />} />
+              <Route path="/apply" element={<Apply />} />
               <Route path="/atelier/jewel/:jewel" element={<AtelierJewel />} />
               <Route path="/atelier/jewel/:jewel/amend" element={<Amend />} />
               <Route path="/account" element={<AccountScreen />} />

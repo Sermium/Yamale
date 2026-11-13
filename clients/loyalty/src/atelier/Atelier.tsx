@@ -65,6 +65,8 @@ export function Atelier() {
 
         <div className="actions">
           {role.staff && role.active && <Link className="btn btn--primary" to="/atelier/register">{t('loyalty.registerTitle')}</Link>}
+          {role.staff && role.active && <Link className="btn" to="/atelier/redeem">{t('loyalty.redeemLink')}</Link>}
+          {role.business && <Link className="btn" to="/atelier/look">{t('loyalty.lookLink')}</Link>}
           {role.business && <Link className="btn" to="/atelier/staff">{t('loyalty.staffLink')}</Link>}
         </div>
 

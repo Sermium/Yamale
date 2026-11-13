@@ -30,3 +30,15 @@ export async function uploadRecord(bytes: Uint8Array, withKey: WithKey): Promise
   const up = await uploadFile(withKey((k) => k), bytes, CHAIN_ID);
   return up.ok ? up : failure(up.status, up.error);
 }
+
+/** The jeweler's logo: smaller than a record photo, and kept sharp. */
+export async function uploadLogo(file: File, withKey: WithKey): Promise<Up> {
+  let bytes: Uint8Array;
+  try {
+    bytes = await preparePhoto(file, 600, 0.9);
+  } catch (e) {
+    return { ok: false, text: t('loyalty.photoUnreadable', { name: file.name }), raw: e instanceof Error ? e.message : String(e) };
+  }
+  const up = await uploadFile(withKey((k) => k), bytes, CHAIN_ID);
+  return up.ok ? up : failure(up.status, up.error);
+}
