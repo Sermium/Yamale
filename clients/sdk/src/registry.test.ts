@@ -338,3 +338,49 @@ test('revoking a fee allowance names both parties', () => {
   assert.equal(decoded.granter, 'yml1bank');
   assert.equal(decoded.grantee, 'yml1customer');
 });
+
+const JEWEL_MESSAGES = [
+  'MsgUpdateParams', 'MsgAdmitJeweler', 'MsgSuspendJeweler', 'MsgReinstateJeweler', 'MsgSetStaff',
+  'MsgRegisterJewel', 'MsgAmendJewel', 'MsgOfferJewel', 'MsgCancelOffer', 'MsgAcceptOffer',
+  'MsgClaimOffer', 'MsgReportStolen', 'MsgClearStolen', 'MsgAttachBenefit', 'MsgRedeemBenefit',
+  'MsgProposeReassignment', 'MsgVetoReassignment', 'MsgCompleteReassignment',
+];
+
+test('every x/jewel message is registered', () => {
+  const urls = new Set(CHAIN_MESSAGE_TYPES.map(([url]) => url));
+  const missing = JEWEL_MESSAGES.filter((m) => !urls.has(`/blockchain.jewel.v1.${m}`));
+  assert.deepEqual(missing, []);
+});
+
+test('a jewel claim keeps its key and signature bytes through encoding', () => {
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.jewel.v1.MsgClaimOffer',
+    value: {
+      claimer: 'yml1claimer',
+      jewelId: '7',
+      claimPubKey: new Uint8Array(33).fill(2),
+      claimSignature: new Uint8Array(64).fill(9),
+    },
+  });
+  assert.equal(decoded.claimer, 'yml1claimer');
+  assert.equal(decoded.jewelId, '7');
+  assert.equal(decoded.claimPubKey.length, 33);
+  assert.equal(decoded.claimSignature.length, 64);
+  assert.equal(decoded.claimSignature[63], 9);
+});
+
+test('a benefit redemption keeps the nested voucher', () => {
+  const decoded = roundTrip({
+    typeUrl: '/blockchain.jewel.v1.MsgRedeemBenefit',
+    value: {
+      staff: 'yml1staff',
+      voucher: { benefitId: '3', jewelId: '7', nonce: 'ab12', expiresAt: '1790000000' },
+      ownerPubKey: new Uint8Array(33).fill(3),
+      ownerSignature: new Uint8Array(64).fill(4),
+    },
+  });
+  assert.equal(decoded.voucher.benefitId, '3');
+  assert.equal(decoded.voucher.jewelId, '7');
+  assert.equal(decoded.voucher.nonce, 'ab12');
+  assert.equal(decoded.voucher.expiresAt, '1790000000');
+});

@@ -74,3 +74,19 @@ test('the chain description gives a wallet everything it needs to render amounts
   assert.equal(described.bech32Config.bech32PrefixValAddr, 'ymlvaloper');
   assert.equal(described.bech32Config.bech32PrefixConsAddr, 'ymlvalcons');
 });
+
+import { ChainSigner } from './signing.ts';
+import type { OfflineSigner } from '@cosmjs/proto-signing';
+
+const NO_SIGNER = { getAccounts: async () => [] } as unknown as OfflineSigner;
+type WithFee = { fee(gas: number): { amount: unknown; gas: string; granter?: string } };
+
+test('a signer with a fee granter names it in every fee', () => {
+  const s = new ChainSigner(NO_SIGNER, { rpcUrl: 'http://x', chainId: 'c', feeGranter: 'yml1sponsor' });
+  assert.equal((s as unknown as WithFee).fee(200_000).granter, 'yml1sponsor');
+});
+
+test('a signer without one leaves the granter out', () => {
+  const s = new ChainSigner(NO_SIGNER, { rpcUrl: 'http://x', chainId: 'c' });
+  assert.equal('granter' in (s as unknown as WithFee).fee(200_000), false);
+});

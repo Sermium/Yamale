@@ -34,6 +34,13 @@ export interface SignerOptions {
    * zero, but a network with a non-zero minimum will reject anything below it.
    */
   gasPrice?: number;
+  /**
+   * The account whose fee allowance pays for this signer's transactions.
+   * Owners on the jewel register hold no coins: the platform grants each one
+   * an allowance through x/feegrant, and a transaction that does not name the
+   * granter is charged to the signer, who cannot pay.
+   */
+  feeGranter?: string;
 }
 
 /** What happened, in terms a caller can act on. */
@@ -148,7 +155,10 @@ export class ChainSigner {
     // outright, and the difference is a rounding error in cost terms.
     const amount = Math.ceil(gas * price).toString();
 
-    return { amount: [{ denom, amount }], gas: gas.toString() };
+    const fee: StdFee = { amount: [{ denom, amount }], gas: gas.toString() };
+    // Spread rather than assigned: StdFee.granter is readonly, and a signer
+    // with no granter must leave the key out entirely, not set it undefined.
+    return this.options.feeGranter ? { ...fee, granter: this.options.feeGranter } : fee;
   }
 
   disconnect(): void {

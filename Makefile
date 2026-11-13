@@ -227,6 +227,8 @@ proto-lint:
 # signing means protobuf-encoding and CosmJS encodes only what it has a type
 # for — payments, treasury spends and swaps were CLI-only for exactly that
 # reason. Output is generated; do not hand-edit clients/sdk/src/generated.
+COSMOS_SDK_PROTO = $(shell go env GOMODCACHE)/github.com/cosmos/cosmos-sdk@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-sdk)/proto
+
 proto-ts:
 	@echo "Generating TypeScript types..."
 	@rm -rf clients/sdk/src/generated
@@ -241,6 +243,18 @@ proto-ts:
 	@# shareholding is an ordinary bank denomination, so the register of who owns
 	@# what is bank's to answer and always was.
 	@#
+	@# cosmos/nft too: the jewels a person holds are x/nft's to answer
+	@# (Query/NFTs by owner). x/jewel keeps no by-owner index, because
+	@# ownership lives in x/nft and a second copy would be a second truth.
+	@#
+	@# x/nft's protos left the buf.build/cosmos/cosmos-sdk module, so they cannot
+	@# come from the remote generation below. They are read from the module cache
+	@# copy of the SDK go.mod pins, which is the one the chain binary is built
+	@# from, so the types cannot disagree with the binary. The version is derived,
+	@# not written here, so an SDK upgrade moves it with go.mod. This runs before
+	@# everything else for the ordering reason given below: it also emits the
+	@# shared files it imports, and the later runs must overwrite those.
+	@#
 	@# This runs FIRST, and the repository's own generation runs after it, because
 	@# the two overlap: both emit google/protobuf/*.ts and cosmos/base/*.ts. A
 	@# module named on the command line resolves its own dependencies rather than
@@ -253,6 +267,7 @@ proto-ts:
 	@#
 	@# Pinned to the same commit buf.lock records, so the output does not change
 	@# under us when the module is updated upstream.
+	@go tool github.com/bufbuild/buf/cmd/buf generate $(COSMOS_SDK_PROTO) --template proto/buf.gen.ts.yaml --path $(COSMOS_SDK_PROTO)/cosmos/nft/v1beta1
 	@go tool github.com/bufbuild/buf/cmd/buf generate buf.build/cosmos/cosmos-sdk:65fa41963e6a41dd95a35934239029df --template proto/buf.gen.ts.yaml --path cosmos/feegrant/v1beta1 --path cosmos/bank/v1beta1
 	@go tool github.com/bufbuild/buf/cmd/buf generate --template proto/buf.gen.ts.yaml
 	@# importSuffix makes relative imports explicit, which Node's type stripping

@@ -22,6 +22,7 @@ import * as constitution from './generated/blockchain/constitution/v1/tx.ts';
 import * as enforcement from './generated/blockchain/enforcement/v1/tx.ts';
 import * as alias from './generated/blockchain/alias/v1/tx.ts';
 import * as feegrant from './generated/cosmos/feegrant/v1beta1/tx.ts';
+import * as jewel from './generated/blockchain/jewel/v1/tx.ts';
 import * as market from './generated/blockchain/market/v1/tx.ts';
 import * as netting from './generated/blockchain/netting/v1/tx.ts';
 import * as oracle from './generated/blockchain/oracle/v1/tx.ts';
@@ -190,6 +191,28 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.market.v1.MsgCancelAuction', market.MsgCancelAuction],
   ['/blockchain.market.v1.MsgPlaceOrder', market.MsgPlaceOrder],
   ['/blockchain.market.v1.MsgCancelOrder', market.MsgCancelOrder],
+
+  // Jewels. The office's messages and UpdateParams are registered so an
+  // office proposal can be built from a browser; registering grants nobody
+  // anything, the module checks who signed.
+  ['/blockchain.jewel.v1.MsgUpdateParams', jewel.MsgUpdateParams],
+  ['/blockchain.jewel.v1.MsgAdmitJeweler', jewel.MsgAdmitJeweler],
+  ['/blockchain.jewel.v1.MsgSuspendJeweler', jewel.MsgSuspendJeweler],
+  ['/blockchain.jewel.v1.MsgReinstateJeweler', jewel.MsgReinstateJeweler],
+  ['/blockchain.jewel.v1.MsgSetStaff', jewel.MsgSetStaff],
+  ['/blockchain.jewel.v1.MsgRegisterJewel', jewel.MsgRegisterJewel],
+  ['/blockchain.jewel.v1.MsgAmendJewel', jewel.MsgAmendJewel],
+  ['/blockchain.jewel.v1.MsgOfferJewel', jewel.MsgOfferJewel],
+  ['/blockchain.jewel.v1.MsgCancelOffer', jewel.MsgCancelOffer],
+  ['/blockchain.jewel.v1.MsgAcceptOffer', jewel.MsgAcceptOffer],
+  ['/blockchain.jewel.v1.MsgClaimOffer', jewel.MsgClaimOffer],
+  ['/blockchain.jewel.v1.MsgReportStolen', jewel.MsgReportStolen],
+  ['/blockchain.jewel.v1.MsgClearStolen', jewel.MsgClearStolen],
+  ['/blockchain.jewel.v1.MsgAttachBenefit', jewel.MsgAttachBenefit],
+  ['/blockchain.jewel.v1.MsgRedeemBenefit', jewel.MsgRedeemBenefit],
+  ['/blockchain.jewel.v1.MsgProposeReassignment', jewel.MsgProposeReassignment],
+  ['/blockchain.jewel.v1.MsgVetoReassignment', jewel.MsgVetoReassignment],
+  ['/blockchain.jewel.v1.MsgCompleteReassignment', jewel.MsgCompleteReassignment],
 ];
 
 /**
