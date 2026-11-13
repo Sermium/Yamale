@@ -8,14 +8,16 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { readJewel, t, verifyOwnershipProof } from '@yamale/chain';
 
 import { CHAIN_ID } from '../config.ts';
-import { AppBar, day, Loading, Problem, useLoad } from '../ui.tsx';
+import { AppBar, day, isId, Loading, NotFound, Problem, useLoad } from '../ui.tsx';
 import { Hallmark } from './JewelPage.tsx';
 
 export function Proof() {
   const { jewel: jewelId = '' } = useParams();
   const { search } = useLocation();
   const proof = verifyOwnershipProof(CHAIN_ID, jewelId, search);
-  const [view] = useLoad(() => readJewel(jewelId), [jewelId]);
+  const valid = isId(jewelId);
+  const [view] = useLoad(() => (valid ? readJewel(jewelId) : Promise.resolve(null as never)), [jewelId, valid]);
+  if (!valid) return <NotFound />;
 
   return (
     <>

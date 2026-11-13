@@ -16,26 +16,28 @@ import { fetchVerified } from '../api.ts';
 type Img = { state: 'loading' } | { state: 'ok'; url: string } | { state: 'failed'; reason: string };
 
 function useVerifiedImage(hash: string): Img {
-  const [img, setImg] = useState<Img>({ state: 'loading' });
+  // The state is kept with its hash: after a hash change the old blob URL is
+  // revoked, so a state for any other hash is "loading", never displayed.
+  const [held, setHeld] = useState<{ hash: string; img: Img } | null>(null);
   useEffect(() => {
     let live = true;
     let url = '';
     fetchVerified(hash).then((f) => {
       if (!live) return;
-      if (!f.ok) { setImg({ state: 'failed', reason: f.reason }); return; }
+      if (!f.ok) { setHeld({ hash, img: { state: 'failed', reason: f.reason } }); return; }
       url = URL.createObjectURL(new Blob([f.bytes as BlobPart], { type: f.type }));
-      setImg({ state: 'ok', url });
+      setHeld({ hash, img: { state: 'ok', url } });
     });
     return () => { live = false; if (url) URL.revokeObjectURL(url); };
   }, [hash]);
-  return img;
+  return held && held.hash === hash ? held.img : { state: 'loading' };
 }
 
 export function VerifiedImage({ hash, alt, className }: { hash: string; alt: string; className?: string }) {
   const img = useVerifiedImage(hash);
   if (img.state === 'ok') return <img className={className} src={img.url} alt={alt} />;
   return (
-    <div className={`${className ?? ''} photo--absent`} role="img" aria-label={alt}>
+    <div className={`${className ?? ''} photo--absent`}>
       {img.state === 'loading' ? '' : img.reason === 'mismatch' ? t('loyalty.photoMismatch') : t('loyalty.photoUnavailable')}
     </div>
   );
@@ -53,15 +55,17 @@ export function Gallery({ hashes, alt }: { hashes: string[]; alt: string }) {
         <span className="gallery__hint">{t('loyalty.loupe')}</span>
       </button>
       {hashes.length > 1 && (
-        <div className="gallery__thumbs" role="list">
+        <ul className="gallery__thumbs">
           {hashes.map((h, i) => (
-            <button key={h} type="button" role="listitem" aria-current={i === index}
-                    className={`gallery__thumb${i === index ? ' is-on' : ''}`} onClick={() => setIndex(i)}
-                    aria-label={t('loyalty.photoN', { n: i + 1, count: hashes.length })}>
-              <VerifiedImage hash={h} alt="" className="gallery__thumbimg" />
-            </button>
+            <li key={h}>
+              <button type="button" aria-current={i === index}
+                      className={`gallery__thumb${i === index ? ' is-on' : ''}`} onClick={() => setIndex(i)}
+                      aria-label={t('loyalty.photoN', { n: i + 1, count: hashes.length })}>
+                <VerifiedImage hash={h} alt="" className="gallery__thumbimg" />
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       {loupe && <Loupe hash={current} alt={alt} onClose={() => setLoupe(false)} />}
     </div>

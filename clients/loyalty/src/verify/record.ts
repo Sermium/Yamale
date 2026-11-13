@@ -79,19 +79,27 @@ export type RecordState =
   | { state: 'ok'; record: JewelRecord }
   | { state: 'missing' | 'mismatch' | 'unreachable' | 'unreadable' };
 
+/**
+ * A state belongs to the hash it was fetched for. Whenever the hash asked about
+ * now differs (including none), the answer is "loading", never the previous
+ * jewel's record: the render before the effect runs must not show it.
+ */
+export function stateForHash(held: { hash: string | null; state: RecordState }, hash: string | null): RecordState {
+  return hash !== null && held.hash === hash ? held.state : { state: 'loading' };
+}
+
 export function useRecord(hash: string | null): RecordState {
-  const [state, setState] = useState<RecordState>({ state: 'loading' });
+  const [held, setHeld] = useState<{ hash: string | null; state: RecordState }>({ hash: null, state: { state: 'loading' } });
   useEffect(() => {
     if (!hash) return;
     let live = true;
-    setState({ state: 'loading' });
     fetchVerified(hash).then((f) => {
       if (!live) return;
-      if (!f.ok) { setState({ state: f.reason }); return; }
+      if (!f.ok) { setHeld({ hash, state: { state: f.reason } }); return; }
       const record = parseRecord(f.bytes);
-      setState(record ? { state: 'ok', record } : { state: 'unreadable' });
+      setHeld({ hash, state: record ? { state: 'ok', record } : { state: 'unreadable' } });
     });
     return () => { live = false; };
   }, [hash]);
-  return state;
+  return stateForHash(held, hash);
 }

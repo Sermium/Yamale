@@ -15,13 +15,13 @@ import {
 } from '@yamale/chain';
 
 import { fetchProfile } from '../api.ts';
-import { AppBar, day, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
+import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { benefitState, ownershipSteps } from './history.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
 import { currentRecordHash, useRecord, type JewelRecord } from './record.ts';
 
 export function Hallmark({ code }: { code: string }) {
-  return <span className="hallmark" aria-label={code}>{code}</span>;
+  return <span className="hallmark">{code}</span>;
 }
 
 export function RecordFacts({ record }: { record: JewelRecord }) {
@@ -118,16 +118,20 @@ function OriginalRecord({ hash }: { hash: string }) {
   return r.state === 'ok' ? <RecordFacts record={r.record} /> : <p className="hint">{t('loyalty.recordMissing')}</p>;
 }
 
+const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
+
 /** `actions` lets Task 8 add a signed-in action without forking this page. */
 export function JewelPage({ actions }: { actions?: (view: JewelView, now: number) => ReactNode } = {}) {
   const { jeweler: jewelerId = '', jewel: jewelId = '' } = useParams();
-  const [view] = useLoad(() => readJewel(jewelId), [jewelId]);
-  const [jeweler] = useLoad(() => readJeweler(jewelerId), [jewelerId]);
+  const valid = isId(jewelerId) && isId(jewelId);
+  const [view] = useLoad(() => (valid ? readJewel(jewelId) : Promise.resolve(NO_SUCH)), [jewelId, valid]);
+  const [jeweler] = useLoad(() => (valid ? readJeweler(jewelerId) : Promise.resolve(NO_SUCH)), [jewelerId, valid]);
   const [head] = useLoad(() => chainHead(), []);
-  const [profile] = useLoad(() => fetchProfile(jewelerId), [jewelerId]);
+  const [profile] = useLoad(() => (valid ? fetchProfile(jewelerId) : Promise.resolve(null)), [jewelerId, valid], () => null);
   const recordHash = view?.ok ? currentRecordHash(view.value.jewel) : null;
   const record = useRecord(recordHash);
 
+  if (!valid) return <NotFound />;
   if (!view || !jeweler) return <><AppBar title={t('loyalty.title')} eyebrow="" back /><main className="y-screen"><Loading /></main></>;
   if (!view.ok) return <><AppBar title={t('loyalty.title')} eyebrow="" back /><main className="y-screen"><Problem outcome={view} /></main></>;
   const { jewel } = view.value;

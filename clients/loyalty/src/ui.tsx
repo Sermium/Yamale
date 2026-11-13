@@ -2,14 +2,29 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, t } from '@yamale/chain';
 
-/** Load once per change of deps; the second element reloads on demand. */
-export function useLoad<T>(load: () => Promise<T>, deps: unknown[]): [T | null, () => void] {
-  const [value, setValue] = useState<T | null>(null);
+export type Failure = { ok: false; reason: 'unreachable'; detail: string };
+
+/** A route id is a positive integer, and nothing else is worth a fetch. */
+export const isId = (s: string): boolean => /^[1-9][0-9]*$/.test(s);
+
+/**
+ * Load once per change of deps; the second element reloads on demand. A loader
+ * that throws does not leave the page on "Loading…": for outcome-shaped results
+ * it becomes an 'unreachable' failure, otherwise `onError` supplies the value.
+ */
+export function useLoad<T extends { ok: boolean }>(load: () => Promise<T>, deps: unknown[]): [T | Failure | null, () => void];
+export function useLoad<T>(load: () => Promise<T>, deps: unknown[], onError: (detail: string) => T): [T | null, () => void];
+export function useLoad<T>(load: () => Promise<T>, deps: unknown[], onError?: (detail: string) => T): [T | Failure | null, () => void] {
+  const [value, setValue] = useState<T | Failure | null>(null);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     setValue(null);
-    load().then((v) => { if (live) setValue(v); });
+    load().then((v) => { if (live) setValue(v); }).catch((e: unknown) => {
+      if (!live) return;
+      const detail = e instanceof Error ? e.message : String(e);
+      setValue(onError ? onError(detail) : { ok: false, reason: 'unreachable', detail });
+    });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);

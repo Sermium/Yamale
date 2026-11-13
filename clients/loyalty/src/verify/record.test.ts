@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { encodeRecord, parseRecord, type JewelRecord } from './record.ts';
+import { encodeRecord, parseRecord, stateForHash, type JewelRecord } from './record.ts';
 
 const HASH = 'a'.repeat(64);
 const ring: JewelRecord = {
@@ -30,4 +30,12 @@ test('a record that is not version 1, or names a bad photo, is not a record', ()
 test('fields nobody asked for do not survive parsing', () => {
   const extra = new TextEncoder().encode(JSON.stringify({ ...ring, owner: 'Awa Diop' }));
   assert.equal('owner' in (parseRecord(extra) as object), false);
+});
+
+test('a state is shown only for the hash it was fetched for', () => {
+  const held = { hash: HASH, state: { state: 'ok' as const, record: ring } };
+  assert.equal(stateForHash(held, HASH), held.state);
+  assert.deepEqual(stateForHash(held, 'b'.repeat(64)), { state: 'loading' });
+  assert.deepEqual(stateForHash(held, null), { state: 'loading' });
+  assert.deepEqual(stateForHash({ hash: null, state: { state: 'missing' } }, null), { state: 'loading' });
 });
