@@ -318,7 +318,73 @@ export interface MsgResolveDispute {
 export interface MsgResolveDisputeResponse {
 }
 
-/** MsgClaim withdraws accrued income without giving up the shareholding. */
+/**
+ * MsgClaim withdraws accrued income without giving up the shareholding.
+ *
+ * It pays a DIVIDEND TOKEN -- div/<asset_id>/<SYMBOL>, one per vehicle --
+ * rather than the stable itself, and the stable it stands for is moved out of
+ * the vehicle's spendable ledger into its dividend reserve in the same write.
+ * MsgExchangeDividend converts it back, 1:1, whenever the holder can take it.
+ *
+ * # Why a token at all, rather than just paying the stable
+ *
+ * Three things it buys, and one it deliberately does not.
+ *
+ * 1. A holder who cannot receive the stable can still be PAID. A stable on this
+ *    chain may carry its own send restriction -- a KYC gate, a sanctions list,
+ *    a licence the holder does not have where they live. Paying such a holder
+ *    directly either fails the whole claim, which leaves them accruing forever
+ *    against a vehicle that has done nothing wrong, or succeeds into an account
+ *    that cannot move the money on. The dividend token is issued by this module
+ *    and gated by nothing, so the entitlement always lands; cashing it is a
+ *    separate act that can happen later, elsewhere, or through an assignee who
+ *    is permitted to hold the stable.
+ *
+ * 2. The claim becomes AUDITABLE SEPARATELY FROM THE SETTLEMENT. "Declared and
+ *    not yet cashed", per vehicle, used to be a figure that existed only spread
+ *    across every holder's accrued balance and could not be read without
+ *    walking the whole holder set. As a token supply it is one query, it is
+ *    public, and anybody can check it against the reserve without trusting this
+ *    module's own accounting.
+ *
+ * 3. It separates WHEN a holder is credited from WHEN they are paid, which is
+ *    what an operating business does anyway. A holder can claim on the record
+ *    date and cash months later, without the chain holding an unattributed
+ *    balance in the meantime.
+ *
+ * And the thing it deliberately does NOT buy: credit. A dividend token is never
+ * issued against a declaration that has not been funded. It is fully backed at
+ * the instant it is minted or it is not minted -- see Vault.dividend_reserve.
+ * The tempting version of this feature is a token a vehicle can issue when it
+ * has DECLARED but not yet funded, so holders hold something in the meantime.
+ * That version is refused here: a token mintable against an unfunded
+ * declaration is a claim the chain cannot honour, and the first holder to reach
+ * the exchange would be paid out of a neighbouring vehicle's reserve. What a
+ * vehicle publishes before the money arrives is a COVENANT_KIND_DIVIDEND_NOTICE
+ * -- a filing, which is honest about being an announcement.
+ *
+ * # Transferable, deliberately
+ *
+ * The dividend token is an ordinary bank denomination and this module places no
+ * restriction on it. If it could not move it would be a ledger row with extra
+ * steps -- Position.accrued already is one -- and reason 1 above would collapse
+ * with it: a holder who cannot hold the stable has to be able to ASSIGN the
+ * claim to somebody who can.
+ *
+ * The consequence, stated rather than hidden: a dividend token can be sold, and
+ * it can be sold below par by somebody who needs the money before they can
+ * reach the exchange. The chain neither prevents that nor could -- it is the
+ * same freedom that makes the token useful. What it does guarantee is that the
+ * discount is never justified by the backing: par is available from the
+ * reserve, in every status, to whoever holds the token.
+ *
+ * Unlike the fraction token it is NOT halted at realisation and is not offered
+ * to the AMM's restricted-denom classifier. The fraction token halts because at
+ * realisation it becomes a claim on a fixed pot that a pool would still quote a
+ * stale price for. A dividend token is a claim on a fixed pot at a fixed 1:1
+ * rate from the moment it exists and never changes, so there is no stale price
+ * for anybody to take.
+ */
 export interface MsgClaim {
   holder: string;
   assetId: string;
@@ -329,7 +395,69 @@ export interface MsgClaim {
  * the holder last settled rather than a figure they asked for.
  */
 export interface MsgClaimResponse {
+  /** The dividend tokens minted to the holder. */
   paid: Coin[];
+  /**
+   * The stable moved into the vehicle's dividend reserve to back them: equal in
+   * amount, in the vault's income denomination.
+   *
+   * Reported because a caller holding only paid knows what they were given and
+   * not what it is worth. The dividend token's denomination says which vehicle
+   * owes it and says nothing about the currency behind it, so naming both
+   * halves of a 1:1 pair in the receipt is what lets a client show "12,500
+   * uusd, claimable" instead of a denom nobody recognises.
+   */
+  backing: Coin | undefined;
+}
+
+/**
+ * MsgExchangeDividend cashes a dividend token for the stable behind it, 1:1.
+ *
+ * # Permissionless, and refusable on nothing but the arithmetic
+ *
+ * Whoever holds the token exchanges it. There is no role, no admin, no pause
+ * and no status check, because by the time a dividend token exists the chain
+ * has already taken the stable out of the vehicle's spendable ledger and set it
+ * aside under this token's name. Refusing to honour it afterwards would be the
+ * chain defaulting on a payment it has already reserved the money for.
+ *
+ * That is also why it stays open at STATUS_REALISED and at STATUS_CLOSED, when
+ * the fraction token can no longer move at all. Trading halts because a share
+ * in a sold vehicle is a claim on a fixed pot a market would misprice; a
+ * dividend token is a debt that crystallised before the sale and has nothing to
+ * do with what the vehicle fetched. A holder who claimed in March and had not
+ * got round to exchanging by the time the warehouse sold in September is paid
+ * in full in October, out of money that was never available to redemption.
+ *
+ * The exchange is NOT routed through x/treasury. See the keeper for why.
+ */
+export interface MsgExchangeDividend {
+  /**
+   * Whoever holds the tokens -- not necessarily the shareholder who claimed
+   * them, because the dividend token is transferable on purpose.
+   */
+  holder: string;
+  assetId: string;
+  /**
+   * How many to cash. Named explicitly rather than inferred from the balance,
+   * so a holder cashing part of a position does not have to move the rest out
+   * of the way first.
+   */
+  amount: string;
+}
+
+/** MsgExchangeDividendResponse reports both legs of the swap. */
+export interface MsgExchangeDividendResponse {
+  /** The stable paid out, in the vault's income denomination. */
+  paid:
+    | Coin
+    | undefined;
+  /**
+   * The dividend tokens burned. Equal in amount to paid: the rate is 1:1 and is
+   * not a parameter, because a rate somebody could set is a rate that can be
+   * set to something other than what the reserve actually holds.
+   */
+  burned: Coin | undefined;
 }
 
 /**
@@ -2520,13 +2648,16 @@ export const MsgClaim = {
 };
 
 function createBaseMsgClaimResponse(): MsgClaimResponse {
-  return { paid: [] };
+  return { paid: [], backing: undefined };
 }
 
 export const MsgClaimResponse = {
   encode(message: MsgClaimResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     for (const v of message.paid) {
       Coin.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.backing !== undefined) {
+      Coin.encode(message.backing, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
@@ -2545,6 +2676,13 @@ export const MsgClaimResponse = {
 
           message.paid.push(Coin.decode(reader, reader.uint32()));
           continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.backing = Coin.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2555,13 +2693,19 @@ export const MsgClaimResponse = {
   },
 
   fromJSON(object: any): MsgClaimResponse {
-    return { paid: globalThis.Array.isArray(object?.paid) ? object.paid.map((e: any) => Coin.fromJSON(e)) : [] };
+    return {
+      paid: globalThis.Array.isArray(object?.paid) ? object.paid.map((e: any) => Coin.fromJSON(e)) : [],
+      backing: isSet(object.backing) ? Coin.fromJSON(object.backing) : undefined,
+    };
   },
 
   toJSON(message: MsgClaimResponse): unknown {
     const obj: any = {};
     if (message.paid?.length) {
       obj.paid = message.paid.map((e) => Coin.toJSON(e));
+    }
+    if (message.backing !== undefined) {
+      obj.backing = Coin.toJSON(message.backing);
     }
     return obj;
   },
@@ -2572,6 +2716,174 @@ export const MsgClaimResponse = {
   fromPartial(object: DeepPartial<MsgClaimResponse>): MsgClaimResponse {
     const message = createBaseMsgClaimResponse();
     message.paid = object.paid?.map((e) => Coin.fromPartial(e)) || [];
+    message.backing = (object.backing !== undefined && object.backing !== null)
+      ? Coin.fromPartial(object.backing)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseMsgExchangeDividend(): MsgExchangeDividend {
+  return { holder: "", assetId: "0", amount: "" };
+}
+
+export const MsgExchangeDividend = {
+  encode(message: MsgExchangeDividend, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.holder !== "") {
+      writer.uint32(10).string(message.holder);
+    }
+    if (message.assetId !== "0") {
+      writer.uint32(16).uint64(message.assetId);
+    }
+    if (message.amount !== "") {
+      writer.uint32(26).string(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgExchangeDividend {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgExchangeDividend();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.holder = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgExchangeDividend {
+    return {
+      holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
+    };
+  },
+
+  toJSON(message: MsgExchangeDividend): unknown {
+    const obj: any = {};
+    if (message.holder !== "") {
+      obj.holder = message.holder;
+    }
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.amount !== "") {
+      obj.amount = message.amount;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgExchangeDividend>): MsgExchangeDividend {
+    return MsgExchangeDividend.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgExchangeDividend>): MsgExchangeDividend {
+    const message = createBaseMsgExchangeDividend();
+    message.holder = object.holder ?? "";
+    message.assetId = object.assetId ?? "0";
+    message.amount = object.amount ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgExchangeDividendResponse(): MsgExchangeDividendResponse {
+  return { paid: undefined, burned: undefined };
+}
+
+export const MsgExchangeDividendResponse = {
+  encode(message: MsgExchangeDividendResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.paid !== undefined) {
+      Coin.encode(message.paid, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.burned !== undefined) {
+      Coin.encode(message.burned, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgExchangeDividendResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgExchangeDividendResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.paid = Coin.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.burned = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgExchangeDividendResponse {
+    return {
+      paid: isSet(object.paid) ? Coin.fromJSON(object.paid) : undefined,
+      burned: isSet(object.burned) ? Coin.fromJSON(object.burned) : undefined,
+    };
+  },
+
+  toJSON(message: MsgExchangeDividendResponse): unknown {
+    const obj: any = {};
+    if (message.paid !== undefined) {
+      obj.paid = Coin.toJSON(message.paid);
+    }
+    if (message.burned !== undefined) {
+      obj.burned = Coin.toJSON(message.burned);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgExchangeDividendResponse>): MsgExchangeDividendResponse {
+    return MsgExchangeDividendResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgExchangeDividendResponse>): MsgExchangeDividendResponse {
+    const message = createBaseMsgExchangeDividendResponse();
+    message.paid = (object.paid !== undefined && object.paid !== null) ? Coin.fromPartial(object.paid) : undefined;
+    message.burned = (object.burned !== undefined && object.burned !== null)
+      ? Coin.fromPartial(object.burned)
+      : undefined;
     return message;
   },
 };
@@ -3252,9 +3564,16 @@ export interface Msg {
   FinaliseSale(request: MsgFinaliseSale): Promise<MsgFinaliseSaleResponse>;
   /**
    * Claim withdraws accrued income without giving up the shareholding — a
-   * coupon should not force an exit.
+   * coupon should not force an exit. It pays a dividend token, not the stable;
+   * ExchangeDividend is the second half.
    */
   Claim(request: MsgClaim): Promise<MsgClaimResponse>;
+  /**
+   * ExchangeDividend cashes a dividend token for the stable behind it, 1:1,
+   * out of the reserve the claim set aside. Permissionless, and refusable on
+   * nothing but the arithmetic: the money is already the holder's.
+   */
+  ExchangeDividend(request: MsgExchangeDividend): Promise<MsgExchangeDividendResponse>;
   /**
    * Redeem burns tokens and pays their share in one step. The burn is the
    * claim: burning first and expecting a later claim would strand whoever is
@@ -3287,6 +3606,7 @@ export class MsgClientImpl implements Msg {
     this.DisputeSale = this.DisputeSale.bind(this);
     this.FinaliseSale = this.FinaliseSale.bind(this);
     this.Claim = this.Claim.bind(this);
+    this.ExchangeDividend = this.ExchangeDividend.bind(this);
     this.Redeem = this.Redeem.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
@@ -3389,6 +3709,12 @@ export class MsgClientImpl implements Msg {
     const data = MsgClaim.encode(request).finish();
     const promise = this.rpc.request(this.service, "Claim", data);
     return promise.then((data) => MsgClaimResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ExchangeDividend(request: MsgExchangeDividend): Promise<MsgExchangeDividendResponse> {
+    const data = MsgExchangeDividend.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ExchangeDividend", data);
+    return promise.then((data) => MsgExchangeDividendResponse.decode(_m0.Reader.create(data)));
   }
 
   Redeem(request: MsgRedeem): Promise<MsgRedeemResponse> {

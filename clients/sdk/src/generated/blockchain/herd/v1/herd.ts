@@ -487,6 +487,20 @@ export interface Herd {
   locationHash: string;
   jurisdiction: string;
   status: Status;
+  /**
+   * THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+   *
+   * This module carries both kinds of int64 and nothing used to distinguish
+   * them: registered_at and recorded_at are heights, while proposed_at,
+   * attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+   * 320898 and transfer 1 holds 1789310513, and a client that assumed one
+   * convention got a plausible wrong answer for half the fields.
+   *
+   * Height rather than time because this is a position in the chain's own
+   * history — what an auditor uses to find the block that made the record —
+   * whereas a transfer's clock is about people and deadlines. Converting it to
+   * a date needs the block, which is a query rather than an arithmetic.
+   */
   registeredAt: string;
 }
 
@@ -567,6 +581,20 @@ export interface Animal {
   holder: string;
   authority: string;
   status: Status;
+  /**
+   * THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+   *
+   * This module carries both kinds of int64 and nothing used to distinguish
+   * them: registered_at and recorded_at are heights, while proposed_at,
+   * attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+   * 320898 and transfer 1 holds 1789310513, and a client that assumed one
+   * convention got a plausible wrong answer for half the fields.
+   *
+   * Height rather than time because this is a position in the chain's own
+   * history — what an auditor uses to find the block that made the record —
+   * whereas a transfer's clock is about people and deadlines. Converting it to
+   * a date needs the block, which is a query rather than an arithmetic.
+   */
   registeredAt: string;
 }
 
@@ -596,6 +624,20 @@ export interface HealthEvent {
   treated: number;
   /** The accredited agent or veterinarian who administered it and signed for it. */
   agent: string;
+  /**
+   * THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+   *
+   * This module carries both kinds of int64 and nothing used to distinguish
+   * them: registered_at and recorded_at are heights, while proposed_at,
+   * attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+   * 320898 and transfer 1 holds 1789310513, and a client that assumed one
+   * convention got a plausible wrong answer for half the fields.
+   *
+   * Height rather than time because this is a position in the chain's own
+   * history — what an auditor uses to find the block that made the record —
+   * whereas a transfer's clock is about people and deadlines. Converting it to
+   * a date needs the block, which is a query rather than an arithmetic.
+   */
   recordedAt: string;
 }
 
@@ -637,6 +679,10 @@ export interface Agent {
    * at nothing — but they stop being able to act.
    */
   active: boolean;
+  /**
+   * Unix SECONDS, not a block height. See registered_at for why this module
+   * carries both and why they must not be confused.
+   */
   accreditedAt: string;
 }
 
@@ -676,6 +722,10 @@ export interface Attestation {
    * person, not a shrug.
    */
   evidenceHash: string;
+  /**
+   * Unix SECONDS, not a block height. See Herd.registered_at for why this
+   * module carries both kinds of int64 and why confusing them prints 1970.
+   */
   attestedAt: string;
 }
 
@@ -704,10 +754,16 @@ export interface Transfer {
    * When the attestation quorum was reached. The challenge window runs from
    * this, not from the proposal — otherwise a transfer could be proposed
    * quietly, left to age, and completed the moment it was attested.
+   * Unix SECONDS, not a block height. See Herd.registered_at for why this
+   * module carries both kinds of int64 and why confusing them prints 1970.
    */
   attestedAt: string;
   objectedBy: string;
   objectionReason: string;
+  /**
+   * Unix SECONDS, not a block height. See Herd.registered_at for why this
+   * module carries both kinds of int64 and why confusing them prints 1970.
+   */
   proposedAt: string;
   /**
    * Who resolved the objection, and what they decided. An objection can be
@@ -730,6 +786,8 @@ export interface Transfer {
    * objection is dismissed: the state alone was overwritten by OBJECTED, and
    * guessing from the attestation count cannot tell a proposal nobody accepted
    * from one that was accepted and not yet attested.
+   * Unix SECONDS, not a block height. See Herd.registered_at for why this
+   * module carries both kinds of int64 and why confusing them prints 1970.
    */
   acceptedAt: string;
 }

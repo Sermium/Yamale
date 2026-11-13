@@ -652,15 +652,59 @@ export interface Vault {
    */
   periodStart: string;
   /**
-   * What the module account actually holds on this vehicle's behalf.
+   * What the module account actually holds on this vehicle's behalf and has
+   * not yet promised to anybody.
    *
    * One module account serves every vehicle, so a balance is not an ownership
    * record: without this ledger a vehicle that funded nothing pays its holders
    * out of a different vehicle's vault, and the bank keeper has no way to
    * object. Every credit is a transfer in, every debit is a payout, and no
    * payout is made that this does not cover.
+   *
+   * A dividend claimed leaves here and lands in `dividend_reserve`. It has to
+   * leave: money still counted here is money the next distribution can be
+   * credited against, and crediting a distribution against stable already owed
+   * to a dividend token is how the exchange runs dry.
    */
   held: Coin[];
+  /**
+   * The stable set aside to honour dividend tokens already issued against this
+   * vehicle, and nothing else.
+   *
+   * # Why this is a separate field rather than a subtraction
+   *
+   * A dividend token the chain can mint beyond what the vehicle holds is a
+   * promise the chain cannot keep. The guarantee is kept by construction: the
+   * ONLY path that mints a dividend token is a claim, and a claim moves exactly
+   * its own amount from `held` into here in the same write. So for every
+   * vehicle, at every height,
+   *
+   *   supply(div/<asset>/<SYMBOL>)  ==  dividend_reserve.AmountOf(denom)
+   *
+   * and the exchange, which burns and pays 1:1 out of this figure alone, cannot
+   * run dry against a correctly-funded vehicle. Held as a count rather than
+   * derived from the token supply because the supply is bank state and this is
+   * the ledger that has to refuse a payout BEFORE the bank keeper is asked —
+   * the same reason `held` exists beside the module account balance.
+   *
+   * # Why it is per vehicle
+   *
+   * For exactly the reason `held` is. One module account holds every vehicle's
+   * money, so an exchange that checked only the module balance would let
+   * vehicle A's dividend token be cashed out of vehicle B's reserve, and the
+   * bank keeper would have no way to notice.
+   *
+   * # It survives realisation, and is never swept
+   *
+   * Redemption pays out of `held`, which by construction excludes this. So a
+   * holder who claimed and never exchanged is still paid after the vehicle is
+   * sold, after it is CLOSED, and after the last fraction token is burned. No
+   * rule reclaims it, because the only rule that could — "after N seconds, give
+   * it to somebody else" — has no correct somebody else: the money is already
+   * owed to a named token, and the chain has no basis for deciding its holder
+   * has stopped wanting it.
+   */
+  dividendReserve: Coin[];
 }
 
 /**
@@ -1249,7 +1293,16 @@ export const Asset = {
 };
 
 function createBaseVault(): Vault {
-  return { assetId: "0", cumulativePerToken: "", funded: [], denom: "", periodIndex: "0", periodStart: "0", held: [] };
+  return {
+    assetId: "0",
+    cumulativePerToken: "",
+    funded: [],
+    denom: "",
+    periodIndex: "0",
+    periodStart: "0",
+    held: [],
+    dividendReserve: [],
+  };
 }
 
 export const Vault = {
@@ -1274,6 +1327,9 @@ export const Vault = {
     }
     for (const v of message.held) {
       Coin.encode(v!, writer.uint32(42).fork()).ldelim();
+    }
+    for (const v of message.dividendReserve) {
+      Coin.encode(v!, writer.uint32(66).fork()).ldelim();
     }
     return writer;
   },
@@ -1334,6 +1390,13 @@ export const Vault = {
 
           message.held.push(Coin.decode(reader, reader.uint32()));
           continue;
+        case 8:
+          if (tag !== 66) {
+            break;
+          }
+
+          message.dividendReserve.push(Coin.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1352,6 +1415,9 @@ export const Vault = {
       periodIndex: isSet(object.periodIndex) ? globalThis.String(object.periodIndex) : "0",
       periodStart: isSet(object.periodStart) ? globalThis.String(object.periodStart) : "0",
       held: globalThis.Array.isArray(object?.held) ? object.held.map((e: any) => Coin.fromJSON(e)) : [],
+      dividendReserve: globalThis.Array.isArray(object?.dividendReserve)
+        ? object.dividendReserve.map((e: any) => Coin.fromJSON(e))
+        : [],
     };
   },
 
@@ -1378,6 +1444,9 @@ export const Vault = {
     if (message.held?.length) {
       obj.held = message.held.map((e) => Coin.toJSON(e));
     }
+    if (message.dividendReserve?.length) {
+      obj.dividendReserve = message.dividendReserve.map((e) => Coin.toJSON(e));
+    }
     return obj;
   },
 
@@ -1393,6 +1462,7 @@ export const Vault = {
     message.periodIndex = object.periodIndex ?? "0";
     message.periodStart = object.periodStart ?? "0";
     message.held = object.held?.map((e) => Coin.fromPartial(e)) || [];
+    message.dividendReserve = object.dividendReserve?.map((e) => Coin.fromPartial(e)) || [];
     return message;
   },
 };

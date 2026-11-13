@@ -10,7 +10,7 @@ import _m0 from "protobufjs/minimal.js";
 import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pagination.ts";
 import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 import { Params } from "./params.ts";
-import { Asset, Collection, Covenant, SaleReport, Vault } from "./tokenisation.ts";
+import { Asset, Collection, Covenant, Position, SaleReport, Vault } from "./tokenisation.ts";
 
 export const protobufPackage = "blockchain.tokenisation.v1";
 
@@ -96,6 +96,88 @@ export interface QueryCovenantsRequest {
  */
 export interface QueryCovenantsResponse {
   covenants: Covenant[];
+}
+
+/** QueryPositionRequest asks for one holder's record against one tokenisation. */
+export interface QueryPositionRequest {
+  assetId: string;
+  holder: string;
+}
+
+/**
+ * QueryPositionResponse carries the record, plus the two figures that are
+ * derived rather than stored.
+ */
+export interface QueryPositionResponse {
+  /**
+   * Absent when this account has never held a share in this tokenisation.
+   * An absence, not a failure: most accounts hold most things not at all.
+   */
+  position: Position | undefined;
+  found: boolean;
+  /**
+   * What could be withdrawn right now, settled and unsettled together. The
+   * same figure Entitlement returns, carried here so a screen showing a whole
+   * position does not need two round trips that could disagree.
+   */
+  owed: string;
+  /**
+   * Token-seconds accrued in the CURRENT, undeclared period, brought up to the
+   * block being queried.
+   *
+   * Not money, and deliberately not converted to any. The rate is unknown
+   * until the period closes, so a figure in a currency would be a forecast
+   * standing beside a settled amount in the same units -- and a reader cannot
+   * tell those apart once both are money.
+   */
+  pendingTokenSeconds: string;
+}
+
+/** QueryDividendReserveRequest names one vehicle. */
+export interface QueryDividendReserveRequest {
+  assetId: string;
+}
+
+/**
+ * QueryDividendReserveResponse is what a vehicle owes its dividend token and
+ * what it has set aside to pay it.
+ *
+ * # Why this is a query rather than a comment in the code
+ *
+ * The promise the dividend token makes is that outstanding and reserve are
+ * equal, at every height, for every vehicle. A promise nobody outside the
+ * module can check is a promise, and this makes it a measurement: outstanding
+ * comes from the bank keeper's supply of the dividend denom, reserve comes from
+ * this module's own per-vehicle ledger, and the two are computed from different
+ * state by different modules. A reader who does not trust this module can read
+ * the supply from the bank module and compare it themselves.
+ */
+export interface QueryDividendReserveResponse {
+  /**
+   * The denomination claims against this vehicle are paid in. Empty for a
+   * vehicle that has not been fractionalised, which is not the same as one
+   * whose dividend token has zero supply.
+   */
+  dividendDenom: string;
+  /** Dividend tokens issued and not yet cashed: what the vehicle still owes. */
+  outstanding:
+    | Coin
+    | undefined;
+  /**
+   * Stable set aside to pay them. Equal to outstanding in amount whenever the
+   * module is behaving; a difference is a bug, and a difference in the wrong
+   * direction is an exchange that will run dry.
+   */
+  reserve:
+    | Coin
+    | undefined;
+  /**
+   * What the vehicle still holds that is NOT promised to anybody: the pool a
+   * future distribution can be credited against, and the pool redemption pays
+   * out of. Returned beside the other two because the useful question about a
+   * vault is which of its money is already spoken for.
+   */
+  unreserved: Coin | undefined;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -903,6 +985,353 @@ export const QueryCovenantsResponse = {
   },
 };
 
+function createBaseQueryPositionRequest(): QueryPositionRequest {
+  return { assetId: "0", holder: "" };
+}
+
+export const QueryPositionRequest = {
+  encode(message: QueryPositionRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.assetId !== "0") {
+      writer.uint32(8).uint64(message.assetId);
+    }
+    if (message.holder !== "") {
+      writer.uint32(18).string(message.holder);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryPositionRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryPositionRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.holder = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryPositionRequest {
+    return {
+      assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0",
+      holder: isSet(object.holder) ? globalThis.String(object.holder) : "",
+    };
+  },
+
+  toJSON(message: QueryPositionRequest): unknown {
+    const obj: any = {};
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    if (message.holder !== "") {
+      obj.holder = message.holder;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryPositionRequest>): QueryPositionRequest {
+    return QueryPositionRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryPositionRequest>): QueryPositionRequest {
+    const message = createBaseQueryPositionRequest();
+    message.assetId = object.assetId ?? "0";
+    message.holder = object.holder ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryPositionResponse(): QueryPositionResponse {
+  return { position: undefined, found: false, owed: "", pendingTokenSeconds: "" };
+}
+
+export const QueryPositionResponse = {
+  encode(message: QueryPositionResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.position !== undefined) {
+      Position.encode(message.position, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.found !== false) {
+      writer.uint32(16).bool(message.found);
+    }
+    if (message.owed !== "") {
+      writer.uint32(26).string(message.owed);
+    }
+    if (message.pendingTokenSeconds !== "") {
+      writer.uint32(34).string(message.pendingTokenSeconds);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryPositionResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryPositionResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.position = Position.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.found = reader.bool();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.owed = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.pendingTokenSeconds = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryPositionResponse {
+    return {
+      position: isSet(object.position) ? Position.fromJSON(object.position) : undefined,
+      found: isSet(object.found) ? globalThis.Boolean(object.found) : false,
+      owed: isSet(object.owed) ? globalThis.String(object.owed) : "",
+      pendingTokenSeconds: isSet(object.pendingTokenSeconds) ? globalThis.String(object.pendingTokenSeconds) : "",
+    };
+  },
+
+  toJSON(message: QueryPositionResponse): unknown {
+    const obj: any = {};
+    if (message.position !== undefined) {
+      obj.position = Position.toJSON(message.position);
+    }
+    if (message.found !== false) {
+      obj.found = message.found;
+    }
+    if (message.owed !== "") {
+      obj.owed = message.owed;
+    }
+    if (message.pendingTokenSeconds !== "") {
+      obj.pendingTokenSeconds = message.pendingTokenSeconds;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryPositionResponse>): QueryPositionResponse {
+    return QueryPositionResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryPositionResponse>): QueryPositionResponse {
+    const message = createBaseQueryPositionResponse();
+    message.position = (object.position !== undefined && object.position !== null)
+      ? Position.fromPartial(object.position)
+      : undefined;
+    message.found = object.found ?? false;
+    message.owed = object.owed ?? "";
+    message.pendingTokenSeconds = object.pendingTokenSeconds ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryDividendReserveRequest(): QueryDividendReserveRequest {
+  return { assetId: "0" };
+}
+
+export const QueryDividendReserveRequest = {
+  encode(message: QueryDividendReserveRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.assetId !== "0") {
+      writer.uint32(8).uint64(message.assetId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryDividendReserveRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryDividendReserveRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.assetId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryDividendReserveRequest {
+    return { assetId: isSet(object.assetId) ? globalThis.String(object.assetId) : "0" };
+  },
+
+  toJSON(message: QueryDividendReserveRequest): unknown {
+    const obj: any = {};
+    if (message.assetId !== "0") {
+      obj.assetId = message.assetId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryDividendReserveRequest>): QueryDividendReserveRequest {
+    return QueryDividendReserveRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryDividendReserveRequest>): QueryDividendReserveRequest {
+    const message = createBaseQueryDividendReserveRequest();
+    message.assetId = object.assetId ?? "0";
+    return message;
+  },
+};
+
+function createBaseQueryDividendReserveResponse(): QueryDividendReserveResponse {
+  return { dividendDenom: "", outstanding: undefined, reserve: undefined, unreserved: undefined };
+}
+
+export const QueryDividendReserveResponse = {
+  encode(message: QueryDividendReserveResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.dividendDenom !== "") {
+      writer.uint32(10).string(message.dividendDenom);
+    }
+    if (message.outstanding !== undefined) {
+      Coin.encode(message.outstanding, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.reserve !== undefined) {
+      Coin.encode(message.reserve, writer.uint32(26).fork()).ldelim();
+    }
+    if (message.unreserved !== undefined) {
+      Coin.encode(message.unreserved, writer.uint32(34).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryDividendReserveResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryDividendReserveResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.dividendDenom = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.outstanding = Coin.decode(reader, reader.uint32());
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.reserve = Coin.decode(reader, reader.uint32());
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.unreserved = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryDividendReserveResponse {
+    return {
+      dividendDenom: isSet(object.dividendDenom) ? globalThis.String(object.dividendDenom) : "",
+      outstanding: isSet(object.outstanding) ? Coin.fromJSON(object.outstanding) : undefined,
+      reserve: isSet(object.reserve) ? Coin.fromJSON(object.reserve) : undefined,
+      unreserved: isSet(object.unreserved) ? Coin.fromJSON(object.unreserved) : undefined,
+    };
+  },
+
+  toJSON(message: QueryDividendReserveResponse): unknown {
+    const obj: any = {};
+    if (message.dividendDenom !== "") {
+      obj.dividendDenom = message.dividendDenom;
+    }
+    if (message.outstanding !== undefined) {
+      obj.outstanding = Coin.toJSON(message.outstanding);
+    }
+    if (message.reserve !== undefined) {
+      obj.reserve = Coin.toJSON(message.reserve);
+    }
+    if (message.unreserved !== undefined) {
+      obj.unreserved = Coin.toJSON(message.unreserved);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryDividendReserveResponse>): QueryDividendReserveResponse {
+    return QueryDividendReserveResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryDividendReserveResponse>): QueryDividendReserveResponse {
+    const message = createBaseQueryDividendReserveResponse();
+    message.dividendDenom = object.dividendDenom ?? "";
+    message.outstanding = (object.outstanding !== undefined && object.outstanding !== null)
+      ? Coin.fromPartial(object.outstanding)
+      : undefined;
+    message.reserve = (object.reserve !== undefined && object.reserve !== null)
+      ? Coin.fromPartial(object.reserve)
+      : undefined;
+    message.unreserved = (object.unreserved !== undefined && object.unreserved !== null)
+      ? Coin.fromPartial(object.unreserved)
+      : undefined;
+    return message;
+  },
+};
+
 /**
  * Query is the read side of the closed-end vehicle registry.
  *
@@ -931,8 +1360,26 @@ export interface Query {
    * its balance last moved.
    */
   Entitlement(request: QueryEntitlementRequest): Promise<QueryEntitlementResponse>;
+  /**
+   * Position returns one holder's whole record against a tokenisation.
+   *
+   * Entitlement answers only "what could they withdraw now", as a single Coin.
+   * Everything else a holder needs to see about their own position -- what it
+   * cost, how much of it that cost covers, and the time accruing in the
+   * current period -- had no query at all, so the console was reading it out of
+   * the raw store at /store/tokenisation/key and decoding the key layout by
+   * hand. That works and it couples a browser to internal storage: a change to
+   * a key prefix, which is an implementation detail nobody would announce,
+   * silently breaks every reader.
+   */
+  Position(request: QueryPositionRequest): Promise<QueryPositionResponse>;
   /** Covenants lists what has been published against one tokenisation. */
   Covenants(request: QueryCovenantsRequest): Promise<QueryCovenantsResponse>;
+  /**
+   * DividendReserve is the backing check, exposed so it does not have to be
+   * taken on trust.
+   */
+  DividendReserve(request: QueryDividendReserveRequest): Promise<QueryDividendReserveResponse>;
 }
 
 export const QueryServiceName = "blockchain.tokenisation.v1.Query";
@@ -947,7 +1394,9 @@ export class QueryClientImpl implements Query {
     this.Assets = this.Assets.bind(this);
     this.Asset = this.Asset.bind(this);
     this.Entitlement = this.Entitlement.bind(this);
+    this.Position = this.Position.bind(this);
     this.Covenants = this.Covenants.bind(this);
+    this.DividendReserve = this.DividendReserve.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -979,10 +1428,22 @@ export class QueryClientImpl implements Query {
     return promise.then((data) => QueryEntitlementResponse.decode(_m0.Reader.create(data)));
   }
 
+  Position(request: QueryPositionRequest): Promise<QueryPositionResponse> {
+    const data = QueryPositionRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "Position", data);
+    return promise.then((data) => QueryPositionResponse.decode(_m0.Reader.create(data)));
+  }
+
   Covenants(request: QueryCovenantsRequest): Promise<QueryCovenantsResponse> {
     const data = QueryCovenantsRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "Covenants", data);
     return promise.then((data) => QueryCovenantsResponse.decode(_m0.Reader.create(data)));
+  }
+
+  DividendReserve(request: QueryDividendReserveRequest): Promise<QueryDividendReserveResponse> {
+    const data = QueryDividendReserveRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "DividendReserve", data);
+    return promise.then((data) => QueryDividendReserveResponse.decode(_m0.Reader.create(data)));
   }
 }
 
