@@ -288,7 +288,8 @@ message MsgRedeemBenefitResponse {}
 // MsgProposeReassignment is the message that carries out ProposeReassignment.
 message MsgProposeReassignment {
   option (cosmos.msg.v1.signer) = "office";
-  option (amino.name) = "blockchain/x/jewel/MsgProposeReassignment";
+  // Shortened from the message name: a Ledger accepts at most 39 characters.
+  option (amino.name) = "blockchain/x/jewel/MsgProposeReassign";
   // office is the register's office, the signer.
   string office = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // jewel_id is the jewel to move.
@@ -319,7 +320,8 @@ message MsgVetoReassignmentResponse {}
 // MsgCompleteReassignment is the message that carries out CompleteReassignment.
 message MsgCompleteReassignment {
   option (cosmos.msg.v1.signer) = "creator";
-  option (amino.name) = "blockchain/x/jewel/MsgCompleteReassignment";
+  // Shortened from the message name: a Ledger accepts at most 39 characters.
+  option (amino.name) = "blockchain/x/jewel/MsgCompleteReassign";
   // creator is any account, the signer; it pays the fee.
   string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // jewel_id is the jewel whose reassignment to complete.
