@@ -39,6 +39,12 @@ function check(label: string, pass: boolean, detail = ''): void {
   console.log(`  FAIL  ${label}${detail ? `: ${detail}` : ''}`);
 }
 
+function stop(why: string): never {
+  console.log(`
+${failed} check(s) failed; ${why}`);
+  process.exit(1);
+}
+
 async function send(key: Uint8Array, messages: EncodeObject[], granter?: string): Promise<SubmitResult> {
   const wallet = await DirectSecp256k1Wallet.fromKey(key, 'yml');
   const signer = new ChainSigner(wallet, { rpcUrl: RPC, chainId: CHAIN, ...(granter ? { feeGranter: granter } : {}) });
@@ -57,9 +63,13 @@ function eventValue(r: SubmitResult, type: string, key: string): string {
 
 async function upload(key: Uint8Array, bytes: Uint8Array): Promise<string | null> {
   const hash = sha256Hex(bytes);
-  const res = await fetch(`${API}/v1/files`, { method: 'POST', headers: signedHeaders(key, 'file', CHAIN, hash), body: bytes });
-  const body = await res.json().catch(() => ({}));
-  return res.status === 201 && body.hash === hash ? hash : null;
+  try {
+    const res = await fetch(`${API}/v1/files`, { method: 'POST', headers: signedHeaders(key, 'file', CHAIN, hash), body: bytes });
+    const body = await res.json().catch(() => ({}));
+    return res.status === 201 && body.hash === hash ? hash : null;
+  } catch {
+    return null;
+  }
 }
 
 async function sponsor(key: Uint8Array): Promise<{ status: number; body: any }> {
@@ -93,6 +103,7 @@ console.log('2  files');
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...new Array<number>(64).fill(7)]);
 const photo = await upload(staff, png);
 check('a photo is stored under its fingerprint', photo !== null);
+if (photo === null) stop('no photo, so nothing after this can be tried');
 const code = `SMOKE-${Math.floor(Date.now() / 1000)}`;
 const normalised = normaliseInscription(code)!;
 const record = new TextEncoder().encode(JSON.stringify({
@@ -101,9 +112,10 @@ const record = new TextEncoder().encode(JSON.stringify({
 }));
 const recordHash = await upload(staff, record);
 check('the record is stored under its fingerprint', recordHash !== null);
+if (recordHash === null) stop('no record, so nothing after this can be tried');
 
 console.log('3  registration');
-const reg = await send(staff, [registerJewel(staffAddr, code, recordHash!, `${API}/v1/files/${recordHash}`)], bizAddr);
+const reg = await send(staff, [registerJewel(staffAddr, code, recordHash, `${API}/v1/files/${recordHash}`)], bizAddr);
 check('staff registered a jewel, the business paying', reg.succeeded, rawOf(reg));
 const jewelId = eventValue(reg, 'blockchain.jewel.v1.EventJewelRegistered', 'jewel_id');
 check('the registration names the jewel', jewelId !== '');
@@ -161,7 +173,7 @@ const proof = verifyOwnershipProof(CHAIN, jewelId, makeOwnershipProof(next, CHAI
 check('the proof names the owner', proof !== null && view.ok && proof.address === view.value.owner);
 
 console.log("9  the allowance's scope");
-const misuse = await send(next, [registerJewel(addr(next), `X-${code}`, recordHash!, `${API}/v1/files/${recordHash}`)], granter);
+const misuse = await send(next, [registerJewel(addr(next), `X-${code}`, recordHash, `${API}/v1/files/${recordHash}`)], granter);
 check("the platform's allowance does not pay for staff work", !misuse.succeeded && rawOf(misuse).includes('allowed messages'), rawOf(misuse));
 
 console.log('10 holdings');

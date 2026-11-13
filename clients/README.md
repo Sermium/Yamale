@@ -94,11 +94,11 @@ go build -o "$SCRATCH/loyaltyapi.exe" ./tools/loyaltyapi
 BIN="$SCRATCH/blockchaind.exe" scripts/devnet/init-local-devnet.sh   # chain yamale-local-1, RPC 127.0.0.1:26957
 BIN="$SCRATCH/blockchaind.exe" SIGN="$SCRATCH/jewelsign.exe" HOME_DIR=.devnet/local/node   CHAIN=yamale-local-1 NODE=tcp://127.0.0.1:26957 scripts/devnet/seed-jewel.sh
 BIN="$SCRATCH/blockchaind.exe" API_BIN="$SCRATCH/loyaltyapi.exe" scripts/devnet/loyalty-local.sh &   # 127.0.0.1:8095
-npm run dev --workspace @yamale/loyalty                              # http://localhost:5390
+(cd clients && npm run dev --workspace @yamale/loyalty)             # http://localhost:5390
 ```
 
 Vite binds only `::1`, so use `http://localhost:5390` and `http://[::1]:5390`
-(and a second server, `npx vite --port 5391`, from `clients/loyalty`) as separate
+(and a second server, `npx vite --port 5391` run in `clients/loyalty`) as separate
 people: every origin keeps its own device account. A claim link made on one
 carries that origin; change only the host or port to open it as another.
 

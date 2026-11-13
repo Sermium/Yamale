@@ -4,9 +4,20 @@
 # M1..M3 first, exactly as seed-jewel.sh does; FAILED is set to 0 here.
 FAILED=0
 
-say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
-ok()   { printf '  \033[32mok\033[0m   %s\n' "$*"; }
-bad()  { printf '  \033[31mFAIL\033[0m %s\n' "$*"; FAILED=1; }
+say()  { LAST_TX=""; printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+# LAST_TX holds the chain's raw answer (CLI tx/query/proposal JSON, never a key)
+# to the transaction that last failed. bad prints it, bounded, then clears it;
+# ok and say clear it too, so a later unrelated FAIL cannot print a stale answer.
+LAST_TX=""
+ok()   { LAST_TX=""; printf '  \033[32mok\033[0m   %s\n' "$*"; }
+bad()  {
+  printf '  \033[31mFAIL\033[0m %s\n' "$*"; FAILED=1
+  if [ -n "$LAST_TX" ]; then
+    printf '       the chain said:\n'
+    printf '%s\n' "$LAST_TX" | head -n 20 | cut -c1-400 | sed 's/^/         /'
+  fi
+  LAST_TX=""
+}
 addr() { "$BIN" keys show "$1" -a --keyring-backend "$KEYRING" --home "$HOME_DIR"; }
 json() { grep -oE "\"$1\":[[:space:]]*\"[^\"]*\"" | head -1 | cut -d'"' -f4 || true; }
 ensure_key() {
