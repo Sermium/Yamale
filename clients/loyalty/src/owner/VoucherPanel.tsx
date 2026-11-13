@@ -12,7 +12,7 @@ import { chainHead, encodeVoucherCode, makeVoucher, readJewel, t } from '@yamale
 import { QrCode } from '../../../app/src/qr.tsx';
 import { useSession } from '../account/session.tsx';
 import { CHAIN_ID } from '../config.ts';
-import { useMark, voucherPhase, type UseMark } from './voucher.ts';
+import { markOf, voucherPhase, type UseMark } from './voucher.ts';
 
 const POLL_MS = 4000;
 
@@ -34,7 +34,7 @@ export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitI
       if (!benefit) { setFailed(true); return; }
       const v = withKey((k) => makeVoucher(k, CHAIN_ID, benefitId, jewelId, head.value.time));
       const lifetime = Number(v.voucher.expiresAt) - head.value.time;
-      const issued = useMark(benefit.uses);
+      const issued = markOf(benefit.uses);
       setCurrent(issued);
       setCode({ text: encodeVoucherCode(v), deadline: Date.now() + lifetime * 1000, issued });
       setFailed(false);
@@ -60,7 +60,7 @@ export function VoucherPanel({ jewelId, benefitId }: { jewelId: string; benefitI
         const view = await readJewel(jewelId);
         if (!live || !view.ok) return;
         const b = view.value.benefits.find((x) => x.id === benefitId);
-        if (b) setCurrent(useMark(b.uses));
+        if (b) setCurrent(markOf(b.uses));
       } catch { /* the next poll tries again */ }
     }, POLL_MS);
     return () => { live = false; window.clearInterval(id); };

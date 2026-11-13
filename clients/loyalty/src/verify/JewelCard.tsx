@@ -7,7 +7,7 @@ import { liveClaimKey, offerIsOpen } from '../owner/offers.ts';
 import { Loading, useLoad } from '../ui.tsx';
 import { Hallmark } from './JewelPage.tsx';
 import { VerifiedImage } from './Photos.tsx';
-import { currentRecordHash, useRecord } from './record.ts';
+import { useRecord } from './record.ts';
 
 /** `now` is the chain's block time: an offer past it is not on offer, though the chain still holds it. */
 export function JewelCard({ id, to, now, extra, onlyJeweler }: { id: string; to: string; now: number; extra?: ReactNode; onlyJeweler?: string }) {
@@ -15,7 +15,7 @@ export function JewelCard({ id, to, now, extra, onlyJeweler }: { id: string; to:
   useEffect(() => {
     if (view?.ok) forgetStaleLinks(id, liveClaimKey(view.value.offer, now));
   }, [view, id, now]);
-  const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
   if (!view) return <li className="y-card"><Loading /></li>;
   if (!view.ok) return null;
   // A business account can hold jewels of other jewelers; a jeweler's stock is its own.

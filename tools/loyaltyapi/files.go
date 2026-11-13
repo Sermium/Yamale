@@ -88,7 +88,7 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	js, err := s.jewelers(r.Context())
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		chainUnreachable(w, err)
 		return
 	}
 	if _, ok := jewelerOf(js, c.address); !ok {

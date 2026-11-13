@@ -12,7 +12,7 @@ import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { recordUri } from '../config.ts';
 import { AppBar, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
-import { currentRecordHash, encodeRecord, useRecord } from '../verify/record.ts';
+import { encodeRecord, useRecord } from '../verify/record.ts';
 import { FailureNote } from './FailureNote.tsx';
 import { draftComplete, RecordForm, type Draft } from './RecordForm.tsx';
 import { useRole } from './role.ts';
@@ -29,7 +29,7 @@ export function Amend() {
   const [role] = useRole(session.address);
   const navigate = useNavigate();
   const [view] = useLoad(() => (valid ? readJewel(id) : Promise.resolve(NO_SUCH)), [id, valid]);
-  const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [extra, setExtra] = useState<File[]>([]);

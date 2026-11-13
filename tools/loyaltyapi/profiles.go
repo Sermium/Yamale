@@ -90,7 +90,7 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 	}
 	js, err := s.jewelers(r.Context())
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		chainUnreachable(w, err)
 		return
 	}
 	j, ok := jewelerByID(js, id)

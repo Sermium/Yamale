@@ -88,7 +88,31 @@ export function stateForHash(held: { hash: string | null; state: RecordState }, 
   return hash !== null && held.hash === hash ? held.state : { state: 'loading' };
 }
 
-export function useRecord(hash: string | null): RecordState {
+/** What the chain holds about a jewel that a record must agree with. */
+export type RecordSubject = Pick<Jewel, 'recordHash' | 'amendments' | 'inscription' | 'jewelerId'>;
+
+/**
+ * A file can match its fingerprint and still describe another jewel: a jeweler
+ * could register a cheap piece under the record of a fine one. A record counts
+ * as this jewel's only if it names the inscription and the jeweler the chain
+ * holds for it.
+ */
+export function recordMatches(record: JewelRecord, jewel: Pick<Jewel, 'inscription' | 'jewelerId'>): boolean {
+  return record.inscription === jewel.inscription && record.jewelerId === jewel.jewelerId;
+}
+
+/** A record that describes another jewel is reported as a mismatch, never shown. */
+export function checkRecord(state: RecordState, jewel: Pick<Jewel, 'inscription' | 'jewelerId'>): RecordState {
+  return state.state === 'ok' && !recordMatches(state.record, jewel) ? { state: 'mismatch' } : state;
+}
+
+/**
+ * The record of a jewel as read from the chain, checked against it. `which`
+ * picks the current record (the last correction) or the original one.
+ * Every page reads records through here, so none can show an unchecked one.
+ */
+export function useRecord(jewel: RecordSubject | null, which: 'current' | 'original' = 'current'): RecordState {
+  const hash = jewel ? (which === 'current' ? currentRecordHash(jewel) : jewel.recordHash) : null;
   const [held, setHeld] = useState<{ hash: string | null; state: RecordState }>({ hash: null, state: { state: 'loading' } });
   useEffect(() => {
     if (!hash) return;
@@ -101,5 +125,6 @@ export function useRecord(hash: string | null): RecordState {
     });
     return () => { live = false; };
   }, [hash]);
-  return stateForHash(held, hash);
+  const state = stateForHash(held, hash);
+  return jewel ? checkRecord(state, jewel) : state;
 }

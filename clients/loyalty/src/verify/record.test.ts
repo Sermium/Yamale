@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { encodeRecord, parseRecord, stateForHash, type JewelRecord } from './record.ts';
+import { checkRecord, encodeRecord, parseRecord, recordMatches, stateForHash, type JewelRecord } from './record.ts';
 
 const HASH = 'a'.repeat(64);
 const ring: JewelRecord = {
@@ -38,4 +38,21 @@ test('a state is shown only for the hash it was fetched for', () => {
   assert.deepEqual(stateForHash(held, 'b'.repeat(64)), { state: 'loading' });
   assert.deepEqual(stateForHash(held, null), { state: 'loading' });
   assert.deepEqual(stateForHash({ hash: null, state: { state: 'missing' } }, null), { state: 'loading' });
+});
+
+test("a record counts as a jewel's only if it names that jewel's inscription and jeweler", () => {
+  const jewel = { inscription: 'MD20260001', jewelerId: '1' };
+  assert.equal(recordMatches(ring, jewel), true);
+  assert.equal(recordMatches(ring, { ...jewel, inscription: 'MD20260002' }), false);
+  assert.equal(recordMatches(ring, { ...jewel, jewelerId: '2' }), false);
+});
+
+test("another jewel's record reads as a mismatch, and other states pass through", () => {
+  const ok = { state: 'ok' as const, record: ring };
+  assert.equal(checkRecord(ok, { inscription: 'MD20260001', jewelerId: '1' }), ok);
+  assert.deepEqual(checkRecord(ok, { inscription: 'CHEAP-0001', jewelerId: '1' }), { state: 'mismatch' });
+  assert.deepEqual(checkRecord(ok, { inscription: 'MD20260001', jewelerId: '7' }), { state: 'mismatch' });
+  for (const state of ['loading', 'missing', 'mismatch', 'unreachable', 'unreadable'] as const) {
+    assert.deepEqual(checkRecord({ state }, { inscription: 'X', jewelerId: '9' }), { state });
+  }
 });

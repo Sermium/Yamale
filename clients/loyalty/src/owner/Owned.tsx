@@ -16,7 +16,7 @@ import { CHAIN_ID, PUBLIC_ORIGIN } from '../config.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, ShareButtons, useLoad } from '../ui.tsx';
 import { benefitState, type IssuerStatus } from '../verify/history.ts';
 import { benefitKind, Hallmark } from '../verify/JewelPage.tsx';
-import { currentRecordHash, useRecord } from '../verify/record.ts';
+import { useRecord } from '../verify/record.ts';
 import { forgetStaleLinks } from './links.ts';
 import { OfferPanel } from './OfferPanel.tsx';
 import { liveClaimKey } from './offers.ts';
@@ -131,7 +131,7 @@ export function Owned() {
   const [view, reload] = useLoad(() => (valid ? readJewel(id) : Promise.resolve(NO_SUCH)), [id, valid]);
   const [head] = useLoad(() => chainHead(), []);
   const [jeweler] = useLoad(() => (view?.ok ? readJeweler(view.value.jewel.jewelerId) : Promise.resolve(NO_SUCH)), [view?.ok]);
-  const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
   const headTime = head?.ok ? head.value.time : null;
   useEffect(() => {
     // Links are kept only for the offer that is open: sweep the rest once the jewel and the clock are read.
@@ -155,6 +155,7 @@ export function Owned() {
       <AppBar title={title} eyebrow={t('loyalty.mineTitle')} back />
       <main className="y-screen">
         <header className="jewel__mast"><h1 className="jewel__title">{title}</h1><Hallmark code={v.jewel.inscription} /></header>
+        {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
         <Link className="btn" to={publicPage}>{t('loyalty.seePublicPage')}</Link>
         {v.owner !== session.address ? (
           <p className="note">{t('loyalty.notYours')}</p>

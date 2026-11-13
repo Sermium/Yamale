@@ -130,6 +130,14 @@ func serverFault(w http.ResponseWriter, err error) {
 	refuse(w, http.StatusInternalServerError, "the server could not complete that; try again later")
 }
 
+// chainUnreachable is serverFault's twin for a failed chain read: the REST
+// error names the node's internal address, so the client hears only that the
+// register could not be read.
+func chainUnreachable(w http.ResponseWriter, err error) {
+	log.Printf("loyaltyapi: chain read: %v", err)
+	refuse(w, http.StatusBadGateway, "the register could not be read; try again later")
+}
+
 func refuse(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }

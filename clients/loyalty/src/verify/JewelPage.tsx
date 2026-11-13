@@ -18,7 +18,7 @@ import { fetchProfile } from '../api.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
-import { currentRecordHash, useRecord, type JewelRecord } from './record.ts';
+import { useRecord, type JewelRecord } from './record.ts';
 
 export function Hallmark({ code }: { code: string }) {
   return <span className="hallmark">{code}</span>;
@@ -107,15 +107,17 @@ function Corrections({ jewel }: { jewel: Jewel }) {
       </ol>
       <details className="original">
         <summary>{t('loyalty.originalRecord')}</summary>
-        <OriginalRecord hash={jewel.recordHash} />
+        <OriginalRecord jewel={jewel} />
       </details>
     </Section>
   );
 }
 
-function OriginalRecord({ hash }: { hash: string }) {
-  const r = useRecord(hash);
-  return r.state === 'ok' ? <RecordFacts record={r.record} /> : <p className="hint">{t('loyalty.recordMissing')}</p>;
+function OriginalRecord({ jewel }: { jewel: Jewel }) {
+  const r = useRecord(jewel, 'original');
+  if (r.state === 'ok') return <RecordFacts record={r.record} />;
+  if (r.state === 'mismatch') return <p className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</p>;
+  return <p className="hint">{t('loyalty.recordMissing')}</p>;
 }
 
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
@@ -128,8 +130,7 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
   const [jeweler] = useLoad(() => (valid ? readJeweler(jewelerId) : Promise.resolve(NO_SUCH)), [jewelerId, valid]);
   const [head] = useLoad(() => chainHead(), []);
   const [profile] = useLoad(() => (valid ? fetchProfile(jewelerId) : Promise.resolve(null)), [jewelerId, valid], () => null);
-  const recordHash = view?.ok ? currentRecordHash(view.value.jewel) : null;
-  const record = useRecord(recordHash);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
 
   if (!valid) return <NotFound />;
   if (!view || !jeweler) return <><AppBar title={t('loyalty.title')} eyebrow="" back /><main className="y-screen"><Loading /></main></>;
@@ -144,12 +145,8 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
     ...(profile?.colour ? { '--jeweler-colour': profile.colour } : {}),
     ...(profile?.accent ? { '--jeweler-accent': profile.accent } : {}),
   } as CSSProperties;
-  // The record is the jeweler's claim: it counts as this jewel's only if it names this jewel's
-  // inscription and jeweler as the chain holds them.
-  const recordOk = record.state === 'ok'
-    && record.record.inscription === jewel.inscription && record.record.jewelerId === jewel.jewelerId;
-  const recordForeign = record.state === 'ok' && !recordOk;
-  const title = recordOk ? record.record.title : t('loyalty.jewelN', { id: jewel.id });
+  // useRecord has already checked the record names this jewel's inscription and jeweler.
+  const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id: jewel.id });
 
   return (
     <>
@@ -174,8 +171,8 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
           </div>
         )}
 
-        {record.state === 'ok' && recordOk && <Gallery hashes={record.record.photos} alt={title} />}
-        {(record.state === 'mismatch' || recordForeign) && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
+        {record.state === 'ok' && <Gallery hashes={record.record.photos} alt={title} />}
+        {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
         {(record.state === 'missing' || record.state === 'unreachable' || record.state === 'unreadable') && (
           <p className="note">{t('loyalty.recordMissing')}</p>
         )}
@@ -184,7 +181,7 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
 
         {head?.ok && actions?.(view.value, head.value.time, reload)}
 
-        {record.state === 'ok' && recordOk && (<>
+        {record.state === 'ok' && (<>
           <Section title={t('loyalty.materials')}><RecordFacts record={record.record} /></Section>
         </>)}
         <Section title={t('loyalty.ownersTitle')}><Owners jewel={jewel} /></Section>

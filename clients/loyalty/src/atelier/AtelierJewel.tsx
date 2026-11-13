@@ -7,7 +7,7 @@ import { OfferPanel } from '../owner/OfferPanel.tsx';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { Hallmark, RecordFacts } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
-import { currentRecordHash, useRecord } from '../verify/record.ts';
+import { useRecord } from '../verify/record.ts';
 import { AttachBenefit, JewelBenefits } from './Benefits.tsx';
 import { useRole } from './role.ts';
 
@@ -20,7 +20,7 @@ export function AtelierJewel() {
   const [role] = useRole(session.address);
   const [view, reload] = useLoad(() => (valid ? readJewel(id) : Promise.resolve(NO_SUCH)), [id, valid]);
   const [head, reloadHead] = useLoad(() => chainHead(), []);
-  const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
 
   const bar = <AppBar title={t('loyalty.atelierTitle')} eyebrow="" back />;
   if (!valid) return <NotFound />;

@@ -11,7 +11,7 @@ export interface UseMark { count: number; last: number }
 export type VoucherPhase = 'showing' | 'lapsed' | 'used';
 
 /** The size and newest date of a benefit's use list, as read from the chain. */
-export function useMark(uses: string[]): UseMark {
+export function markOf(uses: string[]): UseMark {
   return { count: uses.length, last: uses.reduce((m, u) => Math.max(m, Number(u)), 0) };
 }
 

@@ -20,7 +20,7 @@ import { offerIsOpen } from './offers.ts';
 import { AppBar, Loading, Problem, useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
-import { currentRecordHash, useRecord } from '../verify/record.ts';
+import { useRecord } from '../verify/record.ts';
 
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
 
@@ -33,7 +33,7 @@ export function Claim() {
   const [view] = useLoad(() => (parsed ? readJewel(parsed.jewelId) : Promise.resolve(NO_SUCH)), [parsed?.jewelId]);
   const [head] = useLoad(() => chainHead(), []);
   const [jeweler] = useLoad(() => (view?.ok ? readJeweler(view.value.jewel.jewelerId) : Promise.resolve(NO_SUCH)), [view?.ok]);
-  const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
+  const record = useRecord(view?.ok ? view.value.jewel : null);
 
   const bar = <AppBar title={t('loyalty.claimTitle')} eyebrow={t('loyalty.title')} />;
   if (!parsed) return <>{bar}<main className="y-screen"><p className="banner banner--bad">{t('loyalty.claimBroken')}</p></main></>;
@@ -56,6 +56,10 @@ export function Claim() {
           <Hallmark code={view.value.jewel.inscription} />
         </header>
         {record.state === 'ok' && <Gallery hashes={record.record.photos} alt={title} />}
+        {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
+        {(record.state === 'missing' || record.state === 'unreachable' || record.state === 'unreadable') && (
+          <p className="note">{t('loyalty.recordMissing')}</p>
+        )}
         <p className="declared">{t('loyalty.declared')}</p>
         {!open && <p className="banner banner--warn">{t('loyalty.claimClosed')}</p>}
         {open && (

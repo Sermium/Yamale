@@ -103,9 +103,11 @@ func TestTheJewelersAreReadOncePerTTL(t *testing.T) {
 func TestAChainErrorIsNotCached(t *testing.T) {
 	biz := testKey("biz")
 	s := testServer(t, activeJeweler("1", biz))
-	s.chain = fakeChain{err: errors.New("down")}
+	s.chain = fakeChain{err: errors.New(`Get "http://10.0.0.7:1317/blockchain/jewel": down`)}
 	r := sign(t, request("POST", "/v1/files", pngBytes), biz, "file", hashHex(pngBytes), testNow.Unix())
-	require.Equal(t, http.StatusBadGateway, serve(s, r).Code)
+	got := serve(s, r)
+	require.Equal(t, http.StatusBadGateway, got.Code)
+	require.NotContains(t, got.Body.String(), "10.0.0.7", "the node's address stays in the log")
 	s.chain = fakeChain{js: []Jeweler{activeJeweler("1", biz)}}
 	r = sign(t, request("POST", "/v1/files", pngBytes), biz, "file", hashHex(pngBytes), testNow.Unix())
 	require.Equal(t, http.StatusCreated, serve(s, r).Code)
