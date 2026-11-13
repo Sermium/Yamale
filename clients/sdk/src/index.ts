@@ -359,3 +359,9 @@ export {
   redeemJewelBenefit, setJewelStaff, vetoJewelReassignment, completeJewelReassignment, grantStaffFees,
   type VoucherFields, type VoucherCode,
 } from './jewel.ts';
+export { setRpcBase, abciQuery, decoded, chainHead, txSearch, type Outcome, type ChainHead, type TxHit, type TxEvent } from './abci.ts';
+export {
+  readJewel, readJeweler, readJewelers, readJewelParams, findByInscription, jewelsHeldBy,
+  offerSearchQuery, offersAddressedTo, feeAllowanceExists, tokenToJewelId, isActive, roleOf, type JewelView,
+} from './jewelreads.ts';
+export { JewelerStatus, type Jewel, type Jeweler, type Benefit, type Offer, type Reassignment, type Amendment } from './generated/blockchain/jewel/v1/jewel.ts';
