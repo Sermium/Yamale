@@ -4,6 +4,12 @@ import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView
 import { AccountScreen, UnlockGate } from './account/Account.tsx';
 import { SessionProvider, useSession } from './account/session.tsx';
 import { ActionStatus, useAction } from './actions/useAction.tsx';
+import { Amend } from './atelier/Amend.tsx';
+import { Atelier } from './atelier/Atelier.tsx';
+import { AtelierJewel } from './atelier/AtelierJewel.tsx';
+import { Register } from './atelier/Register.tsx';
+import { useRole } from './atelier/role.ts';
+import { Staff } from './atelier/Staff.tsx';
 import { Claim } from './owner/Claim.tsx';
 import { MyJewels } from './owner/MyJewels.tsx';
 import { Owned } from './owner/Owned.tsx';
@@ -13,9 +19,12 @@ import { Proof } from './verify/Proof.tsx';
 import { Search } from './verify/Search.tsx';
 
 function TabBar() {
+  const session = useSession();
+  const [role] = useRole(session.address);
   const tabs = [
     { to: '/', end: true, label: t('loyalty.navVerify') },
     { to: '/mine', end: false, label: t('loyalty.navMine') },
+    ...(role.state === 'role' ? [{ to: '/atelier', end: false, label: t('loyalty.navAtelier') }] : []),
     { to: '/account', end: false, label: t('loyalty.navAccount') },
   ];
   return (
@@ -74,6 +83,11 @@ export function App() {
               <Route path="/mine" element={<MyJewels />} />
               <Route path="/mine/:jewel" element={<Owned />} />
               <Route path="/claim" element={<Claim />} />
+              <Route path="/atelier" element={<Atelier />} />
+              <Route path="/atelier/register" element={<Register />} />
+              <Route path="/atelier/staff" element={<Staff />} />
+              <Route path="/atelier/jewel/:jewel" element={<AtelierJewel />} />
+              <Route path="/atelier/jewel/:jewel/amend" element={<Amend />} />
               <Route path="/account" element={<AccountScreen />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

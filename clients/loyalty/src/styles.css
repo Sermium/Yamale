@@ -126,3 +126,12 @@
 .linkshare__qr { justify-self: center; padding: var(--sp-2); background: #ffffff; border-radius: var(--radius); }
 .linkshare__qr svg { display: block; }
 .voucher { justify-items: center; text-align: center; }
+
+.stone-row { display: grid; grid-template-columns: 1fr 5rem 4.5rem auto; gap: var(--sp-1); align-items: center; }
+.stone-row .bigfield { font-size: 1rem; padding: 0.5rem; }
+.hint--bad { color: var(--bad); }
+textarea.bigfield { resize: vertical; font: inherit; }
+fieldset.stack { min-width: 0; margin: 0; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); }
+fieldset.stack legend { padding: 0 var(--sp-1); }
+.staff-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+.staff-row .inscription { overflow-wrap: anywhere; }

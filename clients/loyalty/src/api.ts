@@ -64,3 +64,24 @@ export async function requestSponsorship(key: Uint8Array, address: string, chain
     return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+/**
+ * Store a file under its fingerprint. The request is signed with the staff
+ * member's key at once and the key is kept by nobody. A 503 means the API is
+ * busy with other uploads and says nothing about this file: retry it.
+ */
+export async function uploadFile(key: Uint8Array, bytes: Uint8Array, chainId: string):
+  Promise<{ ok: true; hash: string } | { ok: false; status: number; error: string }> {
+  const hash = sha256Hex(bytes);
+  try {
+    const res = await fetch(`${API}/v1/files`, {
+      method: 'POST', headers: signedHeaders(key, 'file', chainId, hash), body: bytes as Uint8Array<ArrayBuffer>,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, status: res.status, error: String(body.error ?? '') };
+    if (body.hash !== hash) return { ok: false, status: 500, error: 'the API stored different bytes' };
+    return { ok: true, hash };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
