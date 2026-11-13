@@ -44,3 +44,23 @@ func TestAProfileIsChecked(t *testing.T) {
 	}
 	require.Equal(t, http.StatusNotFound, serve(s, request("GET", "/v1/jewelers/1/profile", nil)).Code)
 }
+
+func TestASuspendedJewelerCannotChangeItsLook(t *testing.T) {
+	biz := testKey("biz")
+	j := activeJeweler("1", biz)
+	j.Status = "JEWELER_SUSPENDED"
+	s := testServer(t, j)
+	body := []byte(`{"logo":"","colour":"#12253f","accent":"#a87b3c"}`)
+	w := serve(s, sign(t, request("PUT", "/v1/jewelers/1/profile", body), biz, "profile", "1."+hashHex(body), testNow.Unix()))
+	require.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
+	require.Equal(t, http.StatusNotFound, serve(s, request("GET", "/v1/jewelers/1/profile", nil)).Code)
+}
+
+func TestAProfileIsServedWithNosniff(t *testing.T) {
+	biz := testKey("biz")
+	s := testServer(t, activeJeweler("1", biz))
+	body := []byte(`{"logo":"","colour":"#12253f","accent":"#a87b3c"}`)
+	require.Equal(t, http.StatusOK, serve(s, sign(t, request("PUT", "/v1/jewelers/1/profile", body), biz, "profile", "1."+hashHex(body), testNow.Unix())).Code)
+	got := serve(s, request("GET", "/v1/jewelers/1/profile", nil))
+	require.Equal(t, "nosniff", got.Header().Get("X-Content-Type-Options"))
+}

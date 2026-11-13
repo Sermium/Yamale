@@ -100,11 +100,11 @@ func (s *server) handleApply(w http.ResponseWriter, r *http.Request) {
 	name := fmt.Sprintf("%d-%s.json", s.now().Unix(), hash[:12])
 	spool := filepath.Join(s.dir, "applications")
 	if err := os.MkdirAll(spool, 0o750); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	if err := writeAtomically(filepath.Join(spool, name), out); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]bool{"received": true})
@@ -122,7 +122,7 @@ func (s *server) handleApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, err := os.ReadDir(filepath.Join(s.dir, "applications"))
 	if err != nil && !os.IsNotExist(err) {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	list := []spooled{}

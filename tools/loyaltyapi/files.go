@@ -111,12 +111,12 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	filesDir := filepath.Join(s.dir, "files")
 	if err := os.MkdirAll(filesDir, 0o750); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	tmp, err := os.CreateTemp(filesDir, ".upload-*")
 	if err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	defer os.Remove(tmp.Name()) // a no-op once renamed into place
@@ -137,7 +137,7 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	ctype, err := sniffFile(tmp.Name(), size)
 	if err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	if ctype == "" {
@@ -151,15 +151,15 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	if err := writeAtomically(path+".type", []byte(ctype)); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"hash": hash})

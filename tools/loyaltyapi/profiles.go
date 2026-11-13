@@ -44,6 +44,7 @@ func (s *server) handleProfileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=60")
 	_, _ = w.Write(body)
 }
@@ -97,13 +98,17 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusForbidden, "only the jeweler's business account sets its profile")
 		return
 	}
+	if !j.Active() {
+		refuse(w, http.StatusForbidden, "a suspended jeweler cannot change its look")
+		return
+	}
 	stored, _ := json.Marshal(p)
 	if err := os.MkdirAll(filepath.Dir(s.profilePath(id)), 0o750); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	if err := writeAtomically(s.profilePath(id), stored); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)

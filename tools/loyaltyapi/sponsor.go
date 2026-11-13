@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -86,7 +87,7 @@ func (s *server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 
 	ledger, err := s.readLedger()
 	if err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	since := s.now().Add(-24 * time.Hour).Unix()
@@ -108,13 +109,14 @@ func (s *server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := s.granter.Grant(r.Context(), address)
 	if err != nil && !errors.Is(err, errAlreadyGranted) {
-		refuse(w, http.StatusBadGateway, "the grant did not go through: "+err.Error())
+		log.Printf("loyaltyapi: grant failed: %v", err)
+		refuse(w, http.StatusBadGateway, "the grant did not go through; try again later")
 		return
 	}
 	ledger = append(ledger, sponsorRecord{Address: address, Tx: tx, At: s.now().Unix()})
 	out, _ := json.MarshalIndent(ledger, "", " ")
 	if err := writeAtomically(s.ledgerPath(), out); err != nil {
-		refuse(w, http.StatusInternalServerError, err.Error())
+		serverFault(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"granted": true, "tx": tx, "granter": s.granter.Address()})

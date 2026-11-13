@@ -123,6 +123,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// serverFault logs the detail where the operator reads it and tells the client
+// only that the server failed: OS errors carry the server's own paths.
+func serverFault(w http.ResponseWriter, err error) {
+	log.Printf("loyaltyapi: %v", err)
+	refuse(w, http.StatusInternalServerError, "the server could not complete that; try again later")
+}
+
 func refuse(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
