@@ -40,6 +40,25 @@ export async function fetchProfile(jewelerId: string): Promise<JewelerProfile | 
   }
 }
 
+export type ProfileRead =
+  | { state: 'loaded'; profile: JewelerProfile }
+  | { state: 'none' }
+  | { state: 'failed'; detail: string };
+
+/** Like fetchProfile, but a missing profile (404) is told apart from a failure to read one. */
+export async function readProfile(jewelerId: string): Promise<ProfileRead> {
+  try {
+    const res = await fetch(`${API}/v1/jewelers/${jewelerId}/profile`);
+    if (res.status === 404) return { state: 'none' };
+    if (!res.ok) return { state: 'failed', detail: `${res.status}` };
+    const p = (await res.json()) as JewelerProfile;
+    if (typeof p.colour !== 'string' || typeof p.accent !== 'string') return { state: 'failed', detail: 'unreadable profile' };
+    return { state: 'loaded', profile: { logo: String(p.logo ?? ''), colour: p.colour, accent: p.accent } };
+  } catch (err) {
+    return { state: 'failed', detail: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** The platform's fee granter, or null when sponsoring is off or the API is down. */
 export async function sponsorInfo(): Promise<string | null> {
   try {

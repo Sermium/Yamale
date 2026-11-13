@@ -71,9 +71,9 @@ export function Redeem() {
     try {
       const [view, head] = await Promise.all([readJewel(code.voucher.jewelId), chainHead()]);
       if (!view.ok || !head.ok) { say({ kind: 'refused', key: 'loyalty.problemUnreachable' }); return; }
-      const benefit = view.value.benefits.find((b) => b.id === code.voucher.benefitId && b.jewelId === view.value.jewel.id);
+      const benefit = view.value.benefits.find((b) => b.id === code.voucher.benefitId);
       const verdict = checkRedeem({
-        benefit, jewelerId: jeweler.id, signer: voucherSigner(code, CHAIN_ID), owner: view.value.owner,
+        benefit, voucherJewelId: code.voucher.jewelId, jewelerId: jeweler.id, signer: voucherSigner(code, CHAIN_ID), owner: view.value.owner,
         codeExpiresAt: Number(code.voucher.expiresAt), stolen: view.value.jewel.stolen, now: head.value.time,
       });
       if (!verdict.ok) { say({ kind: 'refused', key: verdict.key }); return; }

@@ -3,6 +3,7 @@ import { attachJewelBenefit, t, type JewelView } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
+import { kindProblem } from './rules.ts';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { BenefitList } from '../verify/JewelPage.tsx';
 
@@ -20,10 +21,12 @@ export function AttachBenefit({ view, business, now, onChange }:
   const [action, run] = useAction();
   const [kind, setKind] = useState('cleaning');
   const [custom, setCustom] = useState('');
-  const [allowance, setAllowance] = useState(2);
+  const [allowanceText, setAllowanceText] = useState('2');
   const [period, setPeriod] = useState(31_536_000);
   const [until, setUntil] = useState('');
+  const allowance = Math.min(100, Math.max(1, Math.floor(Number(allowanceText)) || 1));
   const finalKind = kind === 'custom' ? custom.trim() : kind;
+  const kindIssue = kind === 'custom' ? kindProblem(custom) : null;
   const expiresAt = until ? Math.floor(Date.parse(`${until}T23:59:59Z`) / 1000) : 0;
   const pastEnd = until !== '' && !(expiresAt > now);
   return (
@@ -36,16 +39,18 @@ export function AttachBenefit({ view, business, now, onChange }:
         </select>
         {kind === 'custom' && <input className="bigfield" maxLength={80} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label={t('loyalty.benefitOther')} />}
         <label className="y-label" htmlFor="ballow">{t('loyalty.benefitHowMany')}</label>
-        <input id="ballow" className="bigfield num" type="number" min={1} max={100} value={allowance}
-               onChange={(e) => setAllowance(Math.min(100, Math.max(1, Math.floor(Number(e.target.value)) || 1)))} />
+        <input id="ballow" className="bigfield num" type="number" min={1} max={100} value={allowanceText}
+               onChange={(e) => setAllowanceText(e.target.value)} onBlur={() => setAllowanceText(String(allowance))} />
         <label className="y-label" htmlFor="bperiod">{t('loyalty.benefitEvery')}</label>
         <select id="bperiod" className="bigfield" value={period} onChange={(e) => setPeriod(Number(e.target.value))}>
           {PERIODS.map((p) => <option key={p.seconds} value={p.seconds}>{t(p.key)}</option>)}
         </select>
         <label className="y-label" htmlFor="buntil">{t('loyalty.benefitUntilLabel')}</label>
         <input id="buntil" className="bigfield" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
+        {kindIssue === 'long' && <p className="note note--warn" role="alert">{t('loyalty.benefitKindLong')}</p>}
+        {kindIssue === 'empty' && <p className="hint">{t('loyalty.benefitKindEmpty')}</p>}
         {pastEnd && <p className="note note--warn" role="alert">{t('loyalty.benefitEndPast')}</p>}
-        <button type="button" className="btn btn--primary" disabled={action.kind === 'busy' || finalKind === '' || pastEnd} onClick={async () => {
+        <button type="button" className="btn btn--primary" disabled={action.kind === 'busy' || kindIssue !== null || pastEnd} onClick={async () => {
           if (await run(() => session.submit([attachJewelBenefit(session.address!, view.jewel.id, finalKind, allowance, period, expiresAt)], business))) onChange();
         }}>{t('loyalty.attachBenefit')}</button>
         <ActionStatus state={action} done={t('loyalty.benefitAttached')} />

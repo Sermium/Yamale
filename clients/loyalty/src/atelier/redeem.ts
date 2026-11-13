@@ -9,7 +9,9 @@ import { benefitState } from '../verify/history.ts';
 
 export interface RedeemInput {
   /** The benefit the code names, as the chain holds it, or undefined when there is none. */
-  benefit: { jewelerId: string; allowance: number; period: string; expiresAt: string; uses: string[] } | undefined;
+  benefit: { jewelId: string; jewelerId: string; allowance: number; period: string; expiresAt: string; uses: string[] } | undefined;
+  /** The jewel the code names. */
+  voucherJewelId: string;
   /** The staff member's jeweler. */
   jewelerId: string;
   /** Who signed the code, or null when the signature is not good. */
@@ -27,10 +29,15 @@ export type RedeemCheck =
   | { ok: true; left: number }
   | { ok: false; key: string };
 
+/** The chain refuses a code that expires more than this long after the block that redeems it (VoucherMaxTtl). */
+export const VOUCHER_MAX_TTL = 300;
+
 export function checkRedeem(i: RedeemInput): RedeemCheck {
   if (!i.benefit || i.benefit.jewelerId !== i.jewelerId) return { ok: false, key: 'loyalty.voucherNotOurs' };
+  if (i.benefit.jewelId !== i.voucherJewelId) return { ok: false, key: 'loyalty.voucherWrongJewel' };
   if (i.signer === null || i.signer !== i.owner) return { ok: false, key: 'loyalty.voucherNotOwner' };
   if (i.codeExpiresAt <= i.now) return { ok: false, key: 'loyalty.voucherStale' };
+  if (i.codeExpiresAt > i.now + VOUCHER_MAX_TTL) return { ok: false, key: 'loyalty.voucherTooFar' };
   if (i.stolen) return { ok: false, key: 'loyalty.err.stolen' };
   // The staff member is active (the screen requires it), so the issuer is honouring its benefits.
   const s = benefitState(i.benefit, true, i.now);

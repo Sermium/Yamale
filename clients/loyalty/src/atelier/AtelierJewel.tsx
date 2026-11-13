@@ -19,7 +19,7 @@ export function AtelierJewel() {
   const session = useSession();
   const [role] = useRole(session.address);
   const [view, reload] = useLoad(() => (valid ? readJewel(id) : Promise.resolve(NO_SUCH)), [id, valid]);
-  const [head] = useLoad(() => chainHead(), []);
+  const [head, reloadHead] = useLoad(() => chainHead(), []);
   const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
 
   const bar = <AppBar title={t('loyalty.atelierTitle')} eyebrow="" back />;
@@ -68,7 +68,7 @@ export function AtelierJewel() {
         )}
         <Section title={t('loyalty.benefits')}>
           <JewelBenefits view={v} active={role.active} now={now} />
-          {canAct && <AttachBenefit view={v} business={role.jeweler.business} now={now} onChange={reload} />}
+          {canAct && <AttachBenefit view={v} business={role.jeweler.business} now={now} onChange={() => { reload(); reloadHead(); }} />}
         </Section>
       </main>
     </>

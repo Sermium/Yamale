@@ -2199,6 +2199,16 @@ export const en = {
   'loyalty.applyFailed': "The application could not be sent. The detail is under Advanced.",
   'loyalty.redeemLink': "Redeem a benefit code",
   'loyalty.lookLink': "How your jewels look",
+  'loyalty.voucherTooFar': "This code claims to last longer than the register allows. Ask the owner to show a fresh one.",
+  'loyalty.voucherWrongJewel': "This code names a different jewel than the benefit it points to.",
+  'loyalty.benefitKindLong': "That wording is too long. Shorten it.",
+  'loyalty.benefitKindEmpty': "Say what the benefit offers.",
+  'loyalty.applyCheck.name': "Check the name of the jewelry (at least 2 characters).",
+  'loyalty.applyCheck.contact': "Check your name (at least 2 characters).",
+  'loyalty.applyCheck.email': "Check the email address.",
+  'loyalty.applyCheck.phone': "The phone number is too long.",
+  'loyalty.applyCheck.country': "The country is two letters, e.g. SN.",
+  'loyalty.applyCheck.message': "The message is too long.",
 };
 
 export const fr = {
@@ -4359,6 +4369,16 @@ export const fr = {
   'loyalty.applyFailed': "La demande n'a pas pu être envoyée. Le détail est sous Avancé.",
   'loyalty.redeemLink': "Utiliser un code d'avantage",
   'loyalty.lookLink': "L'apparence de vos bijoux",
+  'loyalty.voucherTooFar': "Ce code prétend durer plus longtemps que ce que le registre permet. Demandez au propriétaire d'en afficher un nouveau.",
+  'loyalty.voucherWrongJewel': "Ce code désigne un autre bijou que celui de l'avantage visé.",
+  'loyalty.benefitKindLong': "Cette formulation est trop longue. Raccourcissez-la.",
+  'loyalty.benefitKindEmpty': "Dites ce que l'avantage offre.",
+  'loyalty.applyCheck.name': "Vérifiez le nom de la maison (au moins 2 caractères).",
+  'loyalty.applyCheck.contact': "Vérifiez votre nom (au moins 2 caractères).",
+  'loyalty.applyCheck.email': "Vérifiez l'adresse e-mail.",
+  'loyalty.applyCheck.phone': "Le numéro de téléphone est trop long.",
+  'loyalty.applyCheck.country': "Le pays s'écrit en deux lettres, ex. SN.",
+  'loyalty.applyCheck.message': "Le message est trop long.",
 };
 
 export const pt = {
@@ -6518,6 +6538,16 @@ export const pt = {
   'loyalty.applyFailed': "Não foi possível enviar o pedido. O detalhe está em Avançado.",
   'loyalty.redeemLink': "Usar um código de vantagem",
   'loyalty.lookLink': "O aspeto das suas joias",
+  'loyalty.voucherTooFar': "Este código diz durar mais do que o registo permite. Peça ao proprietário que mostre um novo.",
+  'loyalty.voucherWrongJewel': "Este código indica outra joia diferente da da vantagem a que se refere.",
+  'loyalty.benefitKindLong': "Essa formulação é demasiado longa. Encurte-a.",
+  'loyalty.benefitKindEmpty': "Diga o que a vantagem oferece.",
+  'loyalty.applyCheck.name': "Verifique o nome da joalharia (pelo menos 2 caracteres).",
+  'loyalty.applyCheck.contact': "Verifique o seu nome (pelo menos 2 caracteres).",
+  'loyalty.applyCheck.email': "Verifique o endereço de e-mail.",
+  'loyalty.applyCheck.phone': "O número de telefone é demasiado longo.",
+  'loyalty.applyCheck.country': "O país são duas letras, p. ex. SN.",
+  'loyalty.applyCheck.message': "A mensagem é demasiado longa.",
 };
 
 export const sw = {
@@ -8676,6 +8706,16 @@ export const sw = {
   'loyalty.applyFailed': "Ombi halikuweza kutumwa. Maelezo yako chini ya Kina zaidi.",
   'loyalty.redeemLink': "Tumia msimbo wa manufaa",
   'loyalty.lookLink': "Jinsi vito vyako vinavyoonekana",
+  'loyalty.voucherTooFar': "Msimbo huu unadai kudumu zaidi ya inavyoruhusiwa na daftari. Mwombe mmiliki aonyeshe mpya.",
+  'loyalty.voucherWrongJewel': "Msimbo huu unataja kito tofauti na kile cha manufaa inayolengwa.",
+  'loyalty.benefitKindLong': "Maneno hayo ni marefu mno. Yafupishe.",
+  'loyalty.benefitKindEmpty': "Eleza manufaa inatoa nini.",
+  'loyalty.applyCheck.name': "Angalia jina la duka la vito (angalau herufi 2).",
+  'loyalty.applyCheck.contact': "Angalia jina lako (angalau herufi 2).",
+  'loyalty.applyCheck.email': "Angalia anwani ya barua pepe.",
+  'loyalty.applyCheck.phone': "Nambari ya simu ni ndefu mno.",
+  'loyalty.applyCheck.country': "Nchi ni herufi mbili, mf. SN.",
+  'loyalty.applyCheck.message': "Ujumbe ni mrefu mno.",
 };
 
 // Arabic drives the right-to-left path. Every logical property in the
@@ -10841,6 +10881,16 @@ export const ar = {
   'loyalty.applyFailed': "تعذّر إرسال الطلب. التفاصيل ضمن متقدّم.",
   'loyalty.redeemLink': "استخدام رمز ميزة",
   'loyalty.lookLink': "مظهر قطعك",
+  'loyalty.voucherTooFar': "يدّعي هذا الرمز أنه يدوم أطول مما يسمح به السجل. اطلب من المالك عرض رمز جديد.",
+  'loyalty.voucherWrongJewel': "يشير هذا الرمز إلى قطعة غير قطعة الميزة المقصودة.",
+  'loyalty.benefitKindLong': "هذه الصياغة طويلة جدًا. اختصرها.",
+  'loyalty.benefitKindEmpty': "اذكر ما تقدّمه الميزة.",
+  'loyalty.applyCheck.name': "تحقق من اسم الدار (حرفان على الأقل).",
+  'loyalty.applyCheck.contact': "تحقق من اسمك (حرفان على الأقل).",
+  'loyalty.applyCheck.email': "تحقق من عنوان البريد الإلكتروني.",
+  'loyalty.applyCheck.phone': "رقم الهاتف طويل جدًا.",
+  'loyalty.applyCheck.country': "البلد حرفان، مثل SN.",
+  'loyalty.applyCheck.message': "الرسالة طويلة جدًا.",
 };
 
 /** Locales shipped today. Tier 2 arrives through contribution. */

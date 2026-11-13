@@ -5,8 +5,8 @@ import { checkRedeem, type RedeemInput } from './redeem.ts';
 
 const NOW = 2_000_000;
 const base: RedeemInput = {
-  benefit: { jewelerId: '1', allowance: 2, period: '31536000', expiresAt: '0', uses: [] },
-  jewelerId: '1', signer: 'yml1owner', owner: 'yml1owner', codeExpiresAt: NOW + 200, stolen: false, now: NOW,
+  benefit: { jewelId: '7', jewelerId: '1', allowance: 2, period: '31536000', expiresAt: '0', uses: [] },
+  voucherJewelId: '7', jewelerId: '1', signer: 'yml1owner', owner: 'yml1owner', codeExpiresAt: NOW + 200, stolen: false, now: NOW,
 };
 const key = (over: Partial<RedeemInput>) => {
   const r = checkRedeem({ ...base, ...over });
@@ -45,4 +45,13 @@ test('an ended benefit and a used-up one are told apart', () => {
 test('uses older than the period no longer count', () => {
   const old = String(NOW - 31_536_000 - 5);
   assert.deepEqual(checkRedeem({ ...base, benefit: { ...base.benefit!, uses: [old, String(NOW - 50)] } }), { ok: true, left: 1 });
+});
+
+test("a code that outlives the chain's ceiling is refused; exactly at it is accepted", () => {
+  assert.equal(key({ codeExpiresAt: NOW + 300 }), 'ok');
+  assert.equal(key({ codeExpiresAt: NOW + 301 }), 'loyalty.voucherTooFar');
+});
+
+test('a code naming another jewel than the benefit belongs to has its own message', () => {
+  assert.equal(key({ voucherJewelId: '8' }), 'loyalty.voucherWrongJewel');
 });

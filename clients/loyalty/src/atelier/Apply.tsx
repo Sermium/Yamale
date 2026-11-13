@@ -12,6 +12,7 @@ import { useSession } from '../account/session.tsx';
 import { submitApplication } from '../api.ts';
 import { CHAIN_ID } from '../config.ts';
 import { AppBar } from '../ui.tsx';
+import { applicationProblem } from './rules.ts';
 import { FailureNote } from './FailureNote.tsx';
 
 export function Apply() {
@@ -20,11 +21,12 @@ export function Apply() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState<{ text: string; raw: string } | null>(null);
+  const problem = applicationProblem(f);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || problem) return;
     setBusy(true); setFailed(null);
     try {
       const out = await submitApplication(session.withKey((k) => k),
@@ -50,15 +52,16 @@ export function Apply() {
                 <div key={k} className="stack">
                   <label className="y-label" htmlFor={`a-${k}`}>{t(`loyalty.apply.${k}`)}</label>
                   <input id={`a-${k}`} className="bigfield" value={f[k]} onChange={set(k)}
-                         type={k === 'email' ? 'email' : 'text'} maxLength={k === 'country' ? 2 : k === 'name' || k === 'contact' ? 120 : 254}
+                         type={k === 'email' ? 'email' : 'text'} maxLength={k === 'country' ? 2 : k === 'name' || k === 'contact' ? 120 : k === 'phone' ? 40 : 254}
                          minLength={k === 'country' || k === 'name' || k === 'contact' ? 2 : undefined} pattern={k === 'country' ? '[A-Za-z]{2}' : undefined}
                          autoCapitalize={k === 'country' ? 'characters' : undefined} required={k !== 'phone'} />
                 </div>
               ))}
               <label className="y-label" htmlFor="a-message">{t('loyalty.apply.message')}</label>
               <textarea id="a-message" className="bigfield" rows={4} maxLength={2000} value={f.message} onChange={set('message')} />
+              {problem && Object.values(f).some((v) => v !== '') && <p className="hint">{t(`loyalty.applyCheck.${problem}`)}</p>}
               {failed && <FailureNote text={failed.text} raw={failed.raw} />}
-              <button className="btn btn--primary" disabled={busy}>{t('loyalty.applyButton')}</button>
+              <button className="btn btn--primary" disabled={busy || problem !== null}>{t('loyalty.applyButton')}</button>
             </form>
           )}
         </UnlockGate>

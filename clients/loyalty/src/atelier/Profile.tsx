@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
-import { fetchProfile, saveProfile } from '../api.ts';
+import { readProfile, saveProfile } from '../api.ts';
 import { CHAIN_ID } from '../config.ts';
 import { AppBar, Loading, Problem, Section } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { VerifiedImage } from '../verify/Photos.tsx';
 import { FailureNote } from './FailureNote.tsx';
+import { canSaveLook, mayApplyLoad, type LookLoad } from './rules.ts';
 import { useRole } from './role.ts';
 import { uploadLogo } from './uploads.ts';
 
@@ -23,12 +24,22 @@ export function Profile() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState<Note>(null);
+  const [load, setLoad] = useState<LookLoad>('loading');
+  const [loadDetail, setLoadDetail] = useState('');
+  // Once the user has chosen something, a late read of the stored look must not overwrite it.
+  const edited = useRef(false);
   const id = role.state === 'role' ? role.jeweler.id : null;
 
   useEffect(() => {
     if (!id) return;
     let live = true;
-    fetchProfile(id).then((p) => { if (live && p) { setLogo(p.logo); setColour(p.colour); setAccent(p.accent); } });
+    setLoad('loading');
+    readProfile(id).then((r) => {
+      if (!live) return;
+      if (r.state === 'failed') { setLoadDetail(r.detail); setLoad('failed'); return; }
+      if (r.state === 'loaded' && mayApplyLoad(edited.current)) { setLogo(r.profile.logo); setColour(r.profile.colour); setAccent(r.profile.accent); }
+      setLoad(r.state);
+    });
     return () => { live = false; };
   }, [id]);
 
@@ -39,13 +50,20 @@ export function Profile() {
     return <>{bar('')}<main className="y-screen"><p className="note">{t('loyalty.businessOnly')}</p></main></>;
   }
   const jeweler = role.jeweler;
+  if (load === 'failed') {
+    return <>{bar(jeweler.name)}<main className="y-screen"><Problem outcome={{ reason: 'unreachable', detail: loadDetail }} /></main></>;
+  }
+  if (load === 'loading') return <>{bar(jeweler.name)}<main className="y-screen"><Loading /></main></>;
 
   async function chooseLogo(file: File | undefined) {
     if (!file) return;
+    edited.current = true;
     setBusy(true); setSaved(false); setFailed(null);
     try {
       const up = await uploadLogo(file, session.withKey);
       if (up.ok) setLogo(up.hash); else setFailed({ text: up.text, raw: up.raw });
+    } catch (e) {
+      setFailed({ text: t('loyalty.interrupted'), raw: e instanceof Error ? e.message : String(e) });
     } finally {
       setBusy(false);
     }
@@ -79,12 +97,12 @@ export function Profile() {
                    onChange={(e) => { void chooseLogo(e.target.files?.[0]); e.target.value = ''; }} />
           </Section>
           <Section title={t('loyalty.colours')}>
-            <label className="y-label">{t('loyalty.colourMain')} <input type="color" value={colour} onChange={(e) => { setColour(e.target.value); setSaved(false); }} /></label>
-            <label className="y-label">{t('loyalty.colourAccent')} <input type="color" value={accent} onChange={(e) => { setAccent(e.target.value); setSaved(false); }} /></label>
+            <label className="y-label">{t('loyalty.colourMain')} <input type="color" value={colour} onChange={(e) => { edited.current = true; setColour(e.target.value); setSaved(false); }} /></label>
+            <label className="y-label">{t('loyalty.colourAccent')} <input type="color" value={accent} onChange={(e) => { edited.current = true; setAccent(e.target.value); setSaved(false); }} /></label>
           </Section>
           {failed && <FailureNote text={failed.text} raw={failed.raw} />}
           {saved && <p className="banner banner--ok" role="status">{t('loyalty.lookSaved')}</p>}
-          <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void save()}>{t('loyalty.saveLook')}</button>
+          <button type="button" className="btn btn--primary" disabled={!canSaveLook(load, busy)} onClick={() => void save()}>{t('loyalty.saveLook')}</button>
         </UnlockGate>
       </main>
     </>
