@@ -42,6 +42,10 @@ export function AtelierJewel() {
       <main className="y-screen">
         <header className="jewel__mast"><h1 className="jewel__title">{title}</h1><Hallmark code={v.jewel.inscription} /></header>
         {record.state === 'ok' && <Gallery hashes={record.record.photos} alt={title} />}
+        {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('loyalty.recordMismatch')}</div>}
+        {(record.state === 'missing' || record.state === 'unreachable' || record.state === 'unreadable') && (
+          <p className="note">{t('loyalty.recordMissing')}</p>
+        )}
         <div className="actions">
           <Link className="btn" to={`/j/${v.jewel.jewelerId}/${v.jewel.id}`}>{t('loyalty.seePublicPage')}</Link>
           {canAct && v.jewel.amendments.length < 50 && (

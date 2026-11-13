@@ -10,7 +10,7 @@ import { VerifiedImage } from './Photos.tsx';
 import { currentRecordHash, useRecord } from './record.ts';
 
 /** `now` is the chain's block time: an offer past it is not on offer, though the chain still holds it. */
-export function JewelCard({ id, to, now, extra }: { id: string; to: string; now: number; extra?: ReactNode }) {
+export function JewelCard({ id, to, now, extra, onlyJeweler }: { id: string; to: string; now: number; extra?: ReactNode; onlyJeweler?: string }) {
   const [view] = useLoad(() => readJewel(id), [id]);
   useEffect(() => {
     if (view?.ok) forgetStaleLinks(id, liveClaimKey(view.value.offer, now));
@@ -18,6 +18,8 @@ export function JewelCard({ id, to, now, extra }: { id: string; to: string; now:
   const record = useRecord(view?.ok ? currentRecordHash(view.value.jewel) : null);
   if (!view) return <li className="y-card"><Loading /></li>;
   if (!view.ok) return null;
+  // A business account can hold jewels of other jewelers; a jeweler's stock is its own.
+  if (onlyJeweler && view.value.jewel.jewelerId !== onlyJeweler) return null;
   const title = record.state === 'ok' ? record.record.title : t('loyalty.jewelN', { id });
   const photo = record.state === 'ok' ? record.record.photos[0] : undefined;
   return (

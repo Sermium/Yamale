@@ -13,11 +13,13 @@ import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { recordUri } from '../config.ts';
 import { AppBar, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { currentRecordHash, encodeRecord, useRecord } from '../verify/record.ts';
+import { FailureNote } from './FailureNote.tsx';
 import { draftComplete, RecordForm, type Draft } from './RecordForm.tsx';
 import { useRole } from './role.ts';
 import { uploadPhoto, uploadRecord } from './uploads.ts';
 
 const MAX_NOTE = 500;
+const MAX_AMENDMENTS = 50;
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
 
 export function Amend() {
@@ -32,7 +34,8 @@ export function Amend() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [extra, setExtra] = useState<File[]>([]);
   const [note, setNote] = useState('');
-  const [failed, setFailed] = useState('');
+  const [failed, setFailed] = useState<{ text: string; raw: string } | null>(null);
+  const [stage, setStage] = useState<{ kind: 'photos'; n: number; of: number } | { kind: 'record' } | null>(null);
   const [working, setWorking] = useState(false);
   const [action, run] = useAction();
 
@@ -45,6 +48,7 @@ export function Amend() {
   }, [record, draft]);
 
   const bar = <AppBar title={t('loyalty.correctRecord')} eyebrow="" back />;
+  const capped = view?.ok && view.value.jewel.amendments.length >= MAX_AMENDMENTS;
   if (!valid) return <NotFound />;
   if (view && !view.ok) return <>{bar}<main className="y-screen"><Problem outcome={view} /></main></>;
   if (role.state === 'failed') return <>{bar}<main className="y-screen"><Problem outcome={role.outcome} /></main></>;
@@ -53,6 +57,7 @@ export function Amend() {
   if (role.state === 'role' && (!role.staff || !role.active)) {
     return <>{bar}<main className="y-screen"><p className="note">{t('loyalty.staffOnly')}</p></main></>;
   }
+  if (capped) return <>{bar}<main className="y-screen"><p className="note">{t('loyalty.amendCap')}</p></main></>;
   if (record.state === 'missing' || record.state === 'mismatch' || record.state === 'unreachable' || record.state === 'unreadable') {
     return <>{bar}<main className="y-screen"><p className="note note--warn" role="alert">{t('loyalty.recordUnreadable')}</p></main></>;
   }
@@ -65,23 +70,28 @@ export function Amend() {
   const room = Math.max(0, 12 - photos.length);
 
   async function submit() {
-    setFailed('');
+    setFailed(null);
     setWorking(true);
     try {
       const all = [...photos];
-      for (const f of extra) {
-        const up = await uploadPhoto(f, session.withKey);
-        if (!up.ok) { setFailed(up.text); return; }
+      for (let i = 0; i < extra.length; i++) {
+        setStage({ kind: 'photos', n: i + 1, of: extra.length });
+        const up = await uploadPhoto(extra[i]!, session.withKey);
+        if (!up.ok) { setFailed({ text: up.text, raw: up.raw }); return; }
         all.push(up.hash);
       }
+      setStage({ kind: 'record' });
       const bytes = encodeRecord({ version: 1, jewelerId: jeweler.id, inscription: base.inscription, ...draft!,
         photos: all.slice(0, 12), createdAt: new Date().toISOString() });
       const up = await uploadRecord(bytes, session.withKey);
-      if (!up.ok) { setFailed(up.text); return; }
+      if (!up.ok) { setFailed({ text: up.text, raw: up.raw }); return; }
       if (await run(() => session.submit([amendJewel(session.address!, id, up.hash, recordUri(up.hash), note.trim())], jeweler.business))) {
         navigate(`/atelier/jewel/${id}`, { replace: true });
       }
+    } catch (e) {
+      setFailed({ text: t('loyalty.interrupted'), raw: e instanceof Error ? e.message : String(e) });
     } finally {
+      setStage(null);
       setWorking(false);
     }
   }
@@ -104,8 +114,9 @@ export function Amend() {
             <textarea className="bigfield" rows={3} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('loyalty.correctionNote')} />
             <p className={`hint num${noteBytes > MAX_NOTE ? ' hint--bad' : ''}`}>{t('loyalty.noteBytes', { n: noteBytes, max: MAX_NOTE })}</p>
           </Section>
-          {working && action.kind !== 'busy' && <p className="loading" role="status">{t('loyalty.stepRecord')}</p>}
-          {failed && <p className="note note--warn" role="alert">{failed}</p>}
+          {working && action.kind !== 'busy' && stage?.kind === 'photos' && <p className="loading" role="status">{t('loyalty.stepPhotos', { n: stage.n, of: stage.of })}</p>}
+          {working && action.kind !== 'busy' && stage?.kind === 'record' && <p className="loading" role="status">{t('loyalty.stepRecord')}</p>}
+          {failed && <FailureNote text={failed.text} raw={failed.raw} />}
           <ActionStatus state={action} />
           <button type="button" className="btn btn--primary"
                   disabled={working || action.kind === 'busy' || note.trim() === '' || noteBytes > MAX_NOTE || !draftComplete(draft)}

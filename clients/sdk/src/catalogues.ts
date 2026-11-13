@@ -2128,7 +2128,7 @@ export const en = {
   'loyalty.removeStone': "Remove this stone",
   'loyalty.registerButton': "Register it",
   'loyalty.alreadyRegistered': "You already registered this code, as jewel no. {id}.",
-  'loyalty.uploadFailed': "A file could not be stored: {error}",
+  'loyalty.uploadFailed': "A file could not be stored.",
   'loyalty.uploadBusy': "The file store is busy with other uploads. Nothing was lost; press the button again in a moment.",
   'loyalty.photoUnreadable': "The photo {name} could not be read as an image.",
   'loyalty.recordUnreadable': "This jewel's current record could not be read, so it cannot be corrected from here right now. Try again in a moment.",
@@ -2154,6 +2154,9 @@ export const en = {
   'loyalty.addStaffExplain': "They show their account code from the Account tab. Your business pays the network fees for their work, and only for that.",
   'loyalty.addStaffButton': "Add to staff",
   'loyalty.staffLink': "Staff",
+  'loyalty.interrupted': "This was interrupted, probably because your account locked itself. Open it again and press the button again; files already stored are reused.",
+  'loyalty.amendCap': "This jewel's record has been corrected as many times as the register allows.",
+  'loyalty.staffReadFailed': "The register could not say whether this person's fee allowance exists, so nothing was changed. Try again in a moment.",
 };
 
 export const fr = {
@@ -4243,7 +4246,7 @@ export const fr = {
   'loyalty.removeStone': "Retirer cette pierre",
   'loyalty.registerButton': "L'enregistrer",
   'loyalty.alreadyRegistered': "Vous avez déjà enregistré ce code, comme bijou n° {id}.",
-  'loyalty.uploadFailed': "Un fichier n'a pas pu être enregistré : {error}",
+  'loyalty.uploadFailed': "Un fichier n'a pas pu être enregistré.",
   'loyalty.uploadBusy': "Le stockage des fichiers est occupé par d'autres envois. Rien n'est perdu ; appuyez à nouveau dans un instant.",
   'loyalty.photoUnreadable': "La photo {name} n'a pas pu être lue comme une image.",
   'loyalty.recordUnreadable': "La fiche actuelle de ce bijou n'a pas pu être lue ; elle ne peut donc pas être corrigée d'ici pour le moment. Réessayez dans un instant.",
@@ -4269,6 +4272,9 @@ export const fr = {
   'loyalty.addStaffExplain': "La personne montre son code de compte depuis l'onglet Compte. Votre maison paie les frais de réseau de son travail, et seulement ceux-là.",
   'loyalty.addStaffButton': "Ajouter au personnel",
   'loyalty.staffLink': "Personnel",
+  'loyalty.interrupted': "Cela a été interrompu, probablement parce que votre compte s'est verrouillé. Rouvrez-le et appuyez à nouveau sur le bouton ; les fichiers déjà enregistrés sont réutilisés.",
+  'loyalty.amendCap': "La fiche de ce bijou a été corrigée autant de fois que le registre le permet.",
+  'loyalty.staffReadFailed': "Le registre n'a pas pu dire si l'allocation de frais de cette personne existe ; rien n'a donc été modifié. Réessayez dans un instant.",
 };
 
 export const pt = {
@@ -6357,7 +6363,7 @@ export const pt = {
   'loyalty.removeStone': "Remover esta pedra",
   'loyalty.registerButton': "Registá-la",
   'loyalty.alreadyRegistered': "Já registou este código, como joia n.º {id}.",
-  'loyalty.uploadFailed': "Não foi possível guardar um ficheiro: {error}",
+  'loyalty.uploadFailed': "Não foi possível guardar um ficheiro.",
   'loyalty.uploadBusy': "O armazenamento de ficheiros está ocupado com outros envios. Nada se perdeu; carregue de novo daqui a pouco.",
   'loyalty.photoUnreadable': "Não foi possível ler a fotografia {name} como imagem.",
   'loyalty.recordUnreadable': "Não foi possível ler o registo atual desta joia, por isso não pode ser corrigido a partir daqui neste momento. Tente novamente daqui a pouco.",
@@ -6383,6 +6389,9 @@ export const pt = {
   'loyalty.addStaffExplain': "A pessoa mostra o seu código de conta no separador Conta. A sua casa paga as taxas de rede do trabalho dela, e só essas.",
   'loyalty.addStaffButton': "Adicionar ao pessoal",
   'loyalty.staffLink': "Pessoal",
+  'loyalty.interrupted': "Isto foi interrompido, provavelmente porque a sua conta se bloqueou. Abra-a de novo e carregue outra vez no botão; os ficheiros já guardados são reutilizados.",
+  'loyalty.amendCap': "O registo desta joia foi corrigido tantas vezes quantas o registo permite.",
+  'loyalty.staffReadFailed': "O registo não conseguiu dizer se o subsídio de taxas desta pessoa existe, por isso nada foi alterado. Tente novamente daqui a pouco.",
 };
 
 export const sw = {
@@ -8470,7 +8479,7 @@ export const sw = {
   'loyalty.removeStone': "Ondoa jiwe hili",
   'loyalty.registerButton': "Kisajili",
   'loyalty.alreadyRegistered': "Tayari ulisajili msimbo huu, kama kito namba {id}.",
-  'loyalty.uploadFailed': "Faili moja haikuweza kuhifadhiwa: {error}",
+  'loyalty.uploadFailed': "Faili moja haikuweza kuhifadhiwa.",
   'loyalty.uploadBusy': "Hifadhi ya faili ina shughuli na upakiaji mwingine. Hakuna kilichopotea; bonyeza kitufe tena baada ya muda mfupi.",
   'loyalty.photoUnreadable': "Picha {name} haikuweza kusomwa kama picha.",
   'loyalty.recordUnreadable': "Rekodi ya sasa ya kito hiki haikuweza kusomwa, kwa hiyo haiwezi kusahihishwa kutoka hapa kwa sasa. Jaribu tena baada ya muda mfupi.",
@@ -8496,6 +8505,9 @@ export const sw = {
   'loyalty.addStaffExplain': "Mtu huyo anaonyesha msimbo wa akaunti yake kutoka kichupo cha Akaunti. Biashara yako hulipa ada za mtandao za kazi yake, na hizo tu.",
   'loyalty.addStaffButton': "Ongeza kwa wafanyakazi",
   'loyalty.staffLink': "Wafanyakazi",
+  'loyalty.interrupted': "Hii ilikatizwa, labda kwa sababu akaunti yako ilijifunga yenyewe. Ifungue tena na bonyeza kitufe tena; faili zilizohifadhiwa tayari zitatumika tena.",
+  'loyalty.amendCap': "Rekodi ya kito hiki imesahihishwa mara nyingi kadri daftari linavyoruhusu.",
+  'loyalty.staffReadFailed': "Daftari halikuweza kusema kama posho ya ada ya mtu huyu ipo, kwa hiyo hakuna kilichobadilishwa. Jaribu tena baada ya muda mfupi.",
 };
 
 // Arabic drives the right-to-left path. Every logical property in the
@@ -10590,7 +10602,7 @@ export const ar = {
   'loyalty.removeStone': "إزالة هذا الحجر",
   'loyalty.registerButton': "تسجيلها",
   'loyalty.alreadyRegistered': "سبق أن سجّلت هذا الرمز، كمجوهرة رقم {id}.",
-  'loyalty.uploadFailed': "تعذّر حفظ ملف: {error}",
+  'loyalty.uploadFailed': "تعذّر حفظ ملف.",
   'loyalty.uploadBusy': "مخزن الملفات مشغول بعمليات رفع أخرى. لم يضع شيء؛ اضغط الزر مرة أخرى بعد قليل.",
   'loyalty.photoUnreadable': "تعذّرت قراءة الصورة {name} كصورة.",
   'loyalty.recordUnreadable': "تعذّرت قراءة السجل الحالي لهذه المجوهرة، لذا لا يمكن تصحيحه من هنا الآن. حاول مرة أخرى بعد قليل.",
@@ -10616,6 +10628,9 @@ export const ar = {
   'loyalty.addStaffExplain': "يعرض الشخص رمز حسابه من تبويب الحساب. تدفع منشأتك رسوم الشبكة الخاصة بعمله، وهذه فقط.",
   'loyalty.addStaffButton': "إضافة إلى الموظفين",
   'loyalty.staffLink': "الموظفون",
+  'loyalty.interrupted': "تمت المقاطعة، على الأرجح لأن حسابك أُقفل من تلقاء نفسه. افتحه مرة أخرى واضغط الزر مرة أخرى؛ يُعاد استخدام الملفات المحفوظة.",
+  'loyalty.amendCap': "تم تصحيح سجل هذه المجوهرة بأقصى عدد مرات يسمح به السجل.",
+  'loyalty.staffReadFailed': "لم يستطع السجل تحديد ما إذا كان بدل الرسوم لهذا الشخص موجودًا، لذا لم يتغير شيء. حاول مرة أخرى بعد قليل.",
 };
 
 /** Locales shipped today. Tier 2 arrives through contribution. */

@@ -15,6 +15,7 @@ export function Atelier() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [missing, setMissing] = useState(false);
+  const [findFailed, setFindFailed] = useState<{ reason: string; detail: string } | null>(null);
   const business = role.state === 'role' ? role.jeweler.business : null;
   const [stock] = useLoad(() => (business ? jewelsHeldBy(business) : Promise.resolve(NO_STOCK)), [business]);
   // An offer past the chain's clock is no offer: the cards wait for that clock, not the phone's.
@@ -42,8 +43,10 @@ export function Atelier() {
     e.preventDefault();
     const n = normaliseInscription(code);
     if (!n) return;
+    setFindFailed(null);
     const out = await findByInscription(n);
-    const mine = out.ok ? out.value.find((x) => x.jewelerId === j.id) : undefined;
+    if (!out.ok) { setFindFailed(out); return; }
+    const mine = out.value.find((x) => x.jewelerId === j.id);
     if (mine) navigate(`/atelier/jewel/${mine.id}`); else setMissing(true);
   }
 
@@ -67,10 +70,11 @@ export function Atelier() {
 
         <Section title={t('loyalty.findJewel')}>
           <form className="stack" onSubmit={find}>
-            <input className="bigfield inscription" value={code} onChange={(e) => { setCode(e.target.value); setMissing(false); }}
+            <input className="bigfield inscription" value={code} onChange={(e) => { setCode(e.target.value); setMissing(false); setFindFailed(null); }}
                    aria-label={t('loyalty.codeLabel')} autoCapitalize="characters" spellCheck={false} />
             <button className="btn">{t('loyalty.verifyButton')}</button>
             {missing && <p className="hint">{t('loyalty.notOurs')}</p>}
+            {findFailed && <Problem outcome={findFailed} />}
           </form>
         </Section>
 
@@ -81,7 +85,7 @@ export function Atelier() {
           {stock?.ok && stock.value.length > 0 && head && !head.ok && <Problem outcome={head} />}
           {stock?.ok && stock.value.length > 0 && !head && <Loading />}
           {stock?.ok && stock.value.length > 0 && head?.ok && (
-            <ul className="y-cards">{stock.value.map((id) => <JewelCard key={id} id={id} to={`/atelier/jewel/${id}`} now={head.value.time} />)}</ul>
+            <ul className="y-cards">{stock.value.map((id) => <JewelCard key={id} id={id} to={`/atelier/jewel/${id}`} now={head.value.time} onlyJeweler={j.id} />)}</ul>
           )}
         </Section>
       </main>

@@ -1,13 +1,9 @@
 import { t } from '@yamale/chain';
 
-import type { JewelRecord, Stone } from '../verify/record.ts';
+import type { Stone } from '../verify/record.ts';
+import { clampCount, MAX_STONES, type Draft } from './draft.ts';
 
-export type Draft = Pick<JewelRecord, 'title' | 'metal' | 'weightGrams' | 'stones' | 'origin'>;
-
-export const EMPTY_DRAFT: Draft = {
-  title: '', metal: '', weightGrams: '', stones: [],
-  origin: { workshop: '', stoneSource: '', labCertificate: '' },
-};
+export { draftComplete, EMPTY_DRAFT, type Draft } from './draft.ts';
 
 function Field({ id, label, value, onChange, max, inputMode }: {
   id: string; label: string; value: string; onChange: (v: string) => void; max: number;
@@ -42,12 +38,12 @@ export function RecordForm({ value, onChange }: { value: Draft; onChange: (d: Dr
             <input aria-label={t('loyalty.stoneCarat')} className="bigfield num" value={s.carat} maxLength={12}
                    inputMode="decimal" placeholder="ct" onChange={(e) => setStone(i, { carat: e.target.value.replace(',', '.') })} />
             <input aria-label={t('loyalty.stoneCount')} className="bigfield num" type="number" min={1} max={9999}
-                   value={s.count} onChange={(e) => setStone(i, { count: Math.max(1, Number(e.target.value) || 1) })} />
+                   value={s.count} onChange={(e) => setStone(i, { count: clampCount(Number(e.target.value)) })} />
             <button type="button" className="btn" aria-label={t('loyalty.removeStone')}
                     onClick={() => set({ stones: value.stones.filter((_, j) => j !== i) })}>×</button>
           </div>
         ))}
-        <button type="button" className="btn" onClick={() => set({ stones: [...value.stones, { kind: '', carat: '', count: 1 }] })}>
+        <button type="button" className="btn" disabled={value.stones.length >= MAX_STONES} onClick={() => set({ stones: [...value.stones, { kind: '', carat: '', count: 1 }] })}>
           {t('loyalty.addStone')}
         </button>
       </fieldset>
@@ -58,9 +54,3 @@ export function RecordForm({ value, onChange }: { value: Draft; onChange: (d: Dr
   );
 }
 
-/** What must be filled before a record is worth registering. */
-export function draftComplete(d: Draft): boolean {
-  return d.title.trim() !== '' && d.metal.trim() !== '' && /^[0-9]+(\.[0-9]+)?$/.test(d.weightGrams)
-    && d.origin.workshop.trim() !== ''
-    && d.stones.every((s) => s.kind.trim() !== '' && /^[0-9]+(\.[0-9]+)?$/.test(s.carat));
-}

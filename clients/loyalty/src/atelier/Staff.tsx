@@ -5,6 +5,7 @@
  * round.
  */
 
+import { fromBech32, toBech32 } from '@cosmjs/encoding';
 import { useState } from 'react';
 import { feeAllowanceExists, grantStaffFees, revokeFeeAllowance, setJewelStaff, t } from '@yamale/chain';
 
@@ -17,6 +18,11 @@ import { AppBar, Loading, Problem, Section } from '../ui.tsx';
 import { useRole } from './role.ts';
 
 const STAFF_BUDGET = [{ denom: 'uyml', amount: '5000000' }];
+/** The one spelling of an account code: lowercase bech32, so two spellings of one account compare equal. */
+function canonical(code: string): string {
+  const { prefix, data } = fromBech32(code.trim());
+  return toBech32(prefix, data);
+}
 const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-4)}`;
 
 export function Staff() {
@@ -24,6 +30,7 @@ export function Staff() {
   const [role, reloadRole] = useRole(session.address);
   const [code, setCode] = useState('');
   const [action, run] = useAction();
+  const [refused, setRefused] = useState(false);
 
   const bar = <AppBar title={t('loyalty.staffTitle')} eyebrow="" back />;
   if (role.state === 'loading') return <>{bar}<main className="y-screen"><Loading /></main></>;
@@ -35,21 +42,28 @@ export function Staff() {
   const me = session.address!;
 
   async function add() {
-    const who = code.trim();
+    setRefused(false);
+    const who = canonical(code);
     const msgs = [setJewelStaff(me, j.id, [who], [])];
     // The business pays its own fees: x/feegrant refuses a grant to oneself,
     // and that refusal would fail the whole transaction.
     if (who !== me) {
       const has = await feeAllowanceExists(me, who);
-      if (!(has.ok && has.value)) msgs.push(grantStaffFees(me, who, STAFF_BUDGET, new Date(Date.now() + 365 * 86_400_000)));
+      if (!has.ok) { setRefused(true); return; }
+      if (!has.value) msgs.push(grantStaffFees(me, who, STAFF_BUDGET, new Date(Date.now() + 365 * 86_400_000)));
     }
     if (await run(() => session.submit(msgs, null))) { setCode(''); reloadRole(); }
   }
 
   async function remove(who: string) {
+    setRefused(false);
     const msgs = [setJewelStaff(me, j.id, [], [who])];
-    const has = await feeAllowanceExists(me, who);
-    if (has.ok && has.value) msgs.push(revokeFeeAllowance(me, who));
+    if (who !== me) {
+      // If the allowance cannot be read, removing without revoking would leave the person able to spend.
+      const has = await feeAllowanceExists(me, who);
+      if (!has.ok) { setRefused(true); return; }
+      if (has.value) msgs.push(revokeFeeAllowance(me, who));
+    }
     if (await run(() => session.submit(msgs, null))) reloadRole();
   }
 
@@ -76,6 +90,7 @@ export function Staff() {
               {t('loyalty.addStaffButton')}
             </button>
           </Section>
+          {refused && <p className="note note--warn" role="alert">{t('loyalty.staffReadFailed')}</p>}
           <ActionStatus state={action} />
           <details className="advanced"><summary>{t('loyalty.advanced')}</summary><pre>{JSON.stringify(j, null, 2)}</pre></details>
         </UnlockGate>

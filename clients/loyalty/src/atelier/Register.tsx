@@ -7,7 +7,7 @@
  * re-uses them because the same bytes have the same name.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findByInscription, normaliseInscription, registerJewel, t } from '@yamale/chain';
 
@@ -17,12 +17,13 @@ import { ActionStatus, eventValue, useAction } from '../actions/useAction.tsx';
 import { recordUri } from '../config.ts';
 import { AppBar, Loading, Problem, Section } from '../ui.tsx';
 import { encodeRecord } from '../verify/record.ts';
+import { FailureNote } from './FailureNote.tsx';
 import { draftComplete, EMPTY_DRAFT, RecordForm, type Draft } from './RecordForm.tsx';
 import { useRole } from './role.ts';
 import { uploadPhoto, uploadRecord } from './uploads.ts';
 
 type Step = { kind: 'form' } | { kind: 'photos'; done: number; of: number } | { kind: 'record' } | { kind: 'chain' }
-  | { kind: 'failed'; text: string };
+  | { kind: 'failed'; text: string; raw: string };
 
 export function Register() {
   const session = useSession();
@@ -33,6 +34,8 @@ export function Register() {
   const [files, setFiles] = useState<File[]>([]);
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [action, run] = useAction();
+  // Set before the first await, so a second tap cannot start a second sequence.
+  const running = useRef(false);
   const normalised = normaliseInscription(code);
 
   const bar = <AppBar title={t('loyalty.registerTitle')} eyebrow="" back />;
@@ -44,30 +47,39 @@ export function Register() {
   const jeweler = role.jeweler;
 
   async function submit() {
-    if (!normalised || !draftComplete(draft) || files.length === 0) return;
-    const existing = await findByInscription(normalised);
-    const clash = existing.ok ? existing.value.find((j) => j.jewelerId === jeweler.id) : undefined;
-    if (clash) { setStep({ kind: 'failed', text: t('loyalty.alreadyRegistered', { id: clash.id }) }); return; }
+    if (running.current || !normalised || !draftComplete(draft) || files.length === 0) return;
+    running.current = true;
+    setStep({ kind: 'photos', done: 0, of: files.length });
+    try {
+      const existing = await findByInscription(normalised);
+      const clash = existing.ok ? existing.value.find((j) => j.jewelerId === jeweler.id) : undefined;
+      if (clash) { setStep({ kind: 'failed', text: t('loyalty.alreadyRegistered', { id: clash.id }), raw: '' }); return; }
 
-    const photos: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      setStep({ kind: 'photos', done: i, of: files.length });
-      const up = await uploadPhoto(files[i]!, session.withKey);
-      if (!up.ok) { setStep({ kind: 'failed', text: up.text }); return; }
-      photos.push(up.hash);
+      const photos: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setStep({ kind: 'photos', done: i, of: files.length });
+        const up = await uploadPhoto(files[i]!, session.withKey);
+        if (!up.ok) { setStep({ kind: 'failed', text: up.text, raw: up.raw }); return; }
+        photos.push(up.hash);
+      }
+      setStep({ kind: 'record' });
+      const record = encodeRecord({ version: 1, jewelerId: jeweler.id, inscription: normalised, ...draft, photos,
+        createdAt: new Date().toISOString() });
+      const up = await uploadRecord(record, session.withKey);
+      if (!up.ok) { setStep({ kind: 'failed', text: up.text, raw: up.raw }); return; }
+
+      setStep({ kind: 'chain' });
+      const done = await run(() => session.submit(
+        [registerJewel(session.address!, normalised, up.hash, recordUri(up.hash))], jeweler.business));
+      if (!done) { setStep({ kind: 'form' }); return; }
+      const id = eventValue(done, 'blockchain.jewel.v1.EventJewelRegistered', 'jewel_id');
+      navigate(id ? `/atelier/jewel/${id}` : '/atelier', { replace: true });
+    } catch (e) {
+      // Typically the account locked itself during a long upload.
+      setStep({ kind: 'failed', text: t('loyalty.interrupted'), raw: e instanceof Error ? e.message : String(e) });
+    } finally {
+      running.current = false;
     }
-    setStep({ kind: 'record' });
-    const record = encodeRecord({ version: 1, jewelerId: jeweler.id, inscription: normalised, ...draft, photos,
-      createdAt: new Date().toISOString() });
-    const up = await uploadRecord(record, session.withKey);
-    if (!up.ok) { setStep({ kind: 'failed', text: up.text }); return; }
-
-    setStep({ kind: 'chain' });
-    const done = await run(() => session.submit(
-      [registerJewel(session.address!, normalised, up.hash, recordUri(up.hash))], jeweler.business));
-    if (!done) { setStep({ kind: 'form' }); return; }
-    const id = eventValue(done, 'blockchain.jewel.v1.EventJewelRegistered', 'jewel_id');
-    navigate(id ? `/atelier/jewel/${id}` : '/atelier', { replace: true });
   }
 
   const busy = step.kind === 'photos' || step.kind === 'record' || step.kind === 'chain';
@@ -91,7 +103,7 @@ export function Register() {
           <Section title={t('loyalty.details')}><RecordForm value={draft} onChange={setDraft} /></Section>
           {step.kind === 'photos' && <p className="loading">{t('loyalty.stepPhotos', { n: step.done + 1, of: step.of })}</p>}
           {step.kind === 'record' && <p className="loading">{t('loyalty.stepRecord')}</p>}
-          {step.kind === 'failed' && <p className="note note--warn" role="alert">{step.text}</p>}
+          {step.kind === 'failed' && <FailureNote text={step.text} raw={step.raw} />}
           <ActionStatus state={action} />
           <button type="button" className="btn btn--primary" disabled={busy || !normalised || !draftComplete(draft) || files.length === 0}
                   onClick={submit}>{t('loyalty.registerButton')}</button>
