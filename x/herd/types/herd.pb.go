@@ -309,7 +309,19 @@ type Herd struct {
 	LocationHash string `protobuf:"bytes,8,opt,name=location_hash,json=locationHash,proto3" json:"location_hash,omitempty"`
 	Jurisdiction string `protobuf:"bytes,9,opt,name=jurisdiction,proto3" json:"jurisdiction,omitempty"`
 	Status       Status `protobuf:"varint,10,opt,name=status,proto3,enum=blockchain.herd.v1.Status" json:"status,omitempty"`
-	RegisteredAt int64  `protobuf:"varint,11,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
+	// THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+	//
+	// This module carries both kinds of int64 and nothing used to distinguish
+	// them: registered_at and recorded_at are heights, while proposed_at,
+	// attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+	// 320898 and transfer 1 holds 1789310513, and a client that assumed one
+	// convention got a plausible wrong answer for half the fields.
+	//
+	// Height rather than time because this is a position in the chain's own
+	// history — what an auditor uses to find the block that made the record —
+	// whereas a transfer's clock is about people and deadlines. Converting it to
+	// a date needs the block, which is a query rather than an arithmetic.
+	RegisteredAt int64 `protobuf:"varint,11,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
 }
 
 func (m *Herd) Reset()         { *m = Herd{} }
@@ -478,10 +490,22 @@ type Animal struct {
 	// The current keeper. Moves only through a four-party transfer, which is
 	// what makes the resale of a stolen animal impossible rather than merely
 	// traceable.
-	Holder       string `protobuf:"bytes,15,opt,name=holder,proto3" json:"holder,omitempty"`
-	Authority    string `protobuf:"bytes,16,opt,name=authority,proto3" json:"authority,omitempty"`
-	Status       Status `protobuf:"varint,17,opt,name=status,proto3,enum=blockchain.herd.v1.Status" json:"status,omitempty"`
-	RegisteredAt int64  `protobuf:"varint,18,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
+	Holder    string `protobuf:"bytes,15,opt,name=holder,proto3" json:"holder,omitempty"`
+	Authority string `protobuf:"bytes,16,opt,name=authority,proto3" json:"authority,omitempty"`
+	Status    Status `protobuf:"varint,17,opt,name=status,proto3,enum=blockchain.herd.v1.Status" json:"status,omitempty"`
+	// THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+	//
+	// This module carries both kinds of int64 and nothing used to distinguish
+	// them: registered_at and recorded_at are heights, while proposed_at,
+	// attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+	// 320898 and transfer 1 holds 1789310513, and a client that assumed one
+	// convention got a plausible wrong answer for half the fields.
+	//
+	// Height rather than time because this is a position in the chain's own
+	// history — what an auditor uses to find the block that made the record —
+	// whereas a transfer's clock is about people and deadlines. Converting it to
+	// a date needs the block, which is a query rather than an arithmetic.
+	RegisteredAt int64 `protobuf:"varint,18,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
 }
 
 func (m *Animal) Reset()         { *m = Animal{} }
@@ -662,8 +686,20 @@ type HealthEvent struct {
 	// would destroy the only signal that a declaration is drifting.
 	Treated uint32 `protobuf:"varint,5,opt,name=treated,proto3" json:"treated,omitempty"`
 	// The accredited agent or veterinarian who administered it and signed for it.
-	Agent      string `protobuf:"bytes,6,opt,name=agent,proto3" json:"agent,omitempty"`
-	RecordedAt int64  `protobuf:"varint,7,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
+	Agent string `protobuf:"bytes,6,opt,name=agent,proto3" json:"agent,omitempty"`
+	// THE BLOCK HEIGHT, not a time. Rendering it as a date prints 4 January 1970.
+	//
+	// This module carries both kinds of int64 and nothing used to distinguish
+	// them: registered_at and recorded_at are heights, while proposed_at,
+	// attested_at and accredited_at are unix seconds. Animal 1 on devnet-2 holds
+	// 320898 and transfer 1 holds 1789310513, and a client that assumed one
+	// convention got a plausible wrong answer for half the fields.
+	//
+	// Height rather than time because this is a position in the chain's own
+	// history — what an auditor uses to find the block that made the record —
+	// whereas a transfer's clock is about people and deadlines. Converting it to
+	// a date needs the block, which is a query rather than an arithmetic.
+	RecordedAt int64 `protobuf:"varint,7,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
 }
 
 func (m *HealthEvent) Reset()         { *m = HealthEvent{} }
@@ -779,7 +815,9 @@ type Agent struct {
 	// Struck off agents keep their record — every attestation they ever made
 	// names them, and deleting the agent would leave those attestations pointing
 	// at nothing — but they stop being able to act.
-	Active       bool  `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	Active bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	// Unix SECONDS, not a block height. See registered_at for why this module
+	// carries both and why they must not be confused.
 	AccreditedAt int64 `protobuf:"varint,6,opt,name=accredited_at,json=accreditedAt,proto3" json:"accredited_at,omitempty"`
 }
 
@@ -947,7 +985,9 @@ type Attestation struct {
 	// at the time. A false attestation should be a specific claim by a named
 	// person, not a shrug.
 	EvidenceHash string `protobuf:"bytes,3,opt,name=evidence_hash,json=evidenceHash,proto3" json:"evidence_hash,omitempty"`
-	AttestedAt   int64  `protobuf:"varint,4,opt,name=attested_at,json=attestedAt,proto3" json:"attested_at,omitempty"`
+	// Unix SECONDS, not a block height. See Herd.registered_at for why this
+	// module carries both kinds of int64 and why confusing them prints 1970.
+	AttestedAt int64 `protobuf:"varint,4,opt,name=attested_at,json=attestedAt,proto3" json:"attested_at,omitempty"`
 }
 
 func (m *Attestation) Reset()         { *m = Attestation{} }
@@ -1031,10 +1071,14 @@ type Transfer struct {
 	// When the attestation quorum was reached. The challenge window runs from
 	// this, not from the proposal — otherwise a transfer could be proposed
 	// quietly, left to age, and completed the moment it was attested.
+	// Unix SECONDS, not a block height. See Herd.registered_at for why this
+	// module carries both kinds of int64 and why confusing them prints 1970.
 	AttestedAt      int64  `protobuf:"varint,8,opt,name=attested_at,json=attestedAt,proto3" json:"attested_at,omitempty"`
 	ObjectedBy      string `protobuf:"bytes,9,opt,name=objected_by,json=objectedBy,proto3" json:"objected_by,omitempty"`
 	ObjectionReason string `protobuf:"bytes,10,opt,name=objection_reason,json=objectionReason,proto3" json:"objection_reason,omitempty"`
-	ProposedAt      int64  `protobuf:"varint,11,opt,name=proposed_at,json=proposedAt,proto3" json:"proposed_at,omitempty"`
+	// Unix SECONDS, not a block height. See Herd.registered_at for why this
+	// module carries both kinds of int64 and why confusing them prints 1970.
+	ProposedAt int64 `protobuf:"varint,11,opt,name=proposed_at,json=proposedAt,proto3" json:"proposed_at,omitempty"`
 	// Who resolved the objection, and what they decided. An objection can be
 	// raised by anybody, so it has to be answerable by somebody — and the answer
 	// is recorded rather than merely applied, because the interesting pattern is
@@ -1051,6 +1095,8 @@ type Transfer struct {
 	// objection is dismissed: the state alone was overwritten by OBJECTED, and
 	// guessing from the attestation count cannot tell a proposal nobody accepted
 	// from one that was accepted and not yet attested.
+	// Unix SECONDS, not a block height. See Herd.registered_at for why this
+	// module carries both kinds of int64 and why confusing them prints 1970.
 	AcceptedAt int64 `protobuf:"varint,15,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
 }
 
