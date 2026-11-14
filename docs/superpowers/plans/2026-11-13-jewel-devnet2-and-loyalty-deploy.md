@@ -1492,7 +1492,9 @@ GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o "$SCRATCH/blockchaind-linux-ar
 
 On each host:
 - copy the binary for its architecture to `/tmp`, then `sudo install -m 755 /tmp/blockchaind-linux-<arch> /opt/yamale/bin/blockchaind.next`;
-- install `scripts/devnet/await-halt-then-swap.sh` to `/opt/yamale/bin/` (755);
+- install `scripts/devnet/await-halt-then-swap.sh` AND `scripts/devnet/swap-upgrade-binary.sh` to `/opt/yamale/bin/` (755). The hosts carry an older swap script that moves `.next` and loses it on a rollback; the branch's copy keeps it (final review, 2026-11-14);
+- check the node's data directory is owned by the user its unit runs as (`systemctl cat yamale-devnet | grep -E "^User|--home"`, then `stat -c %U <home>/data`). At the halt the old binary writes `upgrade-info.json` there, and the new binary needs it to add the jewel store; the Pi's `/opt/yamale/join-node/data` has been root-owned before;
+- on the Pi and the VM, check the master answers from there: `/opt/yamale/bin/blockchaind status --node https://rpc.yamaletech.com:443 -o json` must print a height. That address is the followers' `AFTER_NODE` in Step 5;
 - run `/opt/yamale/bin/blockchaind.next version` (exit 0 required) and `… query jewel --help` (must list the jewel queries).
 
 Use the ssh commands from the hosts table. Check that `/opt/yamale/bin/blockchaind.pre-jewel-register` does not exist yet on any host.
@@ -1533,11 +1535,19 @@ Confirm in the block with `query tx <hash>`: `code: 0` in the CLI output is Chec
 
 - [ ] **Step 5: Install the halt jobs on all three hosts, then hand over the vote**
 
-On each host:
+On yamale-us (the master; it never waits for another node):
 
 ```bash
 sudo systemd-run --unit yamale-upgrade-jewel-register --collect /opt/yamale/bin/await-halt-then-swap.sh jewel-register
 ```
+
+On the Pi and the VM (followers: after their own halt they wait until the master is past `H`, so their 60 s start check cannot roll them back):
+
+```bash
+sudo systemd-run --unit yamale-upgrade-jewel-register --collect --setenv=AFTER_NODE=https://rpc.yamaletech.com:443 /opt/yamale/bin/await-halt-then-swap.sh jewel-register
+```
+
+The watcher waits for the plan to be scheduled, so starting it before the vote is correct. Check each started: `journalctl -u yamale-upgrade-jewel-register -n 5` shows "no plan scheduled yet" polls. If the plan is cancelled and re-proposed, stop and restart the jobs: the watcher reads the plan height once.
 
 Then hand the user this command, filling in the id. It is one line with one pair of quotes, so it survives PowerShell:
 
