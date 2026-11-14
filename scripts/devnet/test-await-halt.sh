@@ -25,13 +25,20 @@ cat > "$T/blockchaind" <<'STUB'
 D=$(dirname "$0")
 case "$1 $2 $3" in
   "status --node "*)
-    n=$(cat "$D/count" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$D/count"
-    total=$(wc -l < "$D/heights"); [ "$n" -le "$total" ] || n=$total
-    v=$(sed -n "${n}p" "$D/heights")
+    sfx=""; case "$3" in *after*) sfx="-after" ;; esac
+    n=$(cat "$D/count$sfx" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$D/count$sfx"
+    total=$(wc -l < "$D/heights$sfx"); [ "$n" -le "$total" ] || n=$total
+    v=$(sed -n "${n}p" "$D/heights$sfx")
     [ "$v" != FAIL ] || exit 1
     echo "{\"sync_info\":{\"latest_block_height\":\"$v\"}}" ;;
   "query upgrade plan")
-    read -r name height < "$D/plan"
+    if [ -f "$D/plans" ]; then
+      n=$(cat "$D/planc" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$D/planc"
+      total=$(wc -l < "$D/plans"); [ "$n" -le "$total" ] || n=$total
+      line=$(sed -n "${n}p" "$D/plans")
+    else line=$(cat "$D/plan"); fi
+    if [ "$line" = none ]; then echo '{"plan":null}'; exit 0; fi
+    read -r name height <<<"$line"
     echo "{\"plan\":{\"name\":\"$name\",\"height\":\"$height\"}}" ;;
 esac
 STUB
@@ -40,9 +47,9 @@ chmod +x "$T/blockchaind" "$T/swap"
 printf '#!/bin/sh\n' > "$T/blockchaind.next"; chmod +x "$T/blockchaind.next"
 
 # setup <plan> <heights...>: resets the stub. The watcher polls every 0.2 s.
-setup() { rm -f "$T/count" "$T/swapped"; echo "$1" > "$T/plan"; shift; printf '%s\n' "$@" > "$T/heights"; }
+setup() { rm -f "$T/count" "$T/count-after" "$T/heights-after" "$T/plans" "$T/planc" "$T/swapped"; echo "$1" > "$T/plan"; shift; printf '%s\n' "$@" > "$T/heights"; }
 watch() {  # prints the exit status; the watcher's log goes to $T/out
-  env BIN="$T/blockchaind" SWAP="$T/swap" INTERVAL=0.2 LIMIT="${LIMIT:-40}" \
+  env BIN="$T/blockchaind" AFTER_NODE="${AFTER_NODE:-}" SWAP="$T/swap" INTERVAL=0.2 LIMIT="${LIMIT:-40}" \
     "$HERE/await-halt-then-swap.sh" jewel-register > "$T/out" 2>&1
   echo $?
 }
@@ -73,6 +80,36 @@ echo "(d2) one failed poll, then two consecutive agreeing polls"
 setup "jewel-register 8" 6 7 8 FAIL 8 8
 rc=$(watch)
 if [ "$rc" = 0 ] && [ "$(cat "$T/swapped" 2>/dev/null)" = "jewel-register" ] && grep -q "rpc did not answer" "$T/out"; then pass "swapped after two consecutive agreeing polls"; else fail "rc=$rc"; cat "$T/out"; fi
+
+echo "(f) no plan at first, then the plan appears, then the node halts at it"
+setup "x 0" 5 6 7 8 8 8
+printf '%s
+' none none none "jewel-register 8" > "$T/plans"
+rc=$(watch)
+if [ "$rc" = 0 ] && [ "$(cat "$T/swapped" 2>/dev/null)" = "jewel-register" ] && [ "$(wc -l < "$T/swapped")" = 1 ]    && grep -q "no plan scheduled yet" "$T/out" && grep -q "plan jewel-register at 8" "$T/out"; then pass "waited for the plan, swapped once"; else fail "rc=$rc"; cat "$T/out"; fi
+
+echo "(g) a different plan name appears while waiting"
+setup "x 0" 5 6 7
+printf '%s
+' none none "other-upgrade 8" > "$T/plans"
+rc=$(watch)
+if [ "$rc" != 0 ] && [ ! -e "$T/swapped" ] && grep -q "not 'jewel-register'" "$T/out"; then pass "refused at once"; else fail "rc=$rc"; cat "$T/out"; fi
+
+echo "(h) AFTER_NODE: own node halted at 8, the after-node at 8 for a few polls, then past it"
+setup "jewel-register 8" 8 8 8 8 8 8 8 8
+printf '%s
+' 8 8 8 8 9 > "$T/heights-after"
+rc=$(AFTER_NODE=https://after.example:443 watch)
+polls=$(grep -c "after.example:443 at height" "$T/out")
+if [ "$rc" = 0 ] && [ "$(cat "$T/swapped" 2>/dev/null)" = "jewel-register" ] && [ "$polls" -ge 5 ] && grep -q "is past 8" "$T/out"; then pass "swapped only after the after-node passed 8 ($polls polls)"; else fail "rc=$rc polls=$polls"; cat "$T/out"; fi
+sed 's/^/       /' "$T/out"
+
+echo "(i) AFTER_NODE never passes the halt height"
+setup "jewel-register 8" 8 8 8
+printf '%s
+' 8 > "$T/heights-after"
+rc=$(AFTER_NODE=https://after.example:443 LIMIT=2 watch)
+if [ "$rc" != 0 ] && [ ! -e "$T/swapped" ] && grep -q "did not pass 8" "$T/out"; then pass "no swap, non-zero exit at LIMIT"; else fail "rc=$rc"; cat "$T/out"; fi
 
 echo "(e) preconditions, checked at startup"
 setup "jewel-register 8" 8 8

@@ -75,7 +75,11 @@ fi
 echo "== halted at $A, plan $PLAN ($UPGRADE), swapping =="
 sudo systemctl stop "$SERVICE"
 sudo cp -f "$BIN" "$KEEP"
-sudo mv "$NEXT" "$BIN"
+# COPY, not move: if the new binary cannot start the script rolls back, and a
+# moved binary would be gone from $NEXT, so the retry would need re-staging.
+# $NEXT is left in place after a success too (the next upgrade's staging
+# replaces it, and the watcher's startup check needs a fresh one anyway).
+sudo cp -f "$NEXT" "$BIN"
 sudo chmod +x "$BIN"
 # `version` proves the binary EXECUTES. It does not prove it can START.
 #
