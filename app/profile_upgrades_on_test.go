@@ -303,8 +303,13 @@ func TestTheJewelRegisterClosesTheBareNFTSendAndAppointsNobody(t *testing.T) {
 		require.ErrorIs(t, err, collections.ErrNotFound)
 	}
 
+	// Remove the params, so that finding them afterwards proves InitGenesis ran.
+	require.NoError(t, app.JewelKeeper.Params.Remove(ctx))
+	_, err := app.JewelKeeper.Params.Get(ctx)
+	require.ErrorIs(t, err, collections.ErrNotFound)
+
 	u := findUpgrade(t, "jewel-register")
-	_, err := u.Handler(ctx, app, priorVersions(app, jeweltypes.ModuleName))
+	_, err = u.Handler(ctx, app, priorVersions(app, jeweltypes.ModuleName))
 	require.NoError(t, err)
 
 	closed, err := app.CircuitBreakerKeeper.DisableList.Has(ctx, jeweltypes.NFTSendTypeURL)

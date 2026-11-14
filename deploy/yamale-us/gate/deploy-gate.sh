@@ -62,7 +62,9 @@ sleep 2
 curl -s -o /dev/null -w "rpc   /api/rpc/status          %{http_code}\n" http://127.0.0.1:8081/api/rpc/status
 curl -s -o /dev/null -w "rest  /api/rest/cosmos/base/... %{http_code}\n" http://127.0.0.1:8081/api/rest/cosmos/base/tendermint/v1beta1/node_info
 curl -s -o /dev/null -w "rest  unlisted path (deny)     %{http_code}\n" http://127.0.0.1:8081/api/rest/cosmos/upgrade/v1beta1/current_plan
-# Before the loyalty app is installed, / answers 404 and the API 502; these only print.
+# Before the loyalty app is installed, nginx finds nothing in the empty /srv/loyalty:
+# / answers 403 (directory index forbidden), /j/1/1 answers 500 (the index.html
+# fallback loops on a missing file) and the API 502; these only print.
 curl -s -o /dev/null -w "loyalty /                       %{http_code}\n" http://127.0.0.1:8082/
 curl -s -o /dev/null -w "loyalty /api/rpc/status          %{http_code}\n" http://127.0.0.1:8082/api/rpc/status
 curl -s -o /dev/null -w "loyalty /api/loyalty/v1/health   %{http_code}\n" http://127.0.0.1:8082/api/loyalty/v1/health

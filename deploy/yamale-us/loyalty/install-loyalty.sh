@@ -170,9 +170,10 @@ UNIT
     sleep 1
   done
   [ $OK = 1 ] || { echo "loyalty-api did not answer /v1/health within 15 s"; exit 1; }
-  echo "health ok; sponsor health:"
-  curl -s http://127.0.0.1:8095/v1/health/sponsor || true
-  echo
+  echo "health ok; checking sponsor health"
+  SPONSOR=$(curl -s -o /dev/null -w "%{http_code}" 127.0.0.1:8095/v1/health/sponsor || true)
+  [ "$SPONSOR" = 200 ] || { echo "sponsor health answered $SPONSOR, not 200: the sponsor is low or unreachable"; exit 1; }
+  echo "sponsor health 200"
 fi
 
 if [ "$APP" = 1 ]; then

@@ -6,6 +6,9 @@
 # single spaces, so the command survives PowerShell and ssh without quoting:
 #
 #   ssh -t yamale-us sudo /opt/yamale/bin/jewel-admit Maison Diop yml1...
+#
+# The name must not contain an apostrophe (use a typographic ’ instead): the
+# command is carried through a remote shell, where a straight one opens a quote.
 set -euo pipefail
 [ $# -ge 2 ] || { echo "usage: jewel-admit <nameâ€¦> <business account>" >&2; exit 2; }
 BUSINESS=${!#}

@@ -17,7 +17,9 @@ func VoucherSignBytes(chainID string, v Voucher) []byte {
 // ClaimSignBytes is what a claim key signs. It names the claimer, which makes
 // a claim copied out of the mempool useless to anyone else, and the offer's
 // expiry, which makes a signature for one offer useless for any later offer
-// made to the same key.
+// made to the same key. Two offers made in the same block have the same expiry,
+// so the expiry separates offers only across block times; whoever holds the
+// claim key can sign afresh in any case.
 func ClaimSignBytes(chainID string, jewelID uint64, offerExpiresAt int64, claimer string) []byte {
 	return []byte(fmt.Sprintf("yamale-jewel-claim/v2:%s:%d:%d:%s", chainID, jewelID, offerExpiresAt, claimer))
 }

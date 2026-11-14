@@ -95,7 +95,7 @@ expect_refused_json() {
 # the last with --exec try.
 # Success is the proposal being pruned. See seed-herd.sh for why each part.
 OFFICE=$("$BIN" query jewel params $Q | json office)
-[ -n "$OFFICE" ] || { echo "no office in x/jewel params; rebuild the devnet with init-local-devnet.sh" >&2; exit 1; }
+[ -n "$OFFICE" ] || { echo "no office in x/jewel params: on a local devnet rebuild with init-local-devnet.sh; on devnet-2 the office is appointed by governance (Plan 3, Task 11)" >&2; exit 1; }
 as_office() {
   local body=$1 msg="$HOME_DIR/.jewel-office.json" before id out proposal result
   cat > "$msg" <<JSON
