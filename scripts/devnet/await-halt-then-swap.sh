@@ -33,6 +33,12 @@
 #   BIN (default /opt/yamale/bin/blockchaind), NODE, SWAP, LIMIT (seconds, 21600),
 #   INTERVAL (seconds between polls, 20), AFTER_NODE (default empty).
 set -euo pipefail
+# systemd-run starts this with no HOME, and blockchaind panics in its init when
+# HOME is unset, before it reads a flag. Every query below discards its errors,
+# so on 2026-11-15 all three watchers logged "no plan scheduled yet" for a plan
+# that was on the chain, and would have logged "rpc did not answer" at the halt
+# and never swapped. Nothing here reads HOME; the binary only needs it defined.
+export HOME=${HOME:-/root}
 NAME=${1:?the upgrade name}
 BIN=${BIN:-/opt/yamale/bin/blockchaind}
 NODE=${NODE:-http://127.0.0.1:26657}

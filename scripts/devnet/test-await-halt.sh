@@ -23,6 +23,9 @@ fi
 cat > "$T/blockchaind" <<'STUB'
 #!/usr/bin/env bash
 D=$(dirname "$0")
+# The real binary panics before parsing a flag when $HOME is unset (app.go init),
+# and systemd-run starts the watcher with no HOME at all.
+[ -n "${HOME:-}" ] || { echo 'panic: $HOME is not defined' >&2; exit 2; }
 case "$1 $2 $3" in
   "status --node "*)
     sfx=""; case "$3" in *after*) sfx="-after" ;; esac
@@ -49,7 +52,7 @@ printf '#!/bin/sh\n' > "$T/blockchaind.next"; chmod +x "$T/blockchaind.next"
 # setup <plan> <heights...>: resets the stub. The watcher polls every 0.2 s.
 setup() { rm -f "$T/count" "$T/count-after" "$T/heights-after" "$T/plans" "$T/planc" "$T/swapped"; echo "$1" > "$T/plan"; shift; printf '%s\n' "$@" > "$T/heights"; }
 watch() {  # prints the exit status; the watcher's log goes to $T/out
-  env BIN="$T/blockchaind" AFTER_NODE="${AFTER_NODE:-}" SWAP="$T/swap" INTERVAL=0.2 LIMIT="${LIMIT:-40}" \
+  env ${NOHOME:+-u HOME} BIN="$T/blockchaind" AFTER_NODE="${AFTER_NODE:-}" SWAP="$T/swap" INTERVAL=0.2 LIMIT="${LIMIT:-40}" \
     "$HERE/await-halt-then-swap.sh" jewel-register > "$T/out" 2>&1
   echo $?
 }
@@ -110,6 +113,12 @@ printf '%s
 ' 8 > "$T/heights-after"
 rc=$(AFTER_NODE=https://after.example:443 LIMIT=2 watch)
 if [ "$rc" != 0 ] && [ ! -e "$T/swapped" ] && grep -q "did not pass 8" "$T/out"; then pass "no swap, non-zero exit at LIMIT"; else fail "rc=$rc"; cat "$T/out"; fi
+
+echo "(j) started with no \$HOME, as systemd-run starts it (proposal 33, 2026-11-15)"
+setup "x 0" 5 6 7 8 8 8
+printf '%s\n' none "jewel-register 8" > "$T/plans"
+rc=$(NOHOME=1 watch)
+if [ "$rc" = 0 ] && [ "$(cat "$T/swapped" 2>/dev/null)" = "jewel-register" ] && grep -q "plan jewel-register at 8" "$T/out"; then pass "saw the plan and swapped without an inherited HOME"; else fail "rc=$rc"; cat "$T/out"; fi
 
 echo "(e) preconditions, checked at startup"
 setup "jewel-register 8" 8 8

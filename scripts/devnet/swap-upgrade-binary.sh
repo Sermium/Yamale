@@ -12,6 +12,9 @@
 # and the thing being tested is a state, so the state is what gets tested — the
 # node has stopped advancing, and it stopped at the scheduled height.
 set -euo pipefail
+# blockchaind panics at init when HOME is unset, and every query below discards
+# its errors; run from a systemd job, HOME is unset (see await-halt-then-swap.sh).
+export HOME=${HOME:-/root}
 
 # The name of the upgrade being crossed, which is where the OLD binary is kept.
 #
