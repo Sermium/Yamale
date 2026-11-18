@@ -14,7 +14,6 @@ export function MoveIn() {
     window.history.replaceState(null, '', '/move-in');
     if (result.kind === 'stored' || result.kind === 'same' || result.kind === 'invalid') {
       navigate(result.to, { replace: true });
-      if (result.to.includes('#')) window.location.hash = result.to.slice(result.to.indexOf('#'));
       return;
     }
     setOut(result);
