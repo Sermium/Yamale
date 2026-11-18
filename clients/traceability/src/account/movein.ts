@@ -27,12 +27,21 @@ function fromB64u(s: string | null): string | null {
   } catch { return null; }
 }
 
+/**
+ * KDF bounds, around what this codebase's seal produces (wallet/src/account/seal.ts:
+ * SEAL_TIME 3, SEAL_MEMORY_KIB 131072 = 128 MiB, SEAL_THREADS 1). A planted blob
+ * must not make unlocking hang the tab: accept at most about twice the real cost.
+ */
+const inRange = (n: unknown, lo: number, hi: number) => Number.isInteger(n) && (n as number) >= lo && (n as number) <= hi;
+
 function looksSealed(v: unknown): v is StoredAccount {
   const a = v as StoredAccount;
   const w = a?.sealed;
   return typeof a?.address === 'string' && /^yml1[02-9ac-hj-np-z]{38}$/.test(a.address)
     && typeof w?.salt === 'string' && typeof w?.nonce === 'string' && typeof w?.ciphertext === 'string'
-    && Number.isInteger(w?.time) && Number.isInteger(w?.memory) && Number.isInteger(w?.threads);
+    && inRange(w?.time, 1, 6) && inRange(w?.memory, 16384, 262144) && inRange(w?.threads, 1, 1)
+    && typeof a?.email === 'string' && typeof a?.createdAt === 'string'
+    && (a?.protection === 'none' || a?.protection === 'enrolled');
 }
 
 export function acceptMove(fragment: string, store: KeyStore): MoveOutcome {

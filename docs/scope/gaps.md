@@ -825,6 +825,8 @@ could reasonably have gone the other way:
 
 - **The proto comment.** `proto/blockchain/jewel/v1/events.proto` still says "the loyalty app"; changing it means regenerating `*.pb.go` and `docs/reference`, pending a regeneration on a machine with the toolchain.
 - **Only the account is carried.** The move page and `/move-in` carry the sealed account only. Saved offer links (`yamale.loyalty.link.*`) are not carried; none existed at the switch.
+- **The recovery share record is not carried.** The device's recovery share record (`yamale.wallet.enrolment.v1`) stays on the loyalty origin; an enrolled account keeps its two service shares (threshold 2) but loses its third leg.
+- **Home-screen installs on iOS (unverified).** A standalone (home-screen) install of the old app on iOS keeps its own storage, so the move page may not see the account there.
 - **Keep `loyalty.yamaletech.com`** until no account can be left there; revisit it no earlier than 2027-05-17.
 - **Old backups are kept indefinitely.** Archives named `loyalty-<date>.tgz` now sit in `/var/backups/yamale-traceability`, and the backup's cleanup glob `traceability-*.tgz` never matches them. Widen the glob or clear them by hand once they are no longer wanted.
 - **Not yet confirmed:** that the business account `yml1dzwpk73ntdyve2vx49flv0dxxguy6a5ygp2zv7` (jeweler "Maison Diop") has been carried across in its owner's browser.

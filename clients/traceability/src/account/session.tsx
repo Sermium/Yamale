@@ -19,6 +19,7 @@ import {
   ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
 } from './device.ts';
 import { protectionOutcome } from './protection.ts';
+import { sessionAccountState } from './sessionState.ts';
 
 const IDLE_MS = 10 * 60 * 1000;
 
@@ -31,6 +32,8 @@ export interface Session {
   unlock(password: string): Promise<void>;
   lock(): void;
   forget(): void;
+  /** Re-reads the account from this device's storage, locked. For an account written by another route after mount. */
+  refresh(): void;
   adopt(privateKey: Uint8Array, email: string, password: string): Promise<void>;
   withKey<T>(use: (key: Uint8Array) => T): T;
   submit(messages: EncodeObject[], granter: string | null): Promise<SubmitResult>;
@@ -51,7 +54,7 @@ export class SponsorshipUnavailable extends Error {
 const SessionContext = createContext<Session | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [account, setAccount] = useState<StoredAccount | null>(() => readAccount());
+  const [account, setAccount] = useState<StoredAccount | null>(() => sessionAccountState().account);
   const [unlocked, setUnlocked] = useState(false);
   const [sponsor, setSponsor] = useState<string | null>(null);
   // The granter as of now, read by submitAsOwner. State alone would hand a
@@ -153,6 +156,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (account) forgetEnrolment(account.address);
       forgetAccount();
       setAccount(null);
+    },
+    refresh() {
+      lock();
+      setAccount(sessionAccountState().account);
     },
     async adopt(privateKey, email, password) {
       if (readAccount()) throw new Error(ACCOUNT_EXISTS);

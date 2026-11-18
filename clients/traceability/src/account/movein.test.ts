@@ -46,6 +46,23 @@ test('acceptMove refuses a payload that is not a sealed account', () => {
   assert.equal(s.data[KEY], undefined);
 });
 
+test('acceptMove refuses KDF parameters beyond what the seal produces, and malformed metadata', () => {
+  const s = memory();
+  const w = acct(A).sealed;
+  const bad: unknown[] = [
+    { ...acct(A), sealed: { ...w, time: 1e9 } },
+    { ...acct(A), sealed: { ...w, memory: 4194304 } },
+    { ...acct(A), sealed: { ...w, threads: 64 } },
+    { ...acct(A), sealed: { ...w, time: 0 } },
+    { ...acct(A), email: undefined },
+    { ...acct(A), createdAt: 5 },
+    { ...acct(A), protection: 'weird' },
+  ];
+  for (const b of bad) assert.equal(acceptMove(`#move=${b64u(JSON.stringify(b))}&to=${b64u('/')}`, s).kind, 'invalid');
+  assert.equal(s.data[KEY], undefined);
+  assert.equal(acceptMove(`#move=${b64u(JSON.stringify(acct(A)))}&to=${b64u('/')}`, s).kind, 'stored');
+});
+
 test('acceptMove: an unsafe target becomes /', () => {
   const s = memory();
   assert.equal(acceptMove(`#move=${b64u(JSON.stringify(acct(A)))}&to=${b64u('//evil.example/x')}`, s).to, '/');
