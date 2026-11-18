@@ -47,8 +47,8 @@ test('voucher sign bytes and signatures match the chain byte for byte', () => {
 
 test('a claim link carries the jewel and the key, and nothing else parses', () => {
   const priv = fromHex(vectors.claims[0].priv_key);
-  const link = claimLink('https://loyalty.example', '12', priv);
-  assert.equal(link, `https://loyalty.example/claim#12.${vectors.claims[0].priv_key}`);
+  const link = claimLink('https://traceability.example', '12', priv);
+  assert.equal(link, `https://traceability.example/claim#12.${vectors.claims[0].priv_key}`);
   const parsed = parseClaimFragment(new URL(link).hash);
   assert.ok(parsed);
   assert.equal(parsed.jewelId, '12');

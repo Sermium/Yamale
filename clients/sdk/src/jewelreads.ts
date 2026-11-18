@@ -1,5 +1,5 @@
 /**
- * Every read the loyalty app makes of the jewel register.
+ * Every read the traceability app makes of the jewel register.
  *
  * Chain state answers all of them but one: "which offers are addressed to
  * me" is not an index the module keeps, so it comes from tx_search on

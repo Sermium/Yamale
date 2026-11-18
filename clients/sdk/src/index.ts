@@ -365,4 +365,4 @@ export {
   offerSearchQuery, offersAddressedTo, feeAllowanceExists, tokenToJewelId, isActive, roleOf, type JewelView,
 } from './jewelreads.ts';
 export { JewelerStatus, type Jewel, type Jeweler, type Benefit, type Offer, type Reassignment, type Amendment } from './generated/blockchain/jewel/v1/jewel.ts';
-export { loyaltySignBytes, sha256Hex, signedHeaders, type LoyaltyPurpose } from './loyaltyauth.ts';
+export { traceabilitySignBytes, sha256Hex, signedHeaders, type TraceabilityPurpose } from './traceabilityauth.ts';

@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The loyalty app recognises the module's refusals by their text
-// (clients/loyalty/src/actions/errors.ts), because the client sees a code
+// The traceability app recognises the module's refusals by their text
+// (clients/traceability/src/actions/errors.ts), because the client sees a code
 // without its codespace. If a message here is reworded, the app would quietly
 // fall back to the raw text; this fails first.
-func TestTheLoyaltyAppsErrorNeedlesAreRegisteredTexts(t *testing.T) {
-	ts, err := os.ReadFile("../../../clients/loyalty/src/actions/errors.ts")
+func TestTheTraceabilityAppsErrorNeedlesAreRegisteredTexts(t *testing.T) {
+	ts, err := os.ReadFile("../../../clients/traceability/src/actions/errors.ts")
 	require.NoError(t, err)
 	src, err := os.ReadFile("errors.go")
 	require.NoError(t, err)

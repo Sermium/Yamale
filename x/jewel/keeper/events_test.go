@@ -28,7 +28,7 @@ func (f *fixture) transfers(t *testing.T) []types.EventJewelTransferred {
 	return out
 }
 
-// The loyalty app's backend indexes changes of owner from events. Each one
+// The traceability app's backend indexes changes of owner from events. Each one
 // must say which jewel moved, between whom, and how.
 func TestEveryChangeOfOwnerIsAnnounced(t *testing.T) {
 	f := setup(t)

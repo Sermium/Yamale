@@ -78,7 +78,7 @@ func (f *fixture) register(t *testing.T, staff, inscription string) uint64 {
 	t.Helper()
 	res, err := f.srv.RegisterJewel(f.env.Ctx, &types.MsgRegisterJewel{
 		Staff: staff, Inscription: inscription, RecordHash: recordHash,
-		RecordUri: "https://loyalty.yamaletech.com/r/" + recordHash,
+		RecordUri: "https://traceability.yamaletech.com/r/" + recordHash,
 	})
 	require.NoError(t, err)
 	return res.Id

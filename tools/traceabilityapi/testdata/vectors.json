@@ -1,0 +1,46 @@
+[
+  {
+    "priv_key": "1b3636346f7f505b443cc4da838b99250c9614b0a108f38c4f99d776cac97c16",
+    "pub_key": "021072af470c3051649dc81f72de4393eaed740d7bbc45e1e26ccc51208836f935",
+    "address": "yml16jugl38agtt24xjgjn7qm5wl5fjetuujp8p2zj",
+    "purpose": "file",
+    "chain_id": "yamale-local-1",
+    "subject": "55c64d0fcd6f9d5f7c828093857e3fdfda68478bb4e9bd24d481ef391c7804e8",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-traceability/v1:file:yamale-local-1:55c64d0fcd6f9d5f7c828093857e3fdfda68478bb4e9bd24d481ef391c7804e8:1790000000",
+    "signature": "20013238313327472a85935c357d17c9f7ec372beaf9bfc89a4aae613b45b8561356d0b7fea27263ad75e5bfc346ada1cf76724cf8912601b4af71c624927e03"
+  },
+  {
+    "priv_key": "be0710ecb34256a66acc0d23ab3736e40f31c2bec840014ec8be298609961040",
+    "pub_key": "031af23727a3ce2842e129902d7b1b6c077a15bd7dc622e995abd15b943fafd40c",
+    "address": "yml1yhh4wu93pzvaf35zwmak26utnap9shmvhpjtdq",
+    "purpose": "profile",
+    "chain_id": "yamale-local-1",
+    "subject": "12.dbbf372d9529f4aa1e160003593732fc56e09f9cab43a490afe0074c63ea6a73",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-traceability/v1:profile:yamale-local-1:12.dbbf372d9529f4aa1e160003593732fc56e09f9cab43a490afe0074c63ea6a73:1790000000",
+    "signature": "63832f3378ed5ac64eddb931ff99243f81204ae2a348c58a05a1b2954012d77f52b7ccfd184c3d92e73f0c14b01c90b937069474ebba7f548d841c4f4b761040"
+  },
+  {
+    "priv_key": "e855d85848c5cd371fac9145c22adbb416b37c45b695e6f012426de005c3f903",
+    "pub_key": "03a9adbb1b02899464142c5e8b4b3a6d76368736f35c35d82c8389b75b3f9f205f",
+    "address": "yml1vvrvgdw53z72puhk2kqq7azn2x33zh8g97xwtq",
+    "purpose": "sponsor",
+    "chain_id": "yamale-local-1",
+    "subject": "yml1vvrvgdw53z72puhk2kqq7azn2x33zh8g97xwtq",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-traceability/v1:sponsor:yamale-local-1:yml1vvrvgdw53z72puhk2kqq7azn2x33zh8g97xwtq:1790000000",
+    "signature": "523a4da12c16f0ccc71bdcd9da3903603cd5de7955de3199017220d1aa703acd4b8a8e2cfaa21c8ed1b9b244083134107f46a784070769c5fd44d837b9b07a14"
+  },
+  {
+    "priv_key": "8f210f2d0ac7506ed3375576d96d5b2d08ce18743c862061b367671f97bdc241",
+    "pub_key": "03343d1189acaed51323eee3d2fcd1a6412f8a3d9c1cf7393e1917fe77958defe3",
+    "address": "yml1fkqw7q9ly2p9lcet6n258zatq2gc43mguqyvjm",
+    "purpose": "application",
+    "chain_id": "yamale-local-1",
+    "subject": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "issued": 1790000000,
+    "sign_bytes": "yamale-traceability/v1:application:yamale-local-1:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a:1790000000",
+    "signature": "8080d42f58720812b95e98a291fcbdc8b96be3d1092c0e3473127927bb7c89591d2496983b3b2c880d7cff93ee28ea2b3cb062769be28afbd2bc9c52fe84aa97"
+  }
+]

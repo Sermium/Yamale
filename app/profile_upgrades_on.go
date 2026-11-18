@@ -399,7 +399,7 @@ var profileUpgrades = []Upgrade{
 		},
 	},
 	{
-		// x/jewel: the register of jewels (loyalty.yamaletech.com).
+		// x/jewel: the register of jewels (traceability.yamaletech.com).
 		//
 		// A new store, so it is added before any migration runs, and x/jewel's
 		// InitGenesis arrives through the standard migration path — fromVM must
