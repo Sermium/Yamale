@@ -2,6 +2,7 @@ import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView } from '@yamale/chain';
 
 import { AccountScreen, UnlockGate } from './account/Account.tsx';
+import { MoveIn } from './account/MoveIn.tsx';
 import { SessionProvider, useSession } from './account/session.tsx';
 import { ActionStatus, useAction } from './actions/useAction.tsx';
 import { Apply } from './atelier/Apply.tsx';
@@ -95,6 +96,7 @@ export function App() {
               <Route path="/atelier/jewel/:jewel" element={<AtelierJewel />} />
               <Route path="/atelier/jewel/:jewel/amend" element={<Amend />} />
               <Route path="/account" element={<AccountScreen />} />
+              <Route path="/move-in" element={<MoveIn />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <TabBar />

@@ -65,6 +65,20 @@ export function readAccount(store: KeyStore = browserStore()): StoredAccount | n
   }
 }
 
+/**
+ * Stores an account carried over from the app's previous address
+ * (loyalty.yamaletech.com, see movein.ts). It is the sealed form only: the
+ * password never travelled. Refuses to replace an account already here.
+ */
+export function writeImportedAccount(acct: StoredAccount, store: KeyStore = browserStore()): void {
+  if (store.getItem(KEY) !== null) throw new Error(ACCOUNT_EXISTS);
+  store.setItem(KEY, JSON.stringify(acct));
+  if (readAccount(store)?.address !== acct.address) {
+    store.removeItem(KEY);
+    throw new Error('the carried account does not read back');
+  }
+}
+
 function write(account: StoredAccount, store: KeyStore): void {
   store.setItem(KEY, JSON.stringify(account));
 }
