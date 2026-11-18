@@ -82,6 +82,6 @@ clients/oversight/**   text eol=lf
 # inherits whatever this file has.
 clients/ceremony/index.html  text eol=lf
 
-# Not a *.sh name, so it needs its own rule: install-loyalty.sh ships this file as it
+# Not a *.sh name, so it needs its own rule: install-traceability.sh ships this file as it
 # sits in the working tree, and a CRLF checkout would break it on the host.
-deploy/yamale-us/loyalty/jewel-admit  text eol=lf
+deploy/yamale-us/traceability/jewel-admit  text eol=lf

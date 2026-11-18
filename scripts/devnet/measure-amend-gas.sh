@@ -32,7 +32,7 @@ HASHCMD() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
 INSCRIPTION="GAS-$(date +%s)"
 say "registering $INSCRIPTION as $STAFF_KEY"
 h0=$(HASHCMD "$INSCRIPTION-0")
-run jewel register "$INSCRIPTION" "$h0" "https://loyalty.yamaletech.com/r/$h0" --from "$STAFF_KEY" \
+run jewel register "$INSCRIPTION" "$h0" "https://traceability.yamaletech.com/r/$h0" --from "$STAFF_KEY" \
   && ok "registered" || { bad "register"; exit 1; }
 KEY=$(printf '%s' "$INSCRIPTION" | tr -d '-' | tr -d ' ')
 ID=$("$BIN" query jewel inscription "$KEY" $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4 || true)
@@ -41,7 +41,7 @@ ID=$("$BIN" query jewel inscription "$KEY" $Q | grep -oE '"id":[[:space:]]*"[0-9
 say "49 amendments, 500-byte note each"
 for i in $(seq 1 49); do
   h=$(HASHCMD "$INSCRIPTION-$i")
-  run jewel amend "$ID" "$h" "https://loyalty.yamaletech.com/r/$h" "$NOTE" --from "$STAFF_KEY" \
+  run jewel amend "$ID" "$h" "https://traceability.yamaletech.com/r/$h" "$NOTE" --from "$STAFF_KEY" \
     || { bad "amendment $i"; exit 1; }
 done
 ok "49 applied"
@@ -51,7 +51,7 @@ ok "49 applied"
 say "simulating the 50th"
 h=$(HASHCMD "$INSCRIPTION-50")
 STAFF_ADDR=$(addr "$STAFF_KEY" | tr -d '\r')
-out=$("$BIN" tx jewel amend "$ID" "$h" "https://loyalty.yamaletech.com/r/$h" "$NOTE" --from "$STAFF_ADDR" \
+out=$("$BIN" tx jewel amend "$ID" "$h" "https://traceability.yamaletech.com/r/$h" "$NOTE" --from "$STAFF_ADDR" \
   --keyring-backend "$KEYRING" --home "$HOME_DIR" --chain-id "$CHAIN" --node "$NODE" \
   --gas-adjustment 1 --dry-run 2>&1) || { LAST_TX=$out; bad "simulation of amendment 50"; exit 1; }
 gas=$(printf '%s' "$out" | grep -oE 'gas estimate: [0-9]+' | grep -oE '[0-9]+' | tail -1 || true)

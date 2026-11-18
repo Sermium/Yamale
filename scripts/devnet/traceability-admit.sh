@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Admits a jeweler created in the loyalty app: the office's vote, as in
+# Admits a jeweler created in the traceability app: the office's vote, as in
 # seed-jewel.sh stage 1 (3-of-5 locally; 2-of-3 on devnet-2, OFFICE_VOTES=2, with
 # FUNDER naming a key that holds funds there), then 50 YML to the business so it can pay its staff's
 # fees.
 #
 #   BIN=$SCRATCH/blockchaind.exe HOME_DIR=.devnet/local/node CHAIN=yamale-local-1 \
-#   NODE=tcp://127.0.0.1:26957 scripts/devnet/loyalty-admit.sh "Maison Test" yml1…
+#   NODE=tcp://127.0.0.1:26957 scripts/devnet/traceability-admit.sh "Maison Test" yml1…
 set -euo pipefail
 BIN=${BIN:?the chain binary}
 HOME_DIR=${HOME_DIR:?the node home}

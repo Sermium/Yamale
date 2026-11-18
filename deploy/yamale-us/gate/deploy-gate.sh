@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy-gate.sh - install the chain's nginx gates on yamale-us (127.0.0.1:8081,
-# and 127.0.0.1:8082 for loyalty.yamaletech.com, whose snippet is loyalty.conf here).
+# and 127.0.0.1:8082 for traceability.yamaletech.com, whose snippet is traceability.conf here).
 #
 # The snippets are deploy/nginx/*.conf, the same files the VM ran. Only the
 # account routes change, because the services moved: the custodian is local to
@@ -23,7 +23,7 @@ mkdir "$T/snippets"
 for f in yamale-headers.conf yamale-api.conf yamale-visibility.conf yamale-rpc.conf yamale-apps.conf; do
   tr -d '\r' < "$SRC/$f" > "$T/snippets/$f"
 done
-tr -d '\r' < loyalty.conf > "$T/snippets/loyalty.conf"
+tr -d '\r' < traceability.conf > "$T/snippets/traceability.conf"
 tr -d '\r' < "$SRC/yamale-account.conf" \
   | sed -e 's#http://100\.117\.244\.96:8099/#http://127.0.0.1:8099/#g' \
         -e 's#http://127\.0\.0\.1:8100/#http://100.68.207.17:8100/#g' \
@@ -41,12 +41,12 @@ tar xzf - -C "$S"
 # Validate the new configuration in a throwaway container before it replaces
 # the running one, so a bad snippet never takes the gate down.
 sudo install -d -m 755 /var/log/yamale-gate
-sudo install -d -m 755 /srv/loyalty
+sudo install -d -m 755 /srv/traceability
 sudo install -d -o root -g 101 -m 750 /etc/yamale/gate/private
 # Read-only, as the real container is: nginx -t opens every log file, so a
 # path the container cannot write fails here rather than on start-up.
 sudo docker run --rm --network none --read-only --tmpfs /var/cache/nginx --tmpfs /var/run \
-  -v /var/log/yamale-gate:/var/log/nginx -v /srv/chain:/srv/chain:ro -v /srv/loyalty:/srv/loyalty:ro \
+  -v /var/log/yamale-gate:/var/log/nginx -v /srv/chain:/srv/chain:ro -v /srv/traceability:/srv/traceability:ro \
   -v "$S/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$S/snippets:/etc/nginx/snippets:ro" \
   -v /etc/yamale/gate/yamale-supervisors:/etc/nginx/yamale-supervisors:ro \
   -v /etc/yamale/gate/private:/etc/nginx/private:ro \
@@ -62,10 +62,10 @@ sleep 2
 curl -s -o /dev/null -w "rpc   /api/rpc/status          %{http_code}\n" http://127.0.0.1:8081/api/rpc/status
 curl -s -o /dev/null -w "rest  /api/rest/cosmos/base/... %{http_code}\n" http://127.0.0.1:8081/api/rest/cosmos/base/tendermint/v1beta1/node_info
 curl -s -o /dev/null -w "rest  unlisted path (deny)     %{http_code}\n" http://127.0.0.1:8081/api/rest/cosmos/upgrade/v1beta1/current_plan
-# Before the loyalty app is installed, nginx finds nothing in the empty /srv/loyalty:
+# Before the traceability app is installed, nginx finds nothing in the empty /srv/traceability:
 # / answers 403 (directory index forbidden), /j/1/1 answers 500 (the index.html
 # fallback loops on a missing file) and the API 502; these only print.
-curl -s -o /dev/null -w "loyalty /                       %{http_code}\n" http://127.0.0.1:8082/
-curl -s -o /dev/null -w "loyalty /api/rpc/status          %{http_code}\n" http://127.0.0.1:8082/api/rpc/status
-curl -s -o /dev/null -w "loyalty /api/loyalty/v1/health   %{http_code}\n" http://127.0.0.1:8082/api/loyalty/v1/health
+curl -s -o /dev/null -w "traceability /                       %{http_code}\n" http://127.0.0.1:8082/
+curl -s -o /dev/null -w "traceability /api/rpc/status          %{http_code}\n" http://127.0.0.1:8082/api/rpc/status
+curl -s -o /dev/null -w "traceability /api/traceability/v1/health   %{http_code}\n" http://127.0.0.1:8082/api/traceability/v1/health
 '

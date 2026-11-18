@@ -54,7 +54,7 @@ need "the jeweler id" "$JEWELER"
 say "2  staff, then a ring"
 run jewel set-staff "$JEWELER" --add "$STAFF" --from jw-business && ok "staff added" || bad "staff"
 HASH=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
-run jewel register "MD-2026-0001" "$HASH" "https://loyalty.yamaletech.com/r/$HASH" --from jw-staff && ok "ring registered" || bad "register"
+run jewel register "MD-2026-0001" "$HASH" "https://traceability.yamaletech.com/r/$HASH" --from jw-staff && ok "ring registered" || bad "register"
 RING=$("$BIN" query jewel inscription MD20260001 $Q | grep -oE '"id":[[:space:]]*"[0-9]+"' | head -1 | cut -d'"' -f4 || true)
 need "the ring's id" "$RING"
 
