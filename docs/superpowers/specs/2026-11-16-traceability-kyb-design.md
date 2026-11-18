@@ -1,14 +1,16 @@
 # Jeweler KYB: apply in the app, admitted by an admin's click
 
+Names updated 2026-11-17 for the rename to traceability.
+
 Date: 2026-11-16. Status: approved in conversation, section by section.
-Builds on `2026-11-12-jewel-loyalty-design.md` (x/jewel, the loyalty app,
-loyalty-api) as deployed on devnet-2 and loyalty.yamaletech.com on 2026-11-16.
+Builds on `2026-11-12-jewel-loyalty-design.md` (x/jewel, the traceability app,
+traceability-api) as deployed on devnet-2 on 2026-11-16 (then at loyalty.yamaletech.com, now traceability.yamaletech.com).
 
 ## Why
 
 A business can already apply from the app (Account → For jewelers → Apply,
 route `/apply`). The application is signed with the account that will become
-the business, and loyalty-api spools it on yamale-us. Nothing after that is
+the business, and traceability-api spools it on yamale-us. Nothing after that is
 usable by a person:
 
 - there is no evidence to check;
@@ -26,9 +28,9 @@ decision executes on the chain without anyone opening a terminal.
 |---|----------|----------|
 | 1 | Who approves, and what approval means on the chain | **One admin, one click.** The server casts both of the office's votes (2-of-3 x/group 10). The admin's login is therefore the security of admission. Decision 5 is the mitigation. |
 | 2 | KYB evidence | **Uploaded documents.** A registration extract and the director's identity document are required; up to three more files are optional. Stored encrypted on yamale-us, never on the chain. |
-| 3 | Where the admin works | **An Admin tab in the loyalty app**, shown to allowlisted accounts. Every admin request is signed with the admin's own account key. There are no passwords. |
+| 3 | Where the admin works | **An Admin tab in the traceability app**, shown to allowlisted accounts. Every admin request is signed with the admin's own account key. There are no passwords. |
 | 4 | Notifications | **In-app status plus email.** The applicant is emailed at each decision; the admin is emailed on each submission. Mail goes through the Mailcow server on yamale-us. |
-| 5 | What holds the office keys | **A separate office signer** (`yamale-jewel-office`), listening on localhost only. It re-verifies the admin's signed request itself, so the internet-facing loyalty-api never holds an office key. |
+| 5 | What holds the office keys | **A separate office signer** (`yamale-jewel-office`), listening on localhost only. It re-verifies the admin's signed request itself, so the internet-facing traceability-api never holds an office key. |
 | 6 | Admin scope | Decide applications, **and suspend or reinstate** admitted jewelers. |
 
 ## 1. The applicant
@@ -56,7 +58,7 @@ Transitions:
 
 ### Fields
 
-These are today's fields, kept with today's rules (`tools/loyaltyapi/applications.go` `check()`):
+These are today's fields, kept with today's rules (`tools/traceabilityapi/applications.go` `check()`):
 
 | Field | Rule |
 |---|---|
@@ -93,10 +95,10 @@ Rules:
 ### Signing
 
 Every applicant write is signed by the business account, with the existing
-scheme in `tools/loyaltyapi/auth.go` and `clients/sdk/src/loyaltyauth.ts`:
+scheme in `tools/traceabilityapi/auth.go` and `clients/sdk/src/traceabilityauth.ts`:
 
 ```
-yamale-loyalty/v1:<purpose>:<chain id>:<subject>:<issued>
+yamale-traceability/v1:<purpose>:<chain id>:<subject>:<issued>
 ```
 
 | Purpose | Subject | Request |
@@ -149,9 +151,9 @@ admin can ask for more.
 
 ### Who is an admin
 
-`/etc/yamale/loyalty-admins` on yamale-us. Each line is
+`/etc/yamale/traceability-admins` on yamale-us. Each line is
 `<yml address> <display name…>`; `#` starts a comment.
-- loyalty-api and the office signer both read it at start and on SIGHUP.
+- traceability-api and the office signer both read it at start and on SIGHUP.
 - The installer creates it empty, owned by root and readable by both services' groups (640).
 - Adding an admin is an edit and a reload, never an in-app action.
 
@@ -224,7 +226,7 @@ The signer is `tools/jewelofficed`, a new binary run as `yamale-jewel-office.ser
 - It has no route through the gate and none through Caddy.
 
 It has three endpoints: `POST /admit`, `POST /suspend` and `POST /reinstate`.
-loyalty-api forwards to them the admin's **original** request:
+traceability-api forwards to them the admin's **original** request:
 - the three signature headers;
 - the canonical action JSON as the body;
 - the purpose.
@@ -232,7 +234,7 @@ loyalty-api forwards to them the admin's **original** request:
 The signer then does the following, in order:
 
 1. It verifies the signature, the purpose, the 60-second window, the admin
-   list and its own replay set, independently of loyalty-api. A loyalty-api
+   list and its own replay set, independently of traceability-api. A traceability-api
    that forges or alters a request is refused here.
 2. **Admit**:
    - it checks the chain first, and if the business is already a jeweler it answers that jeweler's id and does nothing else, so a retried click is safe;
@@ -241,7 +243,7 @@ The signer then does the following, in order:
    - it confirms that the jeweler exists;
    - member 3 sends the business 50 YML.
 
-   This is the sequence `scripts/devnet/loyalty-admit.sh` runs today with
+   This is the sequence `scripts/devnet/traceability-admit.sh` runs today with
    `OFFICE_VOTES=2` and `FUNDER=jewel-office-3`, ported to Go.
 3. **Suspend and reinstate**: the same two-vote sequence with
    `MsgSuspendJeweler{jeweler, reason}` or `MsgReinstateJeweler{jeweler}`,
@@ -253,7 +255,7 @@ Every transaction is confirmed in a block, not at CheckTx. The memory note
 `group-proposal-seeder-mechanics` lists the failure modes; success is that
 the proposal executed and has been pruned.
 
-loyalty-api then records the outcome:
+traceability-api then records the outcome:
 - on success, `submitted → admitted`, storing the jeweler id and the tx;
 - on refusal or timeout, the application stays `submitted`, and the admin sees the reason with the raw error behind a disclosure, as `FailureNote` does today.
 
@@ -276,13 +278,13 @@ Records are never edited or deleted. Retention deletes documents, not history.
 ### Storage
 
 Documents are stored as
-`/var/lib/yamale-loyalty/kyb/<application id>/<file id>.bin`, with a JSON
+`/var/lib/yamale-traceability/kyb/<application id>/<file id>.bin`, with a JSON
 manifest of the kind, the detected type, the size, the original sha256 and the
 upload time. The original filename is not kept.
 
 Encryption:
 - AES-256-GCM with a random nonce for each file.
-- The 32-byte key is read from `/etc/yamale/loyalty-kyb-key`, mode 640, owned by root with the yamale-loyalty group, and generated by the installer if it is missing.
+- The 32-byte key is read from `/etc/yamale/traceability-kyb-key`, mode 640, owned by root with the yamale-traceability group, and generated by the installer if it is missing.
 - The installer never prints the key.
 
 Serving to admins:
@@ -310,16 +312,16 @@ The job logs counts, never names. History is kept.
 
 ### Backup
 
-The existing `yamale-loyalty-backup.timer` already covers
-`/var/lib/yamale-loyalty`, so documents are backed up as ciphertext. The key
+The existing `yamale-traceability-backup.timer` already covers
+`/var/lib/yamale-traceability`, so documents are backed up as ciphertext. The key
 file is deliberately left out of that backup. The operator keeps a copy offline
 (the installer says so once, when it creates the key). The backup still sits on
 the same machine as the data, as already noted in gaps.md.
 
 ### Email
 
-- loyalty-api sends through Mailcow on yamale-us: SMTP submission on port 587, STARTTLS, from the mailbox `no-reply@yamaletech.com`.
-- The password is in `/etc/yamale/loyalty-smtp`, mode 640, owned by root with the yamale-loyalty group.
+- traceability-api sends through Mailcow on yamale-us: SMTP submission on port 587, STARTTLS, from the mailbox `no-reply@yamaletech.com`.
+- The password is in `/etc/yamale/traceability-smtp`, mode 640, owned by root with the yamale-traceability group.
 - The admin's notification address is a flag (`--admin-email`).
 - Messages are queued in an outbox directory and retried with backoff for 48 hours. A failed send never undoes a state change.
 - The admin's application view shows "email not delivered" when the last message to the applicant failed for good.
@@ -328,12 +330,12 @@ the same machine as the data, as already noted in gaps.md.
 ### Limits
 
 **The gate**:
-- the zone `yamale_loyalty_write` (30 requests a minute) is extended to the new `PUT` and `DELETE` routes and the upload `POST`;
-- a new zone, `yamale_loyalty_upload` (6 requests a minute per IP), covers `/v1/applications/mine/files`;
+- the zone `yamale_traceability_write` (30 requests a minute) is extended to the new `PUT` and `DELETE` routes and the upload `POST`;
+- a new zone, `yamale_traceability_upload` (6 requests a minute per IP), covers `/v1/applications/mine/files`;
 - `client_max_body_size 10m` applies on that path only;
 - `/v1/admin/` uses the write zone for `POST` and a read zone (60 a minute) for `GET`.
 
-**loyalty-api**:
+**traceability-api**:
 - one open application per account;
 - at most 5 files and 25 MB per application;
 - at most 50 new drafts per 24 hours across the whole service. Above that it answers 503, and the admin is emailed once.
@@ -348,7 +350,7 @@ the same machine as the data, as already noted in gaps.md.
 
 ### Testing
 
-**Go (loyalty-api):**
+**Go (traceability-api):**
 - every legal and illegal state transition;
 - applicant requests that are unsigned, stale, from the wrong account, or for another account's application;
 - admin requests from non-admins (must get 404), outside the 60-second window, replayed, or with the action body altered;
@@ -360,7 +362,7 @@ the same machine as the data, as already noted in gaps.md.
 - migration of a spooled application.
 
 **Go (jewelofficed):**
-- the same signature checks, independent of loyalty-api;
+- the same signature checks, independent of traceability-api;
 - refusal of a body changed after signing;
 - a retried admit that finds the business already a jeweler, and does nothing;
 - the two-vote sequence against a stub chain;
@@ -380,19 +382,19 @@ the same machine as the data, as already noted in gaps.md.
 - the admin suspends it, and its stock sale is refused, then reinstates it;
 - every email lands in a local SMTP sink.
 
-Then deployed to yamale-us and walked through on loyalty.yamaletech.com with
+Then deployed to yamale-us and walked through on traceability.yamaletech.com with
 the user.
 
 ## Deploy
 
-`install-loyalty.sh` gains:
+`install-traceability.sh` gains:
 - the KYB key;
 - the SMTP password prompt, or a check that the file already exists;
 - the admin list;
 - the `jewelofficed` binary and unit;
 - the move of the `/opt/yamale/jewel-office` keyring to the `yamale-jewel-office` user.
 
-The `yamale-loyalty-backup` timer keeps covering that keyring.
+The `yamale-traceability-backup` timer keeps covering that keyring.
 
 `deploy-gate.sh` gains the new zones and paths. The monitor gains the unit
 `yamale-jewel-office`. The signer has no public probe.

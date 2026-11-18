@@ -11,7 +11,7 @@ clients/
 ├── keys/       threshold accounts, running the protocol in a browser
 ├── markets/    the oracle, the AMM and the stablecoin registry
 ├── oversight/  enforcement cases and netting cycles
-├── loyalty/    the jewel register: verify, hold, pass on; the jeweler's Atelier
+├── traceability/ the jewel register: verify, hold, pass on; the jeweler's Atelier
 └── demo/       an eighteen-mechanism guided tour
 ```
 
@@ -74,14 +74,16 @@ does not depend on the node having CORS opened up. Point it elsewhere with
 `YAMALE_REST` and `YAMALE_RPC`; in production set `VITE_REST_URL` and
 `VITE_RPC_URL` at build time.
 
-## The jewel register (loyalty)
+## The jewel register (traceability)
 
-`loyalty/` is `@yamale/loyalty`: a person verifies a jewel from its engraved code
+`traceability/` is `@yamale/traceability`: a person verifies a jewel from its engraved code
 or a certificate link, holds it and passes it on, and a jeweler registers jewels,
 stocks and sells them, attaches benefits and redeems them. It reads the chain
-through `@yamale/chain` and talks to `tools/loyaltyapi` (fee sponsorship, photos
+through `@yamale/chain` and talks to `tools/traceabilityapi` (fee sponsorship, photos
 and records by hash, jeweler profiles, applications). The claim key of a sale
-travels only in the link's fragment; loyalty-api never signs for a person.
+travels only in the link's fragment; traceability-api never signs for a person.
+
+Public: https://traceability.yamaletech.com (devnet-2); loyalty.yamaletech.com serves a move page that carries accounts across. Deploy with `deploy/yamale-us/traceability/install-traceability.sh` (`--app` for the app alone); the office admits with `jewel-admit` on yamale-us.
 
 Run it locally, from the repository root in Git Bash (Go on the PATH, `$SCRATCH`
 a scratch directory):
@@ -90,22 +92,22 @@ a scratch directory):
 export PATH="/c/Program Files/Go/bin:$PATH"
 go build -o "$SCRATCH/blockchaind.exe" ./cmd/blockchaind
 go build -o "$SCRATCH/jewelsign.exe" ./tools/jewelsign
-go build -o "$SCRATCH/loyaltyapi.exe" ./tools/loyaltyapi
+go build -o "$SCRATCH/traceabilityapi.exe" ./tools/traceabilityapi
 BIN="$SCRATCH/blockchaind.exe" scripts/devnet/init-local-devnet.sh   # chain yamale-local-1, RPC 127.0.0.1:26957
 BIN="$SCRATCH/blockchaind.exe" SIGN="$SCRATCH/jewelsign.exe" HOME_DIR=.devnet/local/node   CHAIN=yamale-local-1 NODE=tcp://127.0.0.1:26957 scripts/devnet/seed-jewel.sh
-BIN="$SCRATCH/blockchaind.exe" API_BIN="$SCRATCH/loyaltyapi.exe" scripts/devnet/loyalty-local.sh &   # 127.0.0.1:8095
-(cd clients && npm run dev --workspace @yamale/loyalty)             # http://localhost:5390
+BIN="$SCRATCH/blockchaind.exe" API_BIN="$SCRATCH/traceabilityapi.exe" scripts/devnet/traceability-local.sh &   # 127.0.0.1:8095
+(cd clients && npm run dev --workspace @yamale/traceability)             # http://localhost:5390
 ```
 
 Vite binds only `::1`, so use `http://localhost:5390` and `http://[::1]:5390`
-(and a second server, `npx vite --port 5391` run in `clients/loyalty`) as separate
+(and a second server, `npx vite --port 5391` run in `clients/traceability`) as separate
 people: every origin keeps its own device account. A claim link made on one
 carries that origin; change only the host or port to open it as another.
 
 A jeweler applies from the app's Account tab and is admitted by the office:
 
 ```bash
-BIN="$SCRATCH/blockchaind.exe" HOME_DIR=.devnet/local/node CHAIN=yamale-local-1   NODE=tcp://127.0.0.1:26957 scripts/devnet/loyalty-admit.sh "Maison Test" <account code>
+BIN="$SCRATCH/blockchaind.exe" HOME_DIR=.devnet/local/node CHAIN=yamale-local-1   NODE=tcp://127.0.0.1:26957 scripts/devnet/traceability-admit.sh "Maison Test" <account code>
 ```
 
 The smoke test drives every chain path the app uses from TypeScript, with real keys
@@ -113,7 +115,7 @@ and fee grants, against that local chain (the keys are those of the throwaway
 devnet; they are read from the environment and never written down):
 
 ```bash
-cd clients/loyalty
+cd clients/traceability
 BUSINESS_KEY=$(yes | "$SCRATCH/blockchaind.exe" keys export jw-business --unarmored-hex --unsafe --keyring-backend test --home ../../.devnet/local/node 2>/dev/null | tail -1) STAFF_KEY=$(yes | "$SCRATCH/blockchaind.exe" keys export jw-staff --unarmored-hex --unsafe --keyring-backend test --home ../../.devnet/local/node 2>/dev/null | tail -1) RPC=http://127.0.0.1:26957 API=http://127.0.0.1:8095 CHAIN=yamale-local-1 node --experimental-strip-types scripts/smoke.ts
 ```
 

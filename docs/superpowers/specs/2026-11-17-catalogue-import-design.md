@@ -43,7 +43,7 @@ So:
 | 2 | Prose to fields | **Claude drafts, the jeweler confirms** each design. Nothing is registered from an unconfirmed design. |
 | 3 | Which websites | **Shopify's feed, then any site with schema.org `Product` markup.** Otherwise the page says it cannot read the site. |
 | 4 | What the permanent record keeps | **Description, product link and list price**, the price dated and labelled "list price at registration". Record format v2; v1 stays readable. |
-| 5 | Order of work | The rename, then this, then KYB (`2026-11-16-loyalty-kyb-design.md`). |
+| 5 | Order of work | The rename, then this, then KYB (`2026-11-16-traceability-kyb-design.md`). |
 
 ## 1. Designs, from the website
 
