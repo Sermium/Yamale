@@ -6,6 +6,7 @@
 
 import { normaliseInscription } from '../../../sdk/src/jewel.ts';
 import type { JewelRecordV2, Stone } from '../verify/record.ts';
+import { encodeRecord, parseRecord } from '../verify/record.ts';
 import { toCsv, type Csv } from './csv.ts';
 
 export interface PieceRow { index: number; cells: string[]; serial: string; sku: string; weight: string; labCertificate: string; notes: string }
@@ -21,7 +22,7 @@ export interface CatalogueDesign {
   confirmed: { title: string; fields: { metal: string; weightGrams: string; stones: Stone[] }; photos: string[] } | null;
 }
 
-export const VERDICTS = ['invalidSerial', 'tooLong', 'duplicate', 'unknownSku', 'notConfirmed', 'noWeight', 'alreadyRegistered', 'ready'] as const;
+export const VERDICTS = ['invalidSerial', 'tooLong', 'duplicate', 'unknownSku', 'notConfirmed', 'noWeight', 'unreadableRecord', 'alreadyRegistered', 'ready'] as const;
 export type Verdict = typeof VERDICTS[number];
 
 export interface Judged { row: PieceRow; verdict: Verdict; inscription: string | null; design: CatalogueDesign | null; weightGrams: string; jewelId: string }
@@ -52,7 +53,8 @@ function rowWeight(raw: string): string | null {
   return DECIMAL.test(w) && w.length <= 12 ? w : null;
 }
 
-export function judgePieces(rows: PieceRow[], designs: CatalogueDesign[], registered: ReadonlyMap<string, string>): Judged[] {
+export function judgePieces(rows: PieceRow[], designs: CatalogueDesign[], registered: ReadonlyMap<string, string>,
+  jeweler?: { id: string; name: string }): Judged[] {
   const exact = new Map(designs.map((d) => [d.key, d]));
   const folded = new Map<string, CatalogueDesign | null>();
   for (const d of designs) {
@@ -73,9 +75,12 @@ export function judgePieces(rows: PieceRow[], designs: CatalogueDesign[], regist
     const own = rowWeight(row.weight);
     const weightGrams = own === '' ? design.confirmed.fields.weightGrams : own;
     if (own === null || !weightGrams || !DECIMAL.test(weightGrams)) return { ...base, design, verdict: 'noWeight' };
+    const judged = { ...base, design, weightGrams };
+    // The server clips by characters and parseRecord limits by UTF-16 units, so a record can still fail to read back.
+    if (jeweler && parseRecord(encodeRecord(pieceRecord(judged as Judged, jeweler, new Date(0)))) === null) return { ...judged, verdict: 'unreadableRecord' };
     const id = registered.get(inscription);
-    if (id) return { ...base, design, weightGrams, jewelId: id, verdict: 'alreadyRegistered' };
-    return { ...base, design, weightGrams, verdict: 'ready' };
+    if (id) return { ...judged, jewelId: id, verdict: 'alreadyRegistered' };
+    return { ...judged, verdict: 'ready' };
   });
 }
 

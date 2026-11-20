@@ -102,3 +102,16 @@ test('the rows to fix carry the original cells and a problem column', () => {
   const out = withColumns(r.csv, judged.filter((j) => j.verdict !== 'ready'), (j) => ({ problem: j.verdict }));
   assert.equal(out, 'serial,sku,extra,problem\r\nA!,JOA-071,x,invalidSerial\r\n');
 });
+
+test('a piece whose record no viewer could read back is refused before it is registered', () => {
+  const jeweler = { id: '1', name: 'Atelier' };
+  const long: CatalogueDesign = { ...parrot, description: '💎'.repeat(3000) };
+  const [bad] = judgePieces(rows('serial,sku,weight_g\nA0001,JOA-071,4.2\n'), [long], new Map(), jeweler);
+  assert.equal(bad!.verdict, 'unreadableRecord');
+  const [ok] = judgePieces(rows('serial,sku,weight_g\nA0001,JOA-071,4.2\n'), [parrot], new Map(), jeweler);
+  assert.equal(ok!.verdict, 'ready');
+  const [reg] = judgePieces(rows('serial,sku,weight_g\nA0001,JOA-071,4.2\n'), [long], new Map([['A0001', 'id1']]), jeweler);
+  assert.equal(reg!.verdict, 'unreadableRecord');
+  const [nameLong] = judgePieces(rows('serial,sku,weight_g\nA0001,JOA-071,4.2\n'), [parrot], new Map(), { id: '1', name: 'W'.repeat(121) });
+  assert.equal(nameLong!.verdict, 'unreadableRecord');
+});

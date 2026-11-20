@@ -76,11 +76,11 @@ function PiecesBody({ jeweler }: { jeweler: { id: string; name: string; business
     if (!pieces.ok) { setFailed({ text: t(`traceability.csvErr.${pieces.problem}`), raw: '' }); setPhase({ kind: 'pick' }); return; }
     const cat = await session.withKey((k) => readCatalogue(k, jeweler.id, CHAIN_ID));
     if (!cat.ok) { setFailed({ text: t('traceability.catalogueUnavailable'), raw: `${cat.status} ${cat.error}` }); setPhase({ kind: 'pick' }); return; }
-    const first = judgePieces(pieces.rows, cat.value.designs, new Map());
+    const first = judgePieces(pieces.rows, cat.value.designs, new Map(), jeweler);
     const candidates = first.filter((j) => j.verdict === 'ready').map((j) => j.inscription!);
     const found = await findRegistered(candidates, jeweler.id, findByInscription);
     if (!found.ok) { setFailed({ text: t('traceability.registerUnreadable'), raw: found.detail }); setPhase({ kind: 'pick' }); return; }
-    setPhase({ kind: 'judged', csv: parsed.csv, judged: judgePieces(pieces.rows, cat.value.designs, found.registered), ignored: pieces.ignored });
+    setPhase({ kind: 'judged', csv: parsed.csv, judged: judgePieces(pieces.rows, cat.value.designs, found.registered, jeweler), ignored: pieces.ignored });
   }
 
   async function register(csv: Csv, judged: Judged[]) {
