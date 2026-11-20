@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { Design } from '../api.ts';
-import { filterDesigns, importErrorKey, shopOrigin } from './catalogue.ts';
+import { canConfirmDesign, filterDesigns, importErrorKey, shopOrigin } from './catalogue.ts';
 import type { CatalogueDesign } from './pieces.ts';
 
 test('a shop address becomes an https origin, or nothing', () => {
@@ -37,4 +37,19 @@ test('every code the API sends has words', () => {
 test('the API design is what the CSV judge takes (checked by the type system)', () => {
   const accepts = (_: CatalogueDesign[]) => true;
   assert.ok(accepts([] as Design[]));
+});
+
+test('a photo that failed to download blocks confirming until it is left out', () => {
+  type S = 'loading' | 'ok' | 'failed';
+  const img = (state: S, chosen = true) => ({ state, chosen });
+  const base = { gone: false, rights: true, complete: true, busy: false, images: [img('ok'), img('ok'), img('failed')] };
+  assert.equal(canConfirmDesign(base), false, 'a chosen failed image');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok'), img('ok'), img('failed', false)] }), true, 'the same image unticked');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok'), img('loading')] }), false, 'still loading');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok', false), img('failed', false)] }), false, 'no usable chosen image');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok')], rights: false }), false, 'no rights tick');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok')], gone: true }), false, 'gone');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok')], complete: false }), false, 'incomplete');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok')], busy: true }), false, 'busy');
+  assert.equal(canConfirmDesign({ ...base, images: [img('ok')] }), true);
 });

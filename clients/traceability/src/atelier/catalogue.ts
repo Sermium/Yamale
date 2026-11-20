@@ -33,3 +33,14 @@ const IMPORT_ERRORS: Record<string, string> = {
 };
 
 export function importErrorKey(code: string): string | null { return IMPORT_ERRORS[code] ?? null; }
+
+/** Confirm is allowed only when nothing is loading and no chosen photo failed: leaving one out is a deliberate untick. */
+export function canConfirmDesign(c: {
+  gone: boolean; rights: boolean; complete: boolean; busy: boolean;
+  images: { state: 'loading' | 'ok' | 'failed'; chosen: boolean }[];
+}): boolean {
+  if (c.gone || !c.rights || !c.complete || c.busy) return false;
+  if (c.images.some((i) => i.state === 'loading')) return false;
+  if (c.images.some((i) => i.state === 'failed' && i.chosen)) return false;
+  return c.images.some((i) => i.state === 'ok' && i.chosen);
+}

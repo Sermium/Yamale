@@ -14,6 +14,7 @@ import { useSession } from '../account/session.tsx';
 import { confirmDesign, fetchDesignImage, readCatalogue, saveDesign, type Design, type DesignFields } from '../api.ts';
 import { CHAIN_ID } from '../config.ts';
 import { AppBar, Loading, Section } from '../ui.tsx';
+import { canConfirmDesign } from './catalogue.ts';
 import { designComplete } from './draft.ts';
 import { DesignForm } from './DesignForm.tsx';
 import { FailureNote } from './FailureNote.tsx';
@@ -89,8 +90,10 @@ function Review({ jewelerId }: { jewelerId: string }) {
   if (!design) return failed ? <FailureNote text={failed.text} raw={failed.raw} /> : <Loading />;
   const gone = design.status === 'gone';
   const usable = images.filter((im): im is Extract<Img, { state: 'ok' }> => im.state === 'ok' && chosen.has(im.n));
-  const canConfirm = !gone && rights && usable.length > 0 && designComplete(title, fields) && stage === null
-    && !images.some((im) => im.state === 'loading');
+  const canConfirm = canConfirmDesign({
+    gone, rights, complete: designComplete(title, fields), busy: stage !== null,
+    images: images.map((im) => ({ state: im.state, chosen: chosen.has(im.n) })),
+  });
 
   async function save() {
     setFailed(null); setNote(null);
@@ -151,7 +154,14 @@ function Review({ jewelerId }: { jewelerId: string }) {
           {images.map((im) => (
             <li key={im.n}>
               {im.state === 'loading' && <Loading />}
-              {im.state === 'failed' && <p className="hint hint--bad">{t('traceability.imageFailed', { n: im.n + 1, why: im.why })}</p>}
+              {im.state === 'failed' && (
+                <label>
+                  <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => setChosen((s) => {
+                    const next = new Set(s); if (e.target.checked) next.add(im.n); else next.delete(im.n); return next;
+                  })} />
+                  <p className="hint hint--bad">{t('traceability.imageFailed', { n: im.n + 1, why: im.why })}</p>
+                </label>
+              )}
               {im.state === 'ok' && (
                 <label>
                   <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => setChosen((s) => {
