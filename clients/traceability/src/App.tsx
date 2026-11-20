@@ -10,6 +10,7 @@ import { Amend } from './atelier/Amend.tsx';
 import { Atelier } from './atelier/Atelier.tsx';
 import { Catalogue } from './atelier/Catalogue.tsx';
 import { DesignReview } from './atelier/DesignReview.tsx';
+import { Pieces } from './atelier/Pieces.tsx';
 import { AtelierJewel } from './atelier/AtelierJewel.tsx';
 import { Profile } from './atelier/Profile.tsx';
 import { Redeem } from './atelier/Redeem.tsx';
@@ -97,8 +98,7 @@ export function App() {
               <Route path="/atelier/look" element={<Profile />} />
               <Route path="/atelier/catalogue" element={<Catalogue />} />
               <Route path="/atelier/catalogue/design/:id" element={<DesignReview />} />
-              {/* Task 9 replaces this with the Pieces page. */}
-              <Route path="/atelier/catalogue/pieces" element={<Catalogue />} />
+              <Route path="/atelier/catalogue/pieces" element={<Pieces />} />
               <Route path="/about-import" element={<AboutImport />} />
               <Route path="/apply" element={<Apply />} />
               <Route path="/atelier/jewel/:jewel" element={<AtelierJewel />} />
