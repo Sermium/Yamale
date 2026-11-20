@@ -54,3 +54,15 @@ export function eventValue(result: SubmitResult, type: string, key: string): str
   }
   return null;
 }
+
+/** Every value of a typed event's attribute in a committed transaction, in message order. */
+export function eventValues(result: SubmitResult, type: string, key: string): string[] {
+  const out: string[] = [];
+  for (const e of result.raw.events ?? []) {
+    if (e.type !== type) continue;
+    const a = e.attributes.find((x) => x.key === key);
+    if (!a) continue;
+    try { out.push(String(JSON.parse(a.value))); } catch { out.push(a.value); }
+  }
+  return out;
+}
