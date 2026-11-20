@@ -831,6 +831,11 @@ could reasonably have gone the other way:
 - **Old backups are kept indefinitely.** Archives named `loyalty-<date>.tgz` now sit in `/var/backups/yamale-traceability`, and the backup's cleanup glob `traceability-*.tgz` never matches them. Widen the glob or clear them by hand once they are no longer wanted.
 - **Confirmed 2026-11-18:** the business account `yml1dzwpk73ntdyve2vx49flv0dxxguy6a5ygp2zv7` (jeweler "Maison Diop") was carried across in its owner's browser. It showed only after a reload, because the session read the account once at mount. That was fixed in `74e0c8b` the same evening and verified live: the unlock form appears with no reload.
 - **Moved aside, not deleted:** the old units are in `/root/loyalty-units.prev-202611181844` and the old app in `/srv/loyalty.prev-202611181844` on yamale-us.
+- **Off-site backup, since 2026-11-20.** `yamale-offsite-backup` (nightly 04:15 UTC) pushes encrypted restic snapshots to the Yamale Advisory SARL shared drive, folder Backups. The traceability data is no longer backed up only on the machine it protects:
+  - the **Blockchain** repository holds `/opt/yamale/traceability` (the sponsor keyring), `/opt/yamale/jewel-office` (the office keyring), `/etc/yamale/traceability-operator-token` and the validator key;
+  - the **Sites** repository holds `/var/lib/yamale-traceability` and `/srv/traceability`.
+
+  Verified in the snapshots on 2026-11-20. Without `/etc/yamale-backup/restic-password`, the snapshots cannot be read.
 
 ## The devnet-2 audit, and what it left for the chain
 
