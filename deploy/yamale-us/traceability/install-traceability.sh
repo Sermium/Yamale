@@ -113,7 +113,10 @@ if [ "$API" = 1 ]; then
   sudo test -s $TOKEN || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d " \n" | sudo tee $TOKEN >/dev/null)
   sudo chown root:yamale-traceability $TOKEN && sudo chmod 640 $TOKEN
 
-  sudo tee /etc/systemd/system/yamale-traceability.service >/dev/null <<"UNIT"
+  # Drafting is switched on only when the key file holds something: an empty file (an aborted edit)
+  # must not be passed, and the service also tolerates one.
+  DRAFT_FLAGS=""; if sudo test -s /etc/yamale/traceability-anthropic-key; then DRAFT_FLAGS=" --anthropic-key-file /etc/yamale/traceability-anthropic-key"; fi
+  sudo tee /etc/systemd/system/yamale-traceability.service >/dev/null <<UNIT
 [Unit]
 Description=Yamale traceability-api (traceability.yamaletech.com): files, profiles, applications, fee sponsorship
 After=network-online.target yamale-devnet.service
@@ -122,7 +125,7 @@ Wants=network-online.target
 [Service]
 User=yamale-traceability
 Group=yamale-traceability
-ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --operator-token-file /etc/yamale/traceability-operator-token
+ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
 Restart=always
 RestartSec=5
 MemoryMax=256M

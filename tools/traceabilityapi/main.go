@@ -139,10 +139,12 @@ func main() {
 	if *keyFile != "" {
 		raw, err := os.ReadFile(*keyFile)
 		if err != nil || strings.TrimSpace(string(raw)) == "" {
-			log.Fatalf("anthropic key file %s cannot be read or is empty", *keyFile)
+			// Never the contents, and never fatal: the photos, uploads and sponsorship must keep running.
+			log.Printf("catalogue drafting off: the key file is empty or unreadable")
+		} else {
+			s.drafter = newClaudeDrafter(strings.TrimSpace(string(raw)), *draftModel, *anthropicURL, 90*time.Second, 2)
+			log.Printf("catalogue drafting on, with %s, at most %d designs a jeweler a month", *draftModel, *draftMonthly)
 		}
-		s.drafter = newClaudeDrafter(strings.TrimSpace(string(raw)), *draftModel, *anthropicURL, 90*time.Second, 2)
-		log.Printf("catalogue drafting on, with %s, at most %d designs a jeweler a month", *draftModel, *draftMonthly)
 	} else {
 		log.Printf("catalogue drafting off: no --anthropic-key-file")
 	}
