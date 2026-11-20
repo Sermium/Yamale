@@ -120,7 +120,7 @@ func readShopify(ctx context.Context, f pageFetcher, origin string, max int) ([]
 		if json.Unmarshal(body, &meta) == nil {
 			currency = strings.ToUpper(meta.Currency)
 		}
-	} else if errors.Is(err, errRateLimited) || errors.Is(err, errRobots) {
+	} else if !absent(err) {
 		return nil, true, err
 	}
 	for i := range out {
@@ -144,16 +144,23 @@ func sameHost(raw, origin string) bool {
 	return err == nil && err2 == nil && strings.EqualFold(u.Host, o.Host) && u.Scheme == o.Scheme
 }
 
-func stopping(err error) bool { return errors.Is(err, errRateLimited) || errors.Is(err, errRobots) }
+// absent: the site answered, and the answer was "not here" (any 4xx other
+// than a rate limit, which the fetcher reports as errRateLimited). Every other
+// failure is a read that did not finish, and must stop the read: a shorter
+// list would be taken for the whole catalogue.
+func absent(err error) bool {
+	var se *statusError
+	return errors.As(err, &se) && se.code >= 400 && se.code < 500
+}
 
 // productPages lists the product pages of a site from its sitemap.
 func productPages(ctx context.Context, f pageFetcher, origin string, max int) ([]string, error) {
 	body, _, err := f.get(ctx, origin+"/sitemap.xml", acceptPages)
-	if stopping(err) {
-		return nil, err
+	if absent(err) {
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	var sm sitemapXML
 	if xml.Unmarshal(body, &sm) != nil {
@@ -187,12 +194,18 @@ func productPages(ctx context.Context, f pageFetcher, origin string, max int) ([
 			children = children[:10]
 		}
 		for _, child := range children {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			b, _, err := f.get(ctx, child, acceptPages)
-			if stopping(err) {
+			if absent(err) {
+				continue
+			}
+			if err != nil {
 				return nil, err
 			}
 			var c sitemapXML
-			if err != nil || xml.Unmarshal(b, &c) != nil {
+			if xml.Unmarshal(b, &c) != nil {
 				continue
 			}
 			for _, u := range c.URLs {
@@ -224,12 +237,15 @@ func readSchemaOrg(ctx context.Context, f pageFetcher, origin string, max int) (
 	}
 	var out []sourceProduct
 	for _, u := range pages {
-		body, _, err := f.get(ctx, u, acceptPages)
-		if stopping(err) {
+		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if err != nil {
+		body, _, err := f.get(ctx, u, acceptPages)
+		if absent(err) {
 			continue
+		}
+		if err != nil {
+			return nil, err
 		}
 		if p, ok := productFromPage(body, u); ok {
 			out = append(out, p)

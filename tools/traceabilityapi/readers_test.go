@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -147,4 +149,82 @@ func (f failingFetcher) get(context.Context, string, string) ([]byte, http.Heade
 func TestHTMLBecomesReadableText(t *testing.T) {
 	got := plainText(`<p>Twelve <b>significant</b> emeralds&nbsp;totaling 32 carats.</p><ul><li>18kt Yellow Gold</li><li>422 diamonds</li></ul><script>alert(1)</script><style>p{}</style>`)
 	require.Equal(t, "Twelve significant emeralds totaling 32 carats.\n18kt Yellow Gold\n422 diamonds", got)
+}
+
+// failFetcher serves a mapFetcher, except for the URLs it is told to fail.
+type failFetcher struct {
+	base mapFetcher
+	fail map[string]error
+}
+
+func (f failFetcher) get(ctx context.Context, u, accept string) ([]byte, http.Header, error) {
+	if err, ok := f.fail[u]; ok {
+		return nil, nil, err
+	}
+	return f.base.get(ctx, u, accept)
+}
+
+func shopSite() mapFetcher {
+	return mapFetcher{
+		"https://shop.example/sitemap.xml":          fixture2("sitemap-index.xml"),
+		"https://shop.example/product-sitemap.xml":  fixture2("sitemap-products.xml"),
+		"https://shop.example/product/baobab-ring/": fixture2("woo-product.html"),
+		"https://shop.example/product/sahel-cuff/":  fixture2("wix-product.html"),
+		"https://shop.example/product/broken/":      "<html>no markup</html>",
+	}
+}
+
+func fixture2(name string) string {
+	b, err := os.ReadFile("testdata/catalogue/" + name)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+func TestAFailedProductPageIsAnErrorNotAShorterList(t *testing.T) {
+	f := failFetcher{base: shopSite(), fail: map[string]error{"https://shop.example/product/sahel-cuff/": &statusError{503}}}
+	ps, err := readSchemaOrg(context.Background(), f, "https://shop.example", maxDesigns)
+	require.Error(t, err)
+	require.Nil(t, ps)
+}
+
+func TestADeletedProductPageIsSkipped(t *testing.T) {
+	f := failFetcher{base: shopSite(), fail: map[string]error{"https://shop.example/product/baobab-ring/": &statusError{404}}}
+	ps, err := readSchemaOrg(context.Background(), f, "https://shop.example", maxDesigns)
+	require.NoError(t, err)
+	require.Len(t, ps, 1)
+	require.Equal(t, "Sahel Cuff", ps[0].Title)
+}
+
+func TestAFailedMetaFetchIsAnError(t *testing.T) {
+	base := mapFetcher{joa + "/products.json?limit=250&page=1": fixture(t, "shopify-products.json")}
+	f := failFetcher{base: base, fail: map[string]error{joa + "/meta.json": fmt.Errorf("%w: timeout", errUnreachable)}}
+	_, shop, err := readShopify(context.Background(), f, joa, maxDesigns)
+	require.ErrorIs(t, err, errUnreachable)
+	require.True(t, shop)
+}
+
+func TestAFailedSitemapChildIsAnError(t *testing.T) {
+	f := failFetcher{base: shopSite(), fail: map[string]error{"https://shop.example/product-sitemap.xml": &statusError{503}}}
+	_, err := readSchemaOrg(context.Background(), f, "https://shop.example", maxDesigns)
+	require.Error(t, err)
+	var se *statusError
+	require.True(t, errors.As(err, &se))
+}
+
+func TestAFailedSitemapIsAnErrorButAMissingOneIsNot(t *testing.T) {
+	f := failFetcher{base: shopSite(), fail: map[string]error{"https://shop.example/sitemap.xml": &statusError{500}}}
+	_, err := readSchemaOrg(context.Background(), f, "https://shop.example", maxDesigns)
+	require.Error(t, err)
+	ps, err := readSchemaOrg(context.Background(), mapFetcher{}, "https://shop.example", maxDesigns)
+	require.NoError(t, err)
+	require.Empty(t, ps)
+}
+
+func TestACancelledContextStopsTheRead(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := readSchemaOrg(ctx, shopSite(), "https://shop.example", maxDesigns)
+	require.True(t, errors.Is(err, context.Canceled))
 }
