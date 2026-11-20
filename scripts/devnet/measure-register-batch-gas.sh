@@ -40,8 +40,9 @@ const tx = JSON.parse(fs.readFileSync(file, "utf8"));
 const m = tx.body.messages[0];
 tx.body.messages = [];
 for (let i = 0; i < Number(n); i++) {
-  const h = crypto.createHash("sha256").update(prefix + i).digest("hex");
-  tx.body.messages.push({ ...m, inscription: prefix + i, record_hash: h, record_uri: "https://traceability.yamaletech.com/r/" + h });
+  const ins = prefix.padEnd(36, "X").slice(0, 36) + String(i).padStart(4, "0");
+  const h = crypto.createHash("sha256").update(ins).digest("hex");
+  tx.body.messages.push({ ...m, inscription: ins, record_hash: h, record_uri: "https://traceability.yamaletech.com/api/traceability/v1/files/" + h });
 }
 process.stdout.write(JSON.stringify(tx));
 ' "$TMP/one.json" "$N" "$PREFIX" > "$TMP/many.json"

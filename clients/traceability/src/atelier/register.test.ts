@@ -63,6 +63,8 @@ test('a failed upload stops before its batch is sent', async () => {
   const out = await registerPieces(pieces(12), c.deps, 5);
   assert.equal(c.batchesSent(), 1);
   assert.deepEqual(out.stopped, { text: 'busy', raw: '503' });
+  assert.deepEqual([...out.outcomes.values()].map((o) => o.status),
+    [...Array(5).fill('registered'), 'notRun', 'failed', ...Array(5).fill('notRun')]);
 });
 
 test('progress counts settled pieces', async () => {

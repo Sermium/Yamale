@@ -25,11 +25,12 @@ export interface PieceOutcome { status: 'registered' | 'alreadyRegistered' | 'fa
 
 /**
  * Messages per transaction. Measured 2026-11-20 with scripts/devnet/measure-register-batch-gas.sh
- * on a local devnet against JEWEL_GAS (1,650,000), keeping 25% headroom (at most 1,237,500):
- * 24 registrations 1,148,821 gas, 25 registrations 1,198,414 (fits), 26 registrations
- * 1,245,967 (over). About 47,000 gas a message plus 28,000 a transaction.
+ * on a local devnet, worst case (40-character code, real record URI), against JEWEL_GAS
+ * (1,650,000) keeping 25% headroom (at most 1,237,500): 22 registrations 1,155,481 gas,
+ * 23 registrations 1,206,702 (fits), 24 registrations 1,257,923 (over).
+ * About 51,200 gas a message plus 28,000 a transaction.
  */
-export const REGISTER_BATCH = 25;
+export const REGISTER_BATCH = 23;
 
 export async function registerPieces(pieces: Piece[], deps: RegisterDeps, size = REGISTER_BATCH):
   Promise<{ outcomes: Map<number, PieceOutcome>; stopped: { text: string; raw: string } | null }> {
@@ -49,7 +50,7 @@ export async function registerPieces(pieces: Piece[], deps: RegisterDeps, size =
     for (const p of todo) {
       const up = await deps.upload(p.record);
       if (!up.ok) {
-        for (const q of todo) outcomes.set(q.id, { status: 'failed', jewelId: '' });
+        outcomes.set(p.id, { status: 'failed', jewelId: '' });
         return { outcomes, stopped: { text: up.text, raw: up.raw } };
       }
       hashes.push(up.value);
