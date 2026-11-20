@@ -3,6 +3,7 @@
 # Runs traceability-api against the local devnet: a sponsor key funded from a
 # custodian, an operator token for the application list, and the data under
 # .devnet/local/traceability. Runs in the foreground; stop it with Ctrl-C.
+# STUBS=1 reads the fixture shop and drafts with the stub (Task 10 of the catalogue-import plan).
 #
 #   BIN=$SCRATCH/blockchaind.exe API_BIN=$SCRATCH/traceabilityapi.exe scripts/devnet/traceability-local.sh
 set -euo pipefail
@@ -28,7 +29,14 @@ if [ "${balance:-0}" = "0" ]; then
 fi
 [ -s "$DATA/operator-token" ] || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$DATA/operator-token")
 
+EXTRA=""
+if [ "${STUBS:-0}" = "1" ]; then
+  [ -s "$DATA/anthropic-key" ] || printf 'stub-key-for-the-local-devnet' > "$DATA/anthropic-key"
+  EXTRA="--anthropic-key-file $DATA/anthropic-key --anthropic-base-url http://127.0.0.1:8098 --catalogue-dev-origin http://127.0.0.1:8099"
+  say "catalogue: fixture shop on 8099, Claude stub on 8098 (start them with node scripts/devnet/catalogue-fixture.mjs and claude-stub.mjs)"
+fi
+
 say "traceability-api on 127.0.0.1:8095, sponsor $SPONSOR"
 exec "$API_BIN" --listen 127.0.0.1:8095 --dir "$DATA" --rest "$REST" --chain-id "$CHAIN" \
   --bin "$BIN" --from traceability-sponsor --home "$HOME_DIR" --keyring-backend "$KEYRING" --node "$NODE" \
-  --operator-token-file "$DATA/operator-token"
+  --operator-token-file "$DATA/operator-token" $EXTRA
