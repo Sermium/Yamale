@@ -94,10 +94,25 @@ func designKey(p sourceProduct) string {
 	if sku := strings.TrimSpace(p.SKU); sku != "" && utf8.RuneCountInString(sku) <= 80 {
 		return sku
 	}
-	if p.Handle != "" {
-		return "handle:" + p.Handle
+	if h := handleOf(p); h != "" {
+		return "handle:" + h
 	}
 	return "url:" + p.Path
+}
+
+var productPathPattern = regexp.MustCompile(`^/products/([^/?#]+)/?$`)
+
+// handleOf is the product's handle: its own, or the one its /products/<handle>
+// path carries (the schema.org fallback reads pages, which give no handle), so a
+// product keys the same whether the feed or the page read it.
+func handleOf(p sourceProduct) string {
+	if p.Handle != "" {
+		return p.Handle
+	}
+	if m := productPathPattern.FindStringSubmatch(p.Path); m != nil {
+		return m[1]
+	}
+	return ""
 }
 
 // designsFrom builds the designs a site describes, before any merge.
@@ -107,8 +122,8 @@ func designsFrom(ps []sourceProduct) []design {
 	for _, p := range ps {
 		key := designKey(p)
 		if seen[key] {
-			if p.Handle != "" {
-				key = "handle:" + p.Handle
+			if h := handleOf(p); h != "" {
+				key = "handle:" + h
 			} else {
 				key = "url:" + p.Path
 			}

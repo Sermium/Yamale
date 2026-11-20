@@ -110,3 +110,10 @@ func TestFieldRulesMirrorTheApp(t *testing.T) {
 	require.NotEqual(t, "", fieldsProblem(strings.Repeat("x", 121), ok, false))
 	require.NotEqual(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Ruby", Carat: "1", Count: 10000}}}, false))
 }
+
+func TestAFallbackProductWithoutAHandleKeysByItsProductPath(t *testing.T) {
+	p := sourceProduct{Path: "/products/emerald-ring-1", Title: "Ring"}
+	require.Equal(t, "handle:emerald-ring-1", designKey(p))
+	require.Equal(t, "handle:emerald-ring-1", designKey(sourceProduct{Path: "/products/emerald-ring-1/"}))
+	require.Equal(t, "url:/pages/about", designKey(sourceProduct{Path: "/pages/about"}))
+}
