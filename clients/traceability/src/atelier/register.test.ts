@@ -67,6 +67,28 @@ test('a failed upload stops before its batch is sent', async () => {
     [...Array(5).fill('registered'), 'notRun', 'failed', ...Array(5).fill('notRun')]);
 });
 
+test('an upload that throws stops the run, keeps what was registered and marks only its own piece failed', async () => {
+  const c = fakeChain();
+  let n = 0;
+  c.deps.upload = async (record) => { if (++n === 7) throw new Error('locked'); return { ok: true, value: String(record.length) }; };
+  const out = await registerPieces(pieces(12), c.deps, 5);
+  assert.equal(out.interrupted, true);
+  assert.deepEqual(out.stopped, { text: '', raw: 'locked' });
+  assert.deepEqual([...out.outcomes.values()].map((o) => o.status),
+    [...Array(5).fill('registered'), 'notRun', 'failed', ...Array(5).fill('notRun')]);
+});
+
+test('a submit that throws leaves its batch unknown, the earlier batch registered and the rest not run', async () => {
+  const c = fakeChain();
+  const real = c.deps.submit;
+  let n = 0;
+  c.deps.submit = async (batch) => { if (++n === 2) throw new Error('locked'); return real(batch); };
+  const out = await registerPieces(pieces(12), c.deps, 5);
+  assert.equal(out.interrupted, true);
+  assert.deepEqual([...out.outcomes.values()].map((o) => o.status),
+    [...Array(5).fill('registered'), ...Array(5).fill('unknown'), 'notRun', 'notRun']);
+});
+
 test('progress counts settled pieces', async () => {
   const c = fakeChain();
   const seen: [number, number][] = [];

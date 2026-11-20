@@ -27,7 +27,7 @@ type Phase =
   | { kind: 'checking' }
   | { kind: 'judged'; csv: Csv; judged: Judged[]; ignored: string[] }
   | { kind: 'registering'; csv: Csv; judged: Judged[]; done: number; of: number }
-  | { kind: 'finished'; csv: Csv; judged: Judged[]; outcomes: Map<number, PieceOutcome>; stopped: { text: string; raw: string } | null };
+  | { kind: 'finished'; csv: Csv; judged: Judged[]; outcomes: Map<number, PieceOutcome>; stopped: { text: string; raw: string } | null; interrupted: boolean };
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -60,6 +60,16 @@ function PiecesBody({ jeweler }: { jeweler: { id: string; name: string; business
   async function choose(file: File) {
     setFailed(null);
     setPhase({ kind: 'checking' });
+    try {
+      await check(file);
+    } catch (e) {
+      // Typically the account locked itself while the catalogue was being read.
+      setFailed({ text: t('traceability.interrupted'), raw: e instanceof Error ? e.message : String(e) });
+      setPhase({ kind: 'pick' });
+    }
+  }
+
+  async function check(file: File) {
     const parsed = parseCsv(await file.text());
     if (!parsed.ok) { setFailed({ text: t(`traceability.csvErr.${parsed.problem}`), raw: '' }); setPhase({ kind: 'pick' }); return; }
     const pieces = readPieces(parsed.csv);
@@ -79,33 +89,52 @@ function PiecesBody({ jeweler }: { jeweler: { id: string; name: string; business
     const now = new Date();
     const pieces = ready.map((j) => ({ id: j.row.index, inscription: j.inscription!, record: encodeRecord(pieceRecord(j, jeweler, now)) }));
     setPhase({ kind: 'registering', csv, judged, done: 0, of: pieces.length });
+    const out = await registerPieces(pieces, {
+      async taken(ins) {
+        const r = await findRegistered(ins, jeweler.id, findByInscription);
+        return r.ok ? { ok: true, value: r.registered } : { ok: false, text: t('traceability.registerUnreadable'), raw: r.detail };
+      },
+      async upload(record) {
+        const up = await paced(() => uploadFile(session.withKey((k) => k), record, CHAIN_ID),
+          (r) => !r.ok && (r.status === 429 || r.status === 503), sleep);
+        return up.ok ? { ok: true, value: up.hash } : { ok: false, text: t('traceability.uploadFailed'), raw: `${up.status} ${up.error}` };
+      },
+      async submit(batch) {
+        const msgs = batch.map((b) => registerJewel(session.address!, b.inscription, b.hash, recordUri(b.hash)));
+        const result = await session.submit(msgs, jeweler.business);
+        if (!result.succeeded) {
+          const raw = result.error?.raw ?? result.raw.rawLog ?? '';
+          const key = errorKey(raw);
+          return { ok: false, text: key ? t(`traceability.err.${key}`) : (result.error?.message ?? t('traceability.err.unknown')), raw };
+        }
+        return { ok: true, value: eventValues(result, 'blockchain.jewel.v1.EventJewelRegistered', 'jewel_id') };
+      },
+      progress(done, of) { setPhase({ kind: 'registering', csv, judged, done, of }); },
+    });
+    const outcomes = out.stopped ? await reconcile(ready, out.outcomes) : out.outcomes;
+    setPhase({ kind: 'finished', csv, judged, outcomes, stopped: out.stopped, interrupted: out.interrupted });
+  }
+
+  /**
+   * After a stop the register is the judge: a batch whose transaction was sent
+   * just before the lock may have landed. Anything the register holds is
+   * registered, whatever the run believed. If the register cannot be read the
+   * outcomes stay as they were.
+   */
+  async function reconcile(ready: Judged[], outcomes: Map<number, PieceOutcome>): Promise<Map<number, PieceOutcome>> {
+    const open = ready.filter((j) => outcomes.get(j.row.index)?.status !== 'registered');
+    if (open.length === 0) return outcomes;
     try {
-      const out = await registerPieces(pieces, {
-        async taken(ins) {
-          const r = await findRegistered(ins, jeweler.id, findByInscription);
-          return r.ok ? { ok: true, value: r.registered } : { ok: false, text: t('traceability.registerUnreadable'), raw: r.detail };
-        },
-        async upload(record) {
-          const up = await paced(() => uploadFile(session.withKey((k) => k), record, CHAIN_ID),
-            (r) => !r.ok && (r.status === 429 || r.status === 503), sleep);
-          return up.ok ? { ok: true, value: up.hash } : { ok: false, text: t('traceability.uploadFailed'), raw: `${up.status} ${up.error}` };
-        },
-        async submit(batch) {
-          const msgs = batch.map((b) => registerJewel(session.address!, b.inscription, b.hash, recordUri(b.hash)));
-          const result = await session.submit(msgs, jeweler.business);
-          if (!result.succeeded) {
-            const raw = result.error?.raw ?? result.raw.rawLog ?? '';
-            const key = errorKey(raw);
-            return { ok: false, text: key ? t(`traceability.err.${key}`) : (result.error?.message ?? t('traceability.err.unknown')), raw };
-          }
-          return { ok: true, value: eventValues(result, 'blockchain.jewel.v1.EventJewelRegistered', 'jewel_id') };
-        },
-        progress(done, of) { setPhase({ kind: 'registering', csv, judged, done, of }); },
-      });
-      setPhase({ kind: 'finished', csv, judged, outcomes: out.outcomes, stopped: out.stopped });
-    } catch (e) {
-      // Typically the account locked itself during a long run.
-      setPhase({ kind: 'finished', csv, judged, outcomes: new Map(), stopped: { text: t('traceability.interrupted'), raw: e instanceof Error ? e.message : String(e) } });
+      const found = await findRegistered(open.map((j) => j.inscription!), jeweler.id, findByInscription);
+      if (!found.ok) return outcomes;
+      const next = new Map(outcomes);
+      for (const j of open) {
+        const id = found.registered.get(j.inscription!);
+        if (id) next.set(j.row.index, { status: 'registered', jewelId: id });
+      }
+      return next;
+    } catch {
+      return outcomes;
     }
   }
 
@@ -160,7 +189,8 @@ function Judgement({ phase, onRegister }: { phase: Extract<Phase, { kind: 'judge
 function Finished({ phase }: { phase: Extract<Phase, { kind: 'finished' }> }) {
   const outcome = (j: Judged): { status: string; jewelId: string } => {
     const o = phase.outcomes.get(j.row.index);
-    if (o) return o;
+    // A batch whose fate the register could not settle counts as failed.
+    if (o) return o.status === 'unknown' ? { status: 'failed', jewelId: '' } : o;
     return j.verdict === 'alreadyRegistered' ? { status: 'alreadyRegistered', jewelId: j.jewelId } : { status: j.verdict, jewelId: '' };
   };
   const all = phase.judged.map(outcome);
@@ -169,7 +199,7 @@ function Finished({ phase }: { phase: Extract<Phase, { kind: 'finished' }> }) {
   const skipped = all.length - registered - failedN;
   return (
     <Section title={t('traceability.piecesDone')}>
-      {phase.stopped && <FailureNote text={`${phase.stopped.text} ${t('traceability.runStopped')}`} raw={phase.stopped.raw} />}
+      {phase.stopped && <FailureNote text={`${phase.interrupted ? t('traceability.interrupted') : phase.stopped.text} ${t('traceability.runStopped')}`} raw={phase.stopped.raw} />}
       <p className="banner banner--ok" role="status">{t('traceability.piecesSummary', { registered, skipped, failed: failedN })}</p>
       <button type="button" className="btn" onClick={() => download('registration-result.csv',
         withColumns(phase.csv, phase.judged, (j) => { const o = outcome(j); return { jewel_id: o.jewelId, status: o.status }; }))}>
