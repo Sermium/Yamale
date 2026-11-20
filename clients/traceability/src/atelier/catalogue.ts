@@ -30,6 +30,7 @@ const IMPORT_ERRORS: Record<string, string> = {
   unreadable: 'traceability.importErr.unreadable', robots: 'traceability.importErr.robots',
   refused: 'traceability.importErr.refused', rateLimited: 'traceability.importErr.rateLimited',
   unreachable: 'traceability.importErr.unreachable', busy: 'traceability.importErr.busy',
+  interrupted: 'traceability.importErr.interrupted',
 };
 
 export function importErrorKey(code: string): string | null { return IMPORT_ERRORS[code] ?? null; }

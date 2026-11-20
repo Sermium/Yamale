@@ -397,3 +397,27 @@ type nilStonesDrafter struct{}
 func (nilStonesDrafter) draft(context.Context, string, string) (fields, usage, error) {
 	return fields{Metal: "Gold"}, usage{In: 1, Out: 1}, nil
 }
+
+func TestAJobCutShortByARestartIsReportedAsInterrupted(t *testing.T) {
+	biz := testKey("biz")
+	s := catalogueServer(t, twoProducts(), &fakeDrafter{}, activeJeweler("1", biz))
+	s.catMu.Lock()
+	require.NoError(t, s.saveCatalogue("1", catalogue{Job: importJob{State: jobDrafting}}))
+	s.importing = map[string]bool{}
+	s.catMu.Unlock()
+	c := readAll(t, s, biz, "1")
+	require.Equal(t, jobFailed, c.Job.State)
+	require.Equal(t, "interrupted", c.Job.Error)
+	require.Equal(t, http.StatusAccepted, startImport(t, s, biz, "https://shop.example").Code)
+	waitForJob(t, s, "1")
+}
+
+func TestARestartedJobDoesNotBlockANewImport(t *testing.T) {
+	biz := testKey("biz")
+	s := catalogueServer(t, twoProducts(), &fakeDrafter{}, activeJeweler("1", biz))
+	s.catMu.Lock()
+	require.NoError(t, s.saveCatalogue("1", catalogue{Job: importJob{State: jobReading}}))
+	s.catMu.Unlock()
+	require.Equal(t, http.StatusAccepted, startImport(t, s, biz, "https://shop.example").Code)
+	waitForJob(t, s, "1")
+}

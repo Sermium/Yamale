@@ -143,6 +143,23 @@ func (s *server) loadCatalogue(id string) (catalogue, error) {
 	return c, nil
 }
 
+// loadSettled loads a catalogue with catMu held. A job saved as reading or
+// drafting while no import is running here was cut short by a restart: it is
+// rewritten as failed ("interrupted") so the app stops waiting on it.
+func (s *server) loadSettled(id string) (catalogue, error) {
+	c, err := s.loadCatalogue(id)
+	if err != nil {
+		return c, err
+	}
+	if (c.Job.State == jobReading || c.Job.State == jobDrafting) && !s.importing[id] {
+		c.Job = importJob{State: jobFailed, Error: "interrupted"}
+		if err := s.saveCatalogue(id, c); err != nil {
+			return c, err
+		}
+	}
+	return c, nil
+}
+
 func (s *server) saveCatalogue(id string, c catalogue) error {
 	tidy(&c)
 	b, err := json.Marshal(c)
@@ -261,6 +278,11 @@ func (s *server) handleCatalogueImport(w http.ResponseWriter, r *http.Request) {
 	s.catMu.Lock()
 	if s.importing == nil {
 		s.importing = map[string]bool{}
+	}
+	if _, err := s.loadSettled(j.ID); err != nil {
+		s.catMu.Unlock()
+		serverFault(w, err)
+		return
 	}
 	if s.importing[j.ID] {
 		s.catMu.Unlock()
@@ -498,7 +520,7 @@ func (s *server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.catMu.Lock()
-	c, err := s.loadCatalogue(j.ID)
+	c, err := s.loadSettled(j.ID)
 	s.catMu.Unlock()
 	if err != nil {
 		serverFault(w, err)

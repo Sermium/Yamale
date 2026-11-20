@@ -30,7 +30,7 @@ test('the review list holds what still needs a person', () => {
 });
 
 test('every code the API sends has words', () => {
-  for (const c of ['unreadable', 'robots', 'refused', 'rateLimited', 'unreachable', 'busy']) assert.ok(importErrorKey(c), c);
+  for (const c of ['unreadable', 'robots', 'refused', 'rateLimited', 'unreachable', 'busy', 'interrupted']) assert.ok(importErrorKey(c), c);
   assert.equal(importErrorKey('something new'), null);
 });
 
