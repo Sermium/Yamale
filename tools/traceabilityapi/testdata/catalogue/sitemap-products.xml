@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://shop.example/product/baobab-ring/</loc></url>
+  <url><loc>https://shop.example/product/sahel-cuff/</loc></url>
+  <url><loc>https://shop.example/product/broken/</loc></url>
+  <url><loc>https://evil.example/product/elsewhere/</loc></url>
+</urlset>
