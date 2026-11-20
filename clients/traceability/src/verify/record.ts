@@ -79,10 +79,16 @@ export function encodeRecord(r: JewelRecord): Uint8Array {
   }));
 }
 
+/** 2026-02-30 matches the shape of a day and is not one; a formatter would throw on it. */
+function isRealDay(at: string): boolean {
+  const d = new Date(`${at}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === at;
+}
+
 function parseListPrice(v: any): ListPrice | null | undefined {
   if (v === null) return null;
   if (!v || !str(v.amount, 20) || !AMOUNT.test(v.amount) || !str(v.currency, 3) || !/^[A-Z]{3}$/.test(v.currency)
-    || !str(v.at, 10) || !DAY.test(v.at) || v.label !== LIST_PRICE_LABEL) return undefined;
+    || !str(v.at, 10) || !DAY.test(v.at) || !isRealDay(v.at) || v.label !== LIST_PRICE_LABEL) return undefined;
   return { amount: v.amount, currency: v.currency, at: v.at, label: LIST_PRICE_LABEL };
 }
 

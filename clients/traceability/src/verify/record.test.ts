@@ -90,3 +90,10 @@ test('a v2 record is checked as strictly as v1', () => {
   assert.deepEqual(parseRecord(enc({ ...v2, listPrice: null, productUrl: '' })), { ...v2, listPrice: null, productUrl: '' });
   assert.equal(parseRecord(enc({ ...ring, origin: { ...ring.origin, labCertificate: 'x'.repeat(81) } })), null, 'v1 keeps 80');
 });
+
+test('a list price dated on a day that does not exist is not a record', () => {
+  const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
+  for (const at of ['2026-13-45', '2026-02-30', '2026-00-10']) {
+    assert.equal(parseRecord(enc({ ...v2, listPrice: { ...v2.listPrice, at } })), null, at);
+  }
+});

@@ -11,13 +11,13 @@
 import { type CSSProperties, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  chainHead, formatDate, isActive, plural, readJewel, readJeweler, t, useLocale, type Benefit, type Jewel, type JewelView,
+  chainHead, isActive, plural, readJewel, readJeweler, t, useLocale, type Benefit, type Jewel, type JewelView,
 } from '@yamale/chain';
 
 import { fetchProfile } from '../api.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
-import { listPriceText } from './listprice.ts';
+import { listPriceDay, listPriceText } from './listprice.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
 import { useRecord, type JewelRecord } from './record.ts';
 
@@ -52,7 +52,7 @@ export function DesignStory({ record }: { record: JewelRecord }) {
       {record.description && <p className="story">{record.description}</p>}
       {record.listPrice && (
         <p className="hint num">{t('traceability.listPriceAt', {
-          price: listPriceText(record.listPrice, locale), date: formatDate(new Date(`${record.listPrice.at}T00:00:00Z`)),
+          price: listPriceText(record.listPrice, locale), date: listPriceDay(record.listPrice.at, locale),
         })}</p>
       )}
       {record.productUrl && (
