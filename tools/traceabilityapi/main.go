@@ -25,6 +25,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,11 +85,22 @@ func main() {
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
 	floor := flag.String("sponsor-floor", "10000000uyml", "below this sponsor balance /v1/health/sponsor answers 503")
 	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
+	keyFile := flag.String("anthropic-key-file", "", "file holding the Anthropic API key that drafts catalogue designs; empty turns drafting off")
+	draftModel := flag.String("draft-model", "claude-opus-5-5", "model that drafts catalogue designs")
+	draftMonthly := flag.Int("draft-monthly-designs", 1000, "most designs drafted for one jeweler in a calendar month")
+	anthropicURL := flag.String("anthropic-base-url", "", "Anthropic API base URL; empty is the public API (a local stub on a devnet)")
+	devOrigin := flag.String("catalogue-dev-origin", "", "on yamale-local-1 only: one http://127.0.0.1:<port> origin the catalogue may read")
 	flag.Parse()
 
 	for _, sub := range []string{"files", "profiles", "applications", "catalogue"} {
 		if err := os.MkdirAll(filepath.Join(*dir, sub), 0o750); err != nil {
 			log.Fatal(err)
+		}
+	}
+	if *devOrigin != "" {
+		u, err := url.Parse(*devOrigin)
+		if *chainID != "yamale-local-1" || err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Port() == "" || u.Path != "" {
+			log.Fatalf("--catalogue-dev-origin is http://127.0.0.1:<port>, on yamale-local-1 only")
 		}
 	}
 	chain := restChain{base: strings.TrimRight(*rest, "/"), client: &http.Client{Timeout: 10 * time.Second}}
@@ -104,7 +116,9 @@ func main() {
 		sponsorFloor: floorAmount,
 		sponsorDenom: floorDenom,
 		now:          time.Now,
-		fetch:        newFetcher(""),
+		fetch:        newFetcher(*devOrigin),
+		draftModel:   *draftModel,
+		draftMonthly: *draftMonthly,
 	}
 	if *from != "" {
 		g, err := newCLIGranter(*bin, *from, *home, *keyring, *node, *chainID, *spend, *fees, *lifetime)
@@ -121,6 +135,16 @@ func main() {
 			log.Fatalf("operator token file %s must hold at least 32 characters", *tokenFile)
 		}
 		s.operatorToken = strings.TrimSpace(string(raw))
+	}
+	if *keyFile != "" {
+		raw, err := os.ReadFile(*keyFile)
+		if err != nil || strings.TrimSpace(string(raw)) == "" {
+			log.Fatalf("anthropic key file %s cannot be read or is empty", *keyFile)
+		}
+		s.drafter = newClaudeDrafter(strings.TrimSpace(string(raw)), *draftModel, *anthropicURL, 90*time.Second, 2)
+		log.Printf("catalogue drafting on, with %s, at most %d designs a jeweler a month", *draftModel, *draftMonthly)
+	} else {
+		log.Printf("catalogue drafting off: no --anthropic-key-file")
 	}
 	srv := &http.Server{
 		Addr: *listen, Handler: s.routes(),
