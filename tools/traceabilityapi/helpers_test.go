@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type secp256k1PrivKey = secp256k1.PrivKey
+
 const testChain = "yamale-test-1"
 
 var testNow = time.Unix(1_790_000_000, 0)
@@ -30,7 +32,7 @@ func (f fakeChain) Jewelers(context.Context) ([]Jeweler, error) { return f.js, f
 
 func testServer(t *testing.T, js ...Jeweler) *server {
 	t.Helper()
-	return &server{dir: t.TempDir(), chainID: testChain, chain: fakeChain{js: js}, now: func() time.Time { return testNow }}
+	return &server{dir: t.TempDir(), chainID: testChain, chain: fakeChain{js: js}, fetch: newFetcher(""), now: func() time.Time { return testNow }}
 }
 
 func testKey(label string) *secp256k1.PrivKey {

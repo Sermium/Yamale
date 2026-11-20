@@ -1,13 +1,15 @@
 // Command traceabilityapi is the small backend of the jewel traceability app.
 //
-// It does four things, and it never signs for anyone:
+// It does five things, and it never signs for anyone:
 //
 //   - it stores photos and record files under their SHA-256, so a record on
 //     the chain can be fetched by its fingerprint and checked against it;
 //   - it keeps each jeweler's logo and colours;
 //   - it sponsors an account's fees once, through x/feegrant, for the owner
 //     messages only (sponsor.go);
-//   - it takes jeweler applications for the office to review.
+//   - it takes jeweler applications for the office to review;
+//   - it reads a jeweler's own website into a catalogue of designs, and has
+//     Claude draft their materials for a person to confirm (catalogue.go).
 //
 // If it is down, photos stop and new accounts wait for their sponsorship. The
 // register does not stop, because the app reads the chain directly.
@@ -17,6 +19,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"log"
@@ -51,6 +54,18 @@ type server struct {
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
 	mu            sync.Mutex
+
+	// The catalogue (catalogue.go). readSite is nil in production: it reads
+	// the website through fetch. drafter is nil when no Anthropic key is set.
+	fetch        *fetcher
+	readSite     func(ctx context.Context, origin string) ([]sourceProduct, error)
+	drafter      drafter
+	draftModel   string
+	draftMonthly int
+	catMu        sync.Mutex
+	importing    map[string]bool
+	usageMu      sync.Mutex
+	logMu        sync.Mutex
 }
 
 func main() {
@@ -71,7 +86,7 @@ func main() {
 	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
 	flag.Parse()
 
-	for _, sub := range []string{"files", "profiles", "applications"} {
+	for _, sub := range []string{"files", "profiles", "applications", "catalogue"} {
 		if err := os.MkdirAll(filepath.Join(*dir, sub), 0o750); err != nil {
 			log.Fatal(err)
 		}
@@ -89,6 +104,7 @@ func main() {
 		sponsorFloor: floorAmount,
 		sponsorDenom: floorDenom,
 		now:          time.Now,
+		fetch:        newFetcher(""),
 	}
 	if *from != "" {
 		g, err := newCLIGranter(*bin, *from, *home, *keyring, *node, *chainID, *spend, *fees, *lifetime)
@@ -128,6 +144,11 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
 	mux.HandleFunc("POST /v1/applications", s.handleApply)
 	mux.HandleFunc("GET /v1/applications", s.handleApplications)
+	mux.HandleFunc("POST /v1/catalogue/import", s.handleCatalogueImport)
+	mux.HandleFunc("GET /v1/catalogue", s.handleCatalogue)
+	mux.HandleFunc("PUT /v1/catalogue/designs/{id}", s.handleDesignSave)
+	mux.HandleFunc("POST /v1/catalogue/designs/{id}/confirm", s.handleDesignConfirm)
+	mux.HandleFunc("GET /v1/catalogue/designs/{id}/images/{n}", s.handleDesignImage)
 	return mux
 }
 
