@@ -98,7 +98,7 @@ var blockedPrefixes = func() []netip.Prefix {
 
 // publicAddr reports whether a is an address on the public internet.
 func publicAddr(a netip.Addr) bool {
-	a = a.Unmap()
+	a = a.Unmap().WithZone("") // Prefix.Contains is false for a zoned address
 	if !a.IsValid() {
 		return false
 	}
@@ -173,7 +173,18 @@ func newFetcher(devOrigin string) *fetcher {
 			if !f.schemeOK(req.URL) {
 				return errNotPublic
 			}
-			return nil
+			// A redirect is a new request: robots.txt and the host's pace apply to
+			// it. A hop on robots.txt itself is exempt, or the check would recurse.
+			if req.URL.Path != "/robots.txt" {
+				rb, err := f.robotsFor(req.Context(), req.URL)
+				if err != nil {
+					return err
+				}
+				if !rb.allowed(req.URL.RequestURI()) {
+					return errRobots
+				}
+			}
+			return f.wait(req.Context(), req.URL.Host)
 		},
 	}
 	return f
@@ -292,6 +303,8 @@ func (f *fetcher) raw(ctx context.Context, rawURL, accept string) ([]byte, http.
 				return nil, nil, errNotPublic
 			case errors.Is(err, errTooManyRedirects):
 				return nil, nil, errTooManyRedirects
+			case errors.Is(err, errRobots):
+				return nil, nil, errRobots
 			}
 			return nil, nil, fmt.Errorf("%w: %v", errUnreachable, err)
 		}

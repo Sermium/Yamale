@@ -35,7 +35,8 @@ func parseRobots(body []byte) robots {
 		}
 		agents, rules, inRules = nil, nil, false
 	}
-	for _, line := range strings.Split(string(body), "\n") {
+	text := strings.TrimPrefix(string(body), "\xEF\xBB\xBF") // a BOM would hide the first line
+	for _, line := range strings.Split(text, "\n") {
 		if i := strings.IndexByte(line, '#'); i >= 0 {
 			line = line[:i]
 		}

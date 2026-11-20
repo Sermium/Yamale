@@ -33,7 +33,12 @@ func trusting(t *testing.T, srv *httptest.Server, ports ...uint16) (*fetcher, *[
 	}
 	var mu sync.Mutex
 	slept := &[]time.Duration{}
-	f.sleep = func(_ context.Context, d time.Duration) error { mu.Lock(); *slept = append(*slept, d); mu.Unlock(); return nil }
+	f.sleep = func(_ context.Context, d time.Duration) error {
+		mu.Lock()
+		*slept = append(*slept, d)
+		mu.Unlock()
+		return nil
+	}
 	f.transport().TLSClientConfig = srv.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
 	return f, slept
 }
@@ -48,7 +53,7 @@ func portOf(t *testing.T, srv *httptest.Server) uint16 {
 
 func TestOnlyPublicAddressesArePublic(t *testing.T) {
 	for _, a := range []string{"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.188", "100.64.0.1", "100.68.207.17",
-		"169.254.169.254", "0.0.0.0", "::1", "fe80::1", "fd00:ec2::254", "::ffff:127.0.0.1", "224.0.0.1"} {
+		"169.254.169.254", "0.0.0.0", "::1", "fe80::1", "fd00:ec2::254", "::ffff:127.0.0.1", "224.0.0.1", "fe80::1%eth0", "::1%1", "fd00:ec2::254%2"} {
 		require.False(t, publicAddr(netip.MustParseAddr(a)), a)
 	}
 	for _, a := range []string{"23.227.38.65", "188.245.100.184", "2606:4700::6810:84e5"} {
@@ -223,4 +228,66 @@ func TestAnOriginIsSchemeAndHostOnly(t *testing.T) {
 		_, err := f.origin(bad)
 		require.True(t, errors.Is(err, errNotPublic), bad)
 	}
+}
+
+func TestARedirectIntoAPathRobotsForbidsIsRefused(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Write([]byte("User-agent: *\nDisallow: /private\n"))
+		case "/p":
+			http.Redirect(w, r, "/private", http.StatusFound)
+		default:
+			w.Write([]byte("secret"))
+		}
+	}))
+	defer srv.Close()
+	f, _ := trusting(t, srv, portOf(t, srv))
+	_, _, err := f.get(context.Background(), srv.URL+"/p", acceptPages)
+	require.ErrorIs(t, err, errRobots)
+}
+
+func TestARedirectToAHostWhoseRobotsBarAIIsRefused(t *testing.T) {
+	other := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/robots.txt" {
+			w.Write([]byte("User-agent: GPTBot\nDisallow: /\n"))
+			return
+		}
+		w.Write([]byte("page"))
+	}))
+	defer other.Close()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/robots.txt" {
+			http.NotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, other.URL+"/x", http.StatusFound)
+	}))
+	defer srv.Close()
+	f, _ := trusting(t, srv, portOf(t, srv), portOf(t, other))
+	_, _, err := f.get(context.Background(), srv.URL+"/p", acceptPages)
+	require.ErrorIs(t, err, errRobots)
+}
+
+func TestARedirectTakesAPacingSlotOnItsHost(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/robots.txt":
+			http.NotFound(w, r)
+		case "/p":
+			http.Redirect(w, r, "/q", http.StatusFound)
+		default:
+			w.Write([]byte("ok"))
+		}
+	}))
+	defer srv.Close()
+	f, slept := trusting(t, srv, portOf(t, srv))
+	_, _, err := f.get(context.Background(), srv.URL+"/p", acceptPages)
+	require.NoError(t, err)
+	// robots.txt, /p and the redirected /q each take a slot: 0, 2, 4 s.
+	var total time.Duration
+	for _, d := range *slept {
+		total += d
+	}
+	require.Greater(t, total, 3*time.Second)
 }

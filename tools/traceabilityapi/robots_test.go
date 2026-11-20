@@ -44,3 +44,8 @@ func TestCommentsAndCaseAreIgnored(t *testing.T) {
 	require.False(t, r.allowed("/private/x"))
 	require.True(t, r.allowed("/public"))
 }
+
+func TestABOMDoesNotHideTheFirstLine(t *testing.T) {
+	r := parseRobots([]byte("\xEF\xBB\xBFUser-agent: *\nDisallow: /"))
+	require.False(t, r.allowed("/x"))
+}
