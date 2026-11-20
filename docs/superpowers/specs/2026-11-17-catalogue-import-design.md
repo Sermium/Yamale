@@ -132,7 +132,7 @@ request-signing scheme:
 | Purpose | Subject | Request |
 |---|---|---|
 | `catalogue-import` | sha256 of the shop origin | `POST /v1/catalogue/import` |
-| `design-save` | sha256 of the design JSON | `PUT /v1/catalogue/designs/<key>` |
+| `design-save` | sha256 of `<key>:<design JSON>` (binds the design; changed 2026-11-20) | `PUT /v1/catalogue/designs/<key>` |
 | `design-confirm` | sha256 of `<key>:<sourceHash>:<fields JSON>` | `POST /v1/catalogue/designs/<key>/confirm` |
 
 The server checks on the chain that the signer is staff of an active jeweler,

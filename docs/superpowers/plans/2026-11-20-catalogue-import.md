@@ -1948,7 +1948,7 @@ git commit -m "traceabilityapi: read a shop's designs from its Shopify feed or i
   - The routes:
     - `POST /v1/catalogue/import` `{origin}` → 202 `importJob`, signed `catalogue-import` over `sha256(origin)`
     - `GET /v1/catalogue` → `catalogue`, signed `catalogue-read` over the jeweler id
-    - `PUT /v1/catalogue/designs/{id}` `{title, fields}` → the design, signed `design-save` over `sha256(body)`
+    - `PUT /v1/catalogue/designs/{id}` `{title, fields}` → the design, signed `design-save` over `sha256(key + ":" + body)` (changed during Task 3 review: a save signs its design, as confirm does)
     - `POST /v1/catalogue/designs/{id}/confirm` `{sourceHash, title, fields, photos, rightsConfirmed}` → the design, signed `design-confirm` over `sha256(key + ":" + sourceHash + ":" + body)`
     - `GET /v1/catalogue/designs/{id}/images/{n}` → image bytes, signed `catalogue-read` over the jeweler id
   - Error bodies `{"error": "...", "code": "..."}`. Codes: `refused`, `busy`, `gone`, `stale`, `rateLimited`, `robots`, `unreachable`, `notImage`.
@@ -4527,7 +4527,7 @@ export function startImport(key: Uint8Array, origin: string, chainId: string): P
 export function saveDesign(key: Uint8Array, d: Design, title: string, fields: DesignFields, chainId: string): Promise<ApiResult<Design>> {
   const body = utf8.encode(JSON.stringify({ title, fields: { metal: fields.metal, weightGrams: fields.weightGrams, stones: fields.stones } }));
   return apiCall(`/v1/catalogue/designs/${d.id}`, {
-    method: 'PUT', headers: { ...signedHeaders(key, 'design-save', chainId, sha256Hex(body)), 'Content-Type': 'application/json' },
+    method: 'PUT', headers: { ...signedHeaders(key, 'design-save', chainId, sha256Hex(new Uint8Array([...utf8.encode(`${d.key}:`), ...body]))), 'Content-Type': 'application/json' },
     body: body as Uint8Array<ArrayBuffer>,
   }, json);
 }
