@@ -52,6 +52,14 @@ func signedJSON(t *testing.T, method, path string, body any, k *secp256k1PrivKey
 	return sign(t, request(method, path, b), k, purpose, subject, testNow.Unix())
 }
 
+func saveRequest(t *testing.T, k *secp256k1PrivKey, signedFor design, urlID string, body map[string]any) *http.Request {
+	t.Helper()
+	b, err := json.Marshal(body)
+	require.NoError(t, err)
+	subject := sha256Hex(append([]byte(signedFor.Key+":"), b...))
+	return sign(t, request("PUT", "/v1/catalogue/designs/"+urlID, b), k, "design-save", subject, testNow.Unix())
+}
+
 func startImport(t *testing.T, s *server, k *secp256k1PrivKey, origin string) *httptest.ResponseRecorder {
 	b, _ := json.Marshal(map[string]string{"origin": origin})
 	return serve(s, sign(t, request("POST", "/v1/catalogue/import", b), k, "catalogue-import", hashHex([]byte(origin)), testNow.Unix()))
@@ -289,7 +297,7 @@ func TestSavingAConfirmedDesignNeedsConfirmingAgain(t *testing.T) {
 	d := importedDesign(t, s, biz)
 	require.Equal(t, http.StatusOK, serve(s, confirmRequest(t, biz, d, goodConfirmation(d, storePhoto(t, s, biz)))).Code)
 	edit := map[string]any{"title": "Parrot", "fields": fields{Metal: "Platinum", Stones: []stone{}}}
-	w := serve(s, signedJSON(t, "PUT", "/v1/catalogue/designs/"+d.ID, edit, biz, "design-save", ""))
+	w := serve(s, saveRequest(t, biz, d, d.ID, edit))
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	var got design
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
@@ -305,7 +313,7 @@ func TestAGoneDesignCannotBeSavedOrConfirmed(t *testing.T) {
 	startImport(t, s, biz, "https://shop.example")
 	waitForJob(t, s, "1")
 	edit := map[string]any{"title": "Parrot", "fields": fields{Metal: "Gold", Stones: []stone{}}}
-	w := serve(s, signedJSON(t, "PUT", "/v1/catalogue/designs/"+d.ID, edit, biz, "design-save", ""))
+	w := serve(s, saveRequest(t, biz, d, d.ID, edit))
 	require.Equal(t, http.StatusConflict, w.Code)
 	require.Contains(t, w.Body.String(), `"code":"gone"`)
 }
@@ -331,4 +339,61 @@ func TestTheImageProxyServesOnlyADesignsOwnImages(t *testing.T) {
 	require.Equal(t, "image/png", w.Header().Get("Content-Type"))
 	require.True(t, bytes.Equal(pngBytes, w.Body.Bytes()))
 	require.Equal(t, http.StatusNotFound, serve(s, sign(t, request("GET", "/v1/catalogue/designs/"+d.ID+"/images/1", nil), biz, "catalogue-read", "1", testNow.Unix())).Code)
+}
+
+func TestASaveSignatureDoesNotReplayOntoAnotherDesign(t *testing.T) {
+	biz := testKey("biz")
+	s := catalogueServer(t, twoProducts(), &fakeDrafter{}, activeJeweler("1", biz))
+	startImport(t, s, biz, "https://shop.example")
+	c := waitForJob(t, s, "1")
+	require.Len(t, c.Designs, 2)
+	a, other := c.Designs[0], c.Designs[1]
+	edit := map[string]any{"title": "Parrot", "fields": fields{Metal: "Gold", Stones: []stone{}}}
+	require.Equal(t, http.StatusUnauthorized, serve(s, saveRequest(t, biz, a, other.ID, edit)).Code)
+	require.Equal(t, http.StatusOK, serve(s, saveRequest(t, biz, other, other.ID, edit)).Code)
+	require.Equal(t, http.StatusNotFound, serve(s, saveRequest(t, biz, a, "0123456789abcdef", edit)).Code)
+}
+
+func TestAFailedReadNeverShowsAServerPath(t *testing.T) {
+	biz := testKey("biz")
+	s := catalogueServer(t, twoProducts(), &fakeDrafter{}, activeJeweler("1", biz))
+	d := importedDesign(t, s, biz)
+	photo := storePhoto(t, s, biz)
+	require.NoError(t, os.WriteFile(filepath.Join(s.dir, "catalogue", "1.json"), []byte("{not json"), 0o640))
+	w := serve(s, confirmRequest(t, biz, d, goodConfirmation(d, photo)))
+	require.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
+	require.NotContains(t, w.Body.String(), s.dir)
+	edit := map[string]any{"title": "Parrot", "fields": fields{Metal: "Gold", Stones: []stone{}}}
+	w = serve(s, saveRequest(t, biz, d, d.ID, edit))
+	require.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
+	require.NotContains(t, w.Body.String(), s.dir)
+}
+
+func TestListsAreAlwaysLists(t *testing.T) {
+	biz := testKey("biz")
+	s := catalogueServer(t, twoProducts(), &nilStonesDrafter{}, activeJeweler("1", biz))
+	d := importedDesign(t, s, biz)
+	w := serve(s, sign(t, request("GET", "/v1/catalogue", nil), biz, "catalogue-read", "1", testNow.Unix()))
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotContains(t, w.Body.String(), `"stones":null`)
+
+	b := []byte(`{"title":"Parrot","fields":{"metal":"Gold"}}`)
+	r := sign(t, request("PUT", "/v1/catalogue/designs/"+d.ID, b), biz, "design-save", sha256Hex(append([]byte(d.Key+":"), b...)), testNow.Unix())
+	w = serve(s, r)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), `"stones":[]`)
+	require.NotContains(t, w.Body.String(), `"stones":null`)
+
+	cb := goodConfirmation(d, storePhoto(t, s, biz))
+	cb["fields"] = map[string]any{"metal": "Gold"}
+	w = serve(s, confirmRequest(t, biz, d, cb))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.NotContains(t, w.Body.String(), `"stones":null`)
+	require.Contains(t, w.Body.String(), `"stones":[]`)
+}
+
+type nilStonesDrafter struct{}
+
+func (nilStonesDrafter) draft(context.Context, string, string) (fields, usage, error) {
+	return fields{Metal: "Gold"}, usage{In: 1, Out: 1}, nil
 }

@@ -101,10 +101,28 @@ func tidy(c *catalogue) {
 		if d.ImageURLs == nil {
 			d.ImageURLs = []string{}
 		}
+		if d.Draft != nil && d.Draft.Stones == nil {
+			d.Draft.Stones = []stone{}
+		}
+		if d.Confirmed != nil {
+			if d.Confirmed.Fields.Stones == nil {
+				d.Confirmed.Fields.Stones = []stone{}
+			}
+			if d.Confirmed.Photos == nil {
+				d.Confirmed.Photos = []string{}
+			}
+		}
 	}
 	if c.Job.State == "" {
 		c.Job.State = jobIdle
 	}
+}
+
+// tidied is tidy for one design, for a response built before the save.
+func tidied(d design) design {
+	c := catalogue{Designs: []design{d}}
+	tidy(&c)
+	return c.Designs[0]
 }
 
 // loadCatalogue and saveCatalogue are called with catMu held.
@@ -148,6 +166,23 @@ func (s *server) updateCatalogue(id string, change func(*catalogue) error) (cata
 		return c, err
 	}
 	return c, s.saveCatalogue(id, c)
+}
+
+// storedDesign reads the design a path names, for the signature's subject. A
+// failed read is logged and answered generically: the error carries a path.
+func (s *server) storedDesign(jeweler, id string) (design, error) {
+	s.catMu.Lock()
+	c, err := s.loadCatalogue(jeweler)
+	s.catMu.Unlock()
+	if err != nil {
+		log.Printf("traceabilityapi: catalogue %s: %v", jeweler, err)
+		return design{}, &httpError{http.StatusInternalServerError, "", "the server could not complete that; try again later"}
+	}
+	d := findDesign(&c, id)
+	if d == nil {
+		return design{}, errNoDesign
+	}
+	return *d, nil
 }
 
 func findDesign(c *catalogue, id string) *design {
@@ -484,7 +519,13 @@ func (s *server) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusBadRequest, "a design is named by 16 hex characters")
 		return
 	}
-	j, _, body, ok := s.catalogueSigner(w, r, 16<<10, "design-save", func(_ Jeweler, body []byte) (string, error) { return sha256Hex(body), nil })
+	j, _, body, ok := s.catalogueSigner(w, r, 16<<10, "design-save", func(j Jeweler, body []byte) (string, error) {
+		d, err := s.storedDesign(j.ID, id)
+		if err != nil {
+			return "", err
+		}
+		return sha256Hex(append([]byte(d.Key+":"), body...)), nil
+	})
 	if !ok {
 		return
 	}
@@ -499,6 +540,9 @@ func (s *server) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 	if p := fieldsProblem(in.Title, in.Fields, false); p != "" {
 		refuse(w, http.StatusBadRequest, p)
 		return
+	}
+	if in.Fields.Stones == nil {
+		in.Fields.Stones = []stone{}
 	}
 	var saved design
 	if _, err := s.updateCatalogue(j.ID, func(c *catalogue) error {
@@ -519,7 +563,7 @@ func (s *server) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 		answer(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, tidied(saved))
 }
 
 type confirmBody struct {
@@ -549,15 +593,9 @@ func (s *server) handleDesignConfirm(w http.ResponseWriter, r *http.Request) {
 		if err := strictDecode(body, &in); err != nil {
 			return "", errors.New("a confirmation is {sourceHash, title, fields, photos, rightsConfirmed}: " + err.Error())
 		}
-		s.catMu.Lock()
-		c, err := s.loadCatalogue(j.ID)
-		s.catMu.Unlock()
+		d, err := s.storedDesign(j.ID, id)
 		if err != nil {
 			return "", err
-		}
-		d := findDesign(&c, id)
-		if d == nil {
-			return "", errNoDesign
 		}
 		return sha256Hex(append([]byte(d.Key+":"+in.SourceHash+":"), body...)), nil
 	})
@@ -571,6 +609,9 @@ func (s *server) handleDesignConfirm(w http.ResponseWriter, r *http.Request) {
 	if p := fieldsProblem(in.Title, in.Fields, true); p != "" {
 		refuse(w, http.StatusBadRequest, p)
 		return
+	}
+	if in.Fields.Stones == nil {
+		in.Fields.Stones = []stone{}
 	}
 	if len(in.Photos) < 1 || len(in.Photos) > maxImages {
 		refuse(w, http.StatusBadRequest, "a design has 1 to 12 photos")
@@ -603,7 +644,7 @@ func (s *server) handleDesignConfirm(w http.ResponseWriter, r *http.Request) {
 		answer(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, tidied(saved))
 }
 
 // handleDesignImage fetches one of a design's own images, as listed when the
