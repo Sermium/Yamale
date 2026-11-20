@@ -18,9 +18,9 @@ test('a record survives encoding, and the same record always encodes the same', 
   assert.deepEqual(encodeRecord(shuffled), encodeRecord(ring));
 });
 
-test('a record that is not version 1, or names a bad photo, is not a record', () => {
+test('a record of an unknown version, or naming a bad photo, is not a record', () => {
   const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
-  assert.equal(parseRecord(enc({ ...ring, version: 2 })), null);
+  assert.equal(parseRecord(enc({ ...ring, version: 3 })), null);
   assert.equal(parseRecord(enc({ ...ring, photos: ['A'.repeat(64)] })), null);
   assert.equal(parseRecord(enc({ ...ring, photos: [] })), null);
   assert.equal(parseRecord(enc({ ...ring, stones: [{ kind: 'ruby', carat: '1', count: 0 }] })), null);
@@ -55,4 +55,38 @@ test("another jewel's record reads as a mismatch, and other states pass through"
   for (const state of ['loading', 'missing', 'mismatch', 'unreachable', 'unreadable'] as const) {
     assert.deepEqual(checkRecord({ state }, { inscription: 'X', jewelerId: '9' }), { state });
   }
+});
+
+const v2: JewelRecord = {
+  ...ring, version: 2, inscription: 'JOA0710001',
+  origin: { workshop: 'Jewel Of Africa', stoneSource: '', labCertificate: 'GIA ' + '1'.repeat(150) },
+  description: 'Twelve significant emeralds totaling 32 carats.\n18kt Yellow Gold.',
+  productUrl: 'https://www.jewelofafrica.com/products/emerald-parrot-pendant-071', sku: 'JOA-071',
+  listPrice: { amount: '17678.00', currency: 'USD', at: '2026-11-16', label: 'list price at registration' },
+  pieceNotes: 'Clasp re-soldered before sale.',
+};
+
+test('a v2 record survives encoding, in one fixed key order', () => {
+  assert.deepEqual(parseRecord(encodeRecord(v2)), v2);
+  const text = new TextDecoder().decode(encodeRecord(v2));
+  assert.ok(text.indexOf('"createdAt"') < text.indexOf('"description"'));
+  assert.ok(text.endsWith('"pieceNotes":"Clasp re-soldered before sale."}'));
+});
+
+test('v1 encodes exactly as before', () => {
+  assert.equal(new TextDecoder().decode(encodeRecord(ring)),
+    '{"version":1,"jewelerId":"1","inscription":"MD20260001","title":"Solitaire ring","metal":"18k yellow gold","weightGrams":"4.2","stones":[{"kind":"diamond","carat":"0.50","count":1}],"origin":{"workshop":"Dakar, Médina","stoneSource":"Botswana","labCertificate":"GIA 2141438167"},"photos":["' + HASH + '"],"createdAt":"2026-11-13T10:00:00.000Z"}');
+});
+
+test('a v2 record is checked as strictly as v1', () => {
+  const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
+  assert.equal(parseRecord(enc({ ...v2, productUrl: 'http://shop.example/x' })), null);
+  assert.equal(parseRecord(enc({ ...v2, productUrl: 'javascript:alert(1)' })), null);
+  assert.equal(parseRecord(enc({ ...v2, description: 'x'.repeat(5001) })), null);
+  assert.equal(parseRecord(enc({ ...v2, listPrice: { ...v2.listPrice, label: 'our price' } })), null);
+  assert.equal(parseRecord(enc({ ...v2, listPrice: { ...v2.listPrice, currency: 'usd' } })), null);
+  assert.equal(parseRecord(enc({ ...v2, pieceNotes: 'x'.repeat(501) })), null);
+  assert.equal(parseRecord(enc({ ...v2, origin: { ...v2.origin, labCertificate: 'x'.repeat(201) } })), null);
+  assert.deepEqual(parseRecord(enc({ ...v2, listPrice: null, productUrl: '' })), { ...v2, listPrice: null, productUrl: '' });
+  assert.equal(parseRecord(enc({ ...ring, origin: { ...ring.origin, labCertificate: 'x'.repeat(81) } })), null, 'v1 keeps 80');
 });

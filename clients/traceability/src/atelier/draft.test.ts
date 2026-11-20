@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { clampCount, draftComplete, EMPTY_DRAFT, MAX_STONES, type Draft } from './draft.ts';
+import { clampCount, designComplete, draftComplete, EMPTY_DRAFT, MAX_STONES, type Draft } from './draft.ts';
 
 const ok: Draft = {
   ...EMPTY_DRAFT, title: 'Ring', metal: 'Gold', weightGrams: '7.5',
@@ -29,4 +29,20 @@ test('a draft is complete only when the reader would accept the record', () => {
   assert.equal(draftComplete({ ...ok, stones: Array(MAX_STONES + 1).fill(stone) }), false);
   assert.equal(draftComplete({ ...ok, title: 'x'.repeat(121) }), false);
   assert.equal(draftComplete({ ...ok, weightGrams: '1234567890.12' }), false);
+});
+
+test('a design may leave its weight to the pieces, and nothing else', () => {
+  const f = { metal: '18kt Yellow Gold', weightGrams: '', stones: [{ kind: 'Emerald', carat: '32', count: 12 }] };
+  assert.equal(designComplete('Emerald Parrot Pendant', f), true);
+  assert.equal(designComplete('', f), false);
+  assert.equal(designComplete('P', { ...f, metal: ' ' }), false);
+  assert.equal(designComplete('P', { ...f, weightGrams: 'heavy' }), false);
+  assert.equal(designComplete('P', { ...f, stones: [{ kind: 'Diamond', carat: '', count: 422 }] }), false);
+  assert.equal(designComplete('P', { ...f, stones: [{ kind: 'Diamond', carat: '1', count: 0 }] }), false);
+});
+
+test('a v2 draft may carry a longer lab certificate', () => {
+  const long = { ...ok, origin: { ...ok.origin, labCertificate: 'x'.repeat(150) } };
+  assert.equal(draftComplete(long), false);
+  assert.equal(draftComplete(long, 2), true);
 });

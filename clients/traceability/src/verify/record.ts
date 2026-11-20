@@ -13,8 +13,9 @@ import { fetchVerified } from '../api.ts';
 
 export interface Stone { kind: string; carat: string; count: number }
 
-export interface JewelRecord {
-  version: 1;
+export interface ListPrice { amount: string; currency: string; at: string; label: 'list price at registration' }
+
+interface RecordBase {
   jewelerId: string;
   inscription: string;
   title: string;
@@ -26,14 +27,37 @@ export interface JewelRecord {
   createdAt: string;
 }
 
+/** Written by hand registration and by corrections of hand-registered jewels. */
+export interface JewelRecordV1 extends RecordBase { version: 1 }
+
+/**
+ * Written by the catalogue import: the design's own description, its page on
+ * the jeweler's site, its SKU, the list price on the day of registration (a
+ * dated label, never a valuation), and the piece's own notes.
+ */
+export interface JewelRecordV2 extends RecordBase {
+  version: 2;
+  description: string;
+  productUrl: string;
+  sku: string;
+  listPrice: ListPrice | null;
+  pieceNotes: string;
+}
+
+export type JewelRecord = JewelRecordV1 | JewelRecordV2;
+
 const HASH = /^[0-9a-f]{64}$/;
 const ID = /^[1-9][0-9]*$/;
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
 
-/** Keys in one fixed order, so one record always has one fingerprint. */
+const LIST_PRICE_LABEL = 'list price at registration';
+const DAY = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const AMOUNT = /^[0-9]+(\.[0-9]+)?$/;
+
+/** Keys in one fixed order, so one record always has one fingerprint. v1 bytes are what they always were. */
 export function encodeRecord(r: JewelRecord): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify({
-    version: 1,
+  const base = {
+    version: r.version,
     jewelerId: r.jewelerId,
     inscription: r.inscription,
     title: r.title,
@@ -43,29 +67,51 @@ export function encodeRecord(r: JewelRecord): Uint8Array {
     origin: { workshop: r.origin.workshop, stoneSource: r.origin.stoneSource, labCertificate: r.origin.labCertificate },
     photos: [...r.photos],
     createdAt: r.createdAt,
+  };
+  if (r.version === 1) return new TextEncoder().encode(JSON.stringify(base));
+  return new TextEncoder().encode(JSON.stringify({
+    ...base,
+    description: r.description,
+    productUrl: r.productUrl,
+    sku: r.sku,
+    listPrice: r.listPrice ? { amount: r.listPrice.amount, currency: r.listPrice.currency, at: r.listPrice.at, label: r.listPrice.label } : null,
+    pieceNotes: r.pieceNotes,
   }));
+}
+
+function parseListPrice(v: any): ListPrice | null | undefined {
+  if (v === null) return null;
+  if (!v || !str(v.amount, 20) || !AMOUNT.test(v.amount) || !str(v.currency, 3) || !/^[A-Z]{3}$/.test(v.currency)
+    || !str(v.at, 10) || !DAY.test(v.at) || v.label !== LIST_PRICE_LABEL) return undefined;
+  return { amount: v.amount, currency: v.currency, at: v.at, label: LIST_PRICE_LABEL };
 }
 
 export function parseRecord(bytes: Uint8Array): JewelRecord | null {
   let v: any;
   try { v = JSON.parse(new TextDecoder().decode(bytes)); } catch { return null; }
-  if (!v || v.version !== 1 || !str(v.jewelerId, 20) || !ID.test(v.jewelerId)) return null;
+  if (!v || (v.version !== 1 && v.version !== 2) || !str(v.jewelerId, 20) || !ID.test(v.jewelerId)) return null;
   if (!str(v.inscription, 40) || !str(v.title, 120) || !str(v.metal, 80) || !str(v.weightGrams, 12) || !str(v.createdAt, 40)) return null;
   if (!Array.isArray(v.stones) || v.stones.length > 50) return null;
   for (const s of v.stones) {
     if (!s || !str(s.kind, 60) || !str(s.carat, 12) || !Number.isInteger(s.count) || s.count < 1 || s.count > 9999) return null;
   }
   const o = v.origin;
-  if (!o || !str(o.workshop, 120) || !str(o.stoneSource, 120) || !str(o.labCertificate, 80)) return null;
+  const labMax = v.version === 1 ? 80 : 200;
+  if (!o || !str(o.workshop, 120) || !str(o.stoneSource, 120) || !str(o.labCertificate, labMax)) return null;
   if (!Array.isArray(v.photos) || v.photos.length < 1 || v.photos.length > 12) return null;
   if (!v.photos.every((p: unknown) => typeof p === 'string' && HASH.test(p))) return null;
-  return {
-    version: 1, jewelerId: v.jewelerId, inscription: v.inscription, title: v.title, metal: v.metal,
-    weightGrams: v.weightGrams,
+  const base: RecordBase = {
+    jewelerId: v.jewelerId, inscription: v.inscription, title: v.title, metal: v.metal, weightGrams: v.weightGrams,
     stones: v.stones.map((s: Stone) => ({ kind: s.kind, carat: s.carat, count: s.count })),
     origin: { workshop: o.workshop, stoneSource: o.stoneSource, labCertificate: o.labCertificate },
     photos: [...v.photos], createdAt: v.createdAt,
   };
+  if (v.version === 1) return { version: 1, ...base };
+  if (!str(v.description, 5000) || !str(v.productUrl, 500) || !str(v.sku, 80) || !str(v.pieceNotes, 500)) return null;
+  if (v.productUrl !== '' && !v.productUrl.startsWith('https://')) return null;
+  const listPrice = parseListPrice(v.listPrice);
+  if (listPrice === undefined) return null;
+  return { version: 2, ...base, description: v.description, productUrl: v.productUrl, sku: v.sku, listPrice, pieceNotes: v.pieceNotes };
 }
 
 /** A correction replaces the record shown first; the original stays readable. */

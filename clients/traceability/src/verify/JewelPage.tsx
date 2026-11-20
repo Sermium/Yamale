@@ -11,12 +11,13 @@
 import { type CSSProperties, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  chainHead, isActive, plural, readJewel, readJeweler, t, type Benefit, type Jewel, type JewelView,
+  chainHead, formatDate, isActive, plural, readJewel, readJeweler, t, useLocale, type Benefit, type Jewel, type JewelView,
 } from '@yamale/chain';
 
 import { fetchProfile } from '../api.ts';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
+import { listPriceText } from './listprice.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
 import { useRecord, type JewelRecord } from './record.ts';
 
@@ -39,6 +40,25 @@ export function RecordFacts({ record }: { record: JewelRecord }) {
       {record.origin.stoneSource && (<><dt>{t('traceability.stoneSource')}</dt><dd>{record.origin.stoneSource}</dd></>)}
       {record.origin.labCertificate && (<><dt>{t('traceability.labCertificate')}</dt><dd>{record.origin.labCertificate}</dd></>)}
     </dl>
+  );
+}
+
+/** What a catalogue-registered jewel adds: the jeweler's words, a dated list price, a link. */
+export function DesignStory({ record }: { record: JewelRecord }) {
+  const locale = useLocale();
+  if (record.version !== 2) return null;
+  return (
+    <div className="stack">
+      {record.description && <p className="story">{record.description}</p>}
+      {record.listPrice && (
+        <p className="hint num">{t('traceability.listPriceAt', {
+          price: listPriceText(record.listPrice, locale), date: formatDate(new Date(`${record.listPrice.at}T00:00:00Z`)),
+        })}</p>
+      )}
+      {record.productUrl && (
+        <a className="btn" href={record.productUrl} target="_blank" rel="noopener noreferrer nofollow">{t('traceability.designLink')}</a>
+      )}
+    </div>
   );
 }
 
@@ -182,6 +202,7 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
         {head?.ok && actions?.(view.value, head.value.time, reload)}
 
         {record.state === 'ok' && (<>
+          {record.record.version === 2 && <Section title={t('traceability.aboutDesign')}><DesignStory record={record.record} /></Section>}
           <Section title={t('traceability.materials')}><RecordFacts record={record.record} /></Section>
         </>)}
         <Section title={t('traceability.ownersTitle')}><Owners jewel={jewel} /></Section>

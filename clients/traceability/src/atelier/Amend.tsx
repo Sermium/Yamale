@@ -81,8 +81,9 @@ export function Amend() {
         all.push(up.hash);
       }
       setStage({ kind: 'record' });
-      const bytes = encodeRecord({ version: 1, jewelerId: jeweler.id, inscription: base.inscription, ...draft!,
-        photos: all.slice(0, 12), createdAt: new Date().toISOString() });
+      // A correction keeps the record's version, and a v2 record's import fields.
+      const bytes = encodeRecord({ ...base, jewelerId: jeweler.id, ...draft!, photos: all.slice(0, 12),
+        createdAt: new Date().toISOString() });
       const up = await uploadRecord(bytes, session.withKey);
       if (!up.ok) { setFailed({ text: up.text, raw: up.raw }); return; }
       if (await run(() => session.submit([amendJewel(session.address!, id, up.hash, recordUri(up.hash), note.trim())], jeweler.business))) {
@@ -119,7 +120,7 @@ export function Amend() {
           {failed && <FailureNote text={failed.text} raw={failed.raw} />}
           <ActionStatus state={action} />
           <button type="button" className="btn btn--primary"
-                  disabled={working || action.kind === 'busy' || note.trim() === '' || noteBytes > MAX_NOTE || !draftComplete(draft)}
+                  disabled={working || action.kind === 'busy' || note.trim() === '' || noteBytes > MAX_NOTE || !draftComplete(draft, base.version)}
                   onClick={submit}>{t('traceability.saveCorrection')}</button>
         </UnlockGate>
       </main>
