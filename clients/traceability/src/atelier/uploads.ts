@@ -15,12 +15,12 @@ function failure(status: number, error: string): Up {
 }
 
 /** Re-encode a photo on this device, then store it under its fingerprint. */
-export async function uploadPhoto(file: File, withKey: WithKey): Promise<Up> {
+export async function uploadPhoto(file: Blob, withKey: WithKey, name = file instanceof File ? file.name : 'photo'): Promise<Up> {
   let bytes: Uint8Array;
   try {
     bytes = await preparePhoto(file);
   } catch (e) {
-    return { ok: false, text: t('traceability.photoUnreadable', { name: file.name }), raw: e instanceof Error ? e.message : String(e) };
+    return { ok: false, text: t('traceability.photoUnreadable', { name }), raw: e instanceof Error ? e.message : String(e) };
   }
   const up = await uploadFile(withKey((k) => k), bytes, CHAIN_ID);
   return up.ok ? up : failure(up.status, up.error);

@@ -136,3 +136,11 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .staff-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
 .staff-row .inscription { overflow-wrap: anywhere; }
 .story { white-space: pre-line; }
+.design-row { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; text-decoration: none; color: inherit; }
+.design-row__title { font-weight: 600; }
+.design-row .y-chip { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+.photo-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.75rem; list-style: none; padding: 0; }
+.photo-picks img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0.5rem; display: block; }
+.photo-picks label { position: relative; display: block; }
+.photo-picks input { position: absolute; top: 0.4rem; left: 0.4rem; }
+.tick { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; }

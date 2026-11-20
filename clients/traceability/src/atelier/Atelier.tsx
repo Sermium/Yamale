@@ -65,6 +65,7 @@ export function Atelier() {
 
         <div className="actions">
           {role.staff && role.active && <Link className="btn btn--primary" to="/atelier/register">{t('traceability.registerTitle')}</Link>}
+          {role.active && <Link className="btn" to="/atelier/catalogue">{t('traceability.catalogueLink')}</Link>}
           {role.staff && role.active && <Link className="btn" to="/atelier/redeem">{t('traceability.redeemLink')}</Link>}
           {role.business && <Link className="btn" to="/atelier/look">{t('traceability.lookLink')}</Link>}
           {role.business && <Link className="btn" to="/atelier/staff">{t('traceability.staffLink')}</Link>}

@@ -4,7 +4,8 @@
  * hash to what the chain recorded is reported as a mismatch, never displayed.
  */
 
-import { sha256Hex, signedHeaders } from '../../sdk/src/traceabilityauth.ts';
+import { sha256Hex, signedHeaders, type TraceabilityPurpose } from '../../sdk/src/traceabilityauth.ts';
+import type { Stone } from './verify/record.ts';
 
 // Not imported from config.ts: that module reads `window` when it loads, and
 // record.ts, which Node's test runner loads, imports this one.
@@ -110,7 +111,7 @@ export async function uploadFile(key: Uint8Array, bytes: Uint8Array, chainId: st
   }
 }
 
-async function signedSend(method: 'PUT' | 'POST', path: string, key: Uint8Array, purpose: 'profile' | 'application',
+async function signedSend(method: 'PUT' | 'POST', path: string, key: Uint8Array, purpose: TraceabilityPurpose,
   subject: string, body: Uint8Array, chainId: string): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   try {
     const res = await fetch(`${API}${path}`, {
@@ -141,4 +142,73 @@ export function submitApplication(key: Uint8Array, a: Application, chainId: stri
     business: a.business, name: a.name, contact: a.contact, email: a.email, phone: a.phone, country: a.country, message: a.message,
   }));
   return signedSend('POST', '/v1/applications', key, 'application', sha256Hex(body), body, chainId);
+}
+
+export type ApiResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string; code: string };
+
+export interface DesignFields { metal: string; weightGrams: string; stones: Stone[] }
+export interface Design {
+  id: string; key: string; title: string; description: string; type: string; tags: string[];
+  productUrl: string; listPrice: { amount: string; currency: string } | null; imageUrls: string[];
+  draft: DesignFields | null; draftFor: string; draftNote: '' | 'unavailable' | 'paused';
+  fields: DesignFields; sourceHash: string;
+  status: 'imported' | 'drafted' | 'changed' | 'confirmed' | 'gone';
+  confirmed: { title: string; fields: DesignFields; photos: string[]; sourceHash: string; by: string; at: string } | null;
+}
+export interface ImportJob { state: 'idle' | 'reading' | 'drafting' | 'done' | 'failed'; done: number; of: number; error: string }
+export interface Catalogue { origin: string; importedAt: string; designs: Design[]; job: ImportJob }
+
+async function apiCall<T>(path: string, init: RequestInit, read: (res: Response) => Promise<T>): Promise<ApiResult<T>> {
+  try {
+    const res = await fetch(`${API}${path}`, init);
+    if (res.ok) return { ok: true, value: await read(res) };
+    const b = await res.json().catch(() => ({}));
+    return { ok: false, status: res.status, error: String(b.error ?? ''), code: String(b.code ?? '') };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err), code: '' };
+  }
+}
+
+const utf8 = new TextEncoder();
+const json = (res: Response) => res.json();
+
+export function readCatalogue(key: Uint8Array, jewelerId: string, chainId: string): Promise<ApiResult<Catalogue>> {
+  return apiCall('/v1/catalogue', { headers: signedHeaders(key, 'catalogue-read', chainId, jewelerId) }, json);
+}
+
+export function startImport(key: Uint8Array, origin: string, chainId: string): Promise<ApiResult<ImportJob>> {
+  const body = utf8.encode(JSON.stringify({ origin }));
+  return apiCall('/v1/catalogue/import', {
+    method: 'POST', headers: { ...signedHeaders(key, 'catalogue-import', chainId, sha256Hex(utf8.encode(origin))), 'Content-Type': 'application/json' },
+    body: body as Uint8Array<ArrayBuffer>,
+  }, json);
+}
+
+export function saveDesign(key: Uint8Array, d: Design, title: string, fields: DesignFields, chainId: string): Promise<ApiResult<Design>> {
+  const body = utf8.encode(JSON.stringify({ title, fields: { metal: fields.metal, weightGrams: fields.weightGrams, stones: fields.stones } }));
+  return apiCall(`/v1/catalogue/designs/${d.id}`, {
+    method: 'PUT', headers: { ...signedHeaders(key, 'design-save', chainId, sha256Hex(new Uint8Array([...utf8.encode(`${d.key}:`), ...body]))), 'Content-Type': 'application/json' },
+    body: body as Uint8Array<ArrayBuffer>,
+  }, json);
+}
+
+/** The subject binds the key, the website text that was checked, and every byte of the confirmation. */
+export function confirmDesign(key: Uint8Array, d: Design, c: { title: string; fields: DesignFields; photos: string[] }, chainId: string): Promise<ApiResult<Design>> {
+  const body = utf8.encode(JSON.stringify({
+    sourceHash: d.sourceHash, title: c.title,
+    fields: { metal: c.fields.metal, weightGrams: c.fields.weightGrams, stones: c.fields.stones },
+    photos: c.photos, rightsConfirmed: true,
+  }));
+  const prefix = utf8.encode(`${d.key}:${d.sourceHash}:`);
+  const signed = new Uint8Array(prefix.length + body.length);
+  signed.set(prefix);
+  signed.set(body, prefix.length);
+  return apiCall(`/v1/catalogue/designs/${d.id}/confirm`, {
+    method: 'POST', headers: { ...signedHeaders(key, 'design-confirm', chainId, sha256Hex(signed)), 'Content-Type': 'application/json' },
+    body: body as Uint8Array<ArrayBuffer>,
+  }, json);
+}
+
+export function fetchDesignImage(key: Uint8Array, jewelerId: string, id: string, n: number, chainId: string): Promise<ApiResult<Blob>> {
+  return apiCall(`/v1/catalogue/designs/${id}/images/${n}`, { headers: signedHeaders(key, 'catalogue-read', chainId, jewelerId) }, (res) => res.blob());
 }

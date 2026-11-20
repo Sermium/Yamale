@@ -8,6 +8,8 @@ import { ActionStatus, useAction } from './actions/useAction.tsx';
 import { Apply } from './atelier/Apply.tsx';
 import { Amend } from './atelier/Amend.tsx';
 import { Atelier } from './atelier/Atelier.tsx';
+import { Catalogue } from './atelier/Catalogue.tsx';
+import { DesignReview } from './atelier/DesignReview.tsx';
 import { AtelierJewel } from './atelier/AtelierJewel.tsx';
 import { Profile } from './atelier/Profile.tsx';
 import { Redeem } from './atelier/Redeem.tsx';
@@ -18,6 +20,7 @@ import { Claim } from './owner/Claim.tsx';
 import { MyJewels } from './owner/MyJewels.tsx';
 import { Owned } from './owner/Owned.tsx';
 import { NotFound } from './ui.tsx';
+import { AboutImport } from './verify/AboutImport.tsx';
 import { JewelPage } from './verify/JewelPage.tsx';
 import { Proof } from './verify/Proof.tsx';
 import { Search } from './verify/Search.tsx';
@@ -92,6 +95,11 @@ export function App() {
               <Route path="/atelier/staff" element={<Staff />} />
               <Route path="/atelier/redeem" element={<Redeem />} />
               <Route path="/atelier/look" element={<Profile />} />
+              <Route path="/atelier/catalogue" element={<Catalogue />} />
+              <Route path="/atelier/catalogue/design/:id" element={<DesignReview />} />
+              {/* Task 9 replaces this with the Pieces page. */}
+              <Route path="/atelier/catalogue/pieces" element={<Catalogue />} />
+              <Route path="/about-import" element={<AboutImport />} />
               <Route path="/apply" element={<Apply />} />
               <Route path="/atelier/jewel/:jewel" element={<AtelierJewel />} />
               <Route path="/atelier/jewel/:jewel/amend" element={<Amend />} />
