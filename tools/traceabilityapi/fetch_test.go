@@ -291,3 +291,23 @@ func TestARedirectTakesAPacingSlotOnItsHost(t *testing.T) {
 	}
 	require.Greater(t, total, 3*time.Second)
 }
+
+func TestARobotsTxtThatRedirectsIsFollowedOnce(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/robots.txt":
+			http.Redirect(w, r, "/", http.StatusFound)
+		case "/":
+			w.Write([]byte("User-agent: *\nDisallow:\n"))
+		default:
+			w.Write([]byte("ok"))
+		}
+	}))
+	defer srv.Close()
+	f, _ := trusting(t, srv, portOf(t, srv))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	body, _, err := f.get(ctx, srv.URL+"/p", acceptPages)
+	require.NoError(t, err)
+	require.Equal(t, "ok", string(body))
+}

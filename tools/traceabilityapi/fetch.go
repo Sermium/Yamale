@@ -63,6 +63,9 @@ type pageFetcher interface {
 	get(ctx context.Context, rawURL, accept string) ([]byte, http.Header, error)
 }
 
+// robotsFetchKey marks the context of a robots.txt fetch.
+type robotsFetchKey struct{}
+
 type cachedRobots struct {
 	r  robots
 	at time.Time
@@ -174,8 +177,9 @@ func newFetcher(devOrigin string) *fetcher {
 				return errNotPublic
 			}
 			// A redirect is a new request: robots.txt and the host's pace apply to
-			// it. A hop on robots.txt itself is exempt, or the check would recurse.
-			if req.URL.Path != "/robots.txt" {
+			// it. A robots.txt fetch is recognised by how it was issued, not by its
+			// path (it may redirect anywhere), and is not checked against itself.
+			if req.Context().Value(robotsFetchKey{}) == nil {
 				rb, err := f.robotsFor(req.Context(), req.URL)
 				if err != nil {
 					return err
@@ -241,7 +245,7 @@ func (f *fetcher) robotsFor(ctx context.Context, u *url.URL) (robots, error) {
 	if ok && time.Since(c.at) < robotsTTL {
 		return c.r, nil
 	}
-	body, _, err := f.raw(ctx, key+"/robots.txt", "text/plain")
+	body, _, err := f.raw(context.WithValue(ctx, robotsFetchKey{}, true), key+"/robots.txt", "text/plain")
 	var se *statusError
 	switch {
 	case err == nil:
