@@ -42,6 +42,10 @@ docgen.exe
 # a stale binary that disagrees with the source beside it, which is exactly how
 # a validator ends up producing a different app hash from its peers.
 *.exe
+# Cross-compiled service binaries (yamale-custodian, yamale-notify) for yamale-us
+# and the Pi. Over 100 MB each: GitHub refuses them, and they are rebuilt from
+# source for every deploy.
+.build/
 
 # Local editor tooling. Machine-specific, never part of a build.
 .claude/
