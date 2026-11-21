@@ -837,6 +837,57 @@ could reasonably have gone the other way:
 
   Verified in the snapshots on 2026-11-20. Without `/etc/yamale-backup/restic-password`, the snapshots cannot be read.
 
+### Traceability catalogue import (2026-11-20)
+
+**Shipped** (spec `docs/superpowers/specs/2026-11-17-catalogue-import-design.md`, plan `docs/superpowers/plans/2026-11-20-catalogue-import.md`, branch `catalogue-import`):
+- traceability-api reads a jeweler's own website (Shopify feed, then schema.org pages) through one fetcher: public addresses only, checked at dial time; robots.txt for `*` and the named AI crawlers; one request every 2 s per host.
+- Claude (`claude-opus-5-5`, low effort, structured output, server-side refusal fallback) drafts each design's metal, weight and stones from its own text. A person confirms each design, with photos the browser re-encodes.
+- A CSV of serials is judged row by row, then registered in batches of **23** `MsgRegisterJewel` per transaction. Measured 2026-11-20 on 40-character codes and the real record URI: 23 = 1,206,702 gas, 24 = 1,257,923 (over the 1,237,500 budget, 25% under `JEWEL_GAS`). A batch pays one transaction's fee, so bulk registration costs about 1/23 per jewel.
+- Record format v2 adds the description, product link, SKU, dated list price and piece notes. v1 bytes are unchanged; a correction keeps a v2 record v2.
+- Deployed to traceability.yamaletech.com on 2026-11-20 with drafting on (`/etc/yamale/traceability-anthropic-key`, root:yamale-traceability 640). Walked end to end on the local devnet: 96 designs read and drafted, 3 confirmed, 10 jewels registered from a 12-row CSV with 2 bad rows, none twice, a stopped run resumed from the chain. **Not yet walked on the live site** against Jewel of Africa.
+
+**Decided while building it** (the plan's "Decisions this plan takes"):
+- Photos are fetched through the API's image proxy and re-encoded in the browser, not stored by the server.
+- Designs are addressed by a 16-hex id in URLs.
+- A save is signed over `<key>:<body>`, a confirm over `<key>:<sourceHash>:<body>`.
+- Two verdicts were added: `tooLong` (lab certificate over 200 characters, notes over 500) and `unreadableRecord` (a record `parseRecord` could not read back).
+- Each batch's records are stored just before its transaction.
+- A rate-limited feed falls back to the product pages.
+
+**Measured on Jewel of Africa, 2026-11-20:** after four requests in one second, its Shopify answered `429 local_rate_limited`, `Retry-After: 60`, on `/products.json` and the product pages for over ten minutes, while the sitemaps still answered.
+
+**Open:**
+- **Out of scope by design:**
+  - sites with neither a Shopify feed nor schema.org markup (the fallback would be a full-detail CSV);
+  - keeping registered jewels in sync with later website edits;
+  - importing stock levels or variants as pieces;
+  - reading images with a model.
+- **Performance.** One global catalogue lock, and every draft re-reads and rewrites the whole catalogue. That is fine for 96 designs; at 500 designs of 5,000 characters it is about 1.25 GB written per import. Move to per-jeweler locks and batched saves.
+- **Lock mid-run.** `UnlockGate` unmounts the Pieces page when the account locks mid-run, so the run's summary and result file are lost. Integrity holds: a rerun resumes from the chain. Keep the run state above the gate if the summary matters.
+- **Image-proxy errors** (`rateLimited`, `robots`, `notImage`, `unreachable`) reach the person in English, unmapped; the 502 can echo the server's own ip:port.
+- **Schema.org fallback:**
+  - relative image URLs are not resolved, so such a site's photos fail and its designs cannot be confirmed (fail-safe);
+  - localised paths such as `/en/products/x` still key as `url:`.
+- **Readers:**
+  - a 5xx on feed page 1 aborts instead of trying schema.org;
+  - a robots block on `/products.json` alone stops the import;
+  - an empty Shopify feed marks every design gone (reversible: `GoneFrom` restores the prior status).
+- **Fetcher hardening:**
+  - robots agents matched on the full token, not the product token;
+  - bare-CR robots files;
+  - robots and pacing keyed on the raw host (case and port);
+  - a cancelled context reported as rate-limited;
+  - `Retry-After` overflow;
+  - `get()` not refusing userinfo;
+  - 6to4, Teredo and `fec0::/10` missing from the blocklist.
+- **CSV downloads re-export cells as written.** The ruling is that formula injection can wait, because only the user's own cells and our status values go out.
+- **Test gaps:**
+  - no test pins the client's signing subjects;
+  - no test proves an SDK error never carries the API key;
+  - `eventValues` is untested;
+  - several merge branches are untested.
+- **`MaxTokens: 4000` with thinking always on.** A `max_tokens` stop degrades to "fill by hand". Watch `/var/lib/yamale-traceability/catalogue/drafting.log`.
+
 ## The devnet-2 audit, and what it left for the chain
 
 An independent security and functional audit was performed against
