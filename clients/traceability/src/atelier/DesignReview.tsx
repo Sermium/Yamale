@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
@@ -50,6 +50,11 @@ function Review({ jewelerId }: { jewelerId: string }) {
   const [stage, setStage] = useState<string | null>(null);
   const [failed, setFailed] = useState<{ text: string; raw: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Anything changed on this page since the design was loaded, saved or confirmed.
+  const [edited, setEdited] = useState(false);
+  const editTitle = (v: string) => { setTitle(v); setEdited(true); };
+  const editFields = (v: DesignFields) => { setFields(v); setEdited(true); };
+  const editChosen = (f: (s: Set<number>) => Set<number>) => { setChosen(f); setEdited(true); };
 
   useEffect(() => {
     let live = true;
@@ -89,9 +94,10 @@ function Review({ jewelerId }: { jewelerId: string }) {
 
   if (!design) return failed ? <FailureNote text={failed.text} raw={failed.raw} /> : <Loading />;
   const gone = design.status === 'gone';
+  const settled = design.status === 'confirmed' && !edited;
   const usable = images.filter((im): im is Extract<Img, { state: 'ok' }> => im.state === 'ok' && chosen.has(im.n));
   const canConfirm = canConfirmDesign({
-    gone, rights, complete: designComplete(title, fields), busy: stage !== null,
+    gone, rights, settled, complete: designComplete(title, fields), busy: stage !== null,
     images: images.map((im) => ({ state: im.state, chosen: chosen.has(im.n) })),
   });
 
@@ -100,6 +106,7 @@ function Review({ jewelerId }: { jewelerId: string }) {
     const r = await session.withKey((k) => saveDesign(k, design!, title, fields, CHAIN_ID));
     if (!r.ok) { setFailed({ text: r.code === 'gone' ? t('traceability.designGone') : t('traceability.catalogueUnavailable'), raw: `${r.status} ${r.error}` }); return; }
     setDesign(r.value);
+    setEdited(false);
     setNote(t('traceability.saved'));
   }
 
@@ -121,7 +128,8 @@ function Review({ jewelerId }: { jewelerId: string }) {
         return;
       }
       setDesign(r.value);
-      setNote(t('traceability.confirmed'));
+      setEdited(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setFailed({ text: t('traceability.interrupted'), raw: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -131,6 +139,11 @@ function Review({ jewelerId }: { jewelerId: string }) {
 
   return (
     <>
+      {design.status === 'confirmed' && (
+        <p className="banner banner--ok" role="status">
+          {t('traceability.confirmed')} <Link to="/atelier/catalogue/pieces">{t('traceability.piecesLink')}</Link>
+        </p>
+      )}
       {design.status === 'changed' && <p className="banner banner--warn">{t('traceability.designChanged')}</p>}
       {gone && <p className="banner banner--warn">{t('traceability.designGone')}</p>}
       {design.draftNote === 'unavailable' && <p className="note">{t('traceability.draftUnavailable')}</p>}
@@ -145,9 +158,9 @@ function Review({ jewelerId }: { jewelerId: string }) {
       </Section>
       <Section title={t('traceability.details')}>
         {design.status === 'changed' && design.draft && (
-          <button type="button" className="btn" onClick={() => setFields(design.draft!)}>{t('traceability.useNewDraft')}</button>
+          <button type="button" className="btn" onClick={() => editFields(design.draft!)}>{t('traceability.useNewDraft')}</button>
         )}
-        <DesignForm title={title} fields={fields} onTitle={setTitle} onFields={setFields} />
+        <DesignForm title={title} fields={fields} onTitle={editTitle} onFields={editFields} />
       </Section>
       <Section title={t('traceability.designPhotos')}>
         <ul className="photo-picks">
@@ -156,7 +169,7 @@ function Review({ jewelerId }: { jewelerId: string }) {
               {im.state === 'loading' && <Loading />}
               {im.state === 'failed' && (
                 <label>
-                  <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => setChosen((s) => {
+                  <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => editChosen((s) => {
                     const next = new Set(s); if (e.target.checked) next.add(im.n); else next.delete(im.n); return next;
                   })} />
                   <p className="hint hint--bad">{t('traceability.imageFailed', { n: im.n + 1, why: im.why })}</p>
@@ -164,7 +177,7 @@ function Review({ jewelerId }: { jewelerId: string }) {
               )}
               {im.state === 'ok' && (
                 <label>
-                  <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => setChosen((s) => {
+                  <input type="checkbox" checked={chosen.has(im.n)} onChange={(e) => editChosen((s) => {
                     const next = new Set(s); if (e.target.checked) next.add(im.n); else next.delete(im.n); return next;
                   })} />
                   <img src={im.url} alt="" />
@@ -180,8 +193,9 @@ function Review({ jewelerId }: { jewelerId: string }) {
       {stage && <p className="loading" role="status">{stage}</p>}
       {note && <p className="banner banner--ok" role="status">{note}</p>}
       {failed && <FailureNote text={failed.text} raw={failed.raw} />}
+      {design.status === 'confirmed' && edited && <p className="hint">{t('traceability.saveUnconfirms')}</p>}
       <div className="actions">
-        <button type="button" className="btn" disabled={gone || stage !== null} onClick={save}>{t('traceability.saveDesign')}</button>
+        <button type="button" className="btn" disabled={gone || settled || stage !== null} onClick={save}>{t('traceability.saveDesign')}</button>
         <button type="button" className="btn btn--primary" disabled={!canConfirm} onClick={confirm}>{t('traceability.confirmDesign')}</button>
       </div>
     </>
