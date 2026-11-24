@@ -121,6 +121,8 @@
 .jewelcard__text { display: grid; justify-items: start; gap: 0.25rem; flex: 1; min-inline-size: 0; }
 .jewelcard__title { max-inline-size: 100%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jewelcard .hallmark { font-size: 0.8rem; padding: 0.15rem 0.4rem; }
+.jewelcard__serials { inline-size: 100%; margin-block-start: var(--sp-2); font: inherit; font-variant-numeric: tabular-nums;
+  padding: 0.5rem 0.6rem; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); color: var(--text); }
 
 /* A code a camera must read: dark modules on white, whatever the theme. */
 .linkshare__qr { justify-self: center; padding: var(--sp-2); background: #ffffff; border-radius: var(--radius); }
