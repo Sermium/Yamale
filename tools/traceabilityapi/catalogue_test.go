@@ -262,9 +262,12 @@ func TestADesignIsConfirmedWithCompleteFieldsPhotosAndTheTick(t *testing.T) {
 	noTick := goodConfirmation(d, photo)
 	noTick["rightsConfirmed"] = false
 	require.Equal(t, http.StatusBadRequest, serve(s, confirmRequest(t, staff, d, noTick)).Code)
-	noCarat := goodConfirmation(d, photo)
-	noCarat["fields"] = fields{Metal: "Gold", Stones: []stone{{Kind: "Diamond", Carat: "", Count: 422}}}
-	require.Equal(t, http.StatusBadRequest, serve(s, confirmRequest(t, staff, d, noCarat)).Code)
+	unnamedStone := goodConfirmation(d, photo)
+	unnamedStone["fields"] = fields{Metal: "Gold", Stones: []stone{{Kind: " ", Carat: "1", Count: 1}}}
+	require.Equal(t, http.StatusBadRequest, serve(s, confirmRequest(t, staff, d, unnamedStone)).Code)
+	noMetal := goodConfirmation(d, photo)
+	noMetal["fields"] = fields{Metal: "", Stones: []stone{{Kind: "Diamond", Carat: "", Count: 0}}}
+	require.Equal(t, http.StatusBadRequest, serve(s, confirmRequest(t, staff, d, noMetal)).Code)
 	unknownPhoto := goodConfirmation(d, photo)
 	unknownPhoto["photos"] = []string{strings.Repeat("b", 64)}
 	require.Equal(t, http.StatusBadRequest, serve(s, confirmRequest(t, staff, d, unknownPhoto)).Code)

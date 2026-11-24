@@ -254,9 +254,11 @@ func fieldsProblem(title string, f fields, complete bool) string {
 	if strings.TrimSpace(f.Metal) == "" {
 		return "a confirmed design names its metal"
 	}
+	// Carats and count may stay empty and 0: the website often does not say, and
+	// the record then reads "not stated" rather than a number nobody gave.
 	for _, s := range f.Stones {
-		if strings.TrimSpace(s.Kind) == "" || s.Carat == "" || s.Count < 1 {
-			return "every stone of a confirmed design has a kind, its carats and a count"
+		if strings.TrimSpace(s.Kind) == "" {
+			return "every stone of a confirmed design is named"
 		}
 	}
 	return ""

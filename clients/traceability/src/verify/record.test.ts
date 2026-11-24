@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { checkRecord, encodeRecord, parseRecord, recordMatches, stateForHash, type JewelRecord } from './record.ts';
+import { checkRecord, encodeRecord, parseRecord, recordMatches, stateForHash, stoneLineKey, type JewelRecord } from './record.ts';
 
 const HASH = 'a'.repeat(64);
 const ring: JewelRecord = {
@@ -96,4 +96,20 @@ test('a list price dated on a day that does not exist is not a record', () => {
   for (const at of ['2026-13-45', '2026-02-30', '2026-00-10']) {
     assert.equal(parseRecord(enc({ ...v2, listPrice: { ...v2.listPrice, at } })), null, at);
   }
+});
+
+test('a catalogue (v2) record may leave a stone\'s count and carats not stated; a hand-registered (v1) one may not', () => {
+  const unstated = { ...v2, stones: [{ kind: 'Diamond', carat: '', count: 0 }, { kind: 'Emerald', carat: '5.2', count: 0 }, { kind: 'Ruby', carat: '', count: 3 }] } as JewelRecord;
+  assert.deepEqual(parseRecord(encodeRecord(unstated)), unstated);
+  const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
+  assert.equal(parseRecord(enc({ ...ring, stones: [{ kind: 'Diamond', carat: '1', count: 0 }] })), null);
+  assert.equal(parseRecord(enc({ ...v2, stones: [{ kind: 'Diamond', carat: '', count: -1 }] })), null);
+  assert.equal(parseRecord(enc({ ...v2, stones: [{ kind: 'Diamond', carat: '', count: 1.5 }] })), null);
+});
+
+test('each stone line says what is not stated, and only that', () => {
+  assert.equal(stoneLineKey({ kind: 'Emerald', carat: '32', count: 12 }), 'traceability.stoneLine');
+  assert.equal(stoneLineKey({ kind: 'Diamond', carat: '', count: 422 }), 'traceability.stoneLineNoCarat');
+  assert.equal(stoneLineKey({ kind: 'Emerald', carat: '5.2', count: 0 }), 'traceability.stoneLineNoCount');
+  assert.equal(stoneLineKey({ kind: 'Tsavorite', carat: '', count: 0 }), 'traceability.stoneLineUnstated');
 });

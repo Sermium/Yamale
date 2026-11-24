@@ -19,7 +19,7 @@ import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from 
 import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
 import { listPriceDay, listPriceText } from './listprice.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
-import { useRecord, type JewelRecord } from './record.ts';
+import { stoneLineKey, useRecord, type JewelRecord } from './record.ts';
 
 export function Hallmark({ code }: { code: string }) {
   return <span className="hallmark">{code}</span>;
@@ -33,7 +33,7 @@ export function RecordFacts({ record }: { record: JewelRecord }) {
       {record.stones.length > 0 && (<>
         <dt>{t('traceability.stones')}</dt>
         <dd>{record.stones.map((s, i) => (
-          <div key={i}>{t('traceability.stoneLine', { count: s.count, kind: s.kind, carat: s.carat })}</div>
+          <div key={i}>{t(stoneLineKey(s), { count: s.count, kind: s.kind, carat: s.carat })}</div>
         ))}</dd>
       </>)}
       <dt>{t('traceability.workshop')}</dt><dd>{record.origin.workshop}</dd>

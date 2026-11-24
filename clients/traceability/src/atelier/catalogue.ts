@@ -51,7 +51,7 @@ export function canConfirmDesign(c: {
   return c.images.some((i) => i.state === 'ok' && i.chosen);
 }
 
-/** What stops a design being confirmed as it stands. The record needs a metal, and carats and a count for every stone. */
+/** What stops a design being confirmed as it stands: a title, a metal, and a name for every stone. Carats and count may be left not stated. */
 export type Missing = 'title' | 'metal' | 'weight' | 'stones' | 'photos';
 const DECIMAL = /^\d+(\.\d+)?$/;
 
@@ -60,7 +60,7 @@ export function missingForConfirm(d: { title: string; fields: DesignFields; imag
   if (d.title.trim() === '') out.push('title');
   if (d.fields.metal.trim() === '') out.push('metal');
   if (d.fields.weightGrams !== '' && !DECIMAL.test(d.fields.weightGrams)) out.push('weight');
-  if (d.fields.stones.some((s) => s.kind.trim() === '' || !DECIMAL.test(s.carat) || !(s.count >= 1))) out.push('stones');
+  if (d.fields.stones.some((s) => s.kind.trim() === '' || (s.carat !== '' && !DECIMAL.test(s.carat)) || !Number.isInteger(s.count) || s.count < 0 || s.count > 9999)) out.push('stones');
   if (d.imageUrls.length === 0) out.push('photos');
   return out;
 }

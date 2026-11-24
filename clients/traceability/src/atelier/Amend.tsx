@@ -103,7 +103,7 @@ export function Amend() {
       <main className="y-screen">
         <UnlockGate>
           <p className="hint">{t('traceability.correctExplain')}</p>
-          <Section title={t('traceability.details')}><RecordForm value={draft} onChange={setDraft} /></Section>
+          <Section title={t('traceability.details')}><RecordForm value={draft} onChange={setDraft} unstated={base.version === 2} /></Section>
           <Section title={t('traceability.photos')}>
             <p className="hint">{t('traceability.photosKept', { n: photos.length })}</p>
             {room > 0 && (

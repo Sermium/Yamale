@@ -11,7 +11,14 @@ import { useEffect, useState } from 'react';
 import type { Jewel } from '../../../sdk/src/generated/blockchain/jewel/v1/jewel.ts';
 import { fetchVerified } from '../api.ts';
 
+/** `carat` '' and `count` 0 mean "not stated": allowed in catalogue (v2) records only. */
 export interface Stone { kind: string; carat: string; count: number }
+
+/** Which words describe a stone: a line never shows an empty carat or a count of 0, it says they are not stated. */
+export function stoneLineKey(s: Stone): string {
+  if (s.count > 0) return s.carat ? 'traceability.stoneLine' : 'traceability.stoneLineNoCarat';
+  return s.carat ? 'traceability.stoneLineNoCount' : 'traceability.stoneLineUnstated';
+}
 
 export interface ListPrice { amount: string; currency: string; at: string; label: 'list price at registration' }
 
@@ -98,8 +105,11 @@ export function parseRecord(bytes: Uint8Array): JewelRecord | null {
   if (!v || (v.version !== 1 && v.version !== 2) || !str(v.jewelerId, 20) || !ID.test(v.jewelerId)) return null;
   if (!str(v.inscription, 40) || !str(v.title, 120) || !str(v.metal, 80) || !str(v.weightGrams, 12) || !str(v.createdAt, 40)) return null;
   if (!Array.isArray(v.stones) || v.stones.length > 50) return null;
+  // A catalogue record (v2) copies what the jeweler's website says, which often
+  // gives no count: 0 there means "not stated". A hand-registered one always counts.
+  const minCount = v.version === 2 ? 0 : 1;
   for (const s of v.stones) {
-    if (!s || !str(s.kind, 60) || !str(s.carat, 12) || !Number.isInteger(s.count) || s.count < 1 || s.count > 9999) return null;
+    if (!s || !str(s.kind, 60) || !str(s.carat, 12) || !Number.isInteger(s.count) || s.count < minCount || s.count > 9999) return null;
   }
   const o = v.origin;
   const labMax = v.version === 1 ? 80 : 200;

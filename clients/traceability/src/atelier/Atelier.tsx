@@ -1,13 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { chainHead, findByInscription, jewelsHeldBy, normaliseInscription, t } from '@yamale/chain';
+import { chainHead, findByInscription, normaliseInscription, t } from '@yamale/chain';
 
 import { useSession } from '../account/session.tsx';
 import { AppBar, Loading, Problem, Section, useLoad } from '../ui.tsx';
-import { JewelCard } from '../verify/JewelCard.tsx';
+import { HeldRow, loadHoldings } from '../owner/HeldList.tsx';
 import { useRole } from './role.ts';
-
-const NO_STOCK = { ok: true as const, value: [] as string[], height: 0 };
 
 export function Atelier() {
   const session = useSession();
@@ -17,8 +15,7 @@ export function Atelier() {
   const [missing, setMissing] = useState(false);
   const [findFailed, setFindFailed] = useState<{ reason: string; detail: string } | null>(null);
   const business = role.state === 'role' ? role.jeweler.business : null;
-  const [stock] = useLoad(() => (business ? jewelsHeldBy(business) : Promise.resolve(NO_STOCK)), [business]);
-  // An offer past the chain's clock is no offer: the cards wait for that clock, not the phone's.
+  // An offer past the chain's clock is no offer: the list waits for that clock, not the phone's.
   const [head] = useLoad(() => chainHead(), []);
 
   if (role.state === 'loading') return <><AppBar title={t('traceability.atelierTitle')} eyebrow={t('traceability.title')} /><main className="y-screen"><Loading /></main></>;
@@ -82,16 +79,21 @@ export function Atelier() {
         </Section>
 
         <Section title={t('traceability.stock')}>
-          {!stock && <Loading />}
-          {stock && !stock.ok && <Problem outcome={stock} />}
-          {stock?.ok && stock.value.length === 0 && <p className="hint">{t('traceability.noStock')}</p>}
-          {stock?.ok && stock.value.length > 0 && head && !head.ok && <Problem outcome={head} />}
-          {stock?.ok && stock.value.length > 0 && !head && <Loading />}
-          {stock?.ok && stock.value.length > 0 && head?.ok && (
-            <ul className="y-cards">{stock.value.map((id) => <JewelCard key={id} id={id} to={`/atelier/jewel/${id}`} now={head.value.time} onlyJeweler={j.id} />)}</ul>
-          )}
+          {!head && <Loading />}
+          {head && !head.ok && <Problem outcome={head} />}
+          {head?.ok && business && <Stock business={business} jewelerId={j.id} now={head.value.time} />}
         </Section>
       </main>
     </>
   );
+}
+
+/** The shop's stock: what its business account holds of its own jewels, one row per design. */
+function Stock({ business, jewelerId, now }: { business: string; jewelerId: string; now: number }) {
+  // A business account can hold jewels of other jewelers; a jeweler's stock is its own.
+  const [stock] = useLoad(() => loadHoldings(business, now, (h) => h.jewelerId === jewelerId), [business, jewelerId]);
+  if (!stock) return <Loading />;
+  if (!stock.ok) return <Problem outcome={stock} />;
+  if (stock.value.length === 0) return <p className="hint">{t('traceability.noStock')}</p>;
+  return <ul className="y-cards">{stock.value.map((g) => <HeldRow key={g.key} group={g} to={(id) => `/atelier/jewel/${id}`} />)}</ul>;
 }

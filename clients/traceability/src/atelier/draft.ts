@@ -25,10 +25,21 @@ export function clampCount(raw: number): number {
 
 const DECIMAL = /^[0-9]+(\.[0-9]+)?$/;
 
-/** What must be filled, and within the limits the reader enforces, before a record is worth registering. */
+/** A count the stones field accepts: '' (not stated) becomes 0 where that is allowed, 1 where it is not. */
+export function countFromInput(raw: string, unstated: boolean): number {
+  if (raw.trim() === '') return unstated ? 0 : 1;
+  return clampCount(Number(raw));
+}
+
+/**
+ * What must be filled, and within the limits the reader enforces, before a record is worth registering.
+ * A catalogue record (v2) may leave a stone's carats and count not stated, as the website did;
+ * a hand-registered one (v1) states them, because the jeweler holds the piece.
+ */
 export function draftComplete(d: Draft, version: 1 | 2 = 1): boolean {
   if (d.title.trim() === '' || d.metal.trim() === '' || !DECIMAL.test(d.weightGrams) || d.origin.workshop.trim() === '') return false;
-  if (!d.stones.every((s) => s.kind.trim() !== '' && DECIMAL.test(s.carat))) return false;
+  const caratOk = (c: string) => DECIMAL.test(c) || (version === 2 && c === '');
+  if (!d.stones.every((s) => s.kind.trim() !== '' && caratOk(s.carat))) return false;
   const base = { jewelerId: '1', inscription: 'CANDIDATE', ...d, photos: ['0'.repeat(64)], createdAt: '2000-01-01T00:00:00.000Z' };
   const candidate: JewelRecord = version === 1 ? { version: 1, ...base }
     : { version: 2, ...base, description: '', productUrl: '', sku: '', listPrice: null, pieceNotes: '' };
@@ -48,5 +59,5 @@ export function designComplete(title: string, f: DesignFields): boolean {
   return draftComplete({
     title, metal: f.metal, weightGrams: f.weightGrams === '' ? '1' : f.weightGrams, stones: f.stones,
     origin: { workshop: 'W', stoneSource: '', labCertificate: '' },
-  });
+  }, 2);
 }

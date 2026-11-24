@@ -59,8 +59,10 @@ const fieldsOf = (metal: string, stones: { kind: string; carat: string; count: n
 test('what stops a design being confirmed is named', () => {
   const d = (title: string, f: ReturnType<typeof fieldsOf>, photos = 1) => ({ title, fields: f, imageUrls: Array.from({ length: photos }, (_, n) => `u${n}`) });
   assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('18kt Gold', [{ kind: 'Emerald', carat: '5.2', count: 1 }]))), []);
-  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('', [{ kind: 'Amethyst', carat: '', count: 4 }]))), ['metal', 'stones']);
-  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('Gold', [{ kind: 'Diamond', carat: '3.5', count: 0 }]))), ['stones'], 'count unknown');
+  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('', [{ kind: 'Amethyst', carat: '', count: 4 }]))), ['metal'], 'carats not stated');
+  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('Gold', [{ kind: 'Diamond', carat: '3.5', count: 0 }]))), [], 'count not stated');
+  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('Gold', [{ kind: '', carat: '1', count: 1 }]))), ['stones'], 'a stone without a name');
+  assert.deepEqual(missingForConfirm(d('Ring', fieldsOf('Gold', [{ kind: 'Ruby', carat: 'some', count: 1 }]))), ['stones'], 'carats that are not a number');
   assert.deepEqual(missingForConfirm(d('', fieldsOf('Gold', [], 'heavy'), 0)), ['title', 'weight', 'photos']);
 });
 

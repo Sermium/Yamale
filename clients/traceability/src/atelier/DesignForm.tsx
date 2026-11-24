@@ -13,7 +13,7 @@ export function DesignForm({ title, fields, onTitle, onFields }: {
       <Field id="d-metal" label={t('traceability.metal')} value={fields.metal} onChange={(metal) => onFields({ ...fields, metal })} max={80} />
       <Field id="d-weight" label={t('traceability.weightOptional')} value={fields.weightGrams} inputMode="decimal"
              onChange={(v) => onFields({ ...fields, weightGrams: v.replace(',', '.') })} max={12} />
-      <StonesFieldset stones={fields.stones} onChange={(stones) => onFields({ ...fields, stones })} />
+      <StonesFieldset stones={fields.stones} onChange={(stones) => onFields({ ...fields, stones })} unstated />
     </div>
   );
 }

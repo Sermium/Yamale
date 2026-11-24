@@ -105,7 +105,11 @@ func TestFieldRulesMirrorTheApp(t *testing.T) {
 	require.Equal(t, "", fieldsProblem("Parrot", ok, true), "the weight may be empty: rows can carry it")
 	require.Equal(t, "", fieldsProblem("", fields{Stones: []stone{{Kind: "Diamond", Count: 0}}}, false), "a draft may be incomplete")
 	require.NotEqual(t, "", fieldsProblem("", ok, true))
-	require.NotEqual(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Diamond", Carat: "", Count: 422}}}, true))
+	// The website often does not say: a confirmed design may leave carats and count not stated.
+	require.Equal(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Diamond", Carat: "", Count: 422}}}, true))
+	require.Equal(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Emerald", Carat: "5.2", Count: 0}}}, true))
+	require.Equal(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Tsavorite", Carat: "", Count: 0}}}, true))
+	require.NotEqual(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: " ", Carat: "1", Count: 1}}}, true), "a stone is named")
 	require.NotEqual(t, "", fieldsProblem("P", fields{Metal: "Gold", WeightGrams: "4,2"}, false))
 	require.NotEqual(t, "", fieldsProblem(strings.Repeat("x", 121), ok, false))
 	require.NotEqual(t, "", fieldsProblem("P", fields{Metal: "Gold", Stones: []stone{{Kind: "Ruby", Carat: "1", Count: 10000}}}, false))
