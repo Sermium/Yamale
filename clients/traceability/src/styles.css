@@ -87,7 +87,9 @@
 .loupe { inline-size: min(100vw, 900px); max-inline-size: 100vw; block-size: 100dvh; max-block-size: 100dvh;
   margin: auto; padding: 0; border: 0; background: var(--bg); color: var(--text); }
 .loupe::backdrop { background: color-mix(in srgb, var(--ink) 70%, transparent); }
-.loupe__view { block-size: calc(100% - 64px); overflow: auto; }
+.loupe__view { block-size: calc(100% - 64px); overflow: auto; cursor: grab; touch-action: pan-x pan-y; overscroll-behavior: contain; }
+.loupe__view.is-dragging { cursor: grabbing; user-select: none; }
+.loupe__view img { -webkit-user-drag: none; user-select: none; }
 .loupe__img { display: block; inline-size: 100%; block-size: auto; }
 .loupe__bar { block-size: 64px; display: flex; align-items: center; justify-content: space-between;
   gap: var(--sp-2); padding-inline: var(--sp-3); border-block-start: 1px solid var(--rule); }
