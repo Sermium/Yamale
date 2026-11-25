@@ -159,7 +159,10 @@ export function Owned() {
         {record.state === 'ok' && record.record.photos.length > 0 && <Gallery hashes={record.record.photos} alt={title} />}
         {record.state === 'mismatch' && <div className="banner banner--bad" role="alert">{t('traceability.recordMismatch')}</div>}
         <Link className="btn" to={publicPage}>{t('traceability.seePublicPage')}</Link>
-        {v.owner !== session.address ? (
+        {jeweler?.ok && v.owner === jeweler.value.business ? (
+          // The shop's own account holds its stock: that is managed in the Atelier, not owned like a bought piece.
+          <p className="note">{t('traceability.cardShopAccount')} <Link to={`/atelier/jewel/${v.jewel.id}`}>{t('traceability.navAtelier')}</Link></p>
+        ) : v.owner !== session.address ? (
           <p className="note">{t('traceability.notYours')}</p>
         ) : (
           <>
