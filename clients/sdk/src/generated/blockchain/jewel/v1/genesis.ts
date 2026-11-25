@@ -7,7 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
-import { Benefit, Jewel, Jeweler, Offer, Reassignment } from "./jewel.ts";
+import { Benefit, Card, Claim, Jewel, Jeweler, Offer, Reassignment } from "./jewel.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.jewel.v1";
@@ -47,6 +47,30 @@ export interface GenesisState {
   nextJewelId: string;
   /** next_benefit_id is the next benefit id the chain will assign. */
   nextBenefitId: string;
+  /** cards are the jewels' ownership cards, at most one per jewel. */
+  cards: GenesisCard[];
+  /**
+   * claims are the pending claims, at most one per jewel. Each must be on a
+   * jewel with a card, signed with that card. The per-jeweler index of claims
+   * is rebuilt from them, never exported.
+   */
+  claims: GenesisClaim[];
+}
+
+/** GenesisCard is one jewel's ownership card. */
+export interface GenesisCard {
+  /** jewel_id is the jewel the card is for. */
+  jewelId: string;
+  /** card is the card. */
+  card: Card | undefined;
+}
+
+/** GenesisClaim is one jewel's pending claim. */
+export interface GenesisClaim {
+  /** jewel_id is the jewel claimed. */
+  jewelId: string;
+  /** claim is the claim. */
+  claim: Claim | undefined;
 }
 
 function createBaseUsedNonce(): UsedNonce {
@@ -135,6 +159,8 @@ function createBaseGenesisState(): GenesisState {
     nextJewelerId: "0",
     nextJewelId: "0",
     nextBenefitId: "0",
+    cards: [],
+    claims: [],
   };
 }
 
@@ -169,6 +195,12 @@ export const GenesisState = {
     }
     if (message.nextBenefitId !== "0") {
       writer.uint32(80).uint64(message.nextBenefitId);
+    }
+    for (const v of message.cards) {
+      GenesisCard.encode(v!, writer.uint32(90).fork()).ldelim();
+    }
+    for (const v of message.claims) {
+      GenesisClaim.encode(v!, writer.uint32(98).fork()).ldelim();
     }
     return writer;
   },
@@ -250,6 +282,20 @@ export const GenesisState = {
 
           message.nextBenefitId = longToString(reader.uint64() as Long);
           continue;
+        case 11:
+          if (tag !== 90) {
+            break;
+          }
+
+          message.cards.push(GenesisCard.decode(reader, reader.uint32()));
+          continue;
+        case 12:
+          if (tag !== 98) {
+            break;
+          }
+
+          message.claims.push(GenesisClaim.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -275,6 +321,8 @@ export const GenesisState = {
       nextJewelerId: isSet(object.nextJewelerId) ? globalThis.String(object.nextJewelerId) : "0",
       nextJewelId: isSet(object.nextJewelId) ? globalThis.String(object.nextJewelId) : "0",
       nextBenefitId: isSet(object.nextBenefitId) ? globalThis.String(object.nextBenefitId) : "0",
+      cards: globalThis.Array.isArray(object?.cards) ? object.cards.map((e: any) => GenesisCard.fromJSON(e)) : [],
+      claims: globalThis.Array.isArray(object?.claims) ? object.claims.map((e: any) => GenesisClaim.fromJSON(e)) : [],
     };
   },
 
@@ -310,6 +358,12 @@ export const GenesisState = {
     if (message.nextBenefitId !== "0") {
       obj.nextBenefitId = message.nextBenefitId;
     }
+    if (message.cards?.length) {
+      obj.cards = message.cards.map((e) => GenesisCard.toJSON(e));
+    }
+    if (message.claims?.length) {
+      obj.claims = message.claims.map((e) => GenesisClaim.toJSON(e));
+    }
     return obj;
   },
 
@@ -330,6 +384,156 @@ export const GenesisState = {
     message.nextJewelerId = object.nextJewelerId ?? "0";
     message.nextJewelId = object.nextJewelId ?? "0";
     message.nextBenefitId = object.nextBenefitId ?? "0";
+    message.cards = object.cards?.map((e) => GenesisCard.fromPartial(e)) || [];
+    message.claims = object.claims?.map((e) => GenesisClaim.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseGenesisCard(): GenesisCard {
+  return { jewelId: "0", card: undefined };
+}
+
+export const GenesisCard = {
+  encode(message: GenesisCard, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.card !== undefined) {
+      Card.encode(message.card, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GenesisCard {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisCard();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.card = Card.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GenesisCard {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      card: isSet(object.card) ? Card.fromJSON(object.card) : undefined,
+    };
+  },
+
+  toJSON(message: GenesisCard): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.card !== undefined) {
+      obj.card = Card.toJSON(message.card);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<GenesisCard>): GenesisCard {
+    return GenesisCard.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<GenesisCard>): GenesisCard {
+    const message = createBaseGenesisCard();
+    message.jewelId = object.jewelId ?? "0";
+    message.card = (object.card !== undefined && object.card !== null) ? Card.fromPartial(object.card) : undefined;
+    return message;
+  },
+};
+
+function createBaseGenesisClaim(): GenesisClaim {
+  return { jewelId: "0", claim: undefined };
+}
+
+export const GenesisClaim = {
+  encode(message: GenesisClaim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.claim !== undefined) {
+      Claim.encode(message.claim, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GenesisClaim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.claim = Claim.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GenesisClaim {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      claim: isSet(object.claim) ? Claim.fromJSON(object.claim) : undefined,
+    };
+  },
+
+  toJSON(message: GenesisClaim): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.claim !== undefined) {
+      obj.claim = Claim.toJSON(message.claim);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<GenesisClaim>): GenesisClaim {
+    return GenesisClaim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<GenesisClaim>): GenesisClaim {
+    const message = createBaseGenesisClaim();
+    message.jewelId = object.jewelId ?? "0";
+    message.claim = (object.claim !== undefined && object.claim !== null) ? Claim.fromPartial(object.claim) : undefined;
     return message;
   },
 };
