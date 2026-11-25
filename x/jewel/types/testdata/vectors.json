@@ -99,5 +99,25 @@
       "sign_bytes": "yamale-jewel-voucher/v1:yamale-local-1:42:9001:n:1",
       "signature": "185142f4d9ececae12e037e0f945fd63ecdcc544847254e450c0d88efbab02762db6de10ac7ba7509c9e8b271bed6e7fbcf2645c5acf1d01a9f87c9d746bc457"
     }
+  ],
+  "cards": [
+    {
+      "priv_key": "0707070707070707070707070707070707070707070707070707070707070707",
+      "card_key": "02989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+      "chain_id": "yamale-local-1",
+      "jewel_id": "1",
+      "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "sign_bytes": "yamale-jewel-card/v1:yamale-local-1:1:02989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "4ccf7ed01ad20377299d2f68face9dc9e4b60ea6722f84242eee5f5a5dd3891b2edc8f29df36f6157c2a2bb704caf6678f8814d3d09160fcd5879c7070972624"
+    },
+    {
+      "priv_key": "9a6627ce9ea0fc90c5ac038070f0f6144b522eaece228f0485e42b0e3f5a89c9",
+      "card_key": "028e8bf4ec00c3627c00f3ef90f11f60dd48f3bf4e312a85f9a25286181ace43d2",
+      "chain_id": "yamale-devnet-2",
+      "jewel_id": "18446744073709551615",
+      "claimer": "yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "sign_bytes": "yamale-jewel-card/v1:yamale-devnet-2:18446744073709551615:028e8bf4ec00c3627c00f3ef90f11f60dd48f3bf4e312a85f9a25286181ace43d2:yml1g2djgc2528lqs484t97espkwme9f2utz0rec9e",
+      "signature": "d0c1f7162f2b71642fcb80fec4ba8a30a323ef76291fd30065dcb54439397a720b25f5b57cd7788899a62c335c3cddf95e9c18b656ce9ab9767aa5dbdc4ee8b4"
+    }
   ]
 }

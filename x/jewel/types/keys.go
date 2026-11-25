@@ -35,6 +35,7 @@ const (
 	// The kinds of change of owner EventJewelTransferred reports.
 	TransferAccept   = "accept"   // an offer to an account, accepted
 	TransferClaim    = "claim"    // an offer to a claim key, claimed
+	TransferCard     = "card"     // a claim filed with the ownership card, approved by the shop
 	TransferReassign = "reassign" // the office's reassignment, completed
 )
 
@@ -48,6 +49,8 @@ var (
 	BenefitKey      = collections.NewPrefix("benefit")
 	ReassignmentKey = collections.NewPrefix("reassign")
 	UsedNonceKey    = collections.NewPrefix("used_nonce")
+	CardKey         = collections.NewPrefix("card")
+	ClaimKey        = collections.NewPrefix("claim")
 
 	// The indexes, each one there because the alternative is a scan.
 	ByBusinessKey      = collections.NewPrefix("idx_business")
@@ -55,6 +58,9 @@ var (
 	ByInscriptionKey   = collections.NewPrefix("idx_inscription")
 	SearchKey          = collections.NewPrefix("idx_search")
 	BenefitsByJewelKey = collections.NewPrefix("idx_benefits_by_piece")
+	// (jeweler id, jewel id): the jeweler's pending claims, for the Atelier.
+	// It changes only together with Claim.
+	ClaimsByJewelerKey = collections.NewPrefix("idx_claims_by_maker")
 
 	NextJewelerIDKey = collections.NewPrefix("next_maker_id")
 	NextJewelIDKey   = collections.NewPrefix("next_piece_id")

@@ -288,6 +288,96 @@ export interface MsgCompleteReassignment {
 export interface MsgCompleteReassignmentResponse {
 }
 
+/**
+ * MsgIssueCard is the message that carries out IssueCard. It sets the
+ * jewel's ownership card, replacing any earlier one, and drops a pending claim
+ * that was signed with the earlier card. Refused unless the jewel is stock of
+ * an active jeweler and not reported stolen.
+ */
+export interface MsgIssueCard {
+  /** staff is the jeweler's business account or a member of its staff, the signer. */
+  staff: string;
+  /** jewel_id is the stock jewel the card is for. */
+  jewelId: string;
+  /**
+   * card_key is the card's compressed secp256k1 public key in hex, 66
+   * characters. Upper-case hex is accepted and stored in lower case. The
+   * secret it belongs to is printed on the card and nowhere else.
+   */
+  cardKey: string;
+}
+
+/** MsgIssueCardResponse is the result of MsgIssueCard. */
+export interface MsgIssueCardResponse {
+}
+
+/**
+ * MsgFileClaim is the message that carries out FileClaim. It records a
+ * pending claim for the shop's staff to approve or reject; nothing moves yet.
+ */
+export interface MsgFileClaim {
+  /** claimer is the account the jewel goes to once the shop approves, the signer. */
+  claimer: string;
+  /** jewel_id is the jewel to claim. */
+  jewelId: string;
+  /**
+   * card_pub_key is the compressed secp256k1 public key of the card, 33
+   * bytes; it must be the jewel's current card.
+   */
+  cardPubKey: Uint8Array;
+  /**
+   * card_signature signs CardClaimSignBytes(chain id, jewel id, card key,
+   * claimer): "yamale-jewel-card/v1:<chain>:<jewel>:<card key hex>:<claimer>".
+   */
+  cardSignature: Uint8Array;
+}
+
+/** MsgFileClaimResponse is the result of MsgFileClaim. */
+export interface MsgFileClaimResponse {
+}
+
+/**
+ * MsgApproveClaim is the message that carries out ApproveClaim. The jewel
+ * moves to the claimer, and its card and claim are spent.
+ */
+export interface MsgApproveClaim {
+  /** staff is the jeweler's business account or a member of its staff, the signer. */
+  staff: string;
+  /** jewel_id is the jewel whose pending claim to approve. */
+  jewelId: string;
+}
+
+/** MsgApproveClaimResponse is the result of MsgApproveClaim. */
+export interface MsgApproveClaimResponse {
+}
+
+/**
+ * MsgRejectClaim is the message that carries out RejectClaim. The card stays
+ * valid, so the real buyer can file with it afterwards.
+ */
+export interface MsgRejectClaim {
+  /** staff is the jeweler's business account or a member of its staff, the signer. */
+  staff: string;
+  /** jewel_id is the jewel whose pending claim to remove. */
+  jewelId: string;
+}
+
+/** MsgRejectClaimResponse is the result of MsgRejectClaim. */
+export interface MsgRejectClaimResponse {
+}
+
+/** MsgWithdrawClaim is the message that carries out WithdrawClaim. */
+export interface MsgWithdrawClaim {
+  /** claimer is the account that filed the claim, the signer. */
+  claimer: string;
+  /** jewel_id is the jewel whose claim to withdraw. */
+  jewelId: string;
+}
+
+/** MsgWithdrawClaimResponse is the result of MsgWithdrawClaim. */
+export interface MsgWithdrawClaimResponse {
+}
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -2783,6 +2873,636 @@ export const MsgCompleteReassignmentResponse = {
   },
 };
 
+function createBaseMsgIssueCard(): MsgIssueCard {
+  return { staff: "", jewelId: "0", cardKey: "" };
+}
+
+export const MsgIssueCard = {
+  encode(message: MsgIssueCard, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.staff !== "") {
+      writer.uint32(10).string(message.staff);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    if (message.cardKey !== "") {
+      writer.uint32(26).string(message.cardKey);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgIssueCard {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgIssueCard();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.staff = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cardKey = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgIssueCard {
+    return {
+      staff: isSet(object.staff) ? globalThis.String(object.staff) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      cardKey: isSet(object.cardKey) ? globalThis.String(object.cardKey) : "",
+    };
+  },
+
+  toJSON(message: MsgIssueCard): unknown {
+    const obj: any = {};
+    if (message.staff !== "") {
+      obj.staff = message.staff;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.cardKey !== "") {
+      obj.cardKey = message.cardKey;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgIssueCard>): MsgIssueCard {
+    return MsgIssueCard.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgIssueCard>): MsgIssueCard {
+    const message = createBaseMsgIssueCard();
+    message.staff = object.staff ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    message.cardKey = object.cardKey ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgIssueCardResponse(): MsgIssueCardResponse {
+  return {};
+}
+
+export const MsgIssueCardResponse = {
+  encode(_: MsgIssueCardResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgIssueCardResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgIssueCardResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgIssueCardResponse {
+    return {};
+  },
+
+  toJSON(_: MsgIssueCardResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgIssueCardResponse>): MsgIssueCardResponse {
+    return MsgIssueCardResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgIssueCardResponse>): MsgIssueCardResponse {
+    const message = createBaseMsgIssueCardResponse();
+    return message;
+  },
+};
+
+function createBaseMsgFileClaim(): MsgFileClaim {
+  return { claimer: "", jewelId: "0", cardPubKey: new Uint8Array(0), cardSignature: new Uint8Array(0) };
+}
+
+export const MsgFileClaim = {
+  encode(message: MsgFileClaim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.claimer !== "") {
+      writer.uint32(10).string(message.claimer);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    if (message.cardPubKey.length !== 0) {
+      writer.uint32(26).bytes(message.cardPubKey);
+    }
+    if (message.cardSignature.length !== 0) {
+      writer.uint32(34).bytes(message.cardSignature);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgFileClaim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgFileClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cardPubKey = reader.bytes();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.cardSignature = reader.bytes();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgFileClaim {
+    return {
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      cardPubKey: isSet(object.cardPubKey) ? bytesFromBase64(object.cardPubKey) : new Uint8Array(0),
+      cardSignature: isSet(object.cardSignature) ? bytesFromBase64(object.cardSignature) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: MsgFileClaim): unknown {
+    const obj: any = {};
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.cardPubKey.length !== 0) {
+      obj.cardPubKey = base64FromBytes(message.cardPubKey);
+    }
+    if (message.cardSignature.length !== 0) {
+      obj.cardSignature = base64FromBytes(message.cardSignature);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgFileClaim>): MsgFileClaim {
+    return MsgFileClaim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgFileClaim>): MsgFileClaim {
+    const message = createBaseMsgFileClaim();
+    message.claimer = object.claimer ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    message.cardPubKey = object.cardPubKey ?? new Uint8Array(0);
+    message.cardSignature = object.cardSignature ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseMsgFileClaimResponse(): MsgFileClaimResponse {
+  return {};
+}
+
+export const MsgFileClaimResponse = {
+  encode(_: MsgFileClaimResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgFileClaimResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgFileClaimResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgFileClaimResponse {
+    return {};
+  },
+
+  toJSON(_: MsgFileClaimResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgFileClaimResponse>): MsgFileClaimResponse {
+    return MsgFileClaimResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgFileClaimResponse>): MsgFileClaimResponse {
+    const message = createBaseMsgFileClaimResponse();
+    return message;
+  },
+};
+
+function createBaseMsgApproveClaim(): MsgApproveClaim {
+  return { staff: "", jewelId: "0" };
+}
+
+export const MsgApproveClaim = {
+  encode(message: MsgApproveClaim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.staff !== "") {
+      writer.uint32(10).string(message.staff);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgApproveClaim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgApproveClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.staff = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgApproveClaim {
+    return {
+      staff: isSet(object.staff) ? globalThis.String(object.staff) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+    };
+  },
+
+  toJSON(message: MsgApproveClaim): unknown {
+    const obj: any = {};
+    if (message.staff !== "") {
+      obj.staff = message.staff;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgApproveClaim>): MsgApproveClaim {
+    return MsgApproveClaim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgApproveClaim>): MsgApproveClaim {
+    const message = createBaseMsgApproveClaim();
+    message.staff = object.staff ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgApproveClaimResponse(): MsgApproveClaimResponse {
+  return {};
+}
+
+export const MsgApproveClaimResponse = {
+  encode(_: MsgApproveClaimResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgApproveClaimResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgApproveClaimResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgApproveClaimResponse {
+    return {};
+  },
+
+  toJSON(_: MsgApproveClaimResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgApproveClaimResponse>): MsgApproveClaimResponse {
+    return MsgApproveClaimResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgApproveClaimResponse>): MsgApproveClaimResponse {
+    const message = createBaseMsgApproveClaimResponse();
+    return message;
+  },
+};
+
+function createBaseMsgRejectClaim(): MsgRejectClaim {
+  return { staff: "", jewelId: "0" };
+}
+
+export const MsgRejectClaim = {
+  encode(message: MsgRejectClaim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.staff !== "") {
+      writer.uint32(10).string(message.staff);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRejectClaim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRejectClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.staff = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgRejectClaim {
+    return {
+      staff: isSet(object.staff) ? globalThis.String(object.staff) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+    };
+  },
+
+  toJSON(message: MsgRejectClaim): unknown {
+    const obj: any = {};
+    if (message.staff !== "") {
+      obj.staff = message.staff;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRejectClaim>): MsgRejectClaim {
+    return MsgRejectClaim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgRejectClaim>): MsgRejectClaim {
+    const message = createBaseMsgRejectClaim();
+    message.staff = object.staff ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgRejectClaimResponse(): MsgRejectClaimResponse {
+  return {};
+}
+
+export const MsgRejectClaimResponse = {
+  encode(_: MsgRejectClaimResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgRejectClaimResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgRejectClaimResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgRejectClaimResponse {
+    return {};
+  },
+
+  toJSON(_: MsgRejectClaimResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgRejectClaimResponse>): MsgRejectClaimResponse {
+    return MsgRejectClaimResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgRejectClaimResponse>): MsgRejectClaimResponse {
+    const message = createBaseMsgRejectClaimResponse();
+    return message;
+  },
+};
+
+function createBaseMsgWithdrawClaim(): MsgWithdrawClaim {
+  return { claimer: "", jewelId: "0" };
+}
+
+export const MsgWithdrawClaim = {
+  encode(message: MsgWithdrawClaim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.claimer !== "") {
+      writer.uint32(10).string(message.claimer);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawClaim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgWithdrawClaim {
+    return {
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+    };
+  },
+
+  toJSON(message: MsgWithdrawClaim): unknown {
+    const obj: any = {};
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawClaim>): MsgWithdrawClaim {
+    return MsgWithdrawClaim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgWithdrawClaim>): MsgWithdrawClaim {
+    const message = createBaseMsgWithdrawClaim();
+    message.claimer = object.claimer ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgWithdrawClaimResponse(): MsgWithdrawClaimResponse {
+  return {};
+}
+
+export const MsgWithdrawClaimResponse = {
+  encode(_: MsgWithdrawClaimResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawClaimResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawClaimResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgWithdrawClaimResponse {
+    return {};
+  },
+
+  toJSON(_: MsgWithdrawClaimResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawClaimResponse>): MsgWithdrawClaimResponse {
+    return MsgWithdrawClaimResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgWithdrawClaimResponse>): MsgWithdrawClaimResponse {
+    const message = createBaseMsgWithdrawClaimResponse();
+    return message;
+  },
+};
+
 /** Msg is the write side of the jewel register. */
 export interface Msg {
   /**
@@ -2810,7 +3530,7 @@ export interface Msg {
   AcceptOffer(request: MsgAcceptOffer): Promise<MsgAcceptOfferResponse>;
   /** ClaimOffer takes a jewel offered to a claim key. */
   ClaimOffer(request: MsgClaimOffer): Promise<MsgClaimOfferResponse>;
-  /** ReportStolen flags a jewel and closes its offer. */
+  /** ReportStolen flags a jewel and closes its offer and any pending claim. */
   ReportStolen(request: MsgReportStolen): Promise<MsgReportStolenResponse>;
   /** ClearStolen lifts the flag. */
   ClearStolen(request: MsgClearStolen): Promise<MsgClearStolenResponse>;
@@ -2824,6 +3544,16 @@ export interface Msg {
   VetoReassignment(request: MsgVetoReassignment): Promise<MsgVetoReassignmentResponse>;
   /** CompleteReassignment moves the jewel once the window has passed. Anyone. */
   CompleteReassignment(request: MsgCompleteReassignment): Promise<MsgCompleteReassignmentResponse>;
+  /** IssueCard gives a stock jewel its ownership card, replacing any earlier one. */
+  IssueCard(request: MsgIssueCard): Promise<MsgIssueCardResponse>;
+  /** FileClaim records a buyer's claim, signed with the card's secret. */
+  FileClaim(request: MsgFileClaim): Promise<MsgFileClaimResponse>;
+  /** ApproveClaim moves the jewel to the claimer. The shop's staff only. */
+  ApproveClaim(request: MsgApproveClaim): Promise<MsgApproveClaimResponse>;
+  /** RejectClaim removes a claim; the card stays valid. The shop's staff only. */
+  RejectClaim(request: MsgRejectClaim): Promise<MsgRejectClaimResponse>;
+  /** WithdrawClaim removes the signer's own claim. */
+  WithdrawClaim(request: MsgWithdrawClaim): Promise<MsgWithdrawClaimResponse>;
 }
 
 export const MsgServiceName = "blockchain.jewel.v1.Msg";
@@ -2851,6 +3581,11 @@ export class MsgClientImpl implements Msg {
     this.ProposeReassignment = this.ProposeReassignment.bind(this);
     this.VetoReassignment = this.VetoReassignment.bind(this);
     this.CompleteReassignment = this.CompleteReassignment.bind(this);
+    this.IssueCard = this.IssueCard.bind(this);
+    this.FileClaim = this.FileClaim.bind(this);
+    this.ApproveClaim = this.ApproveClaim.bind(this);
+    this.RejectClaim = this.RejectClaim.bind(this);
+    this.WithdrawClaim = this.WithdrawClaim.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -2958,6 +3693,36 @@ export class MsgClientImpl implements Msg {
     const data = MsgCompleteReassignment.encode(request).finish();
     const promise = this.rpc.request(this.service, "CompleteReassignment", data);
     return promise.then((data) => MsgCompleteReassignmentResponse.decode(_m0.Reader.create(data)));
+  }
+
+  IssueCard(request: MsgIssueCard): Promise<MsgIssueCardResponse> {
+    const data = MsgIssueCard.encode(request).finish();
+    const promise = this.rpc.request(this.service, "IssueCard", data);
+    return promise.then((data) => MsgIssueCardResponse.decode(_m0.Reader.create(data)));
+  }
+
+  FileClaim(request: MsgFileClaim): Promise<MsgFileClaimResponse> {
+    const data = MsgFileClaim.encode(request).finish();
+    const promise = this.rpc.request(this.service, "FileClaim", data);
+    return promise.then((data) => MsgFileClaimResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ApproveClaim(request: MsgApproveClaim): Promise<MsgApproveClaimResponse> {
+    const data = MsgApproveClaim.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ApproveClaim", data);
+    return promise.then((data) => MsgApproveClaimResponse.decode(_m0.Reader.create(data)));
+  }
+
+  RejectClaim(request: MsgRejectClaim): Promise<MsgRejectClaimResponse> {
+    const data = MsgRejectClaim.encode(request).finish();
+    const promise = this.rpc.request(this.service, "RejectClaim", data);
+    return promise.then((data) => MsgRejectClaimResponse.decode(_m0.Reader.create(data)));
+  }
+
+  WithdrawClaim(request: MsgWithdrawClaim): Promise<MsgWithdrawClaimResponse> {
+    const data = MsgWithdrawClaim.encode(request).finish();
+    const promise = this.rpc.request(this.service, "WithdrawClaim", data);
+    return promise.then((data) => MsgWithdrawClaimResponse.decode(_m0.Reader.create(data)));
   }
 }
 

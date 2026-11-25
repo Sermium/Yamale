@@ -151,3 +151,70 @@ func TestAGenesisWithAnUpperCaseStaffAddressIsRefused(t *testing.T) {
 	gs.Jewelers[0].Staff[0] = strings.ToUpper(staff)
 	require.Error(t, importInto(t, *gs))
 }
+
+// Cards and claims survive export and import byte for byte, and the
+// per-jeweler claim list, which is never exported, is rebuilt from the claims.
+func TestCardsAndClaimsSurviveExportAndImport(t *testing.T) {
+	f := setup(t)
+	a, _, staffA := f.admit(t, "Maison Diop")
+	b, _, staffB := f.admit(t, "Atelier Ba")
+	carded := f.register(t, staffA, "MD-0001")
+	f.issue(t, staffA, carded)
+	claimedA := f.register(t, staffA, "MD-0002")
+	_, buyerA := f.env.Addr(t)
+	f.claimFiled(t, f.issue(t, staffA, claimedA), claimedA, buyerA)
+	claimedB := f.register(t, staffB, "AB-0001")
+	_, buyerB := f.env.Addr(t)
+	f.claimFiled(t, f.issue(t, staffB, claimedB), claimedB, buyerB)
+	// A stolen jewel keeps its card and loses its claim.
+	stolen := f.register(t, staffA, "MD-0003")
+	_, buyerC := f.env.Addr(t)
+	f.claimFiled(t, f.issue(t, staffA, stolen), stolen, buyerC)
+	_, err := f.srv.ReportStolen(f.env.Ctx, &types.MsgReportStolen{Owner: staffA, JewelId: stolen})
+	require.NoError(t, err)
+
+	first, err := f.k.ExportGenesis(f.env.Ctx)
+	require.NoError(t, err)
+	require.NoError(t, first.Validate())
+	require.Len(t, first.Cards, 4)
+	require.Len(t, first.Claims, 2)
+	firstJSON, err := f.env.Codec.MarshalJSON(first)
+	require.NoError(t, err)
+
+	g := setup(t)
+	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit)
+	require.NoError(t, k2.InitGenesis(g.env.Ctx, *first))
+	second, err := k2.ExportGenesis(g.env.Ctx)
+	require.NoError(t, err)
+	secondJSON, err := g.env.Codec.MarshalJSON(second)
+	require.NoError(t, err)
+	require.Equal(t, string(firstJSON), string(secondJSON), "the second export must be byte-identical")
+
+	var listed []collections.Pair[uint64, uint64]
+	require.NoError(t, k2.ClaimsByJeweler.Walk(g.env.Ctx, nil, func(key collections.Pair[uint64, uint64]) (bool, error) {
+		listed = append(listed, key)
+		return false, nil
+	}))
+	require.Equal(t, []collections.Pair[uint64, uint64]{
+		collections.Join(a, claimedA), collections.Join(b, claimedB),
+	}, listed, "the claim list is rebuilt, one entry per claim and no more")
+}
+
+// The import refuses a card or claim address in a spelling the handlers
+// would not have stored.
+func TestAGenesisWithAnUpperCaseClaimerIsRefused(t *testing.T) {
+	f := setup(t)
+	_, _, staff := f.admit(t, "Maison Diop")
+	id := f.register(t, staff, "MD-0001")
+	_, buyer := f.env.Addr(t)
+	f.claimFiled(t, f.issue(t, staff, id), id, buyer)
+	gs, err := f.k.ExportGenesis(f.env.Ctx)
+	require.NoError(t, err)
+	require.NoError(t, importInto(t, *gs), "the untouched export must import")
+
+	gs.Claims[0].Claim.Claimer = strings.ToUpper(buyer)
+	require.Error(t, importInto(t, *gs))
+	gs.Claims[0].Claim.Claimer = buyer
+	gs.Cards[0].Card.IssuedBy = strings.ToUpper(staff)
+	require.Error(t, importInto(t, *gs))
+}

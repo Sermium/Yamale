@@ -40,6 +40,8 @@ type Keeper struct {
 	Reassignment collections.Map[uint64, types.Reassignment] // by jewel id
 	// (benefit id, nonce): vouchers already spent.
 	UsedNonce collections.KeySet[collections.Pair[uint64, string]]
+	Card      collections.Map[uint64, types.Card]  // by jewel id; one card per jewel
+	Claim     collections.Map[uint64, types.Claim] // by jewel id; one pending claim per jewel
 
 	// business address -> jeweler id. One business, one jeweler.
 	ByBusiness collections.Map[string, uint64]
@@ -51,6 +53,10 @@ type Keeper struct {
 	Search collections.KeySet[collections.Pair[string, uint64]]
 	// (jewel id, benefit id): one jewel's benefits as a prefix walk.
 	BenefitsByJewel collections.KeySet[collections.Pair[uint64, uint64]]
+	// (jeweler id, jewel id): a jeweler's pending claims as a prefix walk.
+	// Written and removed only together with Claim, through setClaim and
+	// dropClaim.
+	ClaimsByJeweler collections.KeySet[collections.Pair[uint64, uint64]]
 
 	NextJewelerID collections.Sequence
 	NextJewelID   collections.Sequence
@@ -95,6 +101,10 @@ func NewKeeper(
 		Reassignment: collections.NewMap(sb, types.ReassignmentKey, "reassignment",
 			collections.Uint64Key, codec.CollValue[types.Reassignment](cdc)),
 		UsedNonce: collections.NewKeySet(sb, types.UsedNonceKey, "used_nonce", pairU64Str),
+		Card: collections.NewMap(sb, types.CardKey, "card",
+			collections.Uint64Key, codec.CollValue[types.Card](cdc)),
+		Claim: collections.NewMap(sb, types.ClaimKey, "claim",
+			collections.Uint64Key, codec.CollValue[types.Claim](cdc)),
 
 		ByBusiness: collections.NewMap(sb, types.ByBusinessKey, "by_business",
 			collections.StringKey, collections.Uint64Value),
@@ -105,6 +115,8 @@ func NewKeeper(
 		Search: collections.NewKeySet(sb, types.SearchKey, "search",
 			collections.PairKeyCodec(collections.StringKey, collections.Uint64Key)),
 		BenefitsByJewel: collections.NewKeySet(sb, types.BenefitsByJewelKey, "benefits_by_jewel",
+			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
+		ClaimsByJeweler: collections.NewKeySet(sb, types.ClaimsByJewelerKey, "claims_by_jeweler",
 			collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
 
 		NextJewelerID: collections.NewSequence(sb, types.NextJewelerIDKey, "next_jeweler_id"),
@@ -283,9 +295,45 @@ func (k Keeper) requireSellable(ctx context.Context, owner string, j types.Jewel
 	return nil
 }
 
+// setClaim records a pending claim and its entry in the jeweler's index.
+func (k Keeper) setClaim(ctx context.Context, j types.Jewel, c types.Claim) error {
+	if err := k.Claim.Set(ctx, j.Id, c); err != nil {
+		return err
+	}
+	return k.ClaimsByJeweler.Set(ctx, collections.Join(j.JewelerId, j.Id))
+}
+
+// dropClaim removes the jewel's pending claim, if any, and its index entry.
+// Remove on a missing key is not an error in collections.
+func (k Keeper) dropClaim(ctx context.Context, j types.Jewel) error {
+	if err := k.Claim.Remove(ctx, j.Id); err != nil {
+		return err
+	}
+	return k.ClaimsByJeweler.Remove(ctx, collections.Join(j.JewelerId, j.Id))
+}
+
+// requireStock refuses unless the jewel still belongs to its jeweler's
+// business account, and returns the jeweler.
+func (k Keeper) requireStock(ctx context.Context, j types.Jewel) (types.Jeweler, error) {
+	owner, err := k.Owner(ctx, j)
+	if err != nil {
+		return types.Jeweler{}, err
+	}
+	jr, err := k.getJeweler(ctx, j.JewelerId)
+	if err != nil {
+		return jr, err
+	}
+	if owner != jr.Business {
+		return jr, types.ErrNotStock.Wrapf("jewel %d", j.Id)
+	}
+	return jr, nil
+}
+
 // transfer moves the token, counts and dates the new owner, and closes any
-// offer and any pending reassignment: a change of owner voids both. kind is
-// how it moved, one of types.TransferAccept, TransferClaim, TransferReassign.
+// offer and any pending reassignment: a change of owner voids both. It also
+// spends the ownership card and drops any pending claim, whatever caused the
+// move, so a card can never move a jewel twice. kind is how it moved, one of
+// types.TransferAccept, TransferClaim, TransferCard, TransferReassign.
 func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to, kind string) error {
 	addr, err := k.addressCodec.StringToBytes(to)
 	if err != nil {
@@ -305,6 +353,12 @@ func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to, kind string) e
 	}
 	// Remove on a missing key is not an error in collections.
 	if err := k.Reassignment.Remove(ctx, j.Id); err != nil {
+		return err
+	}
+	if err := k.Card.Remove(ctx, j.Id); err != nil {
+		return err
+	}
+	if err := k.dropClaim(ctx, *j); err != nil {
 		return err
 	}
 	if err := k.Jewel.Set(ctx, j.Id, *j); err != nil {

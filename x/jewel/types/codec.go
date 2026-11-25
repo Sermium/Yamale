@@ -27,6 +27,11 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgProposeReassignment{},
 		&MsgVetoReassignment{},
 		&MsgCompleteReassignment{},
+		&MsgIssueCard{},
+		&MsgFileClaim{},
+		&MsgApproveClaim{},
+		&MsgRejectClaim{},
+		&MsgWithdrawClaim{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)

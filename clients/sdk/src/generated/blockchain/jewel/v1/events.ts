@@ -108,7 +108,8 @@ export interface EventJewelTransferred {
   to: string;
   /**
    * kind is how it moved: "accept" (an offer to an account), "claim" (an
-   * offer to a claim key) or "reassign" (the office's reassignment after its
+   * offer to a claim key), "card" (a claim filed with the ownership card and
+   * approved by the shop) or "reassign" (the office's reassignment after its
    * veto window).
    */
   kind: string;
@@ -174,6 +175,58 @@ export interface EventReassignmentVetoed {
   jewelId: string;
   /** owner is the owner who vetoed it. */
   owner: string;
+}
+
+/**
+ * EventCardIssued is emitted when a stock jewel gets an ownership card. A
+ * pending claim made with an earlier card is dropped with it, without an
+ * event of its own.
+ */
+export interface EventCardIssued {
+  /** jewel_id is the jewel the card is for. */
+  jewelId: string;
+  /** by is the account that issued it: the business account or staff. */
+  by: string;
+}
+
+/** EventClaimFiled is emitted when a buyer files a claim with the card. */
+export interface EventClaimFiled {
+  /** jewel_id is the jewel claimed. */
+  jewelId: string;
+  /** claimer is the account the jewel goes to if the shop approves. */
+  claimer: string;
+}
+
+/**
+ * EventClaimApproved is emitted when the shop approves a claim. The same
+ * transaction emits EventJewelTransferred with kind "card".
+ */
+export interface EventClaimApproved {
+  /** jewel_id is the jewel that moved. */
+  jewelId: string;
+  /** claimer is the account it moved to. */
+  claimer: string;
+  /** by is the account that approved it: the business account or staff. */
+  by: string;
+}
+
+/**
+ * EventClaimRejected is emitted when the shop rejects a claim. The card stays
+ * valid.
+ */
+export interface EventClaimRejected {
+  /** jewel_id is the jewel whose claim was rejected. */
+  jewelId: string;
+  /** by is the account that rejected it: the business account or staff. */
+  by: string;
+}
+
+/** EventClaimWithdrawn is emitted when a claimer withdraws their own claim. */
+export interface EventClaimWithdrawn {
+  /** jewel_id is the jewel whose claim was withdrawn. */
+  jewelId: string;
+  /** claimer is the account that withdrew it. */
+  claimer: string;
 }
 
 function createBaseEventJewelerAdmitted(): EventJewelerAdmitted {
@@ -1413,6 +1466,391 @@ export const EventReassignmentVetoed = {
     const message = createBaseEventReassignmentVetoed();
     message.jewelId = object.jewelId ?? "0";
     message.owner = object.owner ?? "";
+    return message;
+  },
+};
+
+function createBaseEventCardIssued(): EventCardIssued {
+  return { jewelId: "0", by: "" };
+}
+
+export const EventCardIssued = {
+  encode(message: EventCardIssued, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.by !== "") {
+      writer.uint32(18).string(message.by);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventCardIssued {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventCardIssued();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.by = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventCardIssued {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      by: isSet(object.by) ? globalThis.String(object.by) : "",
+    };
+  },
+
+  toJSON(message: EventCardIssued): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.by !== "") {
+      obj.by = message.by;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventCardIssued>): EventCardIssued {
+    return EventCardIssued.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventCardIssued>): EventCardIssued {
+    const message = createBaseEventCardIssued();
+    message.jewelId = object.jewelId ?? "0";
+    message.by = object.by ?? "";
+    return message;
+  },
+};
+
+function createBaseEventClaimFiled(): EventClaimFiled {
+  return { jewelId: "0", claimer: "" };
+}
+
+export const EventClaimFiled = {
+  encode(message: EventClaimFiled, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.claimer !== "") {
+      writer.uint32(18).string(message.claimer);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventClaimFiled {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventClaimFiled();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventClaimFiled {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+    };
+  },
+
+  toJSON(message: EventClaimFiled): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventClaimFiled>): EventClaimFiled {
+    return EventClaimFiled.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventClaimFiled>): EventClaimFiled {
+    const message = createBaseEventClaimFiled();
+    message.jewelId = object.jewelId ?? "0";
+    message.claimer = object.claimer ?? "";
+    return message;
+  },
+};
+
+function createBaseEventClaimApproved(): EventClaimApproved {
+  return { jewelId: "0", claimer: "", by: "" };
+}
+
+export const EventClaimApproved = {
+  encode(message: EventClaimApproved, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.claimer !== "") {
+      writer.uint32(18).string(message.claimer);
+    }
+    if (message.by !== "") {
+      writer.uint32(26).string(message.by);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventClaimApproved {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventClaimApproved();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.by = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventClaimApproved {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+      by: isSet(object.by) ? globalThis.String(object.by) : "",
+    };
+  },
+
+  toJSON(message: EventClaimApproved): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    if (message.by !== "") {
+      obj.by = message.by;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventClaimApproved>): EventClaimApproved {
+    return EventClaimApproved.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventClaimApproved>): EventClaimApproved {
+    const message = createBaseEventClaimApproved();
+    message.jewelId = object.jewelId ?? "0";
+    message.claimer = object.claimer ?? "";
+    message.by = object.by ?? "";
+    return message;
+  },
+};
+
+function createBaseEventClaimRejected(): EventClaimRejected {
+  return { jewelId: "0", by: "" };
+}
+
+export const EventClaimRejected = {
+  encode(message: EventClaimRejected, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.by !== "") {
+      writer.uint32(18).string(message.by);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventClaimRejected {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventClaimRejected();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.by = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventClaimRejected {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      by: isSet(object.by) ? globalThis.String(object.by) : "",
+    };
+  },
+
+  toJSON(message: EventClaimRejected): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.by !== "") {
+      obj.by = message.by;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventClaimRejected>): EventClaimRejected {
+    return EventClaimRejected.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventClaimRejected>): EventClaimRejected {
+    const message = createBaseEventClaimRejected();
+    message.jewelId = object.jewelId ?? "0";
+    message.by = object.by ?? "";
+    return message;
+  },
+};
+
+function createBaseEventClaimWithdrawn(): EventClaimWithdrawn {
+  return { jewelId: "0", claimer: "" };
+}
+
+export const EventClaimWithdrawn = {
+  encode(message: EventClaimWithdrawn, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.claimer !== "") {
+      writer.uint32(18).string(message.claimer);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventClaimWithdrawn {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventClaimWithdrawn();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventClaimWithdrawn {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+    };
+  },
+
+  toJSON(message: EventClaimWithdrawn): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventClaimWithdrawn>): EventClaimWithdrawn {
+    return EventClaimWithdrawn.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventClaimWithdrawn>): EventClaimWithdrawn {
+    const message = createBaseEventClaimWithdrawn();
+    message.jewelId = object.jewelId ?? "0";
+    message.claimer = object.claimer ?? "";
     return message;
   },
 };

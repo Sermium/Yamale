@@ -1958,6 +1958,245 @@
         ]
       }
     },
+    "/yamale/blockchain/jewel/v1/inscription/{inscription}": {
+      "get": {
+        "operationId": "Query_JewelsByInscription",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJewelsByInscriptionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "inscription",
+            "description": "inscription is the code as read off the metal; it is normalised before the search.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/jewel/v1/jewel/{id}": {
+      "get": {
+        "operationId": "Query_Jewel",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJewelResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "id is the jewel to show.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/jewel/v1/jeweler/{id}": {
+      "get": {
+        "operationId": "Query_Jeweler",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJewelerResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "description": "id is the jeweler to show.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/jewel/v1/jewelers": {
+      "get": {
+        "operationId": "Query_Jewelers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryJewelersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/jewel/v1/jewelers/{jeweler_id}/claims": {
+      "get": {
+        "operationId": "Query_ClaimsByJeweler",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryClaimsByJewelerResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "jeweler_id",
+            "description": "jeweler_id is the jeweler whose pending claims to list.",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/yamale/blockchain/jewel/v1/params": {
+      "get": {
+        "operationId": "Query_Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/land/v1/authorities": {
       "get": {
         "operationId": "Query_Authorities",
@@ -5492,6 +5731,27 @@
         }
       }
     },
+    "Amendment": {
+      "type": "object",
+      "properties": {
+        "record_hash": {
+          "type": "string"
+        },
+        "record_uri": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "staff": {
+          "type": "string"
+        },
+        "time": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "AmendmentStatus": {
       "type": "string",
       "enum": [
@@ -5698,6 +5958,45 @@
         }
       }
     },
+    "Benefit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "jewel_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "jeweler_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "allowance": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "period": {
+          "type": "string",
+          "format": "int64"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "uses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "int64"
+          }
+        }
+      }
+    },
     "BuilderApplication": {
       "type": "object",
       "properties": {
@@ -5823,6 +6122,32 @@
         "CASE_STATUS_VETOED"
       ],
       "default": "CASE_STATUS_UNSPECIFIED"
+    },
+    "Claim": {
+      "type": "object",
+      "properties": {
+        "claimer": {
+          "type": "string"
+        },
+        "card_key": {
+          "type": "string"
+        },
+        "filed_at": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ClaimEntry": {
+      "type": "object",
+      "properties": {
+        "jewel": {
+          "$ref": "#/definitions/v1.Jewel"
+        },
+        "claim": {
+          "$ref": "#/definitions/Claim"
+        }
+      }
     },
     "Coin": {
       "type": "object",
@@ -6375,6 +6700,15 @@
         }
       }
     },
+    "JewelerStatus": {
+      "type": "string",
+      "enum": [
+        "JEWELER_STATUS_UNSPECIFIED",
+        "JEWELER_ACTIVE",
+        "JEWELER_SUSPENDED"
+      ],
+      "default": "JEWELER_STATUS_UNSPECIFIED"
+    },
     "JurisdictionAgreement": {
       "type": "string",
       "enum": [
@@ -6614,6 +6948,31 @@
         "submitted_at_height": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "Offer": {
+      "type": "object",
+      "properties": {
+        "jewel_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "claim_key": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "maker": {
+          "type": "string"
         }
       }
     },
@@ -7371,6 +7730,21 @@
         }
       }
     },
+    "QueryClaimsByJewelerResponse": {
+      "type": "object",
+      "properties": {
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ClaimEntry"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
     "QueryCollectionsResponse": {
       "type": "object",
       "properties": {
@@ -7825,6 +8199,71 @@
         },
         "investor": {
           "$ref": "#/definitions/v1.Investor"
+        }
+      }
+    },
+    "QueryJewelResponse": {
+      "type": "object",
+      "properties": {
+        "jewel": {
+          "$ref": "#/definitions/v1.Jewel"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "offer": {
+          "$ref": "#/definitions/Offer"
+        },
+        "reassignment": {
+          "$ref": "#/definitions/Reassignment"
+        },
+        "benefits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Benefit"
+          }
+        },
+        "has_card": {
+          "type": "boolean"
+        },
+        "claim": {
+          "$ref": "#/definitions/Claim"
+        }
+      }
+    },
+    "QueryJewelerResponse": {
+      "type": "object",
+      "properties": {
+        "jeweler": {
+          "$ref": "#/definitions/v1.Jeweler"
+        }
+      }
+    },
+    "QueryJewelersResponse": {
+      "type": "object",
+      "properties": {
+        "jewelers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Jeweler"
+          }
+        },
+        "pagination": {
+          "$ref": "#/definitions/PageResponse"
+        }
+      }
+    },
+    "QueryJewelsByInscriptionResponse": {
+      "type": "object",
+      "properties": {
+        "jewels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1.Jewel"
+          }
         }
       }
     },
@@ -8428,6 +8867,28 @@
           "format": "int64"
         },
         "height": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "Reassignment": {
+      "type": "object",
+      "properties": {
+        "jewel_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "window_ends": {
           "type": "string",
           "format": "int64"
         }
@@ -9483,6 +9944,77 @@
         "onboarded_at": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "v1.Jewel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "jeweler_id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "inscription": {
+          "type": "string"
+        },
+        "record_hash": {
+          "type": "string"
+        },
+        "record_uri": {
+          "type": "string"
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "int64"
+        },
+        "owner_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stolen": {
+          "type": "boolean"
+        },
+        "amendments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Amendment"
+          }
+        },
+        "owner_since": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "int64"
+          }
+        }
+      }
+    },
+    "v1.Jeweler": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "business": {
+          "type": "string"
+        },
+        "staff": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/JewelerStatus"
         }
       }
     },

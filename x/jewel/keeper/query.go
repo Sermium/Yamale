@@ -61,6 +61,14 @@ func (q queryServer) Jewel(ctx context.Context, req *types.QueryJewelRequest) (*
 	} else if !isNotFound(err) {
 		return nil, err
 	}
+	if res.HasCard, err = q.k.Card.Has(ctx, j.Id); err != nil {
+		return nil, err
+	}
+	if c, err := q.k.Claim.Get(ctx, j.Id); err == nil {
+		res.Claim = &c
+	} else if !isNotFound(err) {
+		return nil, err
+	}
 	err = q.k.BenefitsByJewel.Walk(ctx, collections.NewPrefixedPairRange[uint64, uint64](j.Id),
 		func(key collections.Pair[uint64, uint64]) (bool, error) {
 			b, err := q.k.Benefit.Get(ctx, key.K2())
@@ -95,4 +103,27 @@ func (q queryServer) JewelsByInscription(ctx context.Context, req *types.QueryJe
 		return nil, err
 	}
 	return res, nil
+}
+
+func (q queryServer) ClaimsByJeweler(ctx context.Context, req *types.QueryClaimsByJewelerRequest) (*types.QueryClaimsByJewelerResponse, error) {
+	if _, err := q.k.getJeweler(ctx, req.JewelerId); err != nil {
+		return nil, err
+	}
+	claims, page, err := query.CollectionPaginate(ctx, q.k.ClaimsByJeweler, req.Pagination,
+		func(key collections.Pair[uint64, uint64], _ collections.NoValue) (types.ClaimEntry, error) {
+			j, err := q.k.Jewel.Get(ctx, key.K2())
+			if err != nil {
+				return types.ClaimEntry{}, err
+			}
+			c, err := q.k.Claim.Get(ctx, key.K2())
+			if err != nil {
+				return types.ClaimEntry{}, err
+			}
+			return types.ClaimEntry{Jewel: j, Claim: c}, nil
+		},
+		query.WithCollectionPaginationPairPrefix[uint64, uint64](req.JewelerId))
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryClaimsByJewelerResponse{Claims: claims, Pagination: page}, nil
 }

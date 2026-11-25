@@ -8,7 +8,7 @@
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
 import { PageRequest, PageResponse } from "../../../cosmos/base/query/v1beta1/pagination.ts";
-import { Benefit, Jewel, Jeweler, Offer, Reassignment } from "./jewel.ts";
+import { Benefit, Claim, Jewel, Jeweler, Offer, Reassignment } from "./jewel.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.jewel.v1";
@@ -73,6 +73,13 @@ export interface QueryJewelResponse {
     | undefined;
   /** benefits are the benefits attached to it. */
   benefits: Benefit[];
+  /**
+   * has_card is set while the jewel has an ownership card. The card's key is
+   * not shown here: only the printed card needs it.
+   */
+  hasCard: boolean;
+  /** claim is set while a buyer's claim waits for the shop. */
+  claim: Claim | undefined;
 }
 
 /** QueryJewelsByInscriptionRequest asks for JewelsByInscription. */
@@ -85,6 +92,32 @@ export interface QueryJewelsByInscriptionRequest {
 export interface QueryJewelsByInscriptionResponse {
   /** jewels are every jewel carrying it, at most 50. */
   jewels: Jewel[];
+}
+
+/** QueryClaimsByJewelerRequest asks for ClaimsByJeweler. */
+export interface QueryClaimsByJewelerRequest {
+  /** jeweler_id is the jeweler whose pending claims to list. */
+  jewelerId: string;
+  /** pagination pages through the claims in jewel id order. */
+  pagination: PageRequest | undefined;
+}
+
+/** QueryClaimsByJewelerResponse is the result of QueryClaimsByJeweler. */
+export interface QueryClaimsByJewelerResponse {
+  /** claims are this page of pending claims. */
+  claims: ClaimEntry[];
+  /** pagination is the key to the next page. */
+  pagination: PageResponse | undefined;
+}
+
+/** ClaimEntry is one pending claim with the jewel it is on. */
+export interface ClaimEntry {
+  /** jewel is the register's record of the claimed jewel. */
+  jewel:
+    | Jewel
+    | undefined;
+  /** claim is the pending claim. */
+  claim: Claim | undefined;
 }
 
 function createBaseQueryParamsRequest(): QueryParamsRequest {
@@ -498,7 +531,15 @@ export const QueryJewelRequest = {
 };
 
 function createBaseQueryJewelResponse(): QueryJewelResponse {
-  return { jewel: undefined, owner: "", offer: undefined, reassignment: undefined, benefits: [] };
+  return {
+    jewel: undefined,
+    owner: "",
+    offer: undefined,
+    reassignment: undefined,
+    benefits: [],
+    hasCard: false,
+    claim: undefined,
+  };
 }
 
 export const QueryJewelResponse = {
@@ -517,6 +558,12 @@ export const QueryJewelResponse = {
     }
     for (const v of message.benefits) {
       Benefit.encode(v!, writer.uint32(42).fork()).ldelim();
+    }
+    if (message.hasCard !== false) {
+      writer.uint32(48).bool(message.hasCard);
+    }
+    if (message.claim !== undefined) {
+      Claim.encode(message.claim, writer.uint32(58).fork()).ldelim();
     }
     return writer;
   },
@@ -563,6 +610,20 @@ export const QueryJewelResponse = {
 
           message.benefits.push(Benefit.decode(reader, reader.uint32()));
           continue;
+        case 6:
+          if (tag !== 48) {
+            break;
+          }
+
+          message.hasCard = reader.bool();
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.claim = Claim.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -579,6 +640,8 @@ export const QueryJewelResponse = {
       offer: isSet(object.offer) ? Offer.fromJSON(object.offer) : undefined,
       reassignment: isSet(object.reassignment) ? Reassignment.fromJSON(object.reassignment) : undefined,
       benefits: globalThis.Array.isArray(object?.benefits) ? object.benefits.map((e: any) => Benefit.fromJSON(e)) : [],
+      hasCard: isSet(object.hasCard) ? globalThis.Boolean(object.hasCard) : false,
+      claim: isSet(object.claim) ? Claim.fromJSON(object.claim) : undefined,
     };
   },
 
@@ -599,6 +662,12 @@ export const QueryJewelResponse = {
     if (message.benefits?.length) {
       obj.benefits = message.benefits.map((e) => Benefit.toJSON(e));
     }
+    if (message.hasCard !== false) {
+      obj.hasCard = message.hasCard;
+    }
+    if (message.claim !== undefined) {
+      obj.claim = Claim.toJSON(message.claim);
+    }
     return obj;
   },
 
@@ -614,6 +683,8 @@ export const QueryJewelResponse = {
       ? Reassignment.fromPartial(object.reassignment)
       : undefined;
     message.benefits = object.benefits?.map((e) => Benefit.fromPartial(e)) || [];
+    message.hasCard = object.hasCard ?? false;
+    message.claim = (object.claim !== undefined && object.claim !== null) ? Claim.fromPartial(object.claim) : undefined;
     return message;
   },
 };
@@ -732,6 +803,232 @@ export const QueryJewelsByInscriptionResponse = {
   },
 };
 
+function createBaseQueryClaimsByJewelerRequest(): QueryClaimsByJewelerRequest {
+  return { jewelerId: "0", pagination: undefined };
+}
+
+export const QueryClaimsByJewelerRequest = {
+  encode(message: QueryClaimsByJewelerRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelerId !== "0") {
+      writer.uint32(8).uint64(message.jewelerId);
+    }
+    if (message.pagination !== undefined) {
+      PageRequest.encode(message.pagination, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryClaimsByJewelerRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryClaimsByJewelerRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelerId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.pagination = PageRequest.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryClaimsByJewelerRequest {
+    return {
+      jewelerId: isSet(object.jewelerId) ? globalThis.String(object.jewelerId) : "0",
+      pagination: isSet(object.pagination) ? PageRequest.fromJSON(object.pagination) : undefined,
+    };
+  },
+
+  toJSON(message: QueryClaimsByJewelerRequest): unknown {
+    const obj: any = {};
+    if (message.jewelerId !== "0") {
+      obj.jewelerId = message.jewelerId;
+    }
+    if (message.pagination !== undefined) {
+      obj.pagination = PageRequest.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryClaimsByJewelerRequest>): QueryClaimsByJewelerRequest {
+    return QueryClaimsByJewelerRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryClaimsByJewelerRequest>): QueryClaimsByJewelerRequest {
+    const message = createBaseQueryClaimsByJewelerRequest();
+    message.jewelerId = object.jewelerId ?? "0";
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageRequest.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryClaimsByJewelerResponse(): QueryClaimsByJewelerResponse {
+  return { claims: [], pagination: undefined };
+}
+
+export const QueryClaimsByJewelerResponse = {
+  encode(message: QueryClaimsByJewelerResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.claims) {
+      ClaimEntry.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.pagination !== undefined) {
+      PageResponse.encode(message.pagination, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): QueryClaimsByJewelerResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryClaimsByJewelerResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.claims.push(ClaimEntry.decode(reader, reader.uint32()));
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.pagination = PageResponse.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryClaimsByJewelerResponse {
+    return {
+      claims: globalThis.Array.isArray(object?.claims) ? object.claims.map((e: any) => ClaimEntry.fromJSON(e)) : [],
+      pagination: isSet(object.pagination) ? PageResponse.fromJSON(object.pagination) : undefined,
+    };
+  },
+
+  toJSON(message: QueryClaimsByJewelerResponse): unknown {
+    const obj: any = {};
+    if (message.claims?.length) {
+      obj.claims = message.claims.map((e) => ClaimEntry.toJSON(e));
+    }
+    if (message.pagination !== undefined) {
+      obj.pagination = PageResponse.toJSON(message.pagination);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<QueryClaimsByJewelerResponse>): QueryClaimsByJewelerResponse {
+    return QueryClaimsByJewelerResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<QueryClaimsByJewelerResponse>): QueryClaimsByJewelerResponse {
+    const message = createBaseQueryClaimsByJewelerResponse();
+    message.claims = object.claims?.map((e) => ClaimEntry.fromPartial(e)) || [];
+    message.pagination = (object.pagination !== undefined && object.pagination !== null)
+      ? PageResponse.fromPartial(object.pagination)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseClaimEntry(): ClaimEntry {
+  return { jewel: undefined, claim: undefined };
+}
+
+export const ClaimEntry = {
+  encode(message: ClaimEntry, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewel !== undefined) {
+      Jewel.encode(message.jewel, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.claim !== undefined) {
+      Claim.encode(message.claim, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): ClaimEntry {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClaimEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jewel = Jewel.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.claim = Claim.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ClaimEntry {
+    return {
+      jewel: isSet(object.jewel) ? Jewel.fromJSON(object.jewel) : undefined,
+      claim: isSet(object.claim) ? Claim.fromJSON(object.claim) : undefined,
+    };
+  },
+
+  toJSON(message: ClaimEntry): unknown {
+    const obj: any = {};
+    if (message.jewel !== undefined) {
+      obj.jewel = Jewel.toJSON(message.jewel);
+    }
+    if (message.claim !== undefined) {
+      obj.claim = Claim.toJSON(message.claim);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<ClaimEntry>): ClaimEntry {
+    return ClaimEntry.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<ClaimEntry>): ClaimEntry {
+    const message = createBaseClaimEntry();
+    message.jewel = (object.jewel !== undefined && object.jewel !== null) ? Jewel.fromPartial(object.jewel) : undefined;
+    message.claim = (object.claim !== undefined && object.claim !== null) ? Claim.fromPartial(object.claim) : undefined;
+    return message;
+  },
+};
+
 /** Query is the read side, and what the public verification page calls. */
 export interface Query {
   /** Params returns the settings and the office. */
@@ -741,8 +1038,8 @@ export interface Query {
   /** Jewelers lists the jewelers, suspended ones included. */
   Jewelers(request: QueryJewelersRequest): Promise<QueryJewelersResponse>;
   /**
-   * Jewel returns one jewel with its owner, open offer, pending reassignment
-   * and benefits.
+   * Jewel returns one jewel with its owner, open offer, pending reassignment,
+   * benefits, whether it has an ownership card, and any pending claim.
    */
   Jewel(request: QueryJewelRequest): Promise<QueryJewelResponse>;
   /**
@@ -750,6 +1047,11 @@ export interface Query {
    * jeweler registered it. At most 50.
    */
   JewelsByInscription(request: QueryJewelsByInscriptionRequest): Promise<QueryJewelsByInscriptionResponse>;
+  /**
+   * ClaimsByJeweler lists a jeweler's pending claims, each with its jewel, in
+   * jewel id order: what its staff have to approve or reject.
+   */
+  ClaimsByJeweler(request: QueryClaimsByJewelerRequest): Promise<QueryClaimsByJewelerResponse>;
 }
 
 export const QueryServiceName = "blockchain.jewel.v1.Query";
@@ -764,6 +1066,7 @@ export class QueryClientImpl implements Query {
     this.Jewelers = this.Jewelers.bind(this);
     this.Jewel = this.Jewel.bind(this);
     this.JewelsByInscription = this.JewelsByInscription.bind(this);
+    this.ClaimsByJeweler = this.ClaimsByJeweler.bind(this);
   }
   Params(request: QueryParamsRequest): Promise<QueryParamsResponse> {
     const data = QueryParamsRequest.encode(request).finish();
@@ -793,6 +1096,12 @@ export class QueryClientImpl implements Query {
     const data = QueryJewelsByInscriptionRequest.encode(request).finish();
     const promise = this.rpc.request(this.service, "JewelsByInscription", data);
     return promise.then((data) => QueryJewelsByInscriptionResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ClaimsByJeweler(request: QueryClaimsByJewelerRequest): Promise<QueryClaimsByJewelerResponse> {
+    const data = QueryClaimsByJewelerRequest.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ClaimsByJeweler", data);
+    return promise.then((data) => QueryClaimsByJewelerResponse.decode(_m0.Reader.create(data)));
   }
 }
 

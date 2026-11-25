@@ -231,6 +231,40 @@ export interface Voucher {
   expiresAt: string;
 }
 
+/**
+ * Card is a jewel's ownership card: a printed QR code holding a secret, of
+ * which the chain keeps only the public key. A jewel has at most one card. It
+ * is issued while the jewel is stock, and any change of owner spends it.
+ */
+export interface Card {
+  /**
+   * key is the lower-case hex compressed secp256k1 public key of the card's
+   * secret, the same form as Offer.claim_key.
+   */
+  key: string;
+  /** issued_by is the account that issued it: the business account or a member of its staff. */
+  issuedBy: string;
+  /** issued_at is the block time it was issued, in unix seconds. */
+  issuedAt: string;
+}
+
+/**
+ * Claim is a buyer's pending claim on a stock jewel, filed with its card and
+ * waiting for the shop's staff to approve or reject it. A jewel has at most
+ * one pending claim.
+ */
+export interface Claim {
+  /** claimer is the account the jewel goes to if the shop approves. */
+  claimer: string;
+  /**
+   * card_key is the key of the card the claim was signed with. Issuing a new
+   * card drops a claim made with the old one.
+   */
+  cardKey: string;
+  /** filed_at is the block time the claim was filed, in unix seconds. */
+  filedAt: string;
+}
+
 function createBaseJeweler(): Jeweler {
   return { id: "0", name: "", business: "", staff: [], status: 0 };
 }
@@ -1219,6 +1253,184 @@ export const Voucher = {
     message.jewelId = object.jewelId ?? "0";
     message.nonce = object.nonce ?? "";
     message.expiresAt = object.expiresAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseCard(): Card {
+  return { key: "", issuedBy: "", issuedAt: "0" };
+}
+
+export const Card = {
+  encode(message: Card, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.issuedBy !== "") {
+      writer.uint32(18).string(message.issuedBy);
+    }
+    if (message.issuedAt !== "0") {
+      writer.uint32(24).int64(message.issuedAt);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Card {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCard();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.issuedBy = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.issuedAt = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Card {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      issuedBy: isSet(object.issuedBy) ? globalThis.String(object.issuedBy) : "",
+      issuedAt: isSet(object.issuedAt) ? globalThis.String(object.issuedAt) : "0",
+    };
+  },
+
+  toJSON(message: Card): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.issuedBy !== "") {
+      obj.issuedBy = message.issuedBy;
+    }
+    if (message.issuedAt !== "0") {
+      obj.issuedAt = message.issuedAt;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<Card>): Card {
+    return Card.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Card>): Card {
+    const message = createBaseCard();
+    message.key = object.key ?? "";
+    message.issuedBy = object.issuedBy ?? "";
+    message.issuedAt = object.issuedAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseClaim(): Claim {
+  return { claimer: "", cardKey: "", filedAt: "0" };
+}
+
+export const Claim = {
+  encode(message: Claim, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.claimer !== "") {
+      writer.uint32(10).string(message.claimer);
+    }
+    if (message.cardKey !== "") {
+      writer.uint32(18).string(message.cardKey);
+    }
+    if (message.filedAt !== "0") {
+      writer.uint32(24).int64(message.filedAt);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Claim {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.claimer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.cardKey = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.filedAt = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Claim {
+    return {
+      claimer: isSet(object.claimer) ? globalThis.String(object.claimer) : "",
+      cardKey: isSet(object.cardKey) ? globalThis.String(object.cardKey) : "",
+      filedAt: isSet(object.filedAt) ? globalThis.String(object.filedAt) : "0",
+    };
+  },
+
+  toJSON(message: Claim): unknown {
+    const obj: any = {};
+    if (message.claimer !== "") {
+      obj.claimer = message.claimer;
+    }
+    if (message.cardKey !== "") {
+      obj.cardKey = message.cardKey;
+    }
+    if (message.filedAt !== "0") {
+      obj.filedAt = message.filedAt;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<Claim>): Claim {
+    return Claim.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Claim>): Claim {
+    const message = createBaseClaim();
+    message.claimer = object.claimer ?? "";
+    message.cardKey = object.cardKey ?? "";
+    message.filedAt = object.filedAt ?? "0";
     return message;
   },
 };

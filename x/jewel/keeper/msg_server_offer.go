@@ -179,7 +179,8 @@ func (k msgServer) ClaimOffer(ctx context.Context, req *types.MsgClaimOffer) (*t
 	return &types.MsgClaimOfferResponse{}, k.transfer(ctx, &j, claimer, types.TransferClaim)
 }
 
-// ReportStolen flags the jewel and closes its open offer.
+// ReportStolen flags the jewel and closes its open offer and its pending
+// claim. The card stays: the shop can reprint it once the jewel is recovered.
 func (k msgServer) ReportStolen(ctx context.Context, req *types.MsgReportStolen) (*types.MsgReportStolenResponse, error) {
 	j, err := k.getJewel(ctx, req.JewelId)
 	if err != nil {
@@ -194,6 +195,9 @@ func (k msgServer) ReportStolen(ctx context.Context, req *types.MsgReportStolen)
 	}
 	j.Stolen = true
 	if err := k.Offer.Remove(ctx, j.Id); err != nil {
+		return nil, err
+	}
+	if err := k.dropClaim(ctx, j); err != nil {
 		return nil, err
 	}
 	if err := k.Jewel.Set(ctx, j.Id, j); err != nil {

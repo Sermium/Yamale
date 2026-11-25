@@ -1,9 +1,10 @@
-// Command jewelsign produces the two signatures x/jewel takes that a chain
+// Command jewelsign produces the signatures x/jewel takes that a chain
 // key in a keyring cannot make through the CLI: a claim key's signature over
-// the claimer's address, and an owner's consent to a benefit use.
+// the claimer's address, an ownership card's signature over a claim, and an
+// owner's consent to a benefit use.
 //
-// It exists for scripts/devnet/seed-jewel.sh. The real app signs both in the
-// browser with the account service's key.
+// It exists for scripts/devnet/seed-jewel.sh and the upgrade rehearsals. The
+// real app signs in the browser.
 package main
 
 import (
@@ -30,6 +31,9 @@ func main() {
 	case "claim":
 		need(7)
 		emit(claimOffer(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6]))
+	case "card":
+		need(6)
+		emit(fileClaim(os.Args[2], os.Args[3], os.Args[4], os.Args[5]))
 	case "voucher":
 		need(9)
 		emit(redeemBenefit(os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], os.Args[7], os.Args[8]))
@@ -50,6 +54,20 @@ func claimOffer(privHex, chainID, jewelIDStr, expiresStr, claimer string) map[st
 	}
 }
 
+// fileClaim is a buyer's claim filed with an ownership card: the card's secret
+// signs the claimer and the card's own key, as the app's /card page does. As
+// with claimOffer, pass the lower-case keyring address. A card's key pair is
+// made with `jewelsign claimkey`; the public half goes to `tx jewel issue-card`.
+func fileClaim(privHex, chainID, jewelIDStr, claimer string) map[string]any {
+	k := key(privHex)
+	pub := k.PubKey().Bytes()
+	sig := sign(k, types.CardClaimSignBytes(chainID, u64(jewelIDStr), hex.EncodeToString(pub), claimer))
+	return map[string]any{
+		"@type": "/blockchain.jewel.v1.MsgFileClaim", "claimer": claimer,
+		"jewel_id": jewelIDStr, "card_pub_key": b64(pub), "card_signature": b64(sig),
+	}
+}
+
 // redeemBenefit is the owner's voucher for one benefit use, signed over the
 // same bytes the chain rebuilds from the message.
 func redeemBenefit(privHex, chainID, staff, benefitIDStr, jewelIDStr, nonce, expiresStr string) map[string]any {
@@ -64,7 +82,7 @@ func redeemBenefit(privHex, chainID, staff, benefitIDStr, jewelIDStr, nonce, exp
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: jewelsign claimkey | claim <priv-hex> <chain-id> <jewel-id> <offer-expires-at> <claimer> | voucher <priv-hex> <chain-id> <staff> <benefit-id> <jewel-id> <nonce> <expires-at>")
+	fmt.Fprintln(os.Stderr, "usage: jewelsign claimkey | claim <priv-hex> <chain-id> <jewel-id> <offer-expires-at> <claimer> | card <card-priv-hex> <chain-id> <jewel-id> <claimer> | voucher <priv-hex> <chain-id> <staff> <benefit-id> <jewel-id> <nonce> <expires-at>")
 	os.Exit(2)
 }
 

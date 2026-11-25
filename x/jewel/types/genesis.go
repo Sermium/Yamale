@@ -149,6 +149,49 @@ func (gs GenesisState) Validate() error {
 			return fmt.Errorf("the reassignment of jewel %d names no one to receive it", r.JewelId)
 		}
 	}
+
+	cards := map[uint64]string{}
+	for _, c := range gs.Cards {
+		if !jewels[c.JewelId] {
+			return fmt.Errorf("a card names jewel %d, which is not in this genesis", c.JewelId)
+		}
+		if _, ok := cards[c.JewelId]; ok {
+			return fmt.Errorf("jewel %d has two cards; a jewel has one card at a time", c.JewelId)
+		}
+		if k, err := NormaliseCardKey(c.Card.Key); err != nil || k != c.Card.Key {
+			return fmt.Errorf("the card of jewel %d has key %q; it must be a compressed secp256k1 key in lower-case hex",
+				c.JewelId, c.Card.Key)
+		}
+		if c.Card.IssuedBy == "" {
+			return fmt.Errorf("the card of jewel %d does not name who issued it", c.JewelId)
+		}
+		cards[c.JewelId] = c.Card.Key
+	}
+	claimed := map[uint64]bool{}
+	for _, c := range gs.Claims {
+		if !jewels[c.JewelId] {
+			return fmt.Errorf("a claim names jewel %d, which is not in this genesis", c.JewelId)
+		}
+		if claimed[c.JewelId] {
+			return fmt.Errorf("jewel %d has two pending claims; a jewel has one at a time", c.JewelId)
+		}
+		claimed[c.JewelId] = true
+		key, ok := cards[c.JewelId]
+		if !ok {
+			return fmt.Errorf("the claim on jewel %d has no card to have been signed with", c.JewelId)
+		}
+		if c.Claim.CardKey != key {
+			return fmt.Errorf("the claim on jewel %d was signed with card %q, not the jewel's card %q",
+				c.JewelId, c.Claim.CardKey, key)
+		}
+		// Reporting a theft closes the claim, and none is filed while the flag is up.
+		if stolen[c.JewelId] {
+			return fmt.Errorf("jewel %d is reported stolen and cannot carry a claim", c.JewelId)
+		}
+		if c.Claim.Claimer == "" {
+			return fmt.Errorf("the claim on jewel %d names no claimer", c.JewelId)
+		}
+	}
 	return nil
 }
 

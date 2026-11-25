@@ -37,7 +37,7 @@ service Msg {
   rpc AcceptOffer(MsgAcceptOffer) returns (MsgAcceptOfferResponse);
   // ClaimOffer takes a jewel offered to a claim key.
   rpc ClaimOffer(MsgClaimOffer) returns (MsgClaimOfferResponse);
-  // ReportStolen flags a jewel and closes its offer.
+  // ReportStolen flags a jewel and closes its offer and any pending claim.
   rpc ReportStolen(MsgReportStolen) returns (MsgReportStolenResponse);
   // ClearStolen lifts the flag.
   rpc ClearStolen(MsgClearStolen) returns (MsgClearStolenResponse);
@@ -51,6 +51,16 @@ service Msg {
   rpc VetoReassignment(MsgVetoReassignment) returns (MsgVetoReassignmentResponse);
   // CompleteReassignment moves the jewel once the window has passed. Anyone.
   rpc CompleteReassignment(MsgCompleteReassignment) returns (MsgCompleteReassignmentResponse);
+  // IssueCard gives a stock jewel its ownership card, replacing any earlier one.
+  rpc IssueCard(MsgIssueCard) returns (MsgIssueCardResponse);
+  // FileClaim records a buyer's claim, signed with the card's secret.
+  rpc FileClaim(MsgFileClaim) returns (MsgFileClaimResponse);
+  // ApproveClaim moves the jewel to the claimer. The shop's staff only.
+  rpc ApproveClaim(MsgApproveClaim) returns (MsgApproveClaimResponse);
+  // RejectClaim removes a claim; the card stays valid. The shop's staff only.
+  rpc RejectClaim(MsgRejectClaim) returns (MsgRejectClaimResponse);
+  // WithdrawClaim removes the signer's own claim.
+  rpc WithdrawClaim(MsgWithdrawClaim) returns (MsgWithdrawClaimResponse);
 }
 
 // MsgUpdateParams is the message that carries out UpdateParams.
@@ -329,3 +339,79 @@ message MsgCompleteReassignment {
 }
 // MsgCompleteReassignmentResponse is the result of MsgCompleteReassignment.
 message MsgCompleteReassignmentResponse {}
+
+// MsgIssueCard is the message that carries out IssueCard. It sets the
+// jewel's ownership card, replacing any earlier one, and drops a pending claim
+// that was signed with the earlier card. Refused unless the jewel is stock of
+// an active jeweler and not reported stolen.
+message MsgIssueCard {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgIssueCard";
+  // staff is the jeweler's business account or a member of its staff, the signer.
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the stock jewel the card is for.
+  uint64 jewel_id = 2;
+  // card_key is the card's compressed secp256k1 public key in hex, 66
+  // characters. Upper-case hex is accepted and stored in lower case. The
+  // secret it belongs to is printed on the card and nowhere else.
+  string card_key = 3;
+}
+// MsgIssueCardResponse is the result of MsgIssueCard.
+message MsgIssueCardResponse {}
+
+// MsgFileClaim is the message that carries out FileClaim. It records a
+// pending claim for the shop's staff to approve or reject; nothing moves yet.
+message MsgFileClaim {
+  option (cosmos.msg.v1.signer) = "claimer";
+  option (amino.name) = "blockchain/x/jewel/MsgFileClaim";
+  // claimer is the account the jewel goes to once the shop approves, the signer.
+  string claimer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to claim.
+  uint64 jewel_id = 2;
+  // card_pub_key is the compressed secp256k1 public key of the card, 33
+  // bytes; it must be the jewel's current card.
+  bytes card_pub_key = 3;
+  // card_signature signs CardClaimSignBytes(chain id, jewel id, card key,
+  // claimer): "yamale-jewel-card/v1:<chain>:<jewel>:<card key hex>:<claimer>".
+  bytes card_signature = 4;
+}
+// MsgFileClaimResponse is the result of MsgFileClaim.
+message MsgFileClaimResponse {}
+
+// MsgApproveClaim is the message that carries out ApproveClaim. The jewel
+// moves to the claimer, and its card and claim are spent.
+message MsgApproveClaim {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgApproveClaim";
+  // staff is the jeweler's business account or a member of its staff, the signer.
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose pending claim to approve.
+  uint64 jewel_id = 2;
+}
+// MsgApproveClaimResponse is the result of MsgApproveClaim.
+message MsgApproveClaimResponse {}
+
+// MsgRejectClaim is the message that carries out RejectClaim. The card stays
+// valid, so the real buyer can file with it afterwards.
+message MsgRejectClaim {
+  option (cosmos.msg.v1.signer) = "staff";
+  option (amino.name) = "blockchain/x/jewel/MsgRejectClaim";
+  // staff is the jeweler's business account or a member of its staff, the signer.
+  string staff = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose pending claim to remove.
+  uint64 jewel_id = 2;
+}
+// MsgRejectClaimResponse is the result of MsgRejectClaim.
+message MsgRejectClaimResponse {}
+
+// MsgWithdrawClaim is the message that carries out WithdrawClaim.
+message MsgWithdrawClaim {
+  option (cosmos.msg.v1.signer) = "claimer";
+  option (amino.name) = "blockchain/x/jewel/MsgWithdrawClaim";
+  // claimer is the account that filed the claim, the signer.
+  string claimer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel whose claim to withdraw.
+  uint64 jewel_id = 2;
+}
+// MsgWithdrawClaimResponse is the result of MsgWithdrawClaim.
+message MsgWithdrawClaimResponse {}

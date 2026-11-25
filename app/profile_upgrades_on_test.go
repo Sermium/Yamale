@@ -336,3 +336,34 @@ func TestTheJewelRegisterRefusesAnOfficeItDidNotAppoint(t *testing.T) {
 	_, err := u.Handler(ctx, app, priorVersions(app)) // jewel already at its version: no InitGenesis
 	require.ErrorContains(t, err, "office")
 }
+
+// jewel-cards mounts nothing new and writes nothing: the cards and claims live
+// under new prefixes in x/jewel's existing store, and the jewels already
+// registered arrive without a card.
+func TestTheJewelCardsUpgradeAddsNoStoreAndIssuesNoCard(t *testing.T) {
+	u := findUpgrade(t, "jewel-cards")
+	require.Empty(t, u.StoreUpgrades.Added, "x/jewel's store already exists")
+	require.Empty(t, u.StoreUpgrades.Renamed)
+	require.Empty(t, u.StoreUpgrades.Deleted)
+
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	_, err := u.Handler(ctx, app, priorVersions(app))
+	require.NoError(t, err)
+	has, err := app.JewelKeeper.Card.Has(ctx, 1)
+	require.NoError(t, err)
+	require.False(t, has)
+}
+
+// A card found at the halt would be a secret somebody invented during it; the
+// handler refuses rather than carry on.
+func TestTheJewelCardsUpgradeRefusesACardItDidNotPrint(t *testing.T) {
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	require.NoError(t, app.JewelKeeper.Card.Set(ctx, 1, jeweltypes.Card{
+		Key: "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", IssuedBy: "x"}))
+
+	u := findUpgrade(t, "jewel-cards")
+	_, err := u.Handler(ctx, app, priorVersions(app))
+	require.ErrorContains(t, err, "card")
+}

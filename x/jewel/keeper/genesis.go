@@ -62,6 +62,16 @@ func (k Keeper) checkCanonicalAddresses(gs types.GenesisState) error {
 			return fmt.Errorf("reassignment of jewel %d to: %w", r.JewelId, err)
 		}
 	}
+	for _, c := range gs.Cards {
+		if err := k.requireCanonicalAddress(c.Card.IssuedBy); err != nil {
+			return fmt.Errorf("card of jewel %d issued_by: %w", c.JewelId, err)
+		}
+	}
+	for _, c := range gs.Claims {
+		if err := k.requireCanonicalAddress(c.Claim.Claimer); err != nil {
+			return fmt.Errorf("claim on jewel %d claimer: %w", c.JewelId, err)
+		}
+	}
 	return nil
 }
 
@@ -125,6 +135,23 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 			return err
 		}
 	}
+	for _, c := range gs.Cards {
+		if err := k.Card.Set(ctx, c.JewelId, c.Card); err != nil {
+			return err
+		}
+	}
+	// ClaimsByJeweler is rebuilt here from each claim's jewel; Validate has
+	// already checked that every claimed jewel is in this genesis.
+	jewelerOf := make(map[uint64]uint64, len(gs.Jewels))
+	for _, j := range gs.Jewels {
+		jewelerOf[j.Id] = j.JewelerId
+	}
+	for _, c := range gs.Claims {
+		j := types.Jewel{Id: c.JewelId, JewelerId: jewelerOf[c.JewelId]}
+		if err := k.setClaim(ctx, j, c.Claim); err != nil {
+			return err
+		}
+	}
 	// A zero counter is not written: a fresh chain has no key there, and
 	// writing one would make the imported store differ from the exported one.
 	for _, s := range []struct {
@@ -180,6 +207,18 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}
 	if err := k.Reassignment.Walk(ctx, nil, func(_ uint64, v types.Reassignment) (bool, error) {
 		gs.Reassignments = append(gs.Reassignments, v)
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Card.Walk(ctx, nil, func(id uint64, v types.Card) (bool, error) {
+		gs.Cards = append(gs.Cards, types.GenesisCard{JewelId: id, Card: v})
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Claim.Walk(ctx, nil, func(id uint64, v types.Claim) (bool, error) {
+		gs.Claims = append(gs.Claims, types.GenesisClaim{JewelId: id, Claim: v})
 		return false, nil
 	}); err != nil {
 		return nil, err
