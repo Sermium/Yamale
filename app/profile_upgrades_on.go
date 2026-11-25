@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -453,6 +454,73 @@ var profileUpgrades = []Upgrade{
 					"offer and acceptance, a claim key, or a reassignment",
 				"params", fmt.Sprintf("offer_ttl=%ds voucher_max_ttl=%ds reassignment_window=%ds",
 					params.OfferTtl, params.VoucherMaxTtl, params.ReassignmentWindow),
+			)
+			return vm, nil
+		},
+	},
+	{
+		// x/jewel: the ownership card (docs/superpowers/specs/2026-11-24-jewel-
+		// ownership-card-design.md).
+		//
+		// NO STORE UPGRADE. The cards, the claims and the per-jeweler claim
+		// index live under new collection prefixes inside x/jewel's EXISTING
+		// store. What makes this a halt is the message set — an old binary
+		// cannot decode MsgIssueCard and would fork the moment one is included —
+		// and transfer, which now spends a card on every change of owner.
+		//
+		// NO CONSENSUS VERSION BUMP and no migration, for the reason
+		// syndicate-documents gives: there is nothing to migrate. The jewels
+		// already registered have no card, which is the correct starting state;
+		// the shop prints theirs from stock afterwards. An upgrade that issued
+		// cards would be inventing secrets nobody holds.
+		//
+		// The handler asserts that emptiness rather than assuming it, and reads
+		// the new collections so a field left out of the schema fails here, at
+		// the halt, instead of at the first write in a block.
+		Name: "jewel-cards",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			cards, claims, listed := 0, 0, 0
+			if err := app.JewelKeeper.Card.Walk(ctx, nil,
+				func(uint64, jeweltypes.Card) (bool, error) { cards++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the ownership cards this upgrade just mounted: %w", err)
+			}
+			if err := app.JewelKeeper.Claim.Walk(ctx, nil,
+				func(uint64, jeweltypes.Claim) (bool, error) { claims++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the claims this upgrade just mounted: %w", err)
+			}
+			if err := app.JewelKeeper.ClaimsByJeweler.Walk(ctx, nil,
+				func(collections.Pair[uint64, uint64]) (bool, error) { listed++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the claim index this upgrade just mounted: %w", err)
+			}
+			if cards != 0 || claims != 0 || listed != 0 {
+				return nil, fmt.Errorf(
+					"x/jewel arrived with %d card(s), %d claim(s) and %d indexed claim(s); a card's "+
+						"secret is printed by the shop that holds the jewel, never written during a halt",
+					cards, claims, listed)
+			}
+
+			jewels := 0
+			if err := app.JewelKeeper.Jewel.Walk(ctx, nil,
+				func(uint64, jeweltypes.Jewel) (bool, error) { jewels++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the jewels: %w", err)
+			}
+
+			ctx.Logger().Info(
+				"ownership cards arrived",
+				"card", "a shop's staff may issue a card for a jewel in stock; the buyer files a claim "+
+					"signed with the card's secret, and staff approve it once they know the buyer paid",
+				"transfer", "every change of owner now spends the jewel's card and drops any pending claim, "+
+					"whether it moved by an approved claim, an offer or a reassignment",
+				"jewels_without_a_card", jewels,
 			)
 			return vm, nil
 		},

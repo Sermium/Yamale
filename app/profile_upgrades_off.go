@@ -172,4 +172,19 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The settlement half of jewel-cards, for the same reason as
+		// jewel-register's: x/jewel is not linked here, and an unknown name
+		// panics the node at the halt height.
+		Name: "jewel-cards",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info("ownership cards: nothing to do",
+				"absent", "x/jewel is not linked into a settlement build")
+			return vm, nil
+		},
+	},
 }
