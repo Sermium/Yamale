@@ -43,6 +43,11 @@ type factorRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Code     string `json:"code"`
+	// Secret, optional on begin, is a base32 TOTP secret the device chose. The
+	// device enrols the SAME secret at both services, so the holder keeps one
+	// entry in their authenticator rather than two. It is no weaker than a
+	// secret this service picks: the device is shown the secret either way.
+	Secret string `json:"secret"`
 }
 
 type factorState struct {
@@ -123,10 +128,20 @@ func (s *server) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, err := NewTOTPSecret()
-	if err != nil {
-		refuse(w, http.StatusInternalServerError, "no randomness for a secret")
-		return
+	var secret []byte
+	if req.Secret != "" {
+		got, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(strings.TrimRight(strings.TrimSpace(req.Secret), "=")))
+		if err != nil || len(got) != 20 {
+			refuse(w, http.StatusBadRequest, "a chosen secret is 20 random bytes in base32")
+			return
+		}
+		secret = got
+	} else {
+		var err error
+		if secret, err = NewTOTPSecret(); err != nil {
+			refuse(w, http.StatusInternalServerError, "no randomness for a secret")
+			return
+		}
 	}
 	// Stored UNCONFIRMED. See the note at the top: it counts for nothing until
 	// the holder reads a code off it.

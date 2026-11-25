@@ -92,6 +92,11 @@ type server struct {
 	// attempts slows password guessing per account. Its zero value works, so
 	// every server has it, however it was built.
 	attempts attemptThrottle
+	// codes computes the emailed sign-in codes (signin.go); nil without
+	// --signin-code-key-file, and then an emailed code cannot be answered.
+	codes *signinCodes
+	// mailer sends those codes and the new-sign-in notices. Custodian only.
+	mailer Mailer
 }
 
 // clock is the server's time, defaulting to the wall clock.
@@ -110,6 +115,8 @@ func main() {
 	role := flag.String("role", recovery.RoleCustodian, "which holding this deployment keeps: custodian or recovery")
 	recoveryDir := flag.String("recovery-dir", "", "directory holding the recovery log; defaults to <dir>/recoveries")
 	notifyCmd := flag.String("notify-command", "", "program run to notify an account holder; without it recovery refuses to start")
+	signinKeyFile := flag.String("signin-code-key-file", "", "file holding the 32-byte key for emailed sign-in codes, the same at both services")
+	smtpConfig := flag.String("smtp-config", "", "file configuring the SMTP submission that sends sign-in codes (custodian only)")
 	importShare := flag.String("import", "", "enrol an account from a holding file and exit")
 	importEmail := flag.String("import-email", "", "the email to index the imported account under")
 	importPassword := flag.String("import-password", "", "the password for the imported account")
@@ -190,6 +197,30 @@ func main() {
 		recoveries: recoveries, notifier: notifier,
 		started: time.Now(),
 	}
+	if *signinKeyFile != "" {
+		if err := outsideStore(*dir, *signinKeyFile, "the sign-in code key"); err != nil {
+			fmt.Fprintln(os.Stderr, "custodian:", err)
+			os.Exit(2)
+		}
+		k, err := readSecret(*signinKeyFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "custodian: reading the sign-in code key:", err)
+			os.Exit(1)
+		}
+		s.codes = newSigninCodes(k)
+	}
+	if *smtpConfig != "" {
+		if *role != recovery.RoleCustodian {
+			fmt.Fprintln(os.Stderr, "custodian: --smtp-config belongs on the custodian; the recovery service sends nothing")
+			os.Exit(2)
+		}
+		m, err := loadSMTPConfig(*smtpConfig)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "custodian: reading the SMTP config:", err)
+			os.Exit(1)
+		}
+		s.mailer = m
+	}
 
 	if *importShare != "" {
 		if err := s.importAccount(*importShare, *importEmail, *importPassword, *importAddr); err != nil {
@@ -243,6 +274,10 @@ func main() {
 	guarded.Handle("POST /v1/recovery/cancel", fast(s.handleRecoveryCancel))
 	// The only endpoint that emits key material, and a customer one. See claim.go.
 	guarded.Handle("POST /v1/recovery/claim", fast(s.handleRecoveryClaim))
+	// Signing in on a new device: password and second factor release the
+	// holding at once. Customer endpoints, like the claim. See signin.go.
+	guarded.Handle("POST /v1/signin/start", fast(s.handleSigninStart))
+	guarded.Handle("POST /v1/signin", fast(s.handleSignin))
 
 	// Second-factor enrolment. Customer endpoints, like the claim: this is the
 	// account holder's own half of a recovery and nobody can do it for them.
@@ -469,6 +504,14 @@ func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Whether recovery can run at all. A deployment with no notifier refuses to
 	// start one, by design — and an operator should be able to see that here
 	// rather than discover it the first time somebody needs a recovery.
+	switch {
+	case s.codes == nil:
+		body["signin"] = "authenticator only: no --signin-code-key-file, so an emailed code cannot be checked"
+	case s.role == recovery.RoleCustodian && s.mailer == nil:
+		body["signin"] = "authenticator only: no --smtp-config, so no code can be emailed"
+	default:
+		body["signin"] = "ready"
+	}
 	if _, ok := s.notifier.(refusingNotifier); ok {
 		body["recovery"] = "disabled: no notify command, and a recovery nobody is told about is worse than none"
 	} else {
