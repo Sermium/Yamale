@@ -166,6 +166,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/files/{hash}", s.handleFile)
 	mux.HandleFunc("GET /v1/jewelers/{id}/profile", s.handleProfileGet)
 	mux.HandleFunc("PUT /v1/jewelers/{id}/profile", s.handleProfilePut)
+	mux.HandleFunc("GET /v1/jewelers/{id}/portfolio", s.handlePortfolio)
 	mux.HandleFunc("GET /v1/sponsor", s.handleSponsorInfo)
 	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
 	mux.HandleFunc("POST /v1/applications", s.handleApply)

@@ -21,6 +21,9 @@ type profile struct {
 	Logo   string `json:"logo"`
 	Colour string `json:"colour"`
 	Accent string `json:"accent"`
+	// Contact is how the public reaches the shop, shown in the directory.
+	// Absent in profiles set before the directory existed.
+	Contact *contact `json:"contact,omitempty"`
 }
 
 var (
@@ -56,9 +59,9 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(10 * time.Second))
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<10))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 8<<10))
 	if err != nil {
-		readFailed(w, err, "a profile is at most 4 KiB")
+		readFailed(w, err, "a profile is at most 8 KiB")
 		return
 	}
 	sum := sha256.Sum256(body)
@@ -71,12 +74,18 @@ func (s *server) handleProfilePut(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&p); err != nil {
-		refuse(w, http.StatusBadRequest, "a profile is {logo, colour, accent}: "+err.Error())
+		refuse(w, http.StatusBadRequest, "a profile is {logo, colour, accent, contact}: "+err.Error())
 		return
 	}
 	if !colourPattern.MatchString(p.Colour) || !colourPattern.MatchString(p.Accent) {
 		refuse(w, http.StatusBadRequest, "colours are written #rrggbb in lowercase hex")
 		return
+	}
+	if p.Contact != nil {
+		if err := p.Contact.check(); err != nil {
+			refuse(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	if p.Logo != "" {
 		if !hashPattern.MatchString(p.Logo) {
