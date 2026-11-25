@@ -51,7 +51,9 @@ export function CardPage() {
 
   // What the card can still do, from the jewel as it stands.
   let state: 'mine' | 'claimed-by-me' | 'claimed-by-other' | 'spent' | 'no-card' | 'stolen' | 'shop' | 'open';
-  if (mine) state = 'mine';
+  // The shop's own account holds its stock: to it a card is the shop's, never a piece it owns.
+  if (inStock && me === shop!.business) state = 'shop';
+  else if (mine) state = 'mine';
   else if (myClaim || filed) state = 'claimed-by-me';
   else if (v.jewel.stolen) state = 'stolen';
   else if (!inStock) state = 'spent';

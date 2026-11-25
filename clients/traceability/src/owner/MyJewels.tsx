@@ -57,9 +57,11 @@ function WithdrawButton({ jewelId, filedAt, onDone }: { jewelId: string; filedAt
 /** Waits for the chain's clock: whether an offer is still open is decided by block time, not the phone's. */
 function Holdings({ address }: { address: string }) {
   const [head] = useLoad(() => chainHead(), []);
-  const [role] = useRole(address);
+  const [role, reloadRole] = useRole(address);
   if (!head || role.state === 'loading') return <Loading />;
   if (!head.ok) return <Problem outcome={head} />;
+  // Without the jewelers there is no telling a shop's stock from what this account owns: say so rather than guess.
+  if (role.state === 'failed') return <><Problem outcome={role.outcome} /><button type="button" className="btn" onClick={reloadRole}>{t('traceability.retry')}</button></>;
   // A jeweler's business account holds every piece it registers until it is sold:
   // that is the shop's stock, listed in the Atelier, not jewels this person owns.
   const shop = role.state === 'role' && role.business ? role.jeweler.id : null;
