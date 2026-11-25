@@ -16,7 +16,7 @@ import { forgetEnrolment, rememberEnrolment } from '../../../wallet/src/account/
 import { requestSponsorship, sponsorInfo } from '../api.ts';
 import { CHAIN_ID, GAS_PRICE, RPC_ENDPOINT, SERVICES } from '../config.ts';
 import {
-  ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
+  ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, SPONSOR_LIST, unlockAccount, updateAccount, type StoredAccount,
 } from './device.ts';
 import { protectionOutcome } from './protection.ts';
 import { sessionAccountState } from './sessionState.ts';
@@ -88,10 +88,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const ensureSponsored = useCallback(async () => {
     const current = readAccount();
     if (!current || !key.current) return 'refused' as const;
-    if (current.sponsored) return 'sponsored' as const;
+    if (current.sponsored && (current.sponsorList ?? 1) >= SPONSOR_LIST) return 'sponsored' as const;
     const out = await requestSponsorship(key.current, current.address, CHAIN_ID);
     if (out.ok) {
-      setAccount(updateAccount({ sponsored: true }));
+      setAccount(updateAccount({ sponsored: true, sponsorList: SPONSOR_LIST }));
       sponsorRef.current = out.granter;
       setSponsor(out.granter);
       return 'sponsored' as const;

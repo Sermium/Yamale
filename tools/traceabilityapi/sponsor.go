@@ -29,7 +29,16 @@ var ownerMessages = []string{
 	"/blockchain.jewel.v1.MsgAcceptOffer", "/blockchain.jewel.v1.MsgClaimOffer",
 	"/blockchain.jewel.v1.MsgReportStolen", "/blockchain.jewel.v1.MsgClearStolen",
 	"/blockchain.jewel.v1.MsgVetoReassignment", "/blockchain.jewel.v1.MsgCompleteReassignment",
+	"/blockchain.jewel.v1.MsgFileClaim", "/blockchain.jewel.v1.MsgWithdrawClaim",
 }
+
+// ownerList numbers the version of ownerMessages. An allowance is fixed when it
+// is granted, so an account granted an older list cannot pay for a message
+// added since: it is re-granted once, the old allowance revoked first.
+//
+//	1: offers, theft reports, reassignment (until 2026-11-25)
+//	2: + filing and withdrawing a claim on an ownership card
+const ownerList = 2
 
 var errAlreadyGranted = errors.New("this account already has a fee allowance from the sponsor")
 
@@ -37,6 +46,8 @@ type Granter interface {
 	// Grant gives grantee an allowance limited to ownerMessages and returns
 	// the transaction hash once a block has committed it.
 	Grant(ctx context.Context, grantee string) (string, error)
+	// Regrant revokes grantee's allowance and grants the current list.
+	Regrant(ctx context.Context, grantee string) (string, error)
 	// Address is the account that pays.
 	Address() string
 }
@@ -45,6 +56,9 @@ type sponsorRecord struct {
 	Address string `json:"address"`
 	Tx      string `json:"tx"`
 	At      int64  `json:"at"`
+	// List is the ownerList version granted; 0 in records written before it
+	// existed, which means version 1.
+	List int `json:"list,omitempty"`
 }
 
 func (s *server) ledgerPath() string { return filepath.Join(s.dir, "sponsored.json") }
@@ -92,9 +106,13 @@ func (s *server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 	}
 	since := s.now().Add(-24 * time.Hour).Unix()
 	today := 0
-	for _, rec := range ledger {
+	for i, rec := range ledger {
 		if rec.Address == address {
-			writeJSON(w, http.StatusOK, map[string]any{"granted": false, "already": true, "granter": s.granter.Address()})
+			if rec.List >= ownerList {
+				writeJSON(w, http.StatusOK, map[string]any{"granted": false, "already": true, "granter": s.granter.Address()})
+				return
+			}
+			s.regrant(w, r, ledger, i)
 			return
 		}
 		if rec.At >= since {
@@ -108,18 +126,42 @@ func (s *server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx, err := s.granter.Grant(r.Context(), address)
-	if err != nil && !errors.Is(err, errAlreadyGranted) {
+	if errors.Is(err, errAlreadyGranted) {
+		// An allowance this ledger does not know of: its list is unknown, so it
+		// is replaced rather than trusted.
+		tx, err = s.granter.Regrant(r.Context(), address)
+	}
+	if err != nil {
 		log.Printf("traceabilityapi: grant failed: %v", err)
 		refuse(w, http.StatusBadGateway, "the grant did not go through; try again later")
 		return
 	}
-	ledger = append(ledger, sponsorRecord{Address: address, Tx: tx, At: s.now().Unix()})
+	ledger = append(ledger, sponsorRecord{Address: address, Tx: tx, At: s.now().Unix(), List: ownerList})
 	out, _ := json.MarshalIndent(ledger, "", " ")
 	if err := writeAtomically(s.ledgerPath(), out); err != nil {
 		serverFault(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"granted": true, "tx": tx, "granter": s.granter.Address()})
+}
+
+// regrant widens the allowance of the account at ledger[i]. It does not count
+// toward the daily ceiling: that bounds new accounts, and each account is
+// re-granted at most once per list version.
+func (s *server) regrant(w http.ResponseWriter, r *http.Request, ledger []sponsorRecord, i int) {
+	tx, err := s.granter.Regrant(r.Context(), ledger[i].Address)
+	if err != nil {
+		log.Printf("traceabilityapi: re-grant failed: %v", err)
+		refuse(w, http.StatusBadGateway, "the grant did not go through; try again later")
+		return
+	}
+	ledger[i].Tx, ledger[i].List = tx, ownerList
+	out, _ := json.MarshalIndent(ledger, "", " ")
+	if err := writeAtomically(s.ledgerPath(), out); err != nil {
+		serverFault(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"granted": true, "regranted": true, "tx": tx, "granter": s.granter.Address()})
 }
 
 type cliGranter struct {
@@ -178,10 +220,35 @@ func (g cliGranter) grantArgs(grantee string) []string {
 		"--fees", g.fees, "--gas", "250000", "-y", "--output", "json")
 }
 
+func (g cliGranter) revokeArgs(grantee string) []string {
+	args := []string{"tx", "feegrant", "revoke", g.from, grantee,
+		"--chain-id", g.chainID, "--keyring-backend", g.keyring}
+	if g.home != "" {
+		args = append(args, "--home", g.home)
+	}
+	return append(args, "--node", g.node,
+		"--fees", g.fees, "--gas", "250000", "-y", "--output", "json")
+}
+
+// Regrant revokes, waits for the block, then grants: a grant in the same block
+// as the revoke would be refused as already existing. A revoke that finds no
+// allowance is not an error, since the end state is the same.
+func (g cliGranter) Regrant(ctx context.Context, grantee string) (string, error) {
+	if _, err := g.commit(ctx, g.revokeArgs(grantee)); err != nil && !strings.Contains(err.Error(), "not found") {
+		return "", fmt.Errorf("revoking the old allowance: %w", err)
+	}
+	return g.Grant(ctx, grantee)
+}
+
 // Grant broadcasts, then waits for the block. A code of 0 from the broadcast
 // is only CheckTx: the grant can still fail when the block runs it.
 func (g cliGranter) Grant(ctx context.Context, grantee string) (string, error) {
-	out, err := g.run(ctx, g.bin, g.grantArgs(grantee)...)
+	return g.commit(ctx, g.grantArgs(grantee))
+}
+
+// commit broadcasts one transaction and waits until a block has run it.
+func (g cliGranter) commit(ctx context.Context, args []string) (string, error) {
+	out, err := g.run(ctx, g.bin, args...)
 	var res struct {
 		Code   int    `json:"code"`
 		TxHash string `json:"txhash"`

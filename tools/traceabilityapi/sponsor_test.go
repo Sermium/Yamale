@@ -15,8 +15,14 @@ import (
 )
 
 type fakeGranter struct {
-	calls []string
-	err   error
+	calls    []string
+	regrants []string
+	err      error
+}
+
+func (f *fakeGranter) Regrant(_ context.Context, grantee string) (string, error) {
+	f.regrants = append(f.regrants, grantee)
+	return "RE" + grantee[len(grantee)-4:], nil
 }
 
 func (f *fakeGranter) Grant(_ context.Context, grantee string) (string, error) {
@@ -83,12 +89,60 @@ func TestTheLedgerSurvivesARestart(t *testing.T) {
 	require.Equal(t, true, body["already"])
 }
 
-func TestAnExistingAllowanceCountsAsDone(t *testing.T) {
+func TestAnUnknownExistingAllowanceIsReplaced(t *testing.T) {
 	s, g := sponsoring(t, 10)
 	g.err = errAlreadyGranted
 	require.Equal(t, http.StatusOK, askSponsor(t, s, "owner").StatusCode)
+	require.Equal(t, []string{addrOf(testKey("owner"))}, g.regrants)
 	g.err = errors.New("node down")
 	require.Equal(t, http.StatusBadGateway, askSponsor(t, s, "another").StatusCode)
+}
+
+func TestAnAccountGrantedTheOldListIsRegrantedOnce(t *testing.T) {
+	s, g := sponsoring(t, 1)
+	owner := addrOf(testKey("owner"))
+	// Written before the list had a version, and today, so the daily
+	// ceiling of 1 is already used: a re-grant must not count toward it.
+	old, _ := json.Marshal([]sponsorRecord{{Address: owner, Tx: "OLD", At: testNow.Unix()}})
+	require.NoError(t, os.WriteFile(filepath.Join(s.dir, "sponsored.json"), old, 0o600))
+
+	var body map[string]any
+	res := askSponsor(t, s, "owner")
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+	require.Equal(t, true, body["regranted"])
+	require.Equal(t, []string{owner}, g.regrants)
+	require.Empty(t, g.calls)
+
+	res = askSponsor(t, s, "owner")
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+	require.Equal(t, true, body["already"])
+	require.Len(t, g.regrants, 1)
+
+	ledger, err := s.readLedger()
+	require.NoError(t, err)
+	require.Len(t, ledger, 1)
+	require.Equal(t, ownerList, ledger[0].List)
+}
+
+func TestTheCLIGranterRevokesBeforeGranting(t *testing.T) {
+	var seen [][]string
+	g := cliGranter{
+		bin: "blockchaind", from: "traceability-sponsor", keyring: "test", node: "tcp://n:1", chainID: "c-1",
+		spendLimit: "1uyml", fees: "0uyml", lifetime: time.Hour, now: func() time.Time { return testNow }, poll: time.Millisecond,
+		run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			seen = append(seen, args)
+			if args[0] == "query" {
+				return []byte(`{"code":0}`), nil
+			}
+			return []byte(`{"code":0,"txhash":"H"}`), nil
+		},
+	}
+	tx, err := g.Regrant(context.Background(), "yml1owner")
+	require.NoError(t, err)
+	require.Equal(t, "H", tx)
+	require.Equal(t, []string{"tx", "feegrant", "revoke", "traceability-sponsor", "yml1owner"}, seen[0][:5])
+	require.Equal(t, "grant", seen[2][2])
 }
 
 func TestSponsoringOffAnswers503(t *testing.T) {
@@ -111,7 +165,7 @@ func TestTheGrantIsLimitedToOwnerMessages(t *testing.T) {
 		"--chain-id", "c-1", "--keyring-backend", "test", "--home", "/h", "--node", "tcp://n:1",
 		"--fees", "0uyml", "--gas", "250000", "-y", "--output", "json",
 	}, g.grantArgs("yml1owner"))
-	require.Len(t, ownerMessages, 8)
+	require.Len(t, ownerMessages, 10)
 
 	g.home = ""
 	require.NotContains(t, g.grantArgs("yml1owner"), "--home")

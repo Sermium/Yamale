@@ -33,7 +33,16 @@ export interface StoredAccount {
   createdAt: string;
   protection: 'none' | 'enrolled';
   sponsored: boolean;
+  /**
+   * The version of the sponsor's message list this account was granted. The
+   * API re-grants an older list once, so an account sponsored before claims
+   * existed asks again. Absent in accounts stored before it existed.
+   */
+  sponsorList?: number;
 }
+
+/** The sponsor's current message list version (traceabilityapi ownerList). */
+export const SPONSOR_LIST = 2;
 
 export const MIN_PASSWORD = 10;
 export const ACCOUNT_EXISTS = 'this device already holds an account; forget it first';

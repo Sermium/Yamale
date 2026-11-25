@@ -24,6 +24,7 @@ type fixedGranter struct{}
 
 func (fixedGranter) Address() string                               { return "yml1sponsor" }
 func (fixedGranter) Grant(context.Context, string) (string, error) { return "", nil }
+func (fixedGranter) Regrant(context.Context, string) (string, error) { return "", nil }
 
 func sponsorHealth(t *testing.T, s *server) *httptest.ResponseRecorder {
 	t.Helper()
