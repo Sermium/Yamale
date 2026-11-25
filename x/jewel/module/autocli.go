@@ -47,7 +47,7 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{RpcMethod: "AcceptOffer", Use: "accept [jewel-id]", Short: "Takes a jewel offered to you",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
 				{RpcMethod: "ClaimOffer", Skip: true}, // needs a claim-key signature: tools/jewelsign
-				{RpcMethod: "ReportStolen", Use: "report-stolen [jewel-id]", Short: "Flags a jewel as stolen and closes its offer",
+				{RpcMethod: "ReportStolen", Use: "report-stolen [jewel-id]", Short: "Flags a jewel as stolen and closes its offer and any pending claim",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
 				{RpcMethod: "ClearStolen", Use: "clear-stolen [jewel-id]", Short: "Lifts the stolen flag",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
