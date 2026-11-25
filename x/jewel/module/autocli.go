@@ -69,6 +69,12 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
 				{RpcMethod: "WithdrawClaim", Use: "withdraw-claim [jewel-id]", Short: "The claimer withdraws their own pending claim",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
+				{RpcMethod: "ProposeBusinessMove", Use: "propose-business-move [jeweler-id] [new-business]",
+					Short: "The business account names the account the shop moves to (\"\" withdraws); nothing moves until it accepts",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jeweler_id"}, {ProtoField: "new_business"}}},
+				{RpcMethod: "AcceptBusinessMove", Use: "accept-business-move [jeweler-id]",
+					Short: "The named account becomes the shop's business account and receives its stock",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jeweler_id"}}},
 			},
 		},
 	}

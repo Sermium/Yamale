@@ -61,6 +61,12 @@ service Msg {
   rpc RejectClaim(MsgRejectClaim) returns (MsgRejectClaimResponse);
   // WithdrawClaim removes the signer's own claim.
   rpc WithdrawClaim(MsgWithdrawClaim) returns (MsgWithdrawClaimResponse);
+  // ProposeBusinessMove names the account the shop's business account is to
+  // move to, or withdraws the proposal. The business account only.
+  rpc ProposeBusinessMove(MsgProposeBusinessMove) returns (MsgProposeBusinessMoveResponse);
+  // AcceptBusinessMove completes it: the named account becomes the business
+  // account and receives the stock. That account only.
+  rpc AcceptBusinessMove(MsgAcceptBusinessMove) returns (MsgAcceptBusinessMoveResponse);
 }
 
 // MsgUpdateParams is the message that carries out UpdateParams.
@@ -415,3 +421,44 @@ message MsgWithdrawClaim {
 }
 // MsgWithdrawClaimResponse is the result of MsgWithdrawClaim.
 message MsgWithdrawClaimResponse {}
+
+// MsgProposeBusinessMove is the message that carries out ProposeBusinessMove.
+// The shop's business account names the account that is to take its place.
+// Nothing moves until that account accepts, within offer_ttl; proposing again
+// replaces the proposal, and an empty new_business withdraws it. Refused
+// while the jeweler is suspended, and for an account that is already another
+// jeweler's business account or staff.
+message MsgProposeBusinessMove {
+  option (cosmos.msg.v1.signer) = "business";
+  option (amino.name) = "blockchain/x/jewel/MsgProposeShopMove";
+  // business is the jeweler's current business account, the signer.
+  string business = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jeweler_id is the jeweler whose business account moves.
+  uint64 jeweler_id = 2;
+  // new_business is the account to move to; empty withdraws the proposal.
+  string new_business = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+// MsgProposeBusinessMoveResponse is the result of MsgProposeBusinessMove.
+message MsgProposeBusinessMoveResponse {}
+
+// MsgAcceptBusinessMove is the message that carries out AcceptBusinessMove.
+// The proposed account becomes the jeweler's business account, and every
+// jewel of this jeweler the old business account holds, its stock, moves to
+// it. A stock jewel keeps its ownership card and any pending claim, and loses
+// any open offer or pending reassignment, which were made against the old
+// account. The old account keeps whatever staff place it had. Refused when the
+// new account already owns jewels of this jeweler, which would silently become
+// stock.
+message MsgAcceptBusinessMove {
+  option (cosmos.msg.v1.signer) = "new_business";
+  option (amino.name) = "blockchain/x/jewel/MsgAcceptShopMove";
+  // new_business is the account named in the proposal, the signer.
+  string new_business = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jeweler_id is the jeweler whose business account moves.
+  uint64 jeweler_id = 2;
+}
+// MsgAcceptBusinessMoveResponse is the result of MsgAcceptBusinessMove.
+message MsgAcceptBusinessMoveResponse {
+  // jewels is how many stock jewels moved to the new business account.
+  uint64 jewels = 1;
+}

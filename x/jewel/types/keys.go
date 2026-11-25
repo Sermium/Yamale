@@ -2,6 +2,8 @@ package types
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"cosmossdk.io/collections"
 )
@@ -72,3 +74,12 @@ func ClassID(jewelerID uint64) string { return fmt.Sprintf("jewel-%d", jewelerID
 
 // TokenID is the x/nft id of one jewel.
 func TokenID(jewelID uint64) string { return fmt.Sprintf("jewel-%d", jewelID) }
+
+// JewelIDOf reads the jewel id back out of an x/nft token id.
+func JewelIDOf(tokenID string) (uint64, error) {
+	rest, ok := strings.CutPrefix(tokenID, "jewel-")
+	if !ok {
+		return 0, fmt.Errorf("%q is not a jewel token id", tokenID)
+	}
+	return strconv.ParseUint(rest, 10, 64)
+}

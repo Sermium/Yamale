@@ -77,6 +77,17 @@ export interface Jeweler {
   staff: string[];
   /** status says whether the jeweler may act; the office sets it. */
   status: JewelerStatus;
+  /**
+   * pending_business is the account the business account has proposed to
+   * hand the shop to; empty when no move is waiting. Nothing changes until
+   * that account accepts.
+   */
+  pendingBusiness: string;
+  /**
+   * pending_business_until is when the proposed move lapses, block time in
+   * unix seconds; 0 when none is waiting.
+   */
+  pendingBusinessUntil: string;
 }
 
 /**
@@ -266,7 +277,7 @@ export interface Claim {
 }
 
 function createBaseJeweler(): Jeweler {
-  return { id: "0", name: "", business: "", staff: [], status: 0 };
+  return { id: "0", name: "", business: "", staff: [], status: 0, pendingBusiness: "", pendingBusinessUntil: "0" };
 }
 
 export const Jeweler = {
@@ -285,6 +296,12 @@ export const Jeweler = {
     }
     if (message.status !== 0) {
       writer.uint32(40).int32(message.status);
+    }
+    if (message.pendingBusiness !== "") {
+      writer.uint32(50).string(message.pendingBusiness);
+    }
+    if (message.pendingBusinessUntil !== "0") {
+      writer.uint32(56).int64(message.pendingBusinessUntil);
     }
     return writer;
   },
@@ -331,6 +348,20 @@ export const Jeweler = {
 
           message.status = reader.int32() as any;
           continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.pendingBusiness = reader.string();
+          continue;
+        case 7:
+          if (tag !== 56) {
+            break;
+          }
+
+          message.pendingBusinessUntil = longToString(reader.int64() as Long);
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -347,6 +378,8 @@ export const Jeweler = {
       business: isSet(object.business) ? globalThis.String(object.business) : "",
       staff: globalThis.Array.isArray(object?.staff) ? object.staff.map((e: any) => globalThis.String(e)) : [],
       status: isSet(object.status) ? jewelerStatusFromJSON(object.status) : 0,
+      pendingBusiness: isSet(object.pendingBusiness) ? globalThis.String(object.pendingBusiness) : "",
+      pendingBusinessUntil: isSet(object.pendingBusinessUntil) ? globalThis.String(object.pendingBusinessUntil) : "0",
     };
   },
 
@@ -367,6 +400,12 @@ export const Jeweler = {
     if (message.status !== 0) {
       obj.status = jewelerStatusToJSON(message.status);
     }
+    if (message.pendingBusiness !== "") {
+      obj.pendingBusiness = message.pendingBusiness;
+    }
+    if (message.pendingBusinessUntil !== "0") {
+      obj.pendingBusinessUntil = message.pendingBusinessUntil;
+    }
     return obj;
   },
 
@@ -380,6 +419,8 @@ export const Jeweler = {
     message.business = object.business ?? "";
     message.staff = object.staff?.map((e) => e) || [];
     message.status = object.status ?? 0;
+    message.pendingBusiness = object.pendingBusiness ?? "";
+    message.pendingBusinessUntil = object.pendingBusinessUntil ?? "0";
     return message;
   },
 };

@@ -16,7 +16,7 @@ func TestEveryAminoNameFitsALedger(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("..", "..", "..", "proto", "blockchain", "jewel", "v1", "tx.proto"))
 	require.NoError(t, err)
 	names := regexp.MustCompile(`option \(amino\.name\) = "([^"]+)"`).FindAllStringSubmatch(string(src), -1)
-	require.Len(t, names, 23, "every Msg in tx.proto carries an amino name; a count of zero would pass for the wrong reason")
+	require.Len(t, names, 25, "every Msg in tx.proto carries an amino name; a count of zero would pass for the wrong reason")
 	for _, m := range names {
 		require.LessOrEqualf(t, len(m[1]), 39, "amino name %q is %d characters; a Ledger refuses more than 39", m[1], len(m[1]))
 	}

@@ -25,6 +25,9 @@ type NFTKeeper interface {
 	Update(ctx context.Context, token nft.NFT) error
 	Transfer(ctx context.Context, classID, nftID string, receiver sdk.AccAddress) error
 	GetOwner(ctx context.Context, classID, nftID string) sdk.AccAddress
+	// GetNFTsOfClassByOwner lists one owner's tokens of a class, from x/nft's
+	// owner index: a jeweler's stock is its business account's tokens of its class.
+	GetNFTsOfClassByOwner(ctx context.Context, classID string, owner sdk.AccAddress) []nft.NFT
 }
 
 // CircuitKeeper says whether a message type may still run.

@@ -229,6 +229,34 @@ export interface EventClaimWithdrawn {
   claimer: string;
 }
 
+/**
+ * EventBusinessMoveProposed is emitted when a business account proposes a
+ * move, or withdraws one (new_business empty).
+ */
+export interface EventBusinessMoveProposed {
+  /** jeweler_id is the jeweler whose business account is to move. */
+  jewelerId: string;
+  /** new_business is the account named, or empty when withdrawn. */
+  newBusiness: string;
+  /** until is when the proposal lapses, block time in unix seconds. */
+  until: string;
+}
+
+/**
+ * EventBusinessMoved is emitted when the named account accepts: it is now the
+ * jeweler's business account, holding the stock.
+ */
+export interface EventBusinessMoved {
+  /** jeweler_id is the jeweler whose business account moved. */
+  jewelerId: string;
+  /** from is the old business account. */
+  from: string;
+  /** to is the new business account. */
+  to: string;
+  /** jewels is how many stock jewels moved with it. */
+  jewels: string;
+}
+
 function createBaseEventJewelerAdmitted(): EventJewelerAdmitted {
   return { jewelerId: "0", business: "" };
 }
@@ -1851,6 +1879,199 @@ export const EventClaimWithdrawn = {
     const message = createBaseEventClaimWithdrawn();
     message.jewelId = object.jewelId ?? "0";
     message.claimer = object.claimer ?? "";
+    return message;
+  },
+};
+
+function createBaseEventBusinessMoveProposed(): EventBusinessMoveProposed {
+  return { jewelerId: "0", newBusiness: "", until: "0" };
+}
+
+export const EventBusinessMoveProposed = {
+  encode(message: EventBusinessMoveProposed, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelerId !== "0") {
+      writer.uint32(8).uint64(message.jewelerId);
+    }
+    if (message.newBusiness !== "") {
+      writer.uint32(18).string(message.newBusiness);
+    }
+    if (message.until !== "0") {
+      writer.uint32(24).int64(message.until);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventBusinessMoveProposed {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventBusinessMoveProposed();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelerId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.newBusiness = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.until = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventBusinessMoveProposed {
+    return {
+      jewelerId: isSet(object.jewelerId) ? globalThis.String(object.jewelerId) : "0",
+      newBusiness: isSet(object.newBusiness) ? globalThis.String(object.newBusiness) : "",
+      until: isSet(object.until) ? globalThis.String(object.until) : "0",
+    };
+  },
+
+  toJSON(message: EventBusinessMoveProposed): unknown {
+    const obj: any = {};
+    if (message.jewelerId !== "0") {
+      obj.jewelerId = message.jewelerId;
+    }
+    if (message.newBusiness !== "") {
+      obj.newBusiness = message.newBusiness;
+    }
+    if (message.until !== "0") {
+      obj.until = message.until;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventBusinessMoveProposed>): EventBusinessMoveProposed {
+    return EventBusinessMoveProposed.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventBusinessMoveProposed>): EventBusinessMoveProposed {
+    const message = createBaseEventBusinessMoveProposed();
+    message.jewelerId = object.jewelerId ?? "0";
+    message.newBusiness = object.newBusiness ?? "";
+    message.until = object.until ?? "0";
+    return message;
+  },
+};
+
+function createBaseEventBusinessMoved(): EventBusinessMoved {
+  return { jewelerId: "0", from: "", to: "", jewels: "0" };
+}
+
+export const EventBusinessMoved = {
+  encode(message: EventBusinessMoved, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelerId !== "0") {
+      writer.uint32(8).uint64(message.jewelerId);
+    }
+    if (message.from !== "") {
+      writer.uint32(18).string(message.from);
+    }
+    if (message.to !== "") {
+      writer.uint32(26).string(message.to);
+    }
+    if (message.jewels !== "0") {
+      writer.uint32(32).uint64(message.jewels);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventBusinessMoved {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventBusinessMoved();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelerId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.from = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.to = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.jewels = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventBusinessMoved {
+    return {
+      jewelerId: isSet(object.jewelerId) ? globalThis.String(object.jewelerId) : "0",
+      from: isSet(object.from) ? globalThis.String(object.from) : "",
+      to: isSet(object.to) ? globalThis.String(object.to) : "",
+      jewels: isSet(object.jewels) ? globalThis.String(object.jewels) : "0",
+    };
+  },
+
+  toJSON(message: EventBusinessMoved): unknown {
+    const obj: any = {};
+    if (message.jewelerId !== "0") {
+      obj.jewelerId = message.jewelerId;
+    }
+    if (message.from !== "") {
+      obj.from = message.from;
+    }
+    if (message.to !== "") {
+      obj.to = message.to;
+    }
+    if (message.jewels !== "0") {
+      obj.jewels = message.jewels;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventBusinessMoved>): EventBusinessMoved {
+    return EventBusinessMoved.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventBusinessMoved>): EventBusinessMoved {
+    const message = createBaseEventBusinessMoved();
+    message.jewelerId = object.jewelerId ?? "0";
+    message.from = object.from ?? "";
+    message.to = object.to ?? "";
+    message.jewels = object.jewels ?? "0";
     return message;
   },
 };

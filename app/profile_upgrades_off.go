@@ -187,4 +187,18 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The settlement half of jewel-business-move: x/jewel is not linked
+		// here, and an unknown name panics the node at the halt height.
+		Name: "jewel-business-move",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info("business moves: nothing to do",
+				"absent", "x/jewel is not linked into a settlement build")
+			return vm, nil
+		},
+	},
 }

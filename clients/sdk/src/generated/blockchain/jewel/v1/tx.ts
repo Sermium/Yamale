@@ -378,6 +378,50 @@ export interface MsgWithdrawClaim {
 export interface MsgWithdrawClaimResponse {
 }
 
+/**
+ * MsgProposeBusinessMove is the message that carries out ProposeBusinessMove.
+ * The shop's business account names the account that is to take its place.
+ * Nothing moves until that account accepts, within offer_ttl; proposing again
+ * replaces the proposal, and an empty new_business withdraws it. Refused
+ * while the jeweler is suspended, and for an account that is already another
+ * jeweler's business account or staff.
+ */
+export interface MsgProposeBusinessMove {
+  /** business is the jeweler's current business account, the signer. */
+  business: string;
+  /** jeweler_id is the jeweler whose business account moves. */
+  jewelerId: string;
+  /** new_business is the account to move to; empty withdraws the proposal. */
+  newBusiness: string;
+}
+
+/** MsgProposeBusinessMoveResponse is the result of MsgProposeBusinessMove. */
+export interface MsgProposeBusinessMoveResponse {
+}
+
+/**
+ * MsgAcceptBusinessMove is the message that carries out AcceptBusinessMove.
+ * The proposed account becomes the jeweler's business account, and every
+ * jewel of this jeweler the old business account holds, its stock, moves to
+ * it. A stock jewel keeps its ownership card and any pending claim, and loses
+ * any open offer or pending reassignment, which were made against the old
+ * account. The old account keeps whatever staff place it had. Refused when the
+ * new account already owns jewels of this jeweler, which would silently become
+ * stock.
+ */
+export interface MsgAcceptBusinessMove {
+  /** new_business is the account named in the proposal, the signer. */
+  newBusiness: string;
+  /** jeweler_id is the jeweler whose business account moves. */
+  jewelerId: string;
+}
+
+/** MsgAcceptBusinessMoveResponse is the result of MsgAcceptBusinessMove. */
+export interface MsgAcceptBusinessMoveResponse {
+  /** jewels is how many stock jewels moved to the new business account. */
+  jewels: string;
+}
+
 function createBaseMsgUpdateParams(): MsgUpdateParams {
   return { authority: "", params: undefined };
 }
@@ -3503,6 +3547,269 @@ export const MsgWithdrawClaimResponse = {
   },
 };
 
+function createBaseMsgProposeBusinessMove(): MsgProposeBusinessMove {
+  return { business: "", jewelerId: "0", newBusiness: "" };
+}
+
+export const MsgProposeBusinessMove = {
+  encode(message: MsgProposeBusinessMove, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.business !== "") {
+      writer.uint32(10).string(message.business);
+    }
+    if (message.jewelerId !== "0") {
+      writer.uint32(16).uint64(message.jewelerId);
+    }
+    if (message.newBusiness !== "") {
+      writer.uint32(26).string(message.newBusiness);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgProposeBusinessMove {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeBusinessMove();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.business = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelerId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.newBusiness = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgProposeBusinessMove {
+    return {
+      business: isSet(object.business) ? globalThis.String(object.business) : "",
+      jewelerId: isSet(object.jewelerId) ? globalThis.String(object.jewelerId) : "0",
+      newBusiness: isSet(object.newBusiness) ? globalThis.String(object.newBusiness) : "",
+    };
+  },
+
+  toJSON(message: MsgProposeBusinessMove): unknown {
+    const obj: any = {};
+    if (message.business !== "") {
+      obj.business = message.business;
+    }
+    if (message.jewelerId !== "0") {
+      obj.jewelerId = message.jewelerId;
+    }
+    if (message.newBusiness !== "") {
+      obj.newBusiness = message.newBusiness;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgProposeBusinessMove>): MsgProposeBusinessMove {
+    return MsgProposeBusinessMove.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgProposeBusinessMove>): MsgProposeBusinessMove {
+    const message = createBaseMsgProposeBusinessMove();
+    message.business = object.business ?? "";
+    message.jewelerId = object.jewelerId ?? "0";
+    message.newBusiness = object.newBusiness ?? "";
+    return message;
+  },
+};
+
+function createBaseMsgProposeBusinessMoveResponse(): MsgProposeBusinessMoveResponse {
+  return {};
+}
+
+export const MsgProposeBusinessMoveResponse = {
+  encode(_: MsgProposeBusinessMoveResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgProposeBusinessMoveResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeBusinessMoveResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgProposeBusinessMoveResponse {
+    return {};
+  },
+
+  toJSON(_: MsgProposeBusinessMoveResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgProposeBusinessMoveResponse>): MsgProposeBusinessMoveResponse {
+    return MsgProposeBusinessMoveResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgProposeBusinessMoveResponse>): MsgProposeBusinessMoveResponse {
+    const message = createBaseMsgProposeBusinessMoveResponse();
+    return message;
+  },
+};
+
+function createBaseMsgAcceptBusinessMove(): MsgAcceptBusinessMove {
+  return { newBusiness: "", jewelerId: "0" };
+}
+
+export const MsgAcceptBusinessMove = {
+  encode(message: MsgAcceptBusinessMove, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.newBusiness !== "") {
+      writer.uint32(10).string(message.newBusiness);
+    }
+    if (message.jewelerId !== "0") {
+      writer.uint32(16).uint64(message.jewelerId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAcceptBusinessMove {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAcceptBusinessMove();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.newBusiness = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelerId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAcceptBusinessMove {
+    return {
+      newBusiness: isSet(object.newBusiness) ? globalThis.String(object.newBusiness) : "",
+      jewelerId: isSet(object.jewelerId) ? globalThis.String(object.jewelerId) : "0",
+    };
+  },
+
+  toJSON(message: MsgAcceptBusinessMove): unknown {
+    const obj: any = {};
+    if (message.newBusiness !== "") {
+      obj.newBusiness = message.newBusiness;
+    }
+    if (message.jewelerId !== "0") {
+      obj.jewelerId = message.jewelerId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAcceptBusinessMove>): MsgAcceptBusinessMove {
+    return MsgAcceptBusinessMove.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAcceptBusinessMove>): MsgAcceptBusinessMove {
+    const message = createBaseMsgAcceptBusinessMove();
+    message.newBusiness = object.newBusiness ?? "";
+    message.jewelerId = object.jewelerId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgAcceptBusinessMoveResponse(): MsgAcceptBusinessMoveResponse {
+  return { jewels: "0" };
+}
+
+export const MsgAcceptBusinessMoveResponse = {
+  encode(message: MsgAcceptBusinessMoveResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewels !== "0") {
+      writer.uint32(8).uint64(message.jewels);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgAcceptBusinessMoveResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgAcceptBusinessMoveResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewels = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgAcceptBusinessMoveResponse {
+    return { jewels: isSet(object.jewels) ? globalThis.String(object.jewels) : "0" };
+  },
+
+  toJSON(message: MsgAcceptBusinessMoveResponse): unknown {
+    const obj: any = {};
+    if (message.jewels !== "0") {
+      obj.jewels = message.jewels;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgAcceptBusinessMoveResponse>): MsgAcceptBusinessMoveResponse {
+    return MsgAcceptBusinessMoveResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgAcceptBusinessMoveResponse>): MsgAcceptBusinessMoveResponse {
+    const message = createBaseMsgAcceptBusinessMoveResponse();
+    message.jewels = object.jewels ?? "0";
+    return message;
+  },
+};
+
 /** Msg is the write side of the jewel register. */
 export interface Msg {
   /**
@@ -3554,6 +3861,16 @@ export interface Msg {
   RejectClaim(request: MsgRejectClaim): Promise<MsgRejectClaimResponse>;
   /** WithdrawClaim removes the signer's own claim. */
   WithdrawClaim(request: MsgWithdrawClaim): Promise<MsgWithdrawClaimResponse>;
+  /**
+   * ProposeBusinessMove names the account the shop's business account is to
+   * move to, or withdraws the proposal. The business account only.
+   */
+  ProposeBusinessMove(request: MsgProposeBusinessMove): Promise<MsgProposeBusinessMoveResponse>;
+  /**
+   * AcceptBusinessMove completes it: the named account becomes the business
+   * account and receives the stock. That account only.
+   */
+  AcceptBusinessMove(request: MsgAcceptBusinessMove): Promise<MsgAcceptBusinessMoveResponse>;
 }
 
 export const MsgServiceName = "blockchain.jewel.v1.Msg";
@@ -3586,6 +3903,8 @@ export class MsgClientImpl implements Msg {
     this.ApproveClaim = this.ApproveClaim.bind(this);
     this.RejectClaim = this.RejectClaim.bind(this);
     this.WithdrawClaim = this.WithdrawClaim.bind(this);
+    this.ProposeBusinessMove = this.ProposeBusinessMove.bind(this);
+    this.AcceptBusinessMove = this.AcceptBusinessMove.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -3723,6 +4042,18 @@ export class MsgClientImpl implements Msg {
     const data = MsgWithdrawClaim.encode(request).finish();
     const promise = this.rpc.request(this.service, "WithdrawClaim", data);
     return promise.then((data) => MsgWithdrawClaimResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ProposeBusinessMove(request: MsgProposeBusinessMove): Promise<MsgProposeBusinessMoveResponse> {
+    const data = MsgProposeBusinessMove.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ProposeBusinessMove", data);
+    return promise.then((data) => MsgProposeBusinessMoveResponse.decode(_m0.Reader.create(data)));
+  }
+
+  AcceptBusinessMove(request: MsgAcceptBusinessMove): Promise<MsgAcceptBusinessMoveResponse> {
+    const data = MsgAcceptBusinessMove.encode(request).finish();
+    const promise = this.rpc.request(this.service, "AcceptBusinessMove", data);
+    return promise.then((data) => MsgAcceptBusinessMoveResponse.decode(_m0.Reader.create(data)));
   }
 }
 

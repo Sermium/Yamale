@@ -358,7 +358,7 @@ export {
   acceptJewelOffer, claimJewelOffer, reportJewelStolen, clearJewelStolen, attachJewelBenefit,
   redeemJewelBenefit, setJewelStaff, vetoJewelReassignment, completeJewelReassignment, grantStaffFees,
   cardClaimSignBytes, cardLink, parseCardFragment, issueJewelCard, fileJewelClaim, approveJewelClaim,
-  rejectJewelClaim, withdrawJewelClaim,
+  rejectJewelClaim, withdrawJewelClaim, proposeBusinessMove, acceptBusinessMove,
   type VoucherFields, type VoucherCode,
 } from './jewel.ts';
 export { setRpcBase, abciQuery, decoded, chainHead, txSearch, type Outcome, type ChainHead, type TxHit, type TxEvent } from './abci.ts';

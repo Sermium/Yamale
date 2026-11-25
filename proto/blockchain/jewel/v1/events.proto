@@ -204,3 +204,27 @@ message EventClaimWithdrawn {
   // claimer is the account that withdrew it.
   string claimer = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
+
+// EventBusinessMoveProposed is emitted when a business account proposes a
+// move, or withdraws one (new_business empty).
+message EventBusinessMoveProposed {
+  // jeweler_id is the jeweler whose business account is to move.
+  uint64 jeweler_id = 1;
+  // new_business is the account named, or empty when withdrawn.
+  string new_business = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // until is when the proposal lapses, block time in unix seconds.
+  int64 until = 3;
+}
+
+// EventBusinessMoved is emitted when the named account accepts: it is now the
+// jeweler's business account, holding the stock.
+message EventBusinessMoved {
+  // jeweler_id is the jeweler whose business account moved.
+  uint64 jeweler_id = 1;
+  // from is the old business account.
+  string from = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the new business account.
+  string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewels is how many stock jewels moved with it.
+  uint64 jewels = 4;
+}

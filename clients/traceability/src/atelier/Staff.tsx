@@ -16,8 +16,8 @@ import { AccountCodeInput } from '../owner/OfferPanel.tsx';
 import { isAccountCode } from '../owner/links.ts';
 import { AppBar, Loading, Problem, Section } from '../ui.tsx';
 import { useRole } from './role.ts';
+import { ProposeBusinessMove, STAFF_BUDGET } from './BusinessMove.tsx';
 
-const STAFF_BUDGET = [{ denom: 'uyml', amount: '5000000' }];
 /** The one spelling of an account code: lowercase bech32, so two spellings of one account compare equal. */
 function canonical(code: string): string {
   const { prefix, data } = fromBech32(code.trim());
@@ -90,6 +90,7 @@ export function Staff() {
               {t('traceability.addStaffButton')}
             </button>
           </Section>
+          <ProposeBusinessMove jeweler={j} me={me} isStaff={j.staff.includes(me)} onChange={reloadRole} />
           {refused && <p className="note note--warn" role="alert">{t('traceability.staffReadFailed')}</p>}
           <ActionStatus state={action} />
           <details className="advanced"><summary>{t('traceability.advanced')}</summary><pre>{JSON.stringify(j, null, 2)}</pre></details>

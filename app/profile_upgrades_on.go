@@ -525,4 +525,40 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// x/jewel: a shop's business account can move to another account,
+		// taking its stock with it (MsgProposeBusinessMove, then
+		// MsgAcceptBusinessMove from the named account).
+		//
+		// NO STORE UPGRADE and no migration. The proposal lives in two new
+		// fields of the Jeweler record, which every existing jeweler already
+		// reads as empty: no move waiting. What makes this a halt is the
+		// message set: an old binary cannot decode either message.
+		Name: "jewel-business-move",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			jewelers := 0
+			if err := app.JewelKeeper.Jeweler.Walk(ctx, nil,
+				func(_ uint64, j jeweltypes.Jeweler) (bool, error) {
+					jewelers++
+					if j.PendingBusiness != "" || j.PendingBusinessUntil != 0 {
+						return true, fmt.Errorf("jeweler %d arrived with a business move pending; nothing proposed one", j.Id)
+					}
+					return false, nil
+				},
+			); err != nil {
+				return nil, fmt.Errorf("reading the jewelers: %w", err)
+			}
+			ctx.Logger().Info(
+				"a shop's business account can move",
+				"move", "the business account proposes an account; that account accepts and receives the stock; "+
+					"the old account keeps any staff place, and can then own the shop's pieces like any customer",
+				"jewelers", jewelers,
+			)
+			return vm, nil
+		},
+	},
 }

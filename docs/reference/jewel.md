@@ -10,6 +10,19 @@ A register of jewels under admitted jewelers: each piece an x/nft token that cha
 
 ## Transactions
 
+### MsgAcceptBusinessMove
+
+`/blockchain.jewel.v1.MsgAcceptBusinessMove`
+
+Signed by the `new_business` field.
+
+MsgAcceptBusinessMove is the message that carries out AcceptBusinessMove. The proposed account becomes the jeweler's business account, and every jewel of this jeweler the old business account holds, its stock, moves to it. A stock jewel keeps its ownership card and any pending claim, and loses any open offer or pending reassignment, which were made against the old account. The old account keeps whatever staff place it had. Refused when the new account already owns jewels of this jeweler, which would silently become stock.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `new_business` | string | new_business is the account named in the proposal, the signer. |
+| `jeweler_id` | uint64 | jeweler_id is the jeweler whose business account moves. |
+
 ### MsgAcceptOffer
 
 `/blockchain.jewel.v1.MsgAcceptOffer`
@@ -202,6 +215,20 @@ OfferJewel opens an offer to an account or a claim key.
 | `jewel_id` | uint64 | jewel_id is the jewel to offer. |
 | `to` | string | to is the recipient's account; set this or claim_key, not both. |
 | `claim_key` | string | claim_key is a one-time key's compressed secp256k1 public key in hex, for a recipient with no account yet. |
+
+### MsgProposeBusinessMove
+
+`/blockchain.jewel.v1.MsgProposeBusinessMove`
+
+Signed by the `business` field.
+
+MsgProposeBusinessMove is the message that carries out ProposeBusinessMove. The shop's business account names the account that is to take its place. Nothing moves until that account accepts, within offer_ttl; proposing again replaces the proposal, and an empty new_business withdraws it. Refused while the jeweler is suspended, and for an account that is already another jeweler's business account or staff.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `business` | string | business is the jeweler's current business account, the signer. |
+| `jeweler_id` | uint64 | jeweler_id is the jeweler whose business account moves. |
+| `new_business` | string | new_business is the account to move to; empty withdraws the proposal. |
 
 ### MsgProposeReassignment
 
@@ -568,6 +595,27 @@ EventBenefitRedeemed is emitted for each use of a benefit.
 | `jewel_id` | uint64 | jewel_id is the jewel it belongs to. |
 | `staff` | string | staff is the staff member who recorded the use. |
 
+### EventBusinessMoveProposed
+
+EventBusinessMoveProposed is emitted when a business account proposes a move, or withdraws one (new_business empty).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jeweler_id` | uint64 | jeweler_id is the jeweler whose business account is to move. |
+| `new_business` | string | new_business is the account named, or empty when withdrawn. |
+| `until` | int64 | until is when the proposal lapses, block time in unix seconds. |
+
+### EventBusinessMoved
+
+EventBusinessMoved is emitted when the named account accepts: it is now the jeweler's business account, holding the stock.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jeweler_id` | uint64 | jeweler_id is the jeweler whose business account moved. |
+| `from` | string | from is the old business account. |
+| `to` | string | to is the new business account. |
+| `jewels` | uint64 | jewels is how many stock jewels moved with it. |
+
 ### EventCardIssued
 
 EventCardIssued is emitted when a stock jewel gets an ownership card. A pending claim made with an earlier card is dropped with it, without an event of its own.
@@ -784,6 +832,8 @@ Jeweler is a business the office has admitted.
 | `business` | string | business holds the jeweler's stock and manages its staff. |
 | `staff` | repeated string | staff act for the jeweler. A person works for one jeweler at a time. |
 | `status` | JewelerStatus | status says whether the jeweler may act; the office sets it. |
+| `pending_business` | string | pending_business is the account the business account has proposed to hand the shop to; empty when no move is waiting. Nothing changes until that account accepts. |
+| `pending_business_until` | int64 | pending_business_until is when the proposed move lapses, block time in unix seconds; 0 when none is waiting. |
 
 ### Offer
 
@@ -894,6 +944,11 @@ Every way a transaction to this module can be rejected.
 | 49 | `ErrNotClaimer` | this claim was filed by someone else |
 | 5 | `ErrNoName` | a name is required |
 | 50 | `ErrShopSelfClaim` | the shop's own business account cannot claim its stock |
+| 51 | `ErrNoBusinessMove` | no move of this shop's business account is waiting for this account |
+| 52 | `ErrBusinessMoveLapsed` | the proposed move of this shop's business account has lapsed; ask the shop to propose it again |
+| 53 | `ErrAccountTied` | this account already runs a jeweler's business or works for another jeweler |
+| 54 | `ErrBusinessOwnsPieces` | this account already owns pieces from this shop; as its business account they would become stock |
+| 55 | `ErrMoveToSelf` | this is already the shop's business account |
 | 6 | `ErrBusinessTaken` | this business account already belongs to a jeweler |
 | 7 | `ErrNoJeweler` | no such jeweler |
 | 8 | `ErrJewelerSuspended` | this jeweler is suspended and can no longer act |

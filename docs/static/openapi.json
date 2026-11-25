@@ -10015,6 +10015,13 @@
         },
         "status": {
           "$ref": "#/definitions/JewelerStatus"
+        },
+        "pending_business": {
+          "type": "string"
+        },
+        "pending_business_until": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

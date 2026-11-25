@@ -61,4 +61,13 @@ var (
 	ErrNoClaim       = errors.Register(ModuleName, 48, "no claim on this jewel is waiting for the shop")
 	ErrNotClaimer    = errors.Register(ModuleName, 49, "this claim was filed by someone else")
 	ErrShopSelfClaim = errors.Register(ModuleName, 50, "the shop's own business account cannot claim its stock")
+	ErrNoBusinessMove = errors.Register(ModuleName, 51,
+		"no move of this shop's business account is waiting for this account")
+	ErrBusinessMoveLapsed = errors.Register(ModuleName, 52,
+		"the proposed move of this shop's business account has lapsed; ask the shop to propose it again")
+	ErrAccountTied = errors.Register(ModuleName, 53,
+		"this account already runs a jeweler's business or works for another jeweler")
+	ErrBusinessOwnsPieces = errors.Register(ModuleName, 54,
+		"this account already owns pieces from this shop; as its business account they would become stock")
+	ErrMoveToSelf = errors.Register(ModuleName, 55, "this is already the shop's business account")
 )

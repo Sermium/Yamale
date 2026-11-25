@@ -31,6 +31,13 @@ message Jeweler {
   repeated string staff = 4 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // status says whether the jeweler may act; the office sets it.
   JewelerStatus status = 5;
+  // pending_business is the account the business account has proposed to
+  // hand the shop to; empty when no move is waiting. Nothing changes until
+  // that account accepts.
+  string pending_business = 6 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // pending_business_until is when the proposed move lapses, block time in
+  // unix seconds; 0 when none is waiting.
+  int64 pending_business_until = 7;
 }
 
 // Amendment is a correction appended to a jewel's record. The original and

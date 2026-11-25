@@ -11,10 +11,11 @@ import { PrintCards } from '../card/PrintCards.tsx';
 import type { StockPiece } from '../card/cards.ts';
 import { ClaimsToValidate } from './Claims.tsx';
 import { useRole } from './role.ts';
+import { BusinessMoveInvite } from './BusinessMove.tsx';
 
 export function Atelier() {
   const session = useSession();
-  const [role] = useRole(session.address);
+  const [role, reloadRole] = useRole(session.address);
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [missing, setMissing] = useState(false);
@@ -33,6 +34,7 @@ export function Atelier() {
         <main className="y-screen">
           {role.state === 'failed' ? <Problem outcome={role.outcome} /> : (
             <>
+              {session.address && <BusinessMoveInvite me={session.address} onDone={reloadRole} />}
               <p className="note">{t('traceability.notAJeweler')}</p>
               <Link className="btn" to="/apply">{t('traceability.applyLink')}</Link>
             </>
@@ -65,6 +67,7 @@ export function Atelier() {
           {role.business && <span className="y-chip y-chip--brass">{t('traceability.youAreBusiness')}</span>}
         </div>
         {!role.active && <p className="banner banner--warn">{t('traceability.suspendedNote')}</p>}
+        {!role.business && session.address && <BusinessMoveInvite me={session.address} onDone={reloadRole} />}
         {role.business && !role.staff && <p className="hint">{t('traceability.businessAddYourself')}</p>}
 
         <div className="actions">

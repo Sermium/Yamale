@@ -328,6 +328,12 @@ export const issueJewelCard = (staff: string, jewelId: string, cardKey: string) 
 export const approveJewelClaim = (staff: string, jewelId: string) => msg('MsgApproveClaim', { staff, jewelId });
 export const rejectJewelClaim = (staff: string, jewelId: string) => msg('MsgRejectClaim', { staff, jewelId });
 export const withdrawJewelClaim = (claimer: string, jewelId: string) => msg('MsgWithdrawClaim', { claimer, jewelId });
+/** The business account names the account the shop moves to; an empty newBusiness withdraws the proposal. */
+export const proposeBusinessMove = (business: string, jewelerId: string, newBusiness: string) =>
+  msg('MsgProposeBusinessMove', { business, jewelerId, newBusiness });
+/** The named account accepts: it becomes the business account and receives the stock. */
+export const acceptBusinessMove = (newBusiness: string, jewelerId: string) =>
+  msg('MsgAcceptBusinessMove', { newBusiness, jewelerId });
 
 /** Files a claim with the card's secret, which signs the claimer's address and never leaves this device. */
 export function fileJewelClaim(claimer: string, jewelId: string, cardPrivateKey: Uint8Array, chainId: string): EncodeObject {
