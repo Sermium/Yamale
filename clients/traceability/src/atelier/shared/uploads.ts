@@ -1,7 +1,7 @@
 import { t } from '@yamale/chain';
 
-import { uploadFile } from '../api.ts';
-import { CHAIN_ID } from '../config.ts';
+import { uploadFile } from '../../api.ts';
+import { CHAIN_ID } from '../../config.ts';
 import { preparePhoto } from './photo.ts';
 
 /** `raw` is the API's own text: shown under Advanced, never inline. */

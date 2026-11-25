@@ -12,15 +12,15 @@ import {
   chainHead, decodeVoucherCode, readJewel, redeemJewelBenefit, t, voucherSigner, type VoucherCode,
 } from '@yamale/chain';
 
-import { Scanner } from '../../../app/src/scan.tsx';
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { CHAIN_ID } from '../config.ts';
-import { AppBar, Loading, Problem, Section } from '../ui.tsx';
-import { benefitKind, Hallmark } from '../verify/JewelPage.tsx';
+import { Scanner } from '../../../../app/src/scan.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { CHAIN_ID } from '../../config.ts';
+import { AppBar, Loading, Problem, Section } from '../../ui.tsx';
+import { benefitKind, Hallmark } from '../../verify/JewelPage.tsx';
 import { checkRedeem } from './redeem.ts';
-import { useRole } from './role.ts';
+import { useRole } from '../shared/role.ts';
 
 type Check =
   | { kind: 'idle' } | { kind: 'checking' }

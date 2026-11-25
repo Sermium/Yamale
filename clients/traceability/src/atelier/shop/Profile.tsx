@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { readProfile, saveProfile, type Contact } from '../api.ts';
-import { CHAIN_ID } from '../config.ts';
-import { AppBar, Loading, Problem, Section } from '../ui.tsx';
-import { Hallmark } from '../verify/JewelPage.tsx';
-import { VerifiedImage } from '../verify/Photos.tsx';
-import { FailureNote } from './FailureNote.tsx';
-import { canSaveLook, mayApplyLoad, type LookLoad } from './rules.ts';
-import { useRole } from './role.ts';
-import { uploadLogo } from './uploads.ts';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { readProfile, saveProfile, type Contact } from '../../api.ts';
+import { CHAIN_ID } from '../../config.ts';
+import { AppBar, Loading, Problem, Section } from '../../ui.tsx';
+import { Hallmark } from '../../verify/JewelPage.tsx';
+import { VerifiedImage } from '../../verify/Photos.tsx';
+import { FailureNote } from '../shared/FailureNote.tsx';
+import { canSaveLook, mayApplyLoad, type LookLoad } from '../shared/rules.ts';
+import { useRole } from '../shared/role.ts';
+import { uploadLogo } from '../shared/uploads.ts';
 
 type Note = { text: string; raw: string } | null;
 

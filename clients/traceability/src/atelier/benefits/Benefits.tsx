@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { attachJewelBenefit, t, type JewelView } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { kindProblem } from './rules.ts';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { BenefitList } from '../verify/JewelPage.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { kindProblem } from '../shared/rules.ts';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { BenefitList } from '../../verify/JewelPage.tsx';
 
 const KINDS = ['cleaning', 'resizing', 'polishing', 'rhodium', 'repair'];
 const PERIODS = [

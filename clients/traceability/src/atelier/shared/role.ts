@@ -1,6 +1,6 @@
 import { isActive, readJewelers, roleOf, type Jeweler } from '@yamale/chain';
 
-import { useLoad } from '../ui.tsx';
+import { useLoad } from '../../ui.tsx';
 
 export type RoleState =
   | { state: 'loading' } | { state: 'none' }

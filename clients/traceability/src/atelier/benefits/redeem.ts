@@ -5,7 +5,7 @@
  * clock passed in, so that no decision here depends on the phone's.
  */
 
-import { benefitState } from '../verify/history.ts';
+import { benefitState } from '../../verify/history.ts';
 
 export interface RedeemInput {
   /** The benefit the code names, as the chain holds it, or undefined when there is none. */

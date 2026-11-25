@@ -9,9 +9,9 @@ import { HeldRow, loadHoldings } from '../owner/HeldList.tsx';
 import type { HeldGroup } from '../owner/holdings.ts';
 import { PrintCards } from '../card/PrintCards.tsx';
 import type { StockPiece } from '../card/cards.ts';
-import { ClaimsToValidate } from './Claims.tsx';
-import { useRole } from './role.ts';
-import { BusinessMoveInvite } from './BusinessMove.tsx';
+import { ClaimsToValidate } from './claims/Claims.tsx';
+import { useRole } from './shared/role.ts';
+import { BusinessMoveInvite } from './shop/BusinessMove.tsx';
 
 export function Atelier() {
   const session = useSession();

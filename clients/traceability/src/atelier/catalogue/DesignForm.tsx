@@ -1,7 +1,7 @@
 import { t } from '@yamale/chain';
 
 import type { DesignFields } from './draft.ts';
-import { Field, StonesFieldset } from './RecordForm.tsx';
+import { Field, StonesFieldset } from '../register/RecordForm.tsx';
 
 /** A design's title and materials. The weight is optional: each CSV row can carry its own. */
 export function DesignForm({ title, fields, onTitle, onFields }: {

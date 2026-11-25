@@ -7,11 +7,11 @@
 import { useState } from 'react';
 import { approveJewelClaim, claimsByJeweler, rejectJewelClaim, t, type Claim } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { day, Problem, Section, useLoad } from '../ui.tsx';
-import { JewelCard } from '../verify/JewelCard.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { day, Problem, Section, useLoad } from '../../ui.tsx';
+import { JewelCard } from '../../verify/JewelCard.tsx';
 
 export function ClaimsToValidate({ jewelerId, business, canAct, now, onChange }: {
   jewelerId: string; business: string; canAct: boolean; now: number; onChange: () => void;

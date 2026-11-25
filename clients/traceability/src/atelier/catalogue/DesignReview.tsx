@@ -9,17 +9,17 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { confirmDesign, fetchDesignImage, readCatalogue, saveDesign, type Design, type DesignFields } from '../api.ts';
-import { CHAIN_ID } from '../config.ts';
-import { AppBar, Loading, Section } from '../ui.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { confirmDesign, fetchDesignImage, readCatalogue, saveDesign, type Design, type DesignFields } from '../../api.ts';
+import { CHAIN_ID } from '../../config.ts';
+import { AppBar, Loading, Section } from '../../ui.tsx';
 import { canConfirmDesign } from './catalogue.ts';
 import { designComplete } from './draft.ts';
 import { DesignForm } from './DesignForm.tsx';
-import { FailureNote } from './FailureNote.tsx';
-import { useRole } from './role.ts';
-import { uploadPhoto } from './uploads.ts';
+import { FailureNote } from '../shared/FailureNote.tsx';
+import { useRole } from '../shared/role.ts';
+import { uploadPhoto } from '../shared/uploads.ts';
 
 type Img = { n: number; state: 'loading' } | { n: number; state: 'ok'; blob: Blob; url: string } | { n: number; state: 'failed'; why: string };
 

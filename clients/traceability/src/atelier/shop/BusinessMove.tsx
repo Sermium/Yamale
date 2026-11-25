@@ -10,12 +10,12 @@ import { fromBech32, toBech32 } from '@cosmjs/encoding';
 import { useState } from 'react';
 import { acceptBusinessMove, chainHead, grantStaffFees, proposeBusinessMove, readJewelers, t, type Jeweler } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { AccountCodeInput } from '../owner/OfferPanel.tsx';
-import { isAccountCode } from '../owner/links.ts';
-import { Section, useLoad } from '../ui.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { AccountCodeInput } from '../../owner/OfferPanel.tsx';
+import { isAccountCode } from '../../owner/links.ts';
+import { Section, useLoad } from '../../ui.tsx';
 
 /** What the new business account grants each member of staff, as the Staff page does when adding one. */
 export const STAFF_BUDGET = [{ denom: 'uyml', amount: '5000000' }];

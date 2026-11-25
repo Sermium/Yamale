@@ -15,19 +15,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findByInscription, normaliseInscription, registerJewel, t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, eventValue, useAction } from '../actions/useAction.tsx';
-import { readCatalogue, type Design } from '../api.ts';
-import { CHAIN_ID, recordUri } from '../config.ts';
-import { AppBar, Loading, Problem, Section } from '../ui.tsx';
-import { VerifiedImage } from '../verify/Photos.tsx';
-import { designForSerial, judgePieces, pieceRecord } from './pieces.ts';
-import { encodeRecord } from '../verify/record.ts';
-import { FailureNote } from './FailureNote.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, eventValue, useAction } from '../../actions/useAction.tsx';
+import { readCatalogue, type Design } from '../../api.ts';
+import { CHAIN_ID, recordUri } from '../../config.ts';
+import { AppBar, Loading, Problem, Section } from '../../ui.tsx';
+import { VerifiedImage } from '../../verify/Photos.tsx';
+import { designForSerial, judgePieces, pieceRecord } from '../catalogue/pieces.ts';
+import { encodeRecord } from '../../verify/record.ts';
+import { FailureNote } from '../shared/FailureNote.tsx';
 import { draftComplete, EMPTY_DRAFT, RecordForm, type Draft } from './RecordForm.tsx';
-import { useRole } from './role.ts';
-import { uploadPhoto, uploadRecord } from './uploads.ts';
+import { useRole } from '../shared/role.ts';
+import { uploadPhoto, uploadRecord } from '../shared/uploads.ts';
 
 type Step = { kind: 'form' } | { kind: 'photos'; done: number; of: number } | { kind: 'record' } | { kind: 'chain' }
   | { kind: 'failed'; text: string; raw: string };

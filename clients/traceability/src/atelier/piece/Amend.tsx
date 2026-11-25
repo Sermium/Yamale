@@ -7,16 +7,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { amendJewel, readJewel, t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { recordUri } from '../config.ts';
-import { AppBar, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
-import { encodeRecord, useRecord } from '../verify/record.ts';
-import { FailureNote } from './FailureNote.tsx';
-import { draftComplete, RecordForm, type Draft } from './RecordForm.tsx';
-import { useRole } from './role.ts';
-import { uploadPhoto, uploadRecord } from './uploads.ts';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { recordUri } from '../../config.ts';
+import { AppBar, isId, Loading, NotFound, Problem, Section, useLoad } from '../../ui.tsx';
+import { encodeRecord, useRecord } from '../../verify/record.ts';
+import { FailureNote } from '../shared/FailureNote.tsx';
+import { draftComplete, RecordForm, type Draft } from '../register/RecordForm.tsx';
+import { useRole } from '../shared/role.ts';
+import { uploadPhoto, uploadRecord } from '../shared/uploads.ts';
 
 const MAX_NOTE = 500;
 const MAX_AMENDMENTS = 50;

@@ -6,7 +6,7 @@ import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { AppBar, day, Loading, Problem, Section, useLoad } from '../ui.tsx';
-import { useRole } from '../atelier/role.ts';
+import { useRole } from '../atelier/shared/role.ts';
 import { JewelCard } from '../verify/JewelCard.tsx';
 import { HeldRow, loadHoldings } from './HeldList.tsx';
 

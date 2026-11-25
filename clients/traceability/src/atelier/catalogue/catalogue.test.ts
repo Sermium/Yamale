@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { Design } from '../api.ts';
+import type { Design } from '../../api.ts';
 import { canConfirmDesign, confirmAll, filterDesigns, importErrorKey, missingForConfirm, readyToConfirm, shopOrigin } from './catalogue.ts';
 import type { CatalogueDesign } from './pieces.ts';
 

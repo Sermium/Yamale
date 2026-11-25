@@ -4,9 +4,9 @@
  * applies, in the order the spec fixes (plus "tooLong", second).
  */
 
-import { normaliseInscription } from '../../../sdk/src/jewel.ts';
-import type { JewelRecordV2, Stone } from '../verify/record.ts';
-import { encodeRecord, parseRecord } from '../verify/record.ts';
+import { normaliseInscription } from '../../../../sdk/src/jewel.ts';
+import type { JewelRecordV2, Stone } from '../../verify/record.ts';
+import { encodeRecord, parseRecord } from '../../verify/record.ts';
 import { toCsv, type Csv } from './csv.ts';
 
 export interface PieceRow { index: number; cells: string[]; serial: string; sku: string; weight: string; labCertificate: string; notes: string }

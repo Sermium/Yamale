@@ -2,20 +2,20 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { chainHead, readJewel, t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { OfferPanel } from '../owner/OfferPanel.tsx';
-import { offerIsOpen } from '../owner/offers.ts';
-import { PrintCards } from '../card/PrintCards.tsx';
-import { forgetKeptCard, keptCard } from '../card/cards.ts';
-import { KeptCard } from '../card/KeptCards.tsx';
-import { ClaimDecision } from './Claims.tsx';
-import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
-import { Hallmark, RecordFacts } from '../verify/JewelPage.tsx';
-import { Gallery } from '../verify/Photos.tsx';
-import { useRecord } from '../verify/record.ts';
-import { AttachBenefit, JewelBenefits } from './Benefits.tsx';
-import { useRole } from './role.ts';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { OfferPanel } from '../../owner/OfferPanel.tsx';
+import { offerIsOpen } from '../../owner/offers.ts';
+import { PrintCards } from '../../card/PrintCards.tsx';
+import { forgetKeptCard, keptCard } from '../../card/cards.ts';
+import { KeptCard } from '../../card/KeptCards.tsx';
+import { ClaimDecision } from '../claims/Claims.tsx';
+import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../../ui.tsx';
+import { Hallmark, RecordFacts } from '../../verify/JewelPage.tsx';
+import { Gallery } from '../../verify/Photos.tsx';
+import { useRecord } from '../../verify/record.ts';
+import { AttachBenefit, JewelBenefits } from '../benefits/Benefits.tsx';
+import { useRole } from '../shared/role.ts';
 
 const NO_SUCH = { ok: false as const, reason: 'not-found' as const, detail: '' };
 

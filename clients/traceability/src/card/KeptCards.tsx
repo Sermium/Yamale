@@ -16,7 +16,7 @@ import { loadHoldings } from '../owner/HeldList.tsx';
 import { AppBar, Loading, Problem, ShareButtons, useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { stockPieces } from '../atelier/Atelier.tsx';
-import { useRole } from '../atelier/role.ts';
+import { useRole } from '../atelier/shared/role.ts';
 import { forgetKeptCard, keptCard, type Selection } from './cards.ts';
 import { CardSheet, OwnershipCard, PrintCards } from './PrintCards.tsx';
 

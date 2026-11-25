@@ -1,9 +1,9 @@
 import { t } from '@yamale/chain';
 
-import type { Stone } from '../verify/record.ts';
-import { countFromInput, MAX_STONES, type Draft } from './draft.ts';
+import type { Stone } from '../../verify/record.ts';
+import { countFromInput, MAX_STONES, type Draft } from '../catalogue/draft.ts';
 
-export { draftComplete, EMPTY_DRAFT, type Draft } from './draft.ts';
+export { draftComplete, EMPTY_DRAFT, type Draft } from '../catalogue/draft.ts';
 
 export function Field({ id, label, value, onChange, max, inputMode }: {
   id: string; label: string; value: string; onChange: (v: string) => void; max: number;

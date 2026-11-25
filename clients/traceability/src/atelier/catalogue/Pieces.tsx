@@ -8,19 +8,19 @@
 import { Fragment, useState } from 'react';
 import { findByInscription, registerJewel, t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { eventValues } from '../actions/useAction.tsx';
-import { errorKey } from '../actions/errors.ts';
-import { readCatalogue, uploadFile } from '../api.ts';
-import { CHAIN_ID, recordUri } from '../config.ts';
-import { AppBar, Loading, Section } from '../ui.tsx';
-import { encodeRecord } from '../verify/record.ts';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { eventValues } from '../../actions/useAction.tsx';
+import { errorKey } from '../../actions/errors.ts';
+import { readCatalogue, uploadFile } from '../../api.ts';
+import { CHAIN_ID, recordUri } from '../../config.ts';
+import { AppBar, Loading, Section } from '../../ui.tsx';
+import { encodeRecord } from '../../verify/record.ts';
 import { parseCsv, type Csv } from './csv.ts';
-import { FailureNote } from './FailureNote.tsx';
+import { FailureNote } from '../shared/FailureNote.tsx';
 import { findRegistered, judgePieces, pieceRecord, readPieces, VERDICTS, withColumns, type Judged } from './pieces.ts';
-import { paced, registerPieces, type PieceOutcome } from './register.ts';
-import { useRole } from './role.ts';
+import { paced, registerPieces, type PieceOutcome } from '../register/register.ts';
+import { useRole } from '../shared/role.ts';
 
 type Phase =
   | { kind: 'pick' }

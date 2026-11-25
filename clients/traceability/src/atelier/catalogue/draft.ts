@@ -5,7 +5,7 @@
  * chain that every viewer would then see as unreadable.
  */
 
-import { encodeRecord, parseRecord, type JewelRecord, type Stone } from '../verify/record.ts';
+import { encodeRecord, parseRecord, type JewelRecord, type Stone } from '../../verify/record.ts';
 
 export type Draft = Pick<JewelRecord, 'title' | 'metal' | 'weightGrams' | 'stones' | 'origin'>;
 

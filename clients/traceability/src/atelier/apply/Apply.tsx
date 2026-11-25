@@ -7,13 +7,13 @@
 import { useState, type FormEvent } from 'react';
 import { t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { submitApplication } from '../api.ts';
-import { CHAIN_ID } from '../config.ts';
-import { AppBar } from '../ui.tsx';
-import { applicationProblem } from './rules.ts';
-import { FailureNote } from './FailureNote.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { submitApplication } from '../../api.ts';
+import { CHAIN_ID } from '../../config.ts';
+import { AppBar } from '../../ui.tsx';
+import { applicationProblem } from '../shared/rules.ts';
+import { FailureNote } from '../shared/FailureNote.tsx';
 
 export function Apply() {
   const session = useSession();

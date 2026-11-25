@@ -9,13 +9,13 @@ import { fromBech32, toBech32 } from '@cosmjs/encoding';
 import { useState } from 'react';
 import { feeAllowanceExists, grantStaffFees, revokeFeeAllowance, setJewelStaff, t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { AccountCodeInput } from '../owner/OfferPanel.tsx';
-import { isAccountCode } from '../owner/links.ts';
-import { AppBar, Loading, Problem, Section } from '../ui.tsx';
-import { useRole } from './role.ts';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { ActionStatus, useAction } from '../../actions/useAction.tsx';
+import { AccountCodeInput } from '../../owner/OfferPanel.tsx';
+import { isAccountCode } from '../../owner/links.ts';
+import { AppBar, Loading, Problem, Section } from '../../ui.tsx';
+import { useRole } from '../shared/role.ts';
 import { ProposeBusinessMove, STAFF_BUDGET } from './BusinessMove.tsx';
 
 /** The one spelling of an account code: lowercase bech32, so two spellings of one account compare equal. */

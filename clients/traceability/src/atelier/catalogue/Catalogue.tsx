@@ -8,16 +8,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
-import { UnlockGate } from '../account/Account.tsx';
-import { useSession } from '../account/session.tsx';
-import { confirmDesign, fetchDesignImage, readCatalogue, startImport, type Catalogue as CatalogueData, type Design } from '../api.ts';
-import { CHAIN_ID } from '../config.ts';
-import { AppBar, Loading, Section } from '../ui.tsx';
+import { UnlockGate } from '../../account/Account.tsx';
+import { useSession } from '../../account/session.tsx';
+import { confirmDesign, fetchDesignImage, readCatalogue, startImport, type Catalogue as CatalogueData, type Design } from '../../api.ts';
+import { CHAIN_ID } from '../../config.ts';
+import { AppBar, Loading, Section } from '../../ui.tsx';
 import { confirmAll, filterDesigns, importErrorKey, missingForConfirm, readyToConfirm, shopOrigin, type BulkResult, type Filter } from './catalogue.ts';
-import { FailureNote } from './FailureNote.tsx';
-import { paced } from './register.ts';
-import { useRole } from './role.ts';
-import { uploadPhoto } from './uploads.ts';
+import { FailureNote } from '../shared/FailureNote.tsx';
+import { paced } from '../register/register.ts';
+import { useRole } from '../shared/role.ts';
+import { uploadPhoto } from '../shared/uploads.ts';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** The gate's 429 and the API's 503 say "later", not "no". */

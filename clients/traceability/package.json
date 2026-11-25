@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/*/*.test.ts"
+    "test": "node --experimental-strip-types --test src/*/*.test.ts src/*/*/*.test.ts"
   },
   "dependencies": {
     "@cosmjs/crypto": "^0.32.4",
