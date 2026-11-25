@@ -103,3 +103,30 @@ func TestClaimKeyHasDocumentedSizes(t *testing.T) {
 		t.Fatal("claim key is not 32-byte private and 33-byte compressed public")
 	}
 }
+
+func TestFileClaimVerifiesOnlyForItsClaimerAndCard(t *testing.T) {
+	card := secp256k1.GenPrivKey()
+	cardKey := hex.EncodeToString(card.PubKey().Bytes())
+	claimer := sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address()).String()
+	other := sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address()).String()
+
+	m := fileClaim(hex.EncodeToString(card.Key), testChain, "7", claimer)
+	pub, sig := unb64(t, m, "card_pub_key"), unb64(t, m, "card_signature")
+	if hex.EncodeToString(pub) != cardKey {
+		t.Fatal("the claim names another card")
+	}
+	if _, ok := types.VerifySecp256k1(pub, types.CardClaimSignBytes(testChain, 7, cardKey, claimer), sig); !ok {
+		t.Fatal("claim does not verify for its claimer")
+	}
+	if _, ok := types.VerifySecp256k1(pub, types.CardClaimSignBytes(testChain, 7, cardKey, other), sig); ok {
+		t.Fatal("claim verifies for a different claimer")
+	}
+	if _, ok := types.VerifySecp256k1(pub, types.CardClaimSignBytes(testChain, 8, cardKey, claimer), sig); ok {
+		t.Fatal("claim verifies for a different jewel")
+	}
+
+	msg, ok := decodeMsg(t, m).(*types.MsgFileClaim)
+	if !ok || msg.Claimer != claimer || msg.JewelId != 7 || !bytes.Equal(msg.CardPubKey, pub) || !bytes.Equal(msg.CardSignature, sig) {
+		t.Fatalf("decoded claim does not match what was signed: %+v", msg)
+	}
+}
