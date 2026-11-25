@@ -76,6 +76,7 @@ test('selections pick pieces without a card, one design, or one piece', () => {
   assert.deepEqual(selectPieces(stock, { kind: 'design', design: 'ring' }).map((p) => p.jewelId), ['1', '2']);
   assert.deepEqual(selectPieces(stock, { kind: 'one', jewelId: '3' }).map((p) => p.jewelId), ['3']);
   assert.equal(cancels(selectPieces(stock, { kind: 'design', design: 'ring' })), 1);
+  assert.deepEqual(selectPieces(stock, { kind: 'some', jewelIds: ['3', '1'] }).map((p) => p.jewelId), ['1', '3']);
 });
 
 test('cards fill A4 pages of eight', () => {

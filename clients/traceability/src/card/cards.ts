@@ -141,7 +141,7 @@ function local(): Storage | null {
 
 export interface StockPiece extends CardPiece { hasCard: boolean; design: string }
 
-export type Selection = { kind: 'without' } | { kind: 'design'; design: string } | { kind: 'one'; jewelId: string };
+export type Selection = { kind: 'without' } | { kind: 'design'; design: string } | { kind: 'one'; jewelId: string } | { kind: 'some'; jewelIds: string[] };
 
 /** The pieces a selection prints, in the order the stock lists them. */
 export function selectPieces(stock: StockPiece[], sel: Selection): StockPiece[] {
@@ -149,6 +149,7 @@ export function selectPieces(stock: StockPiece[], sel: Selection): StockPiece[] 
     case 'without': return stock.filter((p) => !p.hasCard);
     case 'design': return stock.filter((p) => p.design === sel.design);
     case 'one': return stock.filter((p) => p.jewelId === sel.jewelId);
+    case 'some': return stock.filter((p) => sel.jewelIds.includes(p.jewelId));
   }
 }
 

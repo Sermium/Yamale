@@ -69,6 +69,8 @@ export function PrintCards({ shop, stock, initial, onClose }: {
           <legend className="y-label">{t('traceability.cardsWhich')}</legend>
           {initial?.kind === 'one' ? (
             <p>{t('traceability.cardsOne')}</p>
+          ) : initial?.kind === 'some' ? (
+            <p>{chosen.map((p) => p.inscription).join(', ')}</p>
           ) : (<>
             <label className="tick">
               <input type="radio" name="cards" checked={sel.kind === 'without'} onChange={() => setSel({ kind: 'without' })} />
