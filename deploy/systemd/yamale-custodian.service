@@ -36,7 +36,13 @@ ExecStart=/opt/yamale/bin/yamale-custodian \
   --sealing-key-file ${CUSTODIAN_SEALING_KEY} \
   --pepper-file ${CUSTODIAN_PEPPER} \
   --listen ${CUSTODIAN_LISTEN} \
-  --notify-command ${CUSTODIAN_NOTIFY_COMMAND}
+  --notify-command ${CUSTODIAN_NOTIFY_COMMAND} \
+  $CUSTODIAN_EXTRA
+# CUSTODIAN_EXTRA carries the sign-in flags, which differ per host:
+#   both:          --signin-code-key-file /etc/yamale/<role>.signin-key
+#   custodian only: --smtp-config /etc/yamale/custodian-smtp.conf
+# Unbraced on purpose: systemd splits $VAR into words and drops it when empty,
+# where ${VAR} would pass one argument, empty or not.
 
 Restart=always
 RestartSec=10s
