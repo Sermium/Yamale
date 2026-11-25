@@ -6,7 +6,7 @@ errors, and its DefaultParams(). Run `make docs` to regenerate.
 
 # x/jewel
 
-A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window.
+A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance or by a claim filed with its ownership card and approved by the shop, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window.
 
 ## Transactions
 
@@ -58,6 +58,21 @@ AmendJewel appends a correction to a jewel's record.
 | `record_hash` | string | record_hash is the SHA-256, in lower-case hex, of the corrected record file. |
 | `record_uri` | string | record_uri is where the corrected record file can be fetched; at most 512 characters. |
 | `note` | string | note says what was corrected; required, at most 500 bytes. |
+
+### MsgApproveClaim
+
+`/blockchain.jewel.v1.MsgApproveClaim`
+
+Signed by the `staff` field.
+
+MsgApproveClaim is the message that carries out ApproveClaim. The jewel moves to the claimer, and its card and claim are spent.
+
+The shop's staff only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `staff` | string | staff is the jeweler's business account or a member of its staff, the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel whose pending claim to approve. |
 
 ### MsgAttachBenefit
 
@@ -139,6 +154,37 @@ CompleteReassignment moves the jewel once the window has passed. Anyone.
 | --- | --- | --- |
 | `creator` | string | creator is any account, the signer; it pays the fee. |
 | `jewel_id` | uint64 | jewel_id is the jewel whose reassignment to complete. |
+
+### MsgFileClaim
+
+`/blockchain.jewel.v1.MsgFileClaim`
+
+Signed by the `claimer` field.
+
+MsgFileClaim is the message that carries out FileClaim. It records a pending claim for the shop's staff to approve or reject; nothing moves yet.
+
+FileClaim records a buyer's claim, signed with the card's secret.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `claimer` | string | claimer is the account the jewel goes to once the shop approves, the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel to claim. |
+| `card_pub_key` | bytes | card_pub_key is the compressed secp256k1 public key of the card, 33 bytes; it must be the jewel's current card. |
+| `card_signature` | bytes | card_signature signs CardClaimSignBytes(chain id, jewel id, card key, claimer): "yamale-jewel-card/v1:<chain>:<jewel>:<card key hex>:<claimer>". |
+
+### MsgIssueCard
+
+`/blockchain.jewel.v1.MsgIssueCard`
+
+Signed by the `staff` field.
+
+MsgIssueCard is the message that carries out IssueCard. It sets the jewel's ownership card, replacing any earlier one, and drops a pending claim that was signed with the earlier card. Refused unless the jewel is stock of an active jeweler and not reported stolen.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `staff` | string | staff is the jeweler's business account or a member of its staff, the signer. |
+| `jewel_id` | uint64 | jewel_id is the stock jewel the card is for. |
+| `card_key` | string | card_key is the card's compressed secp256k1 public key in hex, 66 characters. Upper-case hex is accepted and stored in lower case. The secret it belongs to is printed on the card and nowhere else. |
 
 ### MsgOfferJewel
 
@@ -223,6 +269,21 @@ ReinstateJeweler lets a suspended jeweler act again. Office only.
 | `office` | string | office is the register's office, the signer. |
 | `jeweler_id` | uint64 | jeweler_id is the jeweler to reinstate. |
 
+### MsgRejectClaim
+
+`/blockchain.jewel.v1.MsgRejectClaim`
+
+Signed by the `staff` field.
+
+MsgRejectClaim is the message that carries out RejectClaim. The card stays valid, so the real buyer can file with it afterwards.
+
+The shop's staff only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `staff` | string | staff is the jeweler's business account or a member of its staff, the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel whose pending claim to remove. |
+
 ### MsgReportStolen
 
 `/blockchain.jewel.v1.MsgReportStolen`
@@ -231,7 +292,7 @@ Signed by the `owner` field.
 
 MsgReportStolen is the message that carries out ReportStolen.
 
-ReportStolen flags a jewel and closes its offer.
+ReportStolen flags a jewel and closes its offer and any pending claim.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -301,13 +362,48 @@ VetoReassignment closes it. The current owner only.
 | `owner` | string | owner is the jewel's current owner, the signer. |
 | `jewel_id` | uint64 | jewel_id is the jewel whose reassignment to refuse. |
 
+### MsgWithdrawClaim
+
+`/blockchain.jewel.v1.MsgWithdrawClaim`
+
+Signed by the `claimer` field.
+
+MsgWithdrawClaim is the message that carries out WithdrawClaim.
+
+WithdrawClaim removes the signer's own claim.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `claimer` | string | claimer is the account that filed the claim, the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel whose claim to withdraw. |
+
 ## Queries
+
+### ClaimsByJeweler
+
+`GET /yamale/blockchain/jewel/v1/jewelers/{jeweler_id}/claims`
+
+ClaimsByJeweler lists a jeweler's pending claims, each with its jewel, in jewel id order: what its staff have to approve or reject.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jeweler_id` | uint64 | jeweler_id is the jeweler whose pending claims to list. |
+| `pagination` | PageRequest | pagination pages through the claims in jewel id order. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `claims` | repeated ClaimEntry | claims are this page of pending claims. |
+| `pagination` | PageResponse | pagination is the key to the next page. |
 
 ### Jewel
 
 `GET /yamale/blockchain/jewel/v1/jewel/{id}`
 
-Jewel returns one jewel with its owner, open offer, pending reassignment and benefits.
+Jewel returns one jewel with its owner, open offer, pending reassignment, benefits, whether it has an ownership card, and any pending claim.
 
 Request:
 
@@ -324,6 +420,8 @@ Response:
 | `offer` | Offer | offer is set while an offer is open, expired or not. |
 | `reassignment` | Reassignment | reassignment is set while one is pending. |
 | `benefits` | repeated Benefit | benefits are the benefits attached to it. |
+| `has_card` | bool | has_card is set while the jewel has an ownership card. The card's key is not shown here: only the printed card needs it. |
+| `claim` | Claim | claim is set while a buyer's claim waits for the shop. |
 
 ### Jeweler
 
@@ -421,6 +519,35 @@ Benefit is a service a jeweler attaches to a jewel. It passes with the jewel to 
 | `expires_at` | int64 | expires_at is when the benefit ends, in unix seconds. Zero means it does not expire. |
 | `uses` | repeated int64 | uses are the block times, in unix seconds, of every use. |
 
+### Card
+
+Card is a jewel's ownership card: a printed QR code holding a secret, of which the chain keeps only the public key. A jewel has at most one card. It is issued while the jewel is stock, and any change of owner spends it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `key` | string | key is the lower-case hex compressed secp256k1 public key of the card's secret, the same form as Offer.claim_key. |
+| `issued_by` | string | issued_by is the account that issued it: the business account or a member of its staff. |
+| `issued_at` | int64 | issued_at is the block time it was issued, in unix seconds. |
+
+### Claim
+
+Claim is a buyer's pending claim on a stock jewel, filed with its card and waiting for the shop's staff to approve or reject it. A jewel has at most one pending claim.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `claimer` | string | claimer is the account the jewel goes to if the shop approves. |
+| `card_key` | string | card_key is the key of the card the claim was signed with. Issuing a new card drops a claim made with the old one. |
+| `filed_at` | int64 | filed_at is the block time the claim was filed, in unix seconds. |
+
+### ClaimEntry
+
+ClaimEntry is one pending claim with the jewel it is on.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel` | Jewel | jewel is the register's record of the claimed jewel. |
+| `claim` | Claim | claim is the pending claim. |
+
 ### EventBenefitAttached
 
 EventBenefitAttached is emitted when a jeweler attaches a benefit to a jewel.
@@ -440,6 +567,52 @@ EventBenefitRedeemed is emitted for each use of a benefit.
 | `benefit_id` | uint64 | benefit_id is the benefit used. |
 | `jewel_id` | uint64 | jewel_id is the jewel it belongs to. |
 | `staff` | string | staff is the staff member who recorded the use. |
+
+### EventCardIssued
+
+EventCardIssued is emitted when a stock jewel gets an ownership card. A pending claim made with an earlier card is dropped with it, without an event of its own.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel the card is for. |
+| `by` | string | by is the account that issued it: the business account or staff. |
+
+### EventClaimApproved
+
+EventClaimApproved is emitted when the shop approves a claim. The same transaction emits EventJewelTransferred with kind "card".
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel that moved. |
+| `claimer` | string | claimer is the account it moved to. |
+| `by` | string | by is the account that approved it: the business account or staff. |
+
+### EventClaimFiled
+
+EventClaimFiled is emitted when a buyer files a claim with the card.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel claimed. |
+| `claimer` | string | claimer is the account the jewel goes to if the shop approves. |
+
+### EventClaimRejected
+
+EventClaimRejected is emitted when the shop rejects a claim. The card stays valid.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel whose claim was rejected. |
+| `by` | string | by is the account that rejected it: the business account or staff. |
+
+### EventClaimWithdrawn
+
+EventClaimWithdrawn is emitted when a claimer withdraws their own claim.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel whose claim was withdrawn. |
+| `claimer` | string | claimer is the account that withdrew it. |
 
 ### EventJewelAmended
 
@@ -469,7 +642,7 @@ EventJewelTransferred is emitted on every change of owner. Counting them is the 
 | `jewel_id` | uint64 | jewel_id is the jewel that changed owner. |
 | `from` | string | from is the previous owner. |
 | `to` | string | to is the new owner. |
-| `kind` | string | kind is how it moved: "accept" (an offer to an account), "claim" (an offer to a claim key) or "reassign" (the office's reassignment after its veto window). |
+| `kind` | string | kind is how it moved: "accept" (an offer to an account), "claim" (an offer to a claim key), "card" (a claim filed with the ownership card and approved by the shop) or "reassign" (the office's reassignment after its veto window). |
 
 ### EventJewelerAdmitted
 
@@ -564,6 +737,24 @@ EventStolenReported is emitted when a jewel is reported stolen.
 | --- | --- | --- |
 | `jewel_id` | uint64 | jewel_id is the jewel reported. |
 | `by` | string | by is the account that reported it: the owner, or staff while it is stock. |
+
+### GenesisCard
+
+GenesisCard is one jewel's ownership card.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel the card is for. |
+| `card` | Card | card is the card. |
+
+### GenesisClaim
+
+GenesisClaim is one jewel's pending claim.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel claimed. |
+| `claim` | Claim | claim is the claim. |
 
 ### Jewel
 
@@ -693,7 +884,16 @@ Every way a transaction to this module can be rejected.
 | 4 | `ErrInvalidAddress` | that is not a valid account |
 | 40 | `ErrNoteTooLong` | an amendment's note is at most 500 bytes; put the detail in the record file |
 | 41 | `ErrTooManyAmendments` | this jewel has 50 amendments, the most it may carry; put further corrections in the record file of the last one |
+| 42 | `ErrNoCard` | this jewel has no ownership card; ask the shop to print one |
+| 43 | `ErrBadCardKey` | the card key must be a compressed secp256k1 public key in hex |
+| 44 | `ErrCardNotLive` | this is not the jewel's current ownership card; the shop may have printed a newer one |
+| 45 | `ErrBadCardClaim` | the card's signature does not match this claim |
+| 46 | `ErrNotStock` | this jewel is no longer in the shop's stock |
+| 47 | `ErrClaimPending` | a claim on this jewel is already waiting for the shop |
+| 48 | `ErrNoClaim` | no claim on this jewel is waiting for the shop |
+| 49 | `ErrNotClaimer` | this claim was filed by someone else |
 | 5 | `ErrNoName` | a name is required |
+| 50 | `ErrShopSelfClaim` | the shop's own business account cannot claim its stock |
 | 6 | `ErrBusinessTaken` | this business account already belongs to a jeweler |
 | 7 | `ErrNoJeweler` | no such jeweler |
 | 8 | `ErrJewelerSuspended` | this jeweler is suspended and can no longer act |

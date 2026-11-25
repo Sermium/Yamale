@@ -56,7 +56,7 @@ var moduleBlurb = map[string]string{
 	"amm":          "A constant-product automated market maker: permissionless liquidity pools, and swaps priced by the pool's own reserves.",
 	"builderfee":   "Shares a governance-set portion of transaction fees with the developer whose message type was used.",
 	"emission":     "Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply.",
-	"jewel":        "A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window.",
+	"jewel":        "A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance or by a claim filed with its ownership card and approved by the shop, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window.",
 	"market":       "The secondary market in tokenised shares: fixed-price listings, auctions for shares with no price to point at, and an order book where there are enough holders for one — every fill recording what it cost.",
 	"netting":      "The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross.",
 	"paymsg":       "ISO 20022-shaped credit transfers between institutions that governance has approved, each leaving a queryable statement entry.",

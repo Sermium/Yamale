@@ -21,7 +21,7 @@ For explanations and walkthroughs, start with the [guides](../guides/).
 | [x/emission](emission.md) | Replaces the standard mint module with a fixed, decaying issuance schedule that converges on a capped supply. | 1 | 2 |
 | [x/enforcement](enforcement.md) |  | 9 | 10 |
 | [x/herd](herd.md) |  | 17 | 13 |
-| [x/jewel](jewel.md) | A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window. | 18 | 5 |
+| [x/jewel](jewel.md) | A register of jewels under admitted jewelers: each piece an x/nft token that changes owner only by offer and acceptance or by a claim filed with its ownership card and approved by the shop, with owner-consented benefits, a stolen flag, and the office's reassignment of a lost key behind a 30-day public veto window. | 23 | 6 |
 | [x/land](land.md) |  | 13 | 10 |
 | [x/market](market.md) | The secondary market in tokenised shares: fixed-price listings, auctions for shares with no price to point at, and an order book where there are enough holders for one — every fill recording what it cost. | 10 | 7 |
 | [x/netting](netting.md) | The tiered settlement layer: participants settle retail activity on their own books and submit only what they owe each other, netted multilaterally against prefunded reserves, with high-value items settling gross. | 5 | 6 |
