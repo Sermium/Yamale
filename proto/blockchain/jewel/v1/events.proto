@@ -1,7 +1,9 @@
 syntax = "proto3";
 package blockchain.jewel.v1;
 
+import "cosmos/base/v1beta1/coin.proto";
 import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "yamale/blockchain/x/jewel/types";
 
@@ -227,4 +229,37 @@ message EventBusinessMoved {
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // jewels is how many stock jewels moved with it.
   uint64 jewels = 4;
+}
+
+// EventJewelListed is emitted when a jewel is put up for sale, or its price changes.
+message EventJewelListed {
+  // jewel_id is the jewel listed.
+  uint64 jewel_id = 1;
+  // seller is its owner.
+  string seller = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // price is the asking price.
+  cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
+}
+
+// EventJewelUnlisted is emitted when its owner takes a jewel off the
+// marketplace. A listing ended by a change of owner or a theft report emits
+// no event of its own; the transfer or the report says it.
+message EventJewelUnlisted {
+  // jewel_id is the jewel withdrawn.
+  uint64 jewel_id = 1;
+}
+
+// EventJewelSold is emitted when a buyer pays for a listed jewel. The same
+// transaction emits EventJewelTransferred with kind "sale".
+message EventJewelSold {
+  // jewel_id is the jewel sold.
+  uint64 jewel_id = 1;
+  // seller received the price less the fee.
+  string seller = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // buyer paid and now owns it.
+  string buyer = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // price is what the buyer paid.
+  cosmos.base.v1beta1.Coin price = 4 [(gogoproto.nullable) = false];
+  // fee is the part of the price kept as the marketplace fee.
+  cosmos.base.v1beta1.Coin fee = 5 [(gogoproto.nullable) = false];
 }

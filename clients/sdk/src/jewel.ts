@@ -282,6 +282,7 @@ export const JEWEL_GAS = 1_650_000;
 export const STAFF_MESSAGES: readonly string[] = [
   'MsgRegisterJewel', 'MsgAmendJewel', 'MsgOfferJewel', 'MsgCancelOffer',
   'MsgAttachBenefit', 'MsgRedeemBenefit', 'MsgIssueCard', 'MsgApproveClaim', 'MsgRejectClaim',
+  'MsgListJewel', 'MsgUnlistJewel',
 ].map((m) => T + m);
 
 const msg = (name: string, value: Record<string, unknown>): EncodeObject => ({ typeUrl: T + name, value });
@@ -334,6 +335,21 @@ export const proposeBusinessMove = (business: string, jewelerId: string, newBusi
 /** The named account accepts: it becomes the business account and receives the stock. */
 export const acceptBusinessMove = (newBusiness: string, jewelerId: string) =>
   msg('MsgAcceptBusinessMove', { newBusiness, jewelerId });
+
+/** A price on the marketplace, in base units of one currency. */
+export interface Price { denom: string; amount: string }
+/** Puts a jewel up for sale, or changes its price. The owner, or staff for stock. */
+export const listJewel = (owner: string, jewelId: string, price: Price) => msg('MsgListJewel', { owner, jewelId, price });
+/** Takes a jewel off the marketplace. */
+export const unlistJewel = (owner: string, jewelId: string) => msg('MsgUnlistJewel', { owner, jewelId });
+/** Pays the listed price and takes the jewel; price is the one the buyer saw. */
+export const buyJewel = (buyer: string, jewelId: string, price: Price) => msg('MsgBuyJewel', { buyer, jewelId, price });
+
+/** What the seller receives of a price, the fee kept, both in base units: the chain's own arithmetic, fee rounded down. */
+export function saleSplit(amount: string, feeBps: number): { seller: string; fee: string } {
+  const fee = (BigInt(amount) * BigInt(feeBps)) / 10_000n;
+  return { seller: (BigInt(amount) - fee).toString(), fee: fee.toString() };
+}
 
 /** Files a claim with the card's secret, which signs the claimer's address and never leaves this device. */
 export function fileJewelClaim(claimer: string, jewelId: string, cardPrivateKey: Uint8Array, chainId: string): EncodeObject {

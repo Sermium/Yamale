@@ -75,6 +75,13 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 				{RpcMethod: "AcceptBusinessMove", Use: "accept-business-move [jeweler-id]",
 					Short: "The named account becomes the shop's business account and receives its stock",
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jeweler_id"}}},
+				{RpcMethod: "ListJewel", Use: "list [jewel-id] [price]", Short: "Puts a jewel up for sale on the marketplace, or changes its price (e.g. 1200000000uusd)",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}, {ProtoField: "price"}}},
+				{RpcMethod: "UnlistJewel", Use: "unlist [jewel-id]", Short: "Takes a jewel off the marketplace",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}}},
+				{RpcMethod: "BuyJewel", Use: "buy [jewel-id] [price]", Short: "Pays the listed price and takes the jewel; price must be the listing's",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "jewel_id"}, {ProtoField: "price"}}},
+				{RpcMethod: "WithdrawSaleFees", Skip: true}, // governance only
 			},
 		},
 	}

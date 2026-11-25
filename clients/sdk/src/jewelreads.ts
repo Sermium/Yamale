@@ -8,15 +8,16 @@
  */
 
 import { abciQuery, decoded, txSearch, type Outcome } from './abci.ts';
-import { JewelerStatus, type Benefit, type Claim, type Jewel, type Jeweler, type Offer, type Reassignment } from './generated/blockchain/jewel/v1/jewel.ts';
+import { JewelerStatus, type Benefit, type Claim, type Jewel, type Jeweler, type Listing, type Offer, type Reassignment } from './generated/blockchain/jewel/v1/jewel.ts';
 import type { Params } from './generated/blockchain/jewel/v1/params.ts';
 import {
   QueryClaimsByJewelerRequest, QueryClaimsByJewelerResponse,
   QueryJewelRequest, QueryJewelResponse, QueryJewelerRequest, QueryJewelerResponse,
   QueryJewelersRequest, QueryJewelersResponse, QueryJewelsByInscriptionRequest,
-  QueryJewelsByInscriptionResponse, QueryParamsRequest, QueryParamsResponse,
+  QueryJewelsByInscriptionResponse, QueryListingsRequest, QueryListingsResponse, QueryParamsRequest, QueryParamsResponse,
 } from './generated/blockchain/jewel/v1/query.ts';
 import { QueryNFTsRequest, QueryNFTsResponse } from './generated/cosmos/nft/v1beta1/query.ts';
+import { QueryBalanceRequest, QueryBalanceResponse } from './generated/cosmos/bank/v1beta1/query.ts';
 import { QueryAllowanceRequest, QueryAllowanceResponse } from './generated/cosmos/feegrant/v1beta1/query.ts';
 
 const SVC = '/blockchain.jewel.v1.Query';
@@ -31,6 +32,8 @@ export interface JewelView {
   hasCard: boolean;
   /** The pending claim on its card, if any. */
   claim?: Claim;
+  /** Its marketplace listing, while it is for sale. */
+  listing?: Listing;
 }
 
 export async function readJewel(id: string): Promise<Outcome<JewelView>> {
@@ -44,7 +47,7 @@ export async function readJewel(id: string): Promise<Outcome<JewelView>> {
     ok: true, height: out.height,
     value: {
       jewel: r.jewel, owner: r.owner, offer: r.offer, reassignment: r.reassignment, benefits: r.benefits,
-      hasCard: r.hasCard, claim: r.claim,
+      hasCard: r.hasCard, claim: r.claim, listing: r.listing,
     },
   };
 }
@@ -164,6 +167,34 @@ export async function claimsByJeweler(jewelerId: string): Promise<Outcome<{ jewe
     key = next as Uint8Array<ArrayBuffer>;
   }
   return { ok: true, height, value: all };
+}
+
+/** Every jewel for sale on the marketplace, with its listing, in jewel id order. */
+export async function readListings(): Promise<Outcome<{ jewel: Jewel; listing: Listing }[]>> {
+  const all: { jewel: Jewel; listing: Listing }[] = [];
+  let key: Uint8Array<ArrayBuffer> = new Uint8Array(0);
+  let height = 0;
+  for (let page = 0; page < 50; page++) {
+    const req = QueryListingsRequest.fromPartial({ pagination: { key, limit: '100' } });
+    const out = decoded(await abciQuery(`${SVC}/Listings`, QueryListingsRequest.encode(req).finish()),
+      (b) => QueryListingsResponse.decode(b));
+    if (!out.ok) return out;
+    height = out.height;
+    for (const l of out.value.listings) if (l.jewel && l.listing) all.push({ jewel: l.jewel, listing: l.listing });
+    const next = out.value.pagination?.nextKey;
+    if (!next || next.length === 0) break;
+    key = next as Uint8Array<ArrayBuffer>;
+  }
+  return { ok: true, height, value: all };
+}
+
+/** One account's balance of one currency, in base units. */
+export async function bankBalance(address: string, denom: string): Promise<Outcome<string>> {
+  const out = decoded(
+    await abciQuery('/cosmos.bank.v1beta1.Query/Balance', QueryBalanceRequest.encode(QueryBalanceRequest.fromPartial({ address, denom })).finish()),
+    (b) => QueryBalanceResponse.decode(b));
+  if (!out.ok) return out;
+  return { ok: true, height: out.height, value: out.value.balance?.amount ?? '0' };
 }
 
 export function claimSearchQuery(address: string): string {

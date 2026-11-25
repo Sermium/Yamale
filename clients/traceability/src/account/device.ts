@@ -42,7 +42,7 @@ export interface StoredAccount {
 }
 
 /** The sponsor's current message list version (traceabilityapi ownerList). */
-export const SPONSOR_LIST = 2;
+export const SPONSOR_LIST = 3;
 
 export const MIN_PASSWORD = 10;
 export const ACCOUNT_EXISTS = 'this device already holds an account; forget it first';

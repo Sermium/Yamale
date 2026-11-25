@@ -118,7 +118,7 @@ func TestTheOfficeMustBeAGroupAccount(t *testing.T) {
 	_, policy := f.env.Addr(t)
 	_, plainKey := f.env.Addr(t)
 	k := keeper.NewKeeper(f.env.StoreService, f.env.Codec, f.env.AddressCodec, f.env.Authority,
-		fakeGroups{policies: map[string]bool{policy: true}}, f.nft, f.circuit)
+		fakeGroups{policies: map[string]bool{policy: true}}, f.nft, f.circuit, f.env.BankKeeper)
 	srv := keeper.NewMsgServerImpl(k)
 	gov, err := f.env.AddressCodec.BytesToString(f.env.Authority)
 	require.NoError(t, err)

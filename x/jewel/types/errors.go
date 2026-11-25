@@ -70,4 +70,10 @@ var (
 	ErrBusinessOwnsPieces = errors.Register(ModuleName, 54,
 		"this account already owns pieces from this shop; as its business account they would become stock")
 	ErrMoveToSelf = errors.Register(ModuleName, 55, "this is already the shop's business account")
+	ErrNotListed  = errors.Register(ModuleName, 56, "this jewel is not for sale")
+	ErrPriceMoved = errors.Register(ModuleName, 57,
+		"the price has changed since you looked; check the new price and buy again")
+	ErrDenomNotForSale = errors.Register(ModuleName, 58, "jewels cannot be sold in this currency on the marketplace")
+	ErrNoPrice         = errors.Register(ModuleName, 59, "a price must be more than zero")
+	ErrBuyOwn          = errors.Register(ModuleName, 60, "you already own this jewel")
 )

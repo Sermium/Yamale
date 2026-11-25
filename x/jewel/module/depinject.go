@@ -23,8 +23,9 @@ func init() {
 	appconfig.Register(&types.Module{}, appconfig.Provide(ProvideModule))
 }
 
-// ModuleInputs are what the register needs. No bank keeper: a jewel's sale
-// is paid off the chain, and the register records ownership, not payment.
+// ModuleInputs are what the register needs. The bank keeper is for the
+// marketplace alone: a listed jewel's price and fee. Every other change of
+// owner is paid, if at all, off the chain.
 type ModuleInputs struct {
 	depinject.In
 
@@ -35,6 +36,7 @@ type ModuleInputs struct {
 
 	GroupKeeper types.GroupKeeper
 	NFTKeeper   types.NFTKeeper
+	BankKeeper  types.BankKeeper
 	// The concrete keeper, because IsAllowed has a pointer receiver and
 	// depinject hands out the value.
 	CircuitKeeper circuitkeeper.Keeper
@@ -54,6 +56,6 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 	}
 	circuit := in.CircuitKeeper
 	k := keeper.NewKeeper(in.StoreService, in.Cdc, in.AddressCodec, authority,
-		in.GroupKeeper, in.NFTKeeper, &circuit)
+		in.GroupKeeper, in.NFTKeeper, &circuit, in.BankKeeper)
 	return ModuleOutputs{JewelKeeper: k, Module: NewAppModule(in.Cdc, k)}
 }

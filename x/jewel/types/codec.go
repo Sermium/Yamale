@@ -34,6 +34,10 @@ func RegisterInterfaces(registrar codectypes.InterfaceRegistry) {
 		&MsgWithdrawClaim{},
 		&MsgProposeBusinessMove{},
 		&MsgAcceptBusinessMove{},
+		&MsgListJewel{},
+		&MsgUnlistJewel{},
+		&MsgBuyJewel{},
+		&MsgWithdrawSaleFees{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registrar, &_Msg_serviceDesc)

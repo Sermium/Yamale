@@ -2175,6 +2175,63 @@
         ]
       }
     },
+    "/yamale/blockchain/jewel/v1/listings": {
+      "get": {
+        "operationId": "Query_Listings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/QueryListingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pagination.key",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "pagination.offset",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          },
+          {
+            "name": "pagination.count_total",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "pagination.reverse",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/yamale/blockchain/jewel/v1/params": {
       "get": {
         "operationId": "Query_Params",
@@ -6799,6 +6856,17 @@
         }
       }
     },
+    "ListingEntry": {
+      "type": "object",
+      "properties": {
+        "jewel": {
+          "$ref": "#/definitions/v1.Jewel"
+        },
+        "listing": {
+          "$ref": "#/definitions/Listing"
+        }
+      }
+    },
     "ListingState": {
       "type": "string",
       "enum": [
@@ -8229,6 +8297,9 @@
         },
         "claim": {
           "$ref": "#/definitions/Claim"
+        },
+        "listing": {
+          "$ref": "#/definitions/Listing"
         }
       }
     },

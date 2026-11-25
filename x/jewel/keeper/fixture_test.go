@@ -49,7 +49,7 @@ func setup(t *testing.T) *fixture {
 	// nil group keeper: admission is tested by writing the office into the
 	// params, which is what a successful appointment produces. The group
 	// check itself has its own test with a fake.
-	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority, nil, nk, circuit)
+	k := keeper.NewKeeper(env.StoreService, env.Codec, env.AddressCodec, env.Authority, nil, nk, circuit, env.BankKeeper)
 
 	_, office := env.Addr(t)
 	p := types.DefaultParams()

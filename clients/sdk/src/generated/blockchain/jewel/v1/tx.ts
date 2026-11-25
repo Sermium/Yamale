@@ -7,6 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 import { Voucher } from "./jewel.ts";
 import { Params } from "./params.ts";
 
@@ -420,6 +421,74 @@ export interface MsgAcceptBusinessMove {
 export interface MsgAcceptBusinessMoveResponse {
   /** jewels is how many stock jewels moved to the new business account. */
   jewels: string;
+}
+
+/**
+ * MsgListJewel is the message that carries out ListJewel. Listing again
+ * replaces the price. Refused for a stolen jewel, a jewel with a reassignment
+ * pending, a suspended jeweler's stock, a zero price, and a currency outside
+ * params.sale_denoms.
+ */
+export interface MsgListJewel {
+  /**
+   * owner is the jewel's owner, or a member of its jeweler's staff while the
+   * jewel is stock; the signer.
+   */
+  owner: string;
+  /** jewel_id is the jewel to sell. */
+  jewelId: string;
+  /** price is what a buyer pays. */
+  price: Coin | undefined;
+}
+
+/** MsgListJewelResponse is the result of MsgListJewel. */
+export interface MsgListJewelResponse {
+}
+
+/** MsgUnlistJewel is the message that carries out UnlistJewel. */
+export interface MsgUnlistJewel {
+  /** owner is the jewel's owner, or staff while it is stock; the signer. */
+  owner: string;
+  /** jewel_id is the jewel to take off the marketplace. */
+  jewelId: string;
+}
+
+/** MsgUnlistJewelResponse is the result of MsgUnlistJewel. */
+export interface MsgUnlistJewelResponse {
+}
+
+/**
+ * MsgBuyJewel is the message that carries out BuyJewel. The buyer pays the
+ * price: the seller receives it less the fee, and the fee goes to x/jewel's
+ * account. The jewel moves to the buyer in the same step, spending any card
+ * and claim. Refused unless price is exactly the listing's, so a price changed
+ * after the buyer looked cannot be charged.
+ */
+export interface MsgBuyJewel {
+  /** buyer pays and receives the jewel; the signer. */
+  buyer: string;
+  /** jewel_id is the listed jewel. */
+  jewelId: string;
+  /** price is the price the buyer saw; it must equal the listing's. */
+  price: Coin | undefined;
+}
+
+/** MsgBuyJewelResponse is the result of MsgBuyJewel. */
+export interface MsgBuyJewelResponse {
+}
+
+/** MsgWithdrawSaleFees is the message that carries out WithdrawSaleFees. */
+export interface MsgWithdrawSaleFees {
+  /** authority is governance, the signer. */
+  authority: string;
+  /** to is the account paid. */
+  to: string;
+  /** amount is what is paid out of the fees held. */
+  amount: Coin[];
+}
+
+/** MsgWithdrawSaleFeesResponse is the result of MsgWithdrawSaleFees. */
+export interface MsgWithdrawSaleFeesResponse {
 }
 
 function createBaseMsgUpdateParams(): MsgUpdateParams {
@@ -3810,6 +3879,519 @@ export const MsgAcceptBusinessMoveResponse = {
   },
 };
 
+function createBaseMsgListJewel(): MsgListJewel {
+  return { owner: "", jewelId: "0", price: undefined };
+}
+
+export const MsgListJewel = {
+  encode(message: MsgListJewel, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.owner !== "") {
+      writer.uint32(10).string(message.owner);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    if (message.price !== undefined) {
+      Coin.encode(message.price, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgListJewel {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgListJewel();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.owner = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.price = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgListJewel {
+    return {
+      owner: isSet(object.owner) ? globalThis.String(object.owner) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      price: isSet(object.price) ? Coin.fromJSON(object.price) : undefined,
+    };
+  },
+
+  toJSON(message: MsgListJewel): unknown {
+    const obj: any = {};
+    if (message.owner !== "") {
+      obj.owner = message.owner;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.price !== undefined) {
+      obj.price = Coin.toJSON(message.price);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgListJewel>): MsgListJewel {
+    return MsgListJewel.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgListJewel>): MsgListJewel {
+    const message = createBaseMsgListJewel();
+    message.owner = object.owner ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    message.price = (object.price !== undefined && object.price !== null) ? Coin.fromPartial(object.price) : undefined;
+    return message;
+  },
+};
+
+function createBaseMsgListJewelResponse(): MsgListJewelResponse {
+  return {};
+}
+
+export const MsgListJewelResponse = {
+  encode(_: MsgListJewelResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgListJewelResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgListJewelResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgListJewelResponse {
+    return {};
+  },
+
+  toJSON(_: MsgListJewelResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgListJewelResponse>): MsgListJewelResponse {
+    return MsgListJewelResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgListJewelResponse>): MsgListJewelResponse {
+    const message = createBaseMsgListJewelResponse();
+    return message;
+  },
+};
+
+function createBaseMsgUnlistJewel(): MsgUnlistJewel {
+  return { owner: "", jewelId: "0" };
+}
+
+export const MsgUnlistJewel = {
+  encode(message: MsgUnlistJewel, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.owner !== "") {
+      writer.uint32(10).string(message.owner);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgUnlistJewel {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgUnlistJewel();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.owner = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgUnlistJewel {
+    return {
+      owner: isSet(object.owner) ? globalThis.String(object.owner) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+    };
+  },
+
+  toJSON(message: MsgUnlistJewel): unknown {
+    const obj: any = {};
+    if (message.owner !== "") {
+      obj.owner = message.owner;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgUnlistJewel>): MsgUnlistJewel {
+    return MsgUnlistJewel.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgUnlistJewel>): MsgUnlistJewel {
+    const message = createBaseMsgUnlistJewel();
+    message.owner = object.owner ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    return message;
+  },
+};
+
+function createBaseMsgUnlistJewelResponse(): MsgUnlistJewelResponse {
+  return {};
+}
+
+export const MsgUnlistJewelResponse = {
+  encode(_: MsgUnlistJewelResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgUnlistJewelResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgUnlistJewelResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgUnlistJewelResponse {
+    return {};
+  },
+
+  toJSON(_: MsgUnlistJewelResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgUnlistJewelResponse>): MsgUnlistJewelResponse {
+    return MsgUnlistJewelResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgUnlistJewelResponse>): MsgUnlistJewelResponse {
+    const message = createBaseMsgUnlistJewelResponse();
+    return message;
+  },
+};
+
+function createBaseMsgBuyJewel(): MsgBuyJewel {
+  return { buyer: "", jewelId: "0", price: undefined };
+}
+
+export const MsgBuyJewel = {
+  encode(message: MsgBuyJewel, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.buyer !== "") {
+      writer.uint32(10).string(message.buyer);
+    }
+    if (message.jewelId !== "0") {
+      writer.uint32(16).uint64(message.jewelId);
+    }
+    if (message.price !== undefined) {
+      Coin.encode(message.price, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgBuyJewel {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgBuyJewel();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.buyer = reader.string();
+          continue;
+        case 2:
+          if (tag !== 16) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.price = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgBuyJewel {
+    return {
+      buyer: isSet(object.buyer) ? globalThis.String(object.buyer) : "",
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      price: isSet(object.price) ? Coin.fromJSON(object.price) : undefined,
+    };
+  },
+
+  toJSON(message: MsgBuyJewel): unknown {
+    const obj: any = {};
+    if (message.buyer !== "") {
+      obj.buyer = message.buyer;
+    }
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.price !== undefined) {
+      obj.price = Coin.toJSON(message.price);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgBuyJewel>): MsgBuyJewel {
+    return MsgBuyJewel.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgBuyJewel>): MsgBuyJewel {
+    const message = createBaseMsgBuyJewel();
+    message.buyer = object.buyer ?? "";
+    message.jewelId = object.jewelId ?? "0";
+    message.price = (object.price !== undefined && object.price !== null) ? Coin.fromPartial(object.price) : undefined;
+    return message;
+  },
+};
+
+function createBaseMsgBuyJewelResponse(): MsgBuyJewelResponse {
+  return {};
+}
+
+export const MsgBuyJewelResponse = {
+  encode(_: MsgBuyJewelResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgBuyJewelResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgBuyJewelResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgBuyJewelResponse {
+    return {};
+  },
+
+  toJSON(_: MsgBuyJewelResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgBuyJewelResponse>): MsgBuyJewelResponse {
+    return MsgBuyJewelResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgBuyJewelResponse>): MsgBuyJewelResponse {
+    const message = createBaseMsgBuyJewelResponse();
+    return message;
+  },
+};
+
+function createBaseMsgWithdrawSaleFees(): MsgWithdrawSaleFees {
+  return { authority: "", to: "", amount: [] };
+}
+
+export const MsgWithdrawSaleFees = {
+  encode(message: MsgWithdrawSaleFees, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.to !== "") {
+      writer.uint32(18).string(message.to);
+    }
+    for (const v of message.amount) {
+      Coin.encode(v!, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawSaleFees {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawSaleFees();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.authority = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.to = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount.push(Coin.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MsgWithdrawSaleFees {
+    return {
+      authority: isSet(object.authority) ? globalThis.String(object.authority) : "",
+      to: isSet(object.to) ? globalThis.String(object.to) : "",
+      amount: globalThis.Array.isArray(object?.amount) ? object.amount.map((e: any) => Coin.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: MsgWithdrawSaleFees): unknown {
+    const obj: any = {};
+    if (message.authority !== "") {
+      obj.authority = message.authority;
+    }
+    if (message.to !== "") {
+      obj.to = message.to;
+    }
+    if (message.amount?.length) {
+      obj.amount = message.amount.map((e) => Coin.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawSaleFees>): MsgWithdrawSaleFees {
+    return MsgWithdrawSaleFees.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<MsgWithdrawSaleFees>): MsgWithdrawSaleFees {
+    const message = createBaseMsgWithdrawSaleFees();
+    message.authority = object.authority ?? "";
+    message.to = object.to ?? "";
+    message.amount = object.amount?.map((e) => Coin.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseMsgWithdrawSaleFeesResponse(): MsgWithdrawSaleFeesResponse {
+  return {};
+}
+
+export const MsgWithdrawSaleFeesResponse = {
+  encode(_: MsgWithdrawSaleFeesResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): MsgWithdrawSaleFeesResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgWithdrawSaleFeesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): MsgWithdrawSaleFeesResponse {
+    return {};
+  },
+
+  toJSON(_: MsgWithdrawSaleFeesResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<MsgWithdrawSaleFeesResponse>): MsgWithdrawSaleFeesResponse {
+    return MsgWithdrawSaleFeesResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<MsgWithdrawSaleFeesResponse>): MsgWithdrawSaleFeesResponse {
+    const message = createBaseMsgWithdrawSaleFeesResponse();
+    return message;
+  },
+};
+
 /** Msg is the write side of the jewel register. */
 export interface Msg {
   /**
@@ -3871,6 +4453,14 @@ export interface Msg {
    * account and receives the stock. That account only.
    */
   AcceptBusinessMove(request: MsgAcceptBusinessMove): Promise<MsgAcceptBusinessMoveResponse>;
+  /** ListJewel puts a jewel up for sale on the marketplace, or changes its price. */
+  ListJewel(request: MsgListJewel): Promise<MsgListJewelResponse>;
+  /** UnlistJewel takes it off the marketplace. */
+  UnlistJewel(request: MsgUnlistJewel): Promise<MsgUnlistJewelResponse>;
+  /** BuyJewel pays the listed price and takes the jewel, in one step. */
+  BuyJewel(request: MsgBuyJewel): Promise<MsgBuyJewelResponse>;
+  /** WithdrawSaleFees pays marketplace fees out of x/jewel's account. Governance only. */
+  WithdrawSaleFees(request: MsgWithdrawSaleFees): Promise<MsgWithdrawSaleFeesResponse>;
 }
 
 export const MsgServiceName = "blockchain.jewel.v1.Msg";
@@ -3905,6 +4495,10 @@ export class MsgClientImpl implements Msg {
     this.WithdrawClaim = this.WithdrawClaim.bind(this);
     this.ProposeBusinessMove = this.ProposeBusinessMove.bind(this);
     this.AcceptBusinessMove = this.AcceptBusinessMove.bind(this);
+    this.ListJewel = this.ListJewel.bind(this);
+    this.UnlistJewel = this.UnlistJewel.bind(this);
+    this.BuyJewel = this.BuyJewel.bind(this);
+    this.WithdrawSaleFees = this.WithdrawSaleFees.bind(this);
   }
   UpdateParams(request: MsgUpdateParams): Promise<MsgUpdateParamsResponse> {
     const data = MsgUpdateParams.encode(request).finish();
@@ -4054,6 +4648,30 @@ export class MsgClientImpl implements Msg {
     const data = MsgAcceptBusinessMove.encode(request).finish();
     const promise = this.rpc.request(this.service, "AcceptBusinessMove", data);
     return promise.then((data) => MsgAcceptBusinessMoveResponse.decode(_m0.Reader.create(data)));
+  }
+
+  ListJewel(request: MsgListJewel): Promise<MsgListJewelResponse> {
+    const data = MsgListJewel.encode(request).finish();
+    const promise = this.rpc.request(this.service, "ListJewel", data);
+    return promise.then((data) => MsgListJewelResponse.decode(_m0.Reader.create(data)));
+  }
+
+  UnlistJewel(request: MsgUnlistJewel): Promise<MsgUnlistJewelResponse> {
+    const data = MsgUnlistJewel.encode(request).finish();
+    const promise = this.rpc.request(this.service, "UnlistJewel", data);
+    return promise.then((data) => MsgUnlistJewelResponse.decode(_m0.Reader.create(data)));
+  }
+
+  BuyJewel(request: MsgBuyJewel): Promise<MsgBuyJewelResponse> {
+    const data = MsgBuyJewel.encode(request).finish();
+    const promise = this.rpc.request(this.service, "BuyJewel", data);
+    return promise.then((data) => MsgBuyJewelResponse.decode(_m0.Reader.create(data)));
+  }
+
+  WithdrawSaleFees(request: MsgWithdrawSaleFees): Promise<MsgWithdrawSaleFeesResponse> {
+    const data = MsgWithdrawSaleFees.encode(request).finish();
+    const promise = this.rpc.request(this.service, "WithdrawSaleFees", data);
+    return promise.then((data) => MsgWithdrawSaleFeesResponse.decode(_m0.Reader.create(data)));
   }
 }
 

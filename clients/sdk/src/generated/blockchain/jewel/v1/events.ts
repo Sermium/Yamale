@@ -7,6 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 
 export const protobufPackage = "blockchain.jewel.v1";
 
@@ -255,6 +256,45 @@ export interface EventBusinessMoved {
   to: string;
   /** jewels is how many stock jewels moved with it. */
   jewels: string;
+}
+
+/** EventJewelListed is emitted when a jewel is put up for sale, or its price changes. */
+export interface EventJewelListed {
+  /** jewel_id is the jewel listed. */
+  jewelId: string;
+  /** seller is its owner. */
+  seller: string;
+  /** price is the asking price. */
+  price: Coin | undefined;
+}
+
+/**
+ * EventJewelUnlisted is emitted when its owner takes a jewel off the
+ * marketplace. A listing ended by a change of owner or a theft report emits
+ * no event of its own; the transfer or the report says it.
+ */
+export interface EventJewelUnlisted {
+  /** jewel_id is the jewel withdrawn. */
+  jewelId: string;
+}
+
+/**
+ * EventJewelSold is emitted when a buyer pays for a listed jewel. The same
+ * transaction emits EventJewelTransferred with kind "sale".
+ */
+export interface EventJewelSold {
+  /** jewel_id is the jewel sold. */
+  jewelId: string;
+  /** seller received the price less the fee. */
+  seller: string;
+  /** buyer paid and now owns it. */
+  buyer: string;
+  /** price is what the buyer paid. */
+  price:
+    | Coin
+    | undefined;
+  /** fee is the part of the price kept as the marketplace fee. */
+  fee: Coin | undefined;
 }
 
 function createBaseEventJewelerAdmitted(): EventJewelerAdmitted {
@@ -2072,6 +2112,271 @@ export const EventBusinessMoved = {
     message.from = object.from ?? "";
     message.to = object.to ?? "";
     message.jewels = object.jewels ?? "0";
+    return message;
+  },
+};
+
+function createBaseEventJewelListed(): EventJewelListed {
+  return { jewelId: "0", seller: "", price: undefined };
+}
+
+export const EventJewelListed = {
+  encode(message: EventJewelListed, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.seller !== "") {
+      writer.uint32(18).string(message.seller);
+    }
+    if (message.price !== undefined) {
+      Coin.encode(message.price, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventJewelListed {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventJewelListed();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.seller = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.price = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventJewelListed {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      seller: isSet(object.seller) ? globalThis.String(object.seller) : "",
+      price: isSet(object.price) ? Coin.fromJSON(object.price) : undefined,
+    };
+  },
+
+  toJSON(message: EventJewelListed): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.seller !== "") {
+      obj.seller = message.seller;
+    }
+    if (message.price !== undefined) {
+      obj.price = Coin.toJSON(message.price);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventJewelListed>): EventJewelListed {
+    return EventJewelListed.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventJewelListed>): EventJewelListed {
+    const message = createBaseEventJewelListed();
+    message.jewelId = object.jewelId ?? "0";
+    message.seller = object.seller ?? "";
+    message.price = (object.price !== undefined && object.price !== null) ? Coin.fromPartial(object.price) : undefined;
+    return message;
+  },
+};
+
+function createBaseEventJewelUnlisted(): EventJewelUnlisted {
+  return { jewelId: "0" };
+}
+
+export const EventJewelUnlisted = {
+  encode(message: EventJewelUnlisted, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventJewelUnlisted {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventJewelUnlisted();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventJewelUnlisted {
+    return { jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0" };
+  },
+
+  toJSON(message: EventJewelUnlisted): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventJewelUnlisted>): EventJewelUnlisted {
+    return EventJewelUnlisted.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventJewelUnlisted>): EventJewelUnlisted {
+    const message = createBaseEventJewelUnlisted();
+    message.jewelId = object.jewelId ?? "0";
+    return message;
+  },
+};
+
+function createBaseEventJewelSold(): EventJewelSold {
+  return { jewelId: "0", seller: "", buyer: "", price: undefined, fee: undefined };
+}
+
+export const EventJewelSold = {
+  encode(message: EventJewelSold, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.seller !== "") {
+      writer.uint32(18).string(message.seller);
+    }
+    if (message.buyer !== "") {
+      writer.uint32(26).string(message.buyer);
+    }
+    if (message.price !== undefined) {
+      Coin.encode(message.price, writer.uint32(34).fork()).ldelim();
+    }
+    if (message.fee !== undefined) {
+      Coin.encode(message.fee, writer.uint32(42).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): EventJewelSold {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventJewelSold();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.seller = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.buyer = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.price = Coin.decode(reader, reader.uint32());
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.fee = Coin.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventJewelSold {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      seller: isSet(object.seller) ? globalThis.String(object.seller) : "",
+      buyer: isSet(object.buyer) ? globalThis.String(object.buyer) : "",
+      price: isSet(object.price) ? Coin.fromJSON(object.price) : undefined,
+      fee: isSet(object.fee) ? Coin.fromJSON(object.fee) : undefined,
+    };
+  },
+
+  toJSON(message: EventJewelSold): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.seller !== "") {
+      obj.seller = message.seller;
+    }
+    if (message.buyer !== "") {
+      obj.buyer = message.buyer;
+    }
+    if (message.price !== undefined) {
+      obj.price = Coin.toJSON(message.price);
+    }
+    if (message.fee !== undefined) {
+      obj.fee = Coin.toJSON(message.fee);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventJewelSold>): EventJewelSold {
+    return EventJewelSold.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventJewelSold>): EventJewelSold {
+    const message = createBaseEventJewelSold();
+    message.jewelId = object.jewelId ?? "0";
+    message.seller = object.seller ?? "";
+    message.buyer = object.buyer ?? "";
+    message.price = (object.price !== undefined && object.price !== null) ? Coin.fromPartial(object.price) : undefined;
+    message.fee = (object.fee !== undefined && object.fee !== null) ? Coin.fromPartial(object.fee) : undefined;
     return message;
   },
 };

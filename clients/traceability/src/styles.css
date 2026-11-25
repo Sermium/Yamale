@@ -223,3 +223,9 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 
 /* A card link the shop can select and copy by hand when the clipboard is refused. */
 .cardlink { width: 100%; font-family: var(--y-mono, ui-monospace, monospace); font-size: 0.8rem; }
+
+/* The marketplace: a price reads as a figure, and the price field keeps amount and currency on one line. */
+.price-tag { margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.pricefield { display: flex; gap: var(--sp-2); }
+.pricefield .bigfield:first-child { flex: 1; min-inline-size: 0; }
+.marketrow { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-variant-numeric: tabular-nums; }

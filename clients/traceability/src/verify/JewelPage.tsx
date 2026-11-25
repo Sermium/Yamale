@@ -19,6 +19,7 @@ import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from 
 import { benefitState, ownershipSteps, type IssuerStatus } from './history.ts';
 import { listPriceDay, listPriceText } from './listprice.ts';
 import { Gallery, VerifiedImage } from './Photos.tsx';
+import { BuyPanel } from '../market/BuyPanel.tsx';
 import { stoneLineKey, useRecord, type JewelRecord } from './record.ts';
 
 export function Hallmark({ code }: { code: string }) {
@@ -203,6 +204,8 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
         )}
 
         <p className="declared">{t('traceability.declared')}</p>
+
+        <BuyPanel view={view.value} />
 
         {head?.ok && actions?.(view.value, head.value.time, reload)}
 

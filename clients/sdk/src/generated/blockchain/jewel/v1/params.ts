@@ -27,10 +27,18 @@ export interface Params {
    * the owner's veto, in seconds; at least 604800 (7 days).
    */
   reassignmentWindow: string;
+  /**
+   * sale_fee_bps is the marketplace fee, in hundredths of a percent of the
+   * price, paid by the buyer out of the price into x/jewel's account; at most
+   * 1000 (10%). The fee is rounded down.
+   */
+  saleFeeBps: number;
+  /** sale_denoms are the currencies a jewel may be listed in. */
+  saleDenoms: string[];
 }
 
 function createBaseParams(): Params {
-  return { office: "", offerTtl: "0", voucherMaxTtl: "0", reassignmentWindow: "0" };
+  return { office: "", offerTtl: "0", voucherMaxTtl: "0", reassignmentWindow: "0", saleFeeBps: 0, saleDenoms: [] };
 }
 
 export const Params = {
@@ -46,6 +54,12 @@ export const Params = {
     }
     if (message.reassignmentWindow !== "0") {
       writer.uint32(32).int64(message.reassignmentWindow);
+    }
+    if (message.saleFeeBps !== 0) {
+      writer.uint32(40).uint32(message.saleFeeBps);
+    }
+    for (const v of message.saleDenoms) {
+      writer.uint32(50).string(v!);
     }
     return writer;
   },
@@ -85,6 +99,20 @@ export const Params = {
 
           message.reassignmentWindow = longToString(reader.int64() as Long);
           continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.saleFeeBps = reader.uint32();
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.saleDenoms.push(reader.string());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -100,6 +128,10 @@ export const Params = {
       offerTtl: isSet(object.offerTtl) ? globalThis.String(object.offerTtl) : "0",
       voucherMaxTtl: isSet(object.voucherMaxTtl) ? globalThis.String(object.voucherMaxTtl) : "0",
       reassignmentWindow: isSet(object.reassignmentWindow) ? globalThis.String(object.reassignmentWindow) : "0",
+      saleFeeBps: isSet(object.saleFeeBps) ? globalThis.Number(object.saleFeeBps) : 0,
+      saleDenoms: globalThis.Array.isArray(object?.saleDenoms)
+        ? object.saleDenoms.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -117,6 +149,12 @@ export const Params = {
     if (message.reassignmentWindow !== "0") {
       obj.reassignmentWindow = message.reassignmentWindow;
     }
+    if (message.saleFeeBps !== 0) {
+      obj.saleFeeBps = Math.round(message.saleFeeBps);
+    }
+    if (message.saleDenoms?.length) {
+      obj.saleDenoms = message.saleDenoms;
+    }
     return obj;
   },
 
@@ -129,6 +167,8 @@ export const Params = {
     message.offerTtl = object.offerTtl ?? "0";
     message.voucherMaxTtl = object.voucherMaxTtl ?? "0";
     message.reassignmentWindow = object.reassignmentWindow ?? "0";
+    message.saleFeeBps = object.saleFeeBps ?? 0;
+    message.saleDenoms = object.saleDenoms?.map((e) => e) || [];
     return message;
   },
 };

@@ -69,6 +69,11 @@ func (q queryServer) Jewel(ctx context.Context, req *types.QueryJewelRequest) (*
 	} else if !isNotFound(err) {
 		return nil, err
 	}
+	if l, err := q.k.Listing.Get(ctx, j.Id); err == nil {
+		res.Listing = &l
+	} else if !isNotFound(err) {
+		return nil, err
+	}
 	err = q.k.BenefitsByJewel.Walk(ctx, collections.NewPrefixedPairRange[uint64, uint64](j.Id),
 		func(key collections.Pair[uint64, uint64]) (bool, error) {
 			b, err := q.k.Benefit.Get(ctx, key.K2())
@@ -126,4 +131,20 @@ func (q queryServer) ClaimsByJeweler(ctx context.Context, req *types.QueryClaims
 		return nil, err
 	}
 	return &types.QueryClaimsByJewelerResponse{Claims: claims, Pagination: page}, nil
+}
+
+// Listings pages through the marketplace.
+func (q queryServer) Listings(ctx context.Context, req *types.QueryListingsRequest) (*types.QueryListingsResponse, error) {
+	list, page, err := query.CollectionPaginate(ctx, q.k.Listing, req.Pagination,
+		func(id uint64, l types.Listing) (types.ListingEntry, error) {
+			j, err := q.k.Jewel.Get(ctx, id)
+			if err != nil {
+				return types.ListingEntry{}, err
+			}
+			return types.ListingEntry{Jewel: j, Listing: l}, nil
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryListingsResponse{Listings: list, Pagination: page}, nil
 }

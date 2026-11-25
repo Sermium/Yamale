@@ -123,7 +123,7 @@ var (
 		// without trusting the module's own books at all.
 		{Account: nettingmoduletypes.ModuleName},
 	}, custodyModuleAccPerms, tokenisationModuleAccPerms, syndicateModuleAccPerms,
-		marketModuleAccPerms)
+		marketModuleAccPerms, jewelModuleAccPerms)
 
 	// blocked account addresses
 	// blockAccAddrs are the module accounts that must never be the recipient of
@@ -151,7 +151,7 @@ var (
 		treasurymoduletypes.ModuleName,
 		nettingmoduletypes.ModuleName,
 	}, custodyBlockedAccounts, tokenisationBlockedAccounts, syndicateBlockedAccounts,
-		marketBlockedAccounts,
+		marketBlockedAccounts, jewelBlockedAccounts,
 		ammBlockedAccounts, []string{
 			stablecoinmoduletypes.ModuleName,
 			paymsgmoduletypes.ModuleName,

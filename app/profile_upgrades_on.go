@@ -561,4 +561,74 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// x/jewel: the marketplace (docs/superpowers/specs/2026-11-25-jewel-
+		// marketplace-design.md). An owner lists a jewel at a price; any account
+		// buys it in one transaction that pays the seller, keeps the fee in
+		// x/jewel's account and moves the jewel.
+		//
+		// NO STORE UPGRADE: the listings live under a new prefix in x/jewel's
+		// existing store. Two things are written here. The params gain the fee
+		// and the currencies, which an existing chain reads as zero and empty —
+		// no fee and nothing listable — so the handler sets them. And x/jewel's
+		// module account, which holds the fees, is created now rather than at
+		// the first sale.
+		Name: "jewel-marketplace",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			listings := 0
+			if err := app.JewelKeeper.Listing.Walk(ctx, nil,
+				func(uint64, jeweltypes.Listing) (bool, error) { listings++; return false, nil },
+			); err != nil {
+				return nil, fmt.Errorf("reading the listings this upgrade just mounted: %w", err)
+			}
+			if listings != 0 {
+				return nil, fmt.Errorf("x/jewel arrived with %d listing(s); only an owner lists a jewel", listings)
+			}
+
+			params, err := app.JewelKeeper.Params.Get(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("reading x/jewel's params: %w", err)
+			}
+			params.SaleFeeBps = 100
+			params.SaleDenoms = nil
+			// The stable currencies this chain issues, in the order a person
+			// looks for them: the dollar and euro coins first, then the rest.
+			// Only those with a supply are offered: a currency nobody holds is
+			// a listing nobody can buy.
+			for _, d := range marketplaceCurrencies {
+				if app.BankKeeper.GetSupply(ctx, d).IsPositive() {
+					params.SaleDenoms = append(params.SaleDenoms, d)
+				}
+			}
+			if err := params.Validate(); err != nil {
+				return nil, fmt.Errorf("the marketplace params: %w", err)
+			}
+			if err := app.JewelKeeper.Params.Set(ctx, params); err != nil {
+				return nil, err
+			}
+			fees := app.AuthKeeper.GetModuleAccount(ctx, jeweltypes.ModuleName)
+
+			ctx.Logger().Info(
+				"the jewel marketplace opened",
+				"market", "an owner lists a jewel at a price; a buyer pays it and receives the jewel in the same transaction",
+				"fee", fmt.Sprintf("%d bps into %s, paid out only by governance", params.SaleFeeBps, fees.GetAddress()),
+				"currencies", len(params.SaleDenoms),
+			)
+			return vm, nil
+		},
+	},
+}
+
+// marketplaceCurrencies are the stable currencies devnet-2 issues, in the order
+// the marketplace offers them. jewel-marketplace keeps those with a supply.
+var marketplaceCurrencies = []string{
+	"uusd", "uusdc", "ueurc",
+	"uxof", "uxaf", "ukes", "ungn", "uzar", "ughs", "utzs", "uugx", "urwf", "umad", "uegp", "uetb",
+	"uaoa", "ubif", "ubwp", "ucdf", "ucve", "udjf", "udzd", "uern", "ugmd", "ugnf", "ukmf", "ulrd",
+	"ulsl", "ulyd", "umga", "umru", "umur", "umwk", "umzn", "unad", "uscr", "usdg", "usle", "usos",
+	"ussp", "ustn", "uszl", "utnd", "uzmw", "uzwg",
 }

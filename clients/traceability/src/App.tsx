@@ -29,12 +29,14 @@ import { AboutImport } from './verify/AboutImport.tsx';
 import { JewelPage } from './verify/JewelPage.tsx';
 import { Proof } from './verify/Proof.tsx';
 import { Search } from './verify/Search.tsx';
+import { Market } from './market/Market.tsx';
 
 function TabBar() {
   const session = useSession();
   const [role] = useRole(session.address);
   const tabs = [
     { to: '/', end: true, label: t('traceability.navVerify') },
+    { to: '/market', end: false, label: t('traceability.navMarket') },
     { to: '/jewelers', end: false, label: t('traceability.navJewelers') },
     { to: '/mine', end: false, label: t('traceability.navMine') },
     ...(role.state === 'role' ? [{ to: '/atelier', end: false, label: t('traceability.navAtelier') }] : []),
@@ -122,6 +124,7 @@ export function App() {
               <Route path="/mine/:jewel" element={<Owned />} />
               <Route path="/claim" element={<Claim />} />
               <Route path="/card" element={<CardPage />} />
+              <Route path="/market" element={<Market />} />
               <Route path="/jewelers" element={<Directory />} />
               <Route path="/jewelers/:jeweler" element={<Shop />} />
               <Route path="/atelier" element={<Atelier />} />

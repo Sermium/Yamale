@@ -1,6 +1,13 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+// MaxSaleFeeBps caps the marketplace fee at 10% of the price.
+const MaxSaleFeeBps = 1000
 
 // MinReassignmentWindow is the shortest veto window governance may set, in
 // seconds: a week, so an owner who is away still hears of a reassignment in
@@ -14,6 +21,8 @@ func DefaultParams() Params {
 		OfferTtl:           14 * 24 * 3600,
 		VoucherMaxTtl:      5 * 60,
 		ReassignmentWindow: 30 * 24 * 3600,
+		SaleFeeBps:         100,
+		SaleDenoms:         []string{"uusd", "uusdc", "ueurc"},
 	}
 }
 
@@ -29,5 +38,28 @@ func (p Params) Validate() error {
 		return fmt.Errorf("reassignment_window must be at least %d seconds (7 days); a shorter window could move a jewel before its owner heard of it, got %d",
 			MinReassignmentWindow, p.ReassignmentWindow)
 	}
+	if p.SaleFeeBps > MaxSaleFeeBps {
+		return fmt.Errorf("sale_fee_bps is at most %d (10%%), got %d", MaxSaleFeeBps, p.SaleFeeBps)
+	}
+	seen := map[string]bool{}
+	for _, d := range p.SaleDenoms {
+		if err := sdk.ValidateDenom(d); err != nil {
+			return fmt.Errorf("sale_denoms: %w", err)
+		}
+		if seen[d] {
+			return fmt.Errorf("sale_denoms names %s twice", d)
+		}
+		seen[d] = true
+	}
 	return nil
+}
+
+// ForSale says whether a jewel may be listed in this currency.
+func (p Params) ForSale(denom string) bool {
+	for _, d := range p.SaleDenoms {
+		if d == denom {
+			return true
+		}
+	}
+	return false
 }

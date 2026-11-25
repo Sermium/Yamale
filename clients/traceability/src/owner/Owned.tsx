@@ -20,6 +20,7 @@ import { Gallery } from '../verify/Photos.tsx';
 import { useRecord } from '../verify/record.ts';
 import { forgetStaleLinks } from './links.ts';
 import { OfferPanel } from './OfferPanel.tsx';
+import { SellPanel } from '../market/SellPanel.tsx';
 import { liveClaimKey } from './offers.ts';
 import { VoucherPanel } from './VoucherPanel.tsx';
 
@@ -167,6 +168,11 @@ export function Owned() {
         ) : (
           <>
             <Veto view={v} onChange={reload} />
+            <Section title={t('traceability.sellTitle')}>
+              <UnlockGate>
+                <SellPanel view={v} actor={session.address!} send={(m) => session.submitAsOwner(m)} onChange={reload} />
+              </UnlockGate>
+            </Section>
             <Section title={t('traceability.passOn')}>
               <UnlockGate>
                 <OfferPanel view={v} actor={session.address!} now={now} send={(m) => session.submitAsOwner(m)} onChange={reload} />

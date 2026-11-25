@@ -69,7 +69,7 @@ func TestTheRegisterSurvivesExportAndImport(t *testing.T) {
 	require.NoError(t, err)
 
 	g := setup(t)
-	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit)
+	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit, g.env.BankKeeper)
 	require.NoError(t, k2.InitGenesis(g.env.Ctx, *first))
 	second, err := k2.ExportGenesis(g.env.Ctx)
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func collectionsJoin(a uint64, b string) collections.Pair[uint64, string] {
 func importInto(t *testing.T, gs types.GenesisState) error {
 	t.Helper()
 	g := setup(t)
-	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit)
+	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit, g.env.BankKeeper)
 	return k2.InitGenesis(g.env.Ctx, gs)
 }
 
@@ -182,7 +182,7 @@ func TestCardsAndClaimsSurviveExportAndImport(t *testing.T) {
 	require.NoError(t, err)
 
 	g := setup(t)
-	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit)
+	k2 := keeper.NewKeeper(g.env.StoreService, g.env.Codec, g.env.AddressCodec, g.env.Authority, nil, g.nft, g.circuit, g.env.BankKeeper)
 	require.NoError(t, k2.InitGenesis(g.env.Ctx, *first))
 	second, err := k2.ExportGenesis(g.env.Ctx)
 	require.NoError(t, err)

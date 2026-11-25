@@ -27,9 +27,12 @@ func TestEveryModuleIsWiredIntoThisProfile(t *testing.T) {
 	require.Contains(t, runtimeConfig.InitGenesis, "land")
 	require.NotContains(t, macc, "land")
 
-	// x/jewel holds no coins either: the tokens are x/nft's.
+	// x/jewel's tokens are x/nft's; its own account holds only the marketplace
+	// fees, and can neither mint nor burn.
 	require.Contains(t, runtimeConfig.InitGenesis, "jewel")
-	require.NotContains(t, macc, "jewel")
+	require.Contains(t, macc, "jewel")
+	require.Empty(t, macc["jewel"])
+	require.True(t, BlockedAddresses()[authtypes.NewModuleAddress("jewel").String()], "the fee account is blocked")
 	require.Less(t, slices.Index(runtimeConfig.InitGenesis, "nft"), slices.Index(runtimeConfig.InitGenesis, "jewel"),
 		"x/jewel names x/nft classes, so x/nft must be restored first")
 

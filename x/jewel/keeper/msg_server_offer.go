@@ -197,6 +197,9 @@ func (k msgServer) ReportStolen(ctx context.Context, req *types.MsgReportStolen)
 	if err := k.Offer.Remove(ctx, j.Id); err != nil {
 		return nil, err
 	}
+	if err := k.Listing.Remove(ctx, j.Id); err != nil {
+		return nil, err
+	}
 	if err := k.dropClaim(ctx, j); err != nil {
 		return nil, err
 	}

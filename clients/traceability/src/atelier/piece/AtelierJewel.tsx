@@ -10,6 +10,7 @@ import { PrintCards } from '../../card/PrintCards.tsx';
 import { forgetKeptCard, keptCard } from '../../card/cards.ts';
 import { KeptCard } from '../../card/KeptCards.tsx';
 import { ClaimDecision } from '../claims/Claims.tsx';
+import { SellPanel } from '../../market/SellPanel.tsx';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../../ui.tsx';
 import { Hallmark, RecordFacts } from '../../verify/JewelPage.tsx';
 import { Gallery } from '../../verify/Photos.tsx';
@@ -63,6 +64,13 @@ export function AtelierJewel() {
           )}
         </div>
         {record.state === 'ok' && <Section title={t('traceability.materials')}><RecordFacts record={record.record} /></Section>}
+        {inStock && canAct && (
+          <Section title={t('traceability.sellTitle')}>
+            <UnlockGate>
+              <SellPanel view={v} actor={session.address!} send={(m) => session.submit(m, role.jeweler.business)} onChange={reload} />
+            </UnlockGate>
+          </Section>
+        )}
         {inStock ? (
           <Section title={t('traceability.ownershipCard')}>
             {/* Offers made before cards existed can still be cancelled here; no new one is made. */}

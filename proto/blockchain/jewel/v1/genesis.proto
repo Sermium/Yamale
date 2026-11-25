@@ -44,6 +44,8 @@ message GenesisState {
   // jewel with a card, signed with that card. The per-jeweler index of claims
   // is rebuilt from them, never exported.
   repeated GenesisClaim claims = 12 [(gogoproto.nullable) = false];
+  // listings are the jewels for sale on the marketplace.
+  repeated GenesisListing listings = 13 [(gogoproto.nullable) = false];
 }
 
 // GenesisCard is one jewel's ownership card.
@@ -60,4 +62,12 @@ message GenesisClaim {
   uint64 jewel_id = 1;
   // claim is the claim.
   Claim claim = 2 [(gogoproto.nullable) = false];
+}
+
+// GenesisListing is one marketplace listing, by jewel.
+message GenesisListing {
+  // jewel_id is the jewel for sale.
+  uint64 jewel_id = 1;
+  // listing is its price and seller.
+  Listing listing = 2 [(gogoproto.nullable) = false];
 }

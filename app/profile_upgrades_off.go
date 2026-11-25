@@ -201,4 +201,17 @@ var profileUpgrades = []Upgrade{
 			return vm, nil
 		},
 	},
+	{
+		// The settlement half of jewel-marketplace: x/jewel is not linked here.
+		Name: "jewel-marketplace",
+		Handler: func(ctx sdk.Context, app *App, fromVM module.VersionMap) (module.VersionMap, error) {
+			vm, err := app.ModuleManager.RunMigrations(ctx, app.Configurator(), fromVM)
+			if err != nil {
+				return nil, err
+			}
+			ctx.Logger().Info("the jewel marketplace: nothing to do",
+				"absent", "x/jewel is not linked into a settlement build")
+			return vm, nil
+		},
+	},
 }

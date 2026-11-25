@@ -7,7 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
-import { Benefit, Card, Claim, Jewel, Jeweler, Offer, Reassignment } from "./jewel.ts";
+import { Benefit, Card, Claim, Jewel, Jeweler, Listing, Offer, Reassignment } from "./jewel.ts";
 import { Params } from "./params.ts";
 
 export const protobufPackage = "blockchain.jewel.v1";
@@ -55,6 +55,8 @@ export interface GenesisState {
    * is rebuilt from them, never exported.
    */
   claims: GenesisClaim[];
+  /** listings are the jewels for sale on the marketplace. */
+  listings: GenesisListing[];
 }
 
 /** GenesisCard is one jewel's ownership card. */
@@ -71,6 +73,14 @@ export interface GenesisClaim {
   jewelId: string;
   /** claim is the claim. */
   claim: Claim | undefined;
+}
+
+/** GenesisListing is one marketplace listing, by jewel. */
+export interface GenesisListing {
+  /** jewel_id is the jewel for sale. */
+  jewelId: string;
+  /** listing is its price and seller. */
+  listing: Listing | undefined;
 }
 
 function createBaseUsedNonce(): UsedNonce {
@@ -161,6 +171,7 @@ function createBaseGenesisState(): GenesisState {
     nextBenefitId: "0",
     cards: [],
     claims: [],
+    listings: [],
   };
 }
 
@@ -201,6 +212,9 @@ export const GenesisState = {
     }
     for (const v of message.claims) {
       GenesisClaim.encode(v!, writer.uint32(98).fork()).ldelim();
+    }
+    for (const v of message.listings) {
+      GenesisListing.encode(v!, writer.uint32(106).fork()).ldelim();
     }
     return writer;
   },
@@ -296,6 +310,13 @@ export const GenesisState = {
 
           message.claims.push(GenesisClaim.decode(reader, reader.uint32()));
           continue;
+        case 13:
+          if (tag !== 106) {
+            break;
+          }
+
+          message.listings.push(GenesisListing.decode(reader, reader.uint32()));
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -323,6 +344,9 @@ export const GenesisState = {
       nextBenefitId: isSet(object.nextBenefitId) ? globalThis.String(object.nextBenefitId) : "0",
       cards: globalThis.Array.isArray(object?.cards) ? object.cards.map((e: any) => GenesisCard.fromJSON(e)) : [],
       claims: globalThis.Array.isArray(object?.claims) ? object.claims.map((e: any) => GenesisClaim.fromJSON(e)) : [],
+      listings: globalThis.Array.isArray(object?.listings)
+        ? object.listings.map((e: any) => GenesisListing.fromJSON(e))
+        : [],
     };
   },
 
@@ -364,6 +388,9 @@ export const GenesisState = {
     if (message.claims?.length) {
       obj.claims = message.claims.map((e) => GenesisClaim.toJSON(e));
     }
+    if (message.listings?.length) {
+      obj.listings = message.listings.map((e) => GenesisListing.toJSON(e));
+    }
     return obj;
   },
 
@@ -386,6 +413,7 @@ export const GenesisState = {
     message.nextBenefitId = object.nextBenefitId ?? "0";
     message.cards = object.cards?.map((e) => GenesisCard.fromPartial(e)) || [];
     message.claims = object.claims?.map((e) => GenesisClaim.fromPartial(e)) || [];
+    message.listings = object.listings?.map((e) => GenesisListing.fromPartial(e)) || [];
     return message;
   },
 };
@@ -534,6 +562,82 @@ export const GenesisClaim = {
     const message = createBaseGenesisClaim();
     message.jewelId = object.jewelId ?? "0";
     message.claim = (object.claim !== undefined && object.claim !== null) ? Claim.fromPartial(object.claim) : undefined;
+    return message;
+  },
+};
+
+function createBaseGenesisListing(): GenesisListing {
+  return { jewelId: "0", listing: undefined };
+}
+
+export const GenesisListing = {
+  encode(message: GenesisListing, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.jewelId !== "0") {
+      writer.uint32(8).uint64(message.jewelId);
+    }
+    if (message.listing !== undefined) {
+      Listing.encode(message.listing, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GenesisListing {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisListing();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 8) {
+            break;
+          }
+
+          message.jewelId = longToString(reader.uint64() as Long);
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.listing = Listing.decode(reader, reader.uint32());
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GenesisListing {
+    return {
+      jewelId: isSet(object.jewelId) ? globalThis.String(object.jewelId) : "0",
+      listing: isSet(object.listing) ? Listing.fromJSON(object.listing) : undefined,
+    };
+  },
+
+  toJSON(message: GenesisListing): unknown {
+    const obj: any = {};
+    if (message.jewelId !== "0") {
+      obj.jewelId = message.jewelId;
+    }
+    if (message.listing !== undefined) {
+      obj.listing = Listing.toJSON(message.listing);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<GenesisListing>): GenesisListing {
+    return GenesisListing.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<GenesisListing>): GenesisListing {
+    const message = createBaseGenesisListing();
+    message.jewelId = object.jewelId ?? "0";
+    message.listing = (object.listing !== undefined && object.listing !== null)
+      ? Listing.fromPartial(object.listing)
+      : undefined;
     return message;
   },
 };

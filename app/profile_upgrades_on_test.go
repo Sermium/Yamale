@@ -367,3 +367,22 @@ func TestTheJewelCardsUpgradeRefusesACardItDidNotPrint(t *testing.T) {
 	_, err := u.Handler(ctx, app, priorVersions(app))
 	require.ErrorContains(t, err, "card")
 }
+
+// jewel-marketplace turns the fee on and creates the account that holds it;
+// the listings start empty.
+func TestTheJewelMarketplaceUpgradeSetsTheFeeAndOpensTheFeeAccount(t *testing.T) {
+	u := findUpgrade(t, "jewel-marketplace")
+	require.Empty(t, u.StoreUpgrades.Added, "x/jewel's store already exists")
+	app := newUpgradeTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	// devnet-2's params before the upgrade: no fee, nothing listable.
+	before := jeweltypes.DefaultParams()
+	before.SaleFeeBps, before.SaleDenoms = 0, nil
+	require.NoError(t, app.JewelKeeper.Params.Set(ctx, before))
+	_, err := u.Handler(ctx, app, priorVersions(app))
+	require.NoError(t, err)
+	p, err := app.JewelKeeper.Params.Get(ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint32(100), p.SaleFeeBps)
+	require.NotNil(t, app.AuthKeeper.GetModuleAccount(ctx, jeweltypes.ModuleName))
+}

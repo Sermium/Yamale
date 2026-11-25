@@ -30,6 +30,14 @@ type NFTKeeper interface {
 	GetNFTsOfClassByOwner(ctx context.Context, classID string, owner sdk.AccAddress) []nft.NFT
 }
 
+// BankKeeper moves a marketplace sale's money: the price from buyer to seller,
+// the fee into x/jewel's account, and a governance withdrawal out of it.
+type BankKeeper interface {
+	SendCoins(ctx context.Context, from, to sdk.AccAddress, amt sdk.Coins) error
+	SendCoinsFromAccountToModule(ctx context.Context, sender sdk.AccAddress, recipientModule string, amt sdk.Coins) error
+	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipient sdk.AccAddress, amt sdk.Coins) error
+}
+
 // CircuitKeeper says whether a message type may still run.
 type CircuitKeeper interface {
 	IsAllowed(ctx context.Context, typeURL string) (bool, error)

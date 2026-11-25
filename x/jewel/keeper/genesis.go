@@ -72,6 +72,11 @@ func (k Keeper) checkCanonicalAddresses(gs types.GenesisState) error {
 			return fmt.Errorf("claim on jewel %d claimer: %w", c.JewelId, err)
 		}
 	}
+	for _, l := range gs.Listings {
+		if err := k.requireCanonicalAddress(l.Listing.Seller); err != nil {
+			return fmt.Errorf("listing of jewel %d seller: %w", l.JewelId, err)
+		}
+	}
 	return nil
 }
 
@@ -137,6 +142,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	}
 	for _, c := range gs.Cards {
 		if err := k.Card.Set(ctx, c.JewelId, c.Card); err != nil {
+			return err
+		}
+	}
+	for _, l := range gs.Listings {
+		if err := k.Listing.Set(ctx, l.JewelId, l.Listing); err != nil {
 			return err
 		}
 	}
@@ -219,6 +229,12 @@ func (k Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) 
 	}
 	if err := k.Claim.Walk(ctx, nil, func(id uint64, v types.Claim) (bool, error) {
 		gs.Claims = append(gs.Claims, types.GenesisClaim{JewelId: id, Claim: v})
+		return false, nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := k.Listing.Walk(ctx, nil, func(id uint64, v types.Listing) (bool, error) {
+		gs.Listings = append(gs.Listings, types.GenesisListing{JewelId: id, Listing: v})
 		return false, nil
 	}); err != nil {
 		return nil, err

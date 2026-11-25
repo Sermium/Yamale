@@ -4,6 +4,7 @@ package blockchain.jewel.v1;
 import "amino/amino.proto";
 import "blockchain/jewel/v1/jewel.proto";
 import "blockchain/jewel/v1/params.proto";
+import "cosmos/base/v1beta1/coin.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
@@ -67,6 +68,14 @@ service Msg {
   // AcceptBusinessMove completes it: the named account becomes the business
   // account and receives the stock. That account only.
   rpc AcceptBusinessMove(MsgAcceptBusinessMove) returns (MsgAcceptBusinessMoveResponse);
+  // ListJewel puts a jewel up for sale on the marketplace, or changes its price.
+  rpc ListJewel(MsgListJewel) returns (MsgListJewelResponse);
+  // UnlistJewel takes it off the marketplace.
+  rpc UnlistJewel(MsgUnlistJewel) returns (MsgUnlistJewelResponse);
+  // BuyJewel pays the listed price and takes the jewel, in one step.
+  rpc BuyJewel(MsgBuyJewel) returns (MsgBuyJewelResponse);
+  // WithdrawSaleFees pays marketplace fees out of x/jewel's account. Governance only.
+  rpc WithdrawSaleFees(MsgWithdrawSaleFees) returns (MsgWithdrawSaleFeesResponse);
 }
 
 // MsgUpdateParams is the message that carries out UpdateParams.
@@ -462,3 +471,70 @@ message MsgAcceptBusinessMoveResponse {
   // jewels is how many stock jewels moved to the new business account.
   uint64 jewels = 1;
 }
+
+// MsgListJewel is the message that carries out ListJewel. Listing again
+// replaces the price. Refused for a stolen jewel, a jewel with a reassignment
+// pending, a suspended jeweler's stock, a zero price, and a currency outside
+// params.sale_denoms.
+message MsgListJewel {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgListJewel";
+  // owner is the jewel's owner, or a member of its jeweler's staff while the
+  // jewel is stock; the signer.
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to sell.
+  uint64 jewel_id = 2;
+  // price is what a buyer pays.
+  cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
+}
+// MsgListJewelResponse is the result of MsgListJewel.
+message MsgListJewelResponse {}
+
+// MsgUnlistJewel is the message that carries out UnlistJewel.
+message MsgUnlistJewel {
+  option (cosmos.msg.v1.signer) = "owner";
+  option (amino.name) = "blockchain/x/jewel/MsgUnlistJewel";
+  // owner is the jewel's owner, or staff while it is stock; the signer.
+  string owner = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the jewel to take off the marketplace.
+  uint64 jewel_id = 2;
+}
+// MsgUnlistJewelResponse is the result of MsgUnlistJewel.
+message MsgUnlistJewelResponse {}
+
+// MsgBuyJewel is the message that carries out BuyJewel. The buyer pays the
+// price: the seller receives it less the fee, and the fee goes to x/jewel's
+// account. The jewel moves to the buyer in the same step, spending any card
+// and claim. Refused unless price is exactly the listing's, so a price changed
+// after the buyer looked cannot be charged.
+message MsgBuyJewel {
+  option (cosmos.msg.v1.signer) = "buyer";
+  option (amino.name) = "blockchain/x/jewel/MsgBuyJewel";
+  // buyer pays and receives the jewel; the signer.
+  string buyer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // jewel_id is the listed jewel.
+  uint64 jewel_id = 2;
+  // price is the price the buyer saw; it must equal the listing's.
+  cosmos.base.v1beta1.Coin price = 3 [(gogoproto.nullable) = false];
+}
+// MsgBuyJewelResponse is the result of MsgBuyJewel.
+message MsgBuyJewelResponse {}
+
+// MsgWithdrawSaleFees is the message that carries out WithdrawSaleFees.
+message MsgWithdrawSaleFees {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "blockchain/x/jewel/MsgWithdrawSaleFees";
+  // authority is governance, the signer.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // to is the account paid.
+  string to = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // amount is what is paid out of the fees held.
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (amino.encoding) = "legacy_coins",
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+// MsgWithdrawSaleFeesResponse is the result of MsgWithdrawSaleFees.
+message MsgWithdrawSaleFeesResponse {}

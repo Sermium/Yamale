@@ -109,6 +109,9 @@ func (k msgServer) AcceptBusinessMove(ctx context.Context, req *types.MsgAcceptB
 		if err := k.Reassignment.Remove(ctx, id); err != nil {
 			return nil, err
 		}
+		if err := k.Listing.Remove(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	if err := k.ByBusiness.Remove(ctx, old); err != nil {
 		return nil, err

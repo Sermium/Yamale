@@ -39,6 +39,7 @@ const (
 	TransferClaim    = "claim"    // an offer to a claim key, claimed
 	TransferCard     = "card"     // a claim filed with the ownership card, approved by the shop
 	TransferReassign = "reassign" // the office's reassignment, completed
+	TransferSale     = "sale"     // bought on the marketplace
 )
 
 // Prefixes. "jewel" is a byte-prefix of "jeweler", and collections refuses
@@ -53,6 +54,7 @@ var (
 	UsedNonceKey    = collections.NewPrefix("used_nonce")
 	CardKey         = collections.NewPrefix("card")
 	ClaimKey        = collections.NewPrefix("claim")
+	ListingKey      = collections.NewPrefix("listing")
 
 	// The indexes, each one there because the alternative is a scan.
 	ByBusinessKey      = collections.NewPrefix("idx_business")

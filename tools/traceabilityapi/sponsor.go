@@ -30,6 +30,8 @@ var ownerMessages = []string{
 	"/blockchain.jewel.v1.MsgReportStolen", "/blockchain.jewel.v1.MsgClearStolen",
 	"/blockchain.jewel.v1.MsgVetoReassignment", "/blockchain.jewel.v1.MsgCompleteReassignment",
 	"/blockchain.jewel.v1.MsgFileClaim", "/blockchain.jewel.v1.MsgWithdrawClaim",
+	"/blockchain.jewel.v1.MsgListJewel", "/blockchain.jewel.v1.MsgUnlistJewel",
+	"/blockchain.jewel.v1.MsgBuyJewel",
 }
 
 // ownerList numbers the version of ownerMessages. An allowance is fixed when it
@@ -38,7 +40,8 @@ var ownerMessages = []string{
 //
 //	1: offers, theft reports, reassignment (until 2026-11-25)
 //	2: + filing and withdrawing a claim on an ownership card
-const ownerList = 2
+//	3: + listing, unlisting and buying on the marketplace (2026-11-25)
+const ownerList = 3
 
 var errAlreadyGranted = errors.New("this account already has a fee allowance from the sponsor")
 

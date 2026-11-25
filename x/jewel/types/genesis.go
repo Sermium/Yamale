@@ -192,6 +192,28 @@ func (gs GenesisState) Validate() error {
 			return fmt.Errorf("the claim on jewel %d names no claimer", c.JewelId)
 		}
 	}
+	listed := map[uint64]bool{}
+	for _, l := range gs.Listings {
+		if !jewels[l.JewelId] {
+			return fmt.Errorf("a listing names jewel %d, which is not in this genesis", l.JewelId)
+		}
+		if listed[l.JewelId] {
+			return fmt.Errorf("jewel %d is listed twice; a jewel has one listing at a time", l.JewelId)
+		}
+		listed[l.JewelId] = true
+		if stolen[l.JewelId] {
+			return fmt.Errorf("jewel %d is reported stolen and cannot be for sale", l.JewelId)
+		}
+		if err := l.Listing.Price.Validate(); err != nil || !l.Listing.Price.IsPositive() {
+			return fmt.Errorf("the listing of jewel %d has no valid price", l.JewelId)
+		}
+		if !gs.Params.ForSale(l.Listing.Price.Denom) {
+			return fmt.Errorf("the listing of jewel %d is in %s, which sale_denoms does not allow", l.JewelId, l.Listing.Price.Denom)
+		}
+		if l.Listing.Seller == "" {
+			return fmt.Errorf("the listing of jewel %d names no seller", l.JewelId)
+		}
+	}
 	return nil
 }
 

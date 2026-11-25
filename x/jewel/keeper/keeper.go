@@ -29,6 +29,7 @@ type Keeper struct {
 	groupKeeper types.GroupKeeper
 	nft         types.NFTKeeper
 	circuit     types.CircuitKeeper
+	bank        types.BankKeeper
 
 	Schema collections.Schema
 	Params collections.Item[types.Params]
@@ -42,6 +43,7 @@ type Keeper struct {
 	UsedNonce collections.KeySet[collections.Pair[uint64, string]]
 	Card      collections.Map[uint64, types.Card]  // by jewel id; one card per jewel
 	Claim     collections.Map[uint64, types.Claim] // by jewel id; one pending claim per jewel
+	Listing   collections.Map[uint64, types.Listing] // by jewel id; the marketplace
 
 	// business address -> jeweler id. One business, one jeweler.
 	ByBusiness collections.Map[string, uint64]
@@ -71,6 +73,7 @@ func NewKeeper(
 	groupKeeper types.GroupKeeper,
 	nftKeeper types.NFTKeeper,
 	circuit types.CircuitKeeper,
+	bank types.BankKeeper,
 ) Keeper {
 	if _, err := addressCodec.BytesToString(authority); err != nil {
 		panic(fmt.Sprintf("invalid authority address %s: %s", authority, err))
@@ -87,6 +90,7 @@ func NewKeeper(
 		groupKeeper:  groupKeeper,
 		nft:          nftKeeper,
 		circuit:      circuit,
+		bank:         bank,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 
@@ -105,6 +109,8 @@ func NewKeeper(
 			collections.Uint64Key, codec.CollValue[types.Card](cdc)),
 		Claim: collections.NewMap(sb, types.ClaimKey, "claim",
 			collections.Uint64Key, codec.CollValue[types.Claim](cdc)),
+		Listing: collections.NewMap(sb, types.ListingKey, "listing",
+			collections.Uint64Key, codec.CollValue[types.Listing](cdc)),
 
 		ByBusiness: collections.NewMap(sb, types.ByBusinessKey, "by_business",
 			collections.StringKey, collections.Uint64Value),
@@ -359,6 +365,10 @@ func (k Keeper) transfer(ctx context.Context, j *types.Jewel, to, kind string) e
 		return err
 	}
 	if err := k.dropClaim(ctx, *j); err != nil {
+		return err
+	}
+	// A listing is the seller's offer to the world; it never follows the jewel.
+	if err := k.Listing.Remove(ctx, j.Id); err != nil {
 		return err
 	}
 	if err := k.Jewel.Set(ctx, j.Id, *j); err != nil {

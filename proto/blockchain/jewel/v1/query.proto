@@ -38,6 +38,11 @@ service Query {
   rpc ClaimsByJeweler(QueryClaimsByJewelerRequest) returns (QueryClaimsByJewelerResponse) {
     option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewelers/{jeweler_id}/claims";
   }
+  // Listings lists the jewels for sale on the marketplace, each with its
+  // listing, in jewel id order.
+  rpc Listings(QueryListingsRequest) returns (QueryListingsResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/listings";
+  }
 }
 
 // QueryParamsRequest asks for Params.
@@ -94,6 +99,8 @@ message QueryJewelResponse {
   bool has_card = 6;
   // claim is set while a buyer's claim waits for the shop.
   Claim claim = 7;
+  // listing is set while the jewel is for sale on the marketplace.
+  Listing listing = 8;
 }
 
 // QueryJewelsByInscriptionRequest asks for JewelsByInscription.
@@ -128,4 +135,25 @@ message ClaimEntry {
   Jewel jewel = 1 [(gogoproto.nullable) = false];
   // claim is the pending claim.
   Claim claim = 2 [(gogoproto.nullable) = false];
+}
+
+// QueryListingsRequest asks for Listings.
+message QueryListingsRequest {
+  // pagination pages through the listings in jewel id order.
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+// QueryListingsResponse is the result of QueryListings.
+message QueryListingsResponse {
+  // listings are this page of jewels for sale.
+  repeated ListingEntry listings = 1 [(gogoproto.nullable) = false];
+  // pagination is the key to the next page.
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// ListingEntry is one jewel for sale with its listing.
+message ListingEntry {
+  // jewel is the register's record of the jewel.
+  Jewel jewel = 1 [(gogoproto.nullable) = false];
+  // listing is its price and seller.
+  Listing listing = 2 [(gogoproto.nullable) = false];
 }

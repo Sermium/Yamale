@@ -23,4 +23,10 @@ message Params {
   // reassignment_window is how long a proposed reassignment stays open to
   // the owner's veto, in seconds; at least 604800 (7 days).
   int64 reassignment_window = 4;
+  // sale_fee_bps is the marketplace fee, in hundredths of a percent of the
+  // price, paid by the buyer out of the price into x/jewel's account; at most
+  // 1000 (10%). The fee is rounded down.
+  uint32 sale_fee_bps = 5;
+  // sale_denoms are the currencies a jewel may be listed in.
+  repeated string sale_denoms = 6;
 }

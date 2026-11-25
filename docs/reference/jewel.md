@@ -106,6 +106,20 @@ AttachBenefit adds a benefit to a jewel.
 | `period` | int64 | period is the rolling window the allowance applies to, in seconds; 0 means the whole life. |
 | `expires_at` | int64 | expires_at is when the benefit ends, in unix seconds; 0 means never. |
 
+### MsgBuyJewel
+
+`/blockchain.jewel.v1.MsgBuyJewel`
+
+Signed by the `buyer` field.
+
+MsgBuyJewel is the message that carries out BuyJewel. The buyer pays the price: the seller receives it less the fee, and the fee goes to x/jewel's account. The jewel moves to the buyer in the same step, spending any card and claim. Refused unless price is exactly the listing's, so a price changed after the buyer looked cannot be charged.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `buyer` | string | buyer pays and receives the jewel; the signer. |
+| `jewel_id` | uint64 | jewel_id is the listed jewel. |
+| `price` | Coin | price is the price the buyer saw; it must equal the listing's. |
+
 ### MsgCancelOffer
 
 `/blockchain.jewel.v1.MsgCancelOffer`
@@ -198,6 +212,22 @@ MsgIssueCard is the message that carries out IssueCard. It sets the jewel's owne
 | `staff` | string | staff is the jeweler's business account or a member of its staff, the signer. |
 | `jewel_id` | uint64 | jewel_id is the stock jewel the card is for. |
 | `card_key` | string | card_key is the card's compressed secp256k1 public key in hex, 66 characters. Upper-case hex is accepted and stored in lower case. The secret it belongs to is printed on the card and nowhere else. |
+
+### MsgListJewel
+
+`/blockchain.jewel.v1.MsgListJewel`
+
+Signed by the `owner` field.
+
+MsgListJewel is the message that carries out ListJewel. Listing again replaces the price. Refused for a stolen jewel, a jewel with a reassignment pending, a suspended jeweler's stock, a zero price, and a currency outside params.sale_denoms.
+
+ListJewel puts a jewel up for sale on the marketplace, or changes its price.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `owner` | string | owner is the jewel's owner, or a member of its jeweler's staff while the jewel is stock; the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel to sell. |
+| `price` | Coin | price is what a buyer pays. |
 
 ### MsgOfferJewel
 
@@ -359,6 +389,21 @@ SuspendJeweler stops a jeweler acting: no registration, no sale of its stock, an
 | `jeweler_id` | uint64 | jeweler_id is the jeweler to suspend. |
 | `reason` | string | reason is the office's public account of why; required. |
 
+### MsgUnlistJewel
+
+`/blockchain.jewel.v1.MsgUnlistJewel`
+
+Signed by the `owner` field.
+
+MsgUnlistJewel is the message that carries out UnlistJewel.
+
+UnlistJewel takes it off the marketplace.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `owner` | string | owner is the jewel's owner, or staff while it is stock; the signer. |
+| `jewel_id` | uint64 | jewel_id is the jewel to take off the marketplace. |
+
 ### MsgUpdateParams
 
 `/blockchain.jewel.v1.MsgUpdateParams`
@@ -403,6 +448,22 @@ WithdrawClaim removes the signer's own claim.
 | --- | --- | --- |
 | `claimer` | string | claimer is the account that filed the claim, the signer. |
 | `jewel_id` | uint64 | jewel_id is the jewel whose claim to withdraw. |
+
+### MsgWithdrawSaleFees
+
+`/blockchain.jewel.v1.MsgWithdrawSaleFees`
+
+Signed by the `authority` field.
+
+MsgWithdrawSaleFees is the message that carries out WithdrawSaleFees.
+
+WithdrawSaleFees pays marketplace fees out of x/jewel's account. Governance only.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `authority` | string | authority is governance, the signer. |
+| `to` | string | to is the account paid. |
+| `amount` | repeated Coin | amount is what is paid out of the fees held. |
 
 ## Queries
 
@@ -449,6 +510,7 @@ Response:
 | `benefits` | repeated Benefit | benefits are the benefits attached to it. |
 | `has_card` | bool | has_card is set while the jewel has an ownership card. The card's key is not shown here: only the printed card needs it. |
 | `claim` | Claim | claim is set while a buyer's claim waits for the shop. |
+| `listing` | Listing | listing is set while the jewel is for sale on the marketplace. |
 
 ### Jeweler
 
@@ -504,6 +566,25 @@ Response:
 | Field | Type | Description |
 | --- | --- | --- |
 | `jewels` | repeated Jewel | jewels are every jewel carrying it, at most 50. |
+
+### Listings
+
+`GET /yamale/blockchain/jewel/v1/listings`
+
+Listings lists the jewels for sale on the marketplace, each with its listing, in jewel id order.
+
+Request:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `pagination` | PageRequest | pagination pages through the listings in jewel id order. |
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `listings` | repeated ListingEntry | listings are this page of jewels for sale. |
+| `pagination` | PageResponse | pagination is the key to the next page. |
 
 ### Params
 
@@ -671,6 +752,16 @@ EventJewelAmended is emitted when a correction is appended to a jewel's record.
 | `jewel_id` | uint64 | jewel_id is the jewel corrected. |
 | `staff` | string | staff is the staff member who appended the correction. |
 
+### EventJewelListed
+
+EventJewelListed is emitted when a jewel is put up for sale, or its price changes.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel listed. |
+| `seller` | string | seller is its owner. |
+| `price` | Coin | price is the asking price. |
+
 ### EventJewelRegistered
 
 EventJewelRegistered is emitted when a jewel is minted into a jeweler's stock.
@@ -680,6 +771,18 @@ EventJewelRegistered is emitted when a jewel is minted into a jeweler's stock.
 | `jewel_id` | uint64 | jewel_id is the new jewel's id. |
 | `jeweler_id` | uint64 | jeweler_id is the jeweler that registered it. |
 | `staff` | string | staff is the staff member who registered it. |
+
+### EventJewelSold
+
+EventJewelSold is emitted when a buyer pays for a listed jewel. The same transaction emits EventJewelTransferred with kind "sale".
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel sold. |
+| `seller` | string | seller received the price less the fee. |
+| `buyer` | string | buyer paid and now owns it. |
+| `price` | Coin | price is what the buyer paid. |
+| `fee` | Coin | fee is the part of the price kept as the marketplace fee. |
 
 ### EventJewelTransferred
 
@@ -691,6 +794,14 @@ EventJewelTransferred is emitted on every change of owner. Counting them is the 
 | `from` | string | from is the previous owner. |
 | `to` | string | to is the new owner. |
 | `kind` | string | kind is how it moved: "accept" (an offer to an account), "claim" (an offer to a claim key), "card" (a claim filed with the ownership card and approved by the shop) or "reassign" (the office's reassignment after its veto window). |
+
+### EventJewelUnlisted
+
+EventJewelUnlisted is emitted when its owner takes a jewel off the marketplace. A listing ended by a change of owner or a theft report emits no event of its own; the transfer or the report says it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel withdrawn. |
 
 ### EventJewelerAdmitted
 
@@ -804,6 +915,15 @@ GenesisClaim is one jewel's pending claim.
 | `jewel_id` | uint64 | jewel_id is the jewel claimed. |
 | `claim` | Claim | claim is the claim. |
 
+### GenesisListing
+
+GenesisListing is one marketplace listing, by jewel.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel_id` | uint64 | jewel_id is the jewel for sale. |
+| `listing` | Listing | listing is its price and seller. |
+
 ### Jewel
 
 Jewel is one registered piece. Its token is x/nft class jewel-<jeweler_id>, id jewel-<id>. Ownership is x/nft's and is not copied here.
@@ -834,6 +954,25 @@ Jeweler is a business the office has admitted.
 | `status` | JewelerStatus | status says whether the jeweler may act; the office sets it. |
 | `pending_business` | string | pending_business is the account the business account has proposed to hand the shop to; empty when no move is waiting. Nothing changes until that account accepts. |
 | `pending_business_until` | int64 | pending_business_until is when the proposed move lapses, block time in unix seconds; 0 when none is waiting. |
+
+### Listing
+
+Listing is a jewel its owner has put up for sale on the marketplace. Any account may buy it at this price, in one transaction that pays the seller and moves the jewel. Any change of owner, or a theft report, ends it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `seller` | string | seller is the owner who listed it. |
+| `price` | Coin | price is what the buyer pays, in a currency params.sale_denoms allows. The seller receives it less params.sale_fee_bps. |
+| `listed_at` | int64 | listed_at is the block time it was listed, in unix seconds. |
+
+### ListingEntry
+
+ListingEntry is one jewel for sale with its listing.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `jewel` | Jewel | jewel is the register's record of the jewel. |
+| `listing` | Listing | listing is its price and seller. |
 
 ### Offer
 
@@ -949,7 +1088,12 @@ Every way a transaction to this module can be rejected.
 | 53 | `ErrAccountTied` | this account already runs a jeweler's business or works for another jeweler |
 | 54 | `ErrBusinessOwnsPieces` | this account already owns pieces from this shop; as its business account they would become stock |
 | 55 | `ErrMoveToSelf` | this is already the shop's business account |
+| 56 | `ErrNotListed` | this jewel is not for sale |
+| 57 | `ErrPriceMoved` | the price has changed since you looked; check the new price and buy again |
+| 58 | `ErrDenomNotForSale` | jewels cannot be sold in this currency on the marketplace |
+| 59 | `ErrNoPrice` | a price must be more than zero |
 | 6 | `ErrBusinessTaken` | this business account already belongs to a jeweler |
+| 60 | `ErrBuyOwn` | you already own this jewel |
 | 7 | `ErrNoJeweler` | no such jeweler |
 | 8 | `ErrJewelerSuspended` | this jeweler is suspended and can no longer act |
 | 9 | `ErrNotBusiness` | only the jeweler's business account may manage its staff |

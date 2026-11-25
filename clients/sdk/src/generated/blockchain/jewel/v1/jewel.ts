@@ -7,6 +7,7 @@
 /* eslint-disable */
 import Long from "long";
 import _m0 from "protobufjs/minimal.js";
+import { Coin } from "../../../cosmos/base/v1beta1/coin.ts";
 
 export const protobufPackage = "blockchain.jewel.v1";
 
@@ -274,6 +275,25 @@ export interface Claim {
   cardKey: string;
   /** filed_at is the block time the claim was filed, in unix seconds. */
   filedAt: string;
+}
+
+/**
+ * Listing is a jewel its owner has put up for sale on the marketplace. Any
+ * account may buy it at this price, in one transaction that pays the seller
+ * and moves the jewel. Any change of owner, or a theft report, ends it.
+ */
+export interface Listing {
+  /** seller is the owner who listed it. */
+  seller: string;
+  /**
+   * price is what the buyer pays, in a currency params.sale_denoms allows.
+   * The seller receives it less params.sale_fee_bps.
+   */
+  price:
+    | Coin
+    | undefined;
+  /** listed_at is the block time it was listed, in unix seconds. */
+  listedAt: string;
 }
 
 function createBaseJeweler(): Jeweler {
@@ -1472,6 +1492,95 @@ export const Claim = {
     message.claimer = object.claimer ?? "";
     message.cardKey = object.cardKey ?? "";
     message.filedAt = object.filedAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseListing(): Listing {
+  return { seller: "", price: undefined, listedAt: "0" };
+}
+
+export const Listing = {
+  encode(message: Listing, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.seller !== "") {
+      writer.uint32(10).string(message.seller);
+    }
+    if (message.price !== undefined) {
+      Coin.encode(message.price, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.listedAt !== "0") {
+      writer.uint32(24).int64(message.listedAt);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Listing {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListing();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.seller = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.price = Coin.decode(reader, reader.uint32());
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.listedAt = longToString(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Listing {
+    return {
+      seller: isSet(object.seller) ? globalThis.String(object.seller) : "",
+      price: isSet(object.price) ? Coin.fromJSON(object.price) : undefined,
+      listedAt: isSet(object.listedAt) ? globalThis.String(object.listedAt) : "0",
+    };
+  },
+
+  toJSON(message: Listing): unknown {
+    const obj: any = {};
+    if (message.seller !== "") {
+      obj.seller = message.seller;
+    }
+    if (message.price !== undefined) {
+      obj.price = Coin.toJSON(message.price);
+    }
+    if (message.listedAt !== "0") {
+      obj.listedAt = message.listedAt;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<Listing>): Listing {
+    return Listing.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Listing>): Listing {
+    const message = createBaseListing();
+    message.seller = object.seller ?? "";
+    message.price = (object.price !== undefined && object.price !== null) ? Coin.fromPartial(object.price) : undefined;
+    message.listedAt = object.listedAt ?? "0";
     return message;
   },
 };
