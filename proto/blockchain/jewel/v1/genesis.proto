@@ -38,4 +38,26 @@ message GenesisState {
   uint64 next_jewel_id = 9;
   // next_benefit_id is the next benefit id the chain will assign.
   uint64 next_benefit_id = 10;
+  // cards are the jewels' ownership cards, at most one per jewel.
+  repeated GenesisCard cards = 11 [(gogoproto.nullable) = false];
+  // claims are the pending claims, at most one per jewel. Each must be on a
+  // jewel with a card, signed with that card. The per-jeweler index of claims
+  // is rebuilt from them, never exported.
+  repeated GenesisClaim claims = 12 [(gogoproto.nullable) = false];
+}
+
+// GenesisCard is one jewel's ownership card.
+message GenesisCard {
+  // jewel_id is the jewel the card is for.
+  uint64 jewel_id = 1;
+  // card is the card.
+  Card card = 2 [(gogoproto.nullable) = false];
+}
+
+// GenesisClaim is one jewel's pending claim.
+message GenesisClaim {
+  // jewel_id is the jewel claimed.
+  uint64 jewel_id = 1;
+  // claim is the claim.
+  Claim claim = 2 [(gogoproto.nullable) = false];
 }

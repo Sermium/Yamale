@@ -154,3 +154,29 @@ message Voucher {
   // most voucher_max_ttl after the block that redeems it.
   int64 expires_at = 4;
 }
+
+// Card is a jewel's ownership card: a printed QR code holding a secret, of
+// which the chain keeps only the public key. A jewel has at most one card. It
+// is issued while the jewel is stock, and any change of owner spends it.
+message Card {
+  // key is the lower-case hex compressed secp256k1 public key of the card's
+  // secret, the same form as Offer.claim_key.
+  string key = 1;
+  // issued_by is the account that issued it: the business account or a member of its staff.
+  string issued_by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // issued_at is the block time it was issued, in unix seconds.
+  int64 issued_at = 3;
+}
+
+// Claim is a buyer's pending claim on a stock jewel, filed with its card and
+// waiting for the shop's staff to approve or reject it. A jewel has at most
+// one pending claim.
+message Claim {
+  // claimer is the account the jewel goes to if the shop approves.
+  string claimer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // card_key is the key of the card the claim was signed with. Issuing a new
+  // card drops a claim made with the old one.
+  string card_key = 2;
+  // filed_at is the block time the claim was filed, in unix seconds.
+  int64 filed_at = 3;
+}

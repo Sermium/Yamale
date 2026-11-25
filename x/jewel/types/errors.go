@@ -51,4 +51,14 @@ var (
 	ErrNoteTooLong       = errors.Register(ModuleName, 40, "an amendment's note is at most 500 bytes; put the detail in the record file")
 	ErrTooManyAmendments = errors.Register(ModuleName, 41,
 		"this jewel has 50 amendments, the most it may carry; put further corrections in the record file of the last one")
+	ErrNoCard      = errors.Register(ModuleName, 42, "this jewel has no ownership card; ask the shop to print one")
+	ErrBadCardKey  = errors.Register(ModuleName, 43, "the card key must be a compressed secp256k1 public key in hex")
+	ErrCardNotLive = errors.Register(ModuleName, 44,
+		"this is not the jewel's current ownership card; the shop may have printed a newer one")
+	ErrBadCardClaim  = errors.Register(ModuleName, 45, "the card's signature does not match this claim")
+	ErrNotStock      = errors.Register(ModuleName, 46, "this jewel is no longer in the shop's stock")
+	ErrClaimPending  = errors.Register(ModuleName, 47, "a claim on this jewel is already waiting for the shop")
+	ErrNoClaim       = errors.Register(ModuleName, 48, "no claim on this jewel is waiting for the shop")
+	ErrNotClaimer    = errors.Register(ModuleName, 49, "this claim was filed by someone else")
+	ErrShopSelfClaim = errors.Register(ModuleName, 50, "the shop's own business account cannot claim its stock")
 )

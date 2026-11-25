@@ -101,6 +101,12 @@ type GenesisState struct {
 	NextJewelId uint64 `protobuf:"varint,9,opt,name=next_jewel_id,json=nextJewelId,proto3" json:"next_jewel_id,omitempty"`
 	// next_benefit_id is the next benefit id the chain will assign.
 	NextBenefitId uint64 `protobuf:"varint,10,opt,name=next_benefit_id,json=nextBenefitId,proto3" json:"next_benefit_id,omitempty"`
+	// cards are the jewels' ownership cards, at most one per jewel.
+	Cards []GenesisCard `protobuf:"bytes,11,rep,name=cards,proto3" json:"cards"`
+	// claims are the pending claims, at most one per jewel. Each must be on a
+	// jewel with a card, signed with that card. The per-jeweler index of claims
+	// is rebuilt from them, never exported.
+	Claims []GenesisClaim `protobuf:"bytes,12,rep,name=claims,proto3" json:"claims"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }
@@ -206,42 +212,174 @@ func (m *GenesisState) GetNextBenefitId() uint64 {
 	return 0
 }
 
+func (m *GenesisState) GetCards() []GenesisCard {
+	if m != nil {
+		return m.Cards
+	}
+	return nil
+}
+
+func (m *GenesisState) GetClaims() []GenesisClaim {
+	if m != nil {
+		return m.Claims
+	}
+	return nil
+}
+
+// GenesisCard is one jewel's ownership card.
+type GenesisCard struct {
+	// jewel_id is the jewel the card is for.
+	JewelId uint64 `protobuf:"varint,1,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// card is the card.
+	Card Card `protobuf:"bytes,2,opt,name=card,proto3" json:"card"`
+}
+
+func (m *GenesisCard) Reset()         { *m = GenesisCard{} }
+func (m *GenesisCard) String() string { return proto.CompactTextString(m) }
+func (*GenesisCard) ProtoMessage()    {}
+func (*GenesisCard) Descriptor() ([]byte, []int) {
+	return fileDescriptor_99cd9ed98de73c0c, []int{2}
+}
+func (m *GenesisCard) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GenesisCard) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GenesisCard.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GenesisCard) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenesisCard.Merge(m, src)
+}
+func (m *GenesisCard) XXX_Size() int {
+	return m.Size()
+}
+func (m *GenesisCard) XXX_DiscardUnknown() {
+	xxx_messageInfo_GenesisCard.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GenesisCard proto.InternalMessageInfo
+
+func (m *GenesisCard) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+func (m *GenesisCard) GetCard() Card {
+	if m != nil {
+		return m.Card
+	}
+	return Card{}
+}
+
+// GenesisClaim is one jewel's pending claim.
+type GenesisClaim struct {
+	// jewel_id is the jewel claimed.
+	JewelId uint64 `protobuf:"varint,1,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// claim is the claim.
+	Claim Claim `protobuf:"bytes,2,opt,name=claim,proto3" json:"claim"`
+}
+
+func (m *GenesisClaim) Reset()         { *m = GenesisClaim{} }
+func (m *GenesisClaim) String() string { return proto.CompactTextString(m) }
+func (*GenesisClaim) ProtoMessage()    {}
+func (*GenesisClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_99cd9ed98de73c0c, []int{3}
+}
+func (m *GenesisClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GenesisClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GenesisClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GenesisClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenesisClaim.Merge(m, src)
+}
+func (m *GenesisClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *GenesisClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_GenesisClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GenesisClaim proto.InternalMessageInfo
+
+func (m *GenesisClaim) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+func (m *GenesisClaim) GetClaim() Claim {
+	if m != nil {
+		return m.Claim
+	}
+	return Claim{}
+}
+
 func init() {
 	proto.RegisterType((*UsedNonce)(nil), "blockchain.jewel.v1.UsedNonce")
 	proto.RegisterType((*GenesisState)(nil), "blockchain.jewel.v1.GenesisState")
+	proto.RegisterType((*GenesisCard)(nil), "blockchain.jewel.v1.GenesisCard")
+	proto.RegisterType((*GenesisClaim)(nil), "blockchain.jewel.v1.GenesisClaim")
 }
 
 func init() { proto.RegisterFile("blockchain/jewel/v1/genesis.proto", fileDescriptor_99cd9ed98de73c0c) }
 
 var fileDescriptor_99cd9ed98de73c0c = []byte{
-	// 425 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0xcb, 0xce, 0xd2, 0x40,
-	0x18, 0x86, 0xdb, 0x9f, 0x52, 0xe9, 0x54, 0x62, 0x32, 0xb2, 0x68, 0xaa, 0x96, 0xc2, 0xc2, 0xb0,
-	0x6a, 0x03, 0x6e, 0x64, 0x63, 0x4c, 0x13, 0x63, 0x30, 0xf1, 0x90, 0x1a, 0x37, 0x6e, 0x48, 0xa1,
-	0x1f, 0xb5, 0x0a, 0x53, 0xd2, 0x29, 0x08, 0x77, 0xe1, 0x5d, 0xc9, 0x92, 0xa5, 0x2b, 0x63, 0xe0,
-	0x46, 0xcc, 0x1c, 0x5a, 0x30, 0xa9, 0xec, 0x86, 0xe1, 0x79, 0xde, 0x99, 0xf9, 0xfa, 0xa2, 0xde,
-	0x6c, 0x99, 0xcd, 0xbf, 0xcd, 0xbf, 0x44, 0x29, 0xf1, 0xbf, 0xc2, 0x77, 0x58, 0xfa, 0xdb, 0xa1,
-	0x9f, 0x00, 0x01, 0x9a, 0x52, 0x6f, 0x9d, 0x67, 0x45, 0x86, 0x1f, 0x5e, 0x10, 0x8f, 0x23, 0xde,
-	0x76, 0x68, 0x77, 0xeb, 0x3c, 0xf1, 0x2f, 0xb7, 0x6c, 0xb7, 0x0e, 0x58, 0x47, 0x79, 0xb4, 0x92,
-	0xb9, 0x76, 0x27, 0xc9, 0x92, 0x8c, 0x2f, 0x7d, 0xb6, 0x12, 0xbb, 0xfd, 0x97, 0xc8, 0xf8, 0x44,
-	0x21, 0x7e, 0x97, 0x91, 0x39, 0xe0, 0x27, 0x08, 0xcd, 0x80, 0xc0, 0x22, 0x2d, 0xa6, 0x69, 0x6c,
-	0xa9, 0xae, 0x3a, 0xd0, 0x42, 0x43, 0xee, 0x4c, 0x62, 0xdc, 0x41, 0x4d, 0xc2, 0x38, 0xeb, 0xce,
-	0x55, 0x07, 0x46, 0x28, 0x7e, 0xf4, 0x7f, 0x6a, 0xe8, 0xfe, 0x6b, 0xf1, 0x82, 0x8f, 0x45, 0x54,
-	0x00, 0x1e, 0x23, 0x5d, 0x1c, 0xcc, 0x13, 0xcc, 0xd1, 0x23, 0xaf, 0xe6, 0x45, 0xde, 0x07, 0x8e,
-	0x04, 0xda, 0xe1, 0x77, 0x57, 0x09, 0xa5, 0x80, 0x5f, 0xa0, 0x16, 0x07, 0x20, 0xa7, 0xd6, 0x9d,
-	0xdb, 0x18, 0x98, 0xa3, 0xc7, 0xb5, 0xf2, 0x1b, 0x01, 0x49, 0xbb, 0x72, 0xf0, 0x73, 0xa4, 0xf3,
-	0x35, 0xb5, 0x1a, 0xdc, 0xb6, 0xff, 0x6f, 0x97, 0x27, 0x0b, 0x9e, 0x99, 0xd9, 0x62, 0xc1, 0xce,
-	0xd5, 0x6e, 0x98, 0xef, 0x19, 0x52, 0x9a, 0x82, 0x67, 0x77, 0x96, 0x23, 0xa2, 0x56, 0xf3, 0xc6,
-	0x9d, 0x03, 0x01, 0x95, 0x77, 0x2e, 0x1d, 0xfc, 0x0a, 0x99, 0x1b, 0x0a, 0xf1, 0x94, 0x4f, 0x93,
-	0x5a, 0x3a, 0x8f, 0x70, 0x6a, 0x23, 0xaa, 0x2f, 0x25, 0x43, 0xd0, 0xa6, 0xdc, 0xa0, 0xf8, 0x2d,
-	0x6a, 0xe7, 0x10, 0x51, 0x9a, 0x26, 0x64, 0x05, 0xa4, 0xa0, 0xd6, 0x3d, 0x1e, 0xd4, 0xab, 0x0d,
-	0x0a, 0xaf, 0x48, 0x99, 0xf5, 0xaf, 0x8d, 0x9f, 0xa2, 0x07, 0x04, 0x76, 0xc5, 0x54, 0x8e, 0x96,
-	0xf5, 0xa1, 0xc5, 0xfb, 0xd0, 0x66, 0xdb, 0x72, 0xfe, 0x93, 0x18, 0xf7, 0x51, 0xfb, 0xc2, 0x31,
-	0xca, 0xe0, 0x94, 0x59, 0x51, 0x93, 0xb8, 0xca, 0xba, 0xea, 0x16, 0xba, 0x64, 0x05, 0x65, 0xbf,
-	0x82, 0xf1, 0xe1, 0xe4, 0xa8, 0xc7, 0x93, 0xa3, 0xfe, 0x39, 0x39, 0xea, 0x8f, 0xb3, 0xa3, 0x1c,
-	0xcf, 0x8e, 0xf2, 0xeb, 0xec, 0x28, 0x9f, 0xbb, 0xfb, 0x68, 0x15, 0x2d, 0xc1, 0xbf, 0x2a, 0xf9,
-	0x4e, 0xd6, 0xbc, 0xd8, 0xaf, 0x81, 0xce, 0x74, 0xde, 0xe6, 0x67, 0x7f, 0x03, 0x00, 0x00, 0xff,
-	0xff, 0xb9, 0xb1, 0xe7, 0x0d, 0x60, 0x03, 0x00, 0x00,
+	// 524 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x94, 0x4f, 0x6f, 0xd3, 0x30,
+	0x18, 0xc6, 0x9b, 0xad, 0xc9, 0xd6, 0x37, 0xab, 0x90, 0xcc, 0x0e, 0x59, 0x81, 0x34, 0xcb, 0x01,
+	0xf5, 0x94, 0x68, 0x9d, 0x84, 0x98, 0x84, 0x00, 0x15, 0x21, 0x54, 0x24, 0xfe, 0xa8, 0x88, 0x0b,
+	0x12, 0xaa, 0xdc, 0xc4, 0x2d, 0x19, 0x6d, 0x52, 0xc5, 0xd9, 0xd8, 0xbe, 0x05, 0x9f, 0x0a, 0xed,
+	0xb8, 0x23, 0x27, 0x84, 0xda, 0x2f, 0x82, 0xfc, 0xda, 0x49, 0x83, 0xe4, 0xf5, 0xe6, 0xba, 0xbf,
+	0xe7, 0x79, 0x9f, 0xd7, 0x79, 0x6d, 0x38, 0x9e, 0xcc, 0xb3, 0xe8, 0x7b, 0xf4, 0x8d, 0x26, 0x69,
+	0x78, 0xce, 0x7e, 0xb0, 0x79, 0x78, 0x79, 0x12, 0xce, 0x58, 0xca, 0x78, 0xc2, 0x83, 0x65, 0x9e,
+	0x15, 0x19, 0xb9, 0xbf, 0x41, 0x02, 0x44, 0x82, 0xcb, 0x93, 0x4e, 0x57, 0xa7, 0x93, 0xff, 0xa2,
+	0xaa, 0xe3, 0xe9, 0x80, 0x25, 0xcd, 0xe9, 0x42, 0xf9, 0x76, 0x0e, 0x67, 0xd9, 0x2c, 0xc3, 0x65,
+	0x28, 0x56, 0x72, 0xd7, 0x7f, 0x09, 0xad, 0xcf, 0x9c, 0xc5, 0xef, 0xb3, 0x34, 0x62, 0xe4, 0x11,
+	0xc0, 0x84, 0xa5, 0x6c, 0x9a, 0x14, 0xe3, 0x24, 0x76, 0x0c, 0xcf, 0xe8, 0x35, 0x47, 0x2d, 0xb5,
+	0x33, 0x8c, 0xc9, 0x21, 0x98, 0xa9, 0xe0, 0x9c, 0x1d, 0xcf, 0xe8, 0xb5, 0x46, 0xf2, 0x87, 0xff,
+	0xcb, 0x84, 0x83, 0x37, 0xb2, 0x83, 0x4f, 0x05, 0x2d, 0x18, 0x39, 0x03, 0x4b, 0x16, 0x46, 0x07,
+	0xbb, 0xff, 0x20, 0xd0, 0x74, 0x14, 0x7c, 0x44, 0x64, 0xd0, 0xbc, 0xf9, 0xd3, 0x6d, 0x8c, 0x94,
+	0x80, 0x3c, 0x87, 0x7d, 0x04, 0x58, 0xce, 0x9d, 0x1d, 0x6f, 0xb7, 0x67, 0xf7, 0x1f, 0x6a, 0xc5,
+	0x6f, 0x25, 0xa4, 0xd4, 0x95, 0x86, 0x3c, 0x05, 0x0b, 0xd7, 0xdc, 0xd9, 0x45, 0x75, 0xe7, 0x6e,
+	0x75, 0x59, 0x59, 0xf2, 0x42, 0x99, 0x4d, 0xa7, 0xa2, 0x6e, 0x73, 0x8b, 0xf2, 0x83, 0x40, 0x4a,
+	0xa5, 0xe4, 0x45, 0x66, 0x75, 0x44, 0xdc, 0x31, 0xb7, 0x64, 0x1e, 0x48, 0xa8, 0xcc, 0x5c, 0x6a,
+	0xc8, 0x6b, 0xb0, 0x2f, 0x38, 0x8b, 0xc7, 0x78, 0x9a, 0xdc, 0xb1, 0xd0, 0xc2, 0xd5, 0x5a, 0x54,
+	0x5f, 0x4a, 0x99, 0xc0, 0x45, 0xb9, 0xc1, 0xc9, 0x3b, 0x68, 0xe7, 0x8c, 0x72, 0x9e, 0xcc, 0xd2,
+	0x05, 0x4b, 0x0b, 0xee, 0xec, 0xa1, 0xd1, 0xb1, 0xd6, 0x68, 0x54, 0x23, 0x95, 0xd7, 0xff, 0x6a,
+	0xf2, 0x18, 0xee, 0xa5, 0xec, 0xaa, 0x18, 0xab, 0xa3, 0x15, 0xf3, 0xb0, 0x8f, 0xf3, 0xd0, 0x16,
+	0xdb, 0xea, 0xfc, 0x87, 0x31, 0xf1, 0xa1, 0xbd, 0xe1, 0x04, 0xd5, 0x42, 0xca, 0xae, 0xa8, 0x61,
+	0x5c, 0x79, 0xd5, 0x66, 0x0b, 0x36, 0x5e, 0x83, 0x6a, 0xbe, 0x9e, 0x81, 0x19, 0xd1, 0x3c, 0xe6,
+	0x8e, 0x8d, 0xd1, 0x3d, 0x6d, 0x74, 0x35, 0x6a, 0xaf, 0x68, 0x1e, 0xab, 0xe4, 0x52, 0x44, 0x5e,
+	0x80, 0x15, 0xcd, 0x69, 0xb2, 0xe0, 0xce, 0xc1, 0x96, 0xce, 0x4b, 0xb9, 0x20, 0xcb, 0x0f, 0x29,
+	0x65, 0xfe, 0x57, 0xb0, 0x6b, 0xe6, 0xe4, 0x48, 0xcd, 0xe2, 0xe6, 0x2a, 0xec, 0x9d, 0xab, 0x86,
+	0x4e, 0xa1, 0x29, 0x6a, 0xe2, 0x3d, 0xb0, 0xfb, 0x47, 0xda, 0x42, 0xb5, 0x80, 0x08, 0xfb, 0xb4,
+	0xba, 0x26, 0x58, 0x7c, 0x9b, 0xff, 0x13, 0x30, 0x31, 0x93, 0x2a, 0xa0, 0x9f, 0xc5, 0x7a, 0x0b,
+	0x12, 0x1f, 0x9c, 0xdd, 0xac, 0x5c, 0xe3, 0x76, 0xe5, 0x1a, 0x7f, 0x57, 0xae, 0xf1, 0x73, 0xed,
+	0x36, 0x6e, 0xd7, 0x6e, 0xe3, 0xf7, 0xda, 0x6d, 0x7c, 0xe9, 0x5e, 0xd3, 0x05, 0x9d, 0xb3, 0xb0,
+	0xf6, 0x4a, 0x5c, 0xa9, 0x77, 0xa2, 0xb8, 0x5e, 0x32, 0x3e, 0xb1, 0xf0, 0x39, 0x38, 0xfd, 0x17,
+	0x00, 0x00, 0xff, 0xff, 0x92, 0x39, 0xb6, 0x62, 0xa1, 0x04, 0x00, 0x00,
 }
 
 func (m *UsedNonce) Marshal() (dAtA []byte, err error) {
@@ -299,6 +437,34 @@ func (m *GenesisState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Claims) > 0 {
+		for iNdEx := len(m.Claims) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Claims[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if len(m.Cards) > 0 {
+		for iNdEx := len(m.Cards) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Cards[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x5a
+		}
+	}
 	if m.NextBenefitId != 0 {
 		i = encodeVarintGenesis(dAtA, i, uint64(m.NextBenefitId))
 		i--
@@ -411,6 +577,82 @@ func (m *GenesisState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *GenesisCard) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GenesisCard) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GenesisCard) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Card.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if m.JewelId != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GenesisClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GenesisClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GenesisClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Claim.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if m.JewelId != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintGenesis(dAtA []byte, offset int, v uint64) int {
 	offset -= sovGenesis(v)
 	base := offset
@@ -491,6 +733,46 @@ func (m *GenesisState) Size() (n int) {
 	if m.NextBenefitId != 0 {
 		n += 1 + sovGenesis(uint64(m.NextBenefitId))
 	}
+	if len(m.Cards) > 0 {
+		for _, e := range m.Cards {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	if len(m.Claims) > 0 {
+		for _, e := range m.Claims {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *GenesisCard) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.JewelId != 0 {
+		n += 1 + sovGenesis(uint64(m.JewelId))
+	}
+	l = m.Card.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	return n
+}
+
+func (m *GenesisClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.JewelId != 0 {
+		n += 1 + sovGenesis(uint64(m.JewelId))
+	}
+	l = m.Claim.Size()
+	n += 1 + l + sovGenesis(uint64(l))
 	return n
 }
 
@@ -924,6 +1206,278 @@ func (m *GenesisState) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Cards", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Cards = append(m.Cards, GenesisCard{})
+			if err := m.Cards[len(m.Cards)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claims", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Claims = append(m.Claims, GenesisClaim{})
+			if err := m.Claims[len(m.Claims)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GenesisCard) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GenesisCard: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GenesisCard: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Card", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Card.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GenesisClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GenesisClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GenesisClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claim", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Claim.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenesis(dAtA[iNdEx:])

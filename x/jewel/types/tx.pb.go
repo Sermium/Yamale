@@ -1923,6 +1923,503 @@ func (m *MsgCompleteReassignmentResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgCompleteReassignmentResponse proto.InternalMessageInfo
 
+// MsgIssueCard is the message that carries out IssueCard. It sets the
+// jewel's ownership card, replacing any earlier one, and drops a pending claim
+// that was signed with the earlier card. Refused unless the jewel is stock of
+// an active jeweler and not reported stolen.
+type MsgIssueCard struct {
+	// staff is the jeweler's business account or a member of its staff, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// jewel_id is the stock jewel the card is for.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// card_key is the card's compressed secp256k1 public key in hex, 66
+	// characters. Upper-case hex is accepted and stored in lower case. The
+	// secret it belongs to is printed on the card and nowhere else.
+	CardKey string `protobuf:"bytes,3,opt,name=card_key,json=cardKey,proto3" json:"card_key,omitempty"`
+}
+
+func (m *MsgIssueCard) Reset()         { *m = MsgIssueCard{} }
+func (m *MsgIssueCard) String() string { return proto.CompactTextString(m) }
+func (*MsgIssueCard) ProtoMessage()    {}
+func (*MsgIssueCard) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{36}
+}
+func (m *MsgIssueCard) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgIssueCard) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgIssueCard.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgIssueCard) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgIssueCard.Merge(m, src)
+}
+func (m *MsgIssueCard) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgIssueCard) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgIssueCard.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgIssueCard proto.InternalMessageInfo
+
+func (m *MsgIssueCard) GetStaff() string {
+	if m != nil {
+		return m.Staff
+	}
+	return ""
+}
+
+func (m *MsgIssueCard) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+func (m *MsgIssueCard) GetCardKey() string {
+	if m != nil {
+		return m.CardKey
+	}
+	return ""
+}
+
+// MsgIssueCardResponse is the result of MsgIssueCard.
+type MsgIssueCardResponse struct {
+}
+
+func (m *MsgIssueCardResponse) Reset()         { *m = MsgIssueCardResponse{} }
+func (m *MsgIssueCardResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgIssueCardResponse) ProtoMessage()    {}
+func (*MsgIssueCardResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{37}
+}
+func (m *MsgIssueCardResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgIssueCardResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgIssueCardResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgIssueCardResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgIssueCardResponse.Merge(m, src)
+}
+func (m *MsgIssueCardResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgIssueCardResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgIssueCardResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgIssueCardResponse proto.InternalMessageInfo
+
+// MsgFileClaim is the message that carries out FileClaim. It records a
+// pending claim for the shop's staff to approve or reject; nothing moves yet.
+type MsgFileClaim struct {
+	// claimer is the account the jewel goes to once the shop approves, the signer.
+	Claimer string `protobuf:"bytes,1,opt,name=claimer,proto3" json:"claimer,omitempty"`
+	// jewel_id is the jewel to claim.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+	// card_pub_key is the compressed secp256k1 public key of the card, 33
+	// bytes; it must be the jewel's current card.
+	CardPubKey []byte `protobuf:"bytes,3,opt,name=card_pub_key,json=cardPubKey,proto3" json:"card_pub_key,omitempty"`
+	// card_signature signs CardClaimSignBytes(chain id, jewel id, card key,
+	// claimer): "yamale-jewel-card/v1:<chain>:<jewel>:<card key hex>:<claimer>".
+	CardSignature []byte `protobuf:"bytes,4,opt,name=card_signature,json=cardSignature,proto3" json:"card_signature,omitempty"`
+}
+
+func (m *MsgFileClaim) Reset()         { *m = MsgFileClaim{} }
+func (m *MsgFileClaim) String() string { return proto.CompactTextString(m) }
+func (*MsgFileClaim) ProtoMessage()    {}
+func (*MsgFileClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{38}
+}
+func (m *MsgFileClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFileClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFileClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFileClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFileClaim.Merge(m, src)
+}
+func (m *MsgFileClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFileClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFileClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFileClaim proto.InternalMessageInfo
+
+func (m *MsgFileClaim) GetClaimer() string {
+	if m != nil {
+		return m.Claimer
+	}
+	return ""
+}
+
+func (m *MsgFileClaim) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+func (m *MsgFileClaim) GetCardPubKey() []byte {
+	if m != nil {
+		return m.CardPubKey
+	}
+	return nil
+}
+
+func (m *MsgFileClaim) GetCardSignature() []byte {
+	if m != nil {
+		return m.CardSignature
+	}
+	return nil
+}
+
+// MsgFileClaimResponse is the result of MsgFileClaim.
+type MsgFileClaimResponse struct {
+}
+
+func (m *MsgFileClaimResponse) Reset()         { *m = MsgFileClaimResponse{} }
+func (m *MsgFileClaimResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgFileClaimResponse) ProtoMessage()    {}
+func (*MsgFileClaimResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{39}
+}
+func (m *MsgFileClaimResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFileClaimResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFileClaimResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFileClaimResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFileClaimResponse.Merge(m, src)
+}
+func (m *MsgFileClaimResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFileClaimResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFileClaimResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFileClaimResponse proto.InternalMessageInfo
+
+// MsgApproveClaim is the message that carries out ApproveClaim. The jewel
+// moves to the claimer, and its card and claim are spent.
+type MsgApproveClaim struct {
+	// staff is the jeweler's business account or a member of its staff, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// jewel_id is the jewel whose pending claim to approve.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+}
+
+func (m *MsgApproveClaim) Reset()         { *m = MsgApproveClaim{} }
+func (m *MsgApproveClaim) String() string { return proto.CompactTextString(m) }
+func (*MsgApproveClaim) ProtoMessage()    {}
+func (*MsgApproveClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{40}
+}
+func (m *MsgApproveClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgApproveClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgApproveClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgApproveClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgApproveClaim.Merge(m, src)
+}
+func (m *MsgApproveClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgApproveClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgApproveClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgApproveClaim proto.InternalMessageInfo
+
+func (m *MsgApproveClaim) GetStaff() string {
+	if m != nil {
+		return m.Staff
+	}
+	return ""
+}
+
+func (m *MsgApproveClaim) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+// MsgApproveClaimResponse is the result of MsgApproveClaim.
+type MsgApproveClaimResponse struct {
+}
+
+func (m *MsgApproveClaimResponse) Reset()         { *m = MsgApproveClaimResponse{} }
+func (m *MsgApproveClaimResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgApproveClaimResponse) ProtoMessage()    {}
+func (*MsgApproveClaimResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{41}
+}
+func (m *MsgApproveClaimResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgApproveClaimResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgApproveClaimResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgApproveClaimResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgApproveClaimResponse.Merge(m, src)
+}
+func (m *MsgApproveClaimResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgApproveClaimResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgApproveClaimResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgApproveClaimResponse proto.InternalMessageInfo
+
+// MsgRejectClaim is the message that carries out RejectClaim. The card stays
+// valid, so the real buyer can file with it afterwards.
+type MsgRejectClaim struct {
+	// staff is the jeweler's business account or a member of its staff, the signer.
+	Staff string `protobuf:"bytes,1,opt,name=staff,proto3" json:"staff,omitempty"`
+	// jewel_id is the jewel whose pending claim to remove.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+}
+
+func (m *MsgRejectClaim) Reset()         { *m = MsgRejectClaim{} }
+func (m *MsgRejectClaim) String() string { return proto.CompactTextString(m) }
+func (*MsgRejectClaim) ProtoMessage()    {}
+func (*MsgRejectClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{42}
+}
+func (m *MsgRejectClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRejectClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRejectClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRejectClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRejectClaim.Merge(m, src)
+}
+func (m *MsgRejectClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRejectClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRejectClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRejectClaim proto.InternalMessageInfo
+
+func (m *MsgRejectClaim) GetStaff() string {
+	if m != nil {
+		return m.Staff
+	}
+	return ""
+}
+
+func (m *MsgRejectClaim) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+// MsgRejectClaimResponse is the result of MsgRejectClaim.
+type MsgRejectClaimResponse struct {
+}
+
+func (m *MsgRejectClaimResponse) Reset()         { *m = MsgRejectClaimResponse{} }
+func (m *MsgRejectClaimResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgRejectClaimResponse) ProtoMessage()    {}
+func (*MsgRejectClaimResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{43}
+}
+func (m *MsgRejectClaimResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRejectClaimResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRejectClaimResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRejectClaimResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRejectClaimResponse.Merge(m, src)
+}
+func (m *MsgRejectClaimResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRejectClaimResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRejectClaimResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRejectClaimResponse proto.InternalMessageInfo
+
+// MsgWithdrawClaim is the message that carries out WithdrawClaim.
+type MsgWithdrawClaim struct {
+	// claimer is the account that filed the claim, the signer.
+	Claimer string `protobuf:"bytes,1,opt,name=claimer,proto3" json:"claimer,omitempty"`
+	// jewel_id is the jewel whose claim to withdraw.
+	JewelId uint64 `protobuf:"varint,2,opt,name=jewel_id,json=jewelId,proto3" json:"jewel_id,omitempty"`
+}
+
+func (m *MsgWithdrawClaim) Reset()         { *m = MsgWithdrawClaim{} }
+func (m *MsgWithdrawClaim) String() string { return proto.CompactTextString(m) }
+func (*MsgWithdrawClaim) ProtoMessage()    {}
+func (*MsgWithdrawClaim) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{44}
+}
+func (m *MsgWithdrawClaim) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgWithdrawClaim) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgWithdrawClaim.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgWithdrawClaim) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgWithdrawClaim.Merge(m, src)
+}
+func (m *MsgWithdrawClaim) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgWithdrawClaim) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgWithdrawClaim.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgWithdrawClaim proto.InternalMessageInfo
+
+func (m *MsgWithdrawClaim) GetClaimer() string {
+	if m != nil {
+		return m.Claimer
+	}
+	return ""
+}
+
+func (m *MsgWithdrawClaim) GetJewelId() uint64 {
+	if m != nil {
+		return m.JewelId
+	}
+	return 0
+}
+
+// MsgWithdrawClaimResponse is the result of MsgWithdrawClaim.
+type MsgWithdrawClaimResponse struct {
+}
+
+func (m *MsgWithdrawClaimResponse) Reset()         { *m = MsgWithdrawClaimResponse{} }
+func (m *MsgWithdrawClaimResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgWithdrawClaimResponse) ProtoMessage()    {}
+func (*MsgWithdrawClaimResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_545a706d18009e58, []int{45}
+}
+func (m *MsgWithdrawClaimResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgWithdrawClaimResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgWithdrawClaimResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgWithdrawClaimResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgWithdrawClaimResponse.Merge(m, src)
+}
+func (m *MsgWithdrawClaimResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgWithdrawClaimResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgWithdrawClaimResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgWithdrawClaimResponse proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "blockchain.jewel.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "blockchain.jewel.v1.MsgUpdateParamsResponse")
@@ -1960,111 +2457,136 @@ func init() {
 	proto.RegisterType((*MsgVetoReassignmentResponse)(nil), "blockchain.jewel.v1.MsgVetoReassignmentResponse")
 	proto.RegisterType((*MsgCompleteReassignment)(nil), "blockchain.jewel.v1.MsgCompleteReassignment")
 	proto.RegisterType((*MsgCompleteReassignmentResponse)(nil), "blockchain.jewel.v1.MsgCompleteReassignmentResponse")
+	proto.RegisterType((*MsgIssueCard)(nil), "blockchain.jewel.v1.MsgIssueCard")
+	proto.RegisterType((*MsgIssueCardResponse)(nil), "blockchain.jewel.v1.MsgIssueCardResponse")
+	proto.RegisterType((*MsgFileClaim)(nil), "blockchain.jewel.v1.MsgFileClaim")
+	proto.RegisterType((*MsgFileClaimResponse)(nil), "blockchain.jewel.v1.MsgFileClaimResponse")
+	proto.RegisterType((*MsgApproveClaim)(nil), "blockchain.jewel.v1.MsgApproveClaim")
+	proto.RegisterType((*MsgApproveClaimResponse)(nil), "blockchain.jewel.v1.MsgApproveClaimResponse")
+	proto.RegisterType((*MsgRejectClaim)(nil), "blockchain.jewel.v1.MsgRejectClaim")
+	proto.RegisterType((*MsgRejectClaimResponse)(nil), "blockchain.jewel.v1.MsgRejectClaimResponse")
+	proto.RegisterType((*MsgWithdrawClaim)(nil), "blockchain.jewel.v1.MsgWithdrawClaim")
+	proto.RegisterType((*MsgWithdrawClaimResponse)(nil), "blockchain.jewel.v1.MsgWithdrawClaimResponse")
 }
 
 func init() { proto.RegisterFile("blockchain/jewel/v1/tx.proto", fileDescriptor_545a706d18009e58) }
 
 var fileDescriptor_545a706d18009e58 = []byte{
-	// 1573 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x58, 0xcb, 0x6f, 0xdc, 0x54,
-	0x17, 0x8f, 0x93, 0x69, 0x9a, 0x39, 0x79, 0xb4, 0x75, 0x5f, 0x93, 0x49, 0x3b, 0x49, 0xdd, 0xc7,
-	0x97, 0x2f, 0xd0, 0x4c, 0x93, 0xb6, 0x41, 0x44, 0x08, 0x29, 0xa9, 0x90, 0x28, 0x55, 0x44, 0xe5,
-	0xa8, 0x5d, 0x20, 0xa4, 0xc8, 0x33, 0xbe, 0x33, 0xe3, 0x76, 0xec, 0x6b, 0xf9, 0xde, 0x49, 0x1a,
-	0x56, 0xc0, 0x12, 0x09, 0xc1, 0x0e, 0xb1, 0x41, 0x62, 0xc7, 0x32, 0x42, 0xfc, 0x01, 0x74, 0xd7,
-	0x65, 0xd5, 0x55, 0x57, 0x05, 0xb5, 0x8b, 0xec, 0x59, 0xb2, 0x42, 0xf7, 0x31, 0xf6, 0xb5, 0xe3,
-	0x3b, 0x33, 0x29, 0x61, 0x13, 0x8d, 0x8f, 0x7f, 0xbe, 0xe7, 0xfc, 0xce, 0xfb, 0x06, 0x2e, 0xd4,
-	0xda, 0xb8, 0xfe, 0xb8, 0xde, 0x72, 0xbc, 0xa0, 0xfa, 0x08, 0xed, 0xa0, 0x76, 0x75, 0x7b, 0xa9,
-	0x4a, 0x9f, 0x2c, 0x86, 0x11, 0xa6, 0xd8, 0x3c, 0x9d, 0xbc, 0x5d, 0xe4, 0x6f, 0x17, 0xb7, 0x97,
-	0xca, 0xa7, 0x1c, 0xdf, 0x0b, 0x70, 0x95, 0xff, 0x15, 0xb8, 0xf2, 0x6c, 0xde, 0x29, 0xe2, 0x03,
-	0x01, 0x98, 0xcb, 0x03, 0x84, 0x4e, 0xe4, 0xf8, 0x44, 0x22, 0xce, 0xd7, 0x31, 0xf1, 0x31, 0xa9,
-	0xfa, 0xa4, 0xc9, 0xde, 0xf9, 0xa4, 0x29, 0x5f, 0x4c, 0x8b, 0x17, 0x5b, 0xfc, 0xa9, 0x2a, 0x1e,
-	0xe4, 0xab, 0x33, 0x4d, 0xdc, 0xc4, 0x42, 0xce, 0x7e, 0x09, 0xa9, 0xf5, 0xbb, 0x01, 0x27, 0x36,
-	0x48, 0xf3, 0x41, 0xe8, 0x3a, 0x14, 0xdd, 0xe7, 0x3a, 0xcc, 0x15, 0x28, 0x3a, 0x1d, 0xda, 0xc2,
-	0x91, 0x47, 0x77, 0x4b, 0xc6, 0x9c, 0x31, 0x5f, 0x5c, 0x2f, 0xbd, 0xf8, 0xed, 0xfa, 0x19, 0x79,
-	0xdc, 0x9a, 0xeb, 0x46, 0x88, 0x90, 0x4d, 0x1a, 0x79, 0x41, 0xd3, 0x4e, 0xa0, 0xe6, 0x87, 0x30,
-	0x2a, 0xac, 0x2c, 0x0d, 0xcf, 0x19, 0xf3, 0xe3, 0xcb, 0x33, 0x8b, 0x39, 0x1e, 0x59, 0x14, 0x4a,
-	0xd6, 0x8b, 0xcf, 0x5e, 0xcd, 0x0e, 0xfd, 0xb2, 0xbf, 0xb7, 0x60, 0xd8, 0xf2, 0xab, 0xd5, 0xdb,
-	0x5f, 0xef, 0xef, 0x2d, 0x24, 0xe7, 0x7d, 0xb3, 0xbf, 0xb7, 0x60, 0x29, 0xae, 0x78, 0x22, 0x9d,
-	0x91, 0x31, 0xd7, 0x9a, 0x86, 0xf3, 0x19, 0x91, 0x8d, 0x48, 0x88, 0x03, 0x82, 0xac, 0xa7, 0x82,
-	0xdd, 0x9a, 0xeb, 0x7b, 0xf4, 0x13, 0xf6, 0x31, 0x8a, 0xcc, 0x1b, 0x30, 0x8a, 0x1b, 0x0d, 0xaf,
-	0x8e, 0xfa, 0x52, 0x93, 0x38, 0xd3, 0x84, 0x42, 0xe0, 0xf8, 0x88, 0xb3, 0x2a, 0xda, 0xfc, 0xb7,
-	0x79, 0x0b, 0xc6, 0x6a, 0x1d, 0xe2, 0x05, 0x88, 0x90, 0xd2, 0x48, 0x9f, 0x73, 0x62, 0xe4, 0xea,
-	0x32, 0x63, 0x28, 0x8f, 0xed, 0x41, 0x4f, 0xb5, 0xd7, 0xfa, 0x3f, 0xa7, 0xa7, 0x8a, 0xba, 0xf4,
-	0xcc, 0x29, 0x18, 0xf6, 0x5c, 0x4e, 0xa3, 0x60, 0x0f, 0x7b, 0xae, 0xf5, 0xab, 0x01, 0xa7, 0x36,
-	0x48, 0x73, 0xb3, 0x43, 0x42, 0x14, 0xb8, 0x6f, 0x4f, 0xf8, 0x22, 0xc0, 0x23, 0xf1, 0xf1, 0x96,
-	0xe7, 0x72, 0xda, 0x05, 0xbb, 0x28, 0x25, 0x77, 0x5d, 0xf3, 0x1c, 0x8c, 0x46, 0xc8, 0x21, 0x38,
-	0x10, 0xcc, 0x6d, 0xf9, 0xb4, 0x7a, 0x2b, 0xc3, 0xee, 0x4a, 0x3e, 0xbb, 0xb4, 0x79, 0xd6, 0x0c,
-	0x4c, 0x1f, 0x10, 0xc6, 0x01, 0xfc, 0xc9, 0x80, 0xd3, 0x1b, 0xa4, 0x69, 0x23, 0x2f, 0x20, 0xd4,
-	0xa1, 0xe8, 0xbf, 0xe2, 0xb4, 0xba, 0x92, 0xb1, 0xfd, 0x5a, 0xbe, 0xed, 0x59, 0x43, 0xac, 0x8b,
-	0x30, 0x93, 0x23, 0x8e, 0xed, 0xff, 0xcb, 0x80, 0x71, 0xc6, 0x0e, 0xd1, 0x4d, 0xea, 0x34, 0x1a,
-	0xa9, 0xb4, 0x31, 0x06, 0x4d, 0x9b, 0x7e, 0xf1, 0x58, 0x80, 0x11, 0xc7, 0x75, 0x4b, 0x23, 0x73,
-	0x23, 0x3d, 0xcf, 0x63, 0x20, 0xe6, 0xb8, 0x08, 0xf9, 0x78, 0x1b, 0x95, 0x0a, 0x7d, 0xe0, 0x12,
-	0xb7, 0x7a, 0x83, 0x79, 0x26, 0xb6, 0x85, 0xf9, 0xa6, 0xa2, 0x89, 0xab, 0x24, 0x69, 0x9d, 0xe5,
-	0x31, 0xeb, 0x3e, 0xc6, 0xbe, 0x78, 0x69, 0xc0, 0x49, 0xee, 0xab, 0xa6, 0x47, 0x28, 0x8a, 0xb8,
-	0xab, 0xcc, 0x45, 0x38, 0x46, 0x18, 0xaa, 0xaf, 0x37, 0x04, 0xcc, 0x9c, 0x83, 0x71, 0x2f, 0x20,
-	0xf5, 0xc8, 0x0b, 0xa9, 0x87, 0x03, 0x59, 0x92, 0xaa, 0xc8, 0x9c, 0x85, 0xf1, 0x08, 0xd5, 0x71,
-	0xe4, 0x6e, 0xb5, 0x1c, 0xd2, 0x92, 0x29, 0x0a, 0x42, 0xf4, 0xb1, 0x43, 0x5a, 0xcc, 0x9b, 0x12,
-	0xd0, 0x89, 0xbc, 0x52, 0x81, 0xbf, 0x2f, 0x0a, 0xc9, 0x83, 0xc8, 0x13, 0x35, 0x2a, 0xb4, 0x31,
-	0xb2, 0x97, 0x75, 0x89, 0xa0, 0xb0, 0xb0, 0x16, 0xa0, 0x94, 0x95, 0x69, 0x8b, 0xf4, 0x0f, 0x03,
-	0x26, 0x59, 0x41, 0xfb, 0xdd, 0x74, 0x3f, 0xb4, 0x0f, 0xa6, 0x61, 0x8c, 0xdb, 0x91, 0x24, 0xc3,
-	0x71, 0xfe, 0x7c, 0xd7, 0xfd, 0xb7, 0xe4, 0x79, 0xab, 0xc3, 0x14, 0x95, 0x8e, 0xc9, 0x56, 0x87,
-	0x29, 0x5a, 0xad, 0xa6, 0x1d, 0x32, 0xa7, 0xe9, 0x59, 0x31, 0x1f, 0xeb, 0x3c, 0x9c, 0x4d, 0x09,
-	0xe2, 0x0c, 0x78, 0x21, 0xa8, 0x7f, 0xda, 0x68, 0x28, 0xe1, 0xc7, 0x3b, 0x01, 0x8a, 0xfa, 0x53,
-	0xe7, 0xb0, 0x5e, 0xd4, 0xe7, 0x61, 0x98, 0xe2, 0xbe, 0xbd, 0x78, 0x98, 0x62, 0x73, 0x06, 0x8a,
-	0xf5, 0xb6, 0xe3, 0xf9, 0x5b, 0x8f, 0xd1, 0xae, 0x74, 0xc1, 0x18, 0x17, 0xdc, 0x43, 0xbb, 0x92,
-	0x2d, 0xd7, 0xd6, 0x83, 0x6d, 0x42, 0xc1, 0x5a, 0xe1, 0x6c, 0x13, 0x41, 0x1c, 0xf8, 0x8b, 0x00,
-	0xe8, 0x49, 0xe8, 0x45, 0x88, 0x6c, 0x39, 0x94, 0x13, 0x1c, 0xb1, 0x8b, 0x52, 0xb2, 0x46, 0xad,
-	0x6f, 0x0d, 0x98, 0xda, 0x20, 0xcd, 0x3b, 0x4e, 0x50, 0x47, 0x6d, 0xfe, 0xf9, 0x11, 0x7a, 0x43,
-	0x54, 0x6d, 0x42, 0xe3, 0x52, 0x3e, 0x0d, 0x45, 0xb9, 0x55, 0x82, 0x73, 0x69, 0x49, 0x1c, 0xb6,
-	0x1f, 0x85, 0xa5, 0x6b, 0xf5, 0x3a, 0x0a, 0xa9, 0xb0, 0x74, 0x05, 0x58, 0xd2, 0x78, 0xa1, 0x87,
-	0x02, 0xda, 0x7f, 0x45, 0x88, 0xa1, 0xbd, 0x2c, 0xe6, 0xd3, 0x23, 0x81, 0xf6, 0xb0, 0x5a, 0x31,
-	0x44, 0x5a, 0xad, 0x48, 0x62, 0xab, 0x5f, 0x89, 0x64, 0xbb, 0xc3, 0x02, 0x2b, 0x8c, 0x5e, 0x86,
-	0xe3, 0x3c, 0xcc, 0x03, 0x38, 0xb8, 0x0b, 0xec, 0x95, 0x70, 0x16, 0x4c, 0x8a, 0x34, 0x0a, 0x3b,
-	0x35, 0x9e, 0x4a, 0x2c, 0xf7, 0x26, 0xec, 0x71, 0x2e, 0xbc, 0xdf, 0xa9, 0xdd, 0x43, 0xbb, 0xe6,
-	0xff, 0xe0, 0x84, 0xc0, 0x10, 0xaf, 0x19, 0x38, 0xb4, 0x13, 0x21, 0x9e, 0x70, 0x13, 0xf6, 0x14,
-	0x17, 0x6f, 0x76, 0xa5, 0xab, 0x4b, 0x8c, 0x7d, 0x57, 0x6b, 0x8f, 0xc4, 0x4b, 0xe8, 0xc8, 0x32,
-	0x4b, 0x04, 0x31, 0xf3, 0xef, 0xc4, 0xd6, 0x63, 0xa3, 0x10, 0x47, 0x74, 0x93, 0xe2, 0x36, 0x0a,
-	0x8e, 0x32, 0xb5, 0x96, 0xd2, 0xa9, 0x65, 0xe9, 0x1a, 0x64, 0xa2, 0x5d, 0xae, 0x68, 0xaa, 0x28,
-	0x36, 0xb6, 0x5b, 0x06, 0x6d, 0xe4, 0x44, 0x47, 0x6f, 0xeb, 0x80, 0x65, 0x90, 0x28, 0xef, 0x96,
-	0x41, 0x22, 0x89, 0x2d, 0xfd, 0x5b, 0xcc, 0xaf, 0x35, 0x4a, 0x9d, 0x7a, 0x6b, 0x1d, 0x05, 0xa8,
-	0xe1, 0xd1, 0xa3, 0xec, 0xdd, 0x26, 0x14, 0x1e, 0x7b, 0x81, 0x2b, 0x9b, 0x36, 0xff, 0x6d, 0x5e,
-	0x80, 0xa2, 0xd3, 0x6e, 0xe3, 0x1d, 0x56, 0x95, 0x3c, 0x73, 0x26, 0xed, 0x44, 0xc0, 0x16, 0xb1,
-	0x10, 0x45, 0x1e, 0x76, 0x79, 0xbf, 0x1e, 0xb1, 0xe5, 0x53, 0xa6, 0xf3, 0x8c, 0x66, 0x3a, 0xcf,
-	0x80, 0x13, 0x2e, 0xc5, 0x53, 0x4e, 0xb8, 0x94, 0x4c, 0x3b, 0xe1, 0xbe, 0x1a, 0x96, 0x83, 0xde,
-	0x45, 0xc8, 0x7f, 0x5b, 0x47, 0x7d, 0x00, 0xc7, 0xb7, 0x71, 0xa7, 0xde, 0x42, 0x91, 0xbc, 0x4d,
-	0x5c, 0xc8, 0xbd, 0x4d, 0x3c, 0x14, 0x98, 0xf5, 0x02, 0xbb, 0x4e, 0xd8, 0xdd, 0x4f, 0x58, 0x6d,
-	0xf2, 0xa0, 0x67, 0x6b, 0x93, 0x0b, 0x93, 0xda, 0x14, 0x98, 0x03, 0xb5, 0xc9, 0xc5, 0x49, 0x6d,
-	0x0e, 0xba, 0x11, 0x28, 0x74, 0xad, 0xb2, 0xdc, 0x08, 0x14, 0x99, 0xda, 0x99, 0x58, 0x8e, 0xdd,
-	0x8f, 0x70, 0x88, 0x09, 0xb2, 0x91, 0x43, 0x98, 0x05, 0x3e, 0xeb, 0x8f, 0x87, 0xdf, 0x6b, 0x8f,
-	0x64, 0x22, 0x26, 0x1b, 0x7d, 0x21, 0xb5, 0xd1, 0xdf, 0xce, 0x6c, 0xc5, 0x57, 0xf3, 0xa9, 0x67,
-	0x98, 0x58, 0x6b, 0x50, 0xc9, 0xe7, 0x17, 0xa7, 0xcc, 0x2c, 0x8c, 0xef, 0x78, 0x81, 0x8b, 0x77,
-	0xb6, 0x50, 0xe0, 0x12, 0x39, 0x1c, 0x41, 0x88, 0x3e, 0x0a, 0x5c, 0x62, 0xfd, 0x20, 0x16, 0xff,
-	0x87, 0x88, 0xe2, 0x94, 0x83, 0x8e, 0xb0, 0x37, 0xdc, 0x4e, 0xf7, 0x06, 0xcd, 0xc6, 0x9f, 0xb5,
-	0x40, 0x6e, 0xfc, 0x59, 0x71, 0x1c, 0xdc, 0x9f, 0x0d, 0xde, 0xeb, 0xee, 0x60, 0x3f, 0x6c, 0x23,
-	0x9a, 0x8e, 0x2e, 0x1b, 0x40, 0x11, 0x72, 0x28, 0x1e, 0x64, 0x00, 0x09, 0x60, 0x2f, 0x02, 0xef,
-	0x89, 0x99, 0x21, 0x80, 0x3d, 0x28, 0x64, 0x6d, 0xb1, 0x2e, 0xc1, 0xac, 0xc6, 0xc4, 0x2e, 0x8d,
-	0xe5, 0xa7, 0x53, 0x30, 0xb2, 0x41, 0x9a, 0x66, 0x0d, 0x26, 0x52, 0xff, 0x1b, 0xb8, 0x92, 0x5b,
-	0x85, 0x99, 0xfb, 0x77, 0xf9, 0xdd, 0x41, 0x50, 0x71, 0x32, 0xd4, 0x60, 0x22, 0x75, 0x43, 0xd7,
-	0xea, 0x50, 0x51, 0x7a, 0x1d, 0xb9, 0x57, 0xe5, 0x16, 0x4c, 0x65, 0xae, 0xc5, 0xd7, 0x74, 0xdf,
-	0xa7, 0x71, 0xe5, 0xc5, 0xc1, 0x70, 0xb1, 0xa6, 0x00, 0x4e, 0x1e, 0xb8, 0xae, 0xce, 0xeb, 0xce,
-	0xc8, 0x22, 0xcb, 0x37, 0x06, 0x45, 0xc6, 0xfa, 0x1e, 0xc2, 0x58, 0x7c, 0xbd, 0x9c, 0xd3, 0xda,
-	0x2a, 0x11, 0xe5, 0xf9, 0x7e, 0x88, 0xf8, 0x5c, 0x04, 0x93, 0xe9, 0xab, 0xda, 0x55, 0xbd, 0x69,
-	0x0a, 0xac, 0x7c, 0x7d, 0x20, 0x58, 0xac, 0xe6, 0x73, 0x00, 0xe5, 0x2a, 0x64, 0x69, 0x83, 0x1a,
-	0x63, 0xca, 0x0b, 0xfd, 0x31, 0xea, 0xe9, 0xca, 0x6d, 0x43, 0x7b, 0x7a, 0x82, 0xd1, 0x9f, 0x9e,
-	0xb3, 0xe1, 0x6f, 0xc1, 0xb8, 0xba, 0xbe, 0x5f, 0xd6, 0x7d, 0xaa, 0x80, 0xca, 0xef, 0x0c, 0x00,
-	0x52, 0x15, 0xa8, 0x5b, 0xb7, 0x56, 0x81, 0x02, 0xd2, 0x2b, 0xc8, 0x59, 0x92, 0x99, 0x7f, 0x94,
-	0x05, 0x59, 0xeb, 0x9f, 0x04, 0xa3, 0xf7, 0xcf, 0xc1, 0x45, 0x94, 0x15, 0x76, 0x6a, 0x09, 0xbd,
-	0xa2, 0x4f, 0x8d, 0x04, 0xa5, 0x2f, 0xec, 0xbc, 0xfd, 0x91, 0xc7, 0x40, 0xd9, 0x1d, 0xf5, 0x31,
-	0x48, 0x40, 0x3d, 0x62, 0x70, 0x70, 0xed, 0x63, 0x75, 0x90, 0x5e, 0xf9, 0xb4, 0x75, 0x90, 0x82,
-	0xe9, 0xeb, 0x20, 0x7f, 0x89, 0xe2, 0xe5, 0xa6, 0x2e, 0x4c, 0x3d, 0xca, 0x4d, 0x81, 0xf5, 0x2a,
-	0xb7, 0x9c, 0xdd, 0xc3, 0xdc, 0x81, 0xd3, 0x79, 0x7b, 0x87, 0xd6, 0x23, 0x39, 0xe0, 0xf2, 0xcd,
-	0x43, 0x80, 0xd5, 0xb6, 0x78, 0x60, 0x98, 0x6b, 0x9b, 0x51, 0x16, 0xa9, 0x6f, 0x8b, 0xba, 0x39,
-	0x6c, 0x7e, 0x01, 0x67, 0x72, 0x67, 0xb0, 0x36, 0xbb, 0xf2, 0xd0, 0xe5, 0x5b, 0x87, 0x41, 0x77,
-	0x75, 0x97, 0x8f, 0x7d, 0xb9, 0xbf, 0xb7, 0x60, 0xac, 0xbf, 0xff, 0xec, 0x75, 0xc5, 0x78, 0xfe,
-	0xba, 0x62, 0xfc, 0xf9, 0xba, 0x62, 0x7c, 0xff, 0xa6, 0x32, 0xf4, 0xfc, 0x4d, 0x65, 0xe8, 0xe5,
-	0x9b, 0xca, 0xd0, 0x67, 0xb3, 0xbb, 0x8e, 0xef, 0xb4, 0x51, 0x35, 0x67, 0x5e, 0xd3, 0xdd, 0x10,
-	0x91, 0xda, 0x28, 0xff, 0xef, 0xfc, 0xcd, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xe1, 0x2f, 0xdb,
-	0x04, 0x72, 0x18, 0x00, 0x00,
+	// 1824 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x59, 0xcd, 0x6f, 0x1c, 0x49,
+	0x15, 0x77, 0xdb, 0x13, 0xdb, 0xf3, 0xfc, 0xb1, 0xbb, 0x1d, 0x6f, 0x32, 0x1e, 0x27, 0xe3, 0x71,
+	0x27, 0x59, 0xbc, 0x86, 0x9d, 0xb1, 0xbd, 0x89, 0x11, 0x16, 0x42, 0xb2, 0x2d, 0x10, 0x61, 0x65,
+	0x11, 0xb5, 0xb5, 0x41, 0x20, 0x24, 0xab, 0x3d, 0x5d, 0x9e, 0xe9, 0x64, 0xa6, 0xab, 0xd5, 0x55,
+	0x63, 0xc7, 0x9c, 0x80, 0x23, 0x12, 0x82, 0x5b, 0xc4, 0x05, 0x09, 0xc1, 0x81, 0xa3, 0x85, 0xf8,
+	0x03, 0xe0, 0x96, 0x63, 0x94, 0x53, 0x4e, 0x01, 0x25, 0x07, 0xdf, 0x39, 0x72, 0x42, 0xf5, 0x31,
+	0xd5, 0xd5, 0xed, 0xae, 0x99, 0x71, 0x98, 0x5c, 0xac, 0xe9, 0xd7, 0xbf, 0xae, 0x7a, 0xbf, 0x57,
+	0xef, 0xb3, 0x0c, 0xb7, 0x8e, 0xda, 0xb8, 0xf1, 0xb4, 0xd1, 0xf2, 0x82, 0xb0, 0xfe, 0x04, 0x9d,
+	0xa2, 0x76, 0xfd, 0x64, 0xa3, 0x4e, 0x9f, 0xd5, 0xa2, 0x18, 0x53, 0x6c, 0x5f, 0x4f, 0xde, 0xd6,
+	0xf8, 0xdb, 0xda, 0xc9, 0x46, 0xf9, 0x13, 0xaf, 0x13, 0x84, 0xb8, 0xce, 0xff, 0x0a, 0x5c, 0x79,
+	0x39, 0x6f, 0x15, 0xf1, 0x81, 0x00, 0x54, 0xf3, 0x00, 0x91, 0x17, 0x7b, 0x1d, 0x22, 0x11, 0x37,
+	0x1b, 0x98, 0x74, 0x30, 0xa9, 0x77, 0x48, 0x93, 0xbd, 0xeb, 0x90, 0xa6, 0x7c, 0xb1, 0x28, 0x5e,
+	0x1c, 0xf2, 0xa7, 0xba, 0x78, 0x90, 0xaf, 0x16, 0x9a, 0xb8, 0x89, 0x85, 0x9c, 0xfd, 0x12, 0x52,
+	0xe7, 0x1f, 0x16, 0x7c, 0xb4, 0x4f, 0x9a, 0x5f, 0x47, 0xbe, 0x47, 0xd1, 0x23, 0xbe, 0x87, 0xbd,
+	0x05, 0x45, 0xaf, 0x4b, 0x5b, 0x38, 0x0e, 0xe8, 0x59, 0xc9, 0xaa, 0x5a, 0xab, 0xc5, 0xdd, 0xd2,
+	0xab, 0xbf, 0x7f, 0xb1, 0x20, 0x97, 0xdb, 0xf1, 0xfd, 0x18, 0x11, 0x72, 0x40, 0xe3, 0x20, 0x6c,
+	0xba, 0x09, 0xd4, 0xfe, 0x1e, 0x4c, 0x0a, 0x2d, 0x4b, 0xe3, 0x55, 0x6b, 0x75, 0x66, 0x73, 0xa9,
+	0x96, 0x63, 0x91, 0x9a, 0xd8, 0x64, 0xb7, 0xf8, 0xe2, 0xcd, 0xf2, 0xd8, 0x5f, 0x2f, 0xce, 0xd7,
+	0x2c, 0x57, 0x7e, 0xb5, 0xfd, 0xe0, 0xd7, 0x17, 0xe7, 0x6b, 0xc9, 0x7a, 0xbf, 0xb9, 0x38, 0x5f,
+	0x73, 0x34, 0x53, 0x3c, 0x93, 0xc6, 0xc8, 0xa8, 0xeb, 0x2c, 0xc2, 0xcd, 0x8c, 0xc8, 0x45, 0x24,
+	0xc2, 0x21, 0x41, 0xce, 0x3f, 0x05, 0xbb, 0x1d, 0xbf, 0x13, 0xd0, 0x1f, 0xb1, 0x8f, 0x51, 0x6c,
+	0xaf, 0xc3, 0x24, 0x3e, 0x3e, 0x0e, 0x1a, 0x68, 0x20, 0x35, 0x89, 0xb3, 0x6d, 0x28, 0x84, 0x5e,
+	0x07, 0x71, 0x56, 0x45, 0x97, 0xff, 0xb6, 0xef, 0xc3, 0xf4, 0x51, 0x97, 0x04, 0x21, 0x22, 0xa4,
+	0x34, 0x31, 0x60, 0x1d, 0x85, 0xdc, 0xde, 0x64, 0x0c, 0xe5, 0xb2, 0x7d, 0xe8, 0xe9, 0xfa, 0x3a,
+	0x9f, 0x73, 0x7a, 0xba, 0xa8, 0x47, 0xcf, 0x9e, 0x87, 0xf1, 0xc0, 0xe7, 0x34, 0x0a, 0xee, 0x78,
+	0xe0, 0x3b, 0x7f, 0xb3, 0xe0, 0x93, 0x7d, 0xd2, 0x3c, 0xe8, 0x92, 0x08, 0x85, 0xfe, 0xfb, 0x13,
+	0xbe, 0x0d, 0xf0, 0x44, 0x7c, 0x7c, 0x18, 0xf8, 0x9c, 0x76, 0xc1, 0x2d, 0x4a, 0xc9, 0x43, 0xdf,
+	0xbe, 0x01, 0x93, 0x31, 0xf2, 0x08, 0x0e, 0x05, 0x73, 0x57, 0x3e, 0x6d, 0xdf, 0xcf, 0xb0, 0xbb,
+	0x9b, 0xcf, 0x2e, 0xad, 0x9e, 0xb3, 0x04, 0x8b, 0x97, 0x84, 0xea, 0x00, 0xff, 0x68, 0xc1, 0xf5,
+	0x7d, 0xd2, 0x74, 0x51, 0x10, 0x12, 0xea, 0x51, 0xf4, 0xa1, 0x38, 0x6d, 0x6f, 0x65, 0x74, 0xff,
+	0x2c, 0x5f, 0xf7, 0xac, 0x22, 0xce, 0x6d, 0x58, 0xca, 0x11, 0x2b, 0xfd, 0xff, 0x63, 0xc1, 0x0c,
+	0x63, 0x87, 0xe8, 0x01, 0xf5, 0x8e, 0x8f, 0x53, 0x6e, 0x63, 0x0d, 0xeb, 0x36, 0x83, 0xce, 0x63,
+	0x0d, 0x26, 0x3c, 0xdf, 0x2f, 0x4d, 0x54, 0x27, 0xfa, 0xae, 0xc7, 0x40, 0xcc, 0x70, 0x31, 0xea,
+	0xe0, 0x13, 0x54, 0x2a, 0x0c, 0x80, 0x4b, 0xdc, 0xf6, 0x3a, 0xb3, 0x8c, 0xd2, 0x85, 0xd9, 0xa6,
+	0x62, 0x38, 0x57, 0x49, 0xd2, 0xf9, 0x94, 0x9f, 0x59, 0xef, 0x51, 0xd9, 0xe2, 0xb5, 0x05, 0x1f,
+	0x73, 0x5b, 0x35, 0x03, 0x42, 0x51, 0xcc, 0x4d, 0x65, 0xd7, 0xe0, 0x1a, 0x61, 0xa8, 0x81, 0xd6,
+	0x10, 0x30, 0xbb, 0x0a, 0x33, 0x41, 0x48, 0x1a, 0x71, 0x10, 0xd1, 0x00, 0x87, 0x32, 0x24, 0x75,
+	0x91, 0xbd, 0x0c, 0x33, 0x31, 0x6a, 0xe0, 0xd8, 0x3f, 0x6c, 0x79, 0xa4, 0x25, 0x5d, 0x14, 0x84,
+	0xe8, 0x87, 0x1e, 0x69, 0x31, 0x6b, 0x4a, 0x40, 0x37, 0x0e, 0x4a, 0x05, 0xfe, 0xbe, 0x28, 0x24,
+	0x5f, 0xc7, 0x81, 0x88, 0x51, 0xb1, 0x1b, 0x23, 0x7b, 0xc7, 0xe4, 0x08, 0x1a, 0x0b, 0x67, 0x0d,
+	0x4a, 0x59, 0x99, 0x31, 0x48, 0xff, 0x65, 0xc1, 0x1c, 0x0b, 0xe8, 0x4e, 0xcf, 0xdd, 0xaf, 0x6c,
+	0x83, 0x45, 0x98, 0xe6, 0x7a, 0x24, 0xce, 0x30, 0xc5, 0x9f, 0x1f, 0xfa, 0xff, 0x2f, 0x79, 0x9e,
+	0xea, 0x30, 0x45, 0xa5, 0x6b, 0x32, 0xd5, 0x61, 0x8a, 0xb6, 0xeb, 0x69, 0x83, 0x54, 0x0d, 0x39,
+	0x4b, 0xf1, 0x71, 0x6e, 0xc2, 0xa7, 0x29, 0x81, 0xf2, 0x80, 0x57, 0x82, 0xfa, 0x8f, 0x8f, 0x8f,
+	0xb5, 0xe3, 0xc7, 0xa7, 0x21, 0x8a, 0x07, 0x53, 0xe7, 0xb0, 0x7e, 0xd4, 0x57, 0x61, 0x9c, 0xe2,
+	0x81, 0xb9, 0x78, 0x9c, 0x62, 0x7b, 0x09, 0x8a, 0x8d, 0xb6, 0x17, 0x74, 0x0e, 0x9f, 0xa2, 0x33,
+	0x69, 0x82, 0x69, 0x2e, 0xf8, 0x0a, 0x9d, 0x49, 0xb6, 0x7c, 0xb7, 0x3e, 0x6c, 0x13, 0x0a, 0xce,
+	0x16, 0x67, 0x9b, 0x08, 0xd4, 0xc1, 0xdf, 0x06, 0x40, 0xcf, 0xa2, 0x20, 0x46, 0xe4, 0xd0, 0xa3,
+	0x9c, 0xe0, 0x84, 0x5b, 0x94, 0x92, 0x1d, 0xea, 0xfc, 0xd6, 0x82, 0xf9, 0x7d, 0xd2, 0xdc, 0xf3,
+	0xc2, 0x06, 0x6a, 0xf3, 0xcf, 0x47, 0x68, 0x0d, 0x11, 0xb5, 0x09, 0x8d, 0x95, 0x7c, 0x1a, 0xda,
+	0xe6, 0x4e, 0x09, 0x6e, 0xa4, 0x25, 0xea, 0xd8, 0xfe, 0x20, 0x34, 0xdd, 0x69, 0x34, 0x50, 0x44,
+	0x85, 0xa6, 0x5b, 0xc0, 0x9c, 0x26, 0x88, 0x02, 0x14, 0xd2, 0xc1, 0x2d, 0x82, 0x82, 0xf6, 0xd3,
+	0x98, 0x57, 0x8f, 0x04, 0xda, 0x47, 0x6b, 0x4d, 0x11, 0xa9, 0xb5, 0x26, 0x51, 0x5a, 0xbf, 0x11,
+	0xce, 0xb6, 0xc7, 0x0e, 0x56, 0x28, 0xbd, 0x09, 0x53, 0xfc, 0x98, 0x87, 0x30, 0x70, 0x0f, 0xd8,
+	0xcf, 0xe1, 0x1c, 0x98, 0x13, 0x6e, 0x14, 0x75, 0x8f, 0xb8, 0x2b, 0x31, 0xdf, 0x9b, 0x75, 0x67,
+	0xb8, 0xf0, 0x51, 0xf7, 0xe8, 0x2b, 0x74, 0x66, 0x7f, 0x03, 0x3e, 0x12, 0x18, 0x12, 0x34, 0x43,
+	0x8f, 0x76, 0x63, 0xc4, 0x1d, 0x6e, 0xd6, 0x9d, 0xe7, 0xe2, 0x83, 0x9e, 0x74, 0x7b, 0x83, 0xb1,
+	0xef, 0xed, 0xda, 0xc7, 0xf1, 0x12, 0x3a, 0x32, 0xcc, 0x12, 0x81, 0x62, 0xfe, 0x3b, 0xd1, 0xf5,
+	0xb8, 0x28, 0xc2, 0x31, 0x3d, 0xa0, 0xb8, 0x8d, 0xc2, 0x51, 0xba, 0xd6, 0x46, 0xda, 0xb5, 0x1c,
+	0x53, 0x82, 0x4c, 0x76, 0x97, 0x2d, 0x9a, 0x2e, 0x52, 0xca, 0xf6, 0xc2, 0xa0, 0x8d, 0xbc, 0x78,
+	0xf4, 0xba, 0x0e, 0x19, 0x06, 0xc9, 0xe6, 0xbd, 0x30, 0x48, 0x24, 0x4a, 0xd3, 0xff, 0x8a, 0xfa,
+	0xb5, 0x43, 0xa9, 0xd7, 0x68, 0xed, 0xa2, 0x10, 0x1d, 0x07, 0x74, 0x94, 0xb9, 0xdb, 0x86, 0xc2,
+	0xd3, 0x20, 0xf4, 0x65, 0xd2, 0xe6, 0xbf, 0xed, 0x5b, 0x50, 0xf4, 0xda, 0x6d, 0x7c, 0xca, 0xa2,
+	0x92, 0x7b, 0xce, 0x9c, 0x9b, 0x08, 0x58, 0x23, 0x16, 0xa1, 0x38, 0xc0, 0x3e, 0xcf, 0xd7, 0x13,
+	0xae, 0x7c, 0xca, 0x64, 0x9e, 0xc9, 0x4c, 0xe6, 0x19, 0xb2, 0xc2, 0xa5, 0x78, 0xca, 0x0a, 0x97,
+	0x92, 0x19, 0x2b, 0xdc, 0xaf, 0xc6, 0x65, 0xa1, 0xf7, 0x11, 0xea, 0xbc, 0xaf, 0xa1, 0xbe, 0x0b,
+	0x53, 0x27, 0xb8, 0xdb, 0x68, 0xa1, 0x58, 0x4e, 0x13, 0xb7, 0x72, 0xa7, 0x89, 0xc7, 0x02, 0xb3,
+	0x5b, 0x60, 0xe3, 0x84, 0xdb, 0xfb, 0x84, 0xc5, 0x26, 0x3f, 0xf4, 0x6c, 0x6c, 0x72, 0x61, 0x12,
+	0x9b, 0x02, 0x73, 0x29, 0x36, 0xb9, 0x38, 0x89, 0xcd, 0x61, 0x3b, 0x02, 0x8d, 0xae, 0x53, 0x96,
+	0x1d, 0x81, 0x26, 0xd3, 0x33, 0x13, 0xf3, 0xb1, 0x47, 0x31, 0x8e, 0x30, 0x41, 0x2e, 0xf2, 0x08,
+	0xd3, 0xa0, 0xc3, 0xf2, 0xe3, 0xd5, 0xfb, 0xda, 0x91, 0x54, 0xc4, 0xa4, 0xa3, 0x2f, 0xa4, 0x3a,
+	0xfa, 0x07, 0x99, 0xae, 0xf8, 0x5e, 0x3e, 0xf5, 0x0c, 0x13, 0x67, 0x07, 0x2a, 0xf9, 0xfc, 0x94,
+	0xcb, 0x2c, 0xc3, 0xcc, 0x69, 0x10, 0xfa, 0xf8, 0xf4, 0x10, 0x85, 0x3e, 0x91, 0xc5, 0x11, 0x84,
+	0xe8, 0xfb, 0xa1, 0x4f, 0x9c, 0xe7, 0xa2, 0xf1, 0x7f, 0x8c, 0x28, 0x4e, 0x19, 0x68, 0x84, 0xb9,
+	0xe1, 0x41, 0x3a, 0x37, 0x18, 0x3a, 0xfe, 0xac, 0x06, 0xb2, 0xe3, 0xcf, 0x8a, 0xd5, 0xe1, 0xfe,
+	0xc9, 0xe2, 0xb9, 0x6e, 0x0f, 0x77, 0xa2, 0x36, 0xa2, 0xe9, 0xd3, 0x65, 0x05, 0x28, 0x46, 0x1e,
+	0xc5, 0xc3, 0x14, 0x20, 0x01, 0xec, 0x47, 0xe0, 0xdb, 0xa2, 0x66, 0x08, 0x60, 0x1f, 0x0a, 0x59,
+	0x5d, 0x9c, 0x15, 0x58, 0x36, 0xa8, 0xa8, 0x68, 0xfc, 0xc5, 0x82, 0xd9, 0x7d, 0xd2, 0x7c, 0x48,
+	0x48, 0x17, 0xed, 0x79, 0xb1, 0x3f, 0xca, 0x44, 0xb7, 0x08, 0xd3, 0x0d, 0x2f, 0xf6, 0x55, 0x5c,
+	0x16, 0xdd, 0x29, 0xf6, 0xcc, 0xba, 0xaf, 0x5a, 0x3a, 0xd4, 0x96, 0xf3, 0x09, 0x29, 0xad, 0x9c,
+	0x1b, 0xb0, 0xa0, 0x3f, 0xeb, 0xb3, 0x06, 0x53, 0xff, 0x07, 0x41, 0x1b, 0xf1, 0x02, 0x39, 0xea,
+	0xda, 0x5f, 0x85, 0x59, 0x4e, 0x21, 0x9d, 0x5e, 0x80, 0xc9, 0x64, 0x76, 0xb9, 0x07, 0xf3, 0x1c,
+	0x91, 0x4d, 0x2e, 0x73, 0x4c, 0x9a, 0xe4, 0x96, 0xf5, 0x6c, 0xdd, 0x37, 0x50, 0x56, 0x4c, 0x24,
+	0x65, 0xf5, 0x9c, 0xad, 0xfa, 0x3b, 0x51, 0x14, 0xe3, 0x13, 0xc9, 0x7a, 0x74, 0x87, 0x26, 0xab,
+	0xbe, 0x3a, 0x19, 0xd3, 0xcd, 0x85, 0xb6, 0xbb, 0xac, 0xfa, 0xba, 0x28, 0x5b, 0xf5, 0x5d, 0xf4,
+	0x04, 0x35, 0xe8, 0xc8, 0x75, 0x5d, 0x4f, 0xeb, 0xba, 0x62, 0x4a, 0xd8, 0x6a, 0x73, 0x59, 0xf5,
+	0x35, 0x89, 0xd2, 0xf4, 0xb9, 0xa8, 0xfa, 0x3f, 0x09, 0x68, 0xcb, 0x8f, 0xbd, 0xd3, 0x0f, 0xe1,
+	0x4d, 0xa2, 0xf5, 0xd5, 0x9d, 0xc0, 0x50, 0x62, 0x52, 0x4a, 0xc8, 0x12, 0x93, 0x92, 0xf5, 0xb4,
+	0xde, 0xfc, 0xb3, 0x0d, 0x13, 0xfb, 0xa4, 0x69, 0x1f, 0xc1, 0x6c, 0xea, 0x6a, 0xef, 0x6e, 0x6e,
+	0x11, 0xcd, 0x5c, 0x9f, 0x95, 0xbf, 0x35, 0x0c, 0x4a, 0xe5, 0xf2, 0x23, 0x98, 0x4d, 0x5d, 0xb0,
+	0x19, 0xf7, 0xd0, 0x51, 0xe6, 0x3d, 0x72, 0x6f, 0xba, 0x5a, 0x30, 0x9f, 0xb9, 0xd5, 0xfa, 0xcc,
+	0xf4, 0x7d, 0x1a, 0x57, 0xae, 0x0d, 0x87, 0x53, 0x3b, 0x85, 0xf0, 0xf1, 0xa5, 0xdb, 0xa6, 0x55,
+	0xd3, 0x1a, 0x59, 0x64, 0x79, 0x7d, 0x58, 0xa4, 0xda, 0xef, 0x31, 0x4c, 0xab, 0xdb, 0xa1, 0xaa,
+	0x51, 0x57, 0x89, 0x28, 0xaf, 0x0e, 0x42, 0xa8, 0x75, 0x11, 0xcc, 0xa5, 0x6f, 0x5a, 0xee, 0x99,
+	0x55, 0xd3, 0x60, 0xe5, 0x2f, 0x86, 0x82, 0xa9, 0x6d, 0x7e, 0x0e, 0xa0, 0xdd, 0x64, 0x38, 0xc6,
+	0x43, 0x55, 0x98, 0xf2, 0xda, 0x60, 0x8c, 0xbe, 0xba, 0x76, 0x59, 0x60, 0x5c, 0x3d, 0xc1, 0x98,
+	0x57, 0xcf, 0x19, 0xd0, 0x0f, 0x61, 0x46, 0x9f, 0xbe, 0xef, 0x98, 0x3e, 0xd5, 0x40, 0xe5, 0x6f,
+	0x0e, 0x01, 0xd2, 0x37, 0xd0, 0x87, 0x66, 0xe3, 0x06, 0x1a, 0xc8, 0xbc, 0x41, 0xce, 0x8c, 0xcb,
+	0xec, 0xa3, 0xcd, 0xb7, 0x46, 0xfb, 0x24, 0x18, 0xb3, 0x7d, 0x2e, 0xcf, 0x91, 0x2c, 0xb0, 0x53,
+	0x33, 0xe4, 0x5d, 0xb3, 0x6b, 0x24, 0x28, 0x73, 0x60, 0xe7, 0x8d, 0x7f, 0xfc, 0x0c, 0xb4, 0xd1,
+	0xcf, 0x7c, 0x06, 0x09, 0xa8, 0xcf, 0x19, 0x5c, 0x9e, 0xda, 0x58, 0x1c, 0xa4, 0x27, 0x36, 0x63,
+	0x1c, 0xa4, 0x60, 0xe6, 0x38, 0xc8, 0x9f, 0x81, 0x78, 0xb8, 0xe9, 0xf3, 0x4e, 0x9f, 0x70, 0xd3,
+	0x60, 0xfd, 0xc2, 0x2d, 0x67, 0x74, 0xb0, 0x4f, 0xe1, 0x7a, 0xde, 0xd8, 0x60, 0xb4, 0x48, 0x0e,
+	0xb8, 0xfc, 0xe5, 0x15, 0xc0, 0x7a, 0x5a, 0xbc, 0xd4, 0x8b, 0x1b, 0x93, 0x51, 0x16, 0x69, 0x4e,
+	0x8b, 0xa6, 0x36, 0xda, 0xfe, 0x05, 0x2c, 0xe4, 0xb6, 0xd0, 0x46, 0xef, 0xca, 0x43, 0x97, 0xef,
+	0x5f, 0x05, 0xad, 0xf6, 0xfe, 0x29, 0x14, 0x93, 0xbe, 0x77, 0xc5, 0xb4, 0x84, 0x82, 0x94, 0x3f,
+	0x1f, 0x08, 0xd1, 0x97, 0x4e, 0x7a, 0x52, 0xe3, 0xd2, 0x0a, 0x62, 0x5e, 0xfa, 0x52, 0xff, 0xc7,
+	0xcb, 0xb0, 0xde, 0xfb, 0x99, 0xcb, 0xb0, 0x86, 0xea, 0x53, 0x86, 0x73, 0xda, 0x36, 0x16, 0xad,
+	0x7a, 0xcb, 0x76, 0xc7, 0xec, 0xbc, 0x0a, 0x64, 0x8e, 0xd6, 0x9c, 0x6e, 0x8b, 0x85, 0x51, 0xba,
+	0xd3, 0x32, 0x86, 0x51, 0x0a, 0x66, 0x0e, 0xa3, 0xdc, 0xf6, 0xa8, 0x7c, 0xed, 0x97, 0x17, 0xe7,
+	0x6b, 0xd6, 0xee, 0x77, 0x5e, 0xbc, 0xad, 0x58, 0x2f, 0xdf, 0x56, 0xac, 0x7f, 0xbf, 0xad, 0x58,
+	0xbf, 0x7f, 0x57, 0x19, 0x7b, 0xf9, 0xae, 0x32, 0xf6, 0xfa, 0x5d, 0x65, 0xec, 0x67, 0xcb, 0x67,
+	0x5e, 0xc7, 0x6b, 0xa3, 0x7a, 0x4e, 0x1f, 0x46, 0xcf, 0x22, 0x44, 0x8e, 0x26, 0xf9, 0xbf, 0x4f,
+	0xbf, 0xfc, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x40, 0xb6, 0x37, 0xa7, 0x13, 0x1e, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -2102,7 +2624,7 @@ type MsgClient interface {
 	AcceptOffer(ctx context.Context, in *MsgAcceptOffer, opts ...grpc.CallOption) (*MsgAcceptOfferResponse, error)
 	// ClaimOffer takes a jewel offered to a claim key.
 	ClaimOffer(ctx context.Context, in *MsgClaimOffer, opts ...grpc.CallOption) (*MsgClaimOfferResponse, error)
-	// ReportStolen flags a jewel and closes its offer.
+	// ReportStolen flags a jewel and closes its offer and any pending claim.
 	ReportStolen(ctx context.Context, in *MsgReportStolen, opts ...grpc.CallOption) (*MsgReportStolenResponse, error)
 	// ClearStolen lifts the flag.
 	ClearStolen(ctx context.Context, in *MsgClearStolen, opts ...grpc.CallOption) (*MsgClearStolenResponse, error)
@@ -2116,6 +2638,16 @@ type MsgClient interface {
 	VetoReassignment(ctx context.Context, in *MsgVetoReassignment, opts ...grpc.CallOption) (*MsgVetoReassignmentResponse, error)
 	// CompleteReassignment moves the jewel once the window has passed. Anyone.
 	CompleteReassignment(ctx context.Context, in *MsgCompleteReassignment, opts ...grpc.CallOption) (*MsgCompleteReassignmentResponse, error)
+	// IssueCard gives a stock jewel its ownership card, replacing any earlier one.
+	IssueCard(ctx context.Context, in *MsgIssueCard, opts ...grpc.CallOption) (*MsgIssueCardResponse, error)
+	// FileClaim records a buyer's claim, signed with the card's secret.
+	FileClaim(ctx context.Context, in *MsgFileClaim, opts ...grpc.CallOption) (*MsgFileClaimResponse, error)
+	// ApproveClaim moves the jewel to the claimer. The shop's staff only.
+	ApproveClaim(ctx context.Context, in *MsgApproveClaim, opts ...grpc.CallOption) (*MsgApproveClaimResponse, error)
+	// RejectClaim removes a claim; the card stays valid. The shop's staff only.
+	RejectClaim(ctx context.Context, in *MsgRejectClaim, opts ...grpc.CallOption) (*MsgRejectClaimResponse, error)
+	// WithdrawClaim removes the signer's own claim.
+	WithdrawClaim(ctx context.Context, in *MsgWithdrawClaim, opts ...grpc.CallOption) (*MsgWithdrawClaimResponse, error)
 }
 
 type msgClient struct {
@@ -2288,6 +2820,51 @@ func (c *msgClient) CompleteReassignment(ctx context.Context, in *MsgCompleteRea
 	return out, nil
 }
 
+func (c *msgClient) IssueCard(ctx context.Context, in *MsgIssueCard, opts ...grpc.CallOption) (*MsgIssueCardResponse, error) {
+	out := new(MsgIssueCardResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.jewel.v1.Msg/IssueCard", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) FileClaim(ctx context.Context, in *MsgFileClaim, opts ...grpc.CallOption) (*MsgFileClaimResponse, error) {
+	out := new(MsgFileClaimResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.jewel.v1.Msg/FileClaim", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) ApproveClaim(ctx context.Context, in *MsgApproveClaim, opts ...grpc.CallOption) (*MsgApproveClaimResponse, error) {
+	out := new(MsgApproveClaimResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.jewel.v1.Msg/ApproveClaim", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) RejectClaim(ctx context.Context, in *MsgRejectClaim, opts ...grpc.CallOption) (*MsgRejectClaimResponse, error) {
+	out := new(MsgRejectClaimResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.jewel.v1.Msg/RejectClaim", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) WithdrawClaim(ctx context.Context, in *MsgWithdrawClaim, opts ...grpc.CallOption) (*MsgWithdrawClaimResponse, error) {
+	out := new(MsgWithdrawClaimResponse)
+	err := c.cc.Invoke(ctx, "/blockchain.jewel.v1.Msg/WithdrawClaim", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	// UpdateParams sets the settings and appoints the office. Governance only;
@@ -2313,7 +2890,7 @@ type MsgServer interface {
 	AcceptOffer(context.Context, *MsgAcceptOffer) (*MsgAcceptOfferResponse, error)
 	// ClaimOffer takes a jewel offered to a claim key.
 	ClaimOffer(context.Context, *MsgClaimOffer) (*MsgClaimOfferResponse, error)
-	// ReportStolen flags a jewel and closes its offer.
+	// ReportStolen flags a jewel and closes its offer and any pending claim.
 	ReportStolen(context.Context, *MsgReportStolen) (*MsgReportStolenResponse, error)
 	// ClearStolen lifts the flag.
 	ClearStolen(context.Context, *MsgClearStolen) (*MsgClearStolenResponse, error)
@@ -2327,6 +2904,16 @@ type MsgServer interface {
 	VetoReassignment(context.Context, *MsgVetoReassignment) (*MsgVetoReassignmentResponse, error)
 	// CompleteReassignment moves the jewel once the window has passed. Anyone.
 	CompleteReassignment(context.Context, *MsgCompleteReassignment) (*MsgCompleteReassignmentResponse, error)
+	// IssueCard gives a stock jewel its ownership card, replacing any earlier one.
+	IssueCard(context.Context, *MsgIssueCard) (*MsgIssueCardResponse, error)
+	// FileClaim records a buyer's claim, signed with the card's secret.
+	FileClaim(context.Context, *MsgFileClaim) (*MsgFileClaimResponse, error)
+	// ApproveClaim moves the jewel to the claimer. The shop's staff only.
+	ApproveClaim(context.Context, *MsgApproveClaim) (*MsgApproveClaimResponse, error)
+	// RejectClaim removes a claim; the card stays valid. The shop's staff only.
+	RejectClaim(context.Context, *MsgRejectClaim) (*MsgRejectClaimResponse, error)
+	// WithdrawClaim removes the signer's own claim.
+	WithdrawClaim(context.Context, *MsgWithdrawClaim) (*MsgWithdrawClaimResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -2386,6 +2973,21 @@ func (*UnimplementedMsgServer) VetoReassignment(ctx context.Context, req *MsgVet
 }
 func (*UnimplementedMsgServer) CompleteReassignment(ctx context.Context, req *MsgCompleteReassignment) (*MsgCompleteReassignmentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompleteReassignment not implemented")
+}
+func (*UnimplementedMsgServer) IssueCard(ctx context.Context, req *MsgIssueCard) (*MsgIssueCardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IssueCard not implemented")
+}
+func (*UnimplementedMsgServer) FileClaim(ctx context.Context, req *MsgFileClaim) (*MsgFileClaimResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FileClaim not implemented")
+}
+func (*UnimplementedMsgServer) ApproveClaim(ctx context.Context, req *MsgApproveClaim) (*MsgApproveClaimResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApproveClaim not implemented")
+}
+func (*UnimplementedMsgServer) RejectClaim(ctx context.Context, req *MsgRejectClaim) (*MsgRejectClaimResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RejectClaim not implemented")
+}
+func (*UnimplementedMsgServer) WithdrawClaim(ctx context.Context, req *MsgWithdrawClaim) (*MsgWithdrawClaimResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawClaim not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -2716,6 +3318,96 @@ func _Msg_CompleteReassignment_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_IssueCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgIssueCard)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).IssueCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.jewel.v1.Msg/IssueCard",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).IssueCard(ctx, req.(*MsgIssueCard))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_FileClaim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgFileClaim)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).FileClaim(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.jewel.v1.Msg/FileClaim",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).FileClaim(ctx, req.(*MsgFileClaim))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_ApproveClaim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgApproveClaim)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ApproveClaim(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.jewel.v1.Msg/ApproveClaim",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ApproveClaim(ctx, req.(*MsgApproveClaim))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RejectClaim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRejectClaim)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RejectClaim(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.jewel.v1.Msg/RejectClaim",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RejectClaim(ctx, req.(*MsgRejectClaim))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_WithdrawClaim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgWithdrawClaim)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).WithdrawClaim(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockchain.jewel.v1.Msg/WithdrawClaim",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).WithdrawClaim(ctx, req.(*MsgWithdrawClaim))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Msg_serviceDesc = _Msg_serviceDesc
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "blockchain.jewel.v1.Msg",
@@ -2792,6 +3484,26 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteReassignment",
 			Handler:    _Msg_CompleteReassignment_Handler,
+		},
+		{
+			MethodName: "IssueCard",
+			Handler:    _Msg_IssueCard_Handler,
+		},
+		{
+			MethodName: "FileClaim",
+			Handler:    _Msg_FileClaim_Handler,
+		},
+		{
+			MethodName: "ApproveClaim",
+			Handler:    _Msg_ApproveClaim_Handler,
+		},
+		{
+			MethodName: "RejectClaim",
+			Handler:    _Msg_RejectClaim_Handler,
+		},
+		{
+			MethodName: "WithdrawClaim",
+			Handler:    _Msg_WithdrawClaim_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -4026,6 +4738,317 @@ func (m *MsgCompleteReassignmentResponse) MarshalToSizedBuffer(dAtA []byte) (int
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgIssueCard) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgIssueCard) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgIssueCard) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.CardKey) > 0 {
+		i -= len(m.CardKey)
+		copy(dAtA[i:], m.CardKey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CardKey)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.JewelId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Staff) > 0 {
+		i -= len(m.Staff)
+		copy(dAtA[i:], m.Staff)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Staff)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgIssueCardResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgIssueCardResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgIssueCardResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgFileClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFileClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFileClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.CardSignature) > 0 {
+		i -= len(m.CardSignature)
+		copy(dAtA[i:], m.CardSignature)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CardSignature)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.CardPubKey) > 0 {
+		i -= len(m.CardPubKey)
+		copy(dAtA[i:], m.CardPubKey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.CardPubKey)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.JewelId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Claimer) > 0 {
+		i -= len(m.Claimer)
+		copy(dAtA[i:], m.Claimer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Claimer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgFileClaimResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFileClaimResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFileClaimResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgApproveClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgApproveClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgApproveClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.JewelId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Staff) > 0 {
+		i -= len(m.Staff)
+		copy(dAtA[i:], m.Staff)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Staff)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgApproveClaimResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgApproveClaimResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgApproveClaimResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRejectClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRejectClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRejectClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.JewelId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Staff) > 0 {
+		i -= len(m.Staff)
+		copy(dAtA[i:], m.Staff)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Staff)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRejectClaimResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRejectClaimResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRejectClaimResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgWithdrawClaim) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgWithdrawClaim) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgWithdrawClaim) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.JewelId != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.JewelId))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Claimer) > 0 {
+		i -= len(m.Claimer)
+		copy(dAtA[i:], m.Claimer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Claimer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgWithdrawClaimResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgWithdrawClaimResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgWithdrawClaimResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -4579,6 +5602,143 @@ func (m *MsgCompleteReassignment) Size() (n int) {
 }
 
 func (m *MsgCompleteReassignmentResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgIssueCard) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Staff)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.JewelId != 0 {
+		n += 1 + sovTx(uint64(m.JewelId))
+	}
+	l = len(m.CardKey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgIssueCardResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgFileClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Claimer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.JewelId != 0 {
+		n += 1 + sovTx(uint64(m.JewelId))
+	}
+	l = len(m.CardPubKey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.CardSignature)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgFileClaimResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgApproveClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Staff)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.JewelId != 0 {
+		n += 1 + sovTx(uint64(m.JewelId))
+	}
+	return n
+}
+
+func (m *MsgApproveClaimResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgRejectClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Staff)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.JewelId != 0 {
+		n += 1 + sovTx(uint64(m.JewelId))
+	}
+	return n
+}
+
+func (m *MsgRejectClaimResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgWithdrawClaim) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Claimer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.JewelId != 0 {
+		n += 1 + sovTx(uint64(m.JewelId))
+	}
+	return n
+}
+
+func (m *MsgWithdrawClaimResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -8078,6 +9238,861 @@ func (m *MsgCompleteReassignmentResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgCompleteReassignmentResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgIssueCard) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgIssueCard: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgIssueCard: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Staff", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Staff = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CardKey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CardKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgIssueCardResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgIssueCardResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgIssueCardResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFileClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFileClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFileClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claimer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Claimer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CardPubKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CardPubKey = append(m.CardPubKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.CardPubKey == nil {
+				m.CardPubKey = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CardSignature", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CardSignature = append(m.CardSignature[:0], dAtA[iNdEx:postIndex]...)
+			if m.CardSignature == nil {
+				m.CardSignature = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFileClaimResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFileClaimResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFileClaimResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgApproveClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgApproveClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgApproveClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Staff", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Staff = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgApproveClaimResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgApproveClaimResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgApproveClaimResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRejectClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRejectClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRejectClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Staff", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Staff = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRejectClaimResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRejectClaimResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRejectClaimResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgWithdrawClaim) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgWithdrawClaim: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgWithdrawClaim: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claimer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Claimer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JewelId", wireType)
+			}
+			m.JewelId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JewelId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgWithdrawClaimResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgWithdrawClaimResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgWithdrawClaimResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

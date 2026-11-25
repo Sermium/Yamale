@@ -1,10 +1,13 @@
 package types
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	dcrsecp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
 // VoucherSignBytes is what an owner signs to consent to one benefit use. The
@@ -22,6 +25,31 @@ func VoucherSignBytes(chainID string, v Voucher) []byte {
 // claim key can sign afresh in any case.
 func ClaimSignBytes(chainID string, jewelID uint64, offerExpiresAt int64, claimer string) []byte {
 	return []byte(fmt.Sprintf("yamale-jewel-claim/v2:%s:%d:%d:%s", chainID, jewelID, offerExpiresAt, claimer))
+}
+
+// CardClaimSignBytes is what an ownership card's secret signs to file a claim.
+// It names the claimer, so a claim copied off the network cannot be refiled
+// for anyone else, and the card's key, so a signature made with a card the
+// shop has since replaced fails. cardKeyHex is the lower-case hex form the
+// chain stores.
+func CardClaimSignBytes(chainID string, jewelID uint64, cardKeyHex, claimer string) []byte {
+	return []byte(fmt.Sprintf("yamale-jewel-card/v1:%s:%d:%s:%s", chainID, jewelID, cardKeyHex, claimer))
+}
+
+// NormaliseCardKey returns a card key in the form the chain stores, lower-case
+// hex, or an error if it is not a compressed secp256k1 public key: 33 bytes,
+// a point on the curve. A key off the curve could never sign a claim, so the
+// card printed with it would be dead from the start.
+func NormaliseCardKey(k string) (string, error) {
+	k = strings.ToLower(k)
+	b, err := hex.DecodeString(k)
+	if err != nil || len(b) != secp256k1.PubKeySize {
+		return "", ErrBadCardKey
+	}
+	if _, err := dcrsecp.ParsePubKey(b); err != nil {
+		return "", ErrBadCardKey
+	}
+	return k, nil
 }
 
 // VerifySecp256k1 checks a signature by a compressed secp256k1 key and

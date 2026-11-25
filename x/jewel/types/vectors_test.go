@@ -38,6 +38,20 @@ type jewelVectors struct {
 	Inscriptions []inscriptionVector `json:"inscriptions"`
 	Claims       []claimVector       `json:"claims"`
 	Vouchers     []voucherVector     `json:"vouchers"`
+	Cards        []cardVector        `json:"cards"`
+}
+
+// cardVector is a claim filed with an ownership card. The card's secret signs
+// CardClaimSignBytes; card_key is the lower-case hex the chain stores and the
+// sign bytes name.
+type cardVector struct {
+	PrivKey   string `json:"priv_key"`
+	CardKey   string `json:"card_key"`
+	ChainID   string `json:"chain_id"`
+	JewelID   string `json:"jewel_id"`
+	Claimer   string `json:"claimer"`
+	SignBytes string `json:"sign_bytes"`
+	Signature string `json:"signature"`
 }
 
 type inscriptionVector struct {
@@ -133,7 +147,40 @@ func buildJewelVectors(t *testing.T) jewelVectors {
 			SignBytes: string(msg), Signature: sign(t, k, msg),
 		})
 	}
+
+	// The first card's secret is 32 bytes of 0x07, so the TypeScript side can
+	// check its key derivation against a secret it can write down.
+	seven := make([]byte, 32)
+	for i := range seven {
+		seven[i] = 0x07
+	}
+	for _, c := range []struct {
+		key   *secp256k1.PrivKey
+		chain string
+		jewel uint64
+	}{
+		{&secp256k1.PrivKey{Key: seven}, "yamale-local-1", 1},
+		{vectorKey("card-1"), "yamale-devnet-2", 18446744073709551615},
+	} {
+		cardKey := hex.EncodeToString(c.key.PubKey().Bytes())
+		msg := types.CardClaimSignBytes(c.chain, c.jewel, cardKey, claimer)
+		v.Cards = append(v.Cards, cardVector{
+			PrivKey: hex.EncodeToString(c.key.Key), CardKey: cardKey, ChainID: c.chain,
+			JewelID: strconv.FormatUint(c.jewel, 10), Claimer: claimer,
+			SignBytes: string(msg), Signature: sign(t, c.key, msg),
+		})
+	}
 	return v
+}
+
+// The card's sign bytes, written out, so a change to the format is a change
+// to this line and not only to a regenerated file.
+func TestTheCardSignBytesAreThePinnedString(t *testing.T) {
+	require.Equal(t,
+		"yamale-jewel-card/v1:yamale-local-1:1:"+
+			"039f5fbc17d5c41f5e1b38d1c1b1b9c4b9b8c7e0c7c1d2e9f0a1b2c3d4e5f60718:yml1claimer",
+		string(types.CardClaimSignBytes("yamale-local-1", 1,
+			"039f5fbc17d5c41f5e1b38d1c1b1b9c4b9b8c7e0c7c1d2e9f0a1b2c3d4e5f60718", "yml1claimer")))
 }
 
 func TestVectors(t *testing.T) {

@@ -23,8 +23,8 @@ service Query {
   rpc Jewelers(QueryJewelersRequest) returns (QueryJewelersResponse) {
     option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewelers";
   }
-  // Jewel returns one jewel with its owner, open offer, pending reassignment
-  // and benefits.
+  // Jewel returns one jewel with its owner, open offer, pending reassignment,
+  // benefits, whether it has an ownership card, and any pending claim.
   rpc Jewel(QueryJewelRequest) returns (QueryJewelResponse) {
     option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewel/{id}";
   }
@@ -32,6 +32,11 @@ service Query {
   // jeweler registered it. At most 50.
   rpc JewelsByInscription(QueryJewelsByInscriptionRequest) returns (QueryJewelsByInscriptionResponse) {
     option (google.api.http).get = "/yamale/blockchain/jewel/v1/inscription/{inscription}";
+  }
+  // ClaimsByJeweler lists a jeweler's pending claims, each with its jewel, in
+  // jewel id order: what its staff have to approve or reject.
+  rpc ClaimsByJeweler(QueryClaimsByJewelerRequest) returns (QueryClaimsByJewelerResponse) {
+    option (google.api.http).get = "/yamale/blockchain/jewel/v1/jewelers/{jeweler_id}/claims";
   }
 }
 
@@ -84,6 +89,11 @@ message QueryJewelResponse {
   Reassignment reassignment = 4;
   // benefits are the benefits attached to it.
   repeated Benefit benefits = 5 [(gogoproto.nullable) = false];
+  // has_card is set while the jewel has an ownership card. The card's key is
+  // not shown here: only the printed card needs it.
+  bool has_card = 6;
+  // claim is set while a buyer's claim waits for the shop.
+  Claim claim = 7;
 }
 
 // QueryJewelsByInscriptionRequest asks for JewelsByInscription.
@@ -95,4 +105,27 @@ message QueryJewelsByInscriptionRequest {
 message QueryJewelsByInscriptionResponse {
   // jewels are every jewel carrying it, at most 50.
   repeated Jewel jewels = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryClaimsByJewelerRequest asks for ClaimsByJeweler.
+message QueryClaimsByJewelerRequest {
+  // jeweler_id is the jeweler whose pending claims to list.
+  uint64 jeweler_id = 1;
+  // pagination pages through the claims in jewel id order.
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+// QueryClaimsByJewelerResponse is the result of QueryClaimsByJeweler.
+message QueryClaimsByJewelerResponse {
+  // claims are this page of pending claims.
+  repeated ClaimEntry claims = 1 [(gogoproto.nullable) = false];
+  // pagination is the key to the next page.
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// ClaimEntry is one pending claim with the jewel it is on.
+message ClaimEntry {
+  // jewel is the register's record of the claimed jewel.
+  Jewel jewel = 1 [(gogoproto.nullable) = false];
+  // claim is the pending claim.
+  Claim claim = 2 [(gogoproto.nullable) = false];
 }

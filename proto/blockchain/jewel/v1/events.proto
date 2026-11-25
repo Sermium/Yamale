@@ -95,7 +95,8 @@ message EventJewelTransferred {
   // to is the new owner.
   string to = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // kind is how it moved: "accept" (an offer to an account), "claim" (an
-  // offer to a claim key) or "reassign" (the office's reassignment after its
+  // offer to a claim key), "card" (a claim filed with the ownership card and
+  // approved by the shop) or "reassign" (the office's reassignment after its
   // veto window).
   string kind = 4;
 }
@@ -156,4 +157,50 @@ message EventReassignmentVetoed {
   uint64 jewel_id = 1;
   // owner is the owner who vetoed it.
   string owner = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventCardIssued is emitted when a stock jewel gets an ownership card. A
+// pending claim made with an earlier card is dropped with it, without an
+// event of its own.
+message EventCardIssued {
+  // jewel_id is the jewel the card is for.
+  uint64 jewel_id = 1;
+  // by is the account that issued it: the business account or staff.
+  string by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventClaimFiled is emitted when a buyer files a claim with the card.
+message EventClaimFiled {
+  // jewel_id is the jewel claimed.
+  uint64 jewel_id = 1;
+  // claimer is the account the jewel goes to if the shop approves.
+  string claimer = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventClaimApproved is emitted when the shop approves a claim. The same
+// transaction emits EventJewelTransferred with kind "card".
+message EventClaimApproved {
+  // jewel_id is the jewel that moved.
+  uint64 jewel_id = 1;
+  // claimer is the account it moved to.
+  string claimer = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // by is the account that approved it: the business account or staff.
+  string by = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventClaimRejected is emitted when the shop rejects a claim. The card stays
+// valid.
+message EventClaimRejected {
+  // jewel_id is the jewel whose claim was rejected.
+  uint64 jewel_id = 1;
+  // by is the account that rejected it: the business account or staff.
+  string by = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// EventClaimWithdrawn is emitted when a claimer withdraws their own claim.
+message EventClaimWithdrawn {
+  // jewel_id is the jewel whose claim was withdrawn.
+  uint64 jewel_id = 1;
+  // claimer is the account that withdrew it.
+  string claimer = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
 }
