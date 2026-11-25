@@ -164,11 +164,16 @@ func (b *BlindIndex) Of(email string) string {
 // which is a smaller search space than a long phrase they can actually
 // remember. NIST dropped them in 2017 and the reasoning has not changed.
 //
-// Twelve rather than eight because this password is one of the two things
-// standing between a stolen phone and somebody's money: the thief already holds
-// the device share, so the password is not one factor among several here, it is
-// the factor.
-const MinPasswordLength = 12
+// Ten, the same as the apps that seal the device's copy (clients/traceability
+// device.ts MIN_PASSWORD). It was twelve here while the apps accepted ten, so an
+// account made with a ten- or eleven-character password could never be saved
+// for sign-in: the deposit was refused, and before 2026-11-24 the app said
+// nothing, so the owner of Maison Diop found it only when signing in elsewhere
+// failed (2026-11-25). A stricter rule here protects nothing the device seal
+// does not already expose, and signing in now also needs a second factor.
+// Raise it only together with the apps, and with a way for existing accounts to
+// choose a longer password as they save.
+const MinPasswordLength = 10
 
 // checkPassword refuses what cannot be allowed, and explains why in terms of
 // what to do instead.

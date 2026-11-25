@@ -41,6 +41,11 @@ export interface Session {
   ensureSponsored(): Promise<'sponsored' | 'unavailable' | 'refused'>;
   /** Throws WrongPassword when the password does not open this account's key. */
   protect(password: string): Promise<'enrolled' | 'unavailable' | 'email-in-use'>;
+  /**
+   * The automatic save of an account that exists only on this device, started
+   * when it is unlocked: nobody should have to find a button for it.
+   */
+  saving: 'idle' | 'busy' | 'failed' | 'unavailable' | 'email-in-use';
 }
 
 /** Owners hold no coins: without the platform's allowance an owner cannot act. */
@@ -57,6 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<StoredAccount | null>(() => sessionAccountState().account);
   const [unlocked, setUnlocked] = useState(false);
   const [sponsor, setSponsor] = useState<string | null>(null);
+  const [saving, setSaving] = useState<Session['saving']>('idle');
   // The granter as of now, read by submitAsOwner. State alone would hand a
   // closure the value from the render it was created in.
   const sponsorRef = useRef<string | null>(null);
@@ -149,6 +155,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async unlock(password) {
       if (!account) throw new Error('no account on this device');
       hold(await unlockAccount(account, password));
+      // An account made before saving was part of creation, or whose save
+      // failed, is saved now with the password just proven, in the
+      // background: the person carries on, and the banner says how it went.
+      if (account.protection !== 'enrolled') {
+        setSaving('busy');
+        protect(password).then(
+          (out) => setSaving(out === 'enrolled' ? 'idle' : out),
+          () => setSaving('failed'));
+      }
     },
     lock,
     forget() {
@@ -172,7 +187,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     submitAsOwner,
     ensureSponsored,
     protect,
-  }), [account, unlocked, sponsor, hold, lock, withKey, submitWith, submitAsOwner, ensureSponsored, protect]);
+    saving,
+  }), [account, unlocked, sponsor, hold, lock, withKey, submitWith, submitAsOwner, ensureSponsored, protect, saving]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

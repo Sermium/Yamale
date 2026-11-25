@@ -83,11 +83,15 @@ function OnlyOnThisDevice() {
   const session = useSession();
   const { pathname } = useLocation();
   const a = session.account;
-  if (!a || a.protection === 'enrolled' || pathname === '/account') return null;
+  if (!a || a.protection === 'enrolled') return null;
+  if (session.saving === 'busy') return <p className="banner devicebanner" role="status">{t('traceability.savingAccount')}</p>;
+  if (pathname === '/account') return null;
+  const why = session.saving === 'idle' ? null : t(`traceability.saveOutcome.${session.saving}`);
   return (
     <div className="banner banner--warn devicebanner" role="alert">
-      <span>{t('traceability.onlyOnThisDevice')}</span>
-      <Link className="btn" to="/account">{t('traceability.saveAccountNow')}</Link>
+      <span>{session.unlocked ? t('traceability.onlyOnThisDevice') : t('traceability.onlyOnThisDeviceLocked')}</span>
+      {why && <span>{why}</span>}
+      {session.unlocked && <Link className="btn" to="/account">{t('traceability.saveAccountNow')}</Link>}
     </div>
   );
 }
