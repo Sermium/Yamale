@@ -1,10 +1,7 @@
 /**
- * Printing ownership cards from stock: choose the pieces, issue one card each
- * on the chain, and only then show the print sheet.
- *
- * The secrets exist in this component's memory and nowhere else. Closing the
- * sheet wipes them; a card that was never printed is simply printed again,
- * which cancels the one the chain holds.
+ * Making ownership cards from stock: choose the pieces, issue one card each on
+ * the chain, then show, print or share them. Each card is also kept in this
+ * browser (cards.ts keepCard), so it can be found again on the piece's page.
  */
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
@@ -19,7 +16,7 @@ import { PUBLIC_ORIGIN } from '../config.ts';
 import { useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { VerifiedImage } from '../verify/Photos.tsx';
-import { cancels, issueCards, pages, selectPieces, type IssueResult, type Selection, type StockPiece } from './cards.ts';
+import { cancels, forgetKeptCard, issueCards, keepCard, pages, selectPieces, type IssueResult, type Selection, type StockPiece } from './cards.ts';
 
 interface Shop { name: string; jewelerId: string; business: string }
 
@@ -48,8 +45,11 @@ export function PrintCards({ shop, stock, initial, onClose }: {
   async function issue() {
     setPhase('issuing');
     const out = await issueCards(chosen, async (batch) => {
+      // Kept before sending: a submit that reaches the chain and then fails to report must not lose the card.
+      for (const c of batch) keepCard(c.jewelId, c.privateKey);
       const r = await session.submit(batch.map((c) => issueJewelCard(session.address!, c.jewelId, c.cardKey)), shop.business);
       if (r.succeeded) return { ok: true };
+      for (const c of batch) forgetKeptCard(c.jewelId);
       const raw = r.error?.raw ?? r.raw.rawLog ?? '';
       const key = errorKey(raw);
       return { ok: false, text: key ? t(`traceability.err.${key}`) : (r.error?.message ?? t('traceability.err.unknown')) };
@@ -59,7 +59,6 @@ export function PrintCards({ shop, stock, initial, onClose }: {
   }
 
   function close() {
-    for (const c of result?.issued ?? []) c.privateKey.fill(0);
     onClose((result?.issued.length ?? 0) > 0);
   }
 
@@ -142,7 +141,7 @@ function brandOf(look: Look): CSSProperties {
   } as CSSProperties;
 }
 
-function OwnershipCard({ shop, card, look }: { shop: Shop; card: IssueResult['issued'][number]; look: Look }) {
+export function OwnershipCard({ shop, card, look }: { shop: Shop; card: IssueResult['issued'][number]; look: Look }) {
   return (
     <article className="ocard">
       <header className="ocard__shop">
@@ -165,7 +164,7 @@ function OwnershipCard({ shop, card, look }: { shop: Shop; card: IssueResult['is
  * The first card as a preview in the panel, and every card on A4 pages in a
  * sheet that only exists in print: the print styles hide the app and show it.
  */
-function CardSheet({ shop, cards }: { shop: Shop; cards: IssueResult['issued'] }) {
+export function CardSheet({ shop, cards, preview = true }: { shop: Shop; cards: IssueResult['issued']; preview?: boolean }) {
   const [profile] = useLoad(() => readProfile(shop.jewelerId), [shop.jewelerId], () => ({ state: 'none' as const }));
   const look: Look = profile && profile.state === 'loaded' ? profile.profile : null;
   useEffect(() => {
@@ -183,9 +182,11 @@ function CardSheet({ shop, cards }: { shop: Shop; cards: IssueResult['issued'] }
   );
   return (
     <>
-      <div className="ocard-preview" style={brandOf(look)} aria-label={t('traceability.cardsPreview')}>
-        <OwnershipCard shop={shop} card={cards[0]!} look={look} />
-      </div>
+      {preview && (
+        <div className="ocard-preview" style={brandOf(look)} aria-label={t('traceability.cardsPreview')}>
+          <OwnershipCard shop={shop} card={cards[0]!} look={look} />
+        </div>
+      )}
       {createPortal(sheet, document.body)}
     </>
   );

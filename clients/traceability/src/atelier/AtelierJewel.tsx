@@ -7,6 +7,8 @@ import { useSession } from '../account/session.tsx';
 import { OfferPanel } from '../owner/OfferPanel.tsx';
 import { offerIsOpen } from '../owner/offers.ts';
 import { PrintCards } from '../card/PrintCards.tsx';
+import { forgetKeptCard, keptCard } from '../card/cards.ts';
+import { KeptCard } from '../card/KeptCards.tsx';
 import { ClaimDecision } from './Claims.tsx';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { Hallmark, RecordFacts } from '../verify/JewelPage.tsx';
@@ -40,6 +42,8 @@ export function AtelierJewel() {
   const inStock = v.owner === role.jeweler.business;
   const title = record.state === 'ok' ? record.record.title : t('traceability.jewelN', { id });
   const lastChange = v.jewel.ownerSince[v.jewel.ownerSince.length - 1];
+  // A kept card for a piece that has left stock, or lost its card, can claim nothing.
+  if (!inStock || !v.hasCard) forgetKeptCard(id);
   const canAct = role.staff && role.active;
 
   return (
@@ -72,6 +76,14 @@ export function AtelierJewel() {
               <ClaimDecision jewelId={id} claim={v.claim} business={role.jeweler.business} canAct={canAct} onDone={reload} />
             )}
             <p className={v.hasCard ? '' : 'hint'}>{t(v.hasCard ? 'traceability.cardIssued' : 'traceability.cardNone')}</p>
+            {v.hasCard && !printing && (() => {
+              const k = keptCard(id);
+              return k
+                ? <KeptCard shop={{ name: role.jeweler.name, jewelerId: role.jeweler.id, business: role.jeweler.business }}
+                            piece={{ jewelId: id, title: record.state === 'ok' ? record.record.title : null, inscription: v.jewel.inscription }}
+                            privateKey={k} />
+                : <p className="hint">{t('traceability.cardNotKept')}</p>;
+            })()}
             {!canAct && <p className="hint">{t('traceability.staffOnly')}</p>}
             {canAct && !printing && !v.jewel.stolen && (
               <button type="button" className="btn" onClick={() => setPrinting(true)}>

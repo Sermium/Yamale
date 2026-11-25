@@ -19,6 +19,7 @@ import { useRole } from './atelier/role.ts';
 import { Staff } from './atelier/Staff.tsx';
 import { Claim } from './owner/Claim.tsx';
 import { CardPage } from './card/CardPage.tsx';
+import { KeptCardsPage } from './card/KeptCards.tsx';
 import { Directory } from './directory/Directory.tsx';
 import { Shop } from './directory/Shop.tsx';
 import { MyJewels } from './owner/MyJewels.tsx';
@@ -126,6 +127,7 @@ export function App() {
               <Route path="/atelier" element={<Atelier />} />
               <Route path="/atelier/register" element={<Register />} />
               <Route path="/atelier/staff" element={<Staff />} />
+              <Route path="/atelier/cards" element={<KeptCardsPage />} />
               <Route path="/atelier/redeem" element={<Redeem />} />
               <Route path="/atelier/look" element={<Profile />} />
               <Route path="/atelier/catalogue" element={<Catalogue />} />

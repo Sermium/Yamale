@@ -1,10 +1,11 @@
 /**
  * Ownership cards, outside React so they can be tested.
  *
- * A card's secret is made on this device just before its MsgIssueCard, kept in
- * memory until the print sheet closes, and never stored or sent anywhere. Only
- * the cards whose transaction the chain accepted are printed: a card printed
- * for a key the chain does not hold would be a card that claims nothing.
+ * A card's secret is made on this device just before its MsgIssueCard and kept
+ * in this browser (keptCard below), so the shop can show, share or print the
+ * card again until the piece is sold. It reaches no server. Only cards whose
+ * transaction the chain accepted are printed: a card printed for a key the
+ * chain does not hold would be a card that claims nothing.
  */
 
 import { compressedPublicKey, parseCardFragment, toHex } from '../../../sdk/src/jewel.ts';
@@ -27,7 +28,7 @@ export interface IssueResult {
  */
 export const CARD_BATCH = 25;
 
-export type BatchSend = (cards: { jewelId: string; cardKey: string }[]) => Promise<{ ok: true } | { ok: false; text: string }>;
+export type BatchSend = (cards: { jewelId: string; cardKey: string; privateKey: Uint8Array }[]) => Promise<{ ok: true } | { ok: false; text: string }>;
 
 /**
  * Issues cards batch by batch and stops at the first batch that does not go
@@ -44,9 +45,10 @@ export async function issueCards(pieces: CardPiece[], send: BatchSend, size = CA
     const batch = pieces.slice(i, i + size).map((p) => ({ ...p, privateKey: makeKey() }));
     let sent: Awaited<ReturnType<BatchSend>>;
     try {
-      sent = await send(batch.map((c) => ({ jewelId: c.jewelId, cardKey: toHex(compressedPublicKey(c.privateKey)) })));
+      sent = await send(batch.map((c) => ({ jewelId: c.jewelId, cardKey: toHex(compressedPublicKey(c.privateKey)), privateKey: c.privateKey })));
     } catch (e) {
-      for (const c of batch) { outcomes.set(c.jewelId, 'unknown'); c.privateKey.fill(0); }
+      // Not wiped: the batch may have reached the chain, and a kept copy is what lets the shop find the card.
+      for (const c of batch) outcomes.set(c.jewelId, 'unknown');
       return { issued, outcomes, stopped: e instanceof Error ? e.message : String(e) };
     }
     if (!sent.ok) {
@@ -101,6 +103,38 @@ export function forgetScannedCard(store: Storage | null = session()): void {
 
 function session(): Storage | null {
   try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch { return null; }
+}
+
+/* ------------------------------------------ cards kept in the shop's browser */
+
+/**
+ * The shop's own browser keeps each card it issued, one per jewel (the newest),
+ * so a card can be shown at the counter, shared to a customer or printed again
+ * until the piece leaves stock. A card held here can only file a claim, which
+ * the shop itself has to validate, so keeping it adds nothing a thief could use
+ * against the shop. Forgotten once the jewel has no card or is no longer stock.
+ */
+const KEPT = 'yamale.traceability.card.';
+
+export function keepCard(jewelId: string, privateKey: Uint8Array, store: Storage | null = local()): void {
+  try { store?.setItem(KEPT + jewelId, toHex(privateKey)); } catch { /* storage refused: print it now */ }
+}
+
+export function keptCard(jewelId: string, store: Storage | null = local()): Uint8Array | null {
+  try {
+    const hex = store?.getItem(KEPT + jewelId);
+    return hex ? parseCardFragment(`${jewelId}.${hex}`)?.privateKey ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+export function forgetKeptCard(jewelId: string, store: Storage | null = local()): void {
+  try { store?.removeItem(KEPT + jewelId); } catch { /* nothing kept */ }
+}
+
+function local(): Storage | null {
+  try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }
 }
 
 /* ------------------------------------------------------------ choosing */

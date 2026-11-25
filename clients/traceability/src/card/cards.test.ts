@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { compressedPublicKey, toHex } from '../../../sdk/src/jewel.ts';
-import { cancels, cardFromLocation, forgetScannedCard, issueCards, pages, selectPieces, type StockPiece } from './cards.ts';
+import { cancels, cardFromLocation, forgetKeptCard, forgetScannedCard, issueCards, keepCard, keptCard, pages, selectPieces, type StockPiece } from './cards.ts';
 
 class MemoryStore implements Storage {
   m = new Map<string, string>();
@@ -38,14 +38,14 @@ test('a refused batch prints nothing of its own, keeps what went before, and run
   assert.deepEqual([...out.outcomes.values()], ['issued', 'issued', 'issued', 'failed', 'failed', 'failed', 'notRun']);
 });
 
-test('a batch that threw is unknown, and its secrets are wiped', async () => {
+test('a batch that threw is unknown, and its keys are kept: it may have reached the chain', async () => {
   const made: Uint8Array[] = [];
   const out = await issueCards(pieces.slice(0, 2), async () => { throw new Error('locked'); }, 3,
     () => { const k = keyN(); made.push(k); return k; });
   assert.equal(out.stopped, 'locked');
   assert.equal(out.issued.length, 0);
   assert.deepEqual([...out.outcomes.values()], ['unknown', 'unknown']);
-  assert.ok(made.every((k) => k.every((b) => b === 0)));
+  assert.ok(made.every((k) => k.some((b) => b !== 0)));
 });
 
 test('the scanned card survives a reload in the same tab, and is erased after filing', () => {
@@ -81,4 +81,16 @@ test('selections pick pieces without a card, one design, or one piece', () => {
 test('cards fill A4 pages of eight', () => {
   assert.deepEqual(pages([1, 2, 3, 4, 5, 6, 7, 8, 9]).map((p) => p.length), [8, 1]);
   assert.deepEqual(pages([]), []);
+});
+
+test('the shop keeps the newest card of each jewel until it forgets it', () => {
+  const store = new MemoryStore();
+  assert.equal(keptCard('5', store), null);
+  keepCard('5', new Uint8Array(32).fill(3), store);
+  keepCard('5', new Uint8Array(32).fill(4), store);
+  assert.deepEqual(keptCard('5', store), new Uint8Array(32).fill(4));
+  forgetKeptCard('5', store);
+  assert.equal(keptCard('5', store), null);
+  store.setItem('yamale.traceability.card.6', 'not a key');
+  assert.equal(keptCard('6', store), null);
 });

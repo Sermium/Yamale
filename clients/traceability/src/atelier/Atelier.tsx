@@ -126,6 +126,7 @@ function Stock({ shop, now, canPrint }: {
       {canPrint && !printing && (
         <div className="actions">
           <button type="button" className="btn btn--primary" onClick={() => setPrinting(true)}>{t('traceability.cardsPrintButton')}</button>
+          <Link className="btn" to="/atelier/cards">{t('traceability.cardsFindButton')}</Link>
           {without > 0 && <span className="hint">{t('traceability.cardsMissing', { n: without })}</span>}
         </div>
       )}
