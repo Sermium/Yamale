@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { parseCsv } from './csv.ts';
-import { findRegistered, judgePieces, pieceRecord, readPieces, withColumns, type CatalogueDesign, type PieceRow } from './pieces.ts';
+import { designForSerial, findRegistered, judgePieces, pieceRecord, readPieces, withColumns, type CatalogueDesign, type PieceRow } from './pieces.ts';
 
 const H = 'a'.repeat(64);
 const parrot: CatalogueDesign = {
@@ -114,4 +114,17 @@ test('a piece whose record no viewer could read back is refused before it is reg
   assert.equal(reg!.verdict, 'unreadableRecord');
   const [nameLong] = judgePieces(rows('serial,sku,weight_g\nA0001,JOA-071,4.2\n'), [parrot], new Map(), { id: '1', name: 'W'.repeat(121) });
   assert.equal(nameLong!.verdict, 'unreadableRecord');
+});
+
+test('a serial finds its design by the code it starts with, the longest code first', () => {
+  const d = (key: string, status = 'confirmed'): CatalogueDesign => ({ key, status, description: '', productUrl: '', listPrice: null,
+    confirmed: status === 'confirmed' ? { title: key, fields: { metal: 'gold', weightGrams: '', stones: [] }, photos: [] } : null });
+  const designs = [d('JOA-071'), d('JOA-0711'), d('JOA-07'), d('JOA-069', 'drafted'), d('handle:ring')];
+  assert.equal(designForSerial('JOA-071-0001', designs)?.key, 'JOA-071');
+  assert.equal(designForSerial('JOA-0711-001', designs)?.key, 'JOA-0711');
+  assert.equal(designForSerial('joa 072 0001', designs)?.key, 'JOA-07');
+  // JOA-069 is only drafted, and no confirmed code is a prefix of it.
+  assert.equal(designForSerial('JOA-069-0001', designs), null);
+  assert.equal(designForSerial('JOA-071', [d('JOA-071')]), null);
+  assert.equal(designForSerial('RING0001', designs), null);
 });

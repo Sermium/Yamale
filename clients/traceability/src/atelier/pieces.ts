@@ -132,3 +132,24 @@ export function withColumns(csv: Csv, judged: Judged[], extra: (j: Judged) => Re
   });
   return toCsv([...csv.header, ...names], rows, csv.separator);
 }
+
+/** A design code folded as an engraved code is: upper case, letters and digits only. */
+function foldCode(s: string): string { return s.toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+/**
+ * The confirmed design a serial number belongs to, when the serial starts with the
+ * design's code (JOA-071-0001 is a piece of JOA-071). The longest code wins, so
+ * JOA-0711 is not taken for JOA-071; a serial that is only the code is no piece of it.
+ * Designs keyed by their page rather than a code (handle:, url:) never match.
+ */
+export function designForSerial<D extends CatalogueDesign>(serial: string, designs: D[]): D | null {
+  const s = foldCode(serial);
+  let best: D | null = null;
+  let bestLen = 0;
+  for (const d of designs) {
+    if (d.status !== 'confirmed' || !d.confirmed || d.key.startsWith('handle:') || d.key.startsWith('url:')) continue;
+    const k = foldCode(d.key);
+    if (k.length >= 2 && s.length > k.length && s.startsWith(k) && k.length > bestLen) { best = d; bestLen = k.length; }
+  }
+  return best;
+}
