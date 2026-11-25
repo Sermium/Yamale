@@ -2108,7 +2108,9 @@ async function load() {
     await warnIfNoSigner();
     await readChainRules();
     const [gov, params, freezes, cases] = await Promise.all([
-      get(`${REST}/cosmos/gov/v1/proposals?pagination.limit=30`),
+      // The newest thirty: in ascending order the first thirty froze the page at
+      // proposal 30 once a thirty-first existed (2026-11-25, proposal 35 missing).
+      get(`${REST}/cosmos/gov/v1/proposals?pagination.limit=30&pagination.reverse=true`),
       get(`${REST}/yamale/blockchain/enforcement/v1/params`),
       get(`${REST}/yamale/blockchain/enforcement/v1/freeze?pagination.limit=50`),
       get(`${REST}/yamale/blockchain/enforcement/v1/case?pagination.limit=50`),
