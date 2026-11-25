@@ -78,7 +78,7 @@ function ContactCard({ c }: { c: Contact }) {
 
 function Design({ d }: { d: PortfolioDesign }) {
   const materials = [d.fields.metal, d.fields.weightGrams ? `${d.fields.weightGrams} g` : '',
-    ...d.fields.stones.map((s) => s.kind)].filter(Boolean).join(' · ');
+    ...new Set(d.fields.stones.map((s) => s.kind.trim()))].filter(Boolean).join(' · ');
   return (
     <li className="portfolio__item">
       {d.photos[0]

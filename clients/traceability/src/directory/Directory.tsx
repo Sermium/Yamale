@@ -65,7 +65,7 @@ export function Directory() {
             ))}
           </ul>
         )}
-        <p className="hint"><Link to="/apply">{t('traceability.directoryJoin')}</Link></p>
+        <Link className="btn" to="/apply">{t('traceability.directoryJoin')}</Link>
       </main>
     </>
   );

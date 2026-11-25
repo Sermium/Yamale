@@ -218,3 +218,5 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
   background: var(--surface-2); }
 .portfolio__img.photo--absent { min-block-size: 0; }
 .portfolio__title { font-family: var(--font-display); font-weight: 600; line-height: 1.2; }
+
+.devicebanner { display: grid; gap: var(--sp-2); justify-items: start; margin: var(--sp-2) var(--sp-3) 0; }

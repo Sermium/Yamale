@@ -1,4 +1,4 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, NavLink, Route, Routes, Link, useLocation } from 'react-router-dom';
 import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView } from '@yamale/chain';
 
 import { AccountScreen, UnlockGate } from './account/Account.tsx';
@@ -72,6 +72,26 @@ function CompleteReassignment({ view, now, reload }: { view: JewelView; now: num
   );
 }
 
+/**
+ * An account that was never saved to the sign-in services lives in this
+ * browser alone: clearing it, or signing out, loses it for good, and no other
+ * device can sign in to it. Until 2026-11-24 saving could fail without a word,
+ * so accounts in daily use were found unsaved. Said on every page, not only on
+ * the account page nobody opens once things work.
+ */
+function OnlyOnThisDevice() {
+  const session = useSession();
+  const { pathname } = useLocation();
+  const a = session.account;
+  if (!a || a.protection === 'enrolled' || pathname === '/account') return null;
+  return (
+    <div className="banner banner--warn devicebanner" role="alert">
+      <span>{t('traceability.onlyOnThisDevice')}</span>
+      <Link className="btn" to="/account">{t('traceability.saveAccountNow')}</Link>
+    </div>
+  );
+}
+
 export function App() {
   useLocale();
   return (
@@ -87,6 +107,7 @@ export function App() {
         <div className="y-phone">
           <div className="y-phone__notch" />
           <div className="y-phone__screen" id="main" tabIndex={-1}>
+            <OnlyOnThisDevice />
             <Routes>
               <Route path="/" element={<Search />} />
               <Route path="/j/:jeweler/:jewel" element={
