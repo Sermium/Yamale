@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# yamale-custodian-smtp - give the custodian a mailbox to send sign-in codes from.
+#
+# Run it as:   ssh -t yamale-us sudo /opt/yamale/bin/yamale-custodian-smtp
+#
+# Asks for the mailbox password without showing it, checks the login against
+# the local mail server, writes /etc/yamale/custodian-smtp.conf readable only by
+# the service, adds --smtp-config to CUSTODIAN_EXTRA and restarts the custodian.
+# The password is never printed and never passed on a command line.
+set -euo pipefail
+[ "$(id -u)" = 0 ] || { echo "run it with sudo" >&2; exit 1; }
+
+MAILBOX="${1:-no-reply@yamaletech.com}"
+HOST=mail.yamaletech.com
+CONF=/etc/yamale/custodian-smtp.conf
+ENVF=/etc/yamale/custodian.env
+
+read -rsp "Password of the mailbox $MAILBOX: " PW; echo
+[ -n "$PW" ] || { echo "no password given; nothing changed" >&2; exit 1; }
+
+# The login, checked before anything is written. Dials the local server and
+# verifies its certificate under its public name, as the custodian will.
+SMTP_USER="$MAILBOX" SMTP_PW="$PW" SMTP_HOST="$HOST" python3 - <<'PY'
+import os, smtplib, ssl, sys
+s = smtplib.SMTP("127.0.0.1", 587, timeout=20)
+s._host = os.environ["SMTP_HOST"]
+s.starttls(context=ssl.create_default_context())
+try:
+    s.login(os.environ["SMTP_USER"], os.environ["SMTP_PW"])
+except smtplib.SMTPAuthenticationError:
+    sys.exit("the mail server refused that mailbox and password; nothing changed")
+s.quit()
+print("login ok")
+PY
+
+T=$(mktemp)
+chmod 600 "$T"
+{
+  echo "host=$HOST"
+  echo "port=587"
+  echo "dial=127.0.0.1:587"
+  echo "username=$MAILBOX"
+  echo "password=$PW"
+  echo "from=Yamale <$MAILBOX>"
+} > "$T"
+unset PW
+[ -e "$CONF" ] && cp -p "$CONF" "$CONF.prev-$(date +%Y%m%d%H%M)"
+install -o yamale-custodian -g yamale-custodian -m 600 "$T" "$CONF"
+rm -f "$T"
+
+if ! grep -q -- "--smtp-config" "$ENVF"; then
+  cp -p "$ENVF" "$ENVF.prev-$(date +%Y%m%d%H%M)"
+  sed -i "s|^CUSTODIAN_EXTRA=\(.*\)$|CUSTODIAN_EXTRA=\1 --smtp-config $CONF|" "$ENVF"
+fi
+systemctl restart yamale-custodian
+sleep 3
+systemctl is-active yamale-custodian
+curl -s -m 5 http://127.0.0.1:8099/v1/health | python3 -c 'import json,sys; print("signin:", json.load(sys.stdin).get("signin"))'
