@@ -3,7 +3,7 @@ import { t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
-import { readProfile, saveProfile } from '../api.ts';
+import { readProfile, saveProfile, type Contact } from '../api.ts';
 import { CHAIN_ID } from '../config.ts';
 import { AppBar, Loading, Problem, Section } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
@@ -21,6 +21,7 @@ export function Profile() {
   const [logo, setLogo] = useState('');
   const [colour, setColour] = useState('#12253f');
   const [accent, setAccent] = useState('#a87b3c');
+  const [contact, setContact] = useState<Contact>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState<Note>(null);
@@ -37,7 +38,7 @@ export function Profile() {
     readProfile(id).then((r) => {
       if (!live) return;
       if (r.state === 'failed') { setLoadDetail(r.detail); setLoad('failed'); return; }
-      if (r.state === 'loaded' && mayApplyLoad(edited.current)) { setLogo(r.profile.logo); setColour(r.profile.colour); setAccent(r.profile.accent); }
+      if (r.state === 'loaded' && mayApplyLoad(edited.current)) { setLogo(r.profile.logo); setColour(r.profile.colour); setAccent(r.profile.accent); setContact(r.profile.contact ?? {}); }
       setLoad(r.state);
     });
     return () => { live = false; };
@@ -72,7 +73,7 @@ export function Profile() {
   async function save() {
     setBusy(true); setSaved(false); setFailed(null);
     try {
-      const out = await saveProfile(session.withKey((k) => k), jeweler.id, { logo, colour, accent }, CHAIN_ID);
+      const out = await saveProfile(session.withKey((k) => k), jeweler.id, { logo, colour, accent, contact }, CHAIN_ID);
       if (out.ok) setSaved(true);
       else setFailed({ text: t('traceability.lookFailed'), raw: `${out.status} ${out.error}`.trim() });
     } catch (e) {
@@ -100,11 +101,41 @@ export function Profile() {
             <label className="y-label">{t('traceability.colourMain')} <input type="color" value={colour} onChange={(e) => { edited.current = true; setColour(e.target.value); setSaved(false); }} /></label>
             <label className="y-label">{t('traceability.colourAccent')} <input type="color" value={accent} onChange={(e) => { edited.current = true; setAccent(e.target.value); setSaved(false); }} /></label>
           </Section>
+          <Section title={t('traceability.contactTitle')}>
+            <p className="hint">{t('traceability.contactHint')}</p>
+            <ContactFields value={contact} onChange={(c) => { edited.current = true; setContact(c); setSaved(false); }} />
+          </Section>
           {failed && <FailureNote text={failed.text} raw={failed.raw} />}
           {saved && <p className="banner banner--ok" role="status">{t('traceability.lookSaved')}</p>}
           <button type="button" className="btn btn--primary" disabled={!canSaveLook(load, busy)} onClick={() => void save()}>{t('traceability.saveLook')}</button>
         </UnlockGate>
       </main>
     </>
+  );
+}
+
+/** The shop's public contact details, every one optional. */
+function ContactFields({ value, onChange }: { value: Contact; onChange: (c: Contact) => void }) {
+  const field = (k: keyof Contact, opts: { area?: boolean; type?: string; max: number; mode?: 'tel' | 'email' | 'url' }) => (
+    <label className="y-label" key={k}>
+      {t(`traceability.contact.${k}`)}
+      {opts.area
+        ? <textarea className="bigfield" rows={3} maxLength={opts.max} value={value[k] ?? ''} onChange={(e) => onChange({ ...value, [k]: e.target.value })} />
+        : <input className="bigfield" type={opts.type ?? 'text'} inputMode={opts.mode} maxLength={opts.max} value={value[k] ?? ''}
+                 onChange={(e) => onChange({ ...value, [k]: e.target.value })} />}
+    </label>
+  );
+  return (
+    <div className="stack">
+      {field('about', { area: true, max: 600 })}
+      {field('address', { area: true, max: 200 })}
+      {field('city', { max: 80 })}
+      {field('country', { max: 2 })}
+      {field('hours', { area: true, max: 200 })}
+      {field('phone', { type: 'tel', mode: 'tel', max: 30 })}
+      {field('whatsapp', { type: 'tel', mode: 'tel', max: 30 })}
+      {field('email', { type: 'email', mode: 'email', max: 254 })}
+      {field('website', { type: 'url', mode: 'url', max: 200 })}
+    </div>
   );
 }

@@ -18,9 +18,12 @@ import { liveClaimKey, offerIsOpen } from './offers.ts';
 async function loadHeld(id: string, now: number): Promise<Held | null> {
   const view = await readJewel(id);
   if (!view.ok) return null;
-  const { jewel, offer } = view.value;
+  const { jewel, offer, hasCard, claim } = view.value;
   forgetStaleLinks(id, liveClaimKey(offer, now));
-  const base = { id, jewelerId: jewel.jewelerId, inscription: jewel.inscription, stolen: jewel.stolen, onOffer: offerIsOpen(offer, now) };
+  const base = {
+    id, jewelerId: jewel.jewelerId, inscription: jewel.inscription, stolen: jewel.stolen, onOffer: offerIsOpen(offer, now),
+    hasCard, claimed: !!claim,
+  };
   const f = await fetchVerified(currentRecordHash(jewel));
   const record = f.ok ? parseRecord(f.bytes) : null;
   if (!record || !recordMatches(record, jewel)) return { ...base, title: null, sku: '' };
@@ -35,8 +38,12 @@ export async function loadHoldings(address: string, now: number, keep: (h: Held)
   return { ok: true, height: ids.height, value: groupHoldings(held.filter((h): h is Held => h !== null && keep(h))) };
 }
 
-/** A design held once is a link; held more than once, a row with the count and a menu of its serial numbers. */
-export function HeldRow({ group, to }: { group: HeldGroup; to: (id: string) => string }) {
+/**
+ * A design held once is a link; held more than once, a row with the count and a
+ * menu of its serial numbers. `cards` adds the shop's view: pieces without an
+ * ownership card, and claims waiting.
+ */
+export function HeldRow({ group, to, cards }: { group: HeldGroup; to: (id: string) => string; cards?: boolean }) {
   const navigate = useNavigate();
   const first = group.items[0]!;
   const title = group.title ?? t('traceability.jewelN', { id: first.id });
@@ -47,6 +54,12 @@ export function HeldRow({ group, to }: { group: HeldGroup; to: (id: string) => s
     <>
       {group.stolen > 0 && <span className="y-chip y-chip--bad">{t('traceability.stolenShort')}</span>}
       {group.onOffer > 0 && <span className="y-chip y-chip--brass">{t('traceability.onOffer')}</span>}
+      {cards && group.claimed > 0 && <span className="y-chip y-chip--brass">{t('traceability.claimedShort')}</span>}
+      {cards && group.withoutCard > 0 && (
+        <span className="y-chip y-chip--mute">
+          {group.items.length === 1 ? t('traceability.noCardShort') : t('traceability.withoutCardN', { n: group.withoutCard })}
+        </span>
+      )}
     </>
   );
   if (group.items.length === 1) {
@@ -60,7 +73,10 @@ export function HeldRow({ group, to }: { group: HeldGroup; to: (id: string) => s
       </li>
     );
   }
-  const mark = (h: Held) => [h.inscription, h.stolen ? t('traceability.stolenShort') : '', h.onOffer ? t('traceability.onOffer') : ''].filter(Boolean).join(' · ');
+  const mark = (h: Held) => [
+    h.inscription, h.stolen ? t('traceability.stolenShort') : '', h.onOffer ? t('traceability.onOffer') : '',
+    cards && h.claimed ? t('traceability.claimedShort') : '', cards && !h.hasCard ? t('traceability.noCardShort') : '',
+  ].filter(Boolean).join(' · ');
   return (
     <li className="y-card jewelcard">
       <div className="jewelcard__link">

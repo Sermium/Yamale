@@ -9,7 +9,7 @@
  */
 
 import { type CSSProperties, type ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   chainHead, isActive, plural, readJewel, readJeweler, t, useLocale, type Benefit, type Jewel, type JewelView,
 } from '@yamale/chain';
@@ -174,7 +174,9 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
       <main className="y-screen jewel" style={brand}>
         <header className="jewel__mast">
           {profile?.logo ? <VerifiedImage hash={profile.logo} alt={issuer?.name ?? ''} className="jewel__logo" /> : null}
-          <p className="jewel__by">{t('traceability.registeredBy', { name: issuer?.name ?? t('traceability.jewelerN', { id: jewelerId }) })}</p>
+          <p className="jewel__by">
+            <Link to={`/jewelers/${jewelerId}`}>{t('traceability.registeredBy', { name: issuer?.name ?? t('traceability.jewelerN', { id: jewelerId }) })}</Link>
+          </p>
           <h1 className="jewel__title">{title}</h1>
           <Hallmark code={jewel.inscription} />
         </header>
@@ -184,6 +186,9 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
             <strong>{t('traceability.stolen')}</strong>
             <span>{t('traceability.stolenNote')}</span>
           </div>
+        )}
+        {view.value.claim && !jewel.stolen && (
+          <div className="banner banner--warn" role="status">{t('traceability.claimPendingPublic')}</div>
         )}
         {view.value.reassignment && (
           <div className="banner banner--warn" role="status">
@@ -219,6 +224,7 @@ export function JewelPage({ actions }: { actions?: (view: JewelView, now: number
             classId: `jewel-${jewel.jewelerId}`, tokenId: `jewel-${jewel.id}`,
             owner: view.value.owner, jewel, offer: view.value.offer ?? null,
             reassignment: view.value.reassignment ?? null, benefits: view.value.benefits,
+            hasCard: view.value.hasCard, claim: view.value.claim ?? null,
           }, null, 2)}</pre>
         </details>
       </main>

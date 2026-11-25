@@ -148,3 +148,73 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .photo-picks label { position: relative; display: block; }
 .photo-picks input { position: absolute; top: 0.4rem; left: 0.4rem; }
 .tick { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+/* ------------------------------------------------------ ownership cards */
+
+/* A card the size of a business card, 90 x 56 mm: the shop's colour as a band,
+ * the QR on the left, the piece and its hallmark on the right. Printed on
+ * paper, so it is always light, whatever theme the app is in. */
+.ocard { box-sizing: border-box; inline-size: 90mm; block-size: 56mm; padding: 4mm 5mm;
+  display: grid; grid-template-rows: auto 1fr; gap: 2.5mm; overflow: hidden;
+  background: #fffdf8; color: #1d1a16; border: 0.3mm solid #d9cfbd;
+  border-block-start: 2.2mm solid var(--jeweler-colour, #2c4a3e); border-radius: 2mm;
+  font-family: var(--font-sans); }
+.ocard__shop { display: flex; align-items: center; gap: 2mm; min-inline-size: 0; }
+.ocard__logo { max-block-size: 7mm; max-inline-size: 22mm; inline-size: auto; }
+.ocard__name { font-family: var(--font-display); font-weight: 600; font-size: 10pt;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--jeweler-accent, #7a5a1e);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ocard__body { display: grid; grid-template-columns: 30mm 1fr; gap: 4mm; align-items: center; min-block-size: 0; }
+.ocard__qr svg { display: block; inline-size: 30mm; block-size: 30mm; }
+.ocard__piece { display: grid; gap: 2mm; justify-items: start; min-inline-size: 0; }
+.ocard__title { font-family: var(--font-display); font-size: 11pt; line-height: 1.15; text-wrap: balance; }
+.ocard .hallmark { font-size: 8.5pt; padding: 0.6mm 1.6mm; color: #6b4e17; border-color: #b08a3e; background: #f6efe0; }
+.ocard__line { font-size: 7.5pt; color: #5b544b; }
+
+.ocard-preview { display: flex; justify-content: center; padding: var(--sp-3);
+  background: var(--surface-2); border-radius: var(--radius); overflow-x: auto; }
+
+/* The sheet exists for the printer only. */
+.cardsheet { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body.printing-cards > *:not(.cardsheet) { display: none !important; }
+  body.printing-cards { background: #fff !important; }
+  body.printing-cards .cardsheet { display: block; }
+  .cardsheet__page { display: grid; grid-template-columns: repeat(2, 90mm); grid-auto-rows: 56mm;
+    gap: 6mm 4mm; justify-content: center; break-after: page; }
+  .cardsheet__page:last-child { break-after: auto; }
+  .ocard { break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* A claim waiting for the shop, wherever it is shown. */
+.claimrow { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.claimrow__who { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); align-items: baseline; }
+.claimrow__who .inscription { overflow-wrap: anywhere; font-size: 0.8rem; }
+/* ------------------------------------------------------ the directory */
+
+.lede { margin: 0; color: var(--text-muted); max-inline-size: 60ch; }
+.shoplist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
+.shopcard { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3);
+  border: 1px solid var(--border); border-inline-start: 4px solid var(--jeweler-colour, var(--accent));
+  border-radius: var(--radius); background: var(--surface); color: inherit; text-decoration: none; }
+.shopcard:hover { background: var(--surface-2); }
+.shopcard:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.shopcard__logo { flex: none; inline-size: 48px; block-size: 48px; object-fit: contain; border-radius: var(--radius); }
+.shopcard__logo--none { display: grid; place-items: center; background: var(--wash-brass); color: var(--brass-ink);
+  font-family: var(--font-display); font-size: 1.3rem; text-transform: uppercase; }
+.shopcard__text { display: grid; gap: 0.15rem; min-inline-size: 0; }
+.shopcard__name { font-family: var(--font-display); font-weight: 600; overflow-wrap: anywhere; }
+
+.contactcard { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-1) var(--sp-3); margin: 0; }
+.contactcard dt { color: var(--text-muted); font-size: 0.85rem; }
+.contactcard dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 30rem) { .contactcard { grid-template-columns: 1fr; } .contactcard dd { margin-block-end: var(--sp-2); } }
+
+.portfolio { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
+.portfolio__item { display: grid; gap: 0.3rem; align-content: start; }
+.portfolio__img { inline-size: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius); display: block;
+  background: var(--surface-2); }
+.portfolio__img.photo--absent { min-block-size: 0; }
+.portfolio__title { font-family: var(--font-display); font-weight: 600; line-height: 1.2; }

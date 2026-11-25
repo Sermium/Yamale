@@ -95,6 +95,17 @@ export function claimSignBytes(chainId: string, jewelId: string, offerExpiresAt:
   return utf8.encode(`yamale-jewel-claim/v2:${chainId}:${jewelId}:${offerExpiresAt}:${claimer}`);
 }
 
+/**
+ * What an ownership card's key signs to file a claim. It names the card, so a
+ * claim made with a reprinted (cancelled) card fails, and the claimer, so a
+ * claim copied from the network cannot be refiled for anybody else.
+ */
+export function cardClaimSignBytes(chainId: string, jewelId: string, cardKey: string, claimer: string): Uint8Array {
+  if (!ID.test(jewelId)) throw new Error(`jewel id ${jewelId}`);
+  if (!/^0[23][0-9a-f]{64}$/.test(cardKey)) throw new Error('card key must be a lower-case compressed public key');
+  return utf8.encode(`yamale-jewel-card/v1:${chainId}:${jewelId}:${cardKey}:${claimer}`);
+}
+
 export interface VoucherFields { benefitId: string; jewelId: string; nonce: string; expiresAt: string }
 
 export function voucherSignBytes(chainId: string, v: VoucherFields): Uint8Array {
@@ -155,6 +166,24 @@ export function parseClaimFragment(fragment: string): { jewelId: string; private
   if (!m) return null;
   const privateKey = fromHex(m[2]!.toLowerCase());
   // Zero, or at or above the curve order, is no key: refuse it here rather than throw while rendering.
+  if (!secp256k1.utils.isValidPrivateKey(privateKey)) return null;
+  return { jewelId: m[1]!, privateKey };
+}
+
+/* ------------------------------------------------------- ownership cards */
+
+/**
+ * The QR printed on an ownership card. The secret sits in the fragment, which
+ * a browser never sends to a server, as in a claim link.
+ */
+export function cardLink(origin: string, jewelId: string, privateKey: Uint8Array): string {
+  return `${origin.replace(/\/+$/, '')}/card#${jewelId}.${toHex(privateKey)}`;
+}
+
+export function parseCardFragment(fragment: string): { jewelId: string; privateKey: Uint8Array } | null {
+  const m = /^#?([1-9][0-9]{0,19})\.([0-9a-fA-F]{64})$/.exec(fragment.trim());
+  if (!m) return null;
+  const privateKey = fromHex(m[2]!.toLowerCase());
   if (!secp256k1.utils.isValidPrivateKey(privateKey)) return null;
   return { jewelId: m[1]!, privateKey };
 }
@@ -252,7 +281,7 @@ export const JEWEL_GAS = 1_650_000;
 /** What a jeweler's business pays for when its staff sign. */
 export const STAFF_MESSAGES: readonly string[] = [
   'MsgRegisterJewel', 'MsgAmendJewel', 'MsgOfferJewel', 'MsgCancelOffer',
-  'MsgAttachBenefit', 'MsgRedeemBenefit',
+  'MsgAttachBenefit', 'MsgRedeemBenefit', 'MsgIssueCard', 'MsgApproveClaim', 'MsgRejectClaim',
 ].map((m) => T + m);
 
 const msg = (name: string, value: Record<string, unknown>): EncodeObject => ({ typeUrl: T + name, value });
@@ -290,6 +319,23 @@ export function claimJewelOffer(
     claimer, jewelId,
     claimPubKey: compressedPublicKey(claimPrivateKey),
     claimSignature: signArbitrary(claimPrivateKey, claimSignBytes(chainId, jewelId, offerExpiresAt, claimer)),
+  });
+}
+
+/** Issues a card for stock, replacing any earlier one. `cardKey` is its public key in lower-case hex. */
+export const issueJewelCard = (staff: string, jewelId: string, cardKey: string) =>
+  msg('MsgIssueCard', { staff, jewelId, cardKey });
+export const approveJewelClaim = (staff: string, jewelId: string) => msg('MsgApproveClaim', { staff, jewelId });
+export const rejectJewelClaim = (staff: string, jewelId: string) => msg('MsgRejectClaim', { staff, jewelId });
+export const withdrawJewelClaim = (claimer: string, jewelId: string) => msg('MsgWithdrawClaim', { claimer, jewelId });
+
+/** Files a claim with the card's secret, which signs the claimer's address and never leaves this device. */
+export function fileJewelClaim(claimer: string, jewelId: string, cardPrivateKey: Uint8Array, chainId: string): EncodeObject {
+  const pub = compressedPublicKey(cardPrivateKey);
+  return msg('MsgFileClaim', {
+    claimer, jewelId,
+    cardPubKey: pub,
+    cardSignature: signArbitrary(cardPrivateKey, cardClaimSignBytes(chainId, jewelId, toHex(pub), claimer)),
   });
 }
 

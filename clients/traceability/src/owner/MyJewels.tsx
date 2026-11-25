@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { acceptJewelOffer, chainHead, offersAddressedTo, t } from '@yamale/chain';
+import { acceptJewelOffer, chainHead, claimsFiledBy, offersAddressedTo, t, withdrawJewelClaim } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
-import { AppBar, Loading, Problem, Section, useLoad } from '../ui.tsx';
+import { AppBar, day, Loading, Problem, Section, useLoad } from '../ui.tsx';
 import { useRole } from '../atelier/role.ts';
 import { JewelCard } from '../verify/JewelCard.tsx';
 import { HeldRow, loadHoldings } from './HeldList.tsx';
@@ -29,6 +29,31 @@ function AcceptButton({ jewelId, onDone }: { jewelId: string; onDone: () => void
   );
 }
 
+/** A claim filed with an ownership card, waiting for the shop; the claimer may take it back. */
+function WithdrawButton({ jewelId, filedAt, onDone }: { jewelId: string; filedAt: string; onDone: () => void }) {
+  const session = useSession();
+  const [action, run] = useAction();
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div className="claimrow">
+      <p className="hint">{t('traceability.claimWaiting', { date: day(filedAt) })}</p>
+      {!confirm && <button type="button" className="btn" onClick={() => setConfirm(true)}>{t('traceability.claimWithdraw')}</button>}
+      {confirm && (
+        <UnlockGate>
+          <p className="note">{t('traceability.claimWithdrawExplain')}</p>
+          <div className="actions">
+            <button type="button" className="btn btn--danger" disabled={action.kind === 'busy'} onClick={async () => {
+              if (await run(() => session.submitAsOwner([withdrawJewelClaim(session.address!, jewelId)]))) onDone();
+            }}>{t('traceability.claimWithdrawConfirm')}</button>
+            <button type="button" className="btn" onClick={() => setConfirm(false)}>{t('traceability.cancel')}</button>
+          </div>
+          <ActionStatus state={action} />
+        </UnlockGate>
+      )}
+    </div>
+  );
+}
+
 /** Waits for the chain's clock: whether an offer is still open is decided by block time, not the phone's. */
 function Holdings({ address }: { address: string }) {
   const [head] = useLoad(() => chainHead(), []);
@@ -44,7 +69,8 @@ function Holdings({ address }: { address: string }) {
 function HoldingsAt({ address, now, shop }: { address: string; now: number; shop: string | null }) {
   const [offers, reloadOffers] = useLoad(() => offersAddressedTo(address, now), [address]);
   const [held, reloadHeld] = useLoad(() => loadHoldings(address, now, (h) => h.jewelerId !== shop), [address, shop]);
-  const reload = () => { reloadOffers(); reloadHeld(); };
+  const [claims, reloadClaims] = useLoad(() => claimsFiledBy(address), [address]);
+  const reload = () => { reloadOffers(); reloadHeld(); reloadClaims(); };
   return (
     <>
       {offers?.ok && offers.value.length > 0 && (
@@ -58,6 +84,17 @@ function HoldingsAt({ address, now, shop }: { address: string; now: number; shop
         </Section>
       )}
       {offers && !offers.ok && <Problem outcome={offers} />}
+      {claims?.ok && claims.value.length > 0 && (
+        <Section title={t('traceability.waitingForShop')}>
+          <ul className="y-cards">
+            {claims.value.map((v) => (
+              <JewelCard key={v.jewel.id} id={v.jewel.id} now={now} to={`/j/${v.jewel.jewelerId}/${v.jewel.id}`}
+                         extra={<WithdrawButton jewelId={v.jewel.id} filedAt={v.claim!.filedAt} onDone={reload} />} />
+            ))}
+          </ul>
+        </Section>
+      )}
+      {claims && !claims.ok && <Problem outcome={claims} />}
       <Section title={t('traceability.yourJewels')}>
         {!held && <p className="loading">{t('traceability.loading')}</p>}
         {held && !held.ok && <Problem outcome={held} />}

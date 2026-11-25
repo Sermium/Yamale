@@ -32,7 +32,33 @@ export async function fetchVerified(hash: string): Promise<Fetched> {
 const HEX_COLOUR = /^#[0-9a-f]{6}$/;
 function safeColour(v: unknown): string { return typeof v === 'string' && HEX_COLOUR.test(v) ? v : ''; }
 
-export interface JewelerProfile { logo: string; colour: string; accent: string }
+/** How the public reaches a shop. Every field is optional; the shop fills in what it wants shown. */
+export interface Contact {
+  about?: string; address?: string; city?: string; country?: string;
+  phone?: string; whatsapp?: string; email?: string; website?: string; hours?: string;
+}
+export const CONTACT_FIELDS = ['about', 'address', 'city', 'country', 'phone', 'whatsapp', 'email', 'website', 'hours'] as const;
+
+export interface JewelerProfile { logo: string; colour: string; accent: string; contact?: Contact }
+
+/**
+ * Only strings, only the known fields, and links only where they are safe to
+ * put in an href: an https website, a phone made of digits. The API checks the
+ * same on the way in; this is the check on the way out.
+ */
+export function safeContact(v: unknown): Contact | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const out: Contact = {};
+  for (const k of CONTACT_FIELDS) {
+    const x = (v as Record<string, unknown>)[k];
+    if (typeof x === 'string' && x.trim() !== '') out[k] = x.trim();
+  }
+  if (out.website && !/^https:\/\/[^\s]+$/.test(out.website)) delete out.website;
+  for (const k of ['phone', 'whatsapp'] as const) if (out[k] && !/^\+?[0-9][0-9 ().-]{3,29}$/.test(out[k]!)) delete out[k];
+  if (out.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.email)) delete out.email;
+  if (out.country && !/^[A-Z]{2}$/.test(out.country)) delete out.country;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 export async function fetchProfile(jewelerId: string): Promise<JewelerProfile | null> {
   try {
@@ -40,7 +66,7 @@ export async function fetchProfile(jewelerId: string): Promise<JewelerProfile | 
     if (!res.ok) return null;
     const p = (await res.json()) as JewelerProfile;
     // Colours go into CSS: only a plain hex colour is used, anything else is ignored.
-    return { ...p, colour: safeColour(p.colour), accent: safeColour(p.accent) };
+    return { ...p, colour: safeColour(p.colour), accent: safeColour(p.accent), contact: safeContact(p.contact) };
   } catch {
     return null;
   }
@@ -59,7 +85,7 @@ export async function readProfile(jewelerId: string): Promise<ProfileRead> {
     if (!res.ok) return { state: 'failed', detail: `${res.status}` };
     const p = (await res.json()) as JewelerProfile;
     if (typeof p.colour !== 'string' || typeof p.accent !== 'string') return { state: 'failed', detail: 'unreadable profile' };
-    return { state: 'loaded', profile: { logo: String(p.logo ?? ''), colour: p.colour, accent: p.accent } };
+    return { state: 'loaded', profile: { logo: String(p.logo ?? ''), colour: p.colour, accent: p.accent, contact: safeContact(p.contact) } };
   } catch (err) {
     return { state: 'failed', detail: err instanceof Error ? err.message : String(err) };
   }
@@ -128,8 +154,45 @@ async function signedSend(method: 'PUT' | 'POST', path: string, key: Uint8Array,
 
 /** The jeweler's look, signed by its business account. The logo must already be stored. */
 export function saveProfile(key: Uint8Array, jewelerId: string, profile: JewelerProfile, chainId: string) {
-  const body = new TextEncoder().encode(JSON.stringify({ logo: profile.logo, colour: profile.colour, accent: profile.accent }));
+  const contact = safeContactForSave(profile.contact);
+  const body = new TextEncoder().encode(JSON.stringify({
+    logo: profile.logo, colour: profile.colour, accent: profile.accent, ...(contact ? { contact } : {}),
+  }));
   return signedSend('PUT', `/v1/jewelers/${jewelerId}/profile`, key, 'profile', `${jewelerId}.${sha256Hex(body)}`, body, chainId);
+}
+
+/** What the shop typed, trimmed, empty fields left out; the API refuses what is malformed and says why. */
+function safeContactForSave(c: Contact | undefined): Contact | undefined {
+  if (!c) return undefined;
+  const out: Contact = {};
+  for (const k of CONTACT_FIELDS) { const v = c[k]?.trim(); if (v) out[k] = k === 'country' ? v.toUpperCase() : v; }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** One confirmed design, as the public portfolio shows it. */
+export interface PortfolioDesign {
+  id: string; title: string; description: string; type: string;
+  fields: { metal: string; weightGrams: string; stones: Stone[] };
+  photos: string[]; productUrl?: string;
+}
+
+export type PortfolioRead = { state: 'loaded'; designs: PortfolioDesign[] } | { state: 'none' } | { state: 'failed'; detail: string };
+
+export async function readPortfolio(jewelerId: string): Promise<PortfolioRead> {
+  try {
+    const res = await fetch(`${API}/v1/jewelers/${jewelerId}/portfolio`);
+    if (res.status === 404) return { state: 'none' };
+    if (!res.ok) return { state: 'failed', detail: `${res.status}` };
+    const body = await res.json() as { designs?: unknown };
+    if (!Array.isArray(body.designs)) return { state: 'failed', detail: 'unreadable portfolio' };
+    const designs = body.designs.filter((d): d is PortfolioDesign =>
+      !!d && typeof d.id === 'string' && typeof d.title === 'string' && Array.isArray(d.photos)
+      && d.photos.every((h: unknown) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)));
+    for (const d of designs) if (d.productUrl && !/^https:\/\/[^\s]+$/.test(d.productUrl)) delete d.productUrl;
+    return { state: 'loaded', designs };
+  } catch (err) {
+    return { state: 'failed', detail: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export interface Application {

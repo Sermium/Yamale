@@ -8,9 +8,14 @@ export interface Held {
   id: string; jewelerId: string; inscription: string;
   title: string | null; sku: string; photo?: string;
   stolen: boolean; onOffer: boolean;
+  /** Whether an ownership card is issued for it, and whether a claim on that card waits for the shop. */
+  hasCard?: boolean; claimed?: boolean;
 }
 
-export interface HeldGroup { key: string; title: string | null; photo?: string; items: Held[]; stolen: number; onOffer: number }
+export interface HeldGroup {
+  key: string; title: string | null; photo?: string; items: Held[]; stolen: number; onOffer: number;
+  withoutCard: number; claimed: number;
+}
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
@@ -24,11 +29,13 @@ export function groupHoldings(items: Held[]): HeldGroup[] {
   for (const it of items) {
     const key = it.title === null ? `?${it.id}` : `${it.jewelerId}\u0000${it.sku || `title:${it.title}`}`;
     let g = groups.get(key);
-    if (!g) { g = { key, title: it.title, photo: it.photo, items: [], stolen: 0, onOffer: 0 }; groups.set(key, g); }
+    if (!g) { g = { key, title: it.title, photo: it.photo, items: [], stolen: 0, onOffer: 0, withoutCard: 0, claimed: 0 }; groups.set(key, g); }
     g.items.push(it);
     if (!g.photo && it.photo) g.photo = it.photo;
     if (it.stolen) g.stolen++;
     if (it.onOffer) g.onOffer++;
+    if (!it.hasCard) g.withoutCard++;
+    if (it.claimed) g.claimed++;
   }
   const out = [...groups.values()];
   for (const g of out) g.items.sort((a, b) => collator.compare(a.inscription, b.inscription));

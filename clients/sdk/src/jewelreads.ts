@@ -8,9 +8,10 @@
  */
 
 import { abciQuery, decoded, txSearch, type Outcome } from './abci.ts';
-import { JewelerStatus, type Benefit, type Jewel, type Jeweler, type Offer, type Reassignment } from './generated/blockchain/jewel/v1/jewel.ts';
+import { JewelerStatus, type Benefit, type Claim, type Jewel, type Jeweler, type Offer, type Reassignment } from './generated/blockchain/jewel/v1/jewel.ts';
 import type { Params } from './generated/blockchain/jewel/v1/params.ts';
 import {
+  QueryClaimsByJewelerRequest, QueryClaimsByJewelerResponse,
   QueryJewelRequest, QueryJewelResponse, QueryJewelerRequest, QueryJewelerResponse,
   QueryJewelersRequest, QueryJewelersResponse, QueryJewelsByInscriptionRequest,
   QueryJewelsByInscriptionResponse, QueryParamsRequest, QueryParamsResponse,
@@ -26,6 +27,10 @@ export interface JewelView {
   offer?: Offer;
   reassignment?: Reassignment;
   benefits: Benefit[];
+  /** Whether an ownership card is issued for it. The card's key is not needed here. */
+  hasCard: boolean;
+  /** The pending claim on its card, if any. */
+  claim?: Claim;
 }
 
 export async function readJewel(id: string): Promise<Outcome<JewelView>> {
@@ -37,7 +42,10 @@ export async function readJewel(id: string): Promise<Outcome<JewelView>> {
   if (!r.jewel) return { ok: false, reason: 'not-found', detail: `jewel ${id}` };
   return {
     ok: true, height: out.height,
-    value: { jewel: r.jewel, owner: r.owner, offer: r.offer, reassignment: r.reassignment, benefits: r.benefits },
+    value: {
+      jewel: r.jewel, owner: r.owner, offer: r.offer, reassignment: r.reassignment, benefits: r.benefits,
+      hasCard: r.hasCard, claim: r.claim,
+    },
   };
 }
 
@@ -137,6 +145,59 @@ export async function offersAddressedTo(address: string, now: number): Promise<O
     if (view.value.offer?.to === address && Number(view.value.offer.expiresAt) > now) open.push(view.value);
   }
   return { ok: true, height: found.height, value: open };
+}
+
+/** A jeweler's pending claims, each with its jewel, oldest first as the chain lists them. */
+export async function claimsByJeweler(jewelerId: string): Promise<Outcome<{ jewel: Jewel; claim: Claim }[]>> {
+  const all: { jewel: Jewel; claim: Claim }[] = [];
+  let key: Uint8Array<ArrayBuffer> = new Uint8Array(0);
+  let height = 0;
+  for (let page = 0; page < 50; page++) {
+    const req = QueryClaimsByJewelerRequest.fromPartial({ jewelerId, pagination: { key, limit: '100' } });
+    const out = decoded(await abciQuery(`${SVC}/ClaimsByJeweler`, QueryClaimsByJewelerRequest.encode(req).finish()),
+      (b) => QueryClaimsByJewelerResponse.decode(b));
+    if (!out.ok) return out;
+    height = out.height;
+    for (const c of out.value.claims) if (c.jewel && c.claim) all.push({ jewel: c.jewel, claim: c.claim });
+    const next = out.value.pagination?.nextKey;
+    if (!next || next.length === 0) break;
+    key = next as Uint8Array<ArrayBuffer>;
+  }
+  return { ok: true, height, value: all };
+}
+
+export function claimSearchQuery(address: string): string {
+  return `blockchain.jewel.v1.EventClaimFiled.claimer='"${address}"'`;
+}
+
+/**
+ * Claims this account filed that are still pending. The chain keeps no index by
+ * claimer, so they are found from EventClaimFiled and then checked against the
+ * jewel as it stands: an event says a claim was filed, only the jewel says it
+ * is still waiting.
+ */
+export async function claimsFiledBy(address: string): Promise<Outcome<JewelView[]>> {
+  const found = await txSearch(claimSearchQuery(address));
+  if (!found.ok) return found;
+  const ids = new Set<string>();
+  for (const tx of found.value) {
+    if (tx.code !== 0) continue;
+    for (const e of tx.events) {
+      if (e.type !== 'blockchain.jewel.v1.EventClaimFiled' || attr(e, 'claimer') !== address) continue;
+      const id = attr(e, 'jewel_id');
+      if (id) ids.add(id);
+    }
+  }
+  const pending: JewelView[] = [];
+  for (const id of ids) {
+    const view = await readJewel(id);
+    if (!view.ok) {
+      if (view.reason === 'not-found') continue;
+      return view;
+    }
+    if (view.value.claim?.claimer === address) pending.push(view.value);
+  }
+  return { ok: true, height: found.height, value: pending };
 }
 
 export async function feeAllowanceExists(granter: string, grantee: string): Promise<Outcome<boolean>> {

@@ -18,6 +18,9 @@ import { Register } from './atelier/Register.tsx';
 import { useRole } from './atelier/role.ts';
 import { Staff } from './atelier/Staff.tsx';
 import { Claim } from './owner/Claim.tsx';
+import { CardPage } from './card/CardPage.tsx';
+import { Directory } from './directory/Directory.tsx';
+import { Shop } from './directory/Shop.tsx';
 import { MyJewels } from './owner/MyJewels.tsx';
 import { Owned } from './owner/Owned.tsx';
 import { NotFound } from './ui.tsx';
@@ -31,6 +34,7 @@ function TabBar() {
   const [role] = useRole(session.address);
   const tabs = [
     { to: '/', end: true, label: t('traceability.navVerify') },
+    { to: '/jewelers', end: false, label: t('traceability.navJewelers') },
     { to: '/mine', end: false, label: t('traceability.navMine') },
     ...(role.state === 'role' ? [{ to: '/atelier', end: false, label: t('traceability.navAtelier') }] : []),
     { to: '/account', end: false, label: t('traceability.navAccount') },
@@ -91,6 +95,9 @@ export function App() {
               <Route path="/mine" element={<MyJewels />} />
               <Route path="/mine/:jewel" element={<Owned />} />
               <Route path="/claim" element={<Claim />} />
+              <Route path="/card" element={<CardPage />} />
+              <Route path="/jewelers" element={<Directory />} />
+              <Route path="/jewelers/:jeweler" element={<Shop />} />
               <Route path="/atelier" element={<Atelier />} />
               <Route path="/atelier/register" element={<Register />} />
               <Route path="/atelier/staff" element={<Staff />} />

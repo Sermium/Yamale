@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { chainHead, readJewel, t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { OfferPanel } from '../owner/OfferPanel.tsx';
+import { offerIsOpen } from '../owner/offers.ts';
+import { PrintCards } from '../card/PrintCards.tsx';
+import { ClaimDecision } from './Claims.tsx';
 import { AppBar, day, isId, Loading, NotFound, Problem, Section, useLoad } from '../ui.tsx';
 import { Hallmark, RecordFacts } from '../verify/JewelPage.tsx';
 import { Gallery } from '../verify/Photos.tsx';
@@ -21,6 +25,7 @@ export function AtelierJewel() {
   const [view, reload] = useLoad(() => (valid ? readJewel(id) : Promise.resolve(NO_SUCH)), [id, valid]);
   const [head, reloadHead] = useLoad(() => chainHead(), []);
   const record = useRecord(view?.ok ? view.value.jewel : null);
+  const [printing, setPrinting] = useState(false);
 
   const bar = <AppBar title={t('traceability.atelierTitle')} eyebrow="" back />;
   if (!valid) return <NotFound />;
@@ -55,13 +60,33 @@ export function AtelierJewel() {
         </div>
         {record.state === 'ok' && <Section title={t('traceability.materials')}><RecordFacts record={record.record} /></Section>}
         {inStock ? (
-          <Section title={t('traceability.sell')}>
-            {canAct ? (
+          <Section title={t('traceability.ownershipCard')}>
+            {/* Offers made before cards existed can still be cancelled here; no new one is made. */}
+            {canAct && offerIsOpen(v.offer, now) && (
               <UnlockGate>
                 <OfferPanel view={v} actor={session.address!} now={now}
                             send={(m) => session.submit(m, role.jeweler.business)} onChange={reload} />
               </UnlockGate>
-            ) : <p className="hint">{t('traceability.staffOnly')}</p>}
+            )}
+            {v.claim && (
+              <ClaimDecision jewelId={id} claim={v.claim} business={role.jeweler.business} canAct={canAct} onDone={reload} />
+            )}
+            <p className={v.hasCard ? '' : 'hint'}>{t(v.hasCard ? 'traceability.cardIssued' : 'traceability.cardNone')}</p>
+            {!canAct && <p className="hint">{t('traceability.staffOnly')}</p>}
+            {canAct && !printing && !v.jewel.stolen && (
+              <button type="button" className="btn" onClick={() => setPrinting(true)}>
+                {t(v.hasCard ? 'traceability.cardReprint' : 'traceability.cardPrintOne')}
+              </button>
+            )}
+            {printing && (
+              <UnlockGate>
+                <PrintCards shop={{ name: role.jeweler.name, jewelerId: role.jeweler.id, business: role.jeweler.business }}
+                            stock={[{ jewelId: id, title: record.state === 'ok' ? record.record.title : null,
+                              inscription: v.jewel.inscription, hasCard: v.hasCard, design: id }]}
+                            initial={{ kind: 'one', jewelId: id }}
+                            onClose={(changed) => { setPrinting(false); if (changed) reload(); }} />
+              </UnlockGate>
+            )}
           </Section>
         ) : (
           <p className="note">{lastChange ? t('traceability.soldOn', { date: day(lastChange) }) : t('traceability.notInStock')}</p>
