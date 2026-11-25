@@ -213,6 +213,11 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.jewel.v1.MsgProposeReassignment', jewel.MsgProposeReassignment],
   ['/blockchain.jewel.v1.MsgVetoReassignment', jewel.MsgVetoReassignment],
   ['/blockchain.jewel.v1.MsgCompleteReassignment', jewel.MsgCompleteReassignment],
+  ['/blockchain.jewel.v1.MsgIssueCard', jewel.MsgIssueCard],
+  ['/blockchain.jewel.v1.MsgFileClaim', jewel.MsgFileClaim],
+  ['/blockchain.jewel.v1.MsgApproveClaim', jewel.MsgApproveClaim],
+  ['/blockchain.jewel.v1.MsgRejectClaim', jewel.MsgRejectClaim],
+  ['/blockchain.jewel.v1.MsgWithdrawClaim', jewel.MsgWithdrawClaim],
 ];
 
 /**

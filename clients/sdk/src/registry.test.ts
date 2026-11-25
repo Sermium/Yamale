@@ -344,6 +344,7 @@ const JEWEL_MESSAGES = [
   'MsgRegisterJewel', 'MsgAmendJewel', 'MsgOfferJewel', 'MsgCancelOffer', 'MsgAcceptOffer',
   'MsgClaimOffer', 'MsgReportStolen', 'MsgClearStolen', 'MsgAttachBenefit', 'MsgRedeemBenefit',
   'MsgProposeReassignment', 'MsgVetoReassignment', 'MsgCompleteReassignment',
+  'MsgIssueCard', 'MsgFileClaim', 'MsgApproveClaim', 'MsgRejectClaim', 'MsgWithdrawClaim',
 ];
 
 test('every x/jewel message is registered', () => {

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
-  cardClaimSignBytes, cardLink, compressedPublicKey, fileJewelClaim, parseCardFragment, STAFF_MESSAGES, toHex,
+  cardClaimSignBytes, cardLink, compressedPublicKey, fileJewelClaim, fromHex, parseCardFragment, STAFF_MESSAGES, toHex,
   verifyArbitrary,
 } from './jewel.ts';
 
@@ -46,5 +48,21 @@ test('a filed claim verifies for its claimer only', () => {
 test('staff fees cover issuing cards and deciding claims', () => {
   for (const m of ['MsgIssueCard', 'MsgApproveClaim', 'MsgRejectClaim']) {
     assert.ok(STAFF_MESSAGES.includes(`/blockchain.jewel.v1.${m}`), m);
+  }
+});
+
+const vectors = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../../x/jewel/types/testdata/vectors.json', import.meta.url)), 'utf8'));
+
+test('card sign bytes and signatures match the chain\'s vectors', () => {
+  assert.ok(Array.isArray(vectors.cards) && vectors.cards.length > 0);
+  for (const v of vectors.cards) {
+    const priv = fromHex(v.priv_key);
+    assert.equal(toHex(compressedPublicKey(priv)), v.card_key);
+    assert.equal(text(cardClaimSignBytes(v.chain_id, v.jewel_id, v.card_key, v.claimer)), v.sign_bytes);
+    const m = fileJewelClaim(v.claimer, v.jewel_id, priv, v.chain_id).value as { cardSignature: Uint8Array };
+    assert.equal(toHex(m.cardSignature), v.signature);
+    // The page parses the same jewel id the chain signs for, up to the largest uint64.
+    assert.equal(parseCardFragment(`#${v.jewel_id}.${v.priv_key}`)?.jewelId, v.jewel_id);
   }
 });
