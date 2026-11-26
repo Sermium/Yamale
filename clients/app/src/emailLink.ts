@@ -14,8 +14,12 @@ import { addressOfPublicKey, compressedPublicKey, toBase64Url } from '../../sdk/
 export const PAY_ORIGIN = 'https://pay.yamaletech.com';
 const utf8 = new TextEncoder();
 
-/** A code is 4 to 8 digits: said over the phone, typed once. */
-export const validCode = (code: string) => /^[0-9]{4,8}$/.test(code);
+/**
+ * A code is 6 to 8 digits: said over the phone, typed once. Six is the floor
+ * because whoever holds the email can guess offline, a second a guess: four
+ * digits fall in hours, six take weeks.
+ */
+export const validCode = (code: string) => /^[0-9]{6,8}$/.test(code);
 
 /** The one-time account's key, from the link's secret and the code, if any. */
 export async function claimKey(secret: Uint8Array, code: string): Promise<Uint8Array> {

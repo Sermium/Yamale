@@ -6,16 +6,16 @@ import { addressOf, claimKey, linkFor, validCode } from './emailLink.ts';
 const secret = new Uint8Array(32).fill(3);
 
 test('the same link and code always open the same one-time account', async () => {
-  const a = await claimKey(secret, '4821');
-  const b = await claimKey(secret, '4821');
+  const a = await claimKey(secret, '482913');
+  const b = await claimKey(secret, '482913');
   assert.equal(addressOf(a), addressOf(b));
 });
 
 test('another code, or no code, opens a different account', async () => {
-  const withCode = addressOf(await claimKey(secret, '4821'));
-  assert.notEqual(addressOf(await claimKey(secret, '4822')), withCode);
+  const withCode = addressOf(await claimKey(secret, '482913'));
+  assert.notEqual(addressOf(await claimKey(secret, '482914')), withCode);
   assert.notEqual(addressOf(await claimKey(secret, '')), withCode);
-  assert.notEqual(addressOf(await claimKey(new Uint8Array(32).fill(4), '4821')), withCode);
+  assert.notEqual(addressOf(await claimKey(new Uint8Array(32).fill(4), '482913')), withCode);
 });
 
 test('the link carries the secret in the fragment, and says when a code is needed', () => {
@@ -24,7 +24,7 @@ test('the link carries the secret in the fragment, and says when a code is neede
   assert.match(linkFor(secret, true), /#receive=[A-Za-z0-9_-]{43}&code=1$/);
 });
 
-test('a code is 4 to 8 digits', () => {
-  for (const ok of ['4821', '12345678']) assert.equal(validCode(ok), true);
-  for (const bad of ['123', '123456789', '12a4', '']) assert.equal(validCode(bad), false);
+test('a code is 6 to 8 digits', () => {
+  for (const ok of ['482913', '12345678']) assert.equal(validCode(ok), true);
+  for (const bad of ['4821', '12345', '123456789', '12a456', '']) assert.equal(validCode(bad), false);
 });

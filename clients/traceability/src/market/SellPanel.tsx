@@ -10,7 +10,7 @@ import type { EncodeObject } from '@cosmjs/proto-signing';
 
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { Loading, Problem, useLoad } from '../ui.tsx';
-import { money } from './money.ts';
+import { money, activeDenom } from './money.ts';
 
 export function SellPanel({ view, actor, send, onChange }: {
   view: JewelView; actor: string;
@@ -32,7 +32,9 @@ export function SellPanel({ view, actor, send, onChange }: {
   if (view.reassignment) return <p className="hint">{t('traceability.sellReassignment')}</p>;
   if (denoms.length === 0) return <p className="hint">{t('traceability.sellClosed')}</p>;
 
-  const chosen = denom || denoms[0]!;
+  // The purse's active currency first, when sales may be priced in it.
+  const active = activeDenom();
+  const chosen = denom || (active && denoms.includes(active) ? active : denoms[0]!);
   const base = toBaseUnitsOf(amount, chosen);
   const valid = !!base && BigInt(base.base) > 0n;
   const split = valid ? saleSplit(base!.base, feeBps) : null;
