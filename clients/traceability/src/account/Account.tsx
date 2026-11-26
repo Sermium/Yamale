@@ -19,7 +19,7 @@ import { Purse } from '../market/Purse.tsx';
 import { ProfileCode } from './names.tsx';
 import { claimIdentifier, CountrySelect, guessCountry } from './identifier.tsx';
 import { ProfileSection } from './profile.tsx';
-import { ACCOUNTS_ORIGIN, ACCOUNTS_PATH, canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../../shared/account/handoff.ts';
+import { accountsSettingsUrl, canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../../shared/account/handoff.ts';
 import { savePerson } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
@@ -29,6 +29,7 @@ import { claimRecovered } from '../../../shared/account/recover.ts';
 import { useSession } from './session.tsx';
 import { beginAuthenticator, confirmAuthenticator, deviceLabel, requestEnrolCode, signIn, startSignIn, type SignInFailure } from '../../../shared/account/signin.ts';
 import { PasswordField } from '../../../shared/account/PasswordField.tsx';
+import { biometricsAvailable, biometricsFor, disableBiometrics, enableBiometrics, unlockWithBiometrics, type BiometricMode } from '../../../shared/account/biometric.ts';
 
 const lang = () => (typeof document !== 'undefined' ? document.documentElement.lang : '') || 'en';
 const digits = (v: string) => v.replace(/[^0-9]/g, '');
@@ -339,7 +340,15 @@ export function UnlockForm({ onDone }: { onDone?: () => void }) {
   const uid = useId();
   const session = useSession();
   const [password, setPassword] = useState('');
-  const [state, setState] = useState<'idle' | 'busy' | 'wrong'>('idle');
+  const [state, setState] = useState<'idle' | 'busy' | 'wrong' | 'bioFailed'>('idle');
+  const address = session.account?.address ?? '';
+  const bio = address ? biometricsFor(address) : null;
+  async function withBiometrics() {
+    setState('busy');
+    const key = await unlockWithBiometrics(address);
+    if (key && session.unlockWithKey(key)) { onDone?.(); return; }
+    setState('bioFailed');
+  }
   async function submit(e: FormEvent) {
     e.preventDefault();
     setState('busy');
@@ -353,14 +362,49 @@ export function UnlockForm({ onDone }: { onDone?: () => void }) {
   }
   return (
     <form className="stack" onSubmit={submit}>
+      {bio && (<>
+        <button type="button" className="btn btn--primary btn--block" disabled={state === 'busy'} onClick={() => void withBiometrics()}>
+          {t('account.bioUnlock')}
+        </button>
+        {state === 'bioFailed' && <p className="note note--warn" role="alert">{t('account.bioFailed')}</p>}
+      </>)}
       <label className="y-label" htmlFor={uid + '-unlock'}>{t('traceability.passwordToOpen')}</label>
       <PasswordField id={uid + '-unlock'} className="bigfield" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />
       {state === 'wrong' && <p className="note note--warn" role="alert">{t('traceability.passwordWrong')}</p>}
-      <button className="btn btn--primary" disabled={state === 'busy'}>
+      <button className={bio ? 'btn' : 'btn btn--primary'} disabled={state === 'busy'}>
         {state === 'busy' ? t('traceability.opening') : t('traceability.openButton')}
       </button>
     </form>
+  );
+}
+
+/** Biometrics on this device: on with the open key, off at any time. */
+function BiometricSetting({ email, address }: { email: string; address: string }) {
+  const session = useSession();
+  const [can, setCan] = useState(false);
+  const [mode, setMode] = useState<BiometricMode | null>(() => biometricsFor(address));
+  const [state, setState] = useState<'idle' | 'busy' | 'cancelled' | 'unavailable'>('idle');
+  useEffect(() => { void biometricsAvailable().then(setCan); }, []);
+  if (!can && !mode) return null;
+  return (
+    <div className="panel stack">
+      <p className="panel__title panel__title--plain">{t('account.bioTitle')}</p>
+      <p className="hint">{mode ? t(mode === 'prf' ? 'account.bioOnStrong' : 'account.bioOnWeak') : t('account.bioOffHint')}</p>
+      {state === 'cancelled' && <p className="note note--warn" role="alert">{t('account.bioCancelled')}</p>}
+      {state === 'unavailable' && <p className="note note--warn" role="alert">{t('account.bioUnavailable')}</p>}
+      {mode ? (
+        <button type="button" className="btn" onClick={async () => { await disableBiometrics(); setMode(null); }}>{t('account.bioTurnOff')}</button>
+      ) : (
+        <button type="button" className="btn btn--primary" disabled={state === 'busy'} onClick={async () => {
+          setState('busy');
+          const key = session.withKey((k) => k.slice());
+          const out = await enableBiometrics(address, email, 'Yamale Jewels', key);
+          key.fill(0);
+          if (out.ok) { setMode(out.mode); setState('idle'); } else setState(out.reason);
+        }}>{t('account.bioTurnOn')}</button>
+      )}
+    </div>
   );
 }
 
@@ -523,7 +567,7 @@ export function AccountScreen() {
           <header className="profile">
             <span className="profile__avatar" aria-hidden="true">{(a.email || '?').charAt(0).toUpperCase()}</span>
             <div className="profile__text">
-              <p className="profile__email">{a.email}</p>
+              <p className="profile__email" title={a.email}>{a.email}</p>
               <ProfileCode address={a.address} />
               <div className="profile__meta">
                 <span className={`y-chip ${a.protection === 'enrolled' ? 'y-chip--ok' : 'y-chip--warn'}`}>
@@ -571,8 +615,10 @@ export function AccountScreen() {
           <MenuGroup title={t('account.twoStepTitle')}>
             {/* Kept by the account services, so it is one setting for every Yamale app, managed in one place. */}
             <MenuButton icon="shield" title={t('account.securityLink')} sub={t('account.securityLinkSub')}
-                        onClick={() => location.assign(ACCOUNTS_ORIGIN + ACCOUNTS_PATH)} />
+                        onClick={() => location.assign(accountsSettingsUrl(location))} />
           </MenuGroup>
+
+          <BiometricSetting email={a.email} address={a.address} />
 
           <MenuGroup title={t('traceability.thisDevice')}>
             <MenuButton icon="lock" title={t('traceability.lock')} sub={t('traceability.lockSub')} onClick={session.lock} />

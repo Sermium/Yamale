@@ -20,6 +20,7 @@ import {
 } from '../../../shared/account/device.ts';
 import { protectionOutcome } from '../../../shared/account/protection.ts';
 import { takeHandoffKey } from '../../../shared/account/handoff.ts';
+import { addressOfPublicKey, compressedPublicKey } from '../../../sdk/src/jewel.ts';
 import { isCodeRefusal } from '../../../shared/account/signin.ts';
 
 /** The sponsor's current message list version (traceabilityapi ownerList). */
@@ -35,6 +36,8 @@ export interface Session {
   sponsor: string | null;
   create(email: string, password: string): Promise<void>;
   unlock(password: string): Promise<void>;
+  /** Open the account with its key, from biometrics; false when it is not this account's key. */
+  unlockWithKey(key: Uint8Array): boolean;
   lock(): void;
   forget(): void;
   /** Re-reads the account from this device's storage, locked. For an account written by another route after mount. */
@@ -172,6 +175,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const made = await createAccount(email, password);
       setAccount(made.account);
       hold(made.privateKey);
+    },
+    unlockWithKey(k) {
+      if (!account || addressOfPublicKey(compressedPublicKey(k)) !== account.address) { k.fill(0); return false; }
+      hold(k);
+      return true;
     },
     async unlock(password) {
       if (!account) throw new Error('no account on this device');

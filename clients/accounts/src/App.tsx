@@ -10,11 +10,14 @@
  * app asks for the password itself before it can use the key.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { LanguagePicker, t, useLocale } from '@yamale/chain';
 
-import { adoptKey, forgetAccount, readAccount, updateAccount, type StoredAccount } from '../../shared/account/device.ts';
-import { APPS, appOrigin, sealForApp } from '../../shared/account/handoff.ts';
+import { adoptKey, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount } from '../../shared/account/device.ts';
+import {
+  biometricsAvailable, biometricsFor, disableBiometrics, enableBiometrics, unlockWithBiometrics, type BiometricMode,
+} from '../../shared/account/biometric.ts';
+import { APPS, appOrigin, returnFrom, sealForApp } from '../../shared/account/handoff.ts';
 import { deviceLabel, signIn, startSignIn, type SignInFailure, type Started } from '../../shared/account/signin.ts';
 import type { Services } from '../../wallet/src/account/enrol.ts';
 import { TwoStep } from './TwoStep.tsx';
@@ -115,11 +118,16 @@ function Handoff({ account, request, openKey, onNotMe }: {
 }) {
   const [busy, setBusy] = useState(false);
   const app = APPS[request.origin];
-  function go() {
+  async function go() {
     setBusy(true);
+    // With biometrics on here, the face or the finger opens the key, and the
+    // app opens without asking for the password at all. Declined or failed:
+    // the sealed account travels alone and the app asks for the password.
+    let key = openKey;
+    if (!key && biometricsFor(account.address)) key = await unlockWithBiometrics(account.address);
     const back = request.returnUrl.split('#')[0];
-    const fragment = sealForApp(account, request.pk, request.origin, request.state, undefined, openKey);
-    openKey?.fill(0);
+    const fragment = sealForApp(account, request.pk, request.origin, request.state, undefined, key);
+    key?.fill(0);
     location.replace(`${back}#${fragment}`);
   }
   return (
@@ -133,15 +141,56 @@ function Handoff({ account, request, openKey, onNotMe }: {
         </div>
       </div>
       <p className="hint">{t('accounts.handoffExplain', { app })}</p>
-      <button type="button" className="btn btn--primary" disabled={busy} onClick={go}>{t('accounts.continue')}</button>
+      <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void go()}>{t('accounts.continue')}</button>
       <button type="button" className="btn btn--quiet" onClick={onNotMe}>{t('accounts.notMe')}</button>
     </div>
+  );
+}
+
+/** Biometrics on this page: then "Continue" opens the asking app without any password. */
+function AccountsBiometrics({ account }: { account: StoredAccount }) {
+  const [can, setCan] = useState(false);
+  const [mode, setMode] = useState<BiometricMode | null>(() => biometricsFor(account.address));
+  const [asking, setAsking] = useState(false);
+  const [password, setPassword] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { void biometricsAvailable().then(setCan); }, []);
+  if (!can && !mode) return null;
+  return (
+    <section className="twostep">
+      <h2 className="twostep__title">{t('account.bioTitle')}</h2>
+      <p className="hint">{mode ? t(mode === 'prf' ? 'account.bioOnStrong' : 'account.bioOnWeak') : t('account.bioAccountsHint')}</p>
+      {note && <p className="note note--warn" role="alert">{note}</p>}
+      {mode ? (
+        <button type="button" className="btn btn--quiet" onClick={async () => { await disableBiometrics(); setMode(null); }}>{t('account.bioTurnOff')}</button>
+      ) : asking ? (
+        <form className="stack" onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true); setNote('');
+          let key: Uint8Array;
+          try { key = await unlockAccount(account, password); } catch { setBusy(false); setNote(t('accounts.fail.wrong')); return; }
+          const out = await enableBiometrics(account.address, account.email, 'Yamale account', key);
+          key.fill(0);
+          setBusy(false); setPassword('');
+          if (out.ok) { setMode(out.mode); setAsking(false); } else setNote(t(out.reason === 'unavailable' ? 'account.bioUnavailable' : 'account.bioCancelled'));
+        }}>
+          <label className="y-label" htmlFor="bio-pw">{t('accounts.password')}</label>
+          <PasswordField id="bio-pw" className="field" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button className="btn btn--primary" disabled={busy || !password}>{busy ? t('accounts.working') : t('account.bioTurnOn')}</button>
+        </form>
+      ) : (
+        <button type="button" className="btn" onClick={() => setAsking(true)}>{t('account.bioTurnOn')}</button>
+      )}
+    </section>
   );
 }
 
 export function App() {
   useLocale();
   const [request] = useState(readRequest);
+  // Opened from an app's settings: the way back to it, on every screen of this page.
+  const [from] = useState(() => returnFrom(location.search));
   const [account, setAccount] = useState<StoredAccount | null>(() => readAccount());
   // The key of an account signed in on this page just now, for its hand-off only.
   const [openKey, setOpenKey] = useState<Uint8Array | null>(null);
@@ -167,10 +216,15 @@ export function App() {
   } else {
     body = (<>
       <p className="lede">{t('accounts.signedInHere', { email: account.email })}</p>
+      <AccountsBiometrics account={account} />
       <TwoStep email={account.email} services={SERVICES} lang={lang()} />
       <button type="button" className="btn btn--quiet" onClick={forget}>{t('accounts.forgetHere')}</button>
     </>);
   }
+
+  const back = from && request === null && (
+    <a className="btn backlink" href={from.url}>{t('accounts.backTo', { app: from.app })}</a>
+  );
 
   return (
     <div className="y-stage">
@@ -189,7 +243,9 @@ export function App() {
             <img className="mast__mark" src={`${BASE}mark.png`} alt="" width={56} height={56} />
             <h1 className="mast__title">{t('accounts.heading')}</h1>
           </header>
+          {back}
           {body}
+          {back}
         </main>
         </div>
       </div>

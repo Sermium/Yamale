@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { appOrigin, handoffUrl, receiveHandoff, sealForApp } from './handoff.ts';
+import { accountsSettingsUrl, appOrigin, handoffUrl, receiveHandoff, returnFrom, sealForApp } from './handoff.ts';
 import type { KeyStore, StoredAccount } from './device.ts';
 
 function memory(): KeyStore & { map: Map<string, string> } {
@@ -102,4 +102,17 @@ test('the open key travels only when it is the account’s own, and opens the ac
   const wrong = receiveHandoff('#' + sealForApp(mine, r2.pk, PAY, r2.state, undefined, new Uint8Array(32).fill(9)), PAY, s2, memory());
   assert.equal(wrong.outcome, 'imported');
   assert.equal(wrong.key, undefined);
+});
+
+test('the way back from the accounts page leads only to a Yamale app', () => {
+  const url = accountsSettingsUrl({ origin: 'https://pay.yamaletech.com', pathname: '/app/' });
+  assert.equal(url, 'https://accounts.yamaletech.com/accounts/?from=https%3A%2F%2Fpay.yamaletech.com%2Fapp%2F');
+  assert.deepEqual(returnFrom(new URL(url).search), { url: 'https://pay.yamaletech.com/app/', app: 'Yamale Pay' });
+  // Query and fragment are dropped: a claim link must not ride along or come back.
+  assert.deepEqual(returnFrom('?from=' + encodeURIComponent('https://traceability.yamaletech.com/account?x=1#receive=k')),
+    { url: 'https://traceability.yamaletech.com/account', app: 'Yamale Jewels' });
+  assert.equal(returnFrom('?from=' + encodeURIComponent('https://evil.example/app/')), null);
+  assert.equal(returnFrom('?from=' + encodeURIComponent('http://pay.yamaletech.com/app/')), null);
+  assert.equal(returnFrom('?from=javascript:alert(1)'), null);
+  assert.equal(returnFrom(''), null);
 });

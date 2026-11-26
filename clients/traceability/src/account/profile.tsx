@@ -115,6 +115,8 @@ export function ProfileSection({ session }: { session: Session }) {
                      onChange={(e) => setLast(e.target.value)} required />
             </div>
           </div>
+          <p className="y-label">{t('traceability.email')}</p>
+          <p className="profileform__fixed profileform__email">{session.account?.email}</p>
           <label className="y-label" htmlFor={uid + '-country'}>{t('traceability.country')}</label>
           {identifier ? (
             <p className="profileform__fixed" id={uid + '-country'}>

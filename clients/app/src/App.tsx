@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 import { countryNames, guessCountry } from '../../shared/account/countries.ts';
-import { ACCOUNTS_ORIGIN, ACCOUNTS_PATH, canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
+import { accountsSettingsUrl, canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
 
 import {
+  biometricEnable, biometricMode, biometricOff, biometricsAvailable, biometricUnlock,
   checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, sendSignUpCode, signerFromHandoff, signIn, signOut, signUp,
   type Previous, type Signer, type SignInStep,
 } from './account.ts';
@@ -21,7 +22,7 @@ import { Desk } from './Desk.tsx';
 import { CopyRow } from './copy.tsx';
 import { PayableNote } from './Identifier.tsx';
 import * as book from './book.ts';
-import * as biometric from './biometric.ts';
+import * as legacyBiometric from './biometric.ts';
 import { DIRECTORY, matches } from './directory.ts';
 import * as escrow from './escrow.ts';
 import * as chain from './chain.ts';
@@ -230,21 +231,19 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
   // enrolled — a button that opens a prompt and fails is worse than no button.
   const [canBio, setCanBio] = useState(false);
   useEffect(() => {
-    biometric.available().then((ok) => setCanBio(ok && biometric.enrolled()));
+    // The old setup kept a wrapped copy of the password on the device. Erased:
+    // biometrics now open the account with a passkey, and no password is kept.
+    if (legacyBiometric.enrolled()) void legacyBiometric.forget();
+    void biometricsAvailable().then((ok) => setCanBio(ok && !!biometricMode()));
   }, []);
 
   async function unlockWithBiometric() {
     setError('');
-    const creds = await biometric.unlock();
-    if (!creds) { setError(t('app.biometricFailed')); return; }
     setBusy(true);
-    try {
-      handle(await signIn(creds.email, creds.password));
-    } catch {
-      setError(t('app.wrongPassword'));
-    } finally {
-      setBusy(false);
-    }
+    const s = await biometricUnlock();
+    setBusy(false);
+    if (!s) { setError(t('app.biometricFailed')); return; }
+    afterPassword(s);
   }
 
   const [error, setError] = useState('');
@@ -1226,7 +1225,7 @@ function Settings({ signer, onClosed }: { signer: Signer; onClosed: () => void }
       <div className="card">
         <strong>{t('account.securityLink')}</strong>
         <p className="muted">{t('account.securityLinkSub')}</p>
-        <a className="ghost" href={ACCOUNTS_ORIGIN + ACCOUNTS_PATH}>{t('account.twoStepOpen')}</a>
+        <a className="ghost" href={accountsSettingsUrl(location)}>{t('account.twoStepOpen')}</a>
       </div>
 
       {/* Kept next to the switch that reveals them. Expert mode is the door;
@@ -2292,38 +2291,33 @@ function CloseAccount({ signer, onClosed }: { signer: Signer; onClosed: () => vo
 }
 
 /**
- * Turning fingerprint unlock on.
- *
- * It asks for the password again rather than reusing the session, because the
- * password is the thing being sealed and the app deliberately does not keep it
- * after sign-in. Asking is also the honest moment to confirm intent: this puts
- * a copy of the password on the device, wrapped, and somebody should say yes to
- * that explicitly.
+ * Biometrics in place of the password on this device (shared/account/biometric.ts):
+ * the password opens the key once more, and a copy of the key is sealed to a
+ * passkey. The password itself is never kept.
  */
 function BiometricSetting({ email }: { email: string }) {
   const [can, setCan] = useState(false);
-  const [on, setOn] = useState(biometric.enrolled());
+  const [on, setOn] = useState(() => biometricMode());
   const [pw, setPw] = useState('');
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState('');
 
-  useEffect(() => { biometric.available().then(setCan); }, []);
+  useEffect(() => { void biometricsAvailable().then(setCan); }, []);
   if (!can) return null;
 
   async function turnOn(e: React.FormEvent) {
     e.preventDefault();
     setNote('');
-    // Verify the password really is this account's before sealing it, so a
-    // typo cannot enrol a credential that unlocks nothing.
-    if (!(await checkPassword(email, pw))) {
-      setNote(t('app.wrongPassword'));
+    // The password opens the key once more, and a copy of the key is sealed to
+    // a passkey of this device. The password itself is not kept.
+    const out = await biometricEnable(email, pw);
+    setPw('');
+    if (!out.ok) {
+      setNote(t(out.reason === 'wrong' ? 'app.wrongPassword' : out.reason === 'unavailable' ? 'account.bioUnavailable' : 'account.bioCancelled'));
       return;
     }
-    const ok = await biometric.enrol(email, pw);
-    setPw('');
     setAsking(false);
-    setOn(ok);
-    if (!ok) setNote(t('app.biometricFailed'));
+    setOn(out.mode);
   }
 
   return (
@@ -2331,8 +2325,8 @@ function BiometricSetting({ email }: { email: string }) {
       <h3 className="screen__subtitle">{t('app.biometricSetup')}</h3>
       {on && (
         <>
-          <p className="muted small-note">{t('app.biometricOn')}</p>
-          <button type="button" className="ghost" onClick={async () => { await biometric.forget(); setOn(false); }}>
+          <p className="muted small-note">{t(on === 'prf' ? 'account.bioOnStrong' : 'account.bioOnWeak')}</p>
+          <button type="button" className="ghost" onClick={async () => { await biometricOff(); setOn(null); }}>
             {t('app.biometricOff')}
           </button>
         </>

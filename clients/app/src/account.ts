@@ -31,6 +31,10 @@ import { isCodeRefusal, requestEnrolCode } from '../../shared/account/signin.ts'
 import { rememberEnrolment } from '../../wallet/src/account/stored.ts';
 import { fullName, readMyPerson, requestOnboarding, savePerson } from '../../shared/account/people.ts';
 import { signRequest, signRequestWithKey, type Signed } from './signing.ts';
+import {
+  biometricsAvailable, biometricsFor, disableBiometrics, enableBiometrics, unlockWithBiometrics,
+  type BiometricMode, type EnableOutcome,
+} from '../../shared/account/biometric.ts';
 import { signedHeaders, type TraceabilityPurpose } from '../../sdk/src/traceabilityauth.ts';
 
 /** The account services, reached through this host like every Yamale app. */
@@ -272,6 +276,37 @@ export async function finishSignIn(step: Extract<SignInStep, { kind: 'code' }>, 
 export async function signerFromHandoff(address: string, email: string, key: Uint8Array): Promise<Signer> {
   return fromKey(key, { name: await nameFor(key, address, email), email });
 }
+
+/* ------------------------------------------------ biometrics (shared/account/biometric.ts) */
+
+/** Open the account on this device with the fingerprint or the face; null when it does not. */
+export async function biometricUnlock(): Promise<Signer | null> {
+  const local = readAccount();
+  if (!local) return null;
+  const key = await unlockWithBiometrics(local.address);
+  if (!key) return null;
+  return fromKey(key, { name: await nameFor(key, local.address, local.email), email: local.email });
+}
+
+/** Biometrics on, after the password proves itself once more. */
+export async function biometricEnable(email: string, password: string): Promise<EnableOutcome | { ok: false; reason: 'wrong' }> {
+  const local = readAccount();
+  if (!local || local.email !== canonicalEmail(email)) return { ok: false, reason: 'wrong' };
+  let key: Uint8Array;
+  try { key = await unlockAccount(local, password); } catch { return { ok: false, reason: 'wrong' }; }
+  try {
+    return await enableBiometrics(local.address, local.email, 'Yamale Pay', key);
+  } finally {
+    key.fill(0);
+  }
+}
+
+export const biometricMode = (): BiometricMode | null => {
+  const local = readAccount();
+  return local ? biometricsFor(local.address) : null;
+};
+
+export { biometricsAvailable, disableBiometrics as biometricOff };
 
 /** Whether this password opens the account on this device: for settings that ask again. */
 export async function checkPassword(email: string, password: string): Promise<boolean> {

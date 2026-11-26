@@ -62,6 +62,25 @@ export function appOrigin(returnUrl: string, apps: Record<string, string> = APPS
   }
 }
 
+/**
+ * The accounts page's settings, opened from an app that wants the person back
+ * afterwards. Only the page's address travels, without its query or fragment,
+ * which can hold a claim link.
+ */
+export function accountsSettingsUrl(here: { origin: string; pathname: string }): string {
+  return `${ACCOUNTS_ORIGIN}${ACCOUNTS_PATH}?from=${encodeURIComponent(here.origin + here.pathname)}`;
+}
+
+/** Where the accounts page should offer to go back to: a Yamale app only, never any other site. */
+export function returnFrom(search: string, apps: Record<string, string> = APPS): { url: string; app: string } | null {
+  const from = new URLSearchParams(search).get('from');
+  if (!from) return null;
+  const origin = appOrigin(from, apps);
+  if (!origin) return null;
+  const u = new URL(from);
+  return { url: origin + u.pathname, app: apps[origin] };
+}
+
 function seal(plain: Uint8Array, recipient: Uint8Array, origin: string, state: string,
   random: (n: number) => Uint8Array): Uint8Array {
   const eph = random(32);

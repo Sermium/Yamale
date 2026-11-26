@@ -55,3 +55,8 @@
 .qr { display: grid; place-items: center; padding: var(--sp-3); background: #fff; border-radius: 12px; justify-self: center; }
 .secret { font-family: var(--font-mono); font-size: var(--step--1); overflow-wrap: anywhere; padding: var(--sp-2); border-radius: var(--radius);
   background: var(--wash-mute); }
+
+/* The way back to the app that opened this page. */
+.backlink { align-self: flex-start; text-decoration: none; }
+.backlink::before { content: "\2190\00a0"; }
+[dir="rtl"] .backlink::before { content: "\2192\00a0"; }

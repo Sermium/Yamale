@@ -321,8 +321,9 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .profile { display: flex; align-items: center; gap: var(--sp-3); }
 .profile__avatar { flex: none; inline-size: 56px; block-size: 56px; border-radius: 50%; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; }
-.profile__text { min-inline-size: 0; display: grid; gap: 2px; }
-.profile__email { margin: 0; font-weight: 600; font-size: var(--step-1); overflow-wrap: anywhere; }
+.profile__text { min-inline-size: 0; flex: 1; display: grid; gap: 2px; }
+/* One line: a long address is cut with an ellipsis, and shown whole in the Profil section and on hover. */
+.profile__email { margin: 0; font-weight: 600; font-size: var(--step-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .profile__code { margin: 0; font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-muted); }
 .profile__meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-block-start: var(--sp-1); }
 
@@ -395,3 +396,4 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .profileform__names { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
 .profileform__fixed { margin: 0; display: grid; gap: var(--sp-1); font-weight: 600; }
 .profileform__shop { margin: 0; font-size: var(--step-2); font-weight: 600; }
+.profileform__email { overflow-wrap: anywhere; font-weight: 500; }
