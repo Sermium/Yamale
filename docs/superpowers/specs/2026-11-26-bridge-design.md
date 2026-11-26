@@ -1,6 +1,6 @@
 # Money in and out of Yamale: fiat and external chains
 
-**Status:** design, 2026-11-26. Nothing here is built except what the
+**Status:** design, 2026-11-26; decisions taken the same day (see "Decided"). Nothing here is built except what the
 "Already on the chain" section lists. Devnet keeps minting test money in the
 meantime (the faucet, and the 10,000 USDC each new traceability account receives).
 
@@ -91,12 +91,18 @@ licensed where the currency is used.
   statement shows it, the partner's attestor and Yamalé's attestor each confirm
   arrival with the bank's own reference. Two attestations, one mint, to the
   account named by the deposit.
-- **In by card or mobile money:** the payment processor collects; its webhook is
-  the first evidence, and the processor's settlement into the partner's account
-  is the second. The person is credited when both attestors have confirmed. For
-  small amounts the platform may decide to credit on the processor's
-  confirmation alone and carry the settlement risk; that is a business decision,
-  not a default.
+- **In by card or mobile money:** the payment processor collects and settles
+  **directly into the partner's account**; Yamalé is never the merchant of
+  record and never holds the money, even for a moment. The processor's webhook
+  only opens the deposit. Nothing is credited until the money has settled in the
+  partner's account and both attestors have confirmed it: a processor's
+  "succeeded" can still be reversed, and tokens minted against money that never
+  arrives are tokens with nothing behind them.
+- **Cards are reversible even after settlement.** A cardholder can dispute for
+  around 120 days. Card payments therefore require 3-D Secure (fraud disputes
+  then fall on the card issuer), a per-payment and per-account limit, and the
+  partner's rolling reserve with the processor covers what disputes remain. Bank
+  transfers and mobile money are final once settled.
 - **Reserve:** the partner reports what it holds for the currency at least daily
   (`ReportReserve`); issuance stops if the report is older than
   `reserve_report_max_age_blocks` (today 0, meaning not enforced: set it).
@@ -222,22 +228,24 @@ it holds Yamalé's attestor key (one of two) and orchestrates.
 | 2 | USDC through Noble, including CCTP chains | IBC build profile on (upgrade); channel and denom allow-list (governance); a relayer | reverse the 2026-08-20 decision to keep IBC out |
 | 3 | ETH, SOL, USDT custodial | register assets and two independent watcher-attestors | which assets, who runs the second watcher |
 
-## Decisions needed
+## Decided (2026-11-26, by the owner)
 
-1. **Fiat tokens as custody claims** (this design) rather than partners minting
-   through `x/stablecoin`. Recommended: custody gives references, two
-   attestors, reserves and a solvency query that `MsgMintCoin` does not.
-2. **Admit IBC for Noble USDC.** The decision of 2026-08-20 kept IBC compiled
-   out because cross-chain collateral was not a requirement; real USDC from
-   other chains makes it one. Recommended: one channel to Noble, USDC only.
-3. **The first partner and currency.** SettlX already has an MoU with Banque
-   Delubac for EUR; a USD or CFA-franc partner fits the marketplace's buyers
-   better.
-4. **Attestors.** The partner and Yamalé at minimum; an independent third is
-   stronger.
-5. **Credit on processor confirmation for small card and mobile-money
-   payments**, or wait for settlement.
-6. **Whether Yamalé may touch customer money at all**, for counsel.
+1. **Fiat tokens are `x/custody` claims**, not partners minting through
+   `x/stablecoin`.
+2. **IBC is admitted for Noble USDC**, reversing the 2026-08-20 decision to keep
+   it compiled out: one channel to Noble, USDC only.
+3. **Several partners, by rail and currency**: a card acquirer for card
+   payments, mobile-money operators, banks for transfers; each a custody asset
+   source with its own attestor.
+4. **Attestors: the partner and Yamalé.**
+5. **Credit only when the money is ours**: settled in the partner's account and
+   attested by both, never on a processor's confirmation alone.
+6. **Yamalé touches no money.** On the chain it can do nothing to a balance
+   except the freeze governance votes; off the chain, processors settle into
+   partners' accounts and Yamalé is never merchant of record.
+
+Still open: which partners first, and counsel's view on the licences each
+partner needs.
 
 ## Not in this design
 
