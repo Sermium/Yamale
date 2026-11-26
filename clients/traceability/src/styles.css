@@ -226,8 +226,10 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 
 /* The marketplace: a price reads as a figure, and the price field keeps amount and currency on one line. */
 .price-tag { margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-.pricefield { display: flex; gap: var(--sp-2); }
-.pricefield .bigfield:first-child { flex: 1; min-inline-size: 0; }
+/* The amount takes the room; the currency menu is only as wide as a code like USDC. */
+.pricefield { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); align-items: stretch; }
+.pricefield input.bigfield { min-inline-size: 0; text-align: start; }
+.pricefield select.bigfield { inline-size: auto; min-inline-size: 6.5rem; max-inline-size: 9rem; }
 .marketrow { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-variant-numeric: tabular-nums; }
 
 /* ------------------------------------------------------ screens as pages
